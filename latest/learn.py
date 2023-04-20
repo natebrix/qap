@@ -7,6 +7,27 @@ import lightgbm as lgb
 from sklearn.metrics import mean_absolute_percentage_error
 import datetime
 
+# This might be a nice "intermediate strategy". That is:
+#
+#  Rule 4 is best at the top
+#  Rule 2 is best at the bottom (when we are starting to fathom a lot)
+#  ---> Rule 5 is best in the middle, even though it is also (as implemented) looking at fathoms.
+
+# Let's run some size 20 problems down to a certain depth, starting with a size 25 root.
+
+
+# So, what does "the middle" mean?
+#   It's when we think there is going to be a 'significant' percentage of children fathomed on this level.
+#   Let X be that percentage. Then that means:
+#       b + u  >= z
+#   where b is the bound, u is an estimate of the u value *AT THIS LEVEL* and z is the incument
+#
+#  or I can just simplify and use the gap ratio as I normally do.
+
+# add a check for "B" matrix
+
+# i need a reliable way to log B
+
 # back to basics
 # non-ML model that is better than rule 2.
 #  - read cofficients from file?
@@ -19,12 +40,21 @@ import datetime
 #
 # basic problem once more:
 #  - it seems to be hard to do much better than rule 2 when we are far down in the tree.
+#        - how do I know this? What is the actual opportunity to do better?
 #  - it seems to be hard to do better than rule 4
+#        - how do I know this?
 #  - this may help only for really big problems?!?
+
+# another completely different idea:
+#  - switch branching rule based on the percentage of children fathomed at previous level
 
 # I can just compute arrays of things and do the spearman coefficient
 # ss.spearmanr()
 
+# If I really want to have a good result, I need to do better than rule 4.
+# which means I need to log the results of rule 4.
+#
+# A good start would be to log B.
 
 # maybe u variance is better!!!
 #
@@ -114,6 +144,9 @@ def force_to_size(a, n):
 # train_data = lgb.Dataset(data, label=label, weight=w)
 # param['metric'] = ['auc', 'binary_logloss']
 
+#>>> lg = [pow(2, i) for i in range(34)]
+#>>> estimate(data, params={'label_gain':lg})
+
 def read_log(filename):
     df = pd.read_csv(filename, delimiter="|", header=None)
     df2 = df.rename(columns={2:'trial', 1:'rc', 3:'index', 0:'op'})
@@ -190,12 +223,30 @@ def fathom_count(data):
 def col_rank(data, score, ascending=False):
     return data.groupby(['trial'])[score].rank(ascending=ascending, method='first').astype(int)
 
+def col_matrix_sum(data, name, n_features):
+    data[f'{name}_i_raw'] = data.apply(lambda r: get_matrix_row_col(r, name=name), axis=1)
+    data[f'{name}_i'] = data[f'{name}_i_raw'].apply(lambda r: force_to_size(r, n_features)).apply(np.sort)
+    data[f'{name}_sum'] = data[f'{name}_i'].apply(sum)
+    return data
+
+def col_sum_scores(data, col_sum):
+    data = data.join(data.groupby(['trial'])[f'{col_sum}'].max(), on='trial', rsuffix="_best")
+    # u_sum_score is ratio between row sum and best for trial.
+    data[f'{col_sum}_score'] = data[f'{col_sum}'] / data[f'{col_sum}_best']
+    data[f'{col_sum}_score_rank'] = col_rank(data, f'{col_sum}_score', ascending=True)
+    return data
+
 def make_data(df, n_features=16, y_col='node'):
     r = make_r(df)
     u = make_matrix(df, 'U')
     x = make_matrix(df, 'X')
+    b = make_matrix(df, 'B')
 
     data = r.join(u).join(x)
+    if b.shape[0] > 0:
+        data = data.join(b)
+        data = col_matrix_sum(data, 'b', n_features)
+        data = col_sum_scores(data, 'b_sum')
     data['u_raw'] = data['u'].copy()
     data['n_fathom'] = fathom_count(data)
     # This is the ratio by which u_ij reduces the gap.
@@ -204,17 +255,21 @@ def make_data(df, n_features=16, y_col='node'):
     data['u'] = mean_center(data)
     data = data.reset_index()
     data['choice'] = np.where(data['rc']=='r', data['index'].astype(int), 10+data['index'].astype(int))
-
+    
     data['u_i_raw'] = data.apply(lambda r: get_matrix_row_col(r, name='u'), axis=1)
     data['u_i'] = data['u_i_raw'].apply(lambda r: force_to_size(r, n_features)).apply(np.sort)
+    data['u_sum'] = data['u_i'].apply(sum)
     data_u = array_col_to_df(data, 'u_i', 'u', n_features)
     #data_u = pd.DataFrame(data=unpack_array(data, 'u_i'), columns=var_names('u', n_features), index=data.index)
-    data['u_sum'] = data['u_i'].apply(sum)
 
     data['x_i_raw'] = data.apply(lambda r: get_matrix_row_col(r, name='x'), axis=1)
     data['x_i'] = data['x_i_raw'].apply(lambda r: force_to_size(r, n_features)).apply(np.sort)
     data_x = array_col_to_df(data, 'x_i', 'x', n_features)
-    data = pd.concat([data, data_u, data_x], axis=1)
+
+    d_list = [data, data_u, data_x]
+    if b.shape[0] > 0:
+        d_list += [array_col_to_df(data, 'b_i', 'b', n_features)]
+    data = pd.concat(d_list, axis=1)
 
     # get the best row/col sums
     data = data.join(data.groupby(['trial'])['u_sum'].max(), on='trial', rsuffix="_best")
@@ -270,26 +325,32 @@ def lgb_rank_train(data_train, X_train, y_train, params):
 #######
 
 
-def model_stats(data, base_score, model_score):
-    n_u = node_count(data, base_score)
-    n_m = node_count(data, model_score)
+def model_stats(data, base_score, scores):
+    n_b = node_count(data, base_score)
+    n = [node_count(data, name) for name in scores]
     by_trial = data.groupby(['trial'])['node']
     n_best = by_trial.min().sum()
     n_worst = by_trial.max().sum()
     n_med = by_trial.median().sum()
-    ratio = (n_u - n_m) / n_u
-    print(f'size      \t= {data.shape}')
-    print(f'worst     \t= {n_worst:8.1f}')
-    print(f'median    \t= {n_med:8.1f}')
-    print(f'{base_score}\t= {n_u:8.1f}')
-    print(f'{model_score}\t= {n_m:8.1f}')
-    print(f'best      \t= {n_best:8.1f}')
-    print(f'ratio     \t= {ratio:8.3f}')
+    print('---------------------------------')
+    print('           MODEL STATS           ')
+    print('---------------------------------')
+    print(f'size      \t\t= {data.shape}')
+    print(f'worst     \t\t= {n_worst:8.1f}')
+    print(f'median    \t\t= {n_med:8.1f}')
+    print(f'{base_score}\t= {n_b:8.1f}')
+    for i, name in enumerate(scores):
+        n_u = node_count(data, name)
+        ratio = (n_u - n_b) / n_u # improvement from baseline
+        print(f'{name}\t= {n_u:8.1f}')
+        print(f' ratio     \t\t= {ratio:8.3f}')
+    print(f'best           \t\t= {n_best:8.1f}')
 
     
 def feature_cols(n_features):
     return var_names('u', n_features) # + ['u_sum_score'] + var_names('x', n_features)
 
+# Split a data set into train/test, keeping all rows from the same trial together
 def split_by_trial(data, test_size):
     trials = data['trial'].unique()
     np.random.shuffle(trials)
@@ -298,7 +359,17 @@ def split_by_trial(data, test_size):
     data_train = data[data['trial'].isin(trials[:cutoff])]
     data_test = data[data['trial'].isin(trials[cutoff:])]
     return data_train, data_test
-    
+
+# get all of the rank columns in a data set, except those in the exclude list.
+def rank_columns(data, exclude):
+    return [c for c in data.columns if ('score_rank' in str(c)) and (str(c) not in exclude)]
+
+# evaluate a model to produce row/column rankings for branching. The provided data will be split
+# into test and training sets. If no model is provided, then one will be trained using the specified
+# train function, passing any supplied parameters (in params).
+#
+# Either way, once a trained model is obtained, it will be used to predict ranks for the test set.
+# Then the quality of the ranks will be evaluated and compared to a 'baseline' ranking.
 def estimate(data, y_col='y_rank', train=lgb_rank_train, params={}, model=None, test_size = 0.2):
     print(f'estiamte: {train.__name__} -> {y_col} with {params}')
     n = data.loc[0, 'u_i'].shape[0]
@@ -331,7 +402,8 @@ def estimate(data, y_col='y_rank', train=lgb_rank_train, params={}, model=None, 
     # it returns the negated.
     data_test['model_score'] = -y_pred # todo this is inconsistent between std and rank
     data_test['model_score_rank'] = col_rank(data_test, 'model_score', ascending=True)
-    model_stats(data_test, base_score='u_sum_score_rank', model_score='model_score_rank')
+    b_s = 'u_sum_score_rank'
+    model_stats(data_test, base_score=b_s, scores=rank_columns(data_test, exclude=[b_s]))
     return model, data_test
 
 
