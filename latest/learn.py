@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas as pdAAA
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn import tree
@@ -125,6 +125,13 @@ def spearman(data):
 # This tells me how much I should care about 
 # I want the 'rank' to be high for 'good' things
 
+# NO I think it is good to have lower rank = better. so rank 1 is always best
+
+#>>> lg = [pow(2, i) for i in range(34)]
+#>>> estimate(data, params={'label_gain':lg})
+
+lg =  [pow(2, i) for i in range(34)] # consider changing
+
 
 # stretch the values in a_small into an array of size n_big.
 def stretch(a_small, n_big):
@@ -144,8 +151,6 @@ def force_to_size(a, n):
 # train_data = lgb.Dataset(data, label=label, weight=w)
 # param['metric'] = ['auc', 'binary_logloss']
 
-#>>> lg = [pow(2, i) for i in range(34)]
-#>>> estimate(data, params={'label_gain':lg})
 
 def read_log(filename):
     df = pd.read_csv(filename, delimiter="|", header=None)
@@ -285,6 +290,7 @@ def make_data(df, n_features=16, y_col='node'):
     data['y_min'] = by_trial_y.transform('min')
     data['y_max'] = by_trial_y.transform('max')
     data['y'] = (data[y_col] - data['y_min']) / (data['y_max'] - data['y_min']) 
+    data['y0'] = data[y_col] / data['y_min']
     data['y_rank'] = col_rank(data, 'y', ascending=True) # higher rank means better
     return data
 
@@ -356,8 +362,8 @@ def split_by_trial(data, test_size):
     np.random.shuffle(trials)
     cutoff = len(trials) - int(len(trials) * test_size)
     
-    data_train = data[data['trial'].isin(trials[:cutoff])]
-    data_test = data[data['trial'].isin(trials[cutoff:])]
+    data_train = data[data['trial'].isin(trials[:cutoff])].copy()
+    data_test = data[data['trial'].isin(trials[cutoff:])].copy()
     return data_train, data_test
 
 # get all of the rank columns in a data set, except those in the exclude list.
@@ -395,12 +401,13 @@ def estimate(data, y_col='y_rank', train=lgb_rank_train, params={}, model=None, 
     e_mod = mean_absolute_percentage_error(y_test, y_pred)
     print(f'u_sum_mape = {e_sum:.3f}, model_mape = {e_mod:.3f}')
     data['model_score'] = y_pred_all
+    data['model_score_rank'] = col_rank(data, 'model_score', ascending=True)
     # todo I want this to work for both regular prediction and ranking.
     # for regular prediction, higher is better.
     # for ranking, lower is better.
     # I could fix this by having a wrapper class for the ranker, so when we call predict
     # it returns the negated.
-    data_test['model_score'] = -y_pred # todo this is inconsistent between std and rank
+    data_test['model_score'] = y_pred # todo this is inconsistent between std and rank
     data_test['model_score_rank'] = col_rank(data_test, 'model_score', ascending=True)
     b_s = 'u_sum_score_rank'
     model_stats(data_test, base_score=b_s, scores=rank_columns(data_test, exclude=[b_s]))

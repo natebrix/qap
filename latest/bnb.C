@@ -496,6 +496,10 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	branch(q, node, X, U, kid, kids, bound + qpbp->lapU,
 	       qpbp, bp, loc_in_row, loc_kept);
 
+	if (params->log_file && (bp->how == BRANCH_LOOKAHEAD)) {
+	  log_matrix(params, "B|_", U);
+	}
+	
 	if (dive) {
 	  stats->l_level[node.depth] += qs_int(factor*(loc_in_row));
 	  stats->e_level[node.depth] += 

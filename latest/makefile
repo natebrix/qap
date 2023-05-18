@@ -3,7 +3,7 @@ BNB = bnbdrv
 
 #CF = -pg -O4
 #CF = -g -O4
-CF = -O3 -mcmodel=medium
+CF = -O3 
 
 CFLAGS = $(CF) -DBNB_STANDALONE
 
