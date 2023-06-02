@@ -225,7 +225,8 @@ def array_col_to_df(data, col, prefix, n_features):
 def fathom_count(data):
     return data.apply(lambda r: (r['u_raw'] + r['bound'] >= r['inc']).sum(), axis=1)
 
-def col_rank(data, score, ascending=False):
+# creates a rank column based on the given score column, assuming rows can be grouped by 'trial'
+def col_rank(data, score, ascending):
     return data.groupby(['trial'])[score].rank(ascending=ascending, method='first').astype(int)
 
 def col_matrix_sum(data, name, n_features):
@@ -234,12 +235,14 @@ def col_matrix_sum(data, name, n_features):
     data[f'{name}_sum'] = data[f'{name}_i'].apply(sum)
     return data
 
+
 def col_sum_scores(data, col_sum):
     data = data.join(data.groupby(['trial'])[f'{col_sum}'].max(), on='trial', rsuffix="_best")
     # u_sum_score is ratio between row sum and best for trial.
     data[f'{col_sum}_score'] = data[f'{col_sum}'] / data[f'{col_sum}_best']
-    data[f'{col_sum}_score_rank'] = col_rank(data, f'{col_sum}_score', ascending=True)
+    data[f'{col_sum}_score_rank'] = col_rank(data, f'{col_sum}_score', ascending=True) # bigger is better, and high rank means good
     return data
+
 
 def make_data(df, n_features=16, y_col='node'):
     r = make_r(df)
@@ -280,7 +283,7 @@ def make_data(df, n_features=16, y_col='node'):
     data = data.join(data.groupby(['trial'])['u_sum'].max(), on='trial', rsuffix="_best")
     # u_sum_score is ratio between row sum and best for trial.
     data['u_sum_score'] = data['u_sum'] / data['u_sum_best']
-    data['u_sum_score_rank'] = col_rank(data, 'u_sum_score', ascending=True)
+    data['u_sum_score_rank'] = col_rank(data, 'u_sum_score', ascending=True) # high rank = better
 
     # suppose min is 500 and I am 750. Then y = 500/750 = .6666
     # alternatively could do (x - min) / min. Then y = (750 - 500) / 500 = 0.5
@@ -289,19 +292,18 @@ def make_data(df, n_features=16, y_col='node'):
     by_trial_y = data.groupby('trial')[y_col]
     data['y_min'] = by_trial_y.transform('min')
     data['y_max'] = by_trial_y.transform('max')
-    data['y'] = (data[y_col] - data['y_min']) / (data['y_max'] - data['y_min']) 
-    data['y0'] = data[y_col] / data['y_min']
-    data['y_rank'] = col_rank(data, 'y', ascending=True) # higher rank means better
+    # data['y'] = (data[y_col] - data['y_min']) / (data['y_max'] - data['y_min']) # careful with ordering if you use this
+    data['y'] = data[y_col] / data['y_min'] # smaller is better
+    data['y_rank'] = col_rank(data, 'y', ascending=False) # higher rank is better, so small scores go last
     return data
 
 def unpack_array(data, col):
     return np.stack(data.loc[:, col].array)
 
 
-def node_count(data, rank_col, op=max):
+def target_count(data, rank_col, op, target='node'):
     idx = data.groupby(['trial'])[rank_col].transform(op) == data[rank_col]
-    nc = data[idx]['node']
-    #nc = data[data[rank_col]==1]['node']  # wrong beause I want the max in each group
+    nc = data[idx][target]
     trials = data['trial'].unique()
     if nc.shape[0] != len(trials):
         raise ValueError('Incorrect number of records in node count')
@@ -311,8 +313,9 @@ def node_count(data, rank_col, op=max):
 #######
 
 def lgb_train(data_train, X_train, y_train, params):
-    node_train = data_train['node'] # slightly better with weights
-    train_data = lgb.Dataset(X_train, label=y_train, weight=node_train)
+    # todo check for weight_col in params to set
+    weights = data_train['node'] # slightly better with weights
+    train_data = lgb.Dataset(X_train, label=y_train, weight=weights)
     #train_data = lgb.Dataset(X_train, label=y_train)
     bst = lgb.train(params, train_data)
     return bst
@@ -331,26 +334,28 @@ def lgb_rank_train(data_train, X_train, y_train, params):
 #######
 
 
-def model_stats(data, base_score, scores):
-    n_b = node_count(data, base_score)
-    n = [node_count(data, name) for name in scores]
-    by_trial = data.groupby(['trial'])['node']
+def model_stats(data, base_score, scores, label, target='node'):
+    n_b = target_count(data, base_score, op=max, target=target)
+    n = [target_count(data, name, op=max, target=target) for name in scores]
+    by_trial = data.groupby(['trial'])[target]
     n_best = by_trial.min().sum()
     n_worst = by_trial.max().sum()
     n_med = by_trial.median().sum()
     print('---------------------------------')
-    print('           MODEL STATS           ')
+    print(f'       MODEL STATS {label}   ')
     print('---------------------------------')
     print(f'size      \t\t= {data.shape}')
     print(f'worst     \t\t= {n_worst:8.1f}')
     print(f'median    \t\t= {n_med:8.1f}')
-    print(f'{base_score}\t= {n_b:8.1f}')
+    print(f'best           \t\t= {n_best:8.1f}')
+    #print(f'{base_score}\t= {n_b:8.1f}')
     for i, name in enumerate(scores):
-        n_u = node_count(data, name)
+        n_u = target_count(data, name, op=max, target=target)
         ratio = (n_u - n_b) / n_u # improvement from baseline
+        from_best = (n_u - n_best) / (n_worst - n_best) # improvement from baseline
         print(f'{name}\t= {n_u:8.1f}')
         print(f' ratio     \t\t= {ratio:8.3f}')
-    print(f'best           \t\t= {n_best:8.1f}')
+        print(f' from best \t\t= {from_best:8.3f}')
 
     
 def feature_cols(n_features):
@@ -376,7 +381,7 @@ def rank_columns(data, exclude):
 #
 # Either way, once a trained model is obtained, it will be used to predict ranks for the test set.
 # Then the quality of the ranks will be evaluated and compared to a 'baseline' ranking.
-def estimate(data, y_col='y_rank', train=lgb_rank_train, params={}, model=None, test_size = 0.2):
+def estimate(data, y_col='y_rank', target='node', train=lgb_rank_train, params={}, model=None, test_size = 0.2):
     print(f'estiamte: {train.__name__} -> {y_col} with {params}')
     n = data.loc[0, 'u_i'].shape[0]
     if test_size < 1.0:
@@ -410,7 +415,8 @@ def estimate(data, y_col='y_rank', train=lgb_rank_train, params={}, model=None, 
     data_test['model_score'] = y_pred # todo this is inconsistent between std and rank
     data_test['model_score_rank'] = col_rank(data_test, 'model_score', ascending=True)
     b_s = 'u_sum_score_rank'
-    model_stats(data_test, base_score=b_s, scores=rank_columns(data_test, exclude=[b_s]))
+    model_stats(data, base_score=b_s, scores=rank_columns(data, exclude=[]), label='ALL', target=target)
+    model_stats(data_test, base_score=b_s, scores=rank_columns(data_test, exclude=[]), label='TEST', target=target)
     return model, data_test
 
 
@@ -573,9 +579,3 @@ def predict_str(model, s):
     return model.predict([d])
 
 
-# this is what we would have chosen at the current node.
-# what we want to know is where this ranks within the y's.
-#u2['sum_c'] = u2.apply(lambda r: r['U'].sum(axis=0), axis=1)
-#u2['sum_r'] = u2.apply(lambda r: r['U'].sum(axis=1), axis=1)
-#u2['i_c'] = u2.apply(lambda r: np.argmax(r['sum_c']), axis=1)
-#u2['i_r'] = u2.apply(lambda r: np.argmax(r['sum_r']), axis=1)
