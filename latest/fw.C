@@ -429,12 +429,23 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
       obj  = obj  -  G_X;
 #endif
 
-      alpha = -G_D/dG_D;
+      // If X is already the LAP vertex, the direction is zero and G_D = dG_D = 0.
+      // 0/0 is NaN, which slips past every comparison below and poisons X, the
+      // bound and U (and so every child gets discarded). Treat it as converged.
+      // Other dG_D == 0 cases keep their old meaning (+inf -> 1, -inf -> 0).
+      if (dG_D != 0.0)
+        alpha = -G_D/dG_D;
+      else
+        alpha = (G_D < 0.0) ? 1.0 : 0.0;
       alpha = std::max(alpha,0.0);
       alpha = std::min(alpha,1.0);
-      one_minus_alpha = 1.0 - alpha; // duh.. :)
 
-      if(!feasible) {alpha = 1.0; feasible = true; } 
+      // f(X) before the step; only a valid base for a lower bound if X is feasible
+      const bool X_was_feasible = feasible;
+      const double f_X = 0.5 * (G_X + C_X) + offset;
+
+      if(!feasible) {alpha = 1.0; feasible = true; }
+      one_minus_alpha = 1.0 - alpha; // duh.. :)
 
       for(j=0;j<n;j++) {
 	for(k=0;k<n;k++) 
@@ -445,8 +456,16 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
 
       C_X = one_minus_alpha * C_X + alpha * mm_trace_alt(C, xstar);
 
-      upbnd = 0.5 * (G_X + alpha * G_D + C_X) + offset;
-      bnd = upbnd + obj; 
+      // f along the step is f(X) + alpha*G_D + alpha^2/2 * dG_D (dG_D = d'Hd).
+      // This used to be 0.5*(G_X + alpha*G_D + C_X_new) + offset, which is only
+      // exact when C = 0 and alpha is not clamped; with a linear term it is off
+      // by alpha/2 * C.(D - X), and the lower bound built on it could exceed
+      // the optimum. Reduced subproblems always have a linear term.
+      upbnd = f_X + alpha * G_D + 0.5 * alpha * alpha * dG_D;
+
+      // Frank-Wolfe lower bound at X: f(X) + min_D G.(D - X), and obj = G_D is
+      // that minimum (D is the LAP solution).
+      bnd = X_was_feasible ? f_X + obj : -1.0e99;
 
       // wait to see if we can terminate before updating
       // gradient
@@ -493,16 +512,21 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
 	  printf("terminated early -- cannot fathom: ier %d\n",ier);
 #endif
 	  status = NO_FATHOM;    done = true;
+	  // Callers fix x_ij out when lobnd + U_ij reaches the incumbent. That is
+	  // only valid when lobnd and U come from the same iteration; lobnd is the
+	  // best bound so far, possibly from an earlier one, so report this one's.
 	  reducedCosts(G->me,U->me,ys,yt,n);
+	  lobnd = bnd;
 	  need_U = false;
 	  break;
 	}
-      if (upbnd == bnd) {
+      if (upbnd <= bnd) {
 #ifdef PRINT
 	printf("terminated early -- closed bound gap: ier %d\n",ier);
 #endif
 	status = NO_FATHOM;	done = true;
 	reducedCosts(G->me,U->me,ys,yt,n);
+	lobnd = bnd;  // pair the bound with U (see above)
 	need_U = false;
 	break;
       }
@@ -515,12 +539,14 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
 	  alpha = 0.0; 
 	  status = NO_FATHOM;	done = true;
 	  reducedCosts(G->me,U->me,ys,yt,n);
+	  lobnd = bnd;  // pair the bound with U (see above)
 	  need_U = false;
 	  break; 
 	}
 
       if ((ier==maxit)&& need_U && (status == CONTINUE)) {
 	reducedCosts(G->me,U->me,ys,yt,n);
+	lobnd = bnd;  // pair the bound with U (see above)
       }
 
       // update gradient (needed for next iteration)
@@ -578,7 +604,10 @@ double compute_U(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *X,MAT *U1,int n,
   //  scaling = 50.0;
   gradient(A,B,C,S,T,G,X,n);
 
-  obj = lap_jv(G->me,D0,p,ip,ys,ys_int,yt,yt_int,n,scaling);
+  // Exact LAP. lap_jv() rounds (int)(G*scaling) toward zero, so for negative
+  // entries its optimum can exceed the true one and the bound and U built
+  // from it are not valid.
+  obj = dlap(n,G->me,p,ip,ys,yt,1.0);
 
   lower_bound =  obj - mm_trace(G,X);
 

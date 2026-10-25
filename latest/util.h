@@ -27,16 +27,13 @@ static const char *qap_version_info = "[Jan 1, 2023]";
 // If the EVB3 code is available (in dir EVB3), define this
 //#define HAVE_EVB3
 
-// if solution is even, can fathom more aggressively
-#define SOLUTION_IS_EVEN          
-
-#ifdef SOLUTION_IS_EVEN
-const double DELTA        = 1.95;
-const double DELTA_BRANCH = 1.95;
-#else
-const double DELTA        = 0.95;
-const double DELTA_BRANCH = 0.95;
-#endif
+// A node is fathomed when its bound exceeds (incumbent - DELTA). DELTA may
+// only be positive when objective values are integers (1.95 when they are
+// all even), so it is set per instance by set_fathom_tolerance() in qap.C.
+// It used to be a compile-time 1.95 (SOLUTION_IS_EVEN), which cut off
+// optima on instances with odd objective values, e.g. the tai..b family.
+extern double DELTA;
+extern double DELTA_BRANCH;
 
 const double ROLLOVER = 4295.0;
 

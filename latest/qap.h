@@ -46,6 +46,8 @@ void printQAP(QAP *qap);
 void negateQAP(QAP *qap);
 QAP *readQAPLIB(char *filename);
 bool writeQAPLIB(char *filename, QAP *q);
+void set_fathom_tolerance(QAP *qap);
+bool symmetrize_QAP(QAP *qap);
 void applyPerturbations(QAP *qap, double *r, double *s, 
 		       double *g = NULL, double *h = NULL);
 

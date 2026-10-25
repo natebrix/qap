@@ -439,70 +439,52 @@ inline double rowdot(MAT *A,int ra,MAT *B,int rb)
 
  Given a square, symmetric matrix A, calculate W and d so that
 
- A = W*diag(d)*W', 
+ A = W'*diag(d)*W,
 
- and all elements of d are nonnegative.
+ i.e. d holds the eigenvalues of A (with their signs) and the rows of W
+ are the corresponding orthonormal eigenvectors.
 
  On return from this function, the first argument will hold W,
  i.e. the contents of A are overwritten.
+
+ This used to take an SVD and guess each eigenvalue's sign from a single
+ component of its singular vector. That guess fails when the component is
+ near zero or singular values repeat (common for grid distance matrices),
+ and a wrong sign makes the QP bound exceed the optimum. A symmetric
+ eigensolver gives the signs directly.
 
 ======================================================================
 */
 void my_svd(MAT *A, VEC *d)
 {
-  MAT *U,*A0;
-  int i,j;
-  U = m_get(A->m,A->n);
+  const unsigned int n = A->m;
 
-  /*
-  A0 = m_get(1,A->n);
-
-  for(i=0;i<A->n;i++)
-    A0->me[0][i] = A->me[0][i];
-  */
-
-  A0 = m_copy(A,MNULL);
-
-  /* 
-     call to svd in svd.C will destroy A. 
-     normal Meschach svd will not destroy A.
-  */
-
-  svd(A,MNULL,U,d); 
-
-  /*
-  for(i=0;i<U->m;i++)
-  {
-    if(fabs(rowdot(A0,0,U,i) + d->ve[i]*U->me[i][0]) < 1e-6)
-    {
-      d->ve[i] = -d->ve[i];
-      for(j=0;j<U->n;j++)
-      {
-	A->me[i][j] = -U->me[i][j]; 
-      }
-    }
-    else {
-      for(j=0;j<U->n;j++)
-	A->me[i][j] = U->me[i][j];
-    }
+  // callers may pass a longer d; size it as the old svd() did
+  d = v_resize(d, n);
+  if (n == 1) {
+    d->ve[0] = A->me[0][0];
+    A->me[0][0] = 1.0;
+    return;
   }
-  */
 
-  for(i=0;i<U->m;i++)
-  {
-    if(fabs(rowdot(A0,i,U,i) + d->ve[i]*U->me[i][i]) < 1e-6)
-    {
-      d->ve[i] = -d->ve[i];
-      for(j=0;j<U->n;j++)
-      {
-	A->me[i][j] = -U->me[i][j]; 
-      }
-    }
-    else {
-      for(j=0;j<U->n;j++)
-	A->me[i][j] = U->me[i][j];
-    }
+  // This is Meschach's symmeig(), inlined with fresh work space: symmeig()
+  // keeps its work matrix in a static that m_copy() never shrinks, so a call
+  // after a larger one fails.
+  MAT *H = m_copy(A, MNULL);
+  MAT *Q = m_get(n, n);
+  VEC *diag = v_get(n), *beta = v_get(n), *b = v_get(n - 1);
+
+  Hfactor(H, diag, beta);          // tridiagonalize: A = Q*H*Q'
+  makeHQ(H, diag, beta, Q);
+  for (unsigned int i = 0; i < n - 1; i++) {
+    d->ve[i] = H->me[i][i];
+    b->ve[i] = H->me[i][i+1];
   }
-  M_FREE(A0);
-  M_FREE(U);
+  d->ve[n-1] = H->me[n-1][n-1];
+  trieig(d, b, Q);                 // A = Q*diag(d)*Q', eigenvectors in the columns of Q
+
+  m_transp(Q, A);                  // callers expect eigenvectors as rows
+
+  V_FREE(diag); V_FREE(beta); V_FREE(b);
+  M_FREE(H); M_FREE(Q);
 }

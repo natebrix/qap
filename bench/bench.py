@@ -4,6 +4,7 @@
   python3 bench/bench.py run --suite quick --rev master --label base
   python3 bench/bench.py run --suite quick --build --label mine
   python3 bench/bench.py compare base mine --log --note "what changed"
+  python3 bench/bench.py check                     # regression check vs bench/reference/
 
 Run it from anywhere; paths are resolved relative to the repository root. See
 RUNNING.md for what "apples to apples" means here and which settings are fixed,
@@ -20,6 +21,7 @@ import math
 import os
 import platform
 import re
+import shutil
 import socket
 import statistics
 import subprocess
@@ -327,6 +329,77 @@ def cmd_run(args):
     return 1 if any(r["status"].startswith(("wrong", "error")) for r in rows) else 0
 
 
+# ---------------------------------------------------------------- check
+
+REFERENCE = os.path.join(ROOT, "bench", "reference")
+CHECK_FIELDS = ["nodes", "fathomed", "enumerated", "fw_iterations"]
+
+
+def cmd_check(args):
+    """Rerun a suite and require the search to match the committed reference."""
+    ref_meta_path = os.path.join(args.reference, "meta.json")
+    if args.update:
+        ref_settings = {"params": DEFAULT_PARAMS, "upper_bound": "opt"}
+    elif not os.path.exists(ref_meta_path):
+        sys.exit(f"no reference in {args.reference}; create one with: bench.py check --update")
+    else:
+        with open(ref_meta_path) as f:
+            ref_settings = json.load(f)
+
+    suite = args.suite or ("standard" if args.update else "quick")
+    label = "check-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    run_args = argparse.Namespace(
+        rev=None, build=args.build, instances=None, suite=suite, label=label,
+        force=True, params=ref_settings["params"], ub=ref_settings["upper_bound"],
+        repeats=1, timeout=args.timeout, notes="bench.py check")
+    rc = cmd_run(run_args)
+    meta, rows = load(label)
+
+    if args.update:
+        os.makedirs(args.reference, exist_ok=True)
+        for name in ("results.csv", "meta.json"):
+            shutil.copy(os.path.join(RESULTS, label, name), os.path.join(args.reference, name))
+        print(f"\nreference updated from {suite} suite; commit bench/reference/ and say why "
+              f"the search changed")
+        return rc
+
+    with open(os.path.join(args.reference, "results.csv")) as f:
+        ref = {r["instance"]: r for r in csv.DictReader(f)}
+
+    problems = []
+    for name, r in rows.items():
+        if name not in ref:
+            problems.append(f"{name}: not in the reference")
+            continue
+        e = ref[name]
+        if r["status"] != "ok":
+            problems.append(f"{name}: status {r['status']}")
+            continue
+        if r["objective"] != e["objective"]:
+            problems.append(f"{name}: objective {r['objective']} (reference {e['objective']})")
+        for field in CHECK_FIELDS:
+            got, want = int(r[field]), int(e[field])
+            if abs(got - want) > args.tolerance * want:
+                problems.append(f"{name}: {field} {got} (reference {want}, "
+                                f"{(got - want) / want:+.2%})" if want else
+                                f"{name}: {field} {got} (reference {want})")
+        if abs(float(r["root_bound"]) - float(e["root_bound"])) > 1e-6 * max(1.0, abs(float(e["root_bound"]))):
+            problems.append(f"{name}: root bound {r['root_bound']} (reference {e['root_bound']})")
+
+    print()
+    if problems:
+        print(f"REGRESSION CHECK FAILED against {os.path.relpath(args.reference, ROOT)}/ "
+              f"(tolerance {args.tolerance:.1%}):")
+        for p in problems:
+            print("  " + p)
+        print("If the change is meant to alter the search, update the reference with "
+              "`bench.py check --update` and explain it in the commit.")
+        return 1
+    print(f"regression check passed: {len(rows)} instances match "
+          f"{os.path.relpath(args.reference, ROOT)}/ (tolerance {args.tolerance:.1%})")
+    return rc
+
+
 # ---------------------------------------------------------------- compare
 
 def load(label):
@@ -480,8 +553,19 @@ def main():
     c.add_argument("--force-log", action="store_true",
                    help="log even when the runs are not comparable (warnings are recorded)")
 
+    k = sub.add_parser("check", help="regression check: rerun a suite and require the "
+                                     "search to match bench/reference/")
+    k.add_argument("--suite", help="suite to run (default: quick; standard with --update)")
+    k.add_argument("--reference", default=REFERENCE, help="reference directory (default: bench/reference)")
+    k.add_argument("--tolerance", type=float, default=0.0,
+                   help="allowed relative difference in nodes and FW iterations (default 0: exact)")
+    k.add_argument("--update", action="store_true",
+                   help="rewrite the reference from this run (for changes meant to alter the search)")
+    k.add_argument("--build", action="store_true", help="run make first")
+    k.add_argument("--timeout", type=float, default=600)
+
     args = p.parse_args()
-    sys.exit(cmd_run(args) if args.cmd == "run" else cmd_compare(args))
+    sys.exit({"run": cmd_run, "compare": cmd_compare, "check": cmd_check}[args.cmd](args))
 
 
 if __name__ == "__main__":

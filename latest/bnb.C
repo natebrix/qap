@@ -12,6 +12,7 @@
 #endif
 
 #include <fstream>
+#include <algorithm>
 #include <math.h>
 //#include <time.h>
 
@@ -33,6 +34,40 @@ void use_EVB3(QAP *&q)
   q = q_evb3;
 }
 #endif
+
+/*
+============================================================
+
+ solveSmallQAP(q,a,obj,p);
+
+ Like solveSize3QAP, for nodes with fewer than three unassigned
+ facilities. The search never creates such nodes itself (size-3
+ nodes are enumerated), but the root of an n <= 2 problem is
+ one, and the bound code cannot handle it.
+
+============================================================
+ */
+void solveSmallQAP(QAP *q,const QAPAssignment &a,double &obj_save,
+		   int *p_save)
+{
+  int rows[3], cols[3], m = 0, k = 0;
+  Index *p = copy_array<Index>(a.p,a.n);
+
+  for(int i=0;i<a.n;i++) if(a.p[i] < 0)    rows[m++] = i;
+  for(int j=0;j<a.n;j++) if(a.pinv[j] < 0) cols[k++] = j;
+
+  obj_save = 1e100;
+  std::sort(cols, cols + m);
+  do {
+    for(int i=0;i<m;i++) p[rows[i]] = cols[i];
+    double obj = QAPobjective(q,p,a.n);
+    if(obj < obj_save) {
+      obj_save = obj;
+      for(int i=0;i<a.n;i++) p_save[i] = p[i];
+    }
+  } while(std::next_permutation(cols, cols + m));
+  delete [] p;
+}
 
 /*
 ============================================================
@@ -386,8 +421,15 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	continue;
       }
 
+      if (node.n - node.nfix < 3) {
+	stats->anotherEnumeration();
+	solveSmallQAP(q,node,obj,p);
+	s->update(obj,p);
+	continue;
+      }
+
       // If the assignment has only three remaining unassigned variables,
-      // then we can enumerate both possible solutions and pick the one
+      // then we can enumerate all six possible solutions and pick the one
       // with the best objective value.
       if (node.n - node.nfix == 3) {
 	stats->anotherEnumeration();

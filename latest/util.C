@@ -7,6 +7,10 @@
 #include <math.h>
 #include <stdlib.h>
 
+// see util.h; set per instance by set_fathom_tolerance()
+double DELTA        = 0.0;
+double DELTA_BRANCH = 0.0;
+
 double drand()
 {
   return ((double)rand())/RAND_MAX;

@@ -2,6 +2,8 @@
 #include <iostream>
 #include <fstream>
 #include "linalg.h"
+#include "util.h"
+#include <math.h>
 
 QAP::QAP()
 {
@@ -121,6 +123,84 @@ QAP *readQAPLIB(char *filename)
   f.close();
   
   return qap;
+}
+
+static bool is_symmetric(MAT *M)
+{
+  for (unsigned int i = 0; i < M->m; i++)
+    for (unsigned int j = i + 1; j < M->n; j++)
+      if (M->me[i][j] != M->me[j][i]) return false;
+  return true;
+}
+
+static bool is_integer(MAT *M)
+{
+  for (unsigned int i = 0; i < M->m; i++)
+    for (unsigned int j = 0; j < M->n; j++)
+      if (M->me[i][j] != floor(M->me[i][j])) return false;
+  return true;
+}
+
+static bool is_even(double v) { return fmod(fabs(v), 2.0) == 0.0; }
+
+/*
+============================================================
+  set_fathom_tolerance(qap);
+
+  Set DELTA / DELTA_BRANCH (see util.h) from the data. Every
+  objective value is an integer when A, B, C and the shift are
+  integers. It is also even when A and B are symmetric (the
+  off-diagonal terms come in equal pairs), every a_ii * b_kk is
+  even, and C and the shift are even. Call before symmetrize_QAP,
+  which can introduce halves.
+============================================================
+*/
+void set_fathom_tolerance(QAP *qap)
+{
+  const int n = qap->A->m;
+  bool integer = is_integer(qap->A) && is_integer(qap->B) &&
+                 is_integer(qap->C) && qap->shift == floor(qap->shift);
+  bool even = integer && is_symmetric(qap->A) && is_symmetric(qap->B) &&
+              is_even(qap->shift);
+  for (int i = 0; even && i < n; i++)
+    for (int k = 0; even && k < n; k++)
+      even = is_even(qap->A->me[i][i] * qap->B->me[k][k]) &&
+             is_even(qap->C->me[i][k]);
+
+  DELTA = DELTA_BRANCH = even ? 1.95 : (integer ? 0.95 : 0.0);
+  std::cout << "objective values are "
+            << (even ? "even integers" : (integer ? "integers" : "not integers"))
+            << ": fathoming tolerance " << DELTA << std::endl;
+}
+
+/*
+============================================================
+  symmetrize_QAP(qap);
+
+  The QP bound, the eigenvalue computations and the gradient
+  (2(AXB - SX - XT) + C) all assume A and B are symmetric. When
+  one of them is, replacing the other by (M + M')/2 leaves every
+  objective value unchanged: sum a_ij b_p(i)p(j) pairs (i,j) with
+  (j,i). Returns false when neither is symmetric, in which case
+  the bounds are not valid.
+============================================================
+*/
+bool symmetrize_QAP(QAP *qap)
+{
+  MAT *M = MNULL;
+  if (is_symmetric(qap->A) && !is_symmetric(qap->B))
+    M = qap->B;
+  else if (is_symmetric(qap->B) && !is_symmetric(qap->A))
+    M = qap->A;
+  else
+    return is_symmetric(qap->A);
+
+  for (unsigned int i = 0; i < M->m; i++)
+    for (unsigned int j = i + 1; j < M->n; j++)
+      M->me[i][j] = M->me[j][i] = 0.5 * (M->me[i][j] + M->me[j][i]);
+  std::cout << "symmetrized " << (M == qap->A ? "A" : "B")
+            << " (objective values are unchanged)" << std::endl;
+  return true;
 }
 
 bool writeQAPLIB(char *filename, QAP *qap)

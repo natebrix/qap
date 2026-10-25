@@ -288,7 +288,13 @@ int main(int argc, char *argv[])
   if (q==NULL) {
     printf("qpb: couldn't read file, bailing out.\n");
     return -1;
-  } 
+  }
+
+  set_fathom_tolerance(q);   // from the original data, before symmetrizing
+  if (!symmetrize_QAP(q)) {
+    cout << "WARNING: neither A nor B is symmetric; the QP bounds assume one is,"
+	 << " so results for this instance are not reliable." << std::endl;
+  }
 
   if (!c->sym_file) {
     set_sym_file(c->input_file, c->sym_file);
