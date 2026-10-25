@@ -9,12 +9,21 @@ Requires `make`, `g++`, and `clang` (the Meschach makefile uses clang; pass
 `CC=gcc` to use gcc instead).
 
 ```sh
+make          # from the repo root: builds src/MESCHACH/meschach.a, then latest/bnbdrv
+make test     # brute-force tests + regression check (see "Correctness checks")
+```
+
+Or build the two parts by hand:
+
+```sh
 cd src/MESCHACH && make basic     # builds meschach.a (old-style C warnings are expected)
 cd ../../latest && make           # builds latest/bnbdrv
 ```
 
-After changing solver code, run `make` in `latest/` again. The makefile has no
+After changing solver code, run `make` again. The makefile in `latest/` has no
 header dependencies, so after editing a `.h` file run `make clean && make`.
+Otherwise you can get stale objects, or a link error such as
+`undefined reference to dlap(...)`.
 
 ## Run one instance
 
@@ -52,7 +61,23 @@ Other flags (`./bnbdrv` with no arguments prints help):
 | `-l F` | log file |
 
 Known optimal solutions are in `QAPSOLN/<name>.sln`. The first line is `n` and
-the optimal objective, and the second line is the permutation.
+the optimal objective, and the second line is the permutation. A few files are
+broken: kra30a, kra30b, kra32, esc32d, tai25a and tho30 contain `<value> ??`,
+and nug27's claims an optimum of 5. The tools treat those optima as unknown.
+
+When the solver starts, it prints two facts about the instance that affect
+the search:
+
+- `objective values are even integers: fathoming tolerance 1.95`. A node is
+  fathomed when its bound exceeds `incumbent - tolerance`. The tolerance is
+  1.95 only when every objective value is provably even (A and B symmetric
+  integer matrices, even a_ii·b_kk, even C), 0.95 for other integer data, and
+  0 otherwise. This used to be 1.95 for every instance, which could cut off
+  optima with odd values.
+- `symmetrized B`. The bound assumes symmetric A and B. When only one of them
+  is symmetric, the other is replaced by (M + M')/2, which leaves every
+  objective value unchanged. If neither is symmetric (for example the bur
+  family), the solver prints a warning and its results aren't reliable.
 
 ### Output
 
@@ -93,6 +118,41 @@ Example from `PARAM/default.par`:
 Rule 5 (`BRANCH_BUFF`) reads coefficients from `latest/lgb_init.txt`, which
 isn't in the repo. Don't use rule 5 without that file.
 
+## Correctness checks
+
+`make test` runs both of these. Run it before measuring any change.
+
+**Brute force** (`tests/brute_force.py`, about 10 s). This generates small
+random instances (n = 2 to 8) and finds each optimum by enumerating every
+permutation. It covers four families: nug-like grids, heavy ties, asymmetric
+B, and a linear cost term. It runs the solver under 7 params settings
+(`PARAM/default.par`, `rule1`–`rule4`, `glb`, and `tests/params/qp0.par` for
+the plain QP bound), each with no upper bound, the optimum as upper bound, and
+optimum + 2. Every run must report a root bound no greater than the optimum,
+never report an objective below it, report only objectives some permutation
+attains, and finish on the optimum. Instances come from a fixed seed. Use
+`--seed N` for different ones and `--solver PATH` to test another build.
+
+**Regression** (`bench/bench.py check`, about 15 s on the quick suite). This
+reruns a suite and requires the objective, node, fathomed and enumerated
+counts, Frank-Wolfe iterations and root bound to match `bench/reference/`
+exactly.
+
+- `--tolerance 0.02` allows relative differences, for example when a change
+  can resolve ties differently.
+- `--suite standard` checks every instance in the reference.
+- `--tree DIR` checks a build in another source tree.
+- When a change is *meant* to alter the search, regenerate the reference
+  with `bench.py check --update` (runs the standard suite), commit
+  `bench/reference/` with the change, and say why the counts moved.
+
+The two checks catch different things. We planted two bugs: lower bounds
+raised by 3, and an elimination test that was off by one. The brute-force
+test failed 720 and 169 runs respectively. On QAPLIB with `--ub opt`, both
+bugs *reduced* node counts, and every instance still reported `ok`. An
+invalid bound looks like an improvement on real instances, so it's only the
+brute-force test that can tell them apart.
+
 ## Benchmarking: comparing changes on an apples-to-apples basis
 
 `bench/bench.py` (Python 3, standard library only) runs a suite of instances
@@ -113,8 +173,10 @@ python3 bench/bench.py compare base mine --log --note "rule 4 uses 30 FW iterati
 builds it once, and reuses that binary on later runs. That way the baseline is
 always built and run on the same machine as the candidate. Commits from before
 the Meschach `isatty` fix (for example `master` at `16a72e8`) don't build with
-modern g++, so use `cognac` or later as a baseline. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for when to log results and how.
+modern g++. Commits before `0aa6ed8` build, but they have the bound bugs fixed
+there, and their node counts include subtrees pruned wrongly. Use `0aa6ed8`
+or later as a baseline. See [CONTRIBUTING.md](CONTRIBUTING.md) for when to
+log results and how.
 
 Sample comparison:
 

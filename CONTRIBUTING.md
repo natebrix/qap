@@ -21,9 +21,16 @@ files, Frank-Wolfe settings, fathoming, symmetry handling) needs a logged
 benchmark result before it merges. Pure refactors should show a node ratio of
 exactly 1.000, which is a cheap way to prove they really are refactors.
 
-1. **Commit your change first.** `--log` won't record a run made with
-   uncommitted changes, because the logged commit has to be the code that
-   produced the numbers.
+1. **Run `make test` and commit.** The brute-force test has to pass, because
+   an invalid bound looks like an improvement on QAPLIB, with fewer nodes and
+   every instance still `ok`. The regression check has to pass exactly for a
+   change that shouldn't alter the search, such as a refactor or a speedup
+   with the same arithmetic. If the change is meant to alter the search,
+   regenerate the reference with `bench.py check --update` and commit it with
+   the change (see [RUNNING.md](RUNNING.md#correctness-checks)). Commit
+   before measuring: `--log` won't record a run made with uncommitted
+   changes, because the logged commit has to be the code that produced the
+   numbers.
 
 2. **Run the baseline and your branch on the same machine, back to back.**
    The baseline is the commit you branched from, usually `cognac`:
@@ -90,5 +97,8 @@ the `standard` suite counts for the log entry that goes with a merge.
   makefile.
 - After editing a header, run `make clean && make` in `latest/`, since the
   makefile doesn't track header dependencies.
+- If you change anything that feeds a bound (`fw.C`, `qpbnd*.C`, `lap.C`,
+  `dlap.C`, `linalg.C`, `branch.C`), run the brute-force test with a few
+  seeds (`--seed 2`, `--seed 3`), not just the default.
 - Don't commit build output (`*.o`, `*.a`, `bnbdrv`), `bench/results/` or
   `bench/.worktrees/`. `.gitignore` already excludes them.
