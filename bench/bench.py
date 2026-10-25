@@ -68,7 +68,10 @@ def read_optimum(name):
         return None, None
     with open(path) as f:
         tok = f.read().split()
-    return int(tok[0]), int(float(tok[1]))
+    try:
+        return int(tok[0]), int(float(tok[1]))
+    except (ValueError, IndexError):  # a few files hold "<value> ??" instead
+        return None, None
 
 
 def read_suite(suite):
