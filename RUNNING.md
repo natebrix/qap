@@ -234,7 +234,14 @@ with `#` for comments. Times are CPU seconds with `PARAM/default.par` and
 | Suite | Use | Approx. total time |
 |---|---|---|
 | `quick` | smoke test after every change | ~15 s |
-| `standard` | the run that goes in `bench/LOG.csv` (see CONTRIBUTING.md) | ~5 min |
+| `standard` | the run that goes in `bench/LOG.csv` (see CONTRIBUTING.md) | ~3 min |
+| `large` | before merging branching, lookahead or bound-strategy changes | ~34 min |
+
+Lookahead (rules 3 and 4 at the top levels) takes about 75% of the time on
+`standard` but much less at larger sizes: 50% on nug20, 36% on nug21, and
+14–19% on esc16a and chr15a. A speedup that only touches lookahead therefore
+looks bigger on `standard` than it is. `large` sets its own 30-minute
+per-instance timeout (`#! timeout 1800` in the suite file).
 
 You can also pass instances directly: `bench.py run --instances nug12 had14`.
 

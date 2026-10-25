@@ -55,7 +55,10 @@ exactly 1.000, which is a cheap way to prove they really are refactors.
    paste the `compare` table into the pull request description.
 
 Use the `quick` suite (about 15 s) as often as you like while developing. Only
-the `standard` suite counts for the log entry that goes with a merge.
+the `standard` suite counts for the log entry that goes with a merge. For
+changes to branching, lookahead or bound strategy, also log a `large` run
+(about 34 minutes per side): gains there can be much smaller than on
+`standard` (see RUNNING.md).
 
 ### Reading the results
 

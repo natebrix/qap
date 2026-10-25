@@ -1,0 +1,12 @@
+#! timeout 1800
+# Larger instances (~34 min CPU total with PARAM/default.par and --ub opt on a
+# 2.3 GHz Xeon, at 984f7a0). Run before merging changes to branching, lookahead
+# or bound strategy: on `standard` the lookahead levels take ~75% of the time,
+# here 14-72% (nug17 75%, nug20 50%, nug21 36%), so a lookahead-only speedup
+# measured on `standard` overstates what it gives at scale.
+# Approximate CPU seconds and lookahead share in comments.
+nug20    #  217   50%
+nug21    #  292   36%
+tai17a   #  216   72%
+esc16a   #  650   14%  (8.3M nodes; was 143K with the old, invalid bounds)
+chr15a   #  661   19%
