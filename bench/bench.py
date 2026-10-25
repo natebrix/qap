@@ -234,6 +234,12 @@ def cmd_run(args):
         build()
     if not os.path.exists(SOLVER):
         sys.exit(f"{SOLVER} not found; build first (see RUNNING.md) or pass --build")
+    # the run is recorded under the current commit, so the binary must be built from it
+    stale = [f for f in os.listdir(SOLVER_DIR) if f.endswith((".C", ".h", "makefile"))
+             and os.path.getmtime(os.path.join(SOLVER_DIR, f)) > os.path.getmtime(SOLVER)]
+    if stale:
+        sys.exit(f"{os.path.relpath(SOLVER, ROOT)} is older than {', '.join(sorted(stale)[:5])}; "
+                 f"rebuild (make clean && make) or pass --build")
 
     names = args.instances or read_suite(args.suite)
     label = args.label or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
