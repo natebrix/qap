@@ -3,7 +3,10 @@ BNB = bnbdrv
 
 #CF = -pg -O4
 #CF = -g -O4
-CF = -O3 
+# -march=native lets the compiler use this CPU's instruction set (~2%).
+# -ffp-contract=off keeps it from fusing multiply-adds, so the arithmetic, and
+# therefore node counts, stay identical across machines (see RUNNING.md).
+CF = -O3 -march=native -ffp-contract=off
 
 CFLAGS = $(CF) -DBNB_STANDALONE
 
