@@ -23,7 +23,14 @@ cd ../../latest && make           # builds latest/bnbdrv
 After changing solver code, run `make` again. The makefile in `latest/` has no
 header dependencies, so after editing a `.h` file run `make clean && make`.
 Otherwise you can get stale objects, or a link error such as
-`undefined reference to dlap(...)`.
+`undefined reference to dlap(...)`. `bench.py` refuses to run a binary that
+is older than the sources in `latest/`, since it records results under the
+current commit.
+
+`latest/makefile` compiles with `-O3 -march=native -ffp-contract=off`, which
+is about 2% faster than plain `-O3`. Don't drop `-ffp-contract=off`. Without
+it, the compiler fuses multiply-adds where the CPU supports them, which
+changes rounding, and then node counts depend on the machine.
 
 ## Run one instance
 
