@@ -58,6 +58,10 @@ the `standard` suite counts for the log entry that goes with a merge.
 - **Time is the tiebreaker**, and only means something between two runs on
   the same machine. A change that cuts nodes but costs more per node, such as
   a more expensive bound, shows up here.
+- **Know the noise level.** Two runs of the same code on the same idle
+  machine (first row of `bench/LOG.csv`) differ by up to about 7% in time on
+  individual instances, mostly the sub-second ones, and by under 1% in the
+  geometric mean. Node counts don't vary at all.
 - **Look at the per-instance table, not just the geometric mean.** The log's
   `worst_nodes_ratio` column flags a change that helps on average but blows
   up one instance.
