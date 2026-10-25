@@ -346,6 +346,8 @@ def cmd_check(args):
         with open(ref_meta_path) as f:
             ref_settings = json.load(f)
 
+    if args.tree:
+        use_tree(os.path.abspath(args.tree))
     suite = args.suite or ("standard" if args.update else "quick")
     label = "check-" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     run_args = argparse.Namespace(
@@ -562,6 +564,7 @@ def main():
     k.add_argument("--update", action="store_true",
                    help="rewrite the reference from this run (for changes meant to alter the search)")
     k.add_argument("--build", action="store_true", help="run make first")
+    k.add_argument("--tree", help="check the solver built in this source tree (default: this repo)")
     k.add_argument("--timeout", type=float, default=600)
 
     args = p.parse_args()
