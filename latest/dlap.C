@@ -311,7 +311,10 @@ double dlap(int dim,
   } // !warm_start
 
   // AUGMENTING ROW REDUCTION 
-  int loopcnt = 0;           // do-loop to be done twice.
+  // Two passes from a cold start, as in JV. From warm prices one pass is enough:
+  // a second pass, or none (pure shortest augmenting paths), was 2-3% slower on
+  // nug18/nug20.
+  int loopcnt = warm_start ? 1 : 0;
   do
   {
     loopcnt++;
