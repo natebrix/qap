@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Run the QAP branch-and-bound solver over a suite of instances and compare runs.
 
-  python3 bench/bench.py run --suite quick --label baseline
-  python3 bench/bench.py run --suite quick --label my-change
-  python3 bench/bench.py compare baseline my-change
+  python3 bench/bench.py run --suite quick --rev master --label base
+  python3 bench/bench.py run --suite quick --build --label mine
+  python3 bench/bench.py compare base mine --log --note "what changed"
 
 Run it from anywhere; paths are resolved relative to the repository root. See
-RUNNING.md for what "apples to apples" means here and which settings are fixed.
+RUNNING.md for what "apples to apples" means here and which settings are fixed,
+and CONTRIBUTING.md for how collaborators record results in bench/LOG.csv.
 Uses only the Python standard library.
 """
 
@@ -33,6 +34,8 @@ QAPLIB = os.path.join(ROOT, "qaplib")
 QAPSOLN = os.path.join(ROOT, "QAPSOLN")
 SUITES = os.path.join(ROOT, "bench", "suites")
 RESULTS = os.path.join(ROOT, "bench", "results")
+WORKTREES = os.path.join(ROOT, "bench", ".worktrees")
+LOG = os.path.join(ROOT, "bench", "LOG.csv")
 
 DEFAULT_PARAMS = "PARAM/default.par"
 
@@ -97,13 +100,38 @@ def resolve_params(spec, name):
     return spec
 
 
+def use_tree(root):
+    """Point the solver paths at the source tree rooted at `root`."""
+    global SOLVER_DIR, SOLVER, MESCHACH_DIR
+    SOLVER_DIR = os.path.join(root, "latest")
+    SOLVER = os.path.join(SOLVER_DIR, "bnbdrv")
+    MESCHACH_DIR = os.path.join(root, "src", "MESCHACH")
+
+
+def checkout_rev(rev):
+    """Check out `rev` in a cached worktree under bench/.worktrees/; return (path, sha)."""
+    sha = sh(["git", "rev-parse", "--verify", rev + "^{commit}"])
+    if not sha:
+        sys.exit(f"unknown git revision: {rev}")
+    path = os.path.join(WORKTREES, sha[:12])
+    if not os.path.isdir(path):
+        os.makedirs(WORKTREES, exist_ok=True)
+        r = subprocess.run(["git", "worktree", "add", "--detach", path, sha],
+                           cwd=ROOT, capture_output=True, text=True)
+        if r.returncode != 0:
+            sys.exit(f"git worktree add failed:\n{r.stderr}")
+    return path, sha
+
+
 def build():
-    print("building Meschach and bnbdrv ...", flush=True)
+    print(f"building Meschach and bnbdrv in {os.path.relpath(os.path.dirname(SOLVER_DIR), ROOT) or '.'} ...",
+          flush=True)
     for d, target in ((MESCHACH_DIR, "basic"), (SOLVER_DIR, "all")):
         r = subprocess.run(["make", target], cwd=d, capture_output=True, text=True)
         if r.returncode != 0:
             sys.stderr.write(r.stdout + r.stderr)
-            sys.exit(f"build failed in {d}")
+            sys.exit(f"build failed in {d}\n(commits before the Meschach isatty fix, "
+                     f"e.g. master at 16a72e8, do not build with modern g++)")
 
 
 def machine_info():
@@ -125,7 +153,9 @@ def machine_info():
     }
 
 
-def git_info():
+def git_info(rev_sha=None, rev=None):
+    if rev_sha:
+        return {"commit": rev_sha, "branch": rev, "dirty": False}
     return {
         "commit": sh(["git", "rev-parse", "HEAD"]),
         "branch": sh(["git", "rev-parse", "--abbrev-ref", "HEAD"]),
@@ -189,6 +219,12 @@ def run_one(name, params, ub, timeout, log_path):
 
 
 def cmd_run(args):
+    rev_sha = None
+    if args.rev:
+        path, rev_sha = checkout_rev(args.rev)
+        use_tree(path)
+        if not os.path.exists(SOLVER):
+            build()  # first use of this worktree; later runs reuse the binary
     if args.build:
         build()
     if not os.path.exists(SOLVER):
@@ -212,7 +248,7 @@ def cmd_run(args):
         "repeats": args.repeats,
         "timeout": args.timeout,
         "binary_sha1": sha1_file(SOLVER),
-        "git": git_info(),
+        "git": git_info(rev_sha, args.rev),
         "machine": machine_info(),
         "params_sha1": params_used,
         "notes": args.notes,
@@ -270,8 +306,9 @@ def cmd_run(args):
             "params": params, "sym_file": "auto",
         }
         rows.append(row)
-        print(f"{name:>10}: {status:<8} nodes={row['nodes']!s:>10}  "
-              f"time={row['solver_time']!s:>10}s  wall={row['wall_time']:.2f}s", flush=True)
+        t = f"{row['solver_time']:.3f}s" if row["solver_time"] is not None else "-"
+        print(f"{name:>10}: {status:<8} nodes={row['nodes'] if row['nodes'] is not None else '-':>10}  "
+              f"time={t:>10}  wall={row['wall_time']:.2f}s", flush=True)
 
     with open(os.path.join(outdir, "results.csv"), "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=CSV_FIELDS)
@@ -354,6 +391,51 @@ def cmd_compare(args):
     print(f"\ngeometric mean B/A over {len(node_ratios)} instances solved in both:"
           f"  nodes {geomean(node_ratios):.3f}   {args.time} time {geomean(time_ratios):.3f}"
           f"   (< 1 means B is better)")
+
+    if args.log:
+        if meta_a["instances"] != meta_b["instances"]:
+            warnings.append("the two runs used different instance lists")
+        for side, meta in (("A", meta_a), ("B", meta_b)):
+            if meta["git"]["dirty"]:
+                warnings.append(f"run {side} was made with uncommitted changes")
+        if warnings and not args.force_log:
+            print("\nnot logged:")
+            for w in warnings:
+                print(f"  {w}")
+            print("fix these (commit your change, re-run) or pass --force-log to record them")
+            return 1
+        ok = lambda rows: sum(r["status"] == "ok" for r in rows.values())
+        bad = [n for n in b if b[n]["status"].startswith(("wrong", "error"))]
+        entry = {
+            "date": datetime.date.today().isoformat(),
+            "author": sh(["git", "config", "user.name"]),
+            "suite": meta_b.get("suite") or "custom",
+            "params": meta_b["params"],
+            "upper_bound": meta_b["upper_bound"],
+            "base_commit": meta_a["git"]["commit"][:10],
+            "base_label": meta_a["label"],
+            "cand_commit": meta_b["git"]["commit"][:10],
+            "cand_branch": meta_b["git"]["branch"],
+            "cand_label": meta_b["label"],
+            "instances": len(meta_b["instances"]),
+            "ok_base": ok(a),
+            "ok_cand": ok(b),
+            "nodes_ratio": f"{geomean(node_ratios):.4f}",
+            "time_ratio": f"{geomean(time_ratios):.4f}",
+            "worst_nodes_ratio": f"{max(node_ratios):.4f}" if node_ratios else "",
+            "wrong_or_error": " ".join(bad),
+            "host": meta_b["machine"]["hostname"],
+            "cpu": meta_b["machine"]["cpu"],
+            "warnings": "; ".join(warnings),
+            "note": args.note,
+        }
+        new = not os.path.exists(LOG)
+        with open(LOG, "a", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(entry))
+            if new:
+                w.writeheader()
+            w.writerow(entry)
+        print(f"\nappended to {os.path.relpath(LOG, ROOT)}; commit it with your change")
     return 0
 
 
@@ -381,6 +463,8 @@ def main():
     r.add_argument("--label", help="results go to bench/results/<label>/ (default: timestamp)")
     r.add_argument("--notes", default="", help="free text saved in meta.json")
     r.add_argument("--build", action="store_true", help="run make before benchmarking")
+    r.add_argument("--rev", help="benchmark this git commit/branch instead of the working "
+                                 "tree (checked out and built under bench/.worktrees/)")
     r.add_argument("--force", action="store_true", help="overwrite an existing label")
 
     c = sub.add_parser("compare", help="compare two recorded runs (A = baseline)")
@@ -388,6 +472,10 @@ def main():
     c.add_argument("b")
     c.add_argument("--time", choices=["solver", "wall"], default="solver",
                    help="which time to compare (default: solver-reported)")
+    c.add_argument("--log", action="store_true", help="append a summary row to bench/LOG.csv")
+    c.add_argument("--note", default="", help="what changed (saved with --log)")
+    c.add_argument("--force-log", action="store_true",
+                   help="log even when the runs are not comparable (warnings are recorded)")
 
     args = p.parse_args()
     sys.exit(cmd_run(args) if args.cmd == "run" else cmd_compare(args))

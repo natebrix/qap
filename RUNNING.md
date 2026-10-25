@@ -99,15 +99,22 @@ isn't in the repo. Don't use rule 5 without that file.
 under fixed settings, records results, and compares two recorded runs.
 
 ```sh
-# 1. record a baseline (e.g. on master)
-python3 bench/bench.py run --suite quick --label baseline --build
+# 1. baseline: build and run the commit you branched from, in a separate worktree
+python3 bench/bench.py run --suite quick --rev cognac --label base
 
-# 2. make your change (code or params), then record again
-python3 bench/bench.py run --suite quick --label my-change --build
+# 2. candidate: build and run your working tree
+python3 bench/bench.py run --suite quick --build --label mine
 
-# 3. compare (A = baseline, B = candidate)
-python3 bench/bench.py compare baseline my-change
+# 3. compare (A = baseline, B = candidate); --log records the result in bench/LOG.csv
+python3 bench/bench.py compare base mine --log --note "rule 4 uses 30 FW iterations"
 ```
+
+`--rev` checks out any commit or branch under `bench/.worktrees/` (gitignored),
+builds it once, and reuses that binary on later runs. That way the baseline is
+always built and run on the same machine as the candidate. Commits from before
+the Meschach `isatty` fix (for example `master` at `16a72e8`) don't build with
+modern g++, so use `cognac` or later as a baseline. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for when to log results and how.
 
 Sample comparison:
 
@@ -158,7 +165,7 @@ with `#` for comments. Times are CPU seconds with `PARAM/default.par` and
 | Suite | Use | Approx. total time |
 |---|---|---|
 | `quick` | smoke test after every change | ~15 s |
-| `standard` | before merging or reporting a result | (being calibrated) |
+| `standard` | the run that goes in `bench/LOG.csv` (see CONTRIBUTING.md) | ~5 min |
 
 You can also pass instances directly: `bench.py run --instances nug12 had14`.
 
@@ -175,3 +182,11 @@ Each run writes `bench/results/<label>/`:
 
 `bench/results/` is gitignored because timings only mean something on the
 machine that produced them. To share a baseline, `git add -f` its folder.
+
+`compare --log` appends one summary row to `bench/LOG.csv`, which *is*
+committed. The row records the date, author, suite and settings, both commits,
+how many instances were solved, geometric-mean node and time ratios, the
+worst node ratio, any wrong or errored instances, the machine, and your note.
+`--log` refuses to write a row when either run had uncommitted changes, or
+when the runs differ in params, upper bound, instance list or machine. Pass
+`--force-log` to record such a row anyway, and the warnings are saved with it.
