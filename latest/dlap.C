@@ -40,11 +40,25 @@ double dlap(int dim,
   int j1, j2, endofpath, last, low, up, *collist, *matches;
   double min, h, umin, usubmin, v2, *d;
 
-  free = new int[dim];       // list of unassigned rows.
-  collist = new int[dim];    // list of columns to be scanned in various ways.
-  matches = new int[dim];    // counts how many times a row could be assigned.
-  d = new double[dim];       // 'cost-distance' in augmenting path calculation.
-  pred = new int[dim];       // row-predecessor of column in augmenting/alternating path.
+  // Work space is kept between calls and only grows: Frank-Wolfe calls this
+  // millions of times on small matrices, and five new/delete pairs per call
+  // were a measurable share of its cost. (Not re-entrant; neither is the rest
+  // of the solver.)
+  static int ws_dim = 0;
+  static int *ws_free = 0, *ws_collist = 0, *ws_matches = 0, *ws_pred = 0;
+  static double *ws_d = 0;
+  if (dim > ws_dim) {
+    delete[] ws_free; delete[] ws_collist; delete[] ws_matches; delete[] ws_pred;
+    delete[] ws_d;
+    ws_free = new int[dim];  ws_collist = new int[dim];  ws_matches = new int[dim];
+    ws_pred = new int[dim];  ws_d = new double[dim];
+    ws_dim = dim;
+  }
+  free = ws_free;            // list of unassigned rows.
+  collist = ws_collist;      // list of columns to be scanned in various ways.
+  matches = ws_matches;      // counts how many times a row could be assigned.
+  d = ws_d;                  // 'cost-distance' in augmenting path calculation.
+  pred = ws_pred;            // row-predecessor of column in augmenting/alternating path.
 
   if (warm_start) {
     for (j = 0; j < dim; j++)
@@ -489,11 +503,7 @@ double dlap(int dim,
   }
 
   // free reserved memory.
-  delete[] pred;
-  delete[] free;
-  delete[] collist;
-  delete[] matches;
-  delete[] d;
+  // (work space is reused by the next call)
 
   return llcc;
 }
