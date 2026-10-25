@@ -76,17 +76,31 @@ def read_optimum(name):
         return None, None
 
 
-def read_suite(suite):
+def suite_path(suite):
     path = suite if os.path.exists(suite) else os.path.join(SUITES, suite + ".txt")
     if not os.path.exists(path):
         sys.exit(f"suite not found: {suite} (looked in {SUITES})")
+    return path
+
+
+def read_suite(suite):
     names = []
-    with open(path) as f:
+    with open(suite_path(suite)) as f:
         for line in f:
             line = line.split("#", 1)[0].strip()
             if line:
                 names.append(line)
     return names
+
+
+def suite_timeout(suite):
+    """A suite file may set its default per-run timeout with a line '#! timeout SECONDS'."""
+    with open(suite_path(suite)) as f:
+        for line in f:
+            m = re.match(r"#!\s*timeout\s+(\d+)", line.strip())
+            if m:
+                return float(m.group(1))
+    return None
 
 
 def resolve_params(spec, name):
@@ -242,6 +256,8 @@ def cmd_run(args):
                  f"rebuild (make clean && make) or pass --build")
 
     names = args.instances or read_suite(args.suite)
+    if args.timeout is None:
+        args.timeout = (None if args.instances else suite_timeout(args.suite)) or 600
     label = args.label or datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     outdir = os.path.join(RESULTS, label)
     if os.path.exists(outdir) and not args.force:
@@ -544,7 +560,8 @@ def main():
                         "'none' = solver default, or a number")
     r.add_argument("--repeats", type=int, default=1,
                    help="runs per instance; wall time is the median (default: 1)")
-    r.add_argument("--timeout", type=float, default=600, help="seconds per run (default: 600)")
+    r.add_argument("--timeout", type=float, default=None,
+                   help="seconds per run (default: the suite's '#! timeout', else 600)")
     r.add_argument("--label", help="results go to bench/results/<label>/ (default: timestamp)")
     r.add_argument("--notes", default="", help="free text saved in meta.json")
     r.add_argument("--build", action="store_true", help="run make before benchmarking")
@@ -572,7 +589,7 @@ def main():
                    help="rewrite the reference from this run (for changes meant to alter the search)")
     k.add_argument("--build", action="store_true", help="run make first")
     k.add_argument("--tree", help="check the solver built in this source tree (default: this repo)")
-    k.add_argument("--timeout", type=float, default=600)
+    k.add_argument("--timeout", type=float, default=None)
 
     args = p.parse_args()
     sys.exit({"run": cmd_run, "compare": cmd_compare, "check": cmd_check}[args.cmd](args))
