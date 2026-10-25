@@ -1430,7 +1430,7 @@ void select_ind_max_sum_using_B(QAP *qap,QAPAssignment &assign,
 	reduceB(qap->B,qr->B,child.pinv,m-1,assign.n);
 	reduceC(qap,qr,child);
 
-	init_X(X1,qr->A->m);
+	init_X_from_parent(X1,X,di,dj);  // start from the parent's point
 
 	qpbp->shift = qr->shift;
 	qpbp->feasible = true;
@@ -1897,7 +1897,7 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
 	// get qr->C
 	reduceC(qap,qr,assign);
 
-	init_X(X1,qr->A->m);
+	init_X_from_parent(X1,X,di,dj);  // start from the parent's point
 
 	qpbp->shift = qr->shift;
 	qpbp->feasible = true;
@@ -2065,7 +2065,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
       determine_J3(assign, J3_child, J3_child_dim);
       
       reduceC(qap,qr,assign);
-      init_X(X1,qr->A->m);
+      init_X_from_parent(X1,X,di,dj);  // start from the parent's point
       
       qpbp->shift = qr->shift;
       qpbp->feasible = true;

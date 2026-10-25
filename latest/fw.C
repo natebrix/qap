@@ -44,6 +44,41 @@ void init_X(MAT *X,int m)
 
 /*
 ============================================================
+init_X_from_parent(X1,X,di,dj);
+
+Starting point for the child that fixes (di,dj), from the parent's
+doubly stochastic X: delete row di and column dj, then add back the
+mass they held. With a_r = X[r][dj] and b_c = X[di][c] (r != di,
+c != dj), sum(a) = sum(b) = 1 - X[di][dj], so
+
+   X1 = X[-di,-dj] + a*b' / (1 - X[di][dj])
+
+has unit row and column sums and is nonnegative. Any feasible start
+keeps the Frank-Wolfe bound valid; this one is usually much closer to
+the child's optimum than the uniform matrix.
+============================================================
+*/
+void init_X_from_parent(MAT *X1,MAT *X,int di,int dj)
+{
+  const int m = X->m;
+  const double rest = 1.0 - X->me[di][dj];
+  int i,j,r,c;
+
+  for(i=0,r=0;i<m;i++) {
+    if(i==di) continue;
+    for(j=0,c=0;j<m;j++) {
+      if(j==dj) continue;
+      X1->me[r][c] = X->me[i][j];
+      if(rest > 0.0)
+	X1->me[r][c] += X->me[i][dj] * X->me[di][j] / rest;
+      c++;
+    }
+    r++;
+  }
+}
+
+/*
+============================================================
 obj = qp_obj(A,B,C,S,T,X,n);
 
 compute objective value 
