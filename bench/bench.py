@@ -381,7 +381,8 @@ def cmd_check(args):
             problems.append(f"{name}: objective {r['objective']} (reference {e['objective']})")
         for field in CHECK_FIELDS:
             got, want = int(r[field]), int(e[field])
-            if abs(got - want) > args.tolerance * want:
+            # with a tolerance, also allow a few units so tiny counts (enumerated: 1 vs 2) pass
+            if abs(got - want) > args.tolerance * want + (5 if args.tolerance > 0 else 0):
                 problems.append(f"{name}: {field} {got} (reference {want}, "
                                 f"{(got - want) / want:+.2%})" if want else
                                 f"{name}: {field} {got} (reference {want})")

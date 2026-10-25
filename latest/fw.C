@@ -406,7 +406,9 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
       obj = lap_jv(G->me,D0,xstar,inv_xstar,ys,ys_int,yt,yt_int,
 		   n,scaling); 
 #else
-      obj = dlap(n,G->me,xstar,inv_xstar,ys,yt,augment_tol);
+      // after the first iteration, start from the previous column prices yt:
+      // G only moved by alpha*dG, so they are nearly optimal
+      obj = dlap(n,G->me,xstar,inv_xstar,ys,yt,augment_tol,ier > 1);
 #endif
       //      s_lap.stop();
 

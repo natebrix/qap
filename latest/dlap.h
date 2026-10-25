@@ -13,7 +13,7 @@ const double DLAP_BIG=100000000.0;
 
 double dlap(int dim, double **assigndouble,
 	    int *rowsol, int *colsol, double *u, double *v,
-	    double augment_tol = 10.0);
+	    double augment_tol = 10.0, bool warm_start = false);
 //double augment_tol = 1e-5);
 
 

@@ -11,7 +11,8 @@ double dlap(int dim,
 	    int *colsol, 
 	    double *u, 
 	    double *v,
-	    double augment_tol)
+	    double augment_tol,
+	    bool warm_start)
 
 // input:
 // dim          - problem size
@@ -23,6 +24,12 @@ double dlap(int dim,
 // u          - dual variables, row reduction numbers
 // v          - dual variables, column reduction numbers
 // augment_tol- minimum improvement required in augmenting red. phase
+// warm_start - v holds column prices from a similar cost matrix (e.g. the
+//              previous Frank-Wolfe iteration): skip column reduction and
+//              reduction transfer and start every row free at those prices.
+//              Augmenting row reduction and augmentation keep the usual
+//              invariant (each assigned row sits at its minimum reduced cost),
+//              so the result is still an optimal assignment and dual.
 {
   double *ap;
   //  int *mp;
@@ -39,6 +46,14 @@ double dlap(int dim,
   d = new double[dim];       // 'cost-distance' in augmenting path calculation.
   pred = new int[dim];       // row-predecessor of column in augmenting/alternating path.
 
+  if (warm_start) {
+    for (j = 0; j < dim; j++)
+      colsol[j] = -1;
+    for (i = 0; i < dim; i++)
+      free[i] = i;
+    numfree = dim;
+  }
+  else {
   // init how many times a row will be assigned in the column reduction.
   for (i = 0; i < dim; i++)  
     matches[i] = 0;
@@ -279,6 +294,7 @@ double dlap(int dim,
               min = assigncost[i][j] - v[j];
         v[j1] = v[j1] - min;
       }
+  } // !warm_start
 
   // AUGMENTING ROW REDUCTION 
   int loopcnt = 0;           // do-loop to be done twice.
