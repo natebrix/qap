@@ -220,6 +220,6 @@
 #endif
 
 #ifdef ANSI_C
-extern	int	isatty(int);
+#include <unistd.h>	/* declares isatty() */
 #endif
 
