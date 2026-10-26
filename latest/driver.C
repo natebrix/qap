@@ -11,6 +11,7 @@
   -p F    use parameters file P
   -s F    use symmetry file F
   -u X    set initial upper bound X
+  -w W    Frank-Wolfe patience once a node cannot be fathomed (0 = off)
   (The path to a QAPLIB input file must also be provided.)
 
  */
@@ -77,7 +78,8 @@ void print_help()
        << "-l F\tuse log file F" << std::endl
        << "-p F\tuse parameters file P"  << std::endl
        << "-s F\tuse symmetry file F"  << std::endl
-       << "-u X\tset initial upper bound X"  << std::endl;
+       << "-u X\tset initial upper bound X"  << std::endl
+       << "-w W\tstop a node's FW W iterations after it last fixed out more children" << std::endl;
   cerr << "(The path to a QAPLIB input file must also be provided.)" << std::endl;
 }
 
@@ -170,6 +172,12 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	i++;
 	qap_upper_bound = atof(argv[i]);
 	cout << "incumbent: " << qap_upper_bound << std::endl;
+	break;
+
+      case 'w': // Frank-Wolfe patience once a node cannot be fathomed
+	i++;
+	fw_nofathom_patience = atoi(argv[i]);
+	cout << "FW patience after cannot-fathom: " << fw_nofathom_patience << std::endl;
 	break;
 
       default:

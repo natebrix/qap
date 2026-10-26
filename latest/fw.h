@@ -99,6 +99,8 @@ double compute_U(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *X,MAT *U,int n,
 	       bool compute_lapU, double &lapU,double mult,double offset);
 
 void init_X(MAT *X,int n);
+void fw_patience_begin(int window);
+void fw_patience_end();
 void init_X_from_parent(MAT *X1,MAT *X,int di,int dj);
 
 int try_to_improve(MAT *U_qpb,int *x_U1,double &z_qpb,

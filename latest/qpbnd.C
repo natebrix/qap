@@ -657,7 +657,9 @@ double qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   double bnd;
   int *xstar = new int[X->n];
 
+  fw_patience_begin(p->nofathom_patience);
   bnd = _qpbnd_parametric(A,B,C,X,U1,xstar,p);
+  fw_patience_end();
 
   delete [] xstar;
 

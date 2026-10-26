@@ -33,6 +33,51 @@
  E is the matrix of ones.
 ============================================================
  */
+/*
+============================================================
+Patience for the "cannot fathom" phase of a node bound.
+
+Once the QP objective upbnd is below the incumbent, the node cannot be
+fathomed by this bound, and further iterations only sharpen U, which
+fixes out children (bound + U_ij >= incumbent) and picks the branching
+row. They pay off only while they still remove children. With
+patience W > 0, after each such iteration we count, for the best row or
+column, the children bound + U would fix out, and stop once that count
+has not improved for W iterations (maxit_nofathom still caps it).
+W = 0 keeps the old behaviour. The state spans the fw() calls that one
+qpbnd_parametric() makes between S,T updates.
+============================================================
+*/
+static int  pat_window = 0, pat_it = 0, pat_best = -1, pat_last = 0;
+static bool pat_active = false;
+
+void fw_patience_begin(int window)
+{
+  pat_window = window;  pat_it = 0;  pat_best = -1;  pat_last = 0;
+  pat_active = (window > 0);
+}
+
+void fw_patience_end() { pat_active = false; }
+
+// most children fixed out by bound + U in any one row or column
+static int best_line_eliminations(MAT *G, double *ys, double *yt, int n,
+				  double bnd, double cutoff)
+{
+  static int *colcnt = 0;  static int colcnt_n = 0;
+  if (n > colcnt_n) { delete [] colcnt; colcnt = new int[n]; colcnt_n = n; }
+  int best = 0;
+  for (int j = 0; j < n; j++) colcnt[j] = 0;
+  for (int i = 0; i < n; i++) {
+    int rc = 0;
+    const double t = cutoff - DELTA_BRANCH - bnd + ys[i];
+    for (int j = 0; j < n; j++)
+      if (G->me[i][j] - yt[j] >= t) { rc++; colcnt[j]++; }
+    if (rc > best) best = rc;
+  }
+  for (int j = 0; j < n; j++) if (colcnt[j] > best) best = colcnt[j];
+  return best;
+}
+
 void init_X(MAT *X,int m)
 {
   register int i,j;
@@ -543,7 +588,15 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
 	}
       }
            
-      if ((upbnd < cutoff)&&(ier>=maxit_nofathom))
+      bool out_of_patience = false;
+      if (pat_active && (upbnd < cutoff)) {
+	pat_it++;
+	int r = best_line_eliminations(G, ys, yt, n, bnd, cutoff);
+	if (r > pat_best) { pat_best = r; pat_last = pat_it; }
+	else if (pat_it - pat_last >= pat_window) out_of_patience = true;
+      }
+
+      if ((upbnd < cutoff)&&((ier>=maxit_nofathom) || out_of_patience))
 	{
 #ifdef PRINT
 	  printf("terminated early -- cannot fathom: ier %d\n",ier);

@@ -10,6 +10,7 @@
 // see util.h; set per instance by set_fathom_tolerance()
 double DELTA        = 0.0;
 double DELTA_BRANCH = 0.0;
+int fw_nofathom_patience = 0;
 
 double drand()
 {

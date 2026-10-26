@@ -45,9 +45,11 @@ class QPBParameters
   int fw_iter;             // total FW iterations performed
 
   bool debug;
+  int nofathom_patience;   // see fw_patience_begin() in fw.C; 0 = off
 
   QPBParameters() {
     debug = false;
+    nofathom_patience = 0;
   }
 };
 

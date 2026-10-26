@@ -465,6 +465,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 
       qpbp->maxier = param->maxier_bnd;
       qpbp->maxier_nofathom = param->maxier_nofathom;
+      qpbp->nofathom_patience = fw_nofathom_patience;
       qpbp->step = param->param_step;
       qpbp->fw_iter = 0;
       qpbp->improve = false;
@@ -534,6 +535,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	qpbp->step = param->param_step;
 	qpbp->save_best = true;
 	qpbp->improve   = false;
+	qpbp->nofathom_patience = 0;   // only node bounds use patience
 	set_branch_parameters(bp, param, use_J, reorder);
 	branch(q, node, X, U, kid, kids, bound + qpbp->lapU,
 	       qpbp, bp, loc_in_row, loc_kept);

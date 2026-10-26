@@ -122,8 +122,11 @@ def brute_force(A, B, C):
 
 # ---------------------------------------------------------------- solver
 
+EXTRA_ARGS = []   # --solver-args
+
+
 def run_solver(solver, dat, params, ub):
-    cmd = [solver, "-p", params, "-s", "/nonexistent.sym"]
+    cmd = [solver, "-p", params, "-s", "/nonexistent.sym"] + EXTRA_ARGS
     if ub is not None:
         cmd += ["-u", str(ub)]
     cmd.append(dat)
@@ -170,6 +173,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--solver", default=DEFAULT_SOLVER, help="bnbdrv binary to test")
+    p.add_argument("--solver-args", default="", help="extra solver flags, e.g. '-w 10'")
     p.add_argument("--sizes", default="2-8", help="instance sizes, e.g. 3-7 (default 2-8)")
     p.add_argument("--count", type=int, default=6, help="instances per family and size (default 6)")
     p.add_argument("--seed", type=int, default=1, help="random seed (default 1)")
@@ -181,6 +185,7 @@ def main():
     args = p.parse_args()
 
     solver = os.path.abspath(args.solver)
+    EXTRA_ARGS.extend(args.solver_args.split())
     if not os.path.exists(solver):
         sys.exit(f"{solver} not found; build first (see RUNNING.md)")
     lo, _, hi = args.sizes.partition("-")

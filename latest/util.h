@@ -35,6 +35,9 @@ static const char *qap_version_info = "[Jan 1, 2023]";
 extern double DELTA;
 extern double DELTA_BRANCH;
 
+// Frank-Wolfe patience for node bounds (fw_patience_begin in fw.C); driver -w
+extern int fw_nofathom_patience;
+
 const double ROLLOVER = 4295.0;
 
 // for branching rules 1, 3 and 4
