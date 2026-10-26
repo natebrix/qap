@@ -35,7 +35,11 @@ void init_w0(MAT *A,VEC *&w,MAT *&W,bool ascending)
   else
     ins_sort_descending(w->ve, (int *)order_w->pe, n-1);
 
-  W  = px_rows(order_w,A1,W);
+  // Callers pass W sized (n x n) but it has to be (n-1 x n-1). px_rows() then
+  // allocates a new matrix and the caller's old one leaked: ~5 GB by 20M
+  // nodes on nug24. Free it first; px_rows allocates the right size.
+  if (W != MNULL) M_FREE(W);
+  W  = px_rows(order_w,A1,MNULL);
 
   /* free memory */
   M_FREE(A1);

@@ -107,6 +107,9 @@ struct BNBParameters
 
   char *log_file;            // console log file (optional)
   std::string log_prefix;          // prefix for log entries
+
+  // log_file was left uninitialized, and bnb() tests it at every node
+  BNBParameters() : log_file(NULL) {}
 };
 
 // for testing purposes...
