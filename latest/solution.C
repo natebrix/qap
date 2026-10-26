@@ -1,3 +1,4 @@
+#include <iomanip>
 #include "solution.h"
 
 QAPSolution::QAPSolution()
@@ -46,7 +47,10 @@ void QAPSolution::update(double val,int *p)
 {
   if(val < obj)
     {
-      std::cout << "New objective value: " << val << std::endl;
+      // full precision: the default 6 digits printed tai12b's 39464925 as
+      // 3.94649e+07, which tools parsing this line then read wrongly
+      std::cout << "New objective value: " << std::setprecision(17) << val
+		<< std::setprecision(6) << std::endl;
       obj = val;
       setPermutation(p);
       ifs_found = 1;

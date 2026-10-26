@@ -202,7 +202,7 @@ void QAPStatistics::print_default(std::ostream& outs,int print_level) const
     for(;(i<=n) && (n_level[i]>0);i++)
       {
 	printf("%2d",i);
-	printf("  %10d",n_level[i]);
+	printf("  %10llu",n_level[i]);
 	//	outs.width(12); outs << n_level[i];
 	
 	if(n_level[i] > 0) {
@@ -238,7 +238,7 @@ void QAPStatistics::print_default(std::ostream& outs,int print_level) const
 	for(int j=0;j<m;j++)
 	  printf("%8.4f ",1.0*n_strat[i][j]/n_level[i]);
 	//printf(" | %d ",n_level[i]);
-	printf(" | %d \n", n_level[i]);
+	printf(" | %llu \n", n_level[i]);
       }
 
       
@@ -248,7 +248,7 @@ void QAPStatistics::print_default(std::ostream& outs,int print_level) const
 	for(int i=0; i<=n; i++) {
 	  sum += n_strat[i][j];
 	}
-	printf("%8d ",sum);
+	printf("%8llu ",sum);
       }
       printf("\n");
       

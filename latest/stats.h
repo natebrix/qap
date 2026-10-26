@@ -54,8 +54,10 @@ class QAPStatistics
 {
 public:
 
-  typedef unsigned int ctr_type;
-  typedef unsigned int ctr_type1;
+  // 64-bit: nug24 already used 856M Frank-Wolfe iterations, and 32-bit
+  // counters wrap at 4.29G (around nug28 and up).
+  typedef unsigned long long ctr_type;
+  typedef unsigned long long ctr_type1;
 
   QAPStatistics();
   QAPStatistics(int n,int m);

@@ -13,6 +13,14 @@
 
 #include <fstream>
 #include <algorithm>
+#include "state.h"
+
+// Saving state (driver flags -o, -k, -t, -r; see state.h).
+const char *bnb_state_file = NULL;   // where to write state (-o)
+double bnb_checkpoint_every = 0;     // CPU seconds between checkpoints (-k); 0 = never
+double bnb_time_limit = 0;           // stop after this many CPU seconds (-t); 0 = never
+bool bnb_resumed = false;            // stats were loaded from a state file (-r)
+bool bnb_stopped = false;            // set when bnb() stops on the time limit
 #include <math.h>
 //#include <time.h>
 
@@ -300,7 +308,14 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
   if (max_depth < 0)
     max_depth = 100000;
 
-  stats->start();
+  {
+    QAPStatistics::ctr_type fw0 = stats->fw_iter;
+    stats->start();                    // (which zeroes fw_iter)
+    if (bnb_resumed) stats->fw_iter = fw0;
+  }
+  const double session_start = stats->total_time;
+  double next_checkpoint = stats->total_time + bnb_checkpoint_every;
+  bnb_stopped = false;
 
   qpbp = new QPBParameters();
   qpbp->compute_lapU = false;  
@@ -331,6 +346,25 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	)
 #endif
     {
+      // Checkpoints and the time limit are taken here, before the next node
+      // is popped, so a saved stack never loses a node.
+      if (bnb_state_file) {
+	if (bnb_time_limit > 0 &&
+	    stats->total_time - session_start >= bnb_time_limit) {
+	  while (too_deep != NULL) {         // keep nodes set aside by -d
+	    list_head_insert(stack, too_deep->data);
+	    list_head_remove(too_deep);
+	  }
+	  write_state(bnb_state_file, stack, s, stats);
+	  bnb_stopped = true;
+	  break;
+	}
+	if (bnb_checkpoint_every > 0 && stats->total_time >= next_checkpoint) {
+	  write_state(bnb_state_file, stack, s, stats);
+	  next_checkpoint = stats->total_time + bnb_checkpoint_every;
+	}
+      }
+
       pop(stack, node, stats);
       stats->startIteration(node.depth);
 

@@ -11,6 +11,8 @@
   -p F    use parameters file P
   -s F    use symmetry file F
   -u X    set initial upper bound X
+  -o F    write state to F (checkpoints, -t, end of run); -k X checkpoint every
+          X CPU s; -t X stop after X CPU s (exit 3); -r F resume from F
   -w W    Frank-Wolfe patience at lookahead/strong levels once a node cannot
           be fathomed (default 0 = off)
   (The path to a QAPLIB input file must also be provided.)
@@ -20,6 +22,7 @@
 
 #include "bnb.h"
 #include "estimate.h"
+#include "state.h"
 #ifdef HAVE_EVB3
 #include "evb3.h"
 #endif
@@ -43,8 +46,19 @@ bool set_max_depth = false;
 bool print_deep_nodes = false;
 int max_depth = -1;
 double scale_factor = 1.0;
-double qap_upper_bound = 100000;
+// No incumbent by default. This used to be 100000, which is below every
+// objective value of instances such as tai12b (~39M), so without -u the
+// search pruned everything and found nothing.
+double qap_upper_bound = 1e100;
 EstimateParameters *ep = NULL;
+
+// state files (state.h); bnb() reads the first four
+extern const char *bnb_state_file;
+extern double bnb_checkpoint_every;
+extern double bnb_time_limit;
+extern bool bnb_resumed;
+extern bool bnb_stopped;
+char *resume_file = NULL;
 
 /*******************************************************************/
 
@@ -57,7 +71,7 @@ void driver_init()
   console = false;
 
   scale_factor = 1.0;
-  qap_upper_bound = 100000;
+  qap_upper_bound = 1e100;
 }
 
 void print_help()
@@ -80,6 +94,10 @@ void print_help()
        << "-p F\tuse parameters file P"  << std::endl
        << "-s F\tuse symmetry file F"  << std::endl
        << "-u X\tset initial upper bound X"  << std::endl
+       << "-o F\twrite branch-and-bound state to F (at checkpoints, on -t, at the end)" << std::endl
+       << "-k X\twith -o, checkpoint every X CPU seconds" << std::endl
+       << "-t X\twith -o, stop after X CPU seconds, saving state (exit code 3)" << std::endl
+       << "-r F\tresume from state file F instead of the root" << std::endl
        << "-w W\tat lookahead/strong levels, stop a node's FW W iterations after it\n"
        << "\tlast fixed out more children (default 0 = off)" << std::endl;
   cerr << "(The path to a QAPLIB input file must also be provided.)" << std::endl;
@@ -183,6 +201,30 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	i++;
 	qap_upper_bound = atof(argv[i]);
 	cout << "incumbent: " << qap_upper_bound << std::endl;
+	break;
+
+      case 'o': // write state here (checkpoints, time limit, end of run)
+	i++;
+	bnb_state_file = new_string(argv[i]);
+	cout << "state file: " << bnb_state_file << std::endl;
+	break;
+
+      case 'k': // checkpoint every X CPU seconds
+	i++;
+	bnb_checkpoint_every = atof(argv[i]);
+	cout << "checkpoint every " << bnb_checkpoint_every << " s" << std::endl;
+	break;
+
+      case 't': // stop after X CPU seconds, saving state
+	i++;
+	bnb_time_limit = atof(argv[i]);
+	cout << "time limit " << bnb_time_limit << " s" << std::endl;
+	break;
+
+      case 'r': // resume from a state file
+	i++;
+	resume_file = new_string(argv[i]);
+	cout << "resume from: " << resume_file << std::endl;
 	break;
 
       case 'w': // Frank-Wolfe patience once a node cannot be fathomed
@@ -340,7 +382,19 @@ int main(int argc, char *argv[])
   // Setup the initial state of the stack. 
 
   int id;
-  stack_setup(stack,stats,id,n);
+  if (resume_file) {
+    if (!read_state(resume_file, n, stack, solution, stats)) return 1;
+    bnb_resumed = true;
+    // an explicit -u below the saved incumbent wins (the default is +inf)
+    if (qap_upper_bound < solution->getObjective())
+      solution->setObjective(qap_upper_bound);
+    cout << "resumed: " << stats->stack_size << " open nodes, " << stats->node
+	 << " nodes and " << stats->total_time << " s so far, incumbent "
+	 << solution->getObjective() << std::endl;
+  }
+  else {
+    stack_setup(stack,stats,id,n);
+  }
   branch_init(n);
 
   if (read_symmetry(c->sym_file)) {
@@ -378,6 +432,15 @@ int main(int argc, char *argv[])
     bnb(q,stack,solution,stats,0,0,params, c->nlevel,
 	max_depth,false,-1);
 
+    if (bnb_state_file) {
+      // with -d this is the frontier; after -t the unfinished nodes;
+      // otherwise an empty stack with the final statistics
+      write_state(bnb_state_file, stack, solution, stats);
+    }
+    if (bnb_stopped)
+      cout << "stopped at the time limit with " << list_length(stack)
+	   << " open nodes; resume with -r " << bnb_state_file << std::endl;
+
     print_results(cout,stats,solution,scale_factor);
 
     // nb 1/11/2016: this no longer works because output goes to stdout only.
@@ -400,6 +463,7 @@ int main(int argc, char *argv[])
   delete [] params;
 
   delete c;
-  return 0;
+  delete [] resume_file;
+  return bnb_stopped ? 3 : 0;
 }
 
