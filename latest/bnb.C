@@ -465,7 +465,15 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 
       qpbp->maxier = param->maxier_bnd;
       qpbp->maxier_nofathom = param->maxier_nofathom;
-      qpbp->nofathom_patience = fw_nofathom_patience;
+      // Patience only where the rule scores children with their own bounds
+      // (strong, lookahead). With rule 1 or 2, U is the only thing that fixes
+      // children out, so those nodes keep their full iteration budget. Never at
+      // the root: its bound sets the relative gaps that pick_param uses for
+      // every node, and it is a single node.
+      qpbp->nofathom_patience =
+	(node.depth > 0 &&
+	 (param->rule == BRANCH_LOOKAHEAD || param->rule == BRANCH_STRONG))
+	? fw_nofathom_patience : 0;
       qpbp->step = param->param_step;
       qpbp->fw_iter = 0;
       qpbp->improve = false;

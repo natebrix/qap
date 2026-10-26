@@ -10,7 +10,9 @@
 // see util.h; set per instance by set_fathom_tolerance()
 double DELTA        = 0.0;
 double DELTA_BRANCH = 0.0;
-int fw_nofathom_patience = 0;
+// 5: on nug16a-nug20 this cut CPU time ~8% with +3% to +13% nodes. Applying it
+// at rule-2 levels as well saved about the same time but added +18% to +31% nodes.
+int fw_nofathom_patience = 5;
 
 double drand()
 {
