@@ -321,6 +321,26 @@ inline void deltaG_alt(double **a,double **b,double **C,double **S,double **T,
   }
 }
 
+// Nonzeros of A by row, for deltaG_alt2. A is fixed for a whole fw() call,
+// so they are built once per call. (Static work space; fw() is not re-entrant.)
+static int nz_n = 0, *nz_cnt = 0, *nz_col = 0;
+static double *nz_val = 0;
+
+static void a_nonzeros(double **a, int n)
+{
+  if (n > nz_n) {
+    delete [] nz_cnt; delete [] nz_col; delete [] nz_val;
+    nz_cnt = new int[n];  nz_col = new int[n*n];  nz_val = new double[n*n];
+    nz_n = n;
+  }
+  for (int i = 0; i < n; i++) {
+    int c = 0;
+    for (int r = 0; r < n; r++)
+      if (a[i][r] != 0.0) { nz_col[i*n + c] = r;  nz_val[i*n + c] = a[i][r];  c++; }
+    nz_cnt[i] = c;
+  }
+}
+
 inline void deltaG_alt2(double **a,double **b,double **C,double **S,double **T,
 			double **G,double **dG,double **X,int *p,int *ip,
 			double &dG_X,double &dG_D,int n)
@@ -331,50 +351,19 @@ inline void deltaG_alt2(double **a,double **b,double **C,double **S,double **T,
   register double aik, *ai, *bkj;
   register double *dgi;
 
-  // dG = A*P*B accumulated row by row, skipping zeros of A: flow matrices are
-  // often sparse (nug ~30% zeros, chr ~85%), and skipping an exact 0*b term
-  // leaves every sum bit-for-bit unchanged.
+  // dG = A*P*B, row by row over the nonzeros of A (lists built once per fw()
+  // call by a_nonzeros). Flow matrices are often sparse (A zeros: nug ~30%,
+  // scr ~63%, chr ~85%). Testing each entry for zero instead was 13% slower:
+  // at n ~ 12 the mispredicted branch costs more than the multiplies it skips.
   for(i=0;i<n;i++) {
-    dgi = dG[i];  ai = a[i];
-
-    for(j=0;j<n;j++) {
-      dgi[j] = 0.0;
-    }
-
-    for(k=0;k<n;k++) {
-      aik = ai[ip[k]];
-      if (aik == 0.0) continue;
-      bkj = b[k];
-      
-      // if you change the value of DG_UNROLL, change the body of this loop:
-      for(j=0;j<n-(DG_UNROLL-1);j+=DG_UNROLL) {
-	//	v += A->me[i][ip[k]]*B->me[k][j];
-	dgi[j  ] += aik*(*bkj++);
-	dgi[j+1] += aik*(*bkj++);
-	dgi[j+2] += aik*(*bkj++);
-	dgi[j+3] += aik*(*bkj++);
-	dgi[j+4] += aik*(*bkj++);
-	dgi[j+5] += aik*(*bkj++);
-	dgi[j+6] += aik*(*bkj++);
-	dgi[j+7] += aik*(*bkj++);
-      }
-
-#if (DG_UNROLL > DG_UNROLL2)
-      // if you change the value of DG_UNROLL2, change the body of this loop:
-      for(;j<n-(DG_UNROLL2-1);j+=DG_UNROLL2) {
-	dgi[j  ] += aik*(*bkj++);
-	dgi[j+1] += aik*(*bkj++);
-	dgi[j+2] += aik*(*bkj++);
-	dgi[j+3] += aik*(*bkj++);
-      }
-#endif
-
-      // finish up
-      for(;j<n;j++) {
-	dgi[j]   += aik*(*bkj++);
-      }
-
-
+    dgi = dG[i];
+    for(j=0;j<n;j++) dgi[j] = 0.0;
+    const int *cols = nz_col + i*n;
+    const double *vals = nz_val + i*n;
+    for(int t=0;t<nz_cnt[i];t++) {
+      aik = vals[t];
+      bkj = b[p[cols[t]]];
+      for(j=0;j<n;j++) dgi[j] += aik*bkj[j];
     }
   }
 
@@ -472,6 +461,7 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
     best_X = m_copy(X,MNULL);
   }
 
+  a_nonzeros(A->me, n);
   dG = m_get(n,n);
   //  xstar = new int[n];   
   inv_xstar = new int[n];
