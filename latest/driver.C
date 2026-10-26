@@ -12,7 +12,7 @@
   -s F    use symmetry file F
   -u X    set initial upper bound X
   -w W    Frank-Wolfe patience at lookahead/strong levels once a node cannot
-          be fathomed (default 5; 0 = off)
+          be fathomed (default 0 = off)
   (The path to a QAPLIB input file must also be provided.)
 
  */
@@ -81,7 +81,7 @@ void print_help()
        << "-s F\tuse symmetry file F"  << std::endl
        << "-u X\tset initial upper bound X"  << std::endl
        << "-w W\tat lookahead/strong levels, stop a node's FW W iterations after it\n"
-       << "\tlast fixed out more children (default 5; 0 = off)" << std::endl;
+       << "\tlast fixed out more children (default 0 = off)" << std::endl;
   cerr << "(The path to a QAPLIB input file must also be provided.)" << std::endl;
 }
 
