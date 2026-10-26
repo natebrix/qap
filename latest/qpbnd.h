@@ -47,7 +47,22 @@ class QPBParameters
   bool debug;
   int nofathom_patience;   // see fw_patience_begin() in fw.C; 0 = off
 
+  // Every field gets a value: some callers (e.g. find_suboptimal) set only
+  // a few, and fw() then branched on uninitialized ones.
   QPBParameters() {
+    compute_lapU = false;
+    maxier = 150;
+    maxier_nofathom = 100;
+    shift = 0.0;
+    inc = 1.0e100;
+    lapU = 0.0;
+    step = 30;
+    feasible = true;
+    lap_scale = 1.0;
+    improve = false;
+    save_best = false;
+    bound_used = 0;
+    fw_iter = 0;
     debug = false;
     nofathom_patience = 0;
   }

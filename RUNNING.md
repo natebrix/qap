@@ -48,7 +48,7 @@ With no flags, the solver uses:
 
 | What | Default | Notes |
 |---|---|---|
-| Params file | `./PARAM/<name>.par` | **If this file doesn't exist, the solver does not complain.** It runs with uninitialized parameters. Only a few instances (nug*, kra30b, esc32d, rou15, scr15, tai17a, tai20a, ste36a, …) have their own params file, so pass `-p` for anything else. |
+| Params file | `./PARAM/<name>.par` | If this file doesn't exist, the solver stops with an error. The reader also rejects a file whose level count or layout is off (it used to run on whatever values ended up in each field). Only a few instances (nug*, kra30b, esc32d, rou15, scr15, tai17a, tai20a, ste36a, …) have their own params file, so pass `-p` for anything else. |
 | Symmetry file | `./SYM/<name>.sym` | Optional. If missing, the solver prints "assuming no symmetry" and continues. |
 | Initial upper bound | 100000 | Effectively none. The solver finds incumbents itself and prints `New objective value: …` each time it improves. |
 

@@ -97,6 +97,8 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
   size = double(top_stats->stack_size);
   if(top_stats->stack_size == 0) {
     total_stats->merge_stats(top_stats);
+    delete path_stats;
+    delete top_stats;
     return total_stats;
   } 
 

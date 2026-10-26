@@ -98,6 +98,15 @@ void print_results(std::ostream &outs,QAPStatistics *stats,
     //solution->print(outs);
 }
 
+// ConsoleParameters frees its file names with delete[], so allocate them
+// with new[] rather than strdup() (malloc).
+static char *new_string(const char *s)
+{
+  char *t = new char[strlen(s) + 1];
+  strcpy(t, s);
+  return t;
+}
+
 void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 {
   int i = 1;
@@ -110,7 +119,7 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
       case 'a': // auto console
 	i++;
 	if (!c->command_file) {
-	  c->command_file = strdup(argv[i]);
+	  c->command_file = new_string(argv[i]);
 	}
 	cout << "command file: " << c->command_file << std::endl;
 	break;
@@ -151,7 +160,7 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
       case 'l': // log file
 	i++;
 	if (!c->log_file) {
-	  c->log_file = strdup(argv[i]);
+	  c->log_file = new_string(argv[i]);
 	}
 	cout << "log file: " << c->log_file << std::endl;
 	break;
@@ -159,14 +168,14 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
       case 'p': // parameters file
 	i++;
 	if(!c->param_file)
-	  c->param_file = strdup(argv[i]);
+	  c->param_file = new_string(argv[i]);
 	cout << "parameters file: " << c->param_file << std::endl;
 	break;
 
       case 's': // symmetry file
 	i++;
 	if(!c->sym_file)
-	  c->sym_file = strdup(argv[i]);
+	  c->sym_file = new_string(argv[i]);
 	cout << "symmetry file: " << c->sym_file << std::endl;
 	break;
 
@@ -192,7 +201,7 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
     else   // must be the input file
       {
 	if (!c->input_file) {
-	  c->input_file = strdup(argv[i]);
+	  c->input_file = new_string(argv[i]);
 	  cout << "input file: " << c->input_file << std::endl;
 	}
       }
@@ -360,8 +369,9 @@ int main(int argc, char *argv[])
     readEstimateParameters("estimate.par",ep);
 
     cout << "!! ESTIMATE !! " << std::endl;
-    //    estimated_stats = 
-    estimate(q,stack,solution,params, c->nlevel,ep);
+    estimated_stats = estimate(q,stack,solution,params, c->nlevel,ep);
+    delete estimated_stats;   // estimate() reports as it goes; we own the result
+    delete ep;  ep = NULL;
   }
   else {
     //    use_EVB3(q);
@@ -389,6 +399,7 @@ int main(int argc, char *argv[])
   delete solution;
   delete [] params;
 
+  delete c;
   return 0;
 }
 

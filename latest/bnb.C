@@ -636,6 +636,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
   delete [] p;
   delete qr;
   delete qpbp;
+  delete bp;
 
   stats->stop();  
 }
@@ -898,7 +899,7 @@ void find_suboptimal(QAP *q,Node *&stack,QAPSolution *sln)
   if(node.n - node.nfix == 3) {
     solveSize3QAP(q,node,obj,p); 
     sln->update(obj,p);
-    return;
+    break;   // (was return, which skipped the clean-up below)
   }
 
   reduceQAP(q,qr,node);
@@ -932,6 +933,8 @@ void find_suboptimal(QAP *q,Node *&stack,QAPSolution *sln)
   M_FREE(U);
   delete [] p;
   delete qr;
+  delete qpbp;
+  delete bp;
 }
 
 /*

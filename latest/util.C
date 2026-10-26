@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string>
 
 // see util.h; set per instance by set_fathom_tolerance()
 double DELTA        = 0.0;
@@ -113,6 +114,10 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
   int sym_file_given;
 
   f.open(filename);
+  if(!f) {
+    std::cerr << "error: cannot open parameters file [" << filename << "]" << std::endl;
+    exit(1);
+  }
 
   f >> sym_file_given;
   f.getline(junk, len);
@@ -128,6 +133,10 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
 
   f >> nlevel;
   f.getline(junk, len);
+  if(!f || nlevel < 1 || nlevel > 100) {
+    std::cerr << "error: bad number of levels in [" << filename << "]" << std::endl;
+    exit(1);
+  }
 
   params = new BNBParameters[nlevel];
 
@@ -167,6 +176,34 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
     f >> params[i].use_best;
     f.getline(junk, len);
 
+  }
+
+  // The reader trusts the layout; a wrong level count or a missing line shifts
+  // every value after it. Catch that instead of branching on garbage.
+  for(i=0;i<nlevel;i++) {
+    const BNBParameters &q = params[i];
+    if(!f || q.rule < 1 || q.rule > 5 || q.which_bound < 0 || q.which_bound > 7 ||
+       q.maxier_bnd < 0 || q.maxier_nofathom < 0 || q.maxier_br < 0 ||
+       q.use_best < 0 ||
+       // the parametric bounds update S,T every param_step iterations; 0 would
+       // never advance (other bounds ignore it, and GLB files set it to 0)
+       ((q.which_bound == QP_BND_PARAM || q.which_bound == QP_BND_IMP ||
+         q.which_bound == EVB3_BND) && q.param_step < 1)) {
+      std::cerr << "error: parameters file [" << filename << "] level " << i+1
+		<< " of " << nlevel << " is not valid (rule " << q.rule << ", bound "
+		<< q.which_bound << "); check the level count and the layout"
+		<< " (RUNNING.md)" << std::endl;
+      exit(1);
+    }
+  }
+  // anything left over means the level count is too small
+  {
+    std::string rest; f >> rest;
+    if(!rest.empty()) {
+      std::cerr << "error: parameters file [" << filename << "] has more data than its "
+		<< nlevel << " levels; check the level count" << std::endl;
+      exit(1);
+    }
   }
   f.close();
   
