@@ -331,18 +331,20 @@ inline void deltaG_alt2(double **a,double **b,double **C,double **S,double **T,
   register double aik, *ai, *bkj;
   register double *dgi;
 
+  // dG = A*P*B accumulated row by row, skipping zeros of A: flow matrices are
+  // often sparse (nug ~30% zeros, chr ~85%), and skipping an exact 0*b term
+  // leaves every sum bit-for-bit unchanged.
   for(i=0;i<n;i++) {
     dgi = dG[i];  ai = a[i];
 
-    bkj = b[0];
-    aik = ai[ip[0]];
     for(j=0;j<n;j++) {
-      dgi[j] = aik*(*bkj++);
+      dgi[j] = 0.0;
     }
 
-    for(k=1;k<n;k++) {
-      bkj = b[k];
+    for(k=0;k<n;k++) {
       aik = ai[ip[k]];
+      if (aik == 0.0) continue;
+      bkj = b[k];
       
       // if you change the value of DG_UNROLL, change the body of this loop:
       for(j=0;j<n-(DG_UNROLL-1);j+=DG_UNROLL) {
