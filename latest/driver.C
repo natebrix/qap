@@ -58,6 +58,8 @@ extern double bnb_checkpoint_every;
 extern double bnb_time_limit;
 extern bool bnb_resumed;
 extern bool bnb_stopped;
+extern volatile sig_atomic_t bnb_stop_requested;
+static void request_stop(int) { bnb_stop_requested = 1; }
 char *resume_file = NULL;
 
 /*******************************************************************/
@@ -322,6 +324,7 @@ void handler(int sig) {
 int main(int argc, char *argv[])
 {
   signal(SIGSEGV, handler);   // install our handler
+  signal(SIGUSR1, request_stop);  // with -o: save state and stop at the next node
     
   int n;
   int param_max_depth;  // max depth param read in from param file

@@ -66,6 +66,48 @@ Other flags (`./bnbdrv` with no arguments prints help):
 | `-b` | benchmark mode |
 | `-c` / `-a F` | interactive console / run console commands from file F |
 | `-l F` | log file |
+| `-o F` | write the search state to F: at checkpoints, on `-t`, and at the end (with `-d D`, the open nodes at depth D) |
+| `-k X` | with `-o`, checkpoint every X CPU seconds |
+| `-t X` | with `-o`, stop after X CPU seconds, saving the state; exit code 3 |
+| `-r F` | resume from state file F instead of the root |
+| `-w W` | Frank-Wolfe patience at lookahead/strong levels (default 0 = off; see `bench/LOG.csv`) |
+
+### Long runs: checkpoint and resume
+
+```sh
+./bnbdrv -p PARAM/default.par -u 3488 -o nug24.state -k 600 ../qaplib/nug24.dat   # checkpoint every 10 min
+./bnbdrv -p PARAM/default.par -o nug24.state -k 600 -r nug24.state ../qaplib/nug24.dat  # after a crash
+```
+
+The state file (format in `latest/state.h`) holds the open nodes, the
+incumbent, the root bound and all statistics, with doubles at full precision,
+so a resumed run makes exactly the same decisions: the final node counts, FW
+iterations and per-level tables equal an uninterrupted run
+(`tests/resume_test.py`). A SIGUSR1 to a run started with `-o` also saves the
+state and stops it at the next node.
+
+### Several cores: bench/parallel.py
+
+```sh
+python3 bench/parallel.py qaplib/nug20.dat --jobs 4 --ub 2570
+python3 bench/parallel.py qaplib/nug24.dat --jobs 4 --ub 3488 --checkpoint nug24.ckpt --checkpoint-every 600
+python3 bench/parallel.py qaplib/nug24.dat --jobs 4 --ub 3488 --resume nug24.ckpt   # after a restart
+```
+
+The root is solved serially and its children go into a pool; up to `--jobs`
+solver processes each take a chunk of nodes. When a worker is idle and the
+pool is empty, the busiest worker is sent SIGUSR1 and its remaining nodes are
+split among the idle ones. Statistics are summed and printed in the solver's
+own format (`Total Time` is CPU summed over workers). With a fixed upper bound
+such as the optimum, node and FW totals are identical to a serial run
+(`tests/parallel_test.py`). `--checkpoint F` periodically stops all workers and
+merges every open node into F, an ordinary state file: `--resume F` continues
+it, or `bnbdrv -r F` finishes it serially. `bench.py run --jobs N` runs each
+instance this way; compare such runs with `compare --time wall`.
+
+On this 4-vCPU container nug16a ran 3.2x faster in wall time with 4 workers and
+nug17 2.7x; total CPU rises somewhat under full load, so expect less than
+N-fold on shared machines.
 
 Known optimal solutions are in `QAPSOLN/<name>.sln`. The first line is `n` and
 the optimal objective, and the second line is the permutation. A few files are

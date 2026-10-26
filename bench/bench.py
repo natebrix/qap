@@ -211,12 +211,19 @@ def parse_output(text):
 
 # ---------------------------------------------------------------- run
 
-def run_one(name, params, ub, timeout, log_path):
+def run_one(name, params, ub, timeout, log_path, jobs=1):
     dat = os.path.join(QAPLIB, name + ".dat")
-    cmd = [SOLVER, "-p", params]
-    if ub is not None:
-        cmd += ["-u", str(ub)]
-    cmd.append(dat)
+    if jobs > 1:
+        # bench/parallel.py prints the solver's RESULTS block with summed CPU time
+        cmd = [sys.executable, os.path.join(ROOT, "bench", "parallel.py"), dat,
+               "--jobs", str(jobs), "--params", params, "--solver", SOLVER]
+        if ub is not None:
+            cmd += ["--ub", str(ub)]
+    else:
+        cmd = [SOLVER, "-p", params]
+        if ub is not None:
+            cmd += ["-u", str(ub)]
+        cmd.append(dat)
     t0 = time.perf_counter()
     try:
         r = subprocess.run(cmd, cwd=SOLVER_DIR, capture_output=True, text=True,
@@ -273,6 +280,7 @@ def cmd_run(args):
         "params": args.params,
         "upper_bound": args.ub,
         "repeats": args.repeats,
+        "jobs": args.jobs,
         "timeout": args.timeout,
         "binary_sha1": sha1_file(SOLVER),
         "git": git_info(rev_sha, args.rev),
@@ -302,7 +310,7 @@ def cmd_run(args):
         walls, res = [], None
         for rep in range(args.repeats):
             log = os.path.join(outdir, "logs", f"{name}.log" if rep == 0 else f"{name}.{rep}.log")
-            res_rep = run_one(name, params, ub, args.timeout, log)
+            res_rep = run_one(name, params, ub, args.timeout, log, args.jobs)
             walls.append(res_rep["wall_time"])
             if res is None:
                 res = res_rep
@@ -375,7 +383,7 @@ def cmd_check(args):
     run_args = argparse.Namespace(
         rev=None, build=args.build, instances=None, suite=suite, label=label,
         force=True, params=ref_settings["params"], ub=ref_settings["upper_bound"],
-        repeats=1, timeout=args.timeout, notes="bench.py check")
+        repeats=1, timeout=args.timeout, notes="bench.py check", jobs=1)
     rc = cmd_run(run_args)
     meta, rows = load(label)
 
@@ -448,8 +456,9 @@ def cmd_compare(args):
     # Apples-to-apples guard: say loudly when the runs differ in ways that
     # make time (or node) ratios meaningless.
     warnings = []
-    for key in ("upper_bound", "params"):
-        if meta_a.get(key) != meta_b.get(key):
+    for key in ("upper_bound", "params", "jobs"):
+        default = 1 if key == "jobs" else None      # runs logged before --jobs existed
+        if meta_a.get(key, default) != meta_b.get(key, default):
             warnings.append(f"{key}: {meta_a.get(key)} vs {meta_b.get(key)}")
     if meta_a.get("params_sha1") != meta_b.get("params_sha1"):
         warnings.append("params file contents differ")
@@ -558,6 +567,10 @@ def main():
     r.add_argument("--ub", default="opt",
                    help="initial upper bound: 'opt' = known optimum from QAPSOLN (default), "
                         "'none' = solver default, or a number")
+    r.add_argument("--jobs", type=int, default=1,
+                   help="solver processes per instance via bench/parallel.py (default 1). "
+                        "solver_time is then CPU summed over workers; compare wall_time "
+                        "for the speedup")
     r.add_argument("--repeats", type=int, default=1,
                    help="runs per instance; wall time is the median (default: 1)")
     r.add_argument("--timeout", type=float, default=None,

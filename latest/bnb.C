@@ -14,6 +14,7 @@
 #include <fstream>
 #include <algorithm>
 #include "state.h"
+#include <csignal>
 
 // Saving state (driver flags -o, -k, -t, -r; see state.h).
 const char *bnb_state_file = NULL;   // where to write state (-o)
@@ -21,6 +22,9 @@ double bnb_checkpoint_every = 0;     // CPU seconds between checkpoints (-k); 0 
 double bnb_time_limit = 0;           // stop after this many CPU seconds (-t); 0 = never
 bool bnb_resumed = false;            // stats were loaded from a state file (-r)
 bool bnb_stopped = false;            // set when bnb() stops on the time limit
+// Set by SIGUSR1 (see driver.C): save state and stop at the next node, like -t.
+// bench/parallel.py uses it to take work back from a busy worker.
+volatile sig_atomic_t bnb_stop_requested = 0;
 #include <math.h>
 //#include <time.h>
 
@@ -349,8 +353,9 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // Checkpoints and the time limit are taken here, before the next node
       // is popped, so a saved stack never loses a node.
       if (bnb_state_file) {
-	if (bnb_time_limit > 0 &&
-	    stats->total_time - session_start >= bnb_time_limit) {
+	if (bnb_stop_requested ||
+	    (bnb_time_limit > 0 &&
+	     stats->total_time - session_start >= bnb_time_limit)) {
 	  while (too_deep != NULL) {         // keep nodes set aside by -d
 	    list_head_insert(stack, too_deep->data);
 	    list_head_remove(too_deep);
