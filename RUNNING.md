@@ -160,7 +160,7 @@ Example from `PARAM/default.par`:
 4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric
 150   Frank-Wolfe iterations for the bound
 100   Frank-Wolfe iterations when we know we can't fathom
-50    Frank-Wolfe iterations for row selection
+25    Frank-Wolfe iterations for row selection (lookahead children; each starts from the parent's X)
 1     bound: 0 QP, 1 QP parametric, 2 QP+GLB, 3 QP improved, 4 GLB, 5 PB, 6 EVB3, 7 BUFF
 30    step for parametric bound
 30    compute B for the best _ rows of U
