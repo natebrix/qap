@@ -59,6 +59,29 @@ void fw_patience_begin(int window)
 
 void fw_patience_end() { pat_active = false; }
 
+/*
+============================================================
+fw_best_begin(U); ... ; best = fw_best_end();
+
+Best (bound, U) pair over every iteration of every fw() call in
+between, i.e. all S,T phases of one qpbnd_parametric(). Each iterate's
+bound f(X) + min_D G.(D - X) and its reduced costs U come from the
+same LAP, and each phase's QP is a relaxation of the same QAP, so any
+such pair is valid: bound + U_ij bounds every permutation with
+x_ij = 1. U must be the size of the problem.
+============================================================
+*/
+static MAT *best_U = MNULL;
+static double best_bnd = -1.0e99;
+static bool best_active = false;
+
+void fw_best_begin(MAT *U)
+{
+  best_U = U;  best_bnd = -1.0e99;  best_active = true;
+}
+
+double fw_best_end() { best_active = false; return best_bnd; }
+
 // most children fixed out by bound + U in any one row or column
 static int best_line_eliminations(MAT *G, double *ys, double *yt, int n,
 				  double bnd, double cutoff)
@@ -85,6 +108,17 @@ void init_X(MAT *X,int m)
   for(i=0;i<m;i++)
     for(j=0;j<m;j++)
       X->me[i][j] = one_over_m;
+}
+
+// is X the uniform matrix init_X() makes? (init_gradient() assumes it)
+bool is_uniform(MAT *X)
+{
+  const double x = X->me[0][0];
+  if (!(x > 0.0)) return false;
+  for(unsigned int i=0;i<X->m;i++)
+    for(unsigned int j=0;j<X->n;j++)
+      if (X->me[i][j] != x) return false;
+  return true;
 }
 
 /*
@@ -540,6 +574,11 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
       // Frank-Wolfe lower bound at X: f(X) + min_D G.(D - X), and obj = G_D is
       // that minimum (D is the LAP solution).
       bnd = X_was_feasible ? f_X + obj : -1.0e99;
+
+      if (best_active && X_was_feasible && (bnd > best_bnd)) {
+	best_bnd = bnd;
+	reducedCosts(G->me,best_U->me,ys,yt,n);
+      }
 
       // wait to see if we can terminate before updating
       // gradient

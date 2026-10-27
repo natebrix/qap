@@ -12,8 +12,9 @@
  It is plain text, so other tools (bench/parallel.py) can split a
  state into tasks and merge the statistics of finished ones.
 
- Format (version 1):
-   QAP-STATE 1
+ Format (version 2; version 1 files, which have no warm starts, are
+ still read):
+   QAP-STATE 2
    n <n> levels <stats.n> strategies <stats.m>
    incumbent <obj> <found> <perm[0..n-1]>
    root_bound <value>
@@ -24,8 +25,12 @@
    n_strat ...                                            ((stats.n+1)*stats.m)
    t_strat ...                                            (stats.m)
    rg_sum ... / rg_sumsq ...                              (stats.n+1 each)
+   warm_starts <count>
+   warm <m> <p[0..n-1]> <X[0][0..m-1]> ... <X[m-1][0..m-1]>
+   ...                         (a branched node's X, see WarmStart in assign.h)
    nodes <count>
-   node <depth> <bound> <predicted_bound> <nfix> <p[0..n-1]> <history[0..n-1]>
+   node <depth> <bound> <predicted_bound> <nfix> <p[0..n-1]> <history[0..n-1]> <warm>
+                               (warm: index into the warm starts, or -1)
    ...
    end
 

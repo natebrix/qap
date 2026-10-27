@@ -453,7 +453,7 @@ double qpbnd(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   // init gradient G
   G = m_get(X->m,X->n);
 
-  if((X->me[0][0]>0)&&(X->me[0][0] == X->me[0][1])) {
+  if(is_uniform(X)) {
     init_gradient(A,B,C,G,C_X,G_X,X->n);
   }
   else {
@@ -579,9 +579,10 @@ inline double _qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,int *xstar,
   // init gradient G
   G = m_get(X->m, X->n);
 
-  // this is a hack to determine whether it's the firat time we have called
-  // this during a given bound computation
-  if((X->me[0][0]>0)&&(X->me[0][0] == X->me[0][1])) {
+  // init_gradient() is the gradient at the uniform X only. (This used to
+  // test X[0][0] == X[0][1], which a warm start from the parent's X can
+  // also satisfy.)
+  if(is_uniform(X)) {
     init_gradient(A, B, C, G, C_X, G_X, X->n);
     if (p->debug) {
       write_ampl_qpb(A, B, C, S, T, p->shift+eig);
@@ -657,10 +658,24 @@ double qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   double bnd;
   int *xstar = new int[X->n];
 
+  // _qpbnd_parametric returns the best bound of its last accurate_ier
+  // iterations; an earlier S,T phase often had a better one. Return the
+  // best (bound, U) pair over all iterations instead (see fw_best_begin).
+  // Not with the improvement procedure, which builds its own U.
+  MAT *U_best = m_get(U1->m, U1->n);
+
   fw_patience_begin(p->nofathom_patience);
+  fw_best_begin(U_best);
   bnd = _qpbnd_parametric(A,B,C,X,U1,xstar,p);
+  const double best = fw_best_end();
   fw_patience_end();
 
+  if (!p->improve && (best > bnd)) {
+    bnd = best;
+    m_copy(U_best, U1);
+  }
+
+  M_FREE(U_best);
   delete [] xstar;
 
   return bnd;

@@ -5,10 +5,12 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <string>
+#include <vector>
 
 static const char *STATE_MAGIC = "QAP-STATE";
-static const int STATE_VERSION = 1;
+static const int STATE_VERSION = 2;   // 1: no warm starts (still read)
 
 template <class T>
 static void write_array(std::ostream &f, const char *tag, const T *a, int len)
@@ -64,6 +66,26 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
   write_array(f, "rg_sumsq", stats->rg_sumsq, L);
 #endif
 
+  // the parents' X the open nodes start from, each written once
+  std::map<const WarmStart *, int> warm_id;
+  std::vector<const WarmStart *> warms;
+  for (Node *p = stack; p != NULL; p = p->link) {
+    const WarmStart *w = p->data.warm;
+    if (w && warm_id.find(w) == warm_id.end()) {
+      warm_id[w] = (int)warms.size();
+      warms.push_back(w);
+    }
+  }
+  f << "warm_starts " << warms.size() << '\n';
+  for (size_t k = 0; k < warms.size(); k++) {
+    const WarmStart *w = warms[k];
+    f << "warm " << w->X->m;
+    for (int i = 0; i < n; i++) f << ' ' << w->p[i];
+    for (unsigned int i = 0; i < w->X->m; i++)
+      for (unsigned int j = 0; j < w->X->n; j++) f << ' ' << w->X->me[i][j];
+    f << '\n';
+  }
+
   f << "nodes " << list_length(stack) << '\n';
   for (Node *p = stack; p != NULL; p = p->link) {
     const QAPAssignment &a = p->data;
@@ -71,6 +93,7 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
       << ' ' << a.nfix;
     for (int i = 0; i < n; i++) f << ' ' << a.p[i];
     for (int i = 0; i < n; i++) f << ' ' << a.history[i];
+    f << ' ' << (a.warm ? warm_id[a.warm] : -1);
     f << '\n';
   }
   f << "end\n";
@@ -100,8 +123,9 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
 
   std::string tag;
   int version, fn, fL, fm;
-  if (!(f >> tag >> version) || tag != STATE_MAGIC || version != STATE_VERSION)
-    return fail(file, "not a version 1 state file");
+  if (!(f >> tag >> version) || tag != STATE_MAGIC || version < 1 ||
+      version > STATE_VERSION)
+    return fail(file, "not a version 1 or 2 state file");
   std::string t1, t2, t3;
   if (!(f >> t1 >> fn >> t2 >> fL >> t3 >> fm) || t1 != "n")
     return fail(file, "bad header");
@@ -139,38 +163,73 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
     return fail(file, "bad gap statistics");
 #endif
 
+  std::vector<WarmStart *> warms;
+  if (version >= 2) {
+    int nw;
+    if (!(f >> tag >> nw) || tag != "warm_starts" || nw < 0)
+      return fail(file, "bad warm start count");
+    for (int k = 0; k < nw; k++) {
+      int wm;
+      if (!(f >> tag >> wm) || tag != "warm" || wm < 1 || wm > n)
+	return fail(file, "bad warm start");
+      Index *wp = new Index[n];
+      MAT *X = m_get(wm, wm);
+      bool ok = true;
+      for (int i = 0; ok && i < n; i++) ok = (bool)(f >> wp[i]);
+      for (int i = 0; ok && i < wm; i++)
+	for (int j = 0; ok && j < wm; j++) ok = (bool)(f >> X->me[i][j]);
+      if (ok) warms.push_back(new_warm_start(wp, n, X));
+      delete [] wp;
+      M_FREE(X);
+      if (!ok) {
+	for (size_t i = 0; i < warms.size(); i++) warm_start_release(warms[i]);
+	return fail(file, "bad warm start");
+      }
+    }
+  }
+
   int count;
   if (!(f >> tag >> count) || tag != "nodes" || count < 0)
-    return fail(file, "bad node count");
+    count = -1;
 
   // read in file order, then insert from the back so the stack order is kept
+  const char *err = (count < 0) ? "bad node count" : NULL;
   QAPAssignment *nodes = new QAPAssignment[count > 0 ? count : 1];
-  for (int k = 0; k < count; k++) {
+  for (int k = 0; !err && k < count; k++) {
     QAPAssignment a(n);
     if (!(f >> tag >> a.depth >> a.bound >> a.predicted_bound >> a.nfix) ||
 	tag != "node") {
-      delete [] nodes;
-      return fail(file, "bad node");
+      err = "bad node";
+      break;
     }
     for (int j = 0; j < n; j++) a.pinv[j] = NONE;
     int fixed = 0;
-    for (int i = 0; i < n; i++) {
-      if (!(f >> a.p[i]) || a.p[i] < NONE || a.p[i] >= n) {
-	delete [] nodes;
-	return fail(file, "bad node assignment");
-      }
-      if (a.p[i] != NONE) { a.pinv[a.p[i]] = i; fixed++; }
+    for (int i = 0; !err && i < n; i++) {
+      if (!(f >> a.p[i]) || a.p[i] < NONE || a.p[i] >= n)
+	err = "bad node assignment";
+      else if (a.p[i] != NONE) { a.pinv[a.p[i]] = i; fixed++; }
     }
-    for (int i = 0; i < n; i++)
-      if (!(f >> a.history[i])) { delete [] nodes; return fail(file, "bad node history"); }
-    if (fixed != a.nfix) { delete [] nodes; return fail(file, "node nfix does not match"); }
-    nodes[k] = a;
+    for (int i = 0; !err && i < n; i++)
+      if (!(f >> a.history[i])) err = "bad node history";
+    if (!err && fixed != a.nfix) err = "node nfix does not match";
+    if (!err && version >= 2) {
+      int w;
+      if (!(f >> w) || w < -1 || w >= (int)warms.size())
+	err = "bad node warm start";
+      else if (w >= 0)
+	a.set_warm(warms[w]);
+    }
+    if (!err) nodes[k] = a;
   }
-  if (!(f >> tag) || tag != "end") { delete [] nodes; return fail(file, "missing end"); }
+  if (!err && (!(f >> tag) || tag != "end")) err = "missing end";
 
-  for (int k = count - 1; k >= 0; k--)
-    list_head_insert(stack, nodes[k]);
-  stats->stack_size = count;
+  if (!err) {
+    for (int k = count - 1; k >= 0; k--)
+      list_head_insert(stack, nodes[k]);
+    stats->stack_size = count;
+  }
   delete [] nodes;
-  return true;
+  // the nodes hold their own references now
+  for (size_t k = 0; k < warms.size(); k++) warm_start_release(warms[k]);
+  return err ? fail(file, err) : true;
 }

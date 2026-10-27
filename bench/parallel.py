@@ -44,8 +44,18 @@ SOLVER = os.path.join(ROOT, "latest", "bnbdrv")
 
 # ---------------------------------------------------------------- state files
 
+class Warm:
+    """A parent's Frank-Wolfe point (a "warm" line), shared by the nodes that
+    start from it; written once per file, wherever its nodes go."""
+    __slots__ = ("text",)
+
+    def __init__(self, text):
+        self.text = text
+
+
 class State:
-    """A parsed state file (format in latest/state.h)."""
+    """A parsed state file (format in latest/state.h). nodes is a list of
+    (node line without its warm start index, Warm or None)."""
 
     ARRAYS = ["n_level", "f_level", "l_level", "e_level", "t_level", "n_strat",
               "t_strat", "rg_sum", "rg_sumsq"]
@@ -66,12 +76,20 @@ class State:
         self.times = [float(x) for x in t[1:3]]
         self.arrays = collections.OrderedDict()
         line = next(it)
-        while line[0] != "nodes":
+        while line[0] not in ("warm_starts", "nodes"):
             conv = float if line[0] in ("t_level", "t_strat", "rg_sum", "rg_sumsq") else int
             self.arrays[line[0]] = [conv(x) for x in line[1:]]
             line = next(it)
-        count = int(line[1])
-        self.nodes = [" ".join(next(it)) for _ in range(count)]
+        warms = []
+        if line[0] == "warm_starts":            # version 2
+            warms = [Warm(" ".join(next(it)[1:])) for _ in range(int(line[1]))]
+            line = next(it)
+        has_warm = int(self.magic[1]) >= 2
+        self.nodes = []
+        for _ in range(int(line[1])):
+            f = next(it)
+            w = int(f.pop()) if has_warm else -1
+            self.nodes.append((" ".join(f), warms[w] if w >= 0 else None))
         assert next(it)[0] == "end"
 
     def zero_stats(self):
@@ -88,7 +106,7 @@ class State:
 
     def write(self, path, nodes=None):
         nodes = self.nodes if nodes is None else nodes
-        out = [" ".join(self.magic),
+        out = ["QAP-STATE 2",
                f"n {self.n} levels {self.levels} strategies {self.strategies}",
                " ".join(["incumbent", repr(self.obj), str(self.found)] + list(self.perm)),
                f"root_bound {self.root_bound}",
@@ -96,8 +114,14 @@ class State:
                "times " + " ".join(repr(x) for x in self.times)]
         for k, v in self.arrays.items():
             out.append(" ".join([k] + [repr(x) if isinstance(x, float) else str(x) for x in v]))
+        ids = {}
+        for _, w in nodes:
+            if w is not None and id(w) not in ids:
+                ids[id(w)] = (len(ids), w)
+        out.append(f"warm_starts {len(ids)}")
+        out += ["warm " + w.text for _, w in sorted(ids.values(), key=lambda x: x[0])]
         out.append(f"nodes {len(nodes)}")
-        out += nodes
+        out += [f"{t} {ids[id(w)][0] if w is not None else -1}" for t, w in nodes]
         out.append("end")
         tmp = path + ".tmp"
         with open(tmp, "w") as f:

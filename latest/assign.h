@@ -67,6 +67,30 @@ typedef char Jtype;
 const int NONE = -1;
 const int PARTIAL = -2;
 
+/*
+============================================================
+WarmStart: the Frank-Wolfe point X of a node that was branched on,
+shared by its children. A child starts its own bound there
+(init_X_from_parent, with its fixed row and column removed) instead of
+at the uniform matrix. It holds the parent's assignment p so the child
+can tell which row and column it fixed, and is reference counted, so
+it goes away with the last child. It lives in the node (and in state
+files) rather than in a cache, so a node's bound does not depend on
+which process computed its parent.
+============================================================
+*/
+struct WarmStart
+{
+  int refs;
+  int n;          // instance size
+  Index *p;       // the parent's assignment
+  MAT *X;         // the parent's X: its free rows x free columns, in order
+};
+
+WarmStart *new_warm_start(const Index *p, int n, MAT *X);
+void warm_start_retain(WarmStart *w);
+void warm_start_release(WarmStart *&w);
+
 class QAPAssignment
 {
   
@@ -102,6 +126,9 @@ public:
   int depth;
   double bound;
   double predicted_bound;
+
+  WarmStart *warm;            // parent's X, or NULL (see WarmStart)
+  void set_warm(WarmStart *w);
 
   int *get_unassigned(bool rows) const;
   

@@ -80,7 +80,9 @@ Other flags (`./bnbdrv` with no arguments prints help):
 ```
 
 The state file (format in `latest/state.h`) holds the open nodes, the
-incumbent, the root bound and all statistics, with doubles at full precision,
+incumbent, the root bound and all statistics, plus the Frank-Wolfe point of
+each open node's parent (a child starts its bound there), with doubles at full
+precision,
 so a resumed run makes exactly the same decisions: the final node counts, FW
 iterations and per-level tables equal an uninterrupted run
 (`tests/resume_test.py`). A SIGUSR1 to a run started with `-o` also saves the

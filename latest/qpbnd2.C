@@ -109,7 +109,7 @@ double qpbnd2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   // init gradient G
   G = m_get(X->m,X->n);
 
-  if((X->me[0][0]>0)&&(X->me[0][0] == X->me[0][1])) {
+  if(is_uniform(X)) {
     init_gradient(A,B,C,G,C_X,G_X,X->n);
   }
   else {
@@ -178,7 +178,7 @@ double qpbnd_parametric2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   // init gradient G
   G = m_get(X->m,X->n);
 
-  if((X->me[0][0]>0)&&(X->me[0][0] == X->me[0][1])) {
+  if(is_uniform(X)) {
     init_gradient(A,B,C,G,C_X,G_X,X->n);
   }
   else {

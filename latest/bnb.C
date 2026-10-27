@@ -223,6 +223,45 @@ BNBParameters *pick_param(const QAPAssignment &node,double root,double opt,
 }
 
 
+/*
+============================================================
+ init_X_warm(node, X);
+
+ Starting point for node's Frank-Wolfe bound: its parent's X with the
+ row and column the node fixed removed (init_X_from_parent), when the
+ node carries one (see WarmStart in assign.h) and differs from that
+ parent by exactly one assignment; otherwise the uniform matrix.
+ Fathomed nodes need far fewer iterations from there.
+============================================================
+ */
+static void init_X_warm(const QAPAssignment &node, MAT *X)
+{
+  const WarmStart *w = node.warm;
+  const int n = node.n;
+  int extra = -1;
+
+  if (w && w->n == n && (int)w->X->m == (int)X->m + 1) {
+    for (int i = 0; i < n; i++) {
+      if (w->p[i] == node.p[i]) continue;
+      if (w->p[i] == NONE && node.p[i] >= 0 && extra < 0) extra = i;
+      else { extra = -1; break; }
+    }
+  }
+  if (extra < 0) {
+    init_X(X, X->m);
+    return;
+  }
+
+  // position of the fixed row and column among the parent's free ones
+  const int col = node.p[extra];
+  int di = 0, dj = 0;
+  for (int i = 0; i < extra; i++)
+    if (node.p[i] == NONE) di++;
+  for (int j = 0; j < col; j++)
+    if (node.pinv[j] == NONE) dj++;
+  init_X_from_parent(X, w->X, di, dj);
+}
+
 void log_matrix(BNBParameters *p, const char *data, MAT *U)
 {
   if (p->log_file) {
@@ -529,7 +568,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	qpbp->improve = true;    // drop thru to QP_BND_PARAM
       case QP_BND_PARAM:
       case EVB3_BND:
-	init_X(X,m);
+	init_X_warm(node, X);
 	bound = qpbnd_parametric(qr->A,qr->B,qr->C,X,U,qpbp);
 
 	break;
@@ -550,6 +589,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	bound = glbnd(qr->A,qr->B,qr->C,U,qr->shift);
 	break;
       }
+
+      node.set_warm(NULL);    // done with the parent's X
 
       if (params->log_file) {
 	log_matrix(params, "U|_", U);
@@ -584,8 +625,15 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	qpbp->improve   = false;
 	qpbp->nofathom_patience = 0;   // only node bounds use patience
 	set_branch_parameters(bp, param, use_J, reorder);
+	// every bound but GLB leaves its Frank-Wolfe point in X; the
+	// children start from it (copied first: branch() may use X)
+	WarmStart *warm = (param->which_bound != GLB_BND)
+	  ? new_warm_start(node.p, n, X) : NULL;
 	branch(q, node, X, U, kid, kids, bound + qpbp->lapU,
 	       qpbp, bp, loc_in_row, loc_kept);
+	for (i = 0; i < kids; i++)
+	  kid[i].set_warm(warm);
+	warm_start_release(warm);
 
 	if (params->log_file && (bp->how == BRANCH_LOOKAHEAD)) {
 	  log_matrix(params, "B|_", U);
@@ -627,6 +675,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    push(stack,kid[i],stats);
 	  }
 	}
+	for (i = 0; i < kids; i++)
+	  kid[i].set_warm(NULL);    // the stack holds the references now
       }
       else {
 	if(dive)

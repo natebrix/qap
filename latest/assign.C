@@ -12,6 +12,7 @@ QAPAssignment::QAPAssignment()
   p = NULL;
   pinv = NULL;
   history = NULL;
+  warm = NULL;
 
 #ifdef STORE_J_MATRIX
   J  = NULL;
@@ -39,6 +40,7 @@ QAPAssignment::QAPAssignment(int m)
   p = new Index[n];
   pinv = new Index[n];
   history = new Index[n];
+  warm = NULL;
 
   for(i=0;i<n;i++)
     {
@@ -74,6 +76,7 @@ QAPAssignment::QAPAssignment(const QAPAssignment &s)
   p = copy_array<Index>(s.p,n);
   pinv = copy_array<Index>(s.pinv,n);
   history = copy_array<Index>(s.history,n);
+  warm = s.warm;  warm_start_retain(warm);
 
 #ifdef STORE_J_MATRIX
   J  = new Jtype*[n];
@@ -104,6 +107,7 @@ void QAPAssignment::operator =(const QAPAssignment &s)
     p = copy_array<Index>(s.p,n);
     pinv = copy_array<Index>(s.pinv,n);
     history = copy_array<Index>(s.history,n);
+    warm = s.warm;  warm_start_retain(warm);
 
 #ifdef STORE_J_MATRIX
     J  = new Jtype*[n];
@@ -127,6 +131,7 @@ void QAPAssignment::clear()
   delete [] p;   p = NULL;
   delete [] pinv;   pinv = NULL;
   delete [] history;   history = NULL;
+  warm_start_release(warm);
 
   n = 0; nfix = 0; depth = 0;
 
@@ -730,3 +735,42 @@ QAPAssignment randomly_fix(const QAPAssignment &node, int count)
   return child;
 }
 
+
+/*
+============================================================
+ Warm starts (see WarmStart in assign.h).
+============================================================
+ */
+WarmStart *new_warm_start(const Index *p, int n, MAT *X)
+{
+  WarmStart *w = new WarmStart;
+  w->refs = 1;
+  w->n = n;
+  w->p = new Index[n];
+  for (int i = 0; i < n; i++) w->p[i] = p[i];
+  w->X = m_copy(X, MNULL);
+  return w;
+}
+
+void warm_start_retain(WarmStart *w)
+{
+  if (w) w->refs++;
+}
+
+void warm_start_release(WarmStart *&w)
+{
+  if (w && --w->refs == 0) {
+    delete [] w->p;
+    M_FREE(w->X);
+    delete w;
+  }
+  w = NULL;
+}
+
+void QAPAssignment::set_warm(WarmStart *w)
+{
+  if (w == warm) return;
+  warm_start_release(warm);
+  warm = w;
+  warm_start_retain(warm);
+}
