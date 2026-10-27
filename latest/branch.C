@@ -1288,15 +1288,18 @@ children the most spread-out linear terms, so more of them fathom.
 It costs nothing per node, unlike lookahead, which bounds every child.
 Ties go to the column with more children fixed out by bound + U, then
 to the larger U column sum, as in rule 2. Only for column branching
-(no symmetry left); see select().
+(no symmetry left); see select(). Returns false when every free
+location is equally eccentric (e.g. esc16a's hypercube), where the
+rule says nothing and the caller uses rule 2 instead.
 ============================================================
 */
-void select_col_eccentric(QAP *qap,const QAPAssignment &assign,MAT *U,
+bool select_col_eccentric(QAP *qap,const QAPAssignment &assign,MAT *U,
 			  double bound,QPBParameters *qpbp,
 			  int &ind_in_U,int &ind_in_assign)
 {
   const int n = assign.n;
   double best_ecc = -1.0e100, best_sum = -1.0e100;
+  double low_ecc = 1.0e100;
   int best_f = -1;
   int dj = -1;
 
@@ -1309,6 +1312,7 @@ void select_col_eccentric(QAP *qap,const QAPAssignment &assign,MAT *U,
     for(int k=0;k<n;k++)
       if((k != j) && (assign.pinv[k] <= NONE) && (qap->B->me[j][k] > ecc))
 	ecc = qap->B->me[j][k];
+    if (ecc < low_ecc) low_ecc = ecc;
 
     int f = 0;  double sum = 0.0;
     for(int i=0,di=-1;i<n;i++) {
@@ -1327,6 +1331,7 @@ void select_col_eccentric(QAP *qap,const QAPAssignment &assign,MAT *U,
       ind_in_U = dj;  ind_in_assign = j;
     }
   }
+  return best_ecc > low_ecc;
 }
 
 void select_ind_max_fathoms(QAP *qap,const QAPAssignment &assign,
@@ -2473,7 +2478,9 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
   case BRANCH_ECCENTRIC:
     if(can_branch_on_cols) {
       chose_row = false;
-      select_col_eccentric(qap,assign,U,bound,qpbp,row_in_U,row_in_assign);
+      if(!select_col_eccentric(qap,assign,U,bound,qpbp,row_in_U,row_in_assign))
+	select_ind_max_fathoms(qap,assign,J3,J3_dim,X,U,bound,qpbp,
+			       row_in_U,row_in_assign,chose_row);
     }
     else  // symmetry left: rows only, as for rule 2
       select_row_max_fathoms(qap,assign,J3,J3_dim,X,U,bound,qpbp,
