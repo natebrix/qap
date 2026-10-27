@@ -157,7 +157,7 @@ Example from `PARAM/default.par`:
 --- repeated L times; the last level omits the first two lines ---
 0.20  use this level when the relative gap (opt-bnd)/opt is worse than...
 2     ...and depth is at most this
-4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF)
+4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric
 150   Frank-Wolfe iterations for the bound
 100   Frank-Wolfe iterations when we know we can't fathom
 50    Frank-Wolfe iterations for row selection
@@ -168,6 +168,14 @@ Example from `PARAM/default.par`:
 
 Rule 5 (`BRANCH_BUFF`) reads coefficients from `latest/lgb_init.txt`, which
 isn't in the repo. Don't use rule 5 without that file.
+
+Rule 6 branches on the free location farthest from the other free locations
+(largest B entry), at no per-node cost. `PARAM/eccentric.par` is
+`default.par` with rule 6 instead of lookahead at depths 3-4. It is much
+faster on dense instances (nug20 2.1x, nug21 1.7x, tai17a 2.0x, standard
+suite 1.3x) but slower where the flow matrix is sparse and lookahead pays
+for itself (chr15a 1.4x slower, esc16a more than 2.9x slower), so it is not
+the default. See `bench/LOG.csv`.
 
 ## Correctness checks
 
