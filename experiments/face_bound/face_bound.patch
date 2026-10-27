@@ -1,0 +1,150 @@
+diff --git a/latest/branch.C b/latest/branch.C
+index 2f1dd14..a9ebe93 100644
+--- a/latest/branch.C
++++ b/latest/branch.C
+@@ -1873,6 +1873,51 @@ void select_row_max_sum_using_B_new(QAP *qap,QAPAssignment &assign,
+      keep best result.
+ ============================================================ 
+  */
++
++// ---- EXPERIMENT: face-restricted child bounds for lookahead (QAP_FACE=1 use, 2 compare)
++#include <ctime>
++#include <cstdlib>
++#include <cstdio>
++static int face_mode = getenv("QAP_FACE") ? atoi(getenv("QAP_FACE")) : 0;
++static int face_it = getenv("QAP_FACE_IT") ? atoi(getenv("QAP_FACE_IT")) : 0;
++static double face_dsum = 0, t_fresh = 0, t_face = 0;
++static long face_n = 0, f_fresh = 0, f_face = 0, f_both = 0, face_cnt = 0, face_better = 0;
++static void face_report() {
++  if (!face_mode) return;
++  fprintf(stderr, "face: %ld children; fathom fresh %ld face %ld both %ld; mean(face-fresh) over %ld unfathomed %.3f, face better %ld; cpu fresh %.2f face %.2f\n",
++	  face_cnt, f_fresh, f_face, f_both, face_n, face_n ? face_dsum/face_n : 0.0, face_better,
++	  t_fresh/CLOCKS_PER_SEC, t_face/CLOCKS_PER_SEC);
++}
++static double child_bound(QAP *qr, MAT *Bc, MAT *X1, MAT *U1, VEC *wa, VEC *wb, MAT *Wa, MAT *Wb,
++			  QPBParameters *qpbp, int di, int dj, int m)
++{
++  static bool reg = false; if (!reg) { atexit(face_report); reg = true; }
++  const bool ok = face_mode && qpb_S_last && (int)qpb_S_last->m == m;
++  const int it = face_it > 0 ? face_it : qpbp->maxier;
++  if (ok && face_mode == 1) {
++    clock_t c0 = clock();
++    double f = qpbnd_face(qr->A,Bc,qr->C,X1,U1,qpb_S_last,qpb_T_last,qpb_eig_last,di,dj,qpbp,it);
++    t_face += clock() - c0;  face_cnt++;
++    return f;
++  }
++  MAT *X0 = ok ? m_copy(X1, MNULL) : MNULL;
++  clock_t c0 = clock();
++  double b = qpbnd2(qr->A,Bc,qr->C,X1,U1,wa,wb,Wa,Wb,qpbp);
++  t_fresh += clock() - c0;
++  if (ok) {
++    MAT *U2 = m_get(U1->m, U1->n);
++    c0 = clock();
++    double f = qpbnd_face(qr->A,Bc,qr->C,X0,U2,qpb_S_last,qpb_T_last,qpb_eig_last,di,dj,qpbp,it);
++    t_face += clock() - c0;  face_cnt++;
++    const double cut = qpbp->inc - DELTA_BRANCH;
++    bool fb = b >= cut, ff = f >= cut;
++    f_fresh += fb; f_face += ff; f_both += (fb && ff);
++    if (!fb && !ff) { face_n++; face_dsum += f - b; face_better += (f > b); }
++    M_FREE(U2); M_FREE(X0);
++  }
++  return b;
++}
++
+ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
+ 			  int *J3, int J3_dim,MAT *X,MAT *U,
+ 			  double bound,QPBParameters *qpbp,int use_best, 
+@@ -1964,8 +2009,7 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
+ 
+ 	if(is_qpbnd(which_bound)) {
+ #ifdef BRANCH_USES_QPBND
+-	  temp = qpbnd2(qr->A,Bs[bi],qr->C,X1,U1,wa,wbs[bi],Wa,Wbs[bi],
+-			qpbp) - bound;
++	  temp = child_bound(qr,Bs[bi],X1,U1,wa,wbs[bi],Wa,Wbs[bi],qpbp,di,dj,m) - bound;
+ #else
+ 	  temp = qpbnd_parametric2(qr->A,Bs[bi],qr->C,X1,U1,
+ 				   wa,wbs[bi],Wa,Wbs[bi],qpbp) - bound;
+@@ -2133,8 +2177,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+       // This is where we determine the 'score' for the cell.
+       if (is_qpbnd(which_bound)) {
+ #ifdef BRANCH_USES_QPBND
+-	temp = qpbnd2(qr->A,Bs[bi],qr->C,X1,U1,wa,wbs[bi],Wa,Wbs[bi],
+-		      qpbp) - bound;
++	temp = child_bound(qr,Bs[bi],X1,U1,wa,wbs[bi],Wa,Wbs[bi],qpbp,di,dj,m) - bound;
+ #else
+ 	temp = qpbnd_parametric2(qr->A,Bs[bi],qr->C,X1,U1,wa,wbs[bi],Wa,
+ 				 Wbs[bi],qpbp) - bound;
+diff --git a/latest/qpbnd.C b/latest/qpbnd.C
+index d55af1f..e075881 100644
+--- a/latest/qpbnd.C
++++ b/latest/qpbnd.C
+@@ -14,6 +14,8 @@ inline double _glb(MAT *A,MAT *B,MAT *C,MAT *U,int *p,double shift);
+ inline double _qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,int *xstar,
+ 				QPBParameters *p);
+ int accurate_ier = 5;
++MAT *qpb_S_last = MNULL, *qpb_T_last = MNULL;
++double qpb_eig_last = 0.0;
+ double accurate_scaling = 10.0;
+ 
+ int *qpb_heuristic(MAT *X) {
+@@ -636,6 +638,11 @@ inline double _qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,int *xstar,
+     }
+   }
+   p->fw_iter += total_iter;
++
++  // keep this node's final S,T for face-restricted child bounds (experiment)
++  qpb_S_last = m_resize(qpb_S_last, S->m, S->n);  m_copy(S, qpb_S_last);
++  qpb_T_last = m_resize(qpb_T_last, T->m, T->n);  m_copy(T, qpb_T_last);
++  qpb_eig_last = eig;
+   
+   M_FREE(G);
+   M_FREE(W);  M_FREE(U);
+diff --git a/latest/qpbnd2.C b/latest/qpbnd2.C
+index 9202db8..77753a6 100644
+--- a/latest/qpbnd2.C
++++ b/latest/qpbnd2.C
+@@ -231,3 +231,29 @@ double qpbnd_parametric2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
+ 
+   return lo_bound;
+ }
++
++// EXPERIMENT: child bound from the parent's QP restricted to the face x_{di,dj} = 1.
++// A,B,C: the child's reduced problem; S,T,eig: the parent's (m x m); X1: start (m-1).
++double qpbnd_face(MAT *A,MAT *B,MAT *C,MAT *X1,MAT *U1,MAT *S,MAT *T,double eig,
++		  int di,int dj,QPBParameters *qpbp,int maxier)
++{
++  const int m1 = A->m;
++  MAT *S1 = m_get(m1,m1), *T1 = m_get(m1,m1), *G = m_get(m1,m1);
++  for (int i=0,r=0;i<m1+1;i++) { if (i==di) continue;
++    for (int j=0,c=0;j<m1+1;j++) { if (j==di) continue; S1->me[r][c++] = S->me[i][j]; } r++; }
++  for (int i=0,r=0;i<m1+1;i++) { if (i==dj) continue;
++    for (int j=0,c=0;j<m1+1;j++) { if (j==dj) continue; T1->me[r][c++] = T->me[i][j]; } r++; }
++  const double offset = qpbp->shift + eig - S->me[di][di] - T->me[dj][dj];
++  double C_X, G_X, up = 1.0e99, lo = INIT_LOBND;
++  gradient(A,B,C,S1,T1,G,X1,m1);
++  C_X = mm_trace(C,X1);  G_X = mm_trace(G,X1);
++  int *xstar = new int[m1];
++  int iter, status, bnd_used;
++  bool feasible = true;
++  fw(A,B,C,S1,T1,G,X1,U1,xstar,C_X,G_X,m1,iter,0,maxier,1000,offset,qpbp->inc,
++     feasible,status,up,lo,1.0,true,false,bnd_used,true);
++  qpbp->fw_iter += iter;
++  delete [] xstar;
++  M_FREE(S1); M_FREE(T1); M_FREE(G);
++  return lo;
++}
+diff --git a/latest/qpbnd2.h b/latest/qpbnd2.h
+index 2e9df4b..c6e2bdf 100644
+--- a/latest/qpbnd2.h
++++ b/latest/qpbnd2.h
+@@ -27,6 +27,10 @@ double qpbnd_parametric2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
+ 			 VEC *w,VEC *u,MAT *W,MAT *U,
+ 			 QPBParameters *qpbp);
+ 
++double qpbnd_face(MAT *A,MAT *B,MAT *C,MAT *X1,MAT *U1,MAT *S,MAT *T,double eig,
++		  int di,int dj,QPBParameters *qpbp,int maxier);
++extern MAT *qpb_S_last, *qpb_T_last;
++extern double qpb_eig_last;
+ #endif
+ 
+ 
