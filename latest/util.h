@@ -75,6 +75,7 @@ const int BRANCH_U_FATHOM = 2;
 const int BRANCH_STRONG = 3;
 const int BRANCH_LOOKAHEAD = 4;
 const int BRANCH_BUFF = 5;
+const int BRANCH_ECCENTRIC = 6;   // most eccentric free location (select_col_eccentric)
 const int BRANCH_FIXED = -1;
 
 

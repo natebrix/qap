@@ -1276,6 +1276,59 @@ void select_row_max_fathoms(QAP *qap,const QAPAssignment &assign,
  In case of tie, pick row with bigger row/col sum.
 ============================================================ 
  */
+/*
+============================================================
+select_col_eccentric(...)
+
+Branching rule 6: branch on the free location (column) that is
+farthest from the other free locations, i.e. the largest
+max_k B[j][k] over free k != j. On grid instances (nug, sko, tho, ...)
+these are the corners and edges: fixing a facility there gives the
+children the most spread-out linear terms, so more of them fathom.
+It costs nothing per node, unlike lookahead, which bounds every child.
+Ties go to the column with more children fixed out by bound + U, then
+to the larger U column sum, as in rule 2. Only for column branching
+(no symmetry left); see select().
+============================================================
+*/
+void select_col_eccentric(QAP *qap,const QAPAssignment &assign,MAT *U,
+			  double bound,QPBParameters *qpbp,
+			  int &ind_in_U,int &ind_in_assign)
+{
+  const int n = assign.n;
+  double best_ecc = -1.0e100, best_sum = -1.0e100;
+  int best_f = -1;
+  int dj = -1;
+
+  ind_in_U = -1;  ind_in_assign = -1;
+  for(int j=0;j<n;j++) {
+    if(assign.pinv[j] > NONE) continue;
+    dj++;
+
+    double ecc = -1.0e100;
+    for(int k=0;k<n;k++)
+      if((k != j) && (assign.pinv[k] <= NONE) && (qap->B->me[j][k] > ecc))
+	ecc = qap->B->me[j][k];
+
+    int f = 0;  double sum = 0.0;
+    for(int i=0,di=-1;i<n;i++) {
+      if(assign.p[i] > NONE) continue;
+      di++;
+      if(assign.disallowed(i,j) ||
+	 (U->me[di][dj] + bound >= qpbp->inc - DELTA_BRANCH))
+	f++;
+      else
+	sum += U->me[di][dj];
+    }
+
+    if((ecc > best_ecc) ||
+       ((ecc == best_ecc) && ((f > best_f) || ((f == best_f) && (sum > best_sum))))) {
+      best_ecc = ecc;  best_f = f;  best_sum = sum;
+      ind_in_U = dj;  ind_in_assign = j;
+    }
+  }
+}
+
 void select_ind_max_fathoms(QAP *qap,const QAPAssignment &assign,
 			    int *J3, int J3_dim,MAT *X,MAT *U,
 			    double bound,QPBParameters *qpbp,
@@ -2415,6 +2468,16 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
 			   bp->use_best,
 			   use_weighted_branching, bp->which_bound,
 			   row_in_U,row_in_assign);
+    break;
+
+  case BRANCH_ECCENTRIC:
+    if(can_branch_on_cols) {
+      chose_row = false;
+      select_col_eccentric(qap,assign,U,bound,qpbp,row_in_U,row_in_assign);
+    }
+    else  // symmetry left: rows only, as for rule 2
+      select_row_max_fathoms(qap,assign,J3,J3_dim,X,U,bound,qpbp,
+			     row_in_U,row_in_assign);
     break;
 
   case BRANCH_BUFF:

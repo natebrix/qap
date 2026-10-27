@@ -52,7 +52,7 @@ void print_bnb_params(BNBParameters *&params,int nlevel)
 
     if(params[i].which_bound==GLB_BND)
       printf("---/---/--\t");
-    else if((params[i].rule==1)||(params[i].rule==2))
+    else if((params[i].rule==1)||(params[i].rule==2)||(params[i].rule==6))
       printf("%3d/%3d/--\t",
 		params[i].maxier_bnd,
 		params[i].maxier_nofathom);
@@ -62,7 +62,7 @@ void print_bnb_params(BNBParameters *&params,int nlevel)
 		params[i].maxier_nofathom,
 		params[i].maxier_br);
 
-    if((params[i].rule==1)||(params[i].rule==2))
+    if((params[i].rule==1)||(params[i].rule==2)||(params[i].rule==6))
       std::cout << "--" << "\t";
     else
       std::cout << params[i].use_best << "\t";
@@ -183,7 +183,7 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
   // every value after it. Catch that instead of branching on garbage.
   for(i=0;i<nlevel;i++) {
     const BNBParameters &q = params[i];
-    if(!f || q.rule < 1 || q.rule > 5 || q.which_bound < 0 || q.which_bound > 7 ||
+    if(!f || q.rule < 1 || q.rule > 6 || q.which_bound < 0 || q.which_bound > 7 ||
        q.maxier_bnd < 0 || q.maxier_nofathom < 0 || q.maxier_br < 0 ||
        q.use_best < 0 ||
        // the parametric bounds update S,T every param_step iterations; 0 would
