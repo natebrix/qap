@@ -1,0 +1,311 @@
+diff --git a/latest/assign.C b/latest/assign.C
+index e566258..8953715 100644
+--- a/latest/assign.C
++++ b/latest/assign.C
+@@ -749,6 +749,7 @@ WarmStart *new_warm_start(const Index *p, int n, MAT *X)
+   w->p = new Index[n];
+   for (int i = 0; i < n; i++) w->p[i] = p[i];
+   w->X = m_copy(X, MNULL);
++  w->dshift = NULL;
+   return w;
+ }
+ 
+@@ -761,6 +762,7 @@ void warm_start_release(WarmStart *&w)
+ {
+   if (w && --w->refs == 0) {
+     delete [] w->p;
++    delete [] w->dshift;
+     M_FREE(w->X);
+     delete w;
+   }
+diff --git a/latest/assign.h b/latest/assign.h
+index 5bcc174..62fe31e 100644
+--- a/latest/assign.h
++++ b/latest/assign.h
+@@ -85,6 +85,7 @@ struct WarmStart
+   int n;          // instance size
+   Index *p;       // the parent's assignment
+   MAT *X;         // the parent's X: its free rows x free columns, in order
++  double *dshift; // EXPERIMENT: diagonal shift by facility, or NULL
+ };
+ 
+ WarmStart *new_warm_start(const Index *p, int n, MAT *X);
+diff --git a/latest/bnb.C b/latest/bnb.C
+index c872bde..e555768 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -14,6 +14,7 @@
+ #include <fstream>
+ #include <algorithm>
+ #include "state.h"
++#include "shiftexp.h"
+ #include <csignal>
+ 
+ // Saving state (driver flags -o, -k, -t, -r; see state.h).
+@@ -335,6 +336,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 
+   BNBParameters *param;
+   QAPAssignment a(n),kid[n],node;
++  std::vector<double> inh(n, 0.0);
+   QPBParameters *qpbp;    
+   BranchParameters *bp = new BranchParameters();
+   
+@@ -568,8 +570,26 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	qpbp->improve = true;    // drop thru to QP_BND_PARAM
+       case QP_BND_PARAM:
+       case EVB3_BND:
++	inh.assign(n, 0.0);
++	if (shx_inherit) {
++	  if (node.warm && node.warm->dshift) {
++	    std::vector<double> dm; 
++	    for (int r = 0; r < n; r++) if (node.p[r] == NONE) { dm.push_back(node.warm->dshift[r]); inh[r] = node.warm->dshift[r]; }
++	    apply_shift_d(qr->A, qr->B, qr->C, dm);
++	  }
++	}
++	else if (!shx_guard && shift_wanted(node.depth, m)) apply_shift(qr->A, qr->B, qr->C);
+ 	init_X_warm(node, X);
+ 	bound = qpbnd_parametric(qr->A,qr->B,qr->C,X,U,qpbp);
++	if (shx_guard && shift_wanted(node.depth, m) && bound <= s->getObjective() - DELTA) {
++	  MAT *X0 = m_copy(X, MNULL), *U0 = m_copy(U, MNULL);
++	  if (shx_mode == 2) apply_shift_X(qr->A, qr->B, qr->C, X0); else apply_shift(qr->A, qr->B, qr->C);
++	  double b1 = qpbnd_parametric(qr->A,qr->B,qr->C,X,U,qpbp);  // from the unshifted X
++	  shx_g_all += b1 - bound; shx_n_all++;
++	  if (b1 > bound) { shx_g_pos += b1 - bound; bound = b1; shx_better++; }
++	  else { m_copy(X0, X); m_copy(U0, U); }
++	  M_FREE(X0); M_FREE(U0);
++	}
+ 
+ 	break;
+       case QP_BND:
+@@ -629,6 +649,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	// children start from it (copied first: branch() may use X)
+ 	WarmStart *warm = (param->which_bound != GLB_BND)
+ 	  ? new_warm_start(node.p, n, X) : NULL;
++	if (warm && shx_inherit && shift_wanted(node.depth, m)) {
++	  std::vector<double> delta;
++	  apply_shift(qr->A, qr->B, qr->C, &delta);
++	  warm->dshift = new double[n];
++	  for (int r = 0, k = 0; r < n; r++) warm->dshift[r] = (node.p[r] == NONE) ? inh[r] + delta[k++] : 0.0;
++	}
+ 	branch(q, node, X, U, kid, kids, bound + qpbp->lapU,
+ 	       qpbp, bp, loc_in_row, loc_kept);
+ 	for (i = 0; i < kids; i++)
+@@ -721,6 +747,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+     stats->stack_size = list_length(stack);
+   }
+ 
++  shift_report();
+   M_FREE(X);  M_FREE(U);
+   delete [] p;
+   delete qr;
+diff --git a/latest/makefile b/latest/makefile
+index 11f3e26..59fba4a 100644
+--- a/latest/makefile
++++ b/latest/makefile
+@@ -19,7 +19,7 @@ LDLIBS = -lm $(MESCHACHLIB)
+ 
+ OBJS = qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o \
+        solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o \
+-       sa_qap.o stats.o console.o lgb_train.o state.o
++       sa_qap.o stats.o console.o lgb_train.o state.o shiftexp.o
+ 
+ all:    bnb
+ 
+diff --git a/latest/shiftexp.C b/latest/shiftexp.C
+new file mode 100644
+index 0000000..bcaa3cb
+--- /dev/null
++++ b/latest/shiftexp.C
+@@ -0,0 +1,172 @@
++// EXPERIMENT (scratch only): per-node diagonal shift A + Diag(d).
++// Env switches:
++//   QAP_SHIFT_DEPTH  apply at node depth <= this (default -1: off)
++//   QAP_SHIFT_MINM   only when the reduced size m >= this (default 4)
++//   QAP_SHIFT_STEPS  ascent steps (default 5)
++//   QAP_SHIFT_MODE   0 eigen-term proxy, 1 PB proxy (eigen + LAP), default 1
++//   QAP_SHIFT_STEP   base step, in units of mean |A_ij| (default 0.8)
++//   QAP_SHIFT_GUARD  1: also compute the unshifted bound, keep the better
++//   QAP_SHIFT_WHICH  0 shift A, 1 shift B (default 0)
++#include "shiftexp.h"
++#include "linalg.h"
++#include "dlap.h"
++#include <cstdlib>
++#include <cmath>
++#include <vector>
++#include <algorithm>
++#include <cstdio>
++
++static int envi(const char *k, int d) { const char *v = getenv(k); return v ? atoi(v) : d; }
++static double envd(const char *k, double d) { const char *v = getenv(k); return v ? atof(v) : d; }
++
++int shx_depth = envi("QAP_SHIFT_DEPTH", -1);
++int shx_minm = envi("QAP_SHIFT_MINM", 4);
++int shx_steps = envi("QAP_SHIFT_STEPS", 5);
++int shx_mode = envi("QAP_SHIFT_MODE", 1);
++double shx_step = envd("QAP_SHIFT_STEP", 0.8);
++int shx_guard = envi("QAP_SHIFT_GUARD", 0);
++int shx_which = envi("QAP_SHIFT_WHICH", 0);
++double shx_g_all = 0, shx_g_pos = 0; long shx_n_all = 0;
++long shx_calls = 0; double shx_gain_sum = 0; long shx_better = 0;
++
++bool shift_wanted(int depth, int m) { return depth <= shx_depth && m >= shx_minm; }
++
++// (V q)_k for the basis vtav() uses: V[0][i] = k1, V[k][i] = k2 + (k == i+1)
++static void lift(const double *q, int m1, double *out)
++{
++  const int n = m1 + 1;
++  const double k1 = -1.0/sqrt((double)n), k2 = -1.0/(n + sqrt((double)n));
++  double s = 0; for (int i = 0; i < m1; i++) s += q[i];
++  out[0] = k1*s;
++  for (int k = 1; k < n; k++) out[k] = k2*s + q[k-1];
++}
++
++// proxy value and supergradient for the shift d of P (P = A or B), Q the other matrix
++static double proxy(MAT *P, MAT *Qm, MAT *C, const std::vector<double> &d, bool shiftA,
++		    const std::vector<double> &mu_asc, std::vector<double> &g)
++{
++  const int n = P->m, m1 = n - 1;
++  MAT *Ps = m_copy(P, MNULL);
++  for (int i = 0; i < n; i++) Ps->me[i][i] += d[i];
++  MAT *H = m_get(m1, m1);
++  vtav(Ps, H);
++  VEC *lam = v_get(m1);
++  my_svd(H, lam);              // rows of H = eigenvectors
++  std::vector<int> ord(m1);
++  for (int i = 0; i < m1; i++) ord[i] = i;
++  std::sort(ord.begin(), ord.end(), [&](int a, int b){ return lam->ve[a] > lam->ve[b]; });
++  double val = 0;
++  g.assign(n, 0.0);
++  std::vector<double> v(n);
++  for (int r = 0; r < m1; r++) {
++    int i = ord[r];
++    val += lam->ve[i]*mu_asc[r];
++    lift(H->me[i], m1, &v[0]);
++    for (int k = 0; k < n; k++) g[k] += mu_asc[r]*v[k]*v[k];
++  }
++  if (shx_mode == 1) {
++    // PB: + LAP(C' + (2/n) rP rQ') - sP sQ / n^2, with C' the shift-corrected C
++    std::vector<double> rP(n, 0.0), rQ(n, 0.0);
++    double sP = 0, sQ = 0;
++    for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) { rP[i] += Ps->me[i][j]; rQ[i] += Qm->me[i][j]; }
++    for (int i = 0; i < n; i++) { sP += rP[i]; sQ += rQ[i]; }
++    double **L = new double*[n];
++    for (int i = 0; i < n; i++) {
++      L[i] = new double[n];
++      for (int j = 0; j < n; j++) {
++	// row index i is a facility (row of X) when shifting A, a location (column) when shifting B
++	double c = shiftA ? C->me[i][j] - d[i]*Qm->me[j][j] : C->me[j][i] - d[i]*Qm->me[j][j];
++	L[i][j] = c + 2.0/n*rP[i]*rQ[j];
++      }
++    }
++    int *x = new int[n], *y = new int[n]; double *u = new double[n], *w = new double[n];
++    double lap = dlap(n, L, x, y, u, w, 1.0);
++    val += lap - sP*sQ/((double)n*n);
++    for (int k = 0; k < n; k++) g[k] += 2.0/n*rQ[x[k]] - Qm->me[x[k]][x[k]] - sQ/((double)n*n);
++    for (int i = 0; i < n; i++) delete [] L[i];
++    delete [] L; delete [] x; delete [] y; delete [] u; delete [] w;
++  }
++  V_FREE(lam); M_FREE(H); M_FREE(Ps);
++  return val;
++}
++
++// Shift the reduced problem in place: A += Diag(d) (or B), C corrected so
++// every permutation keeps its objective.
++void apply_shift(MAT *A, MAT *B, MAT *C, std::vector<double> *out)
++{
++  const bool shiftA = (shx_which == 0);
++  MAT *P = shiftA ? A : B, *Qm = shiftA ? B : A;
++  const int n = P->m, m1 = n - 1;
++  // eigenvalues of V'QV, ascending
++  MAT *H = m_get(m1, m1);
++  vtav(Qm, H);
++  VEC *mu = v_get(m1);
++  my_svd(H, mu);
++  std::vector<double> mu_asc(mu->ve, mu->ve + m1);
++  std::sort(mu_asc.begin(), mu_asc.end());
++  V_FREE(mu); M_FREE(H);
++
++  double scale = 0; int cnt = 0;
++  for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) if (i != j) { scale += fabs(P->me[i][j]); cnt++; }
++  scale = cnt ? scale/cnt : 1.0;
++  if (scale == 0) scale = 1.0;
++
++  std::vector<double> d(n, 0.0), g, best_d(n, 0.0);
++  double v0 = proxy(P, Qm, C, d, shiftA, mu_asc, g), best = v0;
++  for (int it = 0; it < shx_steps; it++) {
++    double mean = 0; for (int k = 0; k < n; k++) mean += g[k]; mean /= n;
++    double nrm = 0; for (int k = 0; k < n; k++) { g[k] -= mean; nrm += g[k]*g[k]; }
++    nrm = sqrt(nrm);
++    if (nrm < 1e-12) break;
++    double st = shx_step*scale/sqrt(it + 1.0)*sqrt((double)n)/nrm;
++    for (int k = 0; k < n; k++) d[k] += st*g[k];
++    double v = proxy(P, Qm, C, d, shiftA, mu_asc, g);
++    if (v > best) { best = v; best_d = d; }
++  }
++  shx_calls++; shx_gain_sum += best - v0;
++  if (out) *out = best_d;
++  for (int i = 0; i < n; i++) P->me[i][i] += best_d[i];
++  for (int i = 0; i < n; i++)
++    for (int j = 0; j < n; j++) {
++      if (shiftA) C->me[i][j] -= best_d[i]*B->me[j][j];
++      else        C->me[i][j] -= A->me[i][i]*best_d[j];   // tr(A X E X') = sum_i a_ii e_p(i)
++    }
++}
++
++void shift_report()
++{
++  if (shx_depth >= 0)
++    fprintf(stderr, "shift: %ld nodes, mean proxy gain %.3f, guarded better %ld, mean QPB change %.3f, mean gain when better %.3f\n",
++	    shx_calls, shx_calls ? shx_gain_sum/shx_calls : 0.0, shx_better, shx_n_all ? shx_g_all/shx_n_all : 0.0, shx_better ? shx_g_pos/shx_better : 0.0);
++}
++
++// mode 2: one step along diag(X B X') (the d-gradient of the QP objective at X,
++// ignoring how S,T react), zero mean, length step*scale*sqrt(n)
++void apply_shift_X(MAT *A, MAT *B, MAT *C, MAT *X)
++{
++  const int n = A->m;
++  std::vector<double> g(n, 0.0);
++  MAT *XB = m_mlt(X, B, MNULL);
++  for (int k = 0; k < n; k++) for (int j = 0; j < n; j++) g[k] += XB->me[k][j]*X->me[k][j];
++  M_FREE(XB);
++  double mean = 0; for (int k = 0; k < n; k++) mean += g[k]; mean /= n;
++  double nrm = 0; for (int k = 0; k < n; k++) { g[k] -= mean; nrm += g[k]*g[k]; }
++  nrm = sqrt(nrm);
++  if (nrm < 1e-12) return;
++  double scale = 0; int cnt = 0;
++  for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) if (i != j) { scale += fabs(A->me[i][j]); cnt++; }
++  scale = cnt ? scale/cnt : 1.0;
++  double st = shx_step*scale*sqrt((double)n)/nrm;
++  for (int i = 0; i < n; i++) A->me[i][i] += st*g[i];
++  for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) C->me[i][j] -= st*g[i]*B->me[j][j];
++  shx_calls++;
++}
++
++// apply a given A shift d (length m)
++void apply_shift_d(MAT *A, MAT *B, MAT *C, const std::vector<double> &d)
++{
++  const int n = A->m;
++  for (int i = 0; i < n; i++) A->me[i][i] += d[i];
++  for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) C->me[i][j] -= d[i]*B->me[j][j];
++}
++int shx_inherit = envi("QAP_SHIFT_INHERIT", 0);
+diff --git a/latest/shiftexp.h b/latest/shiftexp.h
+new file mode 100644
+index 0000000..683cf39
+--- /dev/null
++++ b/latest/shiftexp.h
+@@ -0,0 +1,14 @@
++#ifndef SHIFTEXP_H
++#define SHIFTEXP_H
++#include <vector>
++#include "meschach.h"
++#undef catch
++extern int shx_guard; extern double shx_g_all, shx_g_pos; extern long shx_n_all; extern long shx_better;
++bool shift_wanted(int depth, int m);
++void apply_shift(MAT *A, MAT *B, MAT *C, std::vector<double> *out = NULL);
++void apply_shift_d(MAT *A, MAT *B, MAT *C, const std::vector<double> &d);
++extern int shx_inherit;
++void apply_shift_X(MAT *A, MAT *B, MAT *C, MAT *X);
++extern int shx_mode;
++void shift_report();
++#endif

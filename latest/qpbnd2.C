@@ -126,7 +126,7 @@ double qpbnd2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
 
   if(lo_bound <= qpbp->inc) {
     if(accurate_ier > 0) {
-      lo_bound = -1e-99;
+      lo_bound = INIT_LOBND;     // (was -1e-99, i.e. 0: too high when bounds are negative)
       fw(A,B,C,S,T,G,X,U1,xstar,C_X,G_X,A->m,iter,total_iter,accurate_ier,1000,
 	 qpbp->shift+eig,qpbp->inc,qpbp->feasible,
 	 status, up_bound, lo_bound, accurate_scaling,true,improve,bnd_used);
