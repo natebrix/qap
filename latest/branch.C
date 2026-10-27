@@ -829,7 +829,25 @@ void weighted_row_col_sums(const QAPAssignment &assign,int *J3,int J3_dim,
 
 }
 
+// rank[d] = position of line d when v is sorted descending (0 = largest).
+// v is left as it is.
+inline void rank_descending(const double *v, int *rank, int m)
+{
+  double *w = new double[m];
+  int *order = new_perm<int>(m);
+  for (int k = 0; k < m; k++) w[k] = v[k];
+  ins_sort_descending(w, order, m);   // order[k] = line in position k
+  for (int k = 0; k < m; k++) rank[order[k]] = k;
+  delete [] w;
+  delete [] order;
+}
+
 // !! Allocates memory
+// u_row_sum[d], u_col_sum[d]: U sums of row/column d; row_order[d],
+// col_order[d]: its rank (0 = largest sum). Callers keep the lines with
+// rank < use_best. (These used to be the sorted sums and the inverse
+// permutation, so callers tested the wrong lines and started each line's
+// score from another line's sum.)
 inline void row_col_rank_sum(const QAPAssignment &assign, QPBParameters *qpbp,
 			 int *J3,int J3_dim,MAT *U,bool weighted,
 			 double *&u_row_sum,double *&u_col_sum,
@@ -844,13 +862,14 @@ inline void row_col_rank_sum(const QAPAssignment &assign, QPBParameters *qpbp,
   else
     row_col_sums(assign,J3,J3_dim,U,u_row_sum,u_col_sum);
 
-  row_order = new_perm<int>(m);
-  col_order = new_perm<int>(m);
+  row_order = new int[m];
+  col_order = new int[m];
 
-  ins_sort_descending(u_row_sum,row_order,m);
-  ins_sort_descending(u_col_sum,col_order,m);
+  rank_descending(u_row_sum,row_order,m);
+  rank_descending(u_col_sum,col_order,m);
 }
 
+// as row_col_rank_sum, rows only
 inline void row_rank_sum(const QAPAssignment &assign,QPBParameters *qpbp,
 		     int *J3,int J3_dim,MAT *U,bool weighted,
 		     double *&u_row_sum,int *&row_order,int m)
@@ -863,9 +882,9 @@ inline void row_rank_sum(const QAPAssignment &assign,QPBParameters *qpbp,
     row_sum(assign,J3,J3_dim,U,u_row_sum);
   }
 
-  row_order = new_perm<int>(m);
+  row_order = new int[m];
 
-  ins_sort_descending(u_row_sum,row_order,m);
+  rank_descending(u_row_sum,row_order,m);
 }
 
 inline void scores(const QAPAssignment &assign,
