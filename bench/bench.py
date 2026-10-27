@@ -214,8 +214,12 @@ def parse_output(text):
 def run_one(name, params, ub, timeout, log_path, jobs=1):
     dat = os.path.join(QAPLIB, name + ".dat")
     if jobs > 1:
-        # bench/parallel.py prints the solver's RESULTS block with summed CPU time
-        cmd = [sys.executable, os.path.join(ROOT, "bench", "parallel.py"), dat,
+        # bench/parallel.py prints the solver's RESULTS block with summed CPU time.
+        # Use the solver tree's own copy: the state file format changes with it.
+        par = os.path.join(os.path.dirname(SOLVER_DIR), "bench", "parallel.py")
+        if not os.path.exists(par):
+            par = os.path.join(ROOT, "bench", "parallel.py")
+        cmd = [sys.executable, par, dat,
                "--jobs", str(jobs), "--params", params, "--solver", SOLVER]
         if ub is not None:
             cmd += ["--ub", str(ub)]
