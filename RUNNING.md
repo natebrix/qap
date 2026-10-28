@@ -96,6 +96,11 @@ python3 bench/parallel.py qaplib/nug24.dat --jobs 4 --ub 3488 --checkpoint nug24
 python3 bench/parallel.py qaplib/nug24.dat --jobs 4 --ub 3488 --resume nug24.ckpt   # after a restart
 ```
 
+For scale: nug25 with the known optimum as the incumbent (`--ub 3744
+--jobs 4`, default.par at db8df94, 4 cores at 2.8 GHz) took 52,989,998 nodes,
+18,353 CPU seconds and 78 minutes wall. `bench/sample_estimate.py` had
+predicted 18,652 +- 11,627 CPU seconds from 600 sampled depth-3 subtrees.
+
 The root is solved serially and its children go into a pool; up to `--jobs`
 solver processes each take a chunk of nodes. When a worker is idle and the
 pool is empty, the busiest worker is sent SIGUSR1 and its remaining nodes are

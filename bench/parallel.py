@@ -188,7 +188,7 @@ def main():
     template.zero_stats()
 
     pool = collections.deque(total.nodes)
-    cpu_before = total.times[0]          # CPU already spent before a --resume
+    cpu_before = total.times[0] if args.resume else 0.0   # CPU spent before a --resume
     print(f"parallel: frontier at depth {args.depth} has {len(pool)} open nodes; "
           f"{args.jobs} workers", flush=True)
 
