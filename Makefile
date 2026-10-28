@@ -6,11 +6,13 @@
 #   make regression    quick suite vs bench/reference/ (~15 s)
 #   make resume        stop/resume a run in slices; totals must not change (~10 s)
 #   make parallel      bench/parallel.py matches the serial solver (~20 s)
+#   make dnntest       latest/dnntest, the DNN bound's driver (needs LAPACK, see latest/makefile)
+#   make dnncheck      validate the DNN bound (tests/dnn_test.py, ~2 min)
 #   make clean
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel regression clean
+.PHONY: all solver test bruteforce resume parallel regression clean dnntest dnncheck
 
 all: solver
 
@@ -33,6 +35,12 @@ parallel: solver
 
 regression: solver
 	$(PYTHON) bench/bench.py check
+
+dnntest: src/MESCHACH/meschach.a
+	$(MAKE) -C latest dnntest
+
+dnncheck: dnntest
+	$(PYTHON) tests/dnn_test.py
 
 clean:
 	$(MAKE) -C latest clean
