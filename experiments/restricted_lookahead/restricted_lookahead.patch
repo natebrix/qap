@@ -1,0 +1,51 @@
+diff --git a/latest/branch.C b/latest/branch.C
+index 3c8a23e..bd0b348 100644
+--- a/latest/branch.C
++++ b/latest/branch.C
+@@ -1,3 +1,4 @@
++#include <cstdlib>
+ /*
+ ============================================================
+               (see branch.h for details)
+@@ -2088,6 +2089,32 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+   row_col_rank_sum(assign,qpbp,J3,J3_dim,U,weighted,
+ 		   u_row_sum,u_col_sum,row_order,col_order,m);
+ 
++  // EXPERIMENT: restricted candidate lines (env), from depth QAP_LA_MINFIX on
++  int kr = use_best, kc = use_best;
++  {
++    static int minfix = getenv("QAP_LA_MINFIX") ? atoi(getenv("QAP_LA_MINFIX")) : 3;
++    static int ecc = getenv("QAP_LA_ECC") ? atoi(getenv("QAP_LA_ECC")) : 0;
++    static int ekr = getenv("QAP_LA_KR") ? atoi(getenv("QAP_LA_KR")) : -1;
++    static int ekc = getenv("QAP_LA_KC") ? atoi(getenv("QAP_LA_KC")) : -1;
++    if (assign.nfix >= minfix) {
++      if (ekr >= 0) kr = ekr;
++      if (ekc >= 0) kc = ekc;
++      if (ecc) {   // rank free columns by eccentricity instead of U sum
++	double *e = new double[m];
++	for (int jj = 0, d = -1; jj < assign.n; jj++) {
++	  if (assign.pinv[jj] > NONE) continue;
++	  d++;
++	  double mx = -1.0e100;
++	  for (int kk = 0; kk < assign.n; kk++)
++	    if (kk != jj && assign.pinv[kk] <= NONE && qap->B->me[jj][kk] > mx) mx = qap->B->me[jj][kk];
++	  e[d] = mx + 1e-9*u_col_sum[d];   // ties by U sum
++	}
++	rank_descending(e, col_order, m);
++	delete [] e;
++      }
++    }
++  }
++
+   int n = assign.n;
+   MAT *X1 = MNULL, *U1 = MNULL;
+   int *J3_child, J3_child_dim,J3_child_count;
+@@ -2134,7 +2161,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+ 
+       // skip over entries that are are not 'good enough' as determined
+       // by row_ / col_order.
+-      if((row_order[di] >= use_best) && (col_order[dj] >= use_best)) continue;
++      if((row_order[di] >= kr) && (col_order[dj] >= kc)) continue;
+       
+       assign.fix(i,j);
+       
