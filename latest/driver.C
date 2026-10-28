@@ -1,3 +1,4 @@
+#include <cstdio>
 /*A
   usage:
 
@@ -56,6 +57,11 @@ EstimateParameters *ep = NULL;
 extern const char *bnb_state_file;
 extern double bnb_checkpoint_every;
 extern double bnb_time_limit;
+extern int dnn_min_depth, dnn_max_depth, dnn_hopeless_after;
+extern double dnn_max_gap;
+#ifdef HAVE_DNN
+#include "dnn.h"
+#endif
 extern bool bnb_resumed;
 extern bool bnb_stopped;
 extern volatile sig_atomic_t bnb_stop_requested;
@@ -98,6 +104,9 @@ void print_help()
        << "-u X\tset initial upper bound X"  << std::endl
        << "-o F\twrite branch-and-bound state to F (at checkpoints, on -t, at the end)" << std::endl
        << "-k X\twith -o, checkpoint every X CPU seconds" << std::endl
+       << "-x D1:D2[:G[:H]]\tDNN bound on nodes QPB does not fathom at depths D1-D2\n"
+       << "\twith relative gap at most G (default 1); H: give up after H\n"
+       << "\titerations when hopeless (default 0, never)" << std::endl
        << "-t X\twith -o, stop after X CPU seconds, saving state (exit code 3)" << std::endl
        << "-r F\tresume from state file F instead of the root" << std::endl
        << "-w W\tat lookahead/strong levels, stop a node's FW W iterations after it\n"
@@ -227,6 +236,28 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	i++;
 	resume_file = new_string(argv[i]);
 	cout << "resume from: " << resume_file << std::endl;
+	break;
+
+      case 'x': // DNN bound at depths dmin..dmax: -x dmin:dmax[:maxgap[:hopeless]]
+	i++;
+#ifdef HAVE_DNN
+	{
+	  int n = sscanf(argv[i], "%d:%d:%lf:%d", &dnn_min_depth, &dnn_max_depth,
+			 &dnn_max_gap, &dnn_hopeless_after);
+	  if (n < 2) {
+	    cerr << "-x needs dmin:dmax[:maxgap[:hopeless]], e.g. -x 2:3" << std::endl;
+	    exit(1);
+	  }
+	  dnn_set_blas_threads(1);   // one core per solver process
+	  cout << "DNN bound at depths " << dnn_min_depth << "-" << dnn_max_depth
+	       << ", relative gap <= " << dnn_max_gap << ", give up after "
+	       << dnn_hopeless_after << " iterations (0 = never), "
+	       << dnn_lapack_name() << std::endl;
+	}
+#else
+	cerr << "-x: this bnbdrv was built without the DNN bound (make DNN=0)" << std::endl;
+	exit(1);
+#endif
 	break;
 
       case 'w': // Frank-Wolfe patience once a node cannot be fathomed

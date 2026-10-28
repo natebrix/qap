@@ -10,6 +10,15 @@ CF = -O3 -march=native -ffp-contract=off
 
 CFLAGS = $(CF) -DBNB_STANDALONE
 
+# The DNN bound (dnn.C; bnbdrv -x) needs LAPACK, found as described at
+# the dnntest target below. Build without it: make DNN=0.
+DNN ?= 1
+ifeq ($(DNN),1)
+CFLAGS += -DHAVE_DNN
+DNN_OBJ = dnn.o
+DNN_LIBS = $(DNN_LAPACK)
+endif
+
 MESCHACH = ../src/MESCHACH
 MESCHACHLIB = ../src/MESCHACH/meschach.a
 
@@ -29,12 +38,12 @@ clean:
 .C.o:	
 	$(CPP) $(CFLAGS) $(INCLUDES) -c $?
 
-bnb:	$(OBJS) driver.o
-	$(CPP) $(CFLAGS) $(OBJS) driver.o -o $(BNB) $(LDLIBS)
+bnb:	$(OBJS) $(DNN_OBJ) driver.o
+	$(CPP) $(CFLAGS) $(OBJS) $(DNN_OBJ) driver.o -o $(BNB) $(LDLIBS) $(DNN_LIBS)
 
 
 # ---- DNN bound (dnn.C, dnn.h) and its test driver: make dnntest ----
-# Not part of bnbdrv. dnn.C needs LAPACK/BLAS. If the scipy-openblas32 wheel
+# dnn.C needs LAPACK/BLAS. If the scipy-openblas32 wheel
 # is installed (pip install scipy-openblas32), its OpenBLAS is used: 32-bit
 # integers, symbols prefixed scipy_, about 7x faster than the reference
 # LAPACK. Otherwise the system liblapack.so.3 / libblas.so.3 are linked.

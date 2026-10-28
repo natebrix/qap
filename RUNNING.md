@@ -70,6 +70,7 @@ Other flags (`./bnbdrv` with no arguments prints help):
 | `-k X` | with `-o`, checkpoint every X CPU seconds |
 | `-t X` | with `-o`, stop after X CPU seconds, saving the state; exit code 3 |
 | `-r F` | resume from state file F instead of the root |
+| `-x D1:D2[:G[:H]]` | DNN bound (latest/dnn.C) on nodes QPB does not fathom at depths D1-D2 with relative gap (inc - QPB)/(inc - root QPB) at most G (default 1); H: give up on a node after H iterations when hopeless (default 0, never). Needs LAPACK (see below) |
 | `-w W` | Frank-Wolfe patience at lookahead/strong levels (default 0 = off; see `bench/LOG.csv`) |
 
 ### Long runs: checkpoint and resume
@@ -193,6 +194,22 @@ uses it at depths 3-4 with `use_best` 3. Measured against rule 4 there
 (5 rows + 5 columns): standard suite time 0.938, nug24 0.937, large set
 about 0.84 (esc16a 0.69, chr15a 1.13 slower). It keeps lookahead's payoff
 on sparse-flow instances, which rule 6 loses.
+
+### The DNN bound (-x)
+
+`latest/dnn.C` computes a certified lower bound from the doubly nonnegative
+(DNN) SDP relaxation (experiments/dnn_bound). It is far stronger than QPB and
+far more expensive, so it pays only near the top of the tree: nug20 with
+`-x 2:2` takes 84,592 nodes and 117 s (QPB alone 526,205 nodes, 197 s), with
+`-x 2:3` 141 nodes and 105 s. It needs LAPACK: `pip install scipy-openblas32`
+gives an OpenBLAS the makefile finds (it falls back to the system
+liblapack/libblas, ~7x slower); `make DNN=0` builds without it (then `-x`
+is an error). Rebuild after installing or removing the OpenBLAS wheel. Its
+floating-point results depend on the BLAS kernels OpenBLAS picks for the
+CPU, so node counts with `-x` can differ between machines (rarely: only a
+bound within ~1e-6 of the cutoff decides differently). `make dnncheck`
+validates the bound itself; `python3 tests/brute_force.py --solver-args
+"-x 0:20"` checks it inside the search.
 
 ## Correctness checks
 

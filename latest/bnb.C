@@ -25,6 +25,18 @@ bool bnb_stopped = false;            // set when bnb() stops on the time limit
 // Set by SIGUSR1 (see driver.C): save state and stop at the next node, like -t.
 // bench/parallel.py uses it to take work back from a busy worker.
 volatile sig_atomic_t bnb_stop_requested = 0;
+
+// DNN bound (-x dmin:dmax[:maxgap[:hopeless]]): applied to nodes QPB does not
+// fathom at depths dmin..dmax whose relative gap (inc - QPB)/(inc - root QPB)
+// is at most maxgap. Off while dnn_max_depth < 0.
+int dnn_min_depth = 0, dnn_max_depth = -1;
+double dnn_max_gap = 1.0;
+int dnn_hopeless_after = 0;          // DNNParams::hopeless_after; 0 = never give up
+long dnn_calls = 0, dnn_fathoms = 0;
+double dnn_cpu = 0;
+#ifdef HAVE_DNN
+#include "dnn.h"
+#endif
 #include <math.h>
 //#include <time.h>
 
@@ -606,6 +618,33 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       */
       node.bound = std::max(std::max(bound, node.bound), node.predicted_bound);
       if (node.depth == 0) stats->root_bound = bound;
+
+      // ************** DNN bound (-x) **************
+      // A much stronger, much more expensive bound for nodes near the top
+      // that QPB cannot fathom (see dnn.h, experiments/dnn_bound). It is used
+      // only to fathom and in node.bound: branch() below still gets the QPB
+      // bound, since bound + U_ij is only valid with the QPB value and U.
+      bool dnn_fathomed = false;
+#ifdef HAVE_DNN
+      if (bound <= s->getObjective() - DELTA && m >= 2 &&
+	  node.depth >= dnn_min_depth && node.depth <= dnn_max_depth) {
+	const double inc = s->getObjective();
+	const double gap = (inc - bound) / std::max(inc - stats->root_bound, 1e-9);
+	if (gap <= dnn_max_gap) {
+	  DNNParams dp;
+	  // giving up early on a node that would fathom costs its whole subtree
+	  dp.hopeless_after = dnn_hopeless_after;
+	  DNNResult r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp);
+	  dnn_calls++;
+	  dnn_cpu += r.cpu;
+	  node.bound = std::max(node.bound, r.lb);
+	  if (r.status == DNN_FATHOMED) {
+	    dnn_fathomed = true;
+	    dnn_fathoms++;
+	  }
+	}
+      }
+#endif
     
       // ************** fathom / branch **************
 
@@ -613,7 +652,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 
       /*
       */
-      if (bound  <= s->getObjective() - DELTA) {
+      if (bound  <= s->getObjective() - DELTA && !dnn_fathomed) {
 	
 	// kids = the number of child nodes formed,
 	// kid[0]..kid[kids-1] hold the child nodes.
@@ -721,6 +760,9 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
     stack = too_deep;
     stats->stack_size = list_length(stack);
   }
+
+  if (dnn_calls > 0)
+    printf("DNN bound: %ld nodes, %ld fathomed, %.1f s\n", dnn_calls, dnn_fathoms, dnn_cpu);
 
   M_FREE(X);  M_FREE(U);
   delete [] p;

@@ -260,8 +260,8 @@ def cmd_run(args):
     if not os.path.exists(SOLVER):
         sys.exit(f"{SOLVER} not found; build first (see RUNNING.md) or pass --build")
     # the run is recorded under the current commit, so the binary must be built from it
-    # (the DNN bound and its driver are not linked into bnbdrv)
-    not_in_solver = ("dnn.C", "dnn.h", "dnntest.C")
+    # (the DNN bound's test driver is not linked into bnbdrv)
+    not_in_solver = ("dnntest.C",)
     stale = [f for f in os.listdir(SOLVER_DIR) if f.endswith((".C", ".h", "makefile"))
              and f not in not_in_solver
              and os.path.getmtime(os.path.join(SOLVER_DIR, f)) > os.path.getmtime(SOLVER)]
