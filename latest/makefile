@@ -8,7 +8,9 @@ BNB = bnbdrv
 # therefore node counts, stay identical across machines (see RUNNING.md).
 CF = -O3 -march=native -ffp-contract=off
 
-CFLAGS = $(CF) -DBNB_STANDALONE
+# -MMD -MP: each .o gets a .d file listing the headers it includes, so make
+# rebuilds it when one changes (a stale object after a header change crashes)
+CFLAGS = $(CF) -DBNB_STANDALONE -MMD -MP
 
 # The DNN bound (dnn.C; bnbdrv -x) needs LAPACK, found as described at
 # the dnntest target below. Build without it: make DNN=0.
@@ -33,10 +35,10 @@ OBJS = qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o \
 all:    bnb
 
 clean:
-	rm -f *.o *~ a.out dnntest
+	rm -f *.o *.d *~ a.out dnntest
 
 .C.o:	
-	$(CPP) $(CFLAGS) $(INCLUDES) -c $?
+	$(CPP) $(CFLAGS) $(INCLUDES) -c $<
 
 bnb:	$(OBJS) $(DNN_OBJ) driver.o
 	$(CPP) $(CFLAGS) $(OBJS) $(DNN_OBJ) driver.o -o $(BNB) $(LDLIBS) $(DNN_LIBS)
@@ -64,3 +66,5 @@ dnntest.o: dnntest.C dnn.h
 
 dnntest: $(OBJS) dnn.o dnntest.o
 	$(CPP) $(CFLAGS) $(OBJS) dnn.o dnntest.o -o dnntest $(LDLIBS) $(DNN_LAPACK)
+
+-include $(wildcard *.d)
