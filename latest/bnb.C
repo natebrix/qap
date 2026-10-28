@@ -550,7 +550,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // every node, and it is a single node.
       qpbp->nofathom_patience =
 	(node.depth > 0 &&
-	 (param->rule == BRANCH_LOOKAHEAD || param->rule == BRANCH_STRONG))
+	 (param->rule == BRANCH_LOOKAHEAD || param->rule == BRANCH_LOOKAHEAD_ECC ||
+	  param->rule == BRANCH_STRONG))
 	? fw_nofathom_patience : 0;
       qpbp->step = param->param_step;
       qpbp->fw_iter = 0;
@@ -635,7 +636,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  kid[i].set_warm(warm);
 	warm_start_release(warm);
 
-	if (params->log_file && (bp->how == BRANCH_LOOKAHEAD)) {
+	if (params->log_file && (bp->how == BRANCH_LOOKAHEAD || bp->how == BRANCH_LOOKAHEAD_ECC)) {
 	  log_matrix(params, "B|_", U);
 	}
 	

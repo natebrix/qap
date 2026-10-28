@@ -183,7 +183,7 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
   // every value after it. Catch that instead of branching on garbage.
   for(i=0;i<nlevel;i++) {
     const BNBParameters &q = params[i];
-    if(!f || q.rule < 1 || q.rule > 6 || q.which_bound < 0 || q.which_bound > 7 ||
+    if(!f || q.rule < 1 || q.rule > 7 || q.which_bound < 0 || q.which_bound > 7 ||
        q.maxier_bnd < 0 || q.maxier_nofathom < 0 || q.maxier_br < 0 ||
        q.use_best < 0 ||
        // the parametric bounds update S,T every param_step iterations; 0 would

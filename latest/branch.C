@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <vector>
 /*
 ============================================================
               (see branch.h for details)
@@ -1312,6 +1314,16 @@ location is equally eccentric (e.g. esc16a's hypercube), where the
 rule says nothing and the caller uses rule 2 instead.
 ============================================================
 */
+// largest B entry from free location j to another free location
+static double location_eccentricity(QAP *qap,const QAPAssignment &assign,int j)
+{
+  double ecc = -1.0e100;
+  for(int k=0;k<assign.n;k++)
+    if((k != j) && (assign.pinv[k] <= NONE) && (qap->B->me[j][k] > ecc))
+      ecc = qap->B->me[j][k];
+  return ecc;
+}
+
 bool select_col_eccentric(QAP *qap,const QAPAssignment &assign,MAT *U,
 			  double bound,QPBParameters *qpbp,
 			  int &ind_in_U,int &ind_in_assign)
@@ -1327,10 +1339,7 @@ bool select_col_eccentric(QAP *qap,const QAPAssignment &assign,MAT *U,
     if(assign.pinv[j] > NONE) continue;
     dj++;
 
-    double ecc = -1.0e100;
-    for(int k=0;k<n;k++)
-      if((k != j) && (assign.pinv[k] <= NONE) && (qap->B->me[j][k] > ecc))
-	ecc = qap->B->me[j][k];
+    const double ecc = location_eccentricity(qap,assign,j);
     if (ecc < low_ecc) low_ecc = ecc;
 
     int f = 0;  double sum = 0.0;
@@ -2058,12 +2067,22 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
   }
 }
 
+/*
+ Lookahead (rules 4 and 7): bound every child of the candidate lines and
+ branch on the line whose children score best. Rule 4's candidates are
+ the use_best rows and the use_best columns with the largest U sums.
+ Rule 7 (eccentric_cols) takes the use_best most eccentric free columns
+ (ties by U sum, see select_col_eccentric) and the use_best-1 rows with
+ the largest U sums: as good a choice for grid-like instances at a
+ fraction of the cost, and the rows keep it working where locations
+ don't differ (esc16a). See experiments/restricted_lookahead.
+*/
 void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
 			  int *J3, int J3_dim,MAT *X,MAT *U,
 			  double bound,QPBParameters *qpbp,int use_best,
 			  bool weighted, int which_bound,
 			  int &ind_in_U,int &ind_in_assign,
-			  bool &chose_row)
+			  bool &chose_row, bool eccentric_cols = false)
 {
   int i,j,di,dj,k,l,bi;
   int m = U->n;
@@ -2087,6 +2106,24 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
 
   row_col_rank_sum(assign,qpbp,J3,J3_dim,U,weighted,
 		   u_row_sum,u_col_sum,row_order,col_order,m);
+
+  int kr = use_best, kc = use_best;   // candidate rows, columns
+  if (eccentric_cols) {
+    std::vector<double> ecc(m);
+    std::vector<int> by(m);
+    for (int jj = 0, d = -1; jj < assign.n; jj++) {
+      if (assign.pinv[jj] > NONE) continue;
+      d++;
+      ecc[d] = location_eccentricity(qap, assign, jj);
+    }
+    for (int d = 0; d < m; d++) by[d] = d;
+    std::sort(by.begin(), by.end(), [&](int a, int b) {
+	if (ecc[a] != ecc[b]) return ecc[a] > ecc[b];
+	if (u_col_sum[a] != u_col_sum[b]) return u_col_sum[a] > u_col_sum[b];
+	return a < b; });
+    for (int k = 0; k < m; k++) col_order[by[k]] = k;
+    kr = std::max(use_best - 1, 0);
+  }
 
   int n = assign.n;
   MAT *X1 = MNULL, *U1 = MNULL;
@@ -2134,7 +2171,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
 
       // skip over entries that are are not 'good enough' as determined
       // by row_ / col_order.
-      if((row_order[di] >= use_best) && (col_order[dj] >= use_best)) continue;
+      if((row_order[di] >= kr) && (col_order[dj] >= kc)) continue;
       
       assign.fix(i,j);
       
@@ -2486,6 +2523,20 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
 			   bp->use_best,
 			   use_weighted_branching, bp->which_bound,
 			   row_in_U,row_in_assign,chose_row);
+    }
+    else
+      select_row_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
+			   bp->use_best,
+			   use_weighted_branching, bp->which_bound,
+			   row_in_U,row_in_assign);
+    break;
+
+  case BRANCH_LOOKAHEAD_ECC:
+    if(can_branch_on_cols) {
+      select_ind_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
+			   bp->use_best,
+			   use_weighted_branching, bp->which_bound,
+			   row_in_U,row_in_assign,chose_row,true);
     }
     else
       select_row_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,

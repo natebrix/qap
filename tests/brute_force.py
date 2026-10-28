@@ -36,7 +36,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_SOLVER = os.path.join(ROOT, "latest", "bnbdrv")
 
 PARAMS = ["PARAM/default.par", "PARAM/rule1.par", "PARAM/rule2.par",
-          "PARAM/rule3.par", "PARAM/rule4.par", "PARAM/rule6.par", "PARAM/glb.par",
+          "PARAM/rule3.par", "PARAM/rule4.par", "PARAM/rule6.par", "PARAM/rule7.par", "PARAM/glb.par",
           # plain QP bound (bound type 0), which the PARAM/ files don't cover
           os.path.join(ROOT, "tests", "params", "qp0.par")]
 # initial upper bound modes: None = solver default (no incumbent)
