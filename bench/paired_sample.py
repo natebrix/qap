@@ -78,16 +78,33 @@ def main():
     print(f"frontier: depth {args.depth}, {st.counters[0]} nodes, {st.times[0]:.1f} s CPU, "
           f"{n_open} open nodes", flush=True)
     picks = random.Random(args.seed).sample(range(n_open), min(args.samples, n_open))
-    template = State(frontier)
-    template.zero_stats()
+    def levels(par):
+        path = par if os.path.isabs(par) else os.path.join(sdir, par)
+        with open(path) as f:
+            vals = [l.split()[0] for l in f if l.split()]
+        return int(vals[3]) if vals[0] == "1" else int(vals[2])   # skip a symmetry path
+
+    # A state file records the number of levels (strategies) its statistics are
+    # for, and the solver only resumes one that matches its params file. The
+    # statistics of a one-node task are zero anyway, so give each params file
+    # its own template.
+    templates = []
+    for par in args.params:
+        t = State(frontier)
+        t.zero_stats()
+        nl = levels(par)
+        t.strategies = nl
+        t.arrays["n_strat"] = [0] * (len(t.arrays["n_level"]) * nl)
+        t.arrays["t_strat"] = [0.0] * nl
+        templates.append(t)
 
     def solve_node(k):
         """All params files on sampled node k, back to back."""
         i = picks[k]
         task = os.path.join(work, f"node{k}.state")
-        template.write(task, [st.nodes[i]])
         res = []
-        for par in args.params:
+        for par, template in zip(args.params, templates):
+            template.write(task, [st.nodes[i]])
             out = subprocess.run([solver, "-p", par, "-u", str(args.ub), "-r", task, inst],
                                  cwd=sdir, capture_output=True, text=True).stdout
             t = totals(out)
