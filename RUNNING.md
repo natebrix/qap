@@ -157,7 +157,7 @@ Example from `PARAM/default.par`:
 --- repeated L times; the last level omits the first two lines ---
 0.20  use this level when the relative gap (opt-bnd)/opt is worse than...
 2     ...and depth is at most this
-4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric
+4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead
 150   Frank-Wolfe iterations for the bound
 100   Frank-Wolfe iterations when we know we can't fathom
 25    Frank-Wolfe iterations for row selection (lookahead children; each starts from the parent's X)
@@ -176,6 +176,14 @@ faster on dense instances (nug20 2.1x, nug21 1.7x, tai17a 2.0x, standard
 suite 1.3x) but slower where the flow matrix is sparse and lookahead pays
 for itself (chr15a 1.4x slower, esc16a more than 2.9x slower), so it is not
 the default. See `bench/LOG.csv`.
+
+Rule 7 is lookahead on a smaller candidate set: the `use_best` most eccentric
+free locations (columns) and the `use_best`-1 rows with the largest U sums,
+instead of rule 4's `use_best` best rows and columns by U. `default.par`
+uses it at depths 3-4 with `use_best` 3. Measured against rule 4 there
+(5 rows + 5 columns): standard suite time 0.938, nug24 0.937, large set
+about 0.84 (esc16a 0.69, chr15a 1.13 slower). It keeps lookahead's payoff
+on sparse-flow instances, which rule 6 loses.
 
 ## Correctness checks
 
