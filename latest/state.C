@@ -10,7 +10,7 @@
 #include <vector>
 
 static const char *STATE_MAGIC = "QAP-STATE";
-static const int STATE_VERSION = 2;   // 1: no warm starts (still read)
+static const int STATE_VERSION = 3;   // 1: no warm starts, 2: no DNN counts (both still read)
 
 template <class T>
 static void write_array(std::ostream &f, const char *tag, const T *a, int len)
@@ -65,6 +65,8 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
   write_array(f, "rg_sum", stats->rg_sum, L);
   write_array(f, "rg_sumsq", stats->rg_sumsq, L);
 #endif
+  f << "dnn_counts " << stats->dnn_nodes << ' ' << stats->dnn_fathoms << '\n';
+  f << "dnn_time " << stats->dnn_time << '\n';
 
   // the parents' X the open nodes start from, each written once
   std::map<const WarmStart *, int> warm_id;
@@ -125,7 +127,7 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
   int version, fn, fL, fm;
   if (!(f >> tag >> version) || tag != STATE_MAGIC || version < 1 ||
       version > STATE_VERSION)
-    return fail(file, "not a version 1 or 2 state file");
+    return fail(file, "not a version 1-3 state file");
   std::string t1, t2, t3;
   if (!(f >> t1 >> fn >> t2 >> fL >> t3 >> fm) || t1 != "n")
     return fail(file, "bad header");
@@ -162,6 +164,10 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
       !read_array(f, "rg_sumsq", stats->rg_sumsq, L))
     return fail(file, "bad gap statistics");
 #endif
+  if (version >= 3 &&
+      (!(f >> tag >> stats->dnn_nodes >> stats->dnn_fathoms) || tag != "dnn_counts" ||
+       !(f >> tag >> stats->dnn_time) || tag != "dnn_time"))
+    return fail(file, "bad DNN counts");
 
   std::vector<WarmStart *> warms;
   if (version >= 2) {

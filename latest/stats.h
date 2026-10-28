@@ -103,6 +103,10 @@ public:
 
   ctr_type fw_iter; // number of FW iers
 
+  // DNN bound (bnb -x): nodes it was computed for, nodes it fathomed, CPU s
+  ctr_type dnn_nodes, dnn_fathoms;
+  double dnn_time;
+
   ctr_type *n_level;  // number of nodes at each level of the tree
   ctr_type *f_level;  // number of times nodes fathomed
   double *t_level;    // cpu time at each level

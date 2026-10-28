@@ -77,9 +77,13 @@ class State:
         self.arrays = collections.OrderedDict()
         line = next(it)
         while line[0] not in ("warm_starts", "nodes"):
-            conv = float if line[0] in ("t_level", "t_strat", "rg_sum", "rg_sumsq") else int
+            conv = (float if line[0] in ("t_level", "t_strat", "rg_sum", "rg_sumsq", "dnn_time")
+                    else int)
             self.arrays[line[0]] = [conv(x) for x in line[1:]]
             line = next(it)
+        if "dnn_counts" not in self.arrays:      # versions 1 and 2
+            self.arrays["dnn_counts"] = [0, 0]
+            self.arrays["dnn_time"] = [0.0]
         warms = []
         if line[0] == "warm_starts":            # version 2
             warms = [Warm(" ".join(next(it)[1:])) for _ in range(int(line[1]))]
@@ -106,7 +110,7 @@ class State:
 
     def write(self, path, nodes=None):
         nodes = self.nodes if nodes is None else nodes
-        out = ["QAP-STATE 2",
+        out = ["QAP-STATE 3",
                f"n {self.n} levels {self.levels} strategies {self.strategies}",
                " ".join(["incumbent", repr(self.obj), str(self.found)] + list(self.perm)),
                f"root_bound {self.root_bound}",
@@ -304,6 +308,9 @@ def main():
     print(f"         Nodes: {node} / {fathom} / {enumerate_}")
     print(f"    root bound: {total.root_bound}")
     print(f" fw iterations: {fw}")
+    if total.arrays.get("dnn_counts", [0])[0]:
+        dc, dt = total.arrays["dnn_counts"], total.arrays["dnn_time"][0]
+        print(f"     DNN bound: {dc[0]} nodes, {dc[1]} fathomed, {dt:.2f} s")
     session_cpu = total.times[0] - cpu_before
     print(f"\nparallel: {args.jobs} workers, {tasks_run} tasks, {steals} steals, wall {wall:.2f} s, "
           f"CPU {session_cpu:.2f} s (x{session_cpu / wall:.2f})"
