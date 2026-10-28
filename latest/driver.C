@@ -273,10 +273,9 @@ void set_sym_file(char *input_file,char *&sym_file)
 {
   char *suffix;
 
-  sym_file = new char[80];
-  strcpy(sym_file,"./SYM/");
-
-  suffix = new char[strlen(input_file)];
+  // (both buffers used to be one byte short: suffix had no room for the
+  // NUL when input_file has no directory, and sym_file was a fixed 80)
+  suffix = new char[strlen(input_file) + 1];
   strcpy(suffix, get_suffix(input_file));
 
   int len = strlen(suffix);
@@ -284,7 +283,9 @@ void set_sym_file(char *input_file,char *&sym_file)
   suffix[len-2] = 'y';
   suffix[len-1] = 'm';
 
-  sym_file = strcat(sym_file,suffix);
+  sym_file = new char[strlen("./SYM/") + len + 1];
+  strcpy(sym_file,"./SYM/");
+  strcat(sym_file,suffix);
   delete [] suffix;
 }
 
@@ -293,10 +294,9 @@ void set_param_file(char *input_file,char *&param_file)
 {
   char *suffix;
 
-  param_file = new char[80];
-  strcpy(param_file,"./PARAM/");
-
-  suffix = new char[strlen(input_file)];
+  // (both buffers used to be one byte short: suffix had no room for the
+  // NUL when input_file has no directory, and param_file was a fixed 80)
+  suffix = new char[strlen(input_file) + 1];
   strcpy(suffix, get_suffix(input_file));
 
   int len = strlen(suffix);
@@ -304,7 +304,9 @@ void set_param_file(char *input_file,char *&param_file)
   suffix[len-2] = 'a';
   suffix[len-1] = 'r';
 
-  param_file = strcat(param_file,suffix);
+  param_file = new char[strlen("./PARAM/") + len + 1];
+  strcpy(param_file,"./PARAM/");
+  strcat(param_file,suffix);
   delete [] suffix;
 }
 
