@@ -22,6 +22,8 @@ cd ../../latest && make           # builds latest/bnbdrv
 
 After changing solver code, run `make` again. It rebuilds whatever depends on
 the files you changed, headers included (the objects' `.d` files list them).
+`bench.py` refuses to run a binary that is older than the sources in `latest/`,
+since it records results under the current commit.
 
 `latest/makefile` compiles with `-O3 -march=native -ffp-contract=off`, which
 is about 2% faster than plain `-O3`. Don't drop `-ffp-contract=off`. Without
