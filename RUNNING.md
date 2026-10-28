@@ -199,7 +199,17 @@ on sparse-flow instances, which rule 6 loses.
 (DNN) SDP relaxation (experiments/dnn_bound). It is far stronger than QPB and
 far more expensive, so it pays only near the top of the tree: nug20 with
 `-x 2:2` takes 84,592 nodes and 117 s (QPB alone 526,205 nodes, 197 s), with
-`-x 2:3` 141 nodes and 105 s. It needs LAPACK: `pip install scipy-openblas32`
+`-x 2:3` 141 nodes and 105 s. With 4 workers (bench/parallel.py --extra "-x ..."),
+the known optimum as incumbent, 2.8 GHz:
+
+| run | nodes | CPU s | wall |
+|---|---|---|---|
+| nug24 default.par, QPB only | ~25M | ~5,000 | ~25 min |
+| nug24 default.par -x 2:3 | 299 | 796 | 4.4 min |
+| nug25 default.par, QPB only | 52,989,998 | 18,353 | 78 min |
+| nug25 nug_deep.par -x 2:3 | 10,234,599 | 5,065 | 22 min |
+| nug25 nug_deep.par -x 2:4 | 4,622,159 | 4,055 | 18 min |
+| nug25 nug_deep.par -x 2:5 | 717 (DNN: 710, 678 fathomed, 3,256 s) | 3,279 | 15 min | It needs LAPACK: `pip install scipy-openblas32`
 gives an OpenBLAS the makefile finds (it falls back to the system
 liblapack/libblas, ~7x slower); `make DNN=0` builds without it (then `-x`
 is an error). Rebuild after installing or removing the OpenBLAS wheel. Its
