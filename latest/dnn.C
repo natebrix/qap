@@ -145,6 +145,8 @@ const char *dnn_lapack_name()
 {
 #ifdef DNN_OPENBLAS
   return "OpenBLAS (prefix '" DNN_STR(DNN_BLAS_PREFIX) "')";
+#elif defined(DNN_ACCELERATE)
+  return "Accelerate";
 #else
   return "system LAPACK/BLAS";
 #endif

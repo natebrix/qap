@@ -45,17 +45,27 @@ bnb:	$(OBJS) $(DNN_OBJ) driver.o
 
 
 # ---- DNN bound (dnn.C, dnn.h) and its test driver: make dnntest ----
-# dnn.C needs LAPACK/BLAS. If the scipy-openblas32 wheel
-# is installed (pip install scipy-openblas32), its OpenBLAS is used: 32-bit
-# integers, symbols prefixed scipy_, about 7x faster than the reference
-# LAPACK. Otherwise the system liblapack.so.3 / libblas.so.3 are linked.
-# Override both with e.g.
+# dnn.C needs LAPACK/BLAS. On macOS Apple's Accelerate framework is used
+# (on an M2 Pro, 1.3x faster per ADMM iteration than OpenBLAS). The solver
+# cannot limit Accelerate's threads itself, so export
+# VECLIB_MAXIMUM_THREADS=1 when running several solver processes
+# (bench/parallel.py does this for its workers). Elsewhere, if the
+# scipy-openblas32 wheel is installed (pip install scipy-openblas32), its
+# OpenBLAS is used: 32-bit integers, symbols prefixed scipy_, about 7x
+# faster than the reference LAPACK. Otherwise the system liblapack.so.3 /
+# libblas.so.3 are linked. Override both with e.g.
 #   make dnntest DNN_LAPACK="-lopenblas" DNN_LAPACK_DEFS="-DDNN_OPENBLAS"
 # Run make clean after switching: dnn.o depends on DNN_LAPACK_DEFS.
 PYTHON ?= python3
+UNAME_S := $(shell uname -s)
 OPENBLAS32_DIR = $(shell $(PYTHON) -c "import scipy_openblas32 as o; print(o.get_lib_dir())" 2>/dev/null)
+ifeq ($(UNAME_S),Darwin)
+DNN_LAPACK = -framework Accelerate
+DNN_LAPACK_DEFS = -DDNN_ACCELERATE
+else
 DNN_LAPACK = $(if $(OPENBLAS32_DIR),-L$(OPENBLAS32_DIR) -lscipy_openblas -Wl$(comma)-rpath$(comma)$(OPENBLAS32_DIR),-l:liblapack.so.3 -l:libblas.so.3)
 DNN_LAPACK_DEFS = $(if $(OPENBLAS32_DIR),-DDNN_BLAS_PREFIX=scipy_ -DDNN_OPENBLAS,)
+endif
 comma := ,
 
 dnn.o: dnn.C dnn.h

@@ -219,15 +219,49 @@ the known optimum as incumbent, 2.8 GHz:
 | nug25 nug_deep.par -x 2:5:1:300 (at 0a179fc, 2.8 GHz) | 761 (DNN: 754, 720 fathomed, 1,086 s) | 1,100 | 4.7 min |
 | nug25 nug_deep.par -x 2:5:1:300:1 (warm start) | 717 (DNN: 710, 678 fathomed, 1,039 s) | 1,055 | 4.5 min |
 
-It needs LAPACK: `pip install scipy-openblas32`
-gives an OpenBLAS the makefile finds (it falls back to the system
-liblapack/libblas, ~7x slower); `make DNN=0` builds without it (then `-x`
-is an error). Rebuild after installing or removing the OpenBLAS wheel. Its
-floating-point results depend on the BLAS kernels OpenBLAS picks for the
-CPU, so node counts with `-x` can differ between machines (rarely: only a
-bound within ~1e-6 of the cutoff decides differently). `make dnncheck`
-validates the bound itself; `python3 tests/brute_force.py --solver-args
-"-x 0:20"` checks it inside the search.
+The same runs on an Apple M2 Pro laptop (6 P + 4 E cores, Accelerate,
+`--jobs 8`, 2026-10-29). CPU is summed over 8 workers, so compare wall:
+
+| run (M2 Pro, 8 workers) | nodes | CPU s | wall |
+|---|---|---|---|
+| nug25 nug_deep.par -x 2:5:1:300:1 (4 workers, OpenBLAS) | 750 (DNN: 743, 709 fathomed, 554 s) | 684 | 2.6 min |
+| nug27 nug_deep.par -x 2:5 | 676 (DNN: 663, 641 fathomed, 1,357 s) | 1,363 | 3.3 min |
+| nug28 nug_deep.par -x 2:5 | 1,736 (DNN: 1,727, 1,664 fathomed, 3,994 s) | 4,003 | 9.2 min |
+| nug30 nug_deep.par -x 2:7:1:300:1 | 585,550 (DNN: 5,834, 5,619 fathomed, 8,240 s) | 8,355 | 19.7 min (experiments/nug30_solve) |
+
+With plain `-x 2:5` the trees match the Xeon runs exactly (nug27, nug28).
+With the give-up threshold and warm starts (`-x ...:300:1`) a few decisions
+at the cutoff go the other way: nug25 took 750 nodes instead of 717, and on
+nug30 two depth-7 nodes missed where the Xeon fathomed all 96, so 580,000
+QPB-only nodes followed below depth 7 (84 CPU s, 1% of the run). Per DNN
+node the laptop is about 3x faster than the 2.8 GHz Xeon (depth 3: 1.9 s
+against 5.8; depth 4: 1.2 against 3.5).
+
+It needs LAPACK. On macOS the makefile links Apple's Accelerate framework
+(on the M2 Pro, 30 ms per ADMM iteration on a nug30 m=28 node against 40 ms
+with scipy-openblas32 and 73 ms on the Xeon; Accelerate's per-process speed
+drops about 1.5x with 10 processes running, since the AMX units are shared,
+but total throughput still rises up to 10). The solver cannot set
+Accelerate's thread count, so `export VECLIB_MAXIMUM_THREADS=1` before
+running several solver processes by hand; `bench/parallel.py` sets it for
+its workers, and `bnbdrv -x` warns when it is unset. Elsewhere, `pip
+install scipy-openblas32` gives an OpenBLAS the makefile finds (it falls
+back to the system liblapack/libblas, ~7x slower); `make DNN=0` builds
+without it (then `-x` is an error). Rebuild after installing or removing
+the OpenBLAS wheel. Its floating-point results depend on the BLAS kernels
+chosen for the CPU, so node counts with `-x` can differ between machines
+(rarely: only a bound within ~1e-6 of the cutoff decides differently).
+`make dnncheck` validates the bound itself; `python3 tests/brute_force.py
+--solver-args "-x 0:20"` checks it inside the search.
+
+Branching at the DNN depths is not a lever. The gap thresholds in
+`nug_deep.par` send nearly every depth-3 and depth-4 node (QPB relative gap
+about 0.02) to the last block, rule 2, so changing the depth 3-4 block does
+nothing. `PARAM/nug_la4.par` ignores the gap and uses rule 4 lookahead (30
+candidates) on every node through depth 4, rule 6 to depth 6: on nug28 with
+`-x 2:5` it changed the DNN misses by one node at depth 4 (5 to 4) and one
+at depth 5 (0 to 1), DNN CPU -2%, within run-to-run variation. A miss at
+depth d always has n-d children, so only the number of misses can change.
 
 ## Correctness checks
 
@@ -256,6 +290,13 @@ exactly.
 - When a change is *meant* to alter the search, regenerate the reference
   with `bench.py check --update` (runs the standard suite), commit
   `bench/reference/` with the change, and say why the counts moved.
+- The reference was made on an x86 Xeon. On an Apple M2 Pro the same code
+  does not match it: nug15's root QPB bound is 984.79 against 986.55 and the
+  quick suite's node counts differ by up to 8% (nug14 +6%, nug15 -1.5%,
+  nug16b -1.5%), with or without `-x`, so the QPB path itself rounds
+  differently there. Brute force, resume, parallel and `dnncheck` all pass
+  on that machine. Use `--tolerance` there, or compare two builds on the
+  same machine with `bench.py compare`.
 
 The two checks catch different things. We planted two bugs: lower bounds
 raised by 3, and an elimination test that was off by one. The brute-force

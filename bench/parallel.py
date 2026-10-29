@@ -215,7 +215,11 @@ def main():
         if args.slice > 0:
             cmd += ["-t", str(args.slice)]
         log = open(path + ".log", "w")
-        proc = subprocess.Popen(cmd + [inst], cwd=sdir, stdout=log, stderr=subprocess.STDOUT)
+        # one BLAS thread per worker: the solver limits OpenBLAS itself, but
+        # Accelerate (macOS) only reads this variable
+        env = dict(os.environ)
+        env.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+        proc = subprocess.Popen(cmd + [inst], cwd=sdir, stdout=log, stderr=subprocess.STDOUT, env=env)
         log.close()
         # keep the Popen object: if it is garbage-collected, subprocess reaps
         # the child itself and os.waitpid below never sees it

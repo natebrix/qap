@@ -264,7 +264,13 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	    cerr << "-x needs dmin:dmax[:maxgap[:hopeless[:warm]]], e.g. -x 2:3" << std::endl;
 	    exit(1);
 	  }
-	  dnn_set_blas_threads(1);   // one core per solver process
+	  // one core per solver process. Accelerate (macOS) has no such call;
+	  // it reads VECLIB_MAXIMUM_THREADS when it is loaded, so that must be
+	  // set in the environment (bench/parallel.py sets it for its workers).
+	  if (!dnn_set_blas_threads(1) && !getenv("VECLIB_MAXIMUM_THREADS"))
+	    cerr << "warning: the BLAS may use several threads per process; "
+		 << "export VECLIB_MAXIMUM_THREADS=1 when running several solvers"
+		 << std::endl;
 	  cout << "DNN bound at depths " << dnn_min_depth << "-" << dnn_max_depth
 	       << ", relative gap <= " << dnn_max_gap << ", give up after "
 	       << dnn_hopeless_after << " iterations (0 = never), "

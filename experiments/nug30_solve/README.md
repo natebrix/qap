@@ -73,6 +73,34 @@ to another worker loses its parent's multiplier). Its nodes per level, next to
 the 2000 run's (`nug30_2000_levels.txt`, from Table 5.12 of Nathan Brixius's
 thesis), are Table 6 of docs/dnn_bound/dnn_bound.pdf.
 
+## On a laptop (October 29, solver at 2d7579c)
+
+The improved settings on an Apple M2 Pro (6 performance + 4 efficiency
+cores), built against Accelerate, 8 workers:
+
+```sh
+VECLIB_MAXIMUM_THREADS=1 python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
+    --params PARAM/nug_deep.par --extra "-x 2:7:1:300:1" \
+    --checkpoint nug30.ckpt --checkpoint-every 300
+```
+
+| | laptop, 8 workers | 2.8 GHz Xeon, 4 workers (above) |
+|---|---|---|
+| nodes | 585,550 | 5,817 |
+| DNN nodes / fathomed | 5,834 / 5,619 | 5,807 / 5,595 |
+| DNN CPU | 8,240 s | 23,537 s |
+| CPU | 8,355 s | 23,618 s |
+| wall | 19 min 42 s | 1 h 41 min |
+| log | `laptop_run1.log` | `v3_run1.log` |
+
+Per DNN node the laptop is about 3x faster (depth 3: 1.9 s against 5.8;
+depth 4: 1.2 against 3.5), and 8 workers gave 7.1x CPU over wall. The DNN
+part of the tree is the Xeon's within 0.5%. The large node count is two of
+the 96 depth-7 nodes that the Xeon runs fathomed and this run did not
+(Accelerate rounds differently, and which nodes are warm-started depends on
+scheduling, as above): with `-x 2:7` their subtrees went to QPB alone,
+580,000 nodes for 84 CPU s.
+
 ## First solve (mixed settings)
 
 
