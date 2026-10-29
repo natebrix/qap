@@ -2,7 +2,7 @@
 """Validate the certified DNN bound (latest/dnn.C) through latest/dnntest.
 
   make -C latest dnntest
-  python3 tests/dnn_test.py            # all three parts, a few minutes on one core
+  python3 tests/dnn_test.py            # all four parts, a few minutes on one core
   python3 tests/dnn_test.py --quick    # fewer instances, no nug20 nodes
 
 A. Brute force. Small random instances (n = 3..8, the four families of
@@ -19,6 +19,11 @@ C. Nodes of nug20 with known subproblem optima (solved exactly by bnbdrv in
    the nug20 study): the default bound must stay below them, and fathom
    exactly the nodes the study fathomed. A second run must reproduce every
    result bit for bit.
+D. Cancellation regressions: data whose products are large and cancel
+   (against the linear term, or between asymmetric A and B), where every
+   rounding step before the certificate matters. Each node's exact optimum
+   is computed with Python integers; the bound must not exceed it and must
+   not fathom with the cutoff at the optimum.
 
 Needs numpy. Runs on one core (OPENBLAS_NUM_THREADS=1 is set for children).
 """
@@ -62,7 +67,7 @@ def run_dnntest(dat, nodes, flags, iters):
     """nodes: list of (fixes string, cutoff). Returns list of result dicts."""
     with tempfile.NamedTemporaryFile("w", suffix=".nodes", delete=False) as f:
         for fx, c in nodes:
-            f.write("%s %r\n" % (fx, c))
+            f.write("%s %s\n" % (fx, c if isinstance(c, str) else repr(c)))
         nf = f.name
     try:
         out = subprocess.run([DNNTEST, "-N", nf, "-i", str(iters)] + flags + [dat],
@@ -241,6 +246,94 @@ def part_c(args):
     return failures
 
 
+def part_d(args):
+    """Cancellation regressions (exact optima by integer enumeration)."""
+    t0 = time.time()
+    failures = []
+    cases = []
+    # Astra's review: a b + c = 3 with a b = 2^64 + 2^34 + 3, at m = 1 and
+    # after reducing a 3 x 3 instance with facility 0 fixed (shift = 3 exactly)
+    a, b, c = 2**32 + 1, 2**32 + 3, -(2**64 + 2**34)
+    cases.append(("m1", [[a]], [[b]], [[c]], "-"))
+    Z = lambda v: [[v, 0, 0], [0, 0, 0], [0, 0, 0]]
+    cases.append(("reduced", Z(a), Z(b), Z(c), "0:0"))
+    # products near 2^62 cancelling in the shift and in the linear terms
+    r = __import__("random").Random(5)
+    for k in range(4):
+        n = 5
+        big = 2**31 + r.randrange(2**20)
+        A = [[r.randrange(-3, 4) for _ in range(n)] for _ in range(n)]
+        B = [[r.randrange(-3, 4) for _ in range(n)] for _ in range(n)]
+        for M in (A, B):
+            for i in range(n):
+                for j in range(i):
+                    M[i][j] = M[j][i]
+        A[0][1] = A[1][0] = big
+        B[0][1] = B[1][0] = big + 1
+        C = [[r.randrange(-9, 10) for _ in range(n)] for _ in range(n)]
+        C[1][1] = -2 * big * (big + 1) + r.randrange(-5, 6)
+        cases.append(("big%d" % k, A, B, C, "0:0"))
+    # neither matrix symmetric: large antisymmetric parts cancel in L
+    for k in range(3):
+        n = 5
+        S = [[0] * n for _ in range(n)]
+        for i in range(n):
+            for j in range(i + 1, n):
+                v = r.randrange(1, 2**26)
+                S[i][j], S[j][i] = v, -v
+        P = [[r.randrange(0, 9) for _ in range(n)] for _ in range(n)]
+        A = [[P[i][j] + P[j][i] + S[i][j] for j in range(n)] for i in range(n)]
+        B = [[r.randrange(0, 2**26) for _ in range(n)] for _ in range(n)]
+        C = [[0] * n for _ in range(n)]
+        cases.append(("asym%d" % k, A, B, C, "-"))
+    # found by adversarial testing (tests/data/dnn_cancel): asymmetric A and B
+    # cancelling in L, and products cancelling in a subproblem's shift and C
+    from fractions import Fraction
+    for name, fx in [("ac_nonint_3", "-"), ("ac_int_4", "-"),
+                     ("rc_nonint_1", "0:0,1:1,2:2"), ("rc_int_3", "0:0,1:1,2:2")]:
+        t = open(os.path.join(ROOT, "tests", "data", "dnn_cancel", name + ".dat")).read().split()
+        n = int(t[0])
+        v = [Fraction(x) for x in t[1:1 + 3 * n * n]]
+        v += [Fraction(0)] * (3 * n * n - len(v))
+        M = [[v[k * n * n + i * n:k * n * n + (i + 1) * n] for i in range(n)] for k in range(3)]
+        cases.append((name, M[0], M[1], M[2], fx))
+    with tempfile.TemporaryDirectory() as d:
+        for name, A, B, C, fx in cases:
+            n = len(A)
+            fixed = {}
+            if fx != "-":
+                for t in fx.split(","):
+                    i, j = map(int, t.split(":"))
+                    fixed[i] = j
+            best = None
+            for p in itertools.permutations(range(n)):
+                if any(p[i] != j for i, j in fixed.items()):
+                    continue
+                v = sum(A[i][k] * B[p[i]][p[k]] for i in range(n) for k in range(n)) + \
+                    sum(C[i][p[i]] for i in range(n))
+                best = v if best is None else min(best, v)
+            dat = os.path.join(ROOT, "tests", "data", "dnn_cancel", name + ".dat")
+            if not os.path.exists(dat):
+                dat = os.path.join(d, name + ".dat")
+                with open(dat, "w") as f:
+                    f.write("%d\n\n" % n)
+                    for M in (A, B, C):
+                        f.write("\n".join(" ".join(str(x) for x in row) for row in M) + "\n\n")
+            # cutoff: the optimum, rounded down to a double, so that a
+            # fathom at it is wrong
+            cut = float(best)
+            if Fraction(cut) > best:
+                cut = np.nextafter(cut, -np.inf)
+            res = run_dnntest(dat, [(fx, repr(float(cut)))], [], 300)[0]
+            lb = float(res["lb"])
+            # compare exactly: the double lb against the exact optimum
+            if Fraction(lb) > best or res["fathomed"] == "1":
+                failures.append("D %s: lb %r > optimum %s or fathomed (%s)"
+                                % (name, lb, float(best), res["fathomed"]))
+    print("D. cancellation regressions: %d cases, %.0f s" % (len(cases), time.time() - t0))
+    return failures
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -248,7 +341,7 @@ def main():
     p.add_argument("--count", type=int, default=2, help="instances per family and size (A)")
     p.add_argument("--iters", type=int, default=1500, help="iteration limit in part A")
     p.add_argument("--seed", type=int, default=1)
-    p.add_argument("--parts", default="ABC")
+    p.add_argument("--parts", default="ABCD")
     args = p.parse_args()
     if not os.path.exists(DNNTEST):
         sys.exit("%s not found; run make -C latest dnntest" % DNNTEST)
@@ -261,6 +354,8 @@ def main():
         failures += part_b(args)
     if "C" in args.parts and not args.quick:
         failures += part_c(args)
+    if "D" in args.parts:
+        failures += part_d(args)
     if failures:
         print("FAILED: %d problems" % len(failures))
         for f in failures[:30]:

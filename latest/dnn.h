@@ -111,6 +111,8 @@ struct DNNParams {
                        // certified lb, extrapolated generously from its recent
                        // gains, stays below the cutoff. A heuristic (it may give
                        // up on a fathomable node); lb stays valid. 0 = off (200)
+  int child_bounds;    // 1: also return child bounds (DNNResult::child_lb) from the
+                       // best certificate's outer assignment problem (0)
   int verbose;         // 1: print the certified bound at every check, 2: also a
                        // CPU profile at the end
 
@@ -127,6 +129,12 @@ struct DNNResult {
   int cert_failures;   // Cholesky checks that failed (bound not updated then)
   int refinements;     // double-precision re-projections (eig_mode != DOUBLE only)
   double margin;       // largest safety margin subtracted from a certified value
+  // With par.child_bounds, unless fathomed: child_lb[i * m + j] is a certified
+  // lower bound (shift included) on the node with its facility i at location j
+  // (local indices, as reduceQAP numbers them), from the certificate that gave
+  // lb: lb + r_ij for the reduced costs r of the outer assignment problem of
+  // the Gilmore-Lawler evaluation, less a rounding allowance. No new SDP solve.
+  std::vector<double> child_lb;
 };
 
 // Final ADMM multiplier of a bounded node, to warm-start its children

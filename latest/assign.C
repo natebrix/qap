@@ -1,4 +1,6 @@
 #include "assign.h"
+#include <float.h>
+#include <math.h>
 #include "util.h"
 
 QAPAssignment::QAPAssignment()
@@ -547,23 +549,23 @@ void reduceQAP(QAP *q,QAP *q1,const QAPAssignment &a)
     {
       // compute shift. The shift and the linear terms below are sums of
       // products that can cancel, and every bound on the subproblem inherits
-      // their rounding: accumulate in long double (exact for integer data
-      // with products and partial sums below 2^64) and round once.
-      long double shift = 0;
+      // their rounding: compute lower bounds on them (LowerSum, exact for
+      // integer data of moderate size).
+      LowerSum shift;
       for(i=0;i<n;i++)
 	{
 	  if(a.p[i]>NONE) {
 
-	    shift += q->C->me[i][a.p[i]];
+	    shift.add(q->C->me[i][a.p[i]]);
 	    for(j=0;j<n;j++)
 	      {
 		if(a.p[j]>NONE) {
-		  shift += (long double)q->A->me[i][j]*q->B->me[a.p[i]][a.p[j]];
+		  shift.add_product(q->A->me[i][j], q->B->me[a.p[i]][a.p[j]]);
 		}
 	      }
 	  }
 	}
-      q1->shift = (double)shift;
+      q1->shift = shift.lower();
       
       // get q1 = (A1,B1,C1)
       M_FREE(q1->A);M_FREE(q1->B);M_FREE(q1->C);
@@ -580,12 +582,14 @@ void reduceQAP(QAP *q,QAP *q1,const QAPAssignment &a)
 	      {
 		if(a.pinv[j]<=NONE) {
 		  jj++;// the jj_th free column
-		  long double c = q1->C->me[ii][jj];
+		  LowerSum c;
+		  c.add(q1->C->me[ii][jj]);
 		  for(k=0;k<n;k++)
-		    if(a.p[k]>NONE)
-		      c += (long double)q->A->me[i][k]*q->B->me[j][a.p[k]] +
-			   (long double)q->A->me[k][i]*q->B->me[a.p[k]][j];
-		  q1->C->me[ii][jj] = (double)c;
+		    if(a.p[k]>NONE) {
+		      c.add_product(q->A->me[i][k], q->B->me[j][a.p[k]]);
+		      c.add_product(q->A->me[k][i], q->B->me[a.p[k]][j]);
+		    }
+		  q1->C->me[ii][jj] = c.lower();
 		}
 	      }
 	  }
@@ -751,6 +755,8 @@ WarmStart *new_warm_start(const Index *p, int n, MAT *X)
   w->p = new Index[n];
   for (int i = 0; i < n; i++) w->p[i] = p[i];
   w->X = m_copy(X, MNULL);
+  w->dnn = NULL;
+  w->dnn_free = NULL;
   return w;
 }
 
@@ -764,6 +770,7 @@ void warm_start_release(WarmStart *&w)
   if (w && --w->refs == 0) {
     delete [] w->p;
     M_FREE(w->X);
+    if (w->dnn) w->dnn_free(w->dnn);
     delete w;
   }
   w = NULL;
@@ -775,4 +782,63 @@ void QAPAssignment::set_warm(WarmStart *w)
   warm_start_release(warm);
   warm = w;
   warm_start_retain(warm);
+}
+
+bool warm_child_offsets(const QAPAssignment &node, int &di, int &dj)
+{
+  const WarmStart *w = node.warm;
+  const int n = node.n;
+  int extra = -1;
+
+  if (!w || w->n != n) return false;
+  for (int i = 0; i < n; i++) {
+    if (w->p[i] == node.p[i]) continue;
+    if (w->p[i] == NONE && node.p[i] >= 0 && extra < 0) extra = i;
+    else return false;
+  }
+  if (extra < 0) return false;
+
+  const int col = node.p[extra];
+  di = dj = 0;
+  for (int i = 0; i < extra; i++)
+    if (node.p[i] == NONE) di++;
+  for (int j = 0; j < col; j++)
+    if (node.pinv[j] == NONE) dj++;
+  return true;
+}
+
+static bool is_half_multiple(double x)
+{
+  double y = 2.0 * x;
+  return y == floor(y);
+}
+
+void LowerSum::add(double t)
+{
+  sum += t;
+  abs += fabsl((long double)t);
+  terms++;
+  // a multiple of 1/4 counts as exact; see LowerSum in assign.h
+  if (dyadic) { double y = 4.0 * t; dyadic = (y == floor(y)); }
+}
+
+void LowerSum::add_product(double a, double b)
+{
+  long double p = (long double)a * b;
+  sum += p;
+  abs += fabsl(p);
+  terms++;
+  if (dyadic) dyadic = is_half_multiple(a) && is_half_multiple(b);
+}
+
+double LowerSum::lower() const
+{
+  long double x = sum;
+  if (!(dyadic && 4.0L * abs < ldexpl(1.0L, LDBL_MANT_DIG)))
+    // each product and each addition rounds by at most u_ld times a
+    // magnitude bounded by abs; (terms + 2) also covers rounding abs itself
+    x -= (terms + 2) * (LDBL_EPSILON / 2) * abs * (1 + 4 * LDBL_EPSILON);
+  double d = (double)x;
+  if ((long double)d > x) d = nextafter(d, -HUGE_VAL);
+  return d;
 }

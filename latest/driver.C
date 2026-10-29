@@ -57,7 +57,7 @@ EstimateParameters *ep = NULL;
 extern const char *bnb_state_file;
 extern double bnb_checkpoint_every;
 extern double bnb_time_limit;
-extern int dnn_min_depth, dnn_max_depth, dnn_hopeless_after;
+extern int dnn_min_depth, dnn_max_depth, dnn_hopeless_after, dnn_warm;
 extern double dnn_max_gap;
 #ifdef HAVE_DNN
 #include "dnn.h"
@@ -104,9 +104,10 @@ void print_help()
        << "-u X\tset initial upper bound X"  << std::endl
        << "-o F\twrite branch-and-bound state to F (at checkpoints, on -t, at the end)" << std::endl
        << "-k X\twith -o, checkpoint every X CPU seconds" << std::endl
-       << "-x D1:D2[:G[:H]]\tDNN bound on nodes QPB does not fathom at depths D1-D2\n"
+       << "-x D1:D2[:G[:H[:W]]]\tDNN bound on nodes QPB does not fathom at depths D1-D2\n"
        << "\twith relative gap at most G (default 1); H: give up after H\n"
-       << "\titerations when hopeless (default 0, never)" << std::endl
+       << "\titerations when hopeless (default 0, never); W=1: start a node's\n"
+       << "\tDNN from its parent's when that missed (default 0)" << std::endl
        << "-t X\twith -o, stop after X CPU seconds, saving state (exit code 3)" << std::endl
        << "-r F\tresume from state file F instead of the root" << std::endl
        << "-w W\tat lookahead/strong levels, stop a node's FW W iterations after it\n"
@@ -238,15 +239,15 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	cout << "resume from: " << resume_file << std::endl;
 	break;
 
-      case 'x': // DNN bound at depths dmin..dmax: -x dmin:dmax[:maxgap[:hopeless]]
+      case 'x': // DNN bound at depths dmin..dmax: -x dmin:dmax[:maxgap[:hopeless[:warm]]]
 	i++;
 #ifdef HAVE_DNN
 	{
-	  // dmin:dmax[:maxgap[:hopeless]]; an empty field keeps its default
-	  char *f[4] = {NULL, NULL, NULL, NULL};
+	  // dmin:dmax[:maxgap[:hopeless[:warm]]]; an empty field keeps its default
+	  char *f[5] = {NULL, NULL, NULL, NULL, NULL};
 	  char *arg = new_string(argv[i]);
 	  int n = 0;
-	  for (char *p = arg; n < 4; n++) {
+	  for (char *p = arg; n < 5; n++) {
 	    f[n] = p;
 	    char *colon = strchr(p, ':');
 	    if (!colon) { n++; break; }
@@ -257,15 +258,17 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	  if (n >= 2 && *f[1]) dnn_max_depth = atoi(f[1]);
 	  if (n >= 3 && *f[2]) dnn_max_gap = atof(f[2]);
 	  if (n >= 4 && *f[3]) dnn_hopeless_after = atoi(f[3]);
+	  if (n >= 5 && *f[4]) dnn_warm = atoi(f[4]);
 	  delete [] arg;
 	  if (n < 2 || dnn_max_depth < 0) {
-	    cerr << "-x needs dmin:dmax[:maxgap[:hopeless]], e.g. -x 2:3" << std::endl;
+	    cerr << "-x needs dmin:dmax[:maxgap[:hopeless[:warm]]], e.g. -x 2:3" << std::endl;
 	    exit(1);
 	  }
 	  dnn_set_blas_threads(1);   // one core per solver process
 	  cout << "DNN bound at depths " << dnn_min_depth << "-" << dnn_max_depth
 	       << ", relative gap <= " << dnn_max_gap << ", give up after "
 	       << dnn_hopeless_after << " iterations (0 = never), "
+	       << (dnn_warm ? "warm-started from the parent, " : "")
 	       << dnn_lapack_name() << std::endl;
 	}
 #else

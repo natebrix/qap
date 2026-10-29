@@ -75,6 +75,7 @@
 */
 
 #include "dnn.h"
+#include "assign.h"   // LowerSum
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -192,6 +193,7 @@ DNNParams::DNNParams()
   stall_lb = 0.05;
   stall_gap = 0.5;
   hopeless_after = 200;
+  child_bounds = 0;
   verbose = 0;
 }
 
@@ -305,6 +307,8 @@ long double lap_reduce(int n, const double *c, int ldc, double *colmin)
  Work: everything one dnn_bound call needs. No state outlives the call.
 */
 struct Work {
+  std::vector<double> red;   // certify: reduced costs of the outer LAP (child bounds)
+  bool want_red = false;
   int m, N, n1, K, ll;
   double tau;                 // H = I - tau u u'
   std::vector<double> hu;     // Householder vector u (length m)
@@ -844,6 +848,23 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
     }
     ci.poly = (double)val;
     for (int t = 0; t < m * m; t++) absM += fabs(cm[t]);
+    if (w.want_red) {
+      // reduced costs of the outer LAP with the dual-repaired potentials that
+      // gave val: v_j = min_i (cm_ij - u_i), r_ij = cm_ij - u_i - v_j >= 0, so
+      // that every permutation with sigma(i) = j has polyhedral value at least
+      // val + r_ij. Less a rounding allowance for the two subtractions.
+      const double *u = w.hung.u.data() + 1;
+      w.red.resize((size_t)m * m);
+      for (int j = 0; j < m; j++) {
+        double vj = HUGE_VAL;
+        for (int i = 0; i < m; i++) vj = std::min(vj, cm[i * m + j] - u[i]);
+        for (int i = 0; i < m; i++) {
+          double c = cm[i * m + j];
+          w.red[i * m + j] = ((c - u[i]) - vj)
+                             - 4 * U_ROUND * (fabs(c) + fabs(u[i]) + fabs(vj));
+        }
+      }
+    }
   }
   absM += fabsl(m00);
   // summation and rounding errors of the polyhedral part, objective rounding,
@@ -859,13 +880,20 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
   return (double)val - margin;
 }
 
-// exact optimum for m <= 1 (the relaxation needs m >= 2), plus shift; long
-// double so that a large product cancelling against c or the shift stays
-// accurate, then rounded once
-long double trivial_value(const MAT *A, const MAT *B, const MAT *C, int m, double shift)
+// optimum for m <= 1 (the relaxation needs m >= 2), plus shift: the value
+// rounded to nearest, and a lower bound on it (LowerSum: a product cancelling
+// against c or the shift can lose more than an ulp of the result)
+double trivial_value(const MAT *A, const MAT *B, const MAT *C, int m, double shift,
+                     double &lower)
 {
-  if (m == 0) return shift;
-  return (long double)A->me[0][0] * B->me[0][0] + C->me[0][0] + shift;
+  LowerSum s;
+  s.add(shift);
+  if (m == 1) {
+    s.add_product(A->me[0][0], B->me[0][0]);
+    s.add(C->me[0][0]);
+  }
+  lower = s.lower();
+  return (double)s.sum;
 }
 
 } // namespace
@@ -928,8 +956,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     return res;
   const int m = A->m;
   if (m <= 1) {
-    res.primal = (double)trivial_value(A, B, C, m, shift);
-    res.lb = nextafter(res.primal, -HUGE_VAL);   // covers the final rounding
+    res.primal = trivial_value(A, B, C, m, shift, res.lb);
     res.status = res.lb > cutoff ? DNN_FATHOMED : DNN_CONVERGED;
     res.cpu = thread_cpu() - t0;
     return res;
@@ -977,6 +1004,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     for (size_t t = 0; t < (size_t)n1 * n1; t++) Z[t] = start->Z[t] * f;
   }
   double best = -HUGE_VAL;
+  std::vector<double> red_cur, red_best;   // child bounds (par.child_bounds)
+  double lbs_best = -HUGE_VAL;
   std::vector<double> lbhist;   // certified lb at each check (for the stall test)
   std::vector<double> besthist; // running best at each check (for the hopeless test)
   int status = -1, npos = 0;
@@ -1053,8 +1082,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       for (size_t t = 0; t < (size_t)n1 * n1; t++) Zc[t] = Z[t] - Zc[t];
     }
     const double exact_below = cutoff - shift + 1e-6 * (1 + fabs(cutoff));
+    w.want_red = par.child_bounds && par.poly != DNN_POLY_BOX;
     lbs = certify(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap, exact_above,
                   exact_below, ci);
+    if (w.want_red) red_cur = w.red;
     res.certificates++;
     if (!ci.chol_ok) res.cert_failures++;
     if (!par.prototype_cert && par.eig_mode != DNN_EIG_DOUBLE &&
@@ -1070,11 +1101,14 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       double l2 = certify(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap,
                           exact_above, exact_below, c2);
       res.refinements++;
-      if (l2 > lbs) { lbs = l2; ci = c2; }
+      if (l2 > lbs) { lbs = l2; ci = c2; if (w.want_red) red_cur = w.red; }
     }
     if (lbs > -HUGE_VAL) {
       double lb = nextafter(lbs + shift, -HUGE_VAL);   // covers the addition's rounding
-      if (lb > best) best = lb;
+      if (lb > best) {
+        best = lb;
+        if (w.want_red) { red_best = red_cur; lbs_best = lbs; }
+      }
       res.margin = std::max(res.margin, ci.margin);
     }
     tq = thread_cpu(); w.prof[4] += tq - tp; tp = tq;
@@ -1127,6 +1161,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   res.status = status;
   res.lb = best;
   res.primal = obj;
+  if (par.child_bounds && status != DNN_FATHOMED && !red_best.empty()) {
+    res.child_lb.resize((size_t)m * m);
+    for (size_t t = 0; t < (size_t)m * m; t++) {
+      LowerSum c;   // lbs + r_ij + shift, rounded down
+      c.add(lbs_best);
+      c.add(red_best[t]);
+      c.add(shift);
+      res.child_lb[t] = c.lower();
+    }
+  }
   if (save) {
     save->m = m;
     save->scale = scale;

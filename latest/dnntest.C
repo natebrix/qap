@@ -25,6 +25,8 @@
    -H N            give up (status hopeless) after N iterations when the certified
                    bound, extrapolated from its recent gains, stays below the
                    cutoff (default 200, 0 = off)
+   -C 1|2          child bounds from the best certificate (DNNResult::child_lb):
+                   print how many children it fathoms; 2: also every bound
    -e N            R-step eigensolver: 0 dsyevd (as dnn.py), 1 ssyevd, 2 subspace
                    tracking (default) with a full ssyevd every -r N iterations
                    (20) and a Chebyshev filter of degree -d N (2)
@@ -54,7 +56,7 @@ static void usage()
 {
   printf("usage: dnntest [-x i:j,... | -N nodefile] [-u ub | -c cutoff] [-i iters] [-t secs]\n"
          "               [-k every] [-b] [-l 0|1|2] [-P] [-f] [-s window] [-H iters] [-T threads]\n"
-         "               [-v] file.dat\n");
+         "               [-C 1|2] [-v] file.dat\n");
   exit(1);
 }
 
@@ -102,6 +104,22 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
          index, n - node.nfix, r.lb, r.primal, dnn_status_name(r.status), r.iterations,
          r.cpu, r.iterations > 0 ? 1e3 * r.cpu / r.iterations : 0.0, r.certificates,
          r.cert_failures, r.refinements, r.margin, r.status == DNN_FATHOMED ? 1 : 0);
+  if (!r.child_lb.empty()) {
+    // child bounds (-C): how many children the node's certificate fathoms;
+    // with -C 2 every bound, as "CHILD i j lb" in original indices
+    const int m = n - node.nfix;
+    std::vector<int> fr, fc;
+    for (int t = 0; t < n; t++) if (node.p[t] == NONE) fr.push_back(t);
+    for (int t = 0; t < n; t++) if (node.pinv[t] == NONE) fc.push_back(t);
+    int over = 0;
+    for (int i = 0; i < m; i++)
+      for (int j = 0; j < m; j++) {
+        if (r.child_lb[i * m + j] > cutoff) over++;
+        if (par.child_bounds >= 2)
+          printf("CHILD %d %d %.17g\n", fr[i], fc[j], r.child_lb[i * m + j]);
+      }
+    printf("CHILDREN node=%d fathomed=%d of=%d\n", index, over, m * m);
+  }
   fflush(stdout);
   if (child.empty() || r.status == DNN_ERROR) return r.status != DNN_ERROR;
 
@@ -166,6 +184,7 @@ int main(int argc, char **argv)
     else if (o == "-B" && more) par.beta = atof(argv[++a]);
     else if (o == "-g" && more) par.gamma = atof(argv[++a]);
     else if (o == "-v") par.verbose++;
+    else if (o == "-C" && more) par.child_bounds = atoi(argv[++a]);
     else if (o[0] == '-') usage();
     else file = argv[a];
   }

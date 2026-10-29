@@ -79,13 +79,47 @@ files) rather than in a cache, so a node's bound does not depend on
 which process computed its parent.
 ============================================================
 */
+class QAPAssignment;
+
 struct WarmStart
 {
   int refs;
   int n;          // instance size
   Index *p;       // the parent's assignment
   MAT *X;         // the parent's X: its free rows x free columns, in order
+  // The parent's final DNN state (a DNNWarm, see dnn.h) when its DNN bound
+  // ran and missed, else NULL; owned, freed by dnn_free. Not kept in state
+  // files: it only changes where a child's ADMM starts.
+  void *dnn;
+  void (*dnn_free)(void *);
 };
+
+/*
+ LowerSum: a sum of products and terms, rounded to a double that is a
+ lower bound on the exact sum. Accumulates in long double. The result is
+ exact when every term is a multiple of 1/4 (operands multiples of 1/2:
+ integer data, or integer data symmetrized by halves) and the sum of
+ magnitudes stays below 2^(LDBL_MANT_DIG - 2): then every product and
+ partial sum is representable. Otherwise it subtracts an explicit bound
+ on the long double rounding, (k + 2) u_ld sum|terms| for k terms, and
+ rounds down. Bounds on subproblems built from lower-bounded linear terms
+ and shift are valid for the exact subproblem, since assignment variables
+ are nonnegative.
+*/
+struct LowerSum
+{
+  long double sum, abs;
+  int terms;
+  bool dyadic;
+  LowerSum() : sum(0), abs(0), terms(0), dyadic(true) {}
+  void add(double t);
+  void add_product(double a, double b);
+  double lower() const;
+};
+
+// position of the row and column node fixed among its WarmStart parent's
+// free ones, if node differs from that parent by exactly one assignment
+bool warm_child_offsets(const QAPAssignment &node, int &di, int &dj);
 
 WarmStart *new_warm_start(const Index *p, int n, MAT *X);
 void warm_start_retain(WarmStart *w);

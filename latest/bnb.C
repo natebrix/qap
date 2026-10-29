@@ -26,14 +26,16 @@ bool bnb_stopped = false;            // set when bnb() stops on the time limit
 // bench/parallel.py uses it to take work back from a busy worker.
 volatile sig_atomic_t bnb_stop_requested = 0;
 
-// DNN bound (-x dmin:dmax[:maxgap[:hopeless]]): applied to nodes QPB does not
+// DNN bound (-x dmin:dmax[:maxgap[:hopeless[:warm]]]): applied to nodes QPB does not
 // fathom at depths dmin..dmax whose relative gap (inc - QPB)/(inc - root QPB)
 // is at most maxgap. Off while dnn_max_depth < 0.
 int dnn_min_depth = 0, dnn_max_depth = -1;
 double dnn_max_gap = 1.0;
 int dnn_hopeless_after = 0;          // DNNParams::hopeless_after; 0 = never give up
+int dnn_warm = 0;                    // start a child's DNN from its parent's (1) or not (0)
 #ifdef HAVE_DNN
 #include "dnn.h"
+static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
 #endif
 #include <math.h>
 //#include <time.h>
@@ -246,30 +248,12 @@ BNBParameters *pick_param(const QAPAssignment &node,double root,double opt,
  */
 static void init_X_warm(const QAPAssignment &node, MAT *X)
 {
-  const WarmStart *w = node.warm;
-  const int n = node.n;
-  int extra = -1;
-
-  if (w && w->n == n && (int)w->X->m == (int)X->m + 1) {
-    for (int i = 0; i < n; i++) {
-      if (w->p[i] == node.p[i]) continue;
-      if (w->p[i] == NONE && node.p[i] >= 0 && extra < 0) extra = i;
-      else { extra = -1; break; }
-    }
-  }
-  if (extra < 0) {
+  int di, dj;
+  if (node.warm && (int)node.warm->X->m == (int)X->m + 1 &&
+      warm_child_offsets(node, di, dj))
+    init_X_from_parent(X, node.warm->X, di, dj);
+  else
     init_X(X, X->m);
-    return;
-  }
-
-  // position of the fixed row and column among the parent's free ones
-  const int col = node.p[extra];
-  int di = 0, dj = 0;
-  for (int i = 0; i < extra; i++)
-    if (node.p[i] == NONE) di++;
-  for (int j = 0; j < col; j++)
-    if (node.pinv[j] == NONE) dj++;
-  init_X_from_parent(X, w->X, di, dj);
 }
 
 void log_matrix(BNBParameters *p, const char *data, MAT *U)
@@ -601,7 +585,6 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	break;
       }
 
-      node.set_warm(NULL);    // done with the parent's X
 
       if (params->log_file) {
 	log_matrix(params, "U|_", U);
@@ -627,6 +610,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // where the DNN bound does not fathom.) Skipped until there is a real
       // incumbent: against 1e100 nothing fathoms and every call runs to its limit.
       bool dnn_fathomed = false;
+      void *dnn_keep = NULL;   // this node's DNN state, for its children
 #ifdef HAVE_DNN
       if (bound <= s->getObjective() - DELTA && m >= 2 && s->getObjective() < 1e99 &&
 	  node.depth >= dnn_min_depth && node.depth <= dnn_max_depth) {
@@ -636,7 +620,16 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNParams dp;
 	  // giving up early on a node that would fathom costs its whole subtree
 	  dp.hopeless_after = dnn_hopeless_after;
-	  DNNResult r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp);
+	  // warm start from the parent's final multiplier, when the parent's
+	  // DNN bound ran and missed and this node fixes one more facility
+	  DNNWarm start, *save = dnn_warm ? new DNNWarm : NULL;
+	  const DNNWarm *sp = NULL;
+	  int di, dj;
+	  if (dnn_warm && node.warm && node.warm->dnn &&
+	      ((DNNWarm *)node.warm->dnn)->m == m + 1 && warm_child_offsets(node, di, dj) &&
+	      dnn_warm_child(*(DNNWarm *)node.warm->dnn, di, dj, start))
+	    sp = &start;
+	  DNNResult r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, sp, save);
 	  stats->dnn_nodes++;
 	  stats->dnn_time += r.cpu;
 	  node.bound = std::max(node.bound, r.lb);
@@ -644,9 +637,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    dnn_fathomed = true;
 	    stats->dnn_fathoms++;
 	  }
+	  if (save && !dnn_fathomed && save->m == m) dnn_keep = save;
+	  else delete save;
 	}
       }
 #endif
+      node.set_warm(NULL);    // done with the parent's X and DNN state
     
       // ************** fathom / branch **************
 
@@ -671,6 +667,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	// children start from it (copied first: branch() may use X)
 	WarmStart *warm = (param->which_bound != GLB_BND)
 	  ? new_warm_start(node.p, n, X) : NULL;
+#ifdef HAVE_DNN
+	if (warm && dnn_keep) {
+	  warm->dnn = dnn_keep;
+	  warm->dnn_free = free_dnn_warm;
+	  dnn_keep = NULL;
+	}
+#endif
 	branch(q, node, X, U, kid, kids, bound + qpbp->lapU,
 	       qpbp, bp, loc_in_row, loc_kept);
 	for (i = 0; i < kids; i++)
@@ -726,6 +729,9 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	else
 	  stats->anotherFathom(node.depth);
       }
+#ifdef HAVE_DNN
+      if (dnn_keep) free_dnn_warm(dnn_keep);   // not handed to children
+#endif
       
       if (dive) {
 	stats->stopIteration(node.depth,strat,qpbp->fw_iter,factor);
