@@ -1,0 +1,37 @@
+[Jan 1, 2023]
+vm
+parameters file: PARAM/nug_deep.par
+DNN bound at depths 2-7, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, OpenBLAS (prefix 'scipy_')
+incumbent: 6124
+max_depth has been set to 0
+state file: /tmp/qap-par-d_hc2j1c/frontier.state
+input file: /home/user/qap/qaplib/nug30.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	4	150/100/25	30	30	
+0.12	4	7	150/100/12	3	30	
+0.05	6	6	100/ 50/--	--	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+read symmetry info from ./SYM/nug30.sym
+parallel: frontier at depth 0 has 9 open nodes; 4 workers
+parallel: checkpoint with 111 open nodes, 543 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+parallel: checkpoint with 143 open nodes, 1116 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+parallel: checkpoint with 150 open nodes, 1767 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+parallel: checkpoint with 173 open nodes, 2368 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+parallel: checkpoint with 257 open nodes, 2883 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+parallel: checkpoint with 136 open nodes, 3505 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+parallel: checkpoint with 132 open nodes, 4144 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+parallel: checkpoint with 94 open nodes, 4748 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+parallel: checkpoint with 89 open nodes, 5312 nodes so far -> /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/n30v3/nug30.ckpt
+  ---- RESULTS ----
+
+    Total Time: 23618.179541 seconds 
+         Nodes: 5817 / 5595 / 0
+    root bound: 5332.3296478723241
+ fw iterations: 1617843
+     DNN bound: 5807 nodes, 5595 fathomed, 23537.41 s
+
+parallel: 4 workers, 290 tasks, 7 steals, wall 6065.00 s, CPU 23618.18 s (x3.89), best objective 6124
