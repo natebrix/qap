@@ -77,4 +77,8 @@ dnntest.o: dnntest.C dnn.h
 dnntest: $(OBJS) dnn.o dnntest.o
 	$(CPP) $(CFLAGS) $(OBJS) dnn.o dnntest.o -o dnntest $(LDLIBS) $(DNN_LAPACK)
 
+# prototype: the DNN bound strengthened by triangle inequalities (experiments/dnn_cuts)
+dnncuts: $(OBJS) dnn.o
+	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../experiments/dnn_cuts/dnncuts.C $(OBJS) dnn.o -o ../experiments/dnn_cuts/dnncuts $(LDLIBS) $(DNN_LAPACK)
+
 -include $(wildcard *.d)

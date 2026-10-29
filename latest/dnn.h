@@ -111,6 +111,12 @@ struct DNNParams {
                        // certified lb, extrapolated generously from its recent
                        // gains, stays below the cutoff. A heuristic (it may give
                        // up on a fathomable node); lb stays valid. 0 = off (200)
+  const double *L_add; // optional (m^2+1)^2 symmetric matrix added to the lifted
+                       // objective L (unscaled, row-major), e.g. multiplier-weighted
+                       // valid inequalities; the caller adjusts the shift for their
+                       // constants. NULL: none (default)
+  double L_add_abs;    // sum of the magnitudes of the terms in L_add, for the
+                       // rounding margin (0)
   int child_bounds;    // 1: also return child bounds (DNNResult::child_lb) from the
                        // best certificate's outer assignment problem (0)
   int verbose;         // 1: print the certified bound at every check, 2: also a
@@ -143,6 +149,8 @@ struct DNNWarm {
   int m;
   double scale;                 // the node's objective scale
   std::vector<double> Z;        // lifted (m^2+1)^2, row-major, scaled units
+  std::vector<double> Y;        // the final primal iterate (not a solution; for
+                                // separating cuts), (m^2+1)^2 row-major
   DNNWarm() : m(0), scale(0) {}
 };
 

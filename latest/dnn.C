@@ -195,6 +195,8 @@ DNNParams::DNNParams()
   stall_lb = 0.05;
   stall_gap = 0.5;
   hopeless_after = 200;
+  L_add = NULL;
+  L_add_abs = 0;
   child_bounds = 0;
   verbose = 0;
 }
@@ -882,6 +884,14 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
   return (double)val - margin;
 }
 
+// largest |x[t]|
+double maxabs_of(const double *x, size_t n)
+{
+  double mx = 0;
+  for (size_t t = 0; t < n; t++) mx = std::max(mx, fabs(x[t]));
+  return mx;
+}
+
 // optimum for m <= 1 (the relaxation needs m >= 2), plus shift: the value
 // rounded to nearest, and a lower bound on it (LowerSum: a product cancelling
 // against c or the shift can lose more than an ulp of the result)
@@ -990,6 +1000,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       row[0] = L[1 + i * m + j] = 0.5 * C->me[i][j];
       sumabsL += rowabs + fabs(C->me[i][j]);
     }
+  if (par.L_add) {
+    for (size_t t = 0; t < (size_t)n1 * n1; t++) L[t] += par.L_add[t];
+    sumabsL += par.L_add_abs + (long double)maxabs_of(par.L_add, (size_t)n1 * n1);
+  }
   for (size_t t = 0; t < (size_t)n1 * n1; t++)
     maxabs = std::max(maxabs, fabs(L[t]));
   // as dnn.py: scale the objective to max |L| = 1, beta = m/3
@@ -1177,6 +1191,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     save->m = m;
     save->scale = scale;
     save->Z.assign(Z, Z + (size_t)n1 * n1);
+    save->Y.assign(Y, Y + (size_t)n1 * n1);
   }
   res.cpu = thread_cpu() - t0;
   return res;
