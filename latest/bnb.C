@@ -622,9 +622,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // that QPB cannot fathom (see dnn.h, experiments/dnn_bound). It is used
       // only to fathom and in node.bound: branch() below still gets the QPB
       // bound, since bound + U_ij is only valid with the QPB value and U.
+      // (node.bound also feeds pick_param, the children's inherited bounds and
+      // some branching scores, so the search differs from a QPB-only run even
+      // where the DNN bound does not fathom.) Skipped until there is a real
+      // incumbent: against 1e100 nothing fathoms and every call runs to its limit.
       bool dnn_fathomed = false;
 #ifdef HAVE_DNN
-      if (bound <= s->getObjective() - DELTA && m >= 2 &&
+      if (bound <= s->getObjective() - DELTA && m >= 2 && s->getObjective() < 1e99 &&
 	  node.depth >= dnn_min_depth && node.depth <= dnn_max_depth) {
 	const double inc = s->getObjective();
 	const double gap = (inc - bound) / std::max(inc - stats->root_bound, 1e-9);

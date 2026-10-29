@@ -22,8 +22,9 @@
                    box part), beta factor 1, check every 50, stall window 6, no
                    hopeless test (each overridable after -P)
    -s N            stall window in checks (0 = off)
-   -H N            give up (status hopeless) after N iterations when the primal
-                   value says the cutoff is out of reach (default 200, 0 = off)
+   -H N            give up (status hopeless) after N iterations when the certified
+                   bound, extrapolated from its recent gains, stays below the
+                   cutoff (default 200, 0 = off)
    -e N            R-step eigensolver: 0 dsyevd (as dnn.py), 1 ssyevd, 2 subspace
                    tracking (default) with a full ssyevd every -r N iterations
                    (20) and a Chebyshev filter of degree -d N (2)

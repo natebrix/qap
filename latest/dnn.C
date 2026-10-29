@@ -744,15 +744,18 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
   // floating-point Cholesky of A - cI succeeds, A is positive definite)
   double *S = w.W.data();
   forward(w, Zm, S);
-  double znorm = sqrt(dot4(Zm, Zm, (size_t)n1 * n1)) * (1 + 1e-10);
-  double snorm = sqrt(dot4(S, S, (size_t)K * K)) * (1 + 1e-10);
+  // (1 + 1e-8): rounding of the sums of squares, with room for any m that fits in memory
+  double znorm = sqrt(dot4(Zm, Zm, (size_t)n1 * n1)) * (1 + 1e-8);
+  double snorm = sqrt(dot4(S, S, (size_t)K * K)) * (1 + 1e-8);
   // try delta = rel * ||S||_F, starting a decade below the last value that
   // worked and growing tenfold, up to 1e-3 (single-precision eigenvectors
   // typically need ~1e-7, double ~1e-13)
   double lam = HUGE_VAL;
-  double rel = std::max(1e-14, w.delta_rel / 10);
+  // (an integer exponent: repeated *= 10 can overshoot 1e-3 and skip the last try)
+  int e = (int)floor(log10(std::max(1e-14, w.delta_rel / 10)) + 0.5);
   double *A = w.W2.data();
-  for (; rel <= 1e-3 && lam == HUGE_VAL; rel *= 10) {
+  for (e = std::max(e, -14); e <= -3 && lam == HUGE_VAL; e++) {
+    const double rel = pow(10.0, e);
     double delta = rel * snorm + 1e-14 * znorm + 1e-300;
     long double tr = 0;
     double maxdiag = 0;
@@ -768,7 +771,8 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
     double g = (K + 1) * U_ROUND / (1 - (K + 1) * U_ROUND);
     // c >= g/(1-g) * trace(A + cI): solve for c, generously rounded up
     double trA = (double)tr * (1 + 1e-12) + 1e-300;
-    double c = (g / (1 - g)) * trA / (1 - K * g / (1 - g)) * 1.01
+    // 1.25: slack for LAPACK/OpenBLAS scaling by a reciprocal instead of dividing
+    double c = (g / (1 - g)) * trA / (1 - K * g / (1 - g)) * 1.25
                + 4.0 * K * (2.0 * (K + 1) + maxdiag) * DBL_TRUE_MIN;
     lam = delta + c + U_ROUND * maxdiag;
     w.delta_rel = rel;
@@ -845,9 +849,13 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
   // summation and rounding errors of the polyhedral part, objective rounding,
   // and the semidefinite term
   ci.sdp_penalty = (m + 1) * scale * lam;
-  double margin = 8.0 * (m + 2) * U_ROUND * (double)absM + U_ROUND * sumabsL
+  // (m + 2) u sum|L|: rounding of L itself and of cancellations in a row
+  double margin = 8.0 * (m + 2) * U_ROUND * (double)absM + (m + 2) * U_ROUND * sumabsL
                   + ci.sdp_penalty;
   ci.margin = margin;
+  // a NaN or infinity anywhere (OpenBLAS's Cholesky accepts NaN) certifies nothing
+  if (!std::isfinite(lam) || !std::isfinite((double)val) || !std::isfinite(margin))
+    return -HUGE_VAL;
   return (double)val - margin;
 }
 
@@ -966,7 +974,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   int status = -1, npos = 0;
   double obj = HUGE_VAL;
   const double gap = par.auto_gap > 0 ? par.auto_gap : 1e-3 * std::max(1.0, fabs(cutoff));
-  const double exact_above = cutoff - gap - shift;
+  // no finite cutoff: never close to it, so never the exact pass (was NaN)
+  const double exact_above = std::isfinite(cutoff) ? cutoff - gap - shift : HUGE_VAL;
 
   for (int it = 1; it <= par.max_iter; it++) {
     // R-step: W = V'(Y + Z/beta)V, R = P_psd(W), VRV = V R V'

@@ -242,9 +242,23 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	i++;
 #ifdef HAVE_DNN
 	{
-	  int n = sscanf(argv[i], "%d:%d:%lf:%d", &dnn_min_depth, &dnn_max_depth,
-			 &dnn_max_gap, &dnn_hopeless_after);
-	  if (n < 2) {
+	  // dmin:dmax[:maxgap[:hopeless]]; an empty field keeps its default
+	  char *f[4] = {NULL, NULL, NULL, NULL};
+	  char *arg = new_string(argv[i]);
+	  int n = 0;
+	  for (char *p = arg; n < 4; n++) {
+	    f[n] = p;
+	    char *colon = strchr(p, ':');
+	    if (!colon) { n++; break; }
+	    *colon = '\0';
+	    p = colon + 1;
+	  }
+	  if (n >= 1 && *f[0]) dnn_min_depth = atoi(f[0]);
+	  if (n >= 2 && *f[1]) dnn_max_depth = atoi(f[1]);
+	  if (n >= 3 && *f[2]) dnn_max_gap = atof(f[2]);
+	  if (n >= 4 && *f[3]) dnn_hopeless_after = atoi(f[3]);
+	  delete [] arg;
+	  if (n < 2 || dnn_max_depth < 0) {
 	    cerr << "-x needs dmin:dmax[:maxgap[:hopeless]], e.g. -x 2:3" << std::endl;
 	    exit(1);
 	  }
