@@ -904,10 +904,21 @@ root DNN gap (nug30: 2.9\%, and tho30, solved in \cite{abgl}: 4.2\%): wil50 1.4\
 sko49 3.1\%, tho40 5.8\%, tai50b 6.3\%, tai35a 8.5\%, tai40a 9.4\%. At depth 2, 7 of 10
 random nug30 nodes are fathomed, but none of 10 for tho40 and none of the sko49 nodes
 sampled, whose gap is still about 2\%. At $n\approx50$ an ADMM iteration costs about
-1 second on four threads, 13$\times$ nug30's, and the bound would have to reach depth
-3--4 before fathoming, which means $10^4$--$10^6$ DNN nodes. The open grid instances
-are out of reach on one small machine with this method; they would need much larger
-parallel resources, as in \cite{fujii}, or a faster DNN solver.
+1 second on four threads, 13$\times$ nug30's. A sample of 16 random depth-3 nodes of
+wil50 (cutoff 48,814) is worse still: the DNN bound fathoms 2; five converge 59 to 116
+short of the cutoff, with primal and dual values in agreement; and nine are given up
+after 300 iterations, 300 to 515 short. The gap closes by about 130 per level from about
+680 at the root, so fathoming would start around depth 5 or 6. With the grid's
+symmetry of order 4 that is about $3\times10^4$ nodes at depth 3, $1.4\times10^6$ at
+depth 4 and $6\times10^7$ at depth 5: $10^7$ to $10^8$ DNN nodes at several minutes
+each. The near misses show that at these depths the relaxation, not the solver, is
+the limit: a faster solver changes the cost of a node but not the depth at which
+fathoming starts. Nor do the triangle inequalities on $Y$ help: added in Lagrangian
+form to the certified bound, they raised two nug30 depth-2 misses by 0.2 and 0.4 (of
+gaps 76 and 29) and the root not at all, since the DNN solution violates them by at
+most 0.02 (\texttt{experiments/dnn\_cuts}). The open grid instances need a strictly
+stronger relaxation, such as level-2 RLT, as well as much larger parallel resources,
+as in \cite{fujii}.
 
 \section{Conclusion}
 
@@ -932,9 +943,11 @@ of it comes from the bound and from where it is spent.
 Several directions remain. The give-up rule and the depths of application were
 tuned by hand. A QPB threshold predicts the DNN outcome almost perfectly in the
 samples, which suggests skipping nodes the bound will miss. The restricted
-Peaceman--Rachford method of \cite{graham} may converge faster than ADMM, which
-matters most for the larger open grid instances, and a separate verified check of
-each fathoming certificate would separate fast search from rigorous verification.
+Peaceman--Rachford method of \cite{graham} may converge faster than ADMM, and a
+separate verified check of each fathoming certificate would separate fast search
+from rigorous verification. For the larger open grid instances speed is not
+enough: the DNN relaxation is too weak at the depths where their trees are wide,
+and a stronger relaxation is the next step.
 
 \appendix
 \section{Validation}\label{sec:validation}
