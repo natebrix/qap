@@ -1,0 +1,480 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}[proposition]{Lemma}
+\theoremstyle{remark}
+\newtheorem{remark}[proposition]{Remark}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Sym}{\mathcal{S}}
+\newcommand{\tr}{\operatorname{tr}}
+\newcommand{\vecop}{\operatorname{vec}}
+\newcommand{\Diag}{\operatorname{Diag}}
+\newcommand{\inner}[2]{\langle #1, #2\rangle}
+\newcommand{\lmax}{\lambda_{\max}}
+\newcommand{\Pspd}{\mathcal{P}_{+}}
+\newcommand{\QPB}{\mathrm{QPB}}
+\newcommand{\DNN}{\mathrm{DNN}}
+\newcommand{\GL}{\mathrm{GL}}
+\newcommand{\LAP}{\mathrm{LAP}}
+% filled in from the clean nug30 run (experiments/nug30_solve)
+\newcommand{\CleanNodes}{\textbf{[pending]}}
+\newcommand{\CleanCPU}{\textbf{[pending]}}
+\newcommand{\CleanWall}{\textbf{[pending]}}
+\newcommand{\CleanDNN}{\textbf{[pending]}}
+
+\title{A certified doubly nonnegative bound for branch and bound\\on the quadratic assignment problem,\\and nug30 revisited}
+\author{Nathan W. Brixius\thanks{Draft technical report, October 2026. Source and data:
+the \texttt{cognac} branch of \url{https://github.com/natebrix/qap}. See the
+acknowledgments for how this report and its software were produced.}}
+\date{October 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+In 2000, the quadratic assignment problem nug30 was solved by a branch-and-bound
+algorithm based on a convex quadratic programming bound (QPB), running for about
+a week on a computational grid of hundreds of workstations. We revisit nug30 with
+the same QPB-based branch and bound, strengthened near the top of the tree by a
+much stronger, much more expensive bound: the doubly nonnegative (DNN)
+semidefinite relaxation of Zhao, Karisch, Rendl and Wolkowicz, in the facially
+reduced form of Oliveira, Wolkowicz and Xu, solved by ADMM. Because a
+branch-and-bound proof may only use valid bounds, and an ADMM iterate is not
+one, we compute at every check a \emph{certified} lower bound: the Lagrangian
+dual value of a multiplier whose projection onto the relaxation's face is
+negative semidefinite by construction, evaluated by a Gilmore--Lawler-type
+minimization over permutations, with a rigorous floating-point safety margin
+(Rump's Cholesky criterion). We describe the bound, its certificate, an
+$O(m^4)$-per-product implementation of the facially reduced ADMM with a
+single-precision subspace eigensolver, and its use in branch and bound, where it
+is applied only to nodes at depths 2--6 that QPB does not fathom and used only
+for fathoming. With it, nug24 is solved in 299 nodes and 13 CPU minutes, and
+nug30 in about three hours on four cores.
+\end{abstract}
+
+\section{Introduction}
+
+The quadratic assignment problem (QAP) in Koopmans--Beckmann form is
+\begin{equation}\label{eq:qap}
+  \min_{X \in \Pi_n} \; \tr(A X B X^T) + \tr(C X^T),
+\end{equation}
+where $\Pi_n$ is the set of $n\times n$ permutation matrices, $A$ (flows) and $B$
+(distances) are $n\times n$, and $C$ is a linear cost. QAPLIB \cite{qaplib} has long
+served as its benchmark library, and the Nugent instances \cite{nugent} nug12 to nug30
+as its yardstick for exact methods. nug30 resisted solution for three decades until
+Anstreicher, Brixius, Goux and Linderoth \cite{abgl} solved it in 2000 by branch and
+bound on the quadratic programming bound QPB of Anstreicher and Brixius \cite{ab01},
+on a computational grid of several hundred workstations over about a week (see
+\cite{abgl} for the exact node count and CPU time).
+
+QPB is a bound of moderate strength that is cheap to compute approximately by
+Frank--Wolfe iterations, each requiring one linear assignment problem (LAP). That
+balance suited a search of billions of nodes. Semidefinite relaxations are far
+stronger: the DNN relaxation \cite{zkrw,povhrendl} is within about 3\% of the optimum at
+the root of nug30, against about 13\% for QPB (Table~\ref{tab:root}). But they have
+been considered too expensive to apply at more than a few nodes. Fujii et al.\
+\cite{fujii} showed that a Lagrangian-DNN branch and bound can solve nug30-sized
+instances with tens of thousands of nodes, on large parallel computers.
+
+This report describes the opposite division of labor: QPB does the bulk of the
+search, and a certified DNN bound is applied only where QPB fails at the top of the
+tree, at depths 2--6. Nodes there are few, but each carries a subtree of
+$10^3$--$10^9$ QPB nodes. On nug30 the DNN bound costs seconds per node and fathoms
+almost all of them. QPB's value at a node predicts well whether the DNN bound will
+fathom it.
+
+The contributions are:
+\begin{itemize}
+\item a certificate (Section~\ref{sec:cert}) that turns any ADMM multiplier into a
+  valid lower bound with explicit floating-point safety, cheap enough to evaluate
+  every few iterations, so that the bound can stop as soon as it fathoms;
+\item an implementation (Section~\ref{sec:impl}) of the facially reduced ADMM with
+  $O(m^4)$ products by the face basis and a single-precision tracked eigensolver,
+  13--36$\times$ faster per node than a numpy prototype;
+\item its integration into a QPB branch and bound (Section~\ref{sec:bnb}), and
+  computational results on nug20--nug30 (Section~\ref{sec:results}), including
+  nug30 solved in about three hours on four cores.
+\end{itemize}
+
+\section{The DNN relaxation}\label{sec:dnn}
+
+Consider a node of the branch-and-bound tree with $m$ facilities left to assign.
+Its subproblem is again a QAP \eqref{eq:qap} of size $m$, with reduced matrices
+$A, B \in \R^{m\times m}$, a linear term $C$ that collects the interactions with
+the fixed assignments, and a constant $s$ (the solver's \texttt{reduceQAP}). For
+$X\in\Pi_m$ let $x = \vecop(X)$, ordered so that $x_{ij}$ (facility $i$ at location
+$j$) has lifted index $1 + im + j$, and let $y = (1, x)$ and $N = m^2+1$.
+Define the symmetric lifted cost $L\in\Sym^N$ by
+\begin{equation}\label{eq:L}
+  L_{(ij),(kl)} = \tfrac12(a_{ik}b_{jl} + a_{ki}b_{lj}), \qquad
+  L_{0,(ij)} = L_{(ij),0} = \tfrac12 c_{ij}, \qquad L_{00} = 0.
+\end{equation}
+Then for every permutation, $\inner{L}{yy^T} = \sum a_{ik}b_{jl}x_{ij}x_{kl} +
+\sum c_{ij}x_{ij} = \tr(AXBX^T) + \tr(CX^T)$, the subproblem objective without $s$.
+
+\paragraph{The face.} The constraints $Xe = X^Te = e$ say that $y$ lies in the null
+space of a linear map, so every lifted permutation $Y = yy^T$ has its range in a
+fixed subspace of dimension $(m-1)^2+1$. Let $V \in\R^{N\times K}$, $K = (m-1)^2+1$,
+be an orthonormal basis of it. Zhao et al.\ \cite{zkrw} take
+$V = \begin{pmatrix}1 & 0\\ e/m & V_m\otimes V_m\end{pmatrix}$, suitably normalized,
+where the columns of $V_m\in\R^{m\times(m-1)}$ span $e^\perp$. Every lifted permutation then
+satisfies $Y = VRV^T$ with $R \succeq 0$. The DNN relaxation of the subproblem is
+\begin{equation}\label{eq:dnn}
+  \DNN = s + \min\{ \inner{L}{Y} : Y = VRV^T,\ R\succeq 0,\ Y_{00}=1,\
+  \mathcal{G}(Y) = 0,\ 0 \le Y \le 1 \},
+\end{equation}
+where $\mathcal{G}$ selects the ``gangster'' entries $Y_{(ij),(il)}$, $l\ne j$, and
+$Y_{(ij),(kj)}$, $k\ne i$, which vanish for permutations since a facility has one
+location and a location one facility. Oliveira, Wolkowicz and Xu \cite{owx} solve
+\eqref{eq:dnn} by ADMM on the splitting $Y = VRV^T$, alternating
+\begin{align}
+  R &\leftarrow \Pspd\big(V^T(Y + Z/\beta)V\big), \label{eq:rstep}\\
+  Y &\leftarrow \Pi_{\mathcal{Y}}\big(VRV^T - (L + Z)/\beta\big), \label{eq:ystep}\\
+  Z &\leftarrow Z + \gamma\beta\,(Y - VRV^T), \label{eq:zstep}
+\end{align}
+where $\Pspd$ projects onto the positive semidefinite cone,
+$\mathcal{Y} = \{Y: Y_{00}=1, \mathcal{G}(Y)=0, 0\le Y\le1\}$ is a box with fixed
+entries (so $\Pi_{\mathcal{Y}}$ is entrywise clipping), $\beta>0$ is the penalty
+and $\gamma\in(0,\frac{1+\sqrt5}{2})$ the dual step.
+
+\section{A certified bound from any multiplier}\label{sec:cert}
+
+ADMM iterates are neither primal feasible nor dual optimal, and the primal value
+$\inner{L}{Y}$ is not a bound. Branch and bound needs a number that is provably
+below the subproblem optimum after any number of iterations. We obtain one from
+the multiplier.
+
+\begin{lemma}\label{lem:trace}
+Every lifted permutation $Y = yy^T$ satisfies $Y = VRV^T$ with
+$R = V^TYV\succeq0$ and $\tr(R) = m+1$.
+\end{lemma}
+\begin{proof}
+$y$ lies in the range of $V$, so $Y = VV^TYVV^T = VRV^T$ with $R = V^TYV =
+(V^Ty)(V^Ty)^T\succeq0$, and $\tr R = \|V^Ty\|^2 = \|y\|^2 = 1 + \sum x_{ij}^2 =
+m+1$.
+\end{proof}
+
+\begin{proposition}\label{prop:cert}
+Let $Z\in\Sym^N$ be any symmetric matrix, $\lambda \ge \lmax(V^TZV)$, and let
+$\mathcal{P}\supseteq\{yy^T : X\in\Pi_m\}$. Then the subproblem optimum is at least
+\begin{equation}\label{eq:cert}
+  s + \min_{Y\in\mathcal{P}} \inner{L+Z}{Y} - (m+1)\lambda .
+\end{equation}
+\end{proposition}
+\begin{proof}
+For a lifted permutation $Y = VRV^T$ (Lemma~\ref{lem:trace}),
+$\inner{Z}{Y} = \inner{V^TZV}{R} \le \lmax(V^TZV)\tr R \le (m+1)\lambda$, since $R\succeq0$.
+Hence $\inner{L}{Y} = \inner{L+Z}{Y} - \inner{Z}{Y} \ge \inner{L+Z}{Y} - (m+1)\lambda
+\ge \min_{\mathcal{P}}\inner{L+Z}{\cdot} - (m+1)\lambda$.
+\end{proof}
+
+Proposition~\ref{prop:cert} holds for every $Z$; the quality of the bound depends
+on $Z$ being near a dual optimum of \eqref{eq:dnn}, and on choosing $Z$ so that
+$\lambda$ can be small. Two choices of $\mathcal{P}$ and one of $Z$ make it both
+cheap and tight.
+
+\paragraph{The multiplier.} The prototype of \cite{owx} projects $V^TZV$ onto the
+negative semidefinite cone, which costs an extra eigendecomposition per check.
+Instead we use the multiplier implied by the $R$-step. Let $W = V^T(Y+Z/\beta)V$ be
+the matrix projected in \eqref{eq:rstep}, and
+\[
+  Z' = Z + \beta(Y - VRV^T), \qquad\text{so that}\qquad V^TZ'V = \beta(W - \Pspd(W)) \preceq 0 .
+\]
+The last matrix is $\beta$ times the negative part of $W$, negative semidefinite by
+construction. This holds even when the eigenvectors used for $\Pspd$ are
+inaccurate: if $\Pspd(W)$ is formed as $W$ minus the computed negative part
+$\sum_{w_k<0} w_k v_kv_k^T$, the difference is exactly that sum. In floating
+point, $\lmax(V^TZ'V)$ is a tiny positive number, which we bound rigorously below.
+
+\paragraph{The polyhedral part.} With $\mathcal{P}$ the box
+$\mathcal{Y}$ itself, $\min_{\mathcal{P}}\inner{M}{Y}$ for $M = L+Z'$ is
+$M_{00}$ plus the sum of the negative entries of $M$ outside the gangster set: the
+prototype's choice. A much tighter, still cheap choice uses that every permutation
+is an assignment in two levels. Write $M_{(ij),\cdot}$ for row $(ij)$ of $M$. For a
+permutation $\sigma$,
+\begin{equation}\label{eq:gl}
+\inner{M}{yy^T} = M_{00} + \sum_{i}\Big( 2M_{0,(i\sigma_i)} + M_{(i\sigma_i),(i\sigma_i)}
+ + \sum_{k\ne i} M_{(i\sigma_i),(k\sigma_k)} \Big).
+\end{equation}
+The inner sum is a perfect matching between facilities $k\ne i$ and locations
+$l\ne\sigma_i$, so it is at least the value $\LAP_{ij}$ of the $(m-1)\times(m-1)$
+assignment problem on the block $M_{(ij),(kl)}$, $k\ne i$, $l\ne j$. Hence
+\begin{equation}\label{eq:glbound}
+\min_{\sigma}\inner{M}{yy^T} \;\ge\; \GL(M) := M_{00} + \LAP\big(c\big),\qquad
+c_{ij} = 2M_{0,(ij)} + M_{(ij),(ij)} + \LAP_{ij},
+\end{equation}
+a Gilmore--Lawler computation \cite{gilmore,lawler} on the lifted matrix. It is
+never below the box value and reaches a given value 1.5--6$\times$ sooner in the
+nug20 tests. Any lower bound on each $\LAP_{ij}$ may replace it, for example the
+row-then-column reduction, which costs $O(m^2)$. The implementation uses the
+reduction, plus exact Hungarian solves when the result is within a small gap of the
+cutoff.
+
+\paragraph{Floating point.} The certified value is
+$s + \GL(L+Z') - \mu$, where the margin $\mu$ covers:
+\begin{itemize}
+\item[(i)] $(m+1)\lambda$ with $\lambda\ge\lmax(V^TZ'V)$, obtained by Rump's
+  criterion \cite{rump}: if the floating-point Cholesky factorization of
+  $\delta I - S$ succeeds for the computed $S \approx V^TZ'V$, then
+  $\lmax(S) \le \delta + c$ with an explicit $c$ depending on the dimension, the
+  unit roundoff $u$ and $\tr(\delta I - S)$. To this is added
+  $64\,m\,u\,\|Z'\|_F$ for the error of computing $S$ through Householder
+  transforms rather than with an exact $V$.
+\item[(ii)] the summation and rounding errors of \eqref{eq:glbound}, accumulated in
+  extended precision: $8(m+2)u\,\|M\|_1$, plus $u\sum|L|$ for the objective
+  scaling.
+\end{itemize}
+These are standard error bounds with generous constants, not interval arithmetic.
+At $m=28$ the largest margin seen was about $10^{-7}$ in objective units, against
+integer objective values. The solver fathoms only when the certified value exceeds
+the incumbent minus $1.95$ for instances whose objective values are provably even
+(Section~\ref{sec:bnb}).
+
+\begin{remark}
+Nothing in the certificate depends on the ADMM having converged, on the accuracy
+of its eigenvectors, or on the single-precision arithmetic used in the $R$-step
+(Section~\ref{sec:impl}). Only the multiplier $Z'$, the Cholesky test and
+\eqref{eq:glbound} enter the certified value, all in double precision.
+\end{remark}
+
+\section{Implementation}\label{sec:impl}
+
+The bound is implemented in C++ (\texttt{latest/dnn.C}, about 1100 lines) with
+LAPACK and BLAS (OpenBLAS). A numpy prototype (\texttt{experiments/dnn\_bound}) was
+ported faithfully; a prototype mode reproduces its certified values to $10^{-7}$.
+
+\paragraph{Products with $V$.} The prototype forms $V$ explicitly and computes
+$V^TMV$ and $VRV^T$ with dense products of order $N\times N$, which costs
+$O(m^6)$. We take for $V_m$ the first $m-1$ columns of the Householder
+reflector $H$ with $He_{m-1} = e/\sqrt m$. Then $V^TMV$ and $VRV^T$ are a
+reflection along each of the four tensor modes plus a $2\times2$ rotation coupling
+the constant coordinate, $O(m^4)$ per product. Both the $R$-step and the
+certificate are invariant under an orthogonal change of basis of the face, so
+any orthonormal $V$ gives the same iterates and bound.
+
+\paragraph{Eigensolver.} Each $R$-step needs the projection of a
+$K\times K$ symmetric matrix ($K = 730$ at $m=28$) with hundreds of eigenvalues of
+each sign, so a partial spectrum does not help directly. Between iterations the
+matrix changes little. We track its negative eigenspace by a Chebyshev-filtered
+subspace iteration in single precision (BLAS level 3), with a full single-precision
+eigendecomposition every 20 iterations. Because $R$ is formed as $W$ minus the
+computed negative part, the certificate is unaffected (Section~\ref{sec:cert}).
+When a check fails the Cholesky test, or the semidefinite penalty alone decides
+whether the node is fathomed, the multiplier is re-projected in double precision
+before certifying.
+
+\paragraph{Parameters.} The objective is scaled to $\max|L| = 1$. We use
+$\beta = 0.3\cdot m/3$ (the prototype's $m/3$ times 0.3), which certifies
+2--3$\times$ sooner on hard nodes, and $\gamma = 1.618$. A certificate is computed
+every 10 iterations, and the run stops at the first certified value above the
+cutoff. An optional give-up rule stops a node early when its certified value,
+extrapolated generously from its recent gains, stays below the cutoff. This only
+affects cost: the node is then branched on as usual.
+
+\paragraph{Speed.} Table~\ref{tab:speed} compares the C++ bound with the prototype
+on the same nodes. Measured back to back on a loaded 4-core Xeon, an ADMM iteration
+at $m=28$ costs 43\,ms against 339\,ms. Per node, the C++ bound needs fewer
+iterations to certify, thanks to the tighter polyhedral part and the smaller $\beta$,
+and is 13--36$\times$ faster.
+
+\begin{table}[t]\centering
+\caption{The certified DNN bound in C++ against the numpy prototype, CPU seconds per
+node, cutoff = optimum $-1.95$ (one core; prototype times from the studies in
+\texttt{experiments/dnn\_bound}).}\label{tab:speed}
+\begin{tabular}{lrrrr}
+\toprule
+node set & fathomed (both) & C++ & prototype & ratio\\
+\midrule
+nug20, depth 2 (all 98, $m=18$) & 96 & 0.62 & 8.35 & 13$\times$\\
+nug30, depth 2 (36 random, $m=28$) & 34 & 9.6 & 139 & 14.5$\times$\\
+nug30, depth 2 (8 lowest QPB) & 0 & 11 (200 it.) & 397 & 36$\times$\\
+nug30, depth 3 (20, $m=27$) & 19 & 7.4 & 121 & 16$\times$\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Use in branch and bound}\label{sec:bnb}
+
+The branch and bound is the QPB code of \cite{ab01,abgl}, with improvements made
+since then: Frank--Wolfe warm-started from the parent's solution, keeping the best
+(bound, reduced cost) pair over all iterations, and cheaper, corrected lookahead
+branching at the top levels. For grid instances, it also uses a branching rule on
+the most eccentric free location down to depth 6 (\texttt{PARAM/nug\_deep.par}).
+The DNN bound is added as follows.
+
+\begin{enumerate}
+\item At a node of depth $d\in[d_1,d_2]$ whose QPB value does not fathom it, the
+  certified DNN bound is computed for its reduced subproblem
+  (\texttt{bnbdrv -x d1:d2[:gap[:giveup]]}).
+\item If it exceeds the incumbent minus the fathoming tolerance, the node is
+  fathomed. Otherwise it only raises the node's recorded bound.
+\item Branching, and the elimination of children by $\text{bound} + U_{ij} \ge
+  \text{incumbent}$, use the QPB value and its reduced costs $U$, never the DNN
+  value. The elimination argument is a property of the Frank--Wolfe linearization
+  of QPB.
+\end{enumerate}
+
+The fathoming tolerance is 1.95 when all objective values are provably even, as for
+the nug instances, 0.95 when they are integers, and 0 otherwise. Search statistics,
+including DNN counts, are kept in the checkpoint files, so a run can be stopped,
+resumed and split across processes (\texttt{bench/parallel.py}) with identical
+totals. One caveat: the DNN bound's floating-point results depend on the BLAS
+kernels selected for the CPU, so node counts with the DNN bound can differ between
+machines if a certified value lands within about $10^{-6}$ of a cutoff. Validity is
+not affected.
+
+\paragraph{Where to apply it.} Two studies with the prototype measured the bound
+on QPB-open nodes (Table~\ref{tab:fathom}). At depth 1 it rarely fathoms. At depth 2
+it fathoms nearly all nodes of nug20 and 94\% of a random sample of nug30's. On
+nug30 the outcome is almost a function of the node's QPB value: every sampled node
+with QPB below about 5548 was missed, every node above about 5554 fathomed. At
+depth 3, under the depth-2 nodes it misses, it fathoms almost everything. The
+misses are the most expensive subtrees, so the bound has to be applied at several
+consecutive depths. In the full solves, depths 2 to 5 or 6 worked best.
+
+\begin{table}[t]\centering
+\caption{Root bounds and DNN fathoming at the top of the tree (prototype studies;
+QPB from the solver; incumbent = optimum).}\label{tab:root}\label{tab:fathom}
+\begin{tabular}{lrrr}
+\toprule
+& nug12 & nug20 & nug30\\
+\midrule
+optimum & 578 & 2570 & 6124\\
+root QPB & 478.5 & 2243.9 & 5332.3\\
+root DNN (certified) & 568.0 & 2506.3 & 5949.3\\
+\midrule
+depth 1: fathomed / QPB-open & -- & 1 / 6 & 0 / 1 sampled\\
+depth 2: fathomed / QPB-open & -- & 96 / 98 & 34 / 36 sampled\\
+depth 3: fathomed / QPB-open & -- & 200 / 200 sampled & 19 / 20 sampled\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Computational results}\label{sec:results}
+
+All runs use the known optimum as the incumbent, as in \cite{abgl}, so they measure
+the work of the proof. They ran on a cloud virtual machine with 4 cores (Intel Xeon,
+2.1--2.8\,GHz), with \texttt{bench/parallel.py} distributing subtrees to 4 solver
+processes. CPU is the sum over processes.
+
+\begin{table}[t]\centering
+\caption{Branch and bound with and without the DNN bound (4 workers unless noted).
+QPB only: default parameters. DNN: \texttt{-x d1:d2}, giving up on hopeless nodes
+after 300 iterations where shown (:300).}\label{tab:bnb}
+\begin{tabular}{llrrr}
+\toprule
+instance & bounds & nodes & CPU s & wall\\
+\midrule
+nug20 & QPB only (1 core) & 526,205 & 197 & --\\
+nug20 & QPB + DNN 2--3 (1 core) & 141 & 105 & --\\
+nug24 & QPB only & $\approx$25\,M & $\approx$5,000 & $\approx$25 min\\
+nug24 & QPB + DNN 2--3 & 299 & 796 & 4.4 min\\
+nug25 & QPB only & 52,989,998 & 18,353 & 78 min\\
+nug25 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 717 & 3,279 & 15 min\\
+nug25 & QPB (\texttt{nug\_deep}) + DNN 2--5:300 & 761 & 1,447 & 6.2 min\\
+nug27 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 675 & 4,428 & 20 min\\
+nug28 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 1,736 & 12,976 & 62 min\\
+nug30 & QPB (\texttt{nug\_deep}) + DNN 2--5:300, then 2--6:300 & 45,486,332 & 40,555 & $\approx$3.0 h\\
+nug30 & QPB (\texttt{nug\_deep}) + DNN 2--6:300 & \CleanNodes & \CleanCPU & \CleanWall\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:bnb} summarizes the solves. At nug20 the DNN bound at depths 2--3
+removes all but 141 of 526,205 nodes and halves the time. At nug24 the tree
+collapses to 299 nodes. From nug25 on, the DNN bound does most of the work: on
+nug28, 12,926 of 12,976 CPU seconds are spent in it, on 1,727 nodes of which 1,664
+are fathomed.
+
+\paragraph{nug30.} The first solve applied the DNN bound at depths 2--5. QPB search
+below the depth-5 nodes the bound missed grew to about 12,000 CPU seconds, so for
+the remaining work (506 open nodes, including a whole depth-1 subtree) the bound
+was extended to depth 6, which finished in 21 minutes. In total, 45,486,332 nodes
+and 40,555 CPU seconds. The DNN bound ran on 5,615 nodes, fathomed 5,403, and
+accounted for 26,770 of those seconds. A clean run with the DNN bound at depths 2--6
+throughout took \CleanNodes{} nodes, \CleanCPU{} CPU seconds and \CleanWall{} of wall
+time (\CleanDNN).
+
+\section{Validation}\label{sec:validation}
+
+A branch-and-bound proof is only as good as its bounds, so the DNN bound was
+checked in several independent ways.
+\begin{itemize}
+\item \textbf{Exhaustive checks.} 1,512 certified bounds on random instances and
+  subproblems with $m\le8$ (several families, including linear terms and ties),
+  each compared with the optimum found by enumeration. No bound exceeds the
+  optimum, and no fathom is ever claimed with the cutoff at the optimum.
+\item \textbf{Inside the search.} The solver's brute-force test (4,536 runs on
+  random instances with $n\le 8$, eight parameter sets, three upper-bound modes)
+  passes with the DNN bound applied at every depth, with and without the give-up
+  rule.
+\item \textbf{Against the prototype.} In prototype mode the C++ bound reproduces the
+  numpy prototype's certified values at 44 checkpoints to a relative $8.6\cdot10^{-8}$.
+  On nug20 nodes whose subproblems were solved exactly, the bounds are below the
+  optima and fathom the same nodes.
+\item \textbf{Reproducibility.} Results are bitwise identical across runs on one
+  machine. Valgrind reports no memory errors on a debug build. Serial, resumed and
+  parallel runs give identical node counts.
+\item \textbf{Independent review.} \textbf{[pending: results of the mathematical
+  and code reviews, and of the adversarial tests.]}
+\end{itemize}
+
+\section{Discussion}
+
+Twenty-six years ago nug30 needed QPB's cheapness: billions of nodes, each bounded
+in milliseconds, on hundreds of machines. Today the same search needs only a few
+thousand much stronger bounds at the top, and QPB below them, to finish on one small
+machine in an afternoon. Hardware accounts for part of the gain, but most of it
+comes from the division of labor. The stronger bound, certified at every step, is
+spent only where a single fathom removes a large subtree.
+
+Several directions remain. The give-up rule and the depths of application were
+tuned by hand on nug25. A QPB threshold predicts the DNN outcome almost perfectly,
+which suggests skipping nodes the bound will miss. Warm-starting a child's ADMM from
+its parent's multiplier cut iterations 2--2.5$\times$ in early tests. And instances
+beyond nug30 (tai35, tho40, and the Eschermann and Taillard families) are natural
+next targets.
+
+\section*{Acknowledgments}
+The software described here, the experiments and a first draft of this report were
+produced with Claude, an AI system by Anthropic, working in the author's repository
+under the author's direction, with independent AI agents used for the prototype
+studies, the C++ port and the reviews. Jean-Pierre Goux contributed the ``nug30
+Laboratory'' study whose ideas started this work.
+
+\begin{thebibliography}{99}
+\bibitem{ab01} K.M. Anstreicher and N.W. Brixius, A new bound for the quadratic
+  assignment problem based on convex quadratic programming, \emph{Mathematical
+  Programming} 89 (2001) 341--357.
+\bibitem{abgl} K. Anstreicher, N. Brixius, J.-P. Goux and J. Linderoth, Solving large
+  quadratic assignment problems on computational grids, \emph{Mathematical
+  Programming} 91 (2002) 563--588.
+\bibitem{qaplib} R.E. Burkard, S.E. Karisch and F. Rendl, QAPLIB -- a quadratic
+  assignment problem library, \emph{Journal of Global Optimization} 10 (1997) 391--403.
+\bibitem{fujii} K. Fujii, N. Ito, S. Kim, M. Kojima, Y. Shinano and K.-C. Toh, Solving
+  challenging large scale QAPs, arXiv:2101.09629 (2021).
+\bibitem{gilmore} P.C. Gilmore, Optimal and suboptimal algorithms for the quadratic
+  assignment problem, \emph{SIAM Journal on Applied Mathematics} 10 (1962) 305--313.
+\bibitem{lawler} E.L. Lawler, The quadratic assignment problem, \emph{Management
+  Science} 9 (1963) 586--599.
+\bibitem{nugent} C.E. Nugent, T.E. Vollmann and J. Ruml, An experimental comparison of
+  techniques for the assignment of facilities to locations, \emph{Operations
+  Research} 16 (1968) 150--173.
+\bibitem{owx} D.E. Oliveira, H. Wolkowicz and Y. Xu, ADMM for the SDP relaxation of
+  the QAP, \emph{Mathematical Programming Computation} 10 (2018) 631--658.
+\bibitem{povhrendl} J. Povh and F. Rendl, Copositive and semidefinite relaxations of
+  the quadratic assignment problem, \emph{Discrete Optimization} 6 (2009) 231--241.
+\bibitem{rump} S.M. Rump, Verification of positive definiteness, \emph{BIT
+  Numerical Mathematics} 46 (2006) 433--452.
+\bibitem{zkrw} Q. Zhao, S.E. Karisch, F. Rendl and H. Wolkowicz, Semidefinite
+  programming relaxations for the quadratic assignment problem, \emph{Journal of
+  Combinatorial Optimization} 2 (1998) 71--109.
+\end{thebibliography}
+
+\end{document}
