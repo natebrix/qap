@@ -575,6 +575,24 @@ almost everything. The misses are the most expensive subtrees, so the bound has 
 be applied at several consecutive depths. In the full solves, depths 2 to 6 or 7
 worked best.
 
+The two bounds share a lineage: QPB is built on the projected eigenvalue bound PB
+\cite{hrw}, and the DNN relaxation on the same projection onto the assignment
+constraints. To see whether that is why QPB predicts the DNN outcome, we computed
+GLB, PB and QPB at all 225 depth-2 nodes of nug30 and ran the DNN bound on each
+(165 are fathomed within 1,000 iterations, the same count as in the full solves).
+Measured by the area under the ROC curve for separating fathomed from missed
+nodes, QPB is the best predictor (0.990, and 0.994 for its parametric form), the
+lookahead estimate the solver already has before it bounds the node is close
+behind (0.988), then GLB (0.969) and PB (0.920). At its best threshold QPB classifies
+96.9\% of the nodes correctly, GLB 93.8\% and PB 86.2\%; with QPB, fathomed and
+missed nodes overlap only in a band of about 25 units around 5590. So the purely
+spectral PB, from which QPB descends, is the weakest predictor, and the purely
+combinatorial GLB, a far weaker bound, is a good one. QPB combines a spectral part
+with assignment problems, much as the DNN certificate combines a semidefinite part
+with Gilmore--Lawler assignment problems, and it is that combination, more than the
+spectral lineage alone, that makes the cheap bound a good guide to the expensive
+one. (One instance at one depth: suggestive rather than conclusive.)
+
 \begin{table}[t]\centering
 \caption{Root bounds and DNN fathoming at the top of the tree (prototype studies;
 QPB from the solver; incumbent = optimum).}\label{tab:fathom}
