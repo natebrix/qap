@@ -33,6 +33,39 @@ cuts the tree 7x and the CPU 2.2x: almost all of the first solve's extra work
 was QPB search below depth-6 nodes the depth-5 setting left to QPB. 92% of the
 CPU is now in the DNN bound, and 96% of the nodes it bounds are fathomed.
 
+## Improved settings (October 29, solver at ff1f044)
+
+The DNN bound to depth 7, with each node's ADMM warm-started from its
+parent's multiplier when the parent's DNN bound missed:
+
+```sh
+python3 bench/parallel.py qaplib/nug30.dat --jobs 4 --ub 6124 \
+    --params PARAM/nug_deep.par --extra "-x 2:7:1:300:1" \
+    --checkpoint nug30.ckpt --checkpoint-every 600
+```
+
+This container (2.8 GHz Xeon) is about 1.45x slower per DNN iteration
+than the one that ran most of the clean run (the same code and node take
+73 ms per iteration here), so the clean settings were rerun on it as an
+A/B comparison with the same code:
+
+| on the same machine | `-x 2:6:1:300` (clean settings) | `-x 2:7:1:300:1` |
+|---|---|---|
+| nodes | 6,532,419 | 5,817 |
+| DNN nodes / fathomed | 5,764 / 5,551 | 5,807 / 5,595 |
+| DNN CPU | 26,726 s | 23,537 s |
+| CPU | 28,428 s | 23,618 s |
+| wall | about 2.1 h | 1 h 41 min |
+| logs | `ab_run1.log`, `ab_run2.log` (resumed once, 2-hour task limit) | `v3_run1.log` |
+
+The A/B run reproduces the clean run's tree exactly (same nodes, DNN nodes
+and fathoms), so the fixes since f8107dd change nothing on nug30. The new
+settings take 17% less CPU. Depth 7 fathoms all 96 depth-7 nodes with the
+DNN bound (178 s) and removes the QPB search below them. Warm starts cut
+the DNN time per node at depths 3 and 4 by 16% and 13% (5.3 against 6.3 s,
+3.4 against 3.8 s); they cut iterations per fathomed node by about 40%,
+but a warm-started ADMM's iterations cost more.
+
 ## First solve (mixed settings)
 
 

@@ -432,6 +432,10 @@ nug27 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 675 & 4,428 & 20 min\\
 nug28 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 1,736 & 12,976 & 62 min\\
 nug30 & QPB (\texttt{nug\_deep}) + DNN 2--5:300, then 2--6:300 & 45,486,332 & 40,555 & $\approx$3.0 h\\
 nug30 & QPB (\texttt{nug\_deep}) + DNN 2--6:300 & \CleanNodes & \CleanCPU & \CleanWall\\
+\midrule
+\multicolumn{5}{l}{\emph{on a second machine, about 1.45$\times$ slower per DNN iteration:}}\\
+nug30 & QPB (\texttt{nug\_deep}) + DNN 2--6:300 & 6,532,419 & 28,428 & $\approx$2.1 h\\
+nug30 & QPB (\texttt{nug\_deep}) + DNN 2--7:300, warm & 5,817 & 23,618 & 1.7 h\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -465,6 +469,22 @@ solver commit \texttt{f8107dd} with OpenBLAS (\texttt{scipy-openblas32}) and GCC
 Later fixes from the reviews below change no computation on nug data, whose
 products and sums are exact; the regression instances' node counts are
 unchanged.
+
+\paragraph{Improved settings.} Two changes target the clean run's remaining costs.
+The QPB search below its 72 depth-7 nodes took about 1,300 CPU seconds; applying the
+DNN bound at depth 7 too fathoms all of them (96 in that run, 178 seconds). And most
+DNN calls are at children of nodes whose own DNN bound missed; starting a child's
+ADMM from the parent's final multiplier, mapped to the child's lifted indices,
+cuts the iterations to fathom by about 40\%. The run with both
+(\texttt{-x 2:7:1:300:1}) ran on a different machine, so the clean settings were
+rerun there with the same code (the last two rows of Table~\ref{tab:bnb}). The
+rerun reproduces the clean run's tree exactly, and the new settings take 17\% less
+CPU, with 5,817 nodes in all: every node at depths 2--7 that QPB does not fathom
+gets the DNN bound, and all of them are fathomed by depth 7. Warm starts lower the
+DNN time per node at depths 3 and 4 by only 16\% and 13\%, less than the iteration
+counts suggest, because a warm-started ADMM pays for many negative eigenvalues
+from its first iteration where a cold one starts cheap (on nug25 the saving was
+4\%).
 
 \section{Validation}\label{sec:validation}
 
@@ -566,16 +586,30 @@ comes from the division of labor. The stronger bound, certified at every step, i
 spent only where a single fathom removes a large subtree.
 
 Several directions remain. The give-up rule and the depths of application were
-tuned by hand on nug25. A QPB threshold predicts the DNN outcome almost perfectly
-in the samples, which suggests skipping nodes the bound will miss. Warm-starting a
-child's ADMM from its parent's multiplier cut iterations 2--2.5$\times$ in early
-tests. The outer assignment problem of \eqref{eq:glbound} yields, with its dual
-potentials $u,v$, a lower bound $b + r_{ij}$ for every child $x_{ij}=1$ of a node
-the bound misses, where $r_{ij} = c_{ij}-u_i-v_j$ (the review above), so children
-could be eliminated without a DNN solve of their own. The restricted
-Peaceman--Rachford method of \cite{graham} may converge faster than ADMM. And a
+tuned by hand. A QPB threshold predicts the DNN outcome almost perfectly in the
+samples, which suggests skipping nodes the bound will miss. One idea from the
+review did not pay off on nug30: the outer assignment problem of \eqref{eq:glbound}
+yields, with its dual potentials $u,v$, a lower bound $b + r_{ij}$ for every child
+$x_{ij}=1$ of a node the bound misses, with $r_{ij} = c_{ij}-u_i-v_j$, at no extra
+cost (\texttt{dnntest -C}). On nine sampled depth-1 and depth-2 misses it fathomed
+none of their 784--841 children each: near a dual optimum the outer costs are almost flat (median
+$r_{ij}$ 0.1, largest 12.1, where the nearest miss needed 14.4), and even forcing
+the assignment in the outer problem gains at most 12.1. A child's gain comes from
+re-solving the relaxation with the extra fixing. The restricted
+Peaceman--Rachford method of \cite{graham} may converge faster than ADMM, and a
 separate verified check of each fathoming certificate would separate fast search
 from rigorous verification.
+
+\paragraph{Open instances.} We screened candidates among the instances QAPLIB lists
+as open by their certified root DNN gap (nug30: 2.9\%, and tho30, solved in
+\cite{abgl}: 4.2\%): wil50 1.4\%, sko49 3.1\%, tho40 5.8\%, tai50b 6.3\%, tai35a
+8.5\%, tai40a 9.4\%. At depth 2, 7 of 10 random nug30 nodes are fathomed, but
+none of 10 for tho40 and none of the sko49 nodes sampled, whose gap is still about
+2\%. At $n\approx50$ an ADMM iteration costs about 1 second on four threads,
+13$\times$ nug30's, and the bound would have to reach depth 3--4 before fathoming,
+which means $10^4$--$10^6$ DNN nodes. The open grid instances are out of reach
+on one small machine with this method; they would need much larger parallel
+resources, as in \cite{fujii}, or a faster DNN solver.
 
 \section*{Acknowledgments}
 The software described here, the experiments and a first draft of this report were

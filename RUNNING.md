@@ -214,6 +214,8 @@ the known optimum as incumbent, 2.8 GHz:
 | nug28 nug_deep.par -x 2:5 | 1,736 (DNN: 1,727, 1,664 fathomed, 12,926 s) | 12,976 | 62 min |
 | nug30 nug_deep.par -x 2:5:1:300, then 2:6:1:300 | 45,486,332 (DNN: 5,615, 5,403 fathomed, 26,770 s) | 40,555 | ~3.0 h (experiments/nug30_solve) |
 | nug30 nug_deep.par -x 2:6:1:300 (clean run) | 6,532,419 (DNN: 5,764, 5,551 fathomed, 17,192 s) | 18,614 | ~1.3 h (experiments/nug30_solve) |
+| nug30 nug_deep.par -x 2:6:1:300 (A/B, ff1f044, 2.8 GHz container) | 6,532,419 (DNN: 5,764, 5,551 fathomed, 26,726 s) | 28,428 | ~2.1 h |
+| nug30 nug_deep.par -x 2:7:1:300:1 (same machine) | 5,817 (DNN: 5,807, 5,595 fathomed, 23,537 s) | 23,618 | 1.7 h (experiments/nug30_solve) |
 | nug25 nug_deep.par -x 2:5:1:300 (at 0a179fc, 2.8 GHz) | 761 (DNN: 754, 720 fathomed, 1,086 s) | 1,100 | 4.7 min |
 | nug25 nug_deep.par -x 2:5:1:300:1 (warm start) | 717 (DNN: 710, 678 fathomed, 1,039 s) | 1,055 | 4.5 min |
 
