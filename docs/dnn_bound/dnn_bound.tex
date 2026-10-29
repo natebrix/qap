@@ -448,6 +448,30 @@ checked in several independent ways.
   mathematical review's) were fixed: a loop that could skip the last Cholesky
   attempt, widened error constants, an explicit finiteness test on the
   certified value, and skipping the bound while there is no incumbent.
+\item \textbf{Adversarial tests.} A third agent tried to break the bound with
+  extreme data: magnitudes up to $10^{9}$ and beyond, products above $2^{53}$,
+  signed, non-integer and non-symmetric data, rank-one, constant and all-zero
+  matrices, subproblems with one to three free facilities, and parameter
+  fuzzing; about 15,000 bounds and 8,600 solver runs in all, with an
+  instrumented build checking every DNN call inside the search against the
+  exact subproblem optimum. On ordinary data no bound was invalid, and the
+  rounding part of the margin was never needed (the unmargined value minus the
+  semidefinite penalty stayed below the optimum by at least 1.6\% of the rounding
+  margin). It did find two ways to exceed the optimum, both needing data that is
+  neither symmetric nor small. When neither $A$ nor $B$ is symmetric, an entry of
+  $L$ can be the difference of two large products whose rounding errors the
+  margin, which scaled with $\sum|L|$, did not cover; the margin now uses the sum
+  of the products' magnitudes. And the shift and linear term of a subproblem, sums
+  of products that can cancel, were rounded in double before any bound saw them;
+  they are now accumulated in extended precision. Integer data whose products
+  exceed $2^{53}$ is no longer given an integer fathoming tolerance. It also found
+  two older bugs outside the DNN bound: a finite sentinel ($10^8$) in the
+  assignment solver, which crashed or gave invalid QPB bounds when costs exceeded
+  it (fixed), and wrong QPB results on data with negative entries in $A$ or $B$
+  (open; QAPLIB data are nonnegative). None of this affects nonnegative integer
+  data whose objective values stay below $2^{53}$, where every product and sum is
+  exact. That includes all of QAPLIB, even the bur26 family, in which neither
+  matrix is symmetric. On the regression instances, node counts are unchanged.
 \end{itemize}
 
 \paragraph{Limitations.} The floating-point margins are standard error bounds with
