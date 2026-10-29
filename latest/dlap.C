@@ -306,7 +306,8 @@ double dlap(int dim,
           if (j != j1)
             if (assigncost[i][j] - v[j] < min) 
               min = assigncost[i][j] - v[j];
-        v[j1] = v[j1] - min;
+        if (min < DLAP_BIG)   // dim 1: no other column
+          v[j1] = v[j1] - min;
       }
   } // !warm_start
 
@@ -332,6 +333,7 @@ double dlap(int dim,
       // find minimum and second minimum reduced double over columns.
       umin = assigncost[i][0] - v[0]; 
       j1 = 0; 
+      j2 = 0;
       usubmin = DLAP_BIG;
 
       for (j = 1; j < dim; j++) 
@@ -354,7 +356,7 @@ double dlap(int dim,
 
       i0 = colsol[j1];
 
-      if (umin < usubmin - augment_tol) 
+      if (usubmin < DLAP_BIG && umin < usubmin - augment_tol) 
 	// change the reduction of the minimum column to increase the minimum
 	// reduced cost in the row to the subminimum.
 	v[j1] = v[j1] - (usubmin - umin);

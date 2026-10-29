@@ -545,21 +545,25 @@ void reduceQAP(QAP *q,QAP *q1,const QAPAssignment &a)
 
   if(a.nfix>0)
     {
-      // compute shift
-
+      // compute shift. The shift and the linear terms below are sums of
+      // products that can cancel, and every bound on the subproblem inherits
+      // their rounding: accumulate in long double (exact for integer data
+      // with products and partial sums below 2^64) and round once.
+      long double shift = 0;
       for(i=0;i<n;i++)
 	{
 	  if(a.p[i]>NONE) {
 
-	    q1->shift += q->C->me[i][a.p[i]];
+	    shift += q->C->me[i][a.p[i]];
 	    for(j=0;j<n;j++)
 	      {
 		if(a.p[j]>NONE) {
-		  q1->shift += q->A->me[i][j]*q->B->me[a.p[i]][a.p[j]];
+		  shift += (long double)q->A->me[i][j]*q->B->me[a.p[i]][a.p[j]];
 		}
 	      }
 	  }
 	}
+      q1->shift = (double)shift;
       
       // get q1 = (A1,B1,C1)
       M_FREE(q1->A);M_FREE(q1->B);M_FREE(q1->C);
@@ -568,22 +572,20 @@ void reduceQAP(QAP *q,QAP *q1,const QAPAssignment &a)
       q1->B = submatrix(q->B,a.pinv,a.pinv,m,n);
       q1->C = submatrix(q->C,a.p,a.pinv,m,n);
       // add linear term due to fixing variables
-      for(k=0;k<n;k++)
+      for(ii=-1,i=0;i<n;i++)
 	{
-	  if(a.p[k]>NONE) {
-	    for(ii=-1,i=0;i<n;i++)
+	  if(a.p[i]<=NONE) {
+	    ii++; // the ii_th free row.
+	    for(jj=-1,j=0;j<n;j++)
 	      {
-		if(a.p[i]<=NONE) {
-		  ii++; // the ii_th free row.
-		  for(jj=-1,j=0;j<n;j++)
-		    {
-		      if(a.pinv[j]<=NONE) {
-			jj++;// the ii_th free column
-			q1->C->me[ii][jj] += 
-			  q->A->me[i][k]*q->B->me[j][a.p[k]] +
-			  q->A->me[k][i]*q->B->me[a.p[k]][j];
-		      }
-		    }
+		if(a.pinv[j]<=NONE) {
+		  jj++;// the jj_th free column
+		  long double c = q1->C->me[ii][jj];
+		  for(k=0;k<n;k++)
+		    if(a.p[k]>NONE)
+		      c += (long double)q->A->me[i][k]*q->B->me[j][a.p[k]] +
+			   (long double)q->A->me[k][i]*q->B->me[a.p[k]][j];
+		  q1->C->me[ii][jj] = (double)c;
 		}
 	      }
 	  }

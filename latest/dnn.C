@@ -859,11 +859,13 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
   return (double)val - margin;
 }
 
-// exact optimum for m <= 1 (the relaxation needs m >= 2)
-double trivial_value(const MAT *A, const MAT *B, const MAT *C, int m)
+// exact optimum for m <= 1 (the relaxation needs m >= 2), plus shift; long
+// double so that a large product cancelling against c or the shift stays
+// accurate, then rounded once
+long double trivial_value(const MAT *A, const MAT *B, const MAT *C, int m, double shift)
 {
-  if (m == 0) return 0;
-  return A->me[0][0] * B->me[0][0] + C->me[0][0];
+  if (m == 0) return shift;
+  return (long double)A->me[0][0] * B->me[0][0] + C->me[0][0] + shift;
 }
 
 } // namespace
@@ -926,7 +928,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     return res;
   const int m = A->m;
   if (m <= 1) {
-    res.lb = res.primal = trivial_value(A, B, C, m) + shift;
+    res.primal = (double)trivial_value(A, B, C, m, shift);
+    res.lb = nextafter(res.primal, -HUGE_VAL);   // covers the final rounding
     res.status = res.lb > cutoff ? DNN_FATHOMED : DNN_CONVERGED;
     res.cpu = thread_cpu() - t0;
     return res;
@@ -939,22 +942,27 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   const int n1 = w.n1;
 
   // lifted objective, symmetrized: L_(ij),(kl) = (a_ik b_jl + a_ki b_lj)/2,
-  // L_0,(ij) = c_ij / 2
+  // L_0,(ij) = c_ij / 2. The margin's "rounding of L" term needs the sum of
+  // the terms' magnitudes, not of |L|: when neither A nor B is symmetric the
+  // two products can be large and cancel, and their rounding errors do not.
   double *L = w.L.data();
   double maxabs = 0;
   long double sumabsL = 0;
   for (int i = 0; i < m; i++)
     for (int j = 0; j < m; j++) {
       double *row = L + (size_t)(1 + i * m + j) * n1;
+      long double rowabs = 0;
       for (int k = 0; k < m; k++)
-        for (int l = 0; l < m; l++)
-          row[1 + k * m + l] = 0.5 * (A->me[i][k] * B->me[j][l] + A->me[k][i] * B->me[l][j]);
+        for (int l = 0; l < m; l++) {
+          double p1 = A->me[i][k] * B->me[j][l], p2 = A->me[k][i] * B->me[l][j];
+          row[1 + k * m + l] = 0.5 * (p1 + p2);
+          rowabs += 0.5 * (fabs(p1) + fabs(p2));
+        }
       row[0] = L[1 + i * m + j] = 0.5 * C->me[i][j];
+      sumabsL += rowabs + fabs(C->me[i][j]);
     }
-  for (size_t t = 0; t < (size_t)n1 * n1; t++) {
+  for (size_t t = 0; t < (size_t)n1 * n1; t++)
     maxabs = std::max(maxabs, fabs(L[t]));
-    sumabsL += fabs(L[t]);
-  }
   // as dnn.py: scale the objective to max |L| = 1, beta = m/3
   const double scale = std::max(1.0, maxabs), iscale = 1.0 / scale;
   const double beta = (par.beta > 0 ? par.beta : 1.0) * m / 3.0, ibeta = 1.0 / beta;
@@ -1065,7 +1073,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       if (l2 > lbs) { lbs = l2; ci = c2; }
     }
     if (lbs > -HUGE_VAL) {
-      double lb = lbs + shift;
+      double lb = nextafter(lbs + shift, -HUGE_VAL);   // covers the addition's rounding
       if (lb > best) best = lb;
       res.margin = std::max(res.margin, ci.margin);
     }

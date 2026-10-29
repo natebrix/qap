@@ -158,7 +158,18 @@ static bool is_even(double v) { return fmod(fabs(v), 2.0) == 0.0; }
 void set_fathom_tolerance(QAP *qap)
 {
   const int n = qap->A->m;
-  bool integer = is_integer(qap->A) && is_integer(qap->B) &&
+  // Integer data only gives integer computed values if every product and
+  // partial sum is exact in double: |objective| <= sum|A| max|B| + sum|C| +
+  // |shift| must stay below 2^53. Otherwise rounding can exceed DELTA.
+  double sumA = 0, maxB = 0, sumC = 0;
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++) {
+      sumA += fabs(qap->A->me[i][j]);
+      maxB = std::max(maxB, fabs(qap->B->me[i][j]));
+      sumC += fabs(qap->C->me[i][j]);
+    }
+  bool exact = sumA * maxB + sumC + fabs(qap->shift) < 9007199254740992.0;  // 2^53
+  bool integer = exact && is_integer(qap->A) && is_integer(qap->B) &&
                  is_integer(qap->C) && qap->shift == floor(qap->shift);
   bool even = integer && is_symmetric(qap->A) && is_symmetric(qap->B) &&
               is_even(qap->shift);
@@ -169,7 +180,8 @@ void set_fathom_tolerance(QAP *qap)
 
   DELTA = DELTA_BRANCH = even ? 1.95 : (integer ? 0.95 : 0.0);
   std::cout << "objective values are "
-            << (even ? "even integers" : (integer ? "integers" : "not integers"))
+            << (even ? "even integers" : (integer ? "integers" :
+                (exact ? "not integers" : "too large to compute exactly")))
             << ": fathoming tolerance " << DELTA << std::endl;
 }
 

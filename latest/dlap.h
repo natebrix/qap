@@ -9,7 +9,10 @@
 #ifndef DLAP_H
 #define DLAP_H
 
-const double DLAP_BIG=100000000.0;
+#include <math.h>
+
+// "no minimum yet"; a finite value (it was 1e8) breaks on costs above it
+const double DLAP_BIG=HUGE_VAL;
 
 double dlap(int dim, double **assigndouble,
 	    int *rowsol, int *colsol, double *u, double *v,
