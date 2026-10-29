@@ -68,7 +68,7 @@ Other flags (`./bnbdrv` with no arguments prints help):
 | `-k X` | with `-o`, checkpoint every X CPU seconds |
 | `-t X` | with `-o`, stop after X CPU seconds, saving the state; exit code 3 |
 | `-r F` | resume from state file F instead of the root |
-| `-x D1:D2[:G[:H]]` | DNN bound (latest/dnn.C) on nodes QPB does not fathom at depths D1-D2 with relative gap (inc - QPB)/(inc - root QPB) at most G (default 1); H: give up on a node after H iterations when hopeless (default 0, never). Needs LAPACK (see below) |
+| `-x D1:D2[:G[:H[:W]]]` | DNN bound (latest/dnn.C) on nodes QPB does not fathom at depths D1-D2 with relative gap (inc - QPB)/(inc - root QPB) at most G (default 1); H: give up on a node after H iterations when hopeless (default 0, never); W=1: start a node's ADMM from its parent's final multiplier when the parent's DNN bound missed (default 0; on nug25 -x 2:5:1:300 it cut iterations per fathomed node ~40% but DNN CPU only 4%). Needs LAPACK (see below) |
 | `-w W` | Frank-Wolfe patience at lookahead/strong levels (default 0 = off; see `bench/LOG.csv`) |
 
 ### Long runs: checkpoint and resume
@@ -214,6 +214,8 @@ the known optimum as incumbent, 2.8 GHz:
 | nug28 nug_deep.par -x 2:5 | 1,736 (DNN: 1,727, 1,664 fathomed, 12,926 s) | 12,976 | 62 min |
 | nug30 nug_deep.par -x 2:5:1:300, then 2:6:1:300 | 45,486,332 (DNN: 5,615, 5,403 fathomed, 26,770 s) | 40,555 | ~3.0 h (experiments/nug30_solve) |
 | nug30 nug_deep.par -x 2:6:1:300 (clean run) | 6,532,419 (DNN: 5,764, 5,551 fathomed, 17,192 s) | 18,614 | ~1.3 h (experiments/nug30_solve) |
+| nug25 nug_deep.par -x 2:5:1:300 (at 0a179fc, 2.8 GHz) | 761 (DNN: 754, 720 fathomed, 1,086 s) | 1,100 | 4.7 min |
+| nug25 nug_deep.par -x 2:5:1:300:1 (warm start) | 717 (DNN: 710, 678 fathomed, 1,039 s) | 1,055 | 4.5 min |
 
 It needs LAPACK: `pip install scipy-openblas32`
 gives an OpenBLAS the makefile finds (it falls back to the system
