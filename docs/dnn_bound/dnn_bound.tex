@@ -421,9 +421,38 @@ checked in several independent ways.
 \item \textbf{Reproducibility.} Results are bitwise identical across runs on one
   machine. Valgrind reports no memory errors on a debug build. Serial, resumed and
   parallel runs give identical node counts.
-\item \textbf{Independent review.} \textbf{[pending: results of the mathematical
-  and code reviews, and of the adversarial tests.]}
+\item \textbf{Independent mathematical review.} A separate AI agent, given the code
+  and this claim but not our arguments, re-derived every step: the face basis
+  actually used (Householder reflector and rotation) has the required range, so
+  Lemma~\ref{lem:trace} holds for it; Proposition~\ref{prop:cert} holds for any
+  sign of $\lmax$; the Gilmore--Lawler evaluation counts every quadratic term
+  once and is valid for any dual potentials, so neither the inexact inner LAPs
+  nor the outer Hungarian solve need to be exact; the lifting matches the
+  solver's objective convention without symmetry assumptions; a NaN or infinite
+  multiplier cannot produce a fathom; and the search uses the DNN value only to
+  fathom. It found no proof-breaking issue.
+\item \textbf{Independent code review and stress tests.} A second agent reviewed
+  the implementation and ran 2,592 bounds on brute-forced instances with
+  $m\le7$ (asymmetric and negative data, ties, scales up to $10^6$), 540
+  warm-started children, an independent long-double check of the face
+  transforms (error at most $2.1\,u\|Z\|_F$ against the $64\,m\,u\|Z\|_F$
+  allowed), 21,000 random assignment problems against the Hungarian solver,
+  and determinism tests, under address, undefined-behavior and leak sanitizers.
+  No bound exceeded an optimum and nothing crashed. Its minor findings (and the
+  mathematical review's) were fixed: a loop that could skip the last Cholesky
+  attempt, widened error constants, an explicit finiteness test on the
+  certified value, and skipping the bound while there is no incumbent.
 \end{itemize}
+
+\paragraph{Limitations.} The floating-point margins are standard error bounds with
+generous constants, not interval arithmetic. Both reviews identified terms
+that are rigorous only for non-pathological data. For the nug instances,
+whose objective values are even integers, a false fathom would need a
+certified value above the optimum by more than 0.05, five to six orders of
+magnitude above any margin observed, so they do not affect the proofs
+reported here. For instances with non-integer data, where the fathoming
+tolerance is zero, exactness would rest on these margins alone, and an
+interval-arithmetic certificate would be the safe choice.
 
 \section{Discussion}
 
