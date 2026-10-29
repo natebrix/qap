@@ -49,12 +49,13 @@ branch-and-bound proof may only use valid bounds, and an ADMM iterate is not
 one, we compute at every check a \emph{certified} lower bound: the Lagrangian
 dual value of a multiplier whose projection onto the relaxation's face is
 negative semidefinite by construction, evaluated by a Gilmore--Lawler-type
-minimization over permutations, with a rigorous floating-point safety margin
-(Rump's Cholesky criterion). We describe the bound, its certificate, an
-$O(m^4)$-per-product implementation of the facially reduced ADMM with a
-single-precision subspace eigensolver, and its use in branch and bound, where it
-is applied only to nodes at depths 2--6 that QPB does not fathom and used only
-for fathoming. With it, nug24 is solved in 299 nodes and 13 CPU minutes, and
+minimization over permutations, less a floating-point safety margin built from
+standard error bounds (for the spectral part, Rump's Cholesky criterion). We
+describe the bound, its certificate, an $O(m^4)$-per-product implementation of
+the facially reduced ADMM with a single-precision subspace eigensolver, and its
+use in branch and bound, where it is applied only to nodes at depths 2--6 that QPB
+does not fathom, to fathom them or raise their bounds; branching and reduced-cost
+elimination keep using QPB. With it, nug24 is solved in 299 nodes and 13 CPU minutes, and
 nug30 in 6.5 million nodes, 5.2 CPU hours and about 80 minutes of wall time on
 four cores.
 \end{abstract}
@@ -63,10 +64,13 @@ four cores.
 
 The quadratic assignment problem (QAP) in Koopmans--Beckmann form is
 \begin{equation}\label{eq:qap}
-  \min_{X \in \Pi_n} \; \tr(A X B X^T) + \tr(C X^T),
+  \min_{X \in \Pi_n} \; \tr(A^T X B X^T) + \tr(C X^T)
+  = \min_{\sigma} \sum_{i,k} a_{ik} b_{\sigma(i)\sigma(k)} + \sum_i c_{i\sigma(i)},
 \end{equation}
-where $\Pi_n$ is the set of $n\times n$ permutation matrices, $A$ (flows) and $B$
-(distances) are $n\times n$, and $C$ is a linear cost. QAPLIB \cite{qaplib} has long
+where $\Pi_n$ is the set of $n\times n$ permutation matrices ($X_{i\sigma(i)}=1$),
+$A$ (flows) and $B$ (distances) are $n\times n$, and $C$ is a linear cost. (When $A$
+is symmetric, as for the Nugent instances, the first term is the more familiar
+$\tr(AXBX^T)$.) QAPLIB \cite{qaplib} has long
 served as its benchmark library, and the Nugent instances \cite{nugent} nug12 to nug30
 as its yardstick for exact methods. nug30 resisted solution for three decades until
 Anstreicher, Brixius, Goux and Linderoth \cite{abgl} solved it in 2000 by branch and
@@ -80,8 +84,12 @@ balance suited a search of billions of nodes. Semidefinite relaxations are far
 stronger: the DNN relaxation \cite{zkrw,povhrendl} is within about 3\% of the optimum at
 the root of nug30, against about 13\% for QPB (Table~\ref{tab:root}). But they have
 been considered too expensive to apply at more than a few nodes. Fujii et al.\
-\cite{fujii} showed that a Lagrangian-DNN branch and bound can solve nug30-sized
-instances with tens of thousands of nodes, on large parallel computers.
+\cite{fujii} showed that a Lagrangian-DNN branch and bound, with every node bounded
+by the DNN relaxation, can solve nug30-sized instances with tens of thousands of
+nodes and several previously unsolved QAPLIB instances, on large parallel
+computers. Graham et al.\ \cite{graham} derive the same spectral dual bound we use
+(Proposition~\ref{prop:cert}) for a strengthened DNN relaxation solved by a
+restricted Peaceman--Rachford splitting.
 
 This report describes the opposite division of labor: QPB does the bulk of the
 search, and a certified DNN bound is applied only where QPB fails at the top of the
@@ -93,8 +101,10 @@ fathom it.
 The contributions are:
 \begin{itemize}
 \item a certificate (Section~\ref{sec:cert}) that turns any ADMM multiplier into a
-  valid lower bound with explicit floating-point safety, cheap enough to evaluate
-  every few iterations, so that the bound can stop as soon as it fathoms;
+  lower bound, valid in exact arithmetic and with explicit floating-point error
+  allowances under stated assumptions, cheap enough to evaluate every few
+  iterations, so that the bound can stop as soon as it fathoms: the multiplier
+  implied by the $R$-step, and a Gilmore--Lawler evaluation of the polyhedral part;
 \item an implementation (Section~\ref{sec:impl}) of the facially reduced ADMM with
   $O(m^4)$ products by the face basis and a single-precision tracked eigensolver,
   13--36$\times$ faster per node than a numpy prototype;
@@ -117,7 +127,8 @@ Define the symmetric lifted cost $L\in\Sym^N$ by
   L_{0,(ij)} = L_{(ij),0} = \tfrac12 c_{ij}, \qquad L_{00} = 0.
 \end{equation}
 Then for every permutation, $\inner{L}{yy^T} = \sum a_{ik}b_{jl}x_{ij}x_{kl} +
-\sum c_{ij}x_{ij} = \tr(AXBX^T) + \tr(CX^T)$, the subproblem objective without $s$.
+\sum c_{ij}x_{ij} = \tr(A^TXBX^T) + \tr(CX^T)$, the subproblem objective without
+$s$, for any $A$ and $B$, symmetric or not.
 
 \paragraph{The face.} The constraints $Xe = X^Te = e$ say that $y$ lies in the null
 space of a linear map, so every lifted permutation $Y = yy^T$ has its range in a
@@ -175,7 +186,8 @@ Hence $\inner{L}{Y} = \inner{L+Z}{Y} - \inner{Z}{Y} \ge \inner{L+Z}{Y} - (m+1)\l
 \ge \min_{\mathcal{P}}\inner{L+Z}{\cdot} - (m+1)\lambda$.
 \end{proof}
 
-Proposition~\ref{prop:cert} holds for every $Z$; the quality of the bound depends
+The same bound appears as the dual function of Graham et al.\ \cite[eq.~(3.11),
+Thm.~3.4]{graham}. Proposition~\ref{prop:cert} holds for every $Z$; the quality of the bound depends
 on $Z$ being near a dual optimum of \eqref{eq:dnn}, and on choosing $Z$ so that
 $\lambda$ can be small. Two choices of $\mathcal{P}$ and one of $Z$ make it both
 cheap and tight.
@@ -210,15 +222,31 @@ assignment problem on the block $M_{(ij),(kl)}$, $k\ne i$, $l\ne j$. Hence
 \min_{\sigma}\inner{M}{yy^T} \;\ge\; \GL(M) := M_{00} + \LAP\big(c\big),\qquad
 c_{ij} = 2M_{0,(ij)} + M_{(ij),(ij)} + \LAP_{ij},
 \end{equation}
-a Gilmore--Lawler computation \cite{gilmore,lawler} on the lifted matrix. It is
+a Gilmore--Lawler computation \cite{gilmore,lawler} on the lifted matrix. (It also
+bounds the DNN relaxation itself, not only permutations: for feasible $Y$ of
+\eqref{eq:dnn}, column $(ij)$ restricted to $k\ne i$, $l\ne j$ is nonnegative with
+all row and column sums $x_{ij} = Y_{0,(ij)}$, so it is $x_{ij}$ times a doubly
+stochastic matrix, and assignment duality applies twice.) It is
 never below the box value and reaches a given value 1.5--6$\times$ sooner in the
 nug20 tests. Any lower bound on each $\LAP_{ij}$ may replace it, for example the
 row-then-column reduction, which costs $O(m^2)$. The implementation uses the
 reduction, plus exact Hungarian solves when the result is within a small gap of the
 cutoff.
 
-\paragraph{Floating point.} The certified value is
-$s + \GL(L+Z') - \mu$, where the margin $\mu$ covers:
+\paragraph{Floating point.} We assume IEEE binary64 arithmetic with rounding to
+nearest, an extended type (\texttt{long double}) with a $p$-bit significand
+($p=64$ on x86), and no overflow or underflow; a non-finite value anywhere yields
+no certificate. The certified value is $s + \GL(L+Z') - \mu$, rounded down, where
+the inputs and the margin $\mu$ cover:
+\begin{itemize}
+\item[(o)] the subproblem data: $s$ and the reduced linear term $C$, sums of
+  products that can cancel, are replaced by lower bounds (exact when all operands
+  are multiples of $\frac12$ and the sum of magnitudes is below $2^{p-2}$, as for
+  integer data; otherwise the extended-precision sum less $(k+2)\,2^{-p}\sum|t|$
+  for $k$ terms $t$, rounded down). Bounds for the lowered subproblem are bounds for
+  the exact one, since assignment variables are nonnegative. Each entry of $L$
+  is charged $u$ times the sum of its two products' magnitudes.
+\end{itemize}
 \begin{itemize}
 \item[(i)] $(m+1)\lambda$ with $\lambda\ge\lmax(V^TZ'V)$, obtained by Rump's
   criterion \cite{rump}: if the floating-point Cholesky factorization of
@@ -228,10 +256,13 @@ $s + \GL(L+Z') - \mu$, where the margin $\mu$ covers:
   $64\,m\,u\,\|Z'\|_F$ for the error of computing $S$ through Householder
   transforms rather than with an exact $V$.
 \item[(ii)] the summation and rounding errors of \eqref{eq:glbound}, accumulated in
-  extended precision: $8(m+2)u\,\|M\|_1$, plus $u\sum|L|$ for the objective
-  scaling.
+  extended precision: $8(m+2)u\,\|M\|_1$, plus $(m+2)u\sum_{(ij),(kl)}
+  \frac12(|a_{ik}b_{jl}|+|a_{ki}b_{lj}|)$ for forming and scaling $L$.
 \end{itemize}
-These are standard error bounds with generous constants, not interval arithmetic.
+These are standard error bounds with generous constants, not interval arithmetic,
+and not every constant is derived here: the allowance $64\,m\,u\|Z'\|_F$ for the
+Householder transforms rests on a standard backward-error argument and was checked
+empirically (errors at most $2.1\,u\|Z'\|_F$), not proved.
 At $m=28$ the largest margin seen was about $10^{-7}$ in objective units, against
 integer objective values. The solver fathoms only when the certified value exceeds
 the incumbent minus $1.95$ for instances whose objective values are provably even
@@ -314,7 +345,10 @@ The DNN bound is added as follows.
   certified DNN bound is computed for its reduced subproblem
   (\texttt{bnbdrv -x d1:d2[:gap[:giveup]]}).
 \item If it exceeds the incumbent minus the fathoming tolerance, the node is
-  fathomed. Otherwise it only raises the node's recorded bound.
+  fathomed. Otherwise it raises the node's recorded bound, which its children
+  inherit and which also feeds the choice of parameters and some branching
+  scores, so the search differs from a QPB-only search even where the DNN bound
+  does not fathom.
 \item Branching, and the elimination of children by $\text{bound} + U_{ij} \ge
   \text{incumbent}$, use the QPB value and its reduced costs $U$, never the DNN
   value. The elimination argument is a property of the Frank--Wolfe linearization
@@ -322,7 +356,18 @@ The DNN bound is added as follows.
 \end{enumerate}
 
 The fathoming tolerance is 1.95 when all objective values are provably even, as for
-the nug instances, 0.95 when they are integers, and 0 otherwise. Search statistics,
+the nug instances, 0.95 when they are integers, and 0 otherwise; data is treated
+as integer only if every objective value is below $2^{53}$, so that it is computed
+exactly. For even values and an even incumbent, an improving solution is at most
+the incumbent minus 2, so 1.95 leaves a cushion of 0.05 for rounding.
+
+\paragraph{Scope.} The DNN certificate covers only the DNN prunes. QPB values, QPB
+reduced-cost eliminations and symmetry reductions are computed in floating point
+without such margins, as in \cite{abgl}, so the search as a whole is not an
+independently checkable proof. The full solver also needs one of $A$, $B$ to be
+symmetric (otherwise QPB is not valid, and the driver warns), and its QPB search is
+currently wrong on data with negative entries in $A$ or $B$ (Section~\ref{sec:validation}).
+The DNN bound has neither restriction. Search statistics,
 including DNN counts, are kept in the checkpoint files, so a run can be stopped,
 resumed and split across processes (\texttt{bench/parallel.py}) with identical
 totals. One caveat: the DNN bound's floating-point results depend on the BLAS
@@ -332,9 +377,12 @@ not affected.
 
 \paragraph{Where to apply it.} Two studies with the prototype measured the bound
 on QPB-open nodes (Table~\ref{tab:fathom}). At depth 1 it rarely fathoms. At depth 2
-it fathoms nearly all nodes of nug20 and 94\% of a random sample of nug30's. On
-nug30 the outcome is almost a function of the node's QPB value: every sampled node
-with QPB below about 5548 was missed, every node above about 5554 fathomed. At
+it fathoms nearly all nodes of nug20, and 34 of a random sample of 36 of nug30's 225
+(94\%). In that sample the outcome was almost a function of the node's QPB value:
+every node with QPB below about 5548 was missed, every node above about 5554
+fathomed. Applied to the whole depth-2 frontier, that threshold predicts about
+185 of 225 fathoms (82\%), a sample-based estimate rather than a guarantee for
+other depths or instances. At
 depth 3, under the depth-2 nodes it misses, it fathoms almost everything. The
 misses are the most expensive subtrees, so the bound has to be applied at several
 consecutive depths. In the full solves, depths 2 to 5 or 6 worked best.
@@ -377,6 +425,7 @@ nug20 & QPB + DNN 2--3 (1 core) & 141 & 105 & --\\
 nug24 & QPB only & $\approx$25\,M & $\approx$5,000 & $\approx$25 min\\
 nug24 & QPB + DNN 2--3 & 299 & 796 & 4.4 min\\
 nug25 & QPB only & 52,989,998 & 18,353 & 78 min\\
+nug25 & QPB only (\texttt{nug\_deep}) & 40,183,792 & 12,362 & 53 min\\
 nug25 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 717 & 3,279 & 15 min\\
 nug25 & QPB (\texttt{nug\_deep}) + DNN 2--5:300 & 761 & 1,447 & 6.2 min\\
 nug27 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 675 & 4,428 & 20 min\\
@@ -393,6 +442,10 @@ collapses to 299 nodes. From nug25 on, the DNN bound does most of the work: on
 nug28, 12,926 of 12,976 CPU seconds are spent in it, on 1,727 nodes of which 1,664
 are fathomed.
 
+The two nug25 rows with \texttt{nug\_deep} and the 2--5 DNN setting isolate the
+DNN bound: the same parameters, branching rules and symmetry handling, with the
+bound on or off. Other comparisons in the table change parameters as well.
+
 \paragraph{nug30.} The first solve applied the DNN bound at depths 2--5. QPB search
 below the depth-5 nodes the bound missed grew to about 12,000 CPU seconds, so for
 the remaining work (506 open nodes, including a whole depth-1 subtree) the bound
@@ -405,7 +458,13 @@ first solve. Almost all of the difference is QPB search below depth-6 nodes that
 the depth-5 setting left to QPB. Nearly all (92\%) of the clean run's time is in
 the DNN bound, and 96\% of the nodes it bounds are fathomed. The run started on a
 2.1\,GHz Xeon and, after a container restart, finished its last 10 minutes on a
-2.8\,GHz one; the proof is unaffected, since every DNN bound is certified.
+2.8\,GHz one. The CPU figures are retained proof CPU: work done after the last
+checkpoint before a restart (6 minutes of the clean run's 4 workers; 8 minutes in
+the first solve) was discarded and redone, and is not counted. The clean run used
+solver commit \texttt{f8107dd} with OpenBLAS (\texttt{scipy-openblas32}) and GCC.
+Later fixes from the reviews below change no computation on nug data, whose
+products and sums are exact; the regression instances' node counts are
+unchanged.
 
 \section{Validation}\label{sec:validation}
 
@@ -462,9 +521,9 @@ checked in several independent ways.
   $L$ can be the difference of two large products whose rounding errors the
   margin, which scaled with $\sum|L|$, did not cover; the margin now uses the sum
   of the products' magnitudes. And the shift and linear term of a subproblem, sums
-  of products that can cancel, were rounded in double before any bound saw them;
-  they are now accumulated in extended precision. Integer data whose products
-  exceed $2^{53}$ is no longer given an integer fathoming tolerance. It also found
+  of products that can cancel, were rounded in double before any bound saw them.
+  Integer data whose products exceed $2^{53}$ is no longer given an integer
+  fathoming tolerance. It also found
   two older bugs outside the DNN bound: a finite sentinel ($10^8$) in the
   assignment solver, which crashed or gave invalid QPB bounds when costs exceeded
   it (fixed), and wrong QPB results on data with negative entries in $A$ or $B$
@@ -472,17 +531,30 @@ checked in several independent ways.
   data whose objective values stay below $2^{53}$, where every product and sum is
   exact. That includes all of QAPLIB, even the bur26 family, in which neither
   matrix is symmetric. On the regression instances, node counts are unchanged.
+\item \textbf{External review.} An independent review of an earlier draft and the
+  code (Astra, an OpenAI Codex agent) re-derived the bound and confirmed that QPB
+  values stay paired with their own reduced costs. It showed that accumulating the
+  shift and linear terms in extended precision, our first repair, is not enough:
+  with $ab = 2^{64}+2^{34}+3$ and $c = -(2^{64}+2^{34})$ the extended-precision
+  product rounds by 1 before cancelling, and both the $m=1$ path and a reduced
+  subproblem fathomed at a cutoff equal to the optimum. These data now get the
+  lower bounds of item (o) in Section~\ref{sec:cert}; both cases, and the
+  adversarial ones above, are regression tests (\texttt{tests/dnn\_test.py}, part D)
+  that check the bound against optima computed in exact rational arithmetic.
 \end{itemize}
 
-\paragraph{Limitations.} The floating-point margins are standard error bounds with
-generous constants, not interval arithmetic. Both reviews identified terms
-that are rigorous only for non-pathological data. For the nug instances,
-whose objective values are even integers, a false fathom would need a
-certified value above the optimum by more than 0.05, five to six orders of
-magnitude above any margin observed, so they do not affect the proofs
-reported here. For instances with non-integer data, where the fathoming
-tolerance is zero, exactness would rest on these margins alone, and an
-interval-arithmetic certificate would be the safe choice.
+\paragraph{Limitations.} The certificate is a theorem in exact arithmetic
+(Proposition~\ref{prop:cert} and \eqref{eq:glbound}). In floating point it rests
+on the margins of Section~\ref{sec:cert}: standard error bounds with generous
+constants under the stated arithmetic model, not interval arithmetic, and not
+every constant is derived. The validation above is strong regression evidence, not
+a formal verification. For the nug instances the data are small integers, so the
+subproblem data are exact, and a false fathom would need a certified value above
+the optimum by more than the 0.05 cushion, five to six orders of magnitude above
+any margin observed. For non-integer data, where the tolerance is zero, validity
+rests on the margins alone; a verified evaluation (directed rounding or interval
+arithmetic) of each fathoming certificate would be the safe choice. Beyond the DNN
+bound, the QPB part of the search is trusted floating point, as it was in 2000.
 
 \section{Discussion}
 
@@ -494,17 +566,24 @@ comes from the division of labor. The stronger bound, certified at every step, i
 spent only where a single fathom removes a large subtree.
 
 Several directions remain. The give-up rule and the depths of application were
-tuned by hand on nug25. A QPB threshold predicts the DNN outcome almost perfectly,
-which suggests skipping nodes the bound will miss. Warm-starting a child's ADMM from
-its parent's multiplier cut iterations 2--2.5$\times$ in early tests. And instances
-beyond nug30 (tai35, tho40, and the Eschermann and Taillard families) are natural
-next targets.
+tuned by hand on nug25. A QPB threshold predicts the DNN outcome almost perfectly
+in the samples, which suggests skipping nodes the bound will miss. Warm-starting a
+child's ADMM from its parent's multiplier cut iterations 2--2.5$\times$ in early
+tests. The outer assignment problem of \eqref{eq:glbound} yields, with its dual
+potentials $u,v$, a lower bound $b + r_{ij}$ for every child $x_{ij}=1$ of a node
+the bound misses, where $r_{ij} = c_{ij}-u_i-v_j$ (the review above), so children
+could be eliminated without a DNN solve of their own. The restricted
+Peaceman--Rachford method of \cite{graham} may converge faster than ADMM. And a
+separate verified check of each fathoming certificate would separate fast search
+from rigorous verification.
 
 \section*{Acknowledgments}
 The software described here, the experiments and a first draft of this report were
 produced with Claude, an AI system by Anthropic, working in the author's repository
 under the author's direction, with independent AI agents used for the prototype
-studies, the C++ port and the reviews. Jean-Pierre Goux contributed the ``nug30
+studies, the C++ port and the reviews. Astra (an OpenAI Codex agent) reviewed an
+earlier draft and found the cancellation cases described in
+Section~\ref{sec:validation}. Jean-Pierre Goux contributed the ``nug30
 Laboratory'' study whose ideas started this work.
 
 \begin{thebibliography}{99}
@@ -520,6 +599,9 @@ Laboratory'' study whose ideas started this work.
   challenging large scale QAPs, arXiv:2101.09629 (2021).
 \bibitem{gilmore} P.C. Gilmore, Optimal and suboptimal algorithms for the quadratic
   assignment problem, \emph{SIAM Journal on Applied Mathematics} 10 (1962) 305--313.
+\bibitem{graham} N. Graham, H. Hu, J. Im, X. Li and H. Wolkowicz, A restricted dual
+  Peaceman--Rachford splitting method for a strengthened DNN relaxation for QAP,
+  \emph{INFORMS Journal on Computing} 34 (2022) 2125--2143.
 \bibitem{lawler} E.L. Lawler, The quadratic assignment problem, \emph{Management
   Science} 9 (1963) 586--599.
 \bibitem{nugent} C.E. Nugent, T.E. Vollmann and J. Ruml, An experimental comparison of
