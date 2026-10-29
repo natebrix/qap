@@ -227,6 +227,13 @@ from the parent (conditioned on x_ij = 1) made a child slower, so only Z is carr
   block-Krylov or LOBPCG refinement, a lower refresh rate, and fusing the expand transform into
   the Y-step. The certified lb still trails the primal on close nodes. Extrapolating the
   multiplier between checks, then projecting it, is untried.
+* **kra30a/kra30b root bounds (Oct 29, held out of the report's Table 4).** With the default
+  parameters (beta = 0.3 m/3 on the problem scaled to max |L| = 1, 4,000 iterations, no cutoff)
+  the ADMM does not converge on kra30a/kra30b: the certified root bounds are 17,368 and 17,572,
+  far below QPB (about 68,600 and 69,000). The bounds are valid, just useless; the relaxation
+  itself is not expected to be weak there. Suspects: beta, tuned on nug, against kra's distance
+  scale (3-D grid, unit costs 50/50/115) and sparse flows. To do: rerun with `dnntest -B` (beta
+  factor) and more iterations, and check the primal/dual residuals (`-v`).
 * **Per-call allocation.** Each call allocates about 80 MB at m = 28. That is negligible against
   seconds of work, but a reusable workspace would help if the bound is called millions of times
   (it should not be).
