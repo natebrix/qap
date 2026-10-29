@@ -66,6 +66,13 @@ the DNN time per node at depths 3 and 4 by 16% and 13% (5.3 against 6.3 s,
 3.4 against 3.8 s); they cut iterations per fathomed node by about 40%,
 but a warm-started ADMM's iterations cost more.
 
+A second run with the same settings (`v4_run1.log`, final per-level
+statistics in `v4_final.state`) took 5,819 nodes, 24,768 CPU s and
+1 h 46 min: which nodes are warm-started depends on scheduling (a node handed
+to another worker loses its parent's multiplier). Its nodes per level, next to
+the 2000 run's (`nug30_2000_levels.txt`, from Table 5.12 of the author's
+thesis), are Table 6 of docs/dnn_bound/dnn_bound.pdf.
+
 ## First solve (mixed settings)
 
 
