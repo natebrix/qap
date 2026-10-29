@@ -211,7 +211,8 @@ the known optimum as incumbent, 2.8 GHz:
 | nug25 nug_deep.par -x 2:4 | 4,622,159 | 4,055 | 18 min |
 | nug25 nug_deep.par -x 2:5 | 717 (DNN: 710, 678 fathomed, 3,256 s) | 3,279 | 15 min |
 | nug27 nug_deep.par -x 2:5 | 675 (DNN: 663, 641 fathomed, 4,405 s) | 4,428 | 20 min |
-| nug28 nug_deep.par -x 2:5 | 1,736 (DNN: 1,727, 1,664 fathomed, 12,926 s) | 12,976 | 62 min | It needs LAPACK: `pip install scipy-openblas32`
+| nug28 nug_deep.par -x 2:5 | 1,736 (DNN: 1,727, 1,664 fathomed, 12,926 s) | 12,976 | 62 min |
+| nug30 nug_deep.par -x 2:5:1:300, then 2:6:1:300 | 45,486,332 (DNN: 5,615, 5,403 fathomed, 26,770 s) | 40,555 | ~3.0 h (experiments/nug30_solve) | It needs LAPACK: `pip install scipy-openblas32`
 gives an OpenBLAS the makefile finds (it falls back to the system
 liblapack/libblas, ~7x slower); `make DNN=0` builds without it (then `-x`
 is an error). Rebuild after installing or removing the OpenBLAS wheel. Its
