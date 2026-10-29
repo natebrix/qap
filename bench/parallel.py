@@ -20,7 +20,8 @@ Uses the solver's state files (latest/state.h):
  5. With --checkpoint F, every --checkpoint-every seconds all workers are
     stopped and their nodes merged into F, an ordinary state file holding
     every open node and the totals so far. --resume F continues from it (or
-    finish it serially: bnbdrv -r F).
+    finish it serially: bnbdrv -r F). When the search finishes, F gets the
+    final totals (per-level statistics included) with no open nodes.
 
 With a fixed upper bound (e.g. the known optimum) the work done on a node
 does not depend on which process does it, so node, fathom and FW totals are
@@ -317,6 +318,11 @@ def main():
           + (f", {total.times[0]:.2f} s including before the resume" if cpu_before else "") + ", "
           f"best objective {best_obj:.17g}")
     total.write(os.path.join(work, "final.state"), [])
+    if args.checkpoint:
+        # the finished search: its statistics (per-level counts and times) with
+        # no open nodes, so they survive the temporary work directory
+        total.write(os.path.abspath(args.checkpoint), [])
+        print(f"parallel: final statistics -> {args.checkpoint}")
     if not args.workdir:
         shutil.rmtree(work)
 
