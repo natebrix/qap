@@ -86,7 +86,8 @@ the new bound is computed only near the top of the tree, at nodes that the
 quadratic programming bound QPB does not fathom, and is used only to fathom; QPB
 continues to supply branching information and to eliminate children. Together with
 a new branching rule based on the geometry of grid instances, this solves nug30
-in 5,817 nodes and under two hours on a single four-core computer, a problem whose
+in 5,817 nodes and under two hours on a four-core cloud computer, and in 20 minutes
+on a laptop, a problem whose
 solution in 2000 required $1.19\times10^{10}$ nodes and a week on a computational
 grid of hundreds of workstations.
 
@@ -153,7 +154,7 @@ nug30-sized instances with tens of thousands of nodes as well as several QAPLIB
 instances that had remained open.
 
 In this paper we revisit nug30 with the branch-and-bound algorithm of
-\cite{ba01,abgl}, on a single four-core computer. Three changes make this possible:
+\cite{ba01,abgl}, on a single computer. Three changes make this possible:
 \begin{itemize}
 \item[(C1)] a \emph{certified} DNN bound (Section~\ref{sec:dnn}): the doubly
   nonnegative relaxation of Zhao, Karisch, Rendl and Wolkowicz \cite{zkrw}, in the
@@ -169,7 +170,8 @@ In this paper we revisit nug30 with the branch-and-bound algorithm of
   fathom. QPB continues to supply the bound used for branching and the reduced costs
   used to eliminate children, and does all the work below.
 \end{itemize}
-With these, nug30 is solved in 5,817 nodes and 1.7 hours on four cores
+With these, nug30 is solved in 5,817 nodes and 1.7 hours on four cores of a cloud
+computer, and in 20 minutes on a laptop with eight solver processes
 (Section~\ref{sec:results}). In Section~\ref{sec:dnn}
 we describe the DNN relaxation, the certificate and its implementation. In
 Section~\ref{sec:bnb} we review the branch-and-bound algorithm of \cite{abgl} and
@@ -610,7 +612,7 @@ currently wrong on data with negative entries in $A$ or $B$
 \paragraph{Parallel implementation.} The 2000 solve used the master-worker library
 MW on the Condor system to distribute subtrees to hundreds of workers. Here a small
 driver (\texttt{bench/parallel.py}) does the same on one machine: the root is
-solved serially, its children go into a pool, and up to four solver processes each
+solved serially, its children go into a pool, and one solver process per core each
 take a chunk of nodes, returning their unfinished nodes when idle workers need work.
 Search statistics, including DNN counts, are kept in checkpoint files, so a run can
 be stopped, resumed and split across processes with identical totals. The DNN
@@ -623,7 +625,9 @@ $10^{-6}$ of a cutoff. Validity is not affected.
 All runs use the known optimum as the incumbent, so they measure the work of the
 proof; the runs of \cite{abgl} started from the best known value plus 2 and so also
 had to recover an optimal solution. They ran on cloud virtual machines with 4 cores
-(Intel Xeon, 2.1--2.8\,GHz), with four solver processes. CPU is the sum over
+(Intel Xeon, 2.1--2.8\,GHz), with four solver processes, and on an Apple M2 Pro
+laptop (6 performance and 4 efficiency cores), with eight solver processes and
+Apple's Accelerate library for BLAS and LAPACK. CPU is the sum over
 processes.
 
 \subsection{Bounds for QAPLIB problems}
@@ -725,7 +729,8 @@ most of the work: on nug28, 12,926 of 12,976 CPU seconds are spent in it, on 1,7
 nodes of which 1,664 are fathomed.
 
 \begin{table}[t]\centering
-\caption{Branch and bound with and without the DNN bound (4 workers unless noted).
+\caption{Branch and bound with and without the DNN bound (4 workers on a cloud
+computer unless noted).
 QPB only: default strategy unless noted. DNN: \texttt{-x d1:d2}, giving up on
 hopeless nodes after 300 iterations where shown (:300); warm: children start from
 the parent's multiplier.}\label{tab:bnb}
@@ -750,6 +755,9 @@ nug30 & QPB (\texttt{nug\_deep}) + DNN 2--6:300 & \CleanNodes & \CleanCPU & \Cle
 \multicolumn{5}{l}{\emph{on a second machine, about 1.45$\times$ slower per DNN iteration:}}\\
 nug30 & QPB (\texttt{nug\_deep}) + DNN 2--6:300 & 6,532,419 & 28,428 & $\approx$2.1 h\\
 nug30 & QPB (\texttt{nug\_deep}) + DNN 2--7:300, warm & 5,817 & 23,618 & 1.7 h\\
+\midrule
+\multicolumn{5}{l}{\emph{on an Apple M2 Pro laptop, 8 workers, Accelerate BLAS:}}\\
+nug30 & QPB (\texttt{nug\_deep}) + DNN 2--7:300, warm & 585,550 & 8,355 & 19.7 min\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -777,6 +785,17 @@ and the new settings take 17\% less CPU, with 5,817 nodes in all: every node at
 depths 2--7 that QPB does not fathom gets the DNN bound, and all of them are
 fathomed by depth 7. Warm starts lower the DNN time per node at depths 3 and 4 by
 16\% and 13\%.
+
+The same settings on the laptop solve nug30 in 19.7 minutes. Each DNN node takes
+about a third of the time it takes on the cloud Xeon (1.9 against 5.8 seconds at
+depth 3, 1.2 against 3.5 at depth 4), and eight solver processes give 7.1 CPU seconds
+per second of wall time. The DNN part of the tree is within 0.5\% of the Xeon runs'.
+The larger node count comes from two of the 96 depth-7 nodes, which the Xeon runs
+fathomed and this run did not: the QPB search below them took 580,000 nodes but only
+84 CPU seconds. Which nodes are warm-started depends on the scheduling, and
+Accelerate rounds differently from OpenBLAS; either can change when a node is given
+up as hopeless. Without the give-up rule and warm starts (\texttt{-x 2:5}), the
+laptop reproduces the Xeon trees of nug27 and nug28 exactly.
 
 Table~\ref{tab:levels} compares the trees level by level. In 2000 no node was fathomed above level 4, and the tree grew by a factor of
 20 to 25 per level to $2.7\times10^9$ nodes at level 10. As noted in \cite{thesis},
@@ -840,7 +859,8 @@ Total & 11,892,208,412 & & $3.46\times10^8$ & 5,819 & & 24,768\\
 The CPU figures are retained proof CPU: work done after the last checkpoint before
 a container restart was discarded and redone, and is not counted. The solves used
 solver commits \texttt{f8107dd} (depths 2--6) and \texttt{ff1f044} (depths 2--7)
-with OpenBLAS (\texttt{scipy-openblas32}) and GCC; the fixes between them change no
+with OpenBLAS (\texttt{scipy-openblas32}) and GCC, and \texttt{2d7579c} with the
+Accelerate build of \texttt{7b05270} on the laptop; the fixes between them change no
 computation on nug data, whose products and sums are exact, and the regression
 instances' node counts are unchanged.
 
@@ -866,9 +886,9 @@ single fathom removes a large subtree, and QPB, with its branching information a
 its eliminations, does the rest. Twenty-six years ago nug30 needed QPB's cheapness:
 $1.19\times10^{10}$ nodes, each bounded in milliseconds, on hundreds of machines.
 Today the same search needs fewer than six thousand much stronger bounds, and
-finishes in under two hours on four cores. In 2000 the computation took 6.9 years
-of HP9000 C3000 CPU time; here it takes about $2.4\times10^4$ seconds, roughly
-9,000 times less. A rough breakdown: per-node times of QPB deep in the tree, where
+finishes in 20 minutes on a laptop. In 2000 the computation took 6.9 years of
+HP9000 C3000 CPU time; on a cloud Xeon it now takes about $2.4\times10^4$ seconds,
+roughly 9,000 times less, and on the laptop about 8,400. A rough breakdown: per-node times of QPB deep in the tree, where
 little else has changed, suggest that a current core is about 20 times faster than
 a C3000 on this code; the QPB branch and bound itself is about 3 times faster (on
 nug25 with QPB alone, 12,400 seconds against 720,000 C3000-seconds in 2000 \cite{thesis}),
