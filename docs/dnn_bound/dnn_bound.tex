@@ -23,10 +23,10 @@
 \newcommand{\GL}{\mathrm{GL}}
 \newcommand{\LAP}{\mathrm{LAP}}
 % filled in from the clean nug30 run (experiments/nug30_solve)
-\newcommand{\CleanNodes}{\textbf{[pending]}}
-\newcommand{\CleanCPU}{\textbf{[pending]}}
-\newcommand{\CleanWall}{\textbf{[pending]}}
-\newcommand{\CleanDNN}{\textbf{[pending]}}
+\newcommand{\CleanNodes}{6,532,419}
+\newcommand{\CleanCPU}{18,614}
+\newcommand{\CleanWall}{$\approx$1.3 h}
+\newcommand{\CleanDNN}{the DNN bound ran on 5,764 nodes, fathomed 5,551, and accounted for 17,192 CPU seconds}
 
 \title{A certified doubly nonnegative bound for branch and bound\\on the quadratic assignment problem,\\and nug30 revisited}
 \author{Nathan W. Brixius\thanks{Draft technical report, October 2026. Source and data:
@@ -55,7 +55,8 @@ $O(m^4)$-per-product implementation of the facially reduced ADMM with a
 single-precision subspace eigensolver, and its use in branch and bound, where it
 is applied only to nodes at depths 2--6 that QPB does not fathom and used only
 for fathoming. With it, nug24 is solved in 299 nodes and 13 CPU minutes, and
-nug30 in about three hours on four cores.
+nug30 in 6.5 million nodes, 5.2 CPU hours and about 80 minutes of wall time on
+four cores.
 \end{abstract}
 
 \section{Introduction}
@@ -99,7 +100,7 @@ The contributions are:
   13--36$\times$ faster per node than a numpy prototype;
 \item its integration into a QPB branch and bound (Section~\ref{sec:bnb}), and
   computational results on nug20--nug30 (Section~\ref{sec:results}), including
-  nug30 solved in about three hours on four cores.
+  nug30 solved in 5.2 CPU hours, about 80 minutes on four cores.
 \end{itemize}
 
 \section{The DNN relaxation}\label{sec:dnn}
@@ -399,7 +400,12 @@ was extended to depth 6, which finished in 21 minutes. In total, 45,486,332 node
 and 40,555 CPU seconds. The DNN bound ran on 5,615 nodes, fathomed 5,403, and
 accounted for 26,770 of those seconds. A clean run with the DNN bound at depths 2--6
 throughout took \CleanNodes{} nodes, \CleanCPU{} CPU seconds and \CleanWall{} of wall
-time (\CleanDNN).
+time (\CleanDNN): seven times fewer nodes and less than half the CPU of the
+first solve. Almost all of the difference is QPB search below depth-6 nodes that
+the depth-5 setting left to QPB. Nearly all (92\%) of the clean run's time is in
+the DNN bound, and 96\% of the nodes it bounds are fathomed. The run started on a
+2.1\,GHz Xeon and, after a container restart, finished its last 10 minutes on a
+2.8\,GHz one; the proof is unaffected, since every DNN bound is certified.
 
 \section{Validation}\label{sec:validation}
 
