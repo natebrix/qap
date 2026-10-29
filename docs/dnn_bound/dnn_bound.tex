@@ -593,6 +593,21 @@ with Gilmore--Lawler assignment problems, and it is that combination, more than 
 spectral lineage alone, that makes the cheap bound a good guide to the expensive
 one. (One instance at one depth: suggestive rather than conclusive.)
 
+Does it follow that branching choices made with QPB also serve the DNN bound? We
+took five depth-2 nodes the DNN bound misses and, for nine candidate lines at each
+(four rows, four columns and the most eccentric free location), bounded all 1,260
+children by QPB and by the DNN bound with the solver's settings. At the two
+near-miss nodes every child of every line is fathomed, so the choice does not
+matter. At the farthest miss the lines give 6 to 17 child misses, and QPB ranks
+them well: the rank correlation between misses and the average child QPB is 0.92,
+and 0.98 for the number of children with QPB above the level's threshold. In
+between the ranking is noisy, and the average child QPB, Rule 4's score, sometimes
+orders the lines backwards. The most eccentric location's line was as good as the
+best line at four of the five nodes and one child miss worse at the fifth. So where
+the choice matters QPB-based branching picks good lines for the DNN bound, and
+Rule 6 does as well at no cost; but most DNN misses are near misses, where it does
+not matter, which is why more lookahead at these depths changes little.
+
 \begin{table}[t]\centering
 \caption{Root bounds and DNN fathoming at the top of the tree (prototype studies;
 QPB from the solver; incumbent = optimum).}\label{tab:fathom}
