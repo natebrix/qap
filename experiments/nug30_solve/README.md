@@ -101,6 +101,28 @@ the 96 depth-7 nodes that the Xeon runs fathomed and this run did not
 scheduling, as above): with `-x 2:7` their subtrees went to QPB alone,
 580,000 nodes for 84 CPU s.
 
+## On an Apple M1 desktop (October 30, solver at a77c88e)
+
+The same command on an Apple M1 (4 performance + 4 efficiency cores,
+Accelerate, 8 workers), run from a fresh clone of the branch after
+`make test` and `make dnncheck` passed on the machine:
+
+| | M1, 8 workers | M2 Pro, 8 workers (above) |
+|---|---|---|
+| nodes | 536,075 | 585,550 |
+| DNN nodes / fathomed | 5,858 / 5,643 | 5,834 / 5,619 |
+| DNN CPU | 18,231 s | 8,240 s |
+| CPU | 18,383 s | 8,355 s |
+| wall | 42 min 54 s | 19 min 42 s |
+| log | `m1_run1.log` | `laptop_run1.log` |
+
+The DNN part of the tree again matches the Xeon runs within 0.5%; the
+QPB-only nodes below a few depth-7 misses are the rest. Parallel efficiency
+was 7.14x CPU over wall. The M1 is about 2.2x slower than the M2 Pro per
+DNN node, in line with four performance cores against six. Its root QPB
+bound is 5336.58 against 5332.33 on the Xeon: the QPB path rounds
+differently on Apple silicon (see RUNNING.md, "Correctness checks").
+
 ## First solve (mixed settings)
 
 
