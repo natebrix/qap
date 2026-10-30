@@ -175,6 +175,17 @@ and for the sample experiments below, but it does not change the wil50 verdict.
    than on nug30: the question is whether it adds 130 at wil50 depth 3, and
    nug30 depth 2 cannot answer that.
 
+## 7a. Result of experiment 1 (Oct 30, Apple M1): see `depth3_converged/`
+
+Nodes 1, 2, 3 converge to 405, 202 and 242 short (primal and dual within 2).
+The converged value is about 120 above the 300-iteration value on all three,
+so the nine clear misses converge to roughly 185 to 405 short, median about
+240: the "150 to 300" case of section 4 for most of them, with about one in
+nine (node 1) in the above-400 class whose subtree reaches depth 6. The 4e7
+estimate stands for the median subtree; the depth-6 tail from the worst tenth
+of depth-3 nodes plausibly adds 2 to 4x in DNN work, putting the total nearer
+1e8 node-equivalents. Still the same verdict.
+
 ## 8. Not done, available on request
 
 - H=200 against H=300 A/B on nug30 (the laptop's 20-minute run makes this cheap).
