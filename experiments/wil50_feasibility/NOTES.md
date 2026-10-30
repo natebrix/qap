@@ -116,12 +116,19 @@ mattered that much before, which is why cuts were the natural thing to try.
   depth-2 misses with gaps 76 and 29, nothing at the root, violations at most
   0.02. That matches what I would expect from the literature: with the gangster
   constraints and Y >= 0 the DNN relaxation nearly implies them.
-- Level-2 RLT (Adams, Guignard, Hahn, Hightower 2007): the literature-survey
-  agent read its dual-ascent root bounds on the nug instances as slightly below
-  the DNN values (nug30 about 5934 against DNN about 5950). I have not verified
-  that number against the paper; please check before spending effort on RLT2.
-  docs/dnn_bound currently names level-2 RLT as the next thing to try, so this
-  matters.
+- Level-2 RLT, verified Oct 29 (the earlier "RLT2 = 5934" was wrong: 5934 is
+  Burer and Vandenbussche's SDP value in the QAPLIB table). Computed RLT2 root
+  bounds on nug30 are 5770 (HH01 dual ascent, Adams et al. 2007, QAPLIB
+  lower-bound comparison table) and 5846 (Date and Nagi, RLT2-DA, 2,000
+  iterations, arXiv 1710.03732 Table 5), against the DNN value 5944 (Povh and
+  Rendl 2009 Table 2, computed by Zhao, Sun and Toh) and 5934 (Burer and
+  Vandenbussche). On nug25: RLT2 3577 (Hahn et al. RLT3 preprint, Table 2)
+  against DNN 3662. On nug20 the order flips: RLT2 2508 against DNN 2503. Both
+  RLT2 figures are dual-ascent values that underestimate the RLT2 LP optimum
+  (QAPLIB says so explicitly), and nobody has solved the RLT2 LP exactly at
+  n = 30, so "RLT2 is weaker than DNN" is true of every computed value at n >= 25
+  but not proven for the LP itself. Either way it is not a computable stronger
+  bound at n = 50.
 - Level-3 RLT (Hahn, Roth, Saltzman, Guignard 2013) is much tighter but the
   coefficient matrix is O(S^8): they quote 144 GB at S = 30, 1.6 TB at S = 40 and
   10.1 TB at S = 50, and 3 to 4 times that for branch and bound. Not a path.
