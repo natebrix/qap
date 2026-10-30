@@ -130,3 +130,37 @@ involved.
 - The forward/expand transforms (46 ms, memory-bound) and the rank-nneg
   dsyrk (20 ms) are the remaining per-iteration targets, each worth
   perhaps 10%.
+
+## 8. A/B in the solver: nug30 (Oct 30 2026, Apple M2 Pro, Accelerate, 8 workers)
+
+Same binary (949e53f), `nug_deep.par -x 2:7:1:300:1 --ub 6124`, runs back to
+back, laptop otherwise idle. `nug30_default_j8_m2pro.log`,
+`nug30_prsm_j8_m2pro.log`.
+
+| | default | `QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=4` |
+|---|---|---|
+| nodes | 536,024 | 4,555 |
+| DNN nodes / fathomed | 5,807 / 5,594 | 4,545 / 4,381 |
+| DNN CPU | 7,969 s | 5,307 s |
+| CPU | 8,081 s | 5,334 s |
+| wall | 19 min 0 s (x7.09) | 13 min 21 s (x6.66) |
+
+Both proved 6124. DNN nodes bounded / fathomed and DNN CPU per depth:
+
+| depth | default | PRSM + degree 4 |
+|---|---|---|
+| 2 | 225 / 165, 906 s | 225 / 167, 735 s |
+| 3 | 1,608 / 1,508, 2,922 s | 1,552 / 1,467, 2,208 s |
+| 4 | 2,652 / 2,614, 3,057 s | 2,247 / 2,227, 1,989 s |
+| 5 | 976 / 966, 855 s | 496 / 495, 383 s |
+| 6 | 250 / 246, 198 s | 25 / 25, 17 s |
+| 7 | 96 / 95, 59 s; one miss to QPB (530,000 nodes, 110 s) | none |
+
+1.51x less CPU overall, and the tree itself is 22% smaller in DNN nodes:
+fewer misses at every depth from 3 down, so the depth-5 to depth-7 work falls
+by 2.2x to 12x and nothing is left for QPB. The per-node saving at depths 2-4
+(1.2 to 1.5x) is the iteration count; the rest is the smaller tree. Which
+depth-3/4 nodes miss is where the warm start and gamma1 interact, and that
+was not retuned here. The Oct 29 laptop run of the pre-block-growth code
+(experiments/nug30_solve/laptop_run1.log: 8,355 CPU s, 19 min 42 s) is within
+4% of today's default, so block growth alone changed little on nug30.
