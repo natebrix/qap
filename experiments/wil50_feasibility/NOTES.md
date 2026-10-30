@@ -191,3 +191,39 @@ of depth-3 nodes plausibly adds 2 to 4x in DNN work, putting the total nearer
 - H=200 against H=300 A/B on nug30 (the laptop's 20-minute run makes this cheap).
 - A region-branching probe: bound a few wil50 nodes that fix a facility to a
   2x5 block rather than a cell and compare the DNN values with cell-level nodes.
+
+## 9. Updated cost per node and the 100-core estimate (Oct 30, M2 Pro)
+
+The depth-3 and depth-4 samples above ran `dnntest -f` (full ssyevd every
+iteration), which the solver does not use (experiments/eigensolver/README.md,
+section 1). Re-timed in the solver's mode with the subspace tracker, degree-4
+filter and the Peaceman-Rachford step (`-d 4 -g 1.0 -G 1.0 -H 300`), alone on
+the laptop:
+
+| node | before (`-f`) | now |
+|---|---|---|
+| node 11 `0:48,31:2,38:32`, fathomed | 440 iterations, 391 CPU s | 290 iterations, 38 CPU s (132 ms/iter) |
+| node 2 `18:43,11:29,46:44`, given up at 300 | 278 CPU s | 39 CPU s (129 ms/iter) |
+
+About 7x per node (3.5x from the tracker, 1.5x from PRSM, the rest from
+degree 4 making the tracker's trajectory exact). With 8 concurrent workers a
+process slows about 1.4x on this machine, so call it 40 to 55 CPU-s per node
+on M2 Pro cores, 100 to 130 on the 2.8 GHz Xeon's (2.4x slower per iteration).
+
+Node count: 4e7 for the median subtree, nearer 1e8 node-equivalents with the
+depth-6 tail (section 7a). PRSM also trims the tree (22% fewer DNN nodes on
+nug30, and the 300-iteration bound of a clear miss is 60 better), which the
+range below does not credit.
+
+| | 4e7 nodes, 40 s | 1e8 nodes, 55 s |
+|---|---|---|
+| CPU | 1.6e9 s | 5.5e9 s |
+| 100 M2 Pro-class cores, 90% parallel efficiency | 7 months | 2 years |
+| 100 Xeon cores | 1.5 years | 5 years |
+| 1,000 Xeon cores | 2 months | 6 months |
+| this laptop, 8 workers | 7 years | 25 years |
+
+Down from the 1e10 CPU-s (40 laptop-years) of sections 4 and 5, but the
+verdict is the same: wil50 is a cluster job of months, not a laptop job, and
+a stronger relaxation at depths 3 to 5 is still the only thing that changes
+the order of magnitude.
