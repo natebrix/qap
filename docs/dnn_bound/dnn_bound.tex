@@ -916,9 +916,11 @@ the limit: a faster solver changes the cost of a node but not the depth at which
 fathoming starts. Nor do the triangle inequalities on $Y$ help: added in Lagrangian
 form to the certified bound, they raised two nug30 depth-2 misses by 0.2 and 0.4 (of
 gaps 76 and 29) and the root not at all, since the DNN solution violates them by at
-most 0.02 (\texttt{experiments/dnn\_cuts}). The open grid instances need a strictly
-stronger relaxation, such as level-2 RLT, as well as much larger parallel resources,
-as in \cite{fujii}.
+most 0.02 (\texttt{experiments/dnn\_cuts}). The open grid instances need a relaxation
+strictly stronger than the DNN relaxation at depths 3--5, worth roughly 0.3\% of
+the objective per level of fathoming depth, and we know of none that is computable
+at $n=50$; with the DNN bound, the tree is of the order of $10^7$ DNN nodes, in line
+with the estimates of Fujii et al.\ \cite{fujii}.
 
 \section{Conclusion}
 
