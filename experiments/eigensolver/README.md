@@ -164,3 +164,32 @@ depth-3/4 nodes miss is where the warm start and gamma1 interact, and that
 was not retuned here. The Oct 29 laptop run of the pre-block-growth code
 (experiments/nug30_solve/laptop_run1.log: 8,355 CPU s, 19 min 42 s) is within
 4% of today's default, so block growth alone changed little on nug30.
+
+### nug27 and nug28 (same day, same binary, `nug_deep.par -x 2:5`, 8 workers)
+
+The recorded runs' settings: cold ADMM, no give-up rule, no warm start.
+`nug27_ctl_j8_m2pro.log`, `nug27_prsm_j8_m2pro.log`, `nug28_ctl_j8_m2pro.log`,
+`nug28_prsm_j8_m2pro.log`.
+
+| | nug27 default | nug27 PRSM + degree 4 | nug28 default | nug28 PRSM + degree 4 |
+|---|---|---|---|---|
+| nodes | 676 | 627 | 1,736 | 3,504,196 |
+| DNN nodes / fathomed | 663 / 641 | 614 / 594 | 1,727 / 1,664 | 1,627 / 1,567 |
+| DNN CPU | 1,311 s | 1,040 s | 3,905 s | 3,214 s |
+| CPU | 1,317 s | 1,045 s | 3,915 s | 3,739 s |
+| wall | 3 min 1 s | 2 min 31 s | 9 min 7 s | 8 min 58 s |
+| DNN nodes per depth 2/3/4/5 | 194/447/24/0 | 194/422/0/0 | 192/590/825/120 | 192/590/725/120 |
+
+Both optima proved in all four runs. DNN CPU falls 1.26x (nug27) and 1.22x
+(nug28), less than nug30's 1.5x: without the give-up rule a cold miss runs to
+the iteration limit either way, so the saving is on the fathomed nodes only.
+The trees are again smaller (nug27 closes at depth 3; nug28 has 100 fewer
+depth-4 nodes), but on nug28 one depth-5 node that the default fathoms
+(5166-level lb a hair above the cutoff) is a PRSM miss, and with `-x 2:5` its
+subtree went to QPB: 3.5 million nodes, 525 CPU s, which eats most of the DNN
+saving. With `-x 2:7:1:300:1` (the nug30 settings) that node would have been
+bounded at depth 6 instead. Verdict for making PRSM + degree 4 the default:
+DNN CPU 1.2-1.5x lower on nug27/28/30 with the same or smaller DNN trees,
+and the fathom/miss set shifts by a node or two at the frontier, so it should
+go with a depth setting that covers the frontier (`-x 2:7`) rather than
+`-x 2:5`.
