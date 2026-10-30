@@ -1,0 +1,44 @@
+Fri Oct 30 20:51:36 UTC 2026
+### node 2, degree 4, PRSM 1.0/1.0, block growth, 2500 iterations, alone
+profile (s): forward 57.056  eig 281.882  expand 57.307  Y/Z-step 32.390  certify 14.025
+eig split (s): full ssyevd 52.291 (120 refreshes, K=2117)  filter+RR 166.755 (2380 steps, mean kb 682, mean nneg 572)  form R 48.281
+refresh reasons: scheduled 120  weyl bound 0  block too small 0  factorization failed 0  (block grown 96 times)
+RESULT node=0 m=47 lb=48611.945919636877 status=iter_limit iters=2500 cpu=443.115 ms_per_iter=177.25 margin=4.95e-06 fathomed=0
+### node 11 (fathomable), degree 4, PRSM, growth
+refresh reasons: scheduled 14  weyl bound 0  block too small 0  factorization failed 0  (block grown 4 times)
+RESULT node=0 m=47 lb=48815.422147563077 status=fathomed iters=290 cpu=49.655 ms_per_iter=171.22 margin=4.88e-06 fathomed=1
+### nug25 A: default, -x 2:5:1:300:1, 8 workers
+Fri Oct 30 20:59:51 UTC 2026
+    Total Time: 727.120904 seconds 
+         Nodes: 728 / 688 / 0
+     DNN bound: 721 nodes, 688 fathomed, 722.44 s
+parallel: 8 workers, 150 tasks, 12 steals, wall 103.69 s, CPU 727.12 s (x7.01), best objective 3744
+### nug25 B: PRSM 1.0/1.0 + Chebyshev 4, same settings
+Fri Oct 30 21:01:35 UTC 2026
+    Total Time: 513.640772 seconds 
+         Nodes: 696 / 658 / 0
+     DNN bound: 689 nodes, 658 fathomed, 509.07 s
+parallel: 8 workers, 183 tasks, 13 steals, wall 73.22 s, CPU 513.64 s (x7.02), best objective 3744
+Fri Oct 30 21:02:48 UTC 2026
+### validation: dnn_test.py (all parts, with the prsm-cheb4 variant)
+A. brute force: 1728 node bounds in 768 dnntest runs, 20 s
+   max(lb - optimum) = 0, over nodes with m >= 2: -1.66e-13 (must be <= 0 up to 1e-9 relative)
+   bound within 1e-3 of the optimum: 1700 of 1728; fathomed at cutoff opt-1: 1719
+B. prototype agreement: 44 checkpoint values, max relative difference 8.6e-08, 16 s
+C. nug20 nodes with known optima: 11 s
+D. cancellation regressions: 13 cases, 0 s
+E. eliminated assignments: 160 nodes (87 with a stronger bound than without eliminations), 2 s
+OK
+### validation: brute force inside the search, DNN at every depth, PRSM + cheb4
+
+4536/4536 passed
+### validation: make test (default settings)
+     nug15: ok       nodes=      1935  time=    0.767s  wall=0.78s
+    nug16b: ok       nodes=      3140  time=    1.175s  wall=1.19s
+     had12: ok       nodes=       114  time=    0.074s  wall=0.08s
+     had14: ok       nodes=       370  time=    0.215s  wall=0.22s
+     had16: ok       nodes=      3251  time=    2.261s  wall=2.27s
+REGRESSION CHECK FAILED against bench/reference/ (tolerance 0.0%):
+Fri Oct 30 21:10:25 UTC 2026
+
+[exited with code 0]

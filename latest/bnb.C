@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include "util.h"
 #include "linalg.h"
 #include "lap.h"
@@ -620,6 +621,11 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNParams dp;
 	  // giving up early on a node that would fathom costs its whole subtree
 	  dp.hopeless_after = dnn_hopeless_after;
+	  // prototype switches (experiments/eigensolver): Peaceman-Rachford first
+	  // dual step and Chebyshev filter degree of the subspace eigensolver
+	  if (const char *e = getenv("QAP_DNN_GAMMA1")) dp.gamma1 = atof(e);
+	  if (const char *e = getenv("QAP_DNN_GAMMA")) dp.gamma = atof(e);
+	  if (const char *e = getenv("QAP_DNN_CHEB")) dp.cheb_degree = atoi(e);
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
 	  DNNWarm start, *save = dnn_warm ? new DNNWarm : NULL;

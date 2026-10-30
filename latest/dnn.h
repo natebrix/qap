@@ -88,6 +88,8 @@ struct DNNParams {
   int check_every;     // certify (and test convergence) every this many iterations (10)
   double tol;          // convergence: primal residual and step below tol (1e-5)
   double gamma;        // dual step length (1.618)
+  double gamma1;       // Peaceman-Rachford: a first dual step of gamma1 * beta * (Y - VRV')
+                       // between the R-step and the Y-step (0 = plain ADMM, the default)
   double beta;         // ADMM penalty, as a multiple of dnn.py's m/3 for the problem
                        // scaled to max |L| = 1. dnn.py uses 1; 0.3 needs 2-3x fewer
                        // iterations to certify on nug20/nug30 nodes (0.3)

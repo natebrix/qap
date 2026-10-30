@@ -209,6 +209,7 @@ int main(int argc, char **argv)
     else if (o == "-d" && more) par.cheb_degree = atoi(argv[++a]);
     else if (o == "-B" && more) par.beta = atof(argv[++a]);
     else if (o == "-g" && more) par.gamma = atof(argv[++a]);
+    else if (o == "-G" && more) par.gamma1 = atof(argv[++a]);
     else if (o == "-v") par.verbose++;
     else if (o == "-C" && more) par.child_bounds = atoi(argv[++a]);
     else if (o == "-E" && more) elims = argv[++a];

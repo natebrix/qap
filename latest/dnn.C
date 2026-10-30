@@ -183,6 +183,7 @@ DNNParams::DNNParams()
   check_every = 10;
   tol = 1e-5;
   gamma = 1.618;
+  gamma1 = 0;
   beta = 0.3;
   poly = DNN_POLY_GL;
   inner_lap = DNN_LAP_AUTO;
@@ -336,6 +337,10 @@ struct Work {
   std::vector<double> sub, cmat, colmin;
   Hungarian hung;
   double prof[8];             // CPU seconds per phase, printed with verbose >= 2
+  int n_refresh, sum_kb, sum_nneg, n_sub;   // subspace eigensolver statistics
+  int ref_sched, ref_weyl, ref_small, ref_fail;   // why a full refresh ran
+  int n_grow;                 // block extended with fresh vectors instead of a refresh
+  unsigned grow_seed;
   double delta_rel;           // last relative Cholesky shift that worked (certify)
 
   void alloc(int m_)
@@ -354,6 +359,9 @@ struct Work {
     sub.assign((size_t)m * m, 0); cmat.assign((size_t)m * m, 0); colmin.assign(m, 0);
     hung.init(m);
     for (int t = 0; t < 8; t++) prof[t] = 0;
+    n_refresh = sum_kb = sum_nneg = n_sub = 0;
+    ref_sched = ref_weyl = ref_small = ref_fail = 0;
+    n_grow = 0; grow_seed = 12345u;
     delta_rel = 1e-13;
 
     // Householder vector mapping e/sqrt(m) to e_{m-1}: u = e/sqrt(m) - e_{m-1}
@@ -641,6 +649,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   for (size_t t = 0; t < kk; t++) Wf[t] = (float)Win[t];
 
   bool full = !w.have_basis || w.since_refresh >= refresh || w.theta_top >= w.lam_hi;
+  if (full) { if (!w.have_basis || w.since_refresh >= refresh) w.ref_sched++; else w.ref_weyl++; }
   int nneg = 0;
   lapack_int kb = w.kb;
   float *X = w.Xs.data();
@@ -649,9 +658,11 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
     if (full) {
       lapack_int lwork = (lapack_int)w.eworkf.size(), liwork = (lapack_int)w.eiwork.size(),
                  info = 0;
+      double tf0 = thread_cpu();
       memcpy(X, Wf, kk * sizeof(float));
       F77(ssyevd)("V", "L", &K, X, &K, theta.data(), w.eworkf.data(), &lwork,
                   w.eiwork.data(), &liwork, &info, 1, 1);
+      w.prof[5] += thread_cpu() - tf0; w.n_refresh++;
       if (info != 0) return false;
       nneg = 0;
       while (nneg < K && theta[nneg] < 0) nneg++;
@@ -662,6 +673,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       break;
     }
     // Chebyshev filter: Y_{j+1} = 2 (W - c) Y_j / h - Y_{j-1}, Y_0 = X
+    double ts0 = thread_cpu();
     float *Y = w.Ys.data(), *T = w.Ts.data(), *Yp = X;
     const float c = (float)(0.5 * (w.lam_hi + w.theta_top)),
                 h = (float)(0.5 * (w.lam_hi - w.theta_top));
@@ -683,7 +695,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       if (info != 0) { ok = false; break; }
       F77(strsm)("R", "U", "N", "N", &K, &kb, &one, G, &kb, Y, &K, 1, 1, 1, 1);
     }
-    if (!ok) { full = true; continue; }
+    if (!ok) { w.ref_fail++; full = true; continue; }
     // Rayleigh-Ritz: H = Y' W Y, X = Y Q
     F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Y, &K, &zero, T, &K, 1, 1);
     F77(sgemm)("T", "N", &kb, &kb, &K, &one, Y, &K, T, &K, &zero, G, &kb, 1, 1);
@@ -696,23 +708,43 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
                  info = 0;
       F77(ssyevd)("V", "L", &kb, G, &kb, theta.data(), w.eworkf.data(), &lwork,
                   w.eiwork.data(), &liwork, &info, 1, 1);
-      if (info != 0) { full = true; continue; }
+      if (info != 0) { w.ref_fail++; full = true; continue; }
     }
     float *Xn = (Y == X) ? T : X;
     F77(sgemm)("N", "N", &K, &kb, &kb, &one, Y, &K, G, &kb, &zero, Xn, &K, 1, 1);
     if (Xn != X) memcpy(X, Xn, nb * sizeof(float));
     nneg = 0;
     while (nneg < kb && theta[nneg] < 0) nneg++;
-    if (nneg > kb - (guard + 1) / 2) { full = true; continue; }   // block too small
-    w.since_refresh++;
-    kb = std::min<lapack_int>(kb, nneg + guard);   // keep the lowest Ritz vectors
+    w.prof[6] += thread_cpu() - ts0;
+    w.since_refresh++; w.n_sub++; w.sum_kb += kb; w.sum_nneg += nneg;
+    w.theta_top = theta[kb - 1];
+    if (nneg > kb - (guard + 1) / 2) {
+      // block too small: the negative count grew into the guard. Rather than
+      // a full refresh, append `guard` fresh pseudo-random vectors (a
+      // deterministic LCG, so runs stay reproducible); the next filter and
+      // CholQR2 orthonormalize them against the block and the next
+      // Rayleigh-Ritz gives them Ritz values. A full ssyevd runs only when
+      // the block cannot grow.
+      lapack_int add = std::min<lapack_int>(guard, K - kb);
+      if (add <= 0) { w.ref_small++; full = true; continue; }
+      float *xn = X + (size_t)kb * K;
+      for (size_t t = 0; t < (size_t)add * K; t++) {
+        w.grow_seed = w.grow_seed * 1664525u + 1013904223u;
+        xn[t] = (float)((w.grow_seed >> 8) & 0xffffu) / 65536.0f - 0.5f;
+      }
+      kb += add;
+      w.n_grow++;
+    } else {
+      kb = std::min<lapack_int>(kb, nneg + guard);   // keep the lowest Ritz vectors
+    }
     break;
   }
   w.kb = kb;
-  w.theta_top = theta[kb - 1];
+  if (full) w.theta_top = theta[kb - 1];
   *npos = K - nneg;
 
   // R = W - sum_{theta<0} theta x x'
+  double tr0 = thread_cpu();
   double *F = w.F.data();
   for (int i = 0; i < nneg; i++) {
     double sq = sqrt(-(double)theta[i]);
@@ -726,6 +758,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   if (k > 0) F77(dsyrk)("L", "N", &K, &k, &done, F, &K, &done, Rout, &K, 1, 1);
   for (int c = 0; c < K; c++)
     for (int r = c + 1; r < K; r++) Rout[(size_t)r * K + c] = Rout[(size_t)c * K + r];
+  w.prof[7] += thread_cpu() - tr0;
   return true;
 }
 
@@ -1063,7 +1096,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // as dnn.py: scale the objective to max |L| = 1, beta = m/3
   const double scale = std::max(1.0, maxabs), iscale = 1.0 / scale;
   const double beta = (par.beta > 0 ? par.beta : 1.0) * m / 3.0, ibeta = 1.0 / beta;
-  const double gamma = par.gamma;
+  const double gamma = par.gamma, gamma1 = par.gamma1;
   const int check_every = std::max(1, par.check_every);
 
   double *Y = w.Y.data(), *Z = w.Z.data(), *VRV = w.VRV.data(), *Zc = w.Zc.data();
@@ -1111,6 +1144,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     for (int r = 0; r < n1; r++) {
       const double *lr = L + (size_t)r * n1, *vr = VRV + (size_t)r * n1;
       double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1, *cr = Zc + (size_t)r * n1;
+      if (rstep_cert)
+        for (int c = 0; c < n1; c++) cr[c] = zr[c] + beta * (yr[c] - vr[c]);
+      if (gamma1 > 0)
+        for (int c = 0; c < n1; c++) zr[c] += gamma1 * beta * (yr[c] - vr[c]);
       for (int c = 0; c < n1; c++) {
         double y = vr[c] - (lr[c] * iscale + zr[c]) * ibeta;
         yn[c] = std::min(1.0, std::max(0.0, y));
@@ -1131,8 +1168,6 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
           for (int a : w.elim_idx) yn[a] = 0;
         }
       }
-      if (rstep_cert)
-        for (int c = 0; c < n1; c++) cr[c] = zr[c] + beta * (yr[c] - vr[c]);
       double *rs = w.tmp.data() + n1, *ds = rs + n1;
       for (int c = 0; c < n1; c++) {
         double y = yn[c], res_ = y - vr[c];
@@ -1236,6 +1271,14 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   if (par.verbose >= 2)
     printf("profile (s): forward %.3f  eig %.3f  expand %.3f  Y/Z-step %.3f  certify %.3f\n",
            w.prof[0], w.prof[1], w.prof[2], w.prof[3], w.prof[4]);
+  if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE)
+    printf("eig split (s): full ssyevd %.3f (%d refreshes, K=%d)  filter+RR %.3f (%d steps, mean kb %.0f, mean nneg %.0f)  form R %.3f\n",
+           w.prof[5], w.n_refresh, w.K, w.prof[6], w.n_sub,
+           w.n_sub ? (double)w.sum_kb / w.n_sub : 0.0, w.n_sub ? (double)w.sum_nneg / w.n_sub : 0.0,
+           w.prof[7]);
+  if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE)
+    printf("refresh reasons: scheduled %d  weyl bound %d  block too small %d  factorization failed %d  (block grown %d times)\n",
+           w.ref_sched, w.ref_weyl, w.ref_small, w.ref_fail, w.n_grow);
   res.status = status;
   res.lb = best;
   res.primal = obj;
