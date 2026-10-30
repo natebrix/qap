@@ -117,6 +117,12 @@ struct DNNParams {
                        // constants. NULL: none (default)
   double L_add_abs;    // sum of the magnitudes of the terms in L_add, for the
                        // rounding margin (0)
+  const unsigned char *elim;  // optional m x m (row-major, local indices): 1 where
+                       // x_ij = 0 in every solution of the node (eliminated
+                       // assignments). The Y-step keeps their lifted rows and
+                       // columns at zero and the certificate excludes them, so
+                       // the bound is for the node with these assignments
+                       // forbidden. NULL: none (default)
   int child_bounds;    // 1: also return child bounds (DNNResult::child_lb) from the
                        // best certificate's outer assignment problem (0)
   int verbose;         // 1: print the certified bound at every check, 2: also a

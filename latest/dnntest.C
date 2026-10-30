@@ -25,6 +25,8 @@
    -H N            give up (status hopeless) after N iterations when the certified
                    bound, extrapolated from its recent gains, stays below the
                    cutoff (default 200, 0 = off)
+   -E i:j,...      eliminated assignments (x_ij = 0; free at the node): the bound is
+                   for the node with them forbidden (DNNParams::elim)
    -C 1|2          child bounds from the best certificate (DNNResult::child_lb):
                    print how many children it fathoms; 2: also every bound
    -e N            R-step eigensolver: 0 dsyevd (as dnn.py), 1 ssyevd, 2 subspace
@@ -56,7 +58,7 @@ static void usage()
 {
   printf("usage: dnntest [-x i:j,... | -N nodefile] [-u ub | -c cutoff] [-i iters] [-t secs]\n"
          "               [-k every] [-b] [-l 0|1|2] [-P] [-f] [-s window] [-H iters] [-T threads]\n"
-         "               [-C 1|2] [-v] file.dat\n");
+         "               [-C 1|2] [-E i:j,...] [-v] file.dat\n");
   exit(1);
 }
 
@@ -80,8 +82,9 @@ static bool parse_fixes(const std::string &fixes, QAPAssignment &node, int n)
 // Bound one node; returns false on bad input or a DNN error. With child
 // ("i:j", original indices), the node's final ADMM state then bounds that
 // child twice, from scratch and warm-started (results 1 and 2).
-static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNParams &par,
-                     int index, const std::string &child = "")
+static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNParams &par0,
+                     int index, const std::string &child = "",
+                     const std::string &elims = "-")
 {
   const int n = q->A->m;
   QAPAssignment node(n);
@@ -91,6 +94,29 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
   }
   QAP qr;
   reduceQAP(q, &qr, node);
+  // eliminated assignments (original indices), as an m x m mask in local ones
+  DNNParams par = par0;
+  std::vector<unsigned char> mask;
+  if (elims != "-" && !elims.empty()) {
+    const int m = n - node.nfix;
+    std::vector<int> lr(n, -1), lc(n, -1);
+    for (int t = 0, k = 0; t < n; t++) if (node.p[t] == NONE) lr[t] = k++;
+    for (int t = 0, k = 0; t < n; t++) if (node.pinv[t] == NONE) lc[t] = k++;
+    mask.assign((size_t)m * m, 0);
+    for (size_t pos = 0; pos < elims.size();) {
+      size_t end = elims.find(',', pos);
+      if (end == std::string::npos) end = elims.size();
+      int i, j;
+      if (sscanf(elims.substr(pos, end - pos).c_str(), "%d:%d", &i, &j) != 2 ||
+          i < 0 || i >= n || j < 0 || j >= n || lr[i] < 0 || lc[j] < 0) {
+        printf("bad elimination list '%s' (pairs must be free at the node)\n", elims.c_str());
+        return false;
+      }
+      mask[(size_t)lr[i] * m + lc[j]] = 1;
+      pos = end + 1;
+    }
+    par.elim = mask.data();
+  }
   if (par.verbose)
     printf("node %d fixed=%d m=%d shift=%.6f cutoff=%.6f\n", index, node.nfix,
            n - node.nfix, qr.shift, cutoff);
@@ -149,7 +175,7 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
 int main(int argc, char **argv)
 {
   DNNParams par;
-  std::string fixes = "-", child;
+  std::string fixes = "-", child, elims = "-";
   const char *nodefile = NULL;
   double ub = HUGE_VAL, cutoff = HUGE_VAL;
   bool have_cutoff = false;
@@ -185,6 +211,7 @@ int main(int argc, char **argv)
     else if (o == "-g" && more) par.gamma = atof(argv[++a]);
     else if (o == "-v") par.verbose++;
     else if (o == "-C" && more) par.child_bounds = atoi(argv[++a]);
+    else if (o == "-E" && more) elims = argv[++a];
     else if (o[0] == '-') usage();
     else file = argv[a];
   }
@@ -200,9 +227,9 @@ int main(int argc, char **argv)
 
   bool ok = true;
   if (!nodefile) {
-    ok = run_node(q, fixes, cutoff, par, 0, child);
+    ok = run_node(q, fixes, cutoff, par, 0, child, elims);
   } else {
-    // one node per line: "<fixes or -> [cutoff]"; a missing cutoff means the
+    // one node per line: "<fixes or -> [cutoff [eliminations]]"; a missing cutoff means the
     // command-line one; '#' starts a comment
     FILE *f = fopen(nodefile, "r");
     if (!f) { printf("cannot open %s\n", nodefile); return 1; }
@@ -213,8 +240,11 @@ int main(int argc, char **argv)
       double c = cutoff;
       if (line[0] == '#' || sscanf(line, "%s", fx) != 1) continue;
       char cs[64];
+      static char el[65536];
       if (sscanf(line, "%*s %63s", cs) == 1) c = atof(cs);
-      ok = run_node(q, fx, c, par, index++) && ok;
+      // optional third field: eliminated assignments "i:j,..." or "-"
+      std::string e = sscanf(line, "%*s %*s %65535s", el) == 1 ? el : "-";
+      ok = run_node(q, fx, c, par, index++, "", e) && ok;
     }
     fclose(f);
   }

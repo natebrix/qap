@@ -196,6 +196,7 @@ DNNParams::DNNParams()
   stall_gap = 0.5;
   hopeless_after = 200;
   L_add = NULL;
+  elim = NULL;
   L_add_abs = 0;
   child_bounds = 0;
   verbose = 0;
@@ -311,6 +312,8 @@ long double lap_reduce(int n, const double *c, int ldc, double *colmin)
  Work: everything one dnn_bound call needs. No state outlives the call.
 */
 struct Work {
+  const unsigned char *elim = NULL;   // eliminated assignments (DNNParams::elim)
+  std::vector<int> elim_idx;          // their lifted indices 1 + i m + j
   std::vector<double> red;   // certify: reduced costs of the outer LAP (child bounds)
   bool want_red = false;
   int m, N, n1, K, ll;
@@ -805,6 +808,8 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
           int k = (c - 1) / m, l = (c - 1) % m;
           if ((k == i) != (l == j)) continue;   // gangster
         }
+        // eliminated assignments: Y is zero there in every solution
+        if ((r > 0 && w.elim && w.elim[r - 1]) || (c > 0 && w.elim && w.elim[c - 1])) continue;
         double x = lr[c] + scale * zr[c];
         absM += fabs(x);
         if (x < 0) val += x;
@@ -816,6 +821,17 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
     // Gilmore-Lawler on M: inner LAPs per row (ij), outer LAP on c
     double *sub = w.sub.data(), *cm = w.cmat.data();
     bool exact = inner_lap == DNN_LAP_EXACT;
+    // Eliminated assignments get a penalty P in the inner and outer LAPs. Any
+    // P is valid: permutations of the node never use them, so changing their
+    // costs changes no feasible objective. P = 4 (m+1) max|M| keeps them out of
+    // the LAP solutions whenever a feasible alternative exists, and is counted
+    // in absM like any other entry, so the margin stays rigorous.
+    double pen = 0;
+    if (w.elim) {
+      double mx = 0;
+      for (size_t t = 0; t < (size_t)n1 * n1; t++) mx = std::max(mx, fabs(L[t] + scale * Zm[t]));
+      pen = 4.0 * (m + 1) * mx;
+    }
     for (int pass = 0; pass < 2; pass++) {
       absM = 0;
       for (int i = 0; i < m; i++)
@@ -830,6 +846,7 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
             for (int l = 0; l < m; l++) {
               if (l == j) continue;
               double x = lr[cb + l] + scale * zr[cb + l];
+              if (w.elim && w.elim[k * m + l]) x += pen;
               sub[kk * (m - 1) + ss++] = x;
               absM += fabs(x);
             }
@@ -842,6 +859,10 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
           double d0 = lr[0] + scale * zr[0], dd = lr[r] + scale * zr[r];
           absM += 2 * fabs(d0) + fabs(dd) + fabsl(inner);
           cm[i * m + j] = (double)(2.0L * d0 + dd + inner);
+          if (w.elim && w.elim[i * m + j]) {
+            cm[i * m + j] += pen;
+            absM += pen;
+          }
         }
       val = m00 + w.hung.solve(m, cm, m);
       if (pass == 0 && !exact) ci.poly_reduce = (double)val;
@@ -882,6 +903,29 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
   if (!std::isfinite(lam) || !std::isfinite((double)val) || !std::isfinite(margin))
     return -HUGE_VAL;
   return (double)val - margin;
+}
+
+// whether some permutation avoids every eliminated assignment (elim is m x m,
+// 1 = forbidden): augmenting paths (Kuhn), O(m^3)
+static bool augment(const unsigned char *elim, int m, int i, std::vector<int> &match,
+                    std::vector<char> &seen)
+{
+  for (int j = 0; j < m; j++) {
+    if (elim[i * m + j] || seen[j]) continue;
+    seen[j] = 1;
+    if (match[j] < 0 || augment(elim, m, match[j], match, seen)) { match[j] = i; return true; }
+  }
+  return false;
+}
+
+bool has_perfect_matching(const unsigned char *elim, int m)
+{
+  std::vector<int> match(m, -1);
+  for (int i = 0; i < m; i++) {
+    std::vector<char> seen(m, 0);
+    if (!augment(elim, m, i, match, seen)) return false;
+  }
+  return true;
 }
 
 // largest |x[t]|
@@ -967,6 +1011,13 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       C->m != A->m || C->n != A->m)
     return res;
   const int m = A->m;
+  if (par.elim && !has_perfect_matching(par.elim, m)) {
+    // no permutation avoids the eliminated assignments: no feasible completion
+    res.lb = res.primal = HUGE_VAL;
+    res.status = DNN_FATHOMED;
+    res.cpu = thread_cpu() - t0;
+    return res;
+  }
   if (m <= 1) {
     res.primal = trivial_value(A, B, C, m, shift, res.lb);
     res.status = res.lb > cutoff ? DNN_FATHOMED : DNN_CONVERGED;
@@ -976,6 +1027,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
 
   Work w;
   w.alloc(m);
+  w.elim = par.elim;
+  if (par.elim)
+    for (int a = 0; a < m * m; a++) if (par.elim[a]) w.elim_idx.push_back(1 + a);
   if (par.eig_mode == DNN_EIG_SINGLE) w.alloc_single();
   if (par.eig_mode == DNN_EIG_SUBSPACE) w.alloc_subspace();
   const int n1 = w.n1;
@@ -1068,6 +1122,14 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         int i = (r - 1) / m, j = (r - 1) % m;
         for (int l = 0; l < m; l++) if (l != j) yn[1 + i * m + l] = 0;
         for (int k = 0; k < m; k++) if (k != i) yn[1 + k * m + j] = 0;
+      }
+      if (w.elim) {
+        // eliminated assignments: their lifted rows and columns are zero
+        if (r > 0 && w.elim[r - 1]) {
+          for (int c = 0; c < n1; c++) yn[c] = 0;
+        } else {
+          for (int a : w.elim_idx) yn[a] = 0;
+        }
       }
       if (rstep_cert)
         for (int c = 0; c < n1; c++) cr[c] = zr[c] + beta * (yr[c] - vr[c]);

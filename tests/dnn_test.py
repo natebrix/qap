@@ -2,7 +2,7 @@
 """Validate the certified DNN bound (latest/dnn.C) through latest/dnntest.
 
   make -C latest dnntest
-  python3 tests/dnn_test.py            # all four parts, a few minutes on one core
+  python3 tests/dnn_test.py            # all five parts, a few minutes on one core
   python3 tests/dnn_test.py --quick    # fewer instances, no nug20 nodes
 
 A. Brute force. Small random instances (n = 3..8, the four families of
@@ -19,6 +19,10 @@ C. Nodes of nug20 with known subproblem optima (solved exactly by bnbdrv in
    the nug20 study): the default bound must stay below them, and fathom
    exactly the nodes the study fathomed. A second run must reproduce every
    result bit for bit.
+E. Eliminated assignments (dnntest -E): random small instances and nodes with
+   random forbidden assignments; the optimum over the allowed permutations is
+   found by enumeration. The bound must stay at or below it and not fathom
+   with the cutoff at it; a node with no allowed permutation must fathom.
 D. Cancellation regressions: data whose products are large and cancel
    (against the linear term, or between asymmetric A and B), where every
    rounding step before the certificate matters. Each node's exact optimum
@@ -334,6 +338,90 @@ def part_d(args):
     return failures
 
 
+def part_e(args, rng):
+    """Eliminated assignments."""
+    t0 = time.time()
+    failures = []
+    stronger = same = cases = 0
+    with tempfile.TemporaryDirectory() as d:
+        for inst in range(16 if args.quick else 40):
+            n = rng.choice([5, 6, 7, 8])
+            A = [[0] * n for _ in range(n)]
+            B = [[0] * n for _ in range(n)]
+            for i in range(n):
+                for j in range(i + 1, n):
+                    A[i][j] = A[j][i] = rng.randrange(0, 20)
+                    B[i][j] = B[j][i] = rng.randrange(1, 20)
+            C = [[rng.randrange(0, 30) if rng.random() < 0.3 else 0 for _ in range(n)]
+                 for _ in range(n)]
+            dat = os.path.join(d, "e%d.dat" % inst)
+            with open(dat, "w") as f:
+                f.write("%d\n\n" % n)
+                for M in (A, B, C):
+                    f.write("\n".join(" ".join(map(str, r)) for r in M) + "\n\n")
+            P, vals = all_values(A, B, C)
+            nodes = []
+            for _ in range(4):
+                nfix = rng.randrange(0, n - 2)
+                perm = list(range(n)); rng.shuffle(perm)
+                rows = rng.sample(range(n), nfix)
+                fixed = {i: perm[i] for i in rows}
+                free_r = [i for i in range(n) if i not in fixed]
+                free_c = [j for j in range(n) if j not in fixed.values()]
+                prob = rng.choice([0.2, 0.4, 0.6])
+                elim = [(i, j) for i in free_r for j in free_c if rng.random() < prob]
+                ok = np.ones(len(P), bool)
+                for i, j in fixed.items():
+                    ok &= P[:, i] == j
+                for i, j in elim:
+                    ok &= P[:, i] != j
+                fx = ",".join("%d:%d" % (i, j) for i, j in sorted(fixed.items())) or "-"
+                el = ",".join("%d:%d" % e for e in elim) or "-"
+                if ok.any():
+                    opt = float(vals[ok].min())
+                    nodes.append((fx, opt, el, False))
+                else:
+                    nodes.append((fx, 1e9, el, True))
+            res = run_dnntest_e(dat, nodes, 600)
+            plain = run_dnntest(dat, [(fx, repr(opt)) for fx, opt, el, inf in nodes], [], 600)
+            for (fx, opt, el, infeasible), r, rp in zip(nodes, res, plain):
+                cases += 1
+                lb = float(r["lb"])
+                if infeasible:
+                    if r["fathomed"] != "1":
+                        failures.append("E %s fixes %s elim %s: infeasible node not fathomed" % (dat, fx, el))
+                    continue
+                if lb > opt + 1e-9 or r["fathomed"] == "1":
+                    failures.append("E %s fixes %s elim %s: lb %r > optimum %r or fathomed"
+                                    % (dat, fx, el, lb, opt))
+                if lb > float(rp["lb"]) + 1e-6:
+                    stronger += 1
+                else:
+                    same += 1
+    print("E. eliminated assignments: %d nodes (%d with a stronger bound than without "
+          "eliminations), %.0f s" % (cases, stronger, time.time() - t0))
+    return failures
+
+
+def run_dnntest_e(dat, nodes, iters):
+    """nodes: (fixes, cutoff, eliminations, infeasible); returns RESULT dicts."""
+    with tempfile.NamedTemporaryFile("w", suffix=".nodes", delete=False) as f:
+        for fx, c, el, _ in nodes:
+            f.write("%s %r %s\n" % (fx, c, el))
+        nf = f.name
+    try:
+        out = subprocess.run([DNNTEST, "-N", nf, "-i", str(iters)] + [dat],
+                             capture_output=True, text=True, env=ENV, timeout=600)
+    finally:
+        os.unlink(nf)
+    res = [dict(kv.split("=", 1) for kv in l.split()[1:])
+           for l in out.stdout.splitlines() if l.startswith("RESULT")]
+    if out.returncode != 0 or len(res) != len(nodes):
+        raise RuntimeError("dnntest failed (rc=%d):\n%s\n%s" % (out.returncode, out.stdout,
+                                                                 out.stderr))
+    return res
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -341,7 +429,7 @@ def main():
     p.add_argument("--count", type=int, default=2, help="instances per family and size (A)")
     p.add_argument("--iters", type=int, default=1500, help="iteration limit in part A")
     p.add_argument("--seed", type=int, default=1)
-    p.add_argument("--parts", default="ABCD")
+    p.add_argument("--parts", default="ABCDE")
     args = p.parse_args()
     if not os.path.exists(DNNTEST):
         sys.exit("%s not found; run make -C latest dnntest" % DNNTEST)
@@ -356,6 +444,8 @@ def main():
         failures += part_c(args)
     if "D" in args.parts:
         failures += part_d(args)
+    if "E" in args.parts:
+        failures += part_e(args, rng)
     if failures:
         print("FAILED: %d problems" % len(failures))
         for f in failures[:30]:
