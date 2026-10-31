@@ -123,7 +123,26 @@ It is in the solver as an opt-in (`DNNParams::hopeless_gap_ratio`, `dnntest
 -R rho`; off by default), and was run on the 32 nodes (`run_cloud_R.sh`,
 `cloud/H150R065_<id>.log`):
 
-%%RRESULT%%
+| 32 nodes | H = 300 | H = 200 | H = 150, rho = 0.65 |
+|---|---|---|---|
+| fathomed | 18, mean 105 s | the same 18, 105 s | the same 18, 106 s |
+| given up | 14, mean 175 s, at 300-480 iterations | 14, mean 95 s, all at 200 | 14, mean 98 s, at 170-230 |
+| false give-ups | - | 0 | 0 |
+| total CPU | 4,329 s | 3,205 s | 3,284 s |
+
+The gap-ratio rule saves what H = 200 saves (-24% against H = 300), with no
+false give-up, and its margin does not depend on when the check happens to
+fall: on the traced fathoms the ratio never exceeds 0.55 against the threshold
+0.65, and on misses it only rises. Clear misses go at 170-190, near misses at
+210-230 (nodes 6, 9, 15, 16), where they are 134-170 short.
+
+**Recommendation.** Do not go below H = 200 with the extrapolation rule under
+PRSM. For runs with PRSM, H = 150 with the gap-ratio rule (`-R 0.65`; in the
+solver, `DNNParams::hopeless_gap_ratio`, not yet exposed in bnbdrv's `-x`) is
+the safer way to get the same 24-26%. Both rest on 32 nodes of one instance
+(and four `-v` traces); a nug30 A/B on the laptop would check them where the
+answer is known. On the dominant node class this is a constant factor; it
+does not change the depth at which fathoming starts (../NOTES.md section 5).
 
 ## 2. Eliminations from the DNN certificate (`elim/`, `run_cloud.sh`)
 
