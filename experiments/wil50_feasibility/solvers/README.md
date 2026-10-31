@@ -27,3 +27,9 @@ of PRSM behind a flag, scored on the 32 nodes of ../tuning/giveup/all32.txt;
 DNN_TIGHT_LAM) on node 2 of all32 to convergence; (3) not needed: the
 relaxations report predicts that turning off Y >= 0 alone loses ~2% at the
 near misses, which already excludes everything dominated by SDP R3.
+
+**Outcome** (`accel/README.md`): (1) and (2) were run on the 32 nodes.
+Halpern and Anderson are both negative (1.9x and 1.7x the CPU to fathom the
+same nodes). The tight lambda_max with degree 3 is the one gain: the same
+strength as degree 4 at 13% less CPU to fathom and 19% less on misses
+(`QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2`).

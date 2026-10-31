@@ -31,8 +31,8 @@ iteration 200 on the misses relative to degree 4.
 | `-d 3` | 18 | 473 | 230 | 99.2 | 4460 | 1958 | 2260 | −11.6 [−20.7, −9.6] |
 | `-d 3 -L 2` | 18 | 480 | 220 | 95.5 | 4250 | 1889 | 2330 | +0.8 [+0.0, +1.3] |
 | `-d 4 -L 2` | 18 | 529 | 220 | 105.2 | 4180 | 2078 | 2692 | +4.0 [+3.2, +6.2] |
-| `-d 4 -W 5` | PENDING | | | | | | | |
-| `-d 4 -A 25` | PENDING | | | | | | | |
+| `-d 4 -W 5` | 18 | 760 | 265 | 187.7 | 5110 | 3833 | 3473 | −83.4 [−190.7, −56.3] |
+| `-d 4 -A 25` | 18 | 554 | 415 | 207.8 | 8030 | 4224 | 3528 | −593.8 [−2362.8, −303.0] |
 
 ### Tight λ: degree 3 at degree-4 strength
 
@@ -64,7 +64,11 @@ On the nug20 root (`nug20_curves.txt`), the anchored iteration is behind plain
 PRSM at every checkpoint for every restart period tried (10, 25, 50, 100),
 e.g. 2504.8 vs 2506.0 at iteration 370 with restarts every 10. Plain PRSM
 already converges linearly on these problems; pulling the iterate toward the
-anchor only slows it. Not pursued beyond the A/B row above.
+anchor only slows it. On the 32 wil50 nodes `-d 4 -A 25` needs 415 median
+iterations to fathom against 220 (1.9× the CPU) and is 594 units behind at
+iteration 200 on the misses: the anchor pulls the iterate back toward the
+start every restart period, and 25 iterations is not enough to recover.
+Negative at every setting tried.
 
 ### Anderson acceleration: negative
 
@@ -72,12 +76,15 @@ On nug20 with the subspace eigensolver, memory 3 or 5 is behind plain PRSM at
 every checkpoint (2505.9–2506.0 vs 2506.0 at 370; far behind early). With the
 exact `ssyevd` R-step it gains about 0.1 unit late in the run — the
 extrapolation needs an exact fixed-point map, and our inexact projection
-denies it that. On the wil50 misses it is PENDING units behind degree 4 at
-iteration 200.
+denies it that. On the 32 wil50 nodes `-d 4 -W 5` fathoms every node but 45
+iterations later (265 vs 220) at 35% more per iteration (the mixing solve and
+the extra residual bookkeeping), 1.7× the CPU, and is 83 units behind at
+iteration 200 on the misses.
 
 ## Verdict
 
 Of the 1.3–2.5× that report 1 estimated for accelerated splitting, nothing
-materialized: the plain PRSM iteration with the tracked eigensolver is already
-the fast path. The tight λ is the one gain, 13–19% CPU per node, from making
+materialized: Anderson costs 1.7× and Halpern 1.9× the CPU of plain PRSM to
+fathom the same nodes. The plain PRSM iteration with the tracked eigensolver
+is already the fast path. The tight λ is the one gain, 13–19% CPU per node, from making
 the eigensolver's filter sharper rather than from the splitting.
