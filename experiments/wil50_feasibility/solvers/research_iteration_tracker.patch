@@ -1,0 +1,131 @@
+--- /home/user/qap/latest/dnn.C	2026-10-31 05:17:28.914717737 +0000
++++ qap/latest/dnn.C	2026-10-31 14:35:21.750703134 +0000
+@@ -77,6 +77,7 @@
+ #include "dnn.h"
+ #include "assign.h"   // LowerSum
+ #include <cmath>
++#include <cstdlib>
+ #include <cstdio>
+ #include <cstring>
+ #include <cfloat>
+@@ -126,6 +127,9 @@
+                 const lapack_int *k, const float *alpha, const float *a, const lapack_int *lda,
+                 const float *b, const lapack_int *ldb, const float *beta, float *c,
+                 const lapack_int *ldc, size_t, size_t);
++void F77(sgemv)(const char *trans, const lapack_int *m, const lapack_int *n, const float *alpha,
++                const float *a, const lapack_int *lda, const float *x, const lapack_int *incx,
++                const float *beta, float *y, const lapack_int *incy, size_t);
+ void F77(ssyrk)(const char *uplo, const char *trans, const lapack_int *n, const lapack_int *k,
+                 const float *alpha, const float *a, const lapack_int *lda,
+                 const float *beta, float *c, const lapack_int *ldc, size_t, size_t);
+@@ -206,6 +210,18 @@
+ 
+ namespace {
+ 
++// EXPERIMENT: round a float array to bfloat16 (round to nearest even), keeping float storage
++inline void round_bf16(const float *src, float *dst, size_t n)
++{
++  for (size_t t = 0; t < n; t++) {
++    unsigned u; memcpy(&u, &src[t], 4);
++    static const int drop = getenv("DNN_ROUND_BITS") ? atoi(getenv("DNN_ROUND_BITS")) : 16;
++    const unsigned half = 1u << (drop - 1), mask = ~((1u << drop) - 1u);
++    u += (half - 1u) + ((u >> drop) & 1u); u &= mask;
++    memcpy(&dst[t], &u, 4);
++  }
++}
++
+ const double U_ROUND = DBL_EPSILON / 2;   // unit roundoff 2^-53
+ 
+ double thread_cpu()
+@@ -330,6 +346,9 @@
+   std::vector<float> Wf, evalsf, eworkf;   // single-precision eigensolver
+   // subspace tracking of the negative eigenspace of W (DNN_EIG_SUBSPACE)
+   std::vector<float> Xs, Ys, Ts, Hs;
++  std::vector<float> Wb, Yb;   // EXPERIMENT: bf16-rounded operands
++  std::vector<float> vtop, vtmp; int tight_lam = 0;   // EXPERIMENT: power-iteration lambda_max
++  int bf16_mode = 0;           // 0 off, 1 filter products, 2 filter + RR product
+   std::vector<double> Wprev;
+   int kb, since_refresh;
+   bool have_basis;
+@@ -391,6 +410,10 @@
+     size_t kk = (size_t)K * K;
+     alloc_single();
+     Xs.assign(kk, 0); Ys.assign(kk, 0); Ts.assign(kk, 0); Hs.assign(kk, 0);
++    Wb.assign(kk, 0); Yb.assign(kk, 0);
++    vtop.assign(K, 0); vtmp.assign(K, 0);
++    { const char *e = getenv("DNN_TIGHT_LAM"); tight_lam = e ? atoi(e) : 0; }
++    { const char *e = getenv("DNN_BF16"); bf16_mode = e ? atoi(e) : 0; }
+     Wprev.assign(kk, 0);
+     kb = since_refresh = 0;
+     have_basis = false;
+@@ -648,6 +671,28 @@
+   }
+   memcpy(w.Wprev.data(), Win, kk * sizeof(double));
+   for (size_t t = 0; t < kk; t++) Wf[t] = (float)Win[t];
++  const float *Wfilt = Wf;
++  if (w.bf16_mode) { round_bf16(Wf, w.Wb.data(), kk); Wfilt = w.Wb.data(); }
++  if (w.tight_lam && w.have_basis) {
++    // EXPERIMENT: lam_hi from `tight_lam` power steps on the tracked top eigenvector
++    float *v = w.vtop.data(), *t = w.vtmp.data();
++    const lapack_int inc = 1;
++    // shift by the most negative Ritz value so that the dominant eigenvalue of
++    // W + s I is lambda_max + s (|lambda_min| exceeds lambda_max later in a run)
++    const float sh = (float)(1.05 * std::max(0.0, -(double)w.evalsf[0]));
++    double rho = 0;
++    for (int it = 0; it < w.tight_lam; it++) {
++      F77(sgemv)("N", &K, &K, &one, Wf, &K, v, &inc, &zero, t, &inc, 1);
++      for (int i = 0; i < K; i++) t[i] += sh * v[i];
++      double vt = 0, tt = 0;
++      for (int i = 0; i < K; i++) { vt += (double)v[i] * t[i]; tt += (double)t[i] * t[i]; }
++      rho = vt - sh;   // Rayleigh quotient of W (v is unit)
++      double nrm = sqrt(tt) + 1e-30;
++      for (int i = 0; i < K; i++) v[i] = (float)(t[i] / nrm);
++    }
++    double est = rho * 1.1 + 1e-3 * fabs(rho) + 1e-6;
++    w.lam_hi = std::max(est, w.theta_top + 1e-3 * (fabs(w.theta_top) + 1e-6));
++  }
+ 
+   bool full = !w.have_basis || w.since_refresh >= refresh || w.theta_top >= w.lam_hi;
+   if (full) { if (!w.have_basis || w.since_refresh >= refresh) w.ref_sched++; else w.ref_weyl++; }
+@@ -668,7 +713,11 @@
+       nneg = 0;
+       while (nneg < K && theta[nneg] < 0) nneg++;
+       kb = std::min<lapack_int>(K, nneg + guard);
++      if (getenv("DNN_DEBUG_LAM") && w.have_basis)
++        printf("refresh: weyl lam_hi %.4f  true lam_max %.4f  theta_top(block) %.4f  lam_min %.4f  nneg %d\n",
++               w.lam_hi, theta[K - 1], w.theta_top, theta[0], nneg);
+       w.lam_hi = theta[K - 1] + 1e-6 * (fabs(theta[K - 1]) + fabs(theta[0]));
++      if (w.tight_lam) memcpy(w.vtop.data(), X + (size_t)(K - 1) * K, K * sizeof(float));
+       w.since_refresh = 0;
+       w.have_basis = true;
+       break;
+@@ -679,10 +728,14 @@
+     const float c = (float)(0.5 * (w.lam_hi + w.theta_top)),
+                 h = (float)(0.5 * (w.lam_hi - w.theta_top));
+     const size_t nb = (size_t)K * kb;
+-    F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Yp, &K, &zero, T, &K, 1, 1);
++    const float *Yop = Yp;
++    if (w.bf16_mode) { round_bf16(Yp, w.Yb.data(), nb); Yop = w.Yb.data(); }
++    F77(sgemm)("N", "N", &K, &kb, &K, &one, Wfilt, &K, Yop, &K, &zero, T, &K, 1, 1);
+     for (size_t t = 0; t < nb; t++) Y[t] = (T[t] - c * Yp[t]) / h;
+     for (int d = 2; d <= degree; d++) {
+-      F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Y, &K, &zero, T, &K, 1, 1);
++      Yop = Y;
++      if (w.bf16_mode) { round_bf16(Y, w.Yb.data(), nb); Yop = w.Yb.data(); }
++      F77(sgemm)("N", "N", &K, &kb, &K, &one, Wfilt, &K, Yop, &K, &zero, T, &K, 1, 1);
+       for (size_t t = 0; t < nb; t++) Yp[t] = 2 * (T[t] - c * Y[t]) / h - Yp[t];
+       std::swap(Y, Yp);
+     }
+@@ -698,7 +751,11 @@
+     }
+     if (!ok) { w.ref_fail++; full = true; continue; }
+     // Rayleigh-Ritz: H = Y' W Y, X = Y Q
+-    F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Y, &K, &zero, T, &K, 1, 1);
++    if (w.bf16_mode >= 2) {
++      round_bf16(Y, w.Yb.data(), nb);
++      F77(sgemm)("N", "N", &K, &kb, &K, &one, Wfilt, &K, w.Yb.data(), &K, &zero, T, &K, 1, 1);
++    } else
++      F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Y, &K, &zero, T, &K, 1, 1);
+     F77(sgemm)("T", "N", &kb, &kb, &K, &one, Y, &K, T, &K, &zero, G, &kb, 1, 1);
+     for (int i = 0; i < kb; i++)
+       for (int j = i + 1; j < kb; j++)
