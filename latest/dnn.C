@@ -196,6 +196,7 @@ DNNParams::DNNParams()
   stall_lb = 0.05;
   stall_gap = 0.5;
   hopeless_after = 200;
+  hopeless_gap_ratio = 0;
   L_add = NULL;
   elim = NULL;
   L_add_abs = 0;
@@ -1243,7 +1244,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       // geometric tail would add d1 r/(1-r); allow 5 times that
       int w = std::max(1, (50 + check_every - 1) / check_every);
       int h = (int)besthist.size();
-      if (h > 2 * w && besthist[h - 1 - 2 * w] > -HUGE_VAL) {
+      if (par.hopeless_gap_ratio > 0) {
+        // gap-ratio rule: the gap to the cutoff over the last w checks
+        if (h > w && besthist[h - 1 - w] > -HUGE_VAL) {
+          double g1 = cutoff - besthist[h - 1], g0 = cutoff - besthist[h - 1 - w];
+          if (g0 > 0 && g1 / g0 > par.hopeless_gap_ratio) {
+            status = DNN_HOPELESS;
+            break;
+          }
+        }
+      } else if (h > 2 * w && besthist[h - 1 - 2 * w] > -HUGE_VAL) {
         double d1 = besthist[h - 1] - besthist[h - 1 - w];
         double d2 = besthist[h - 1 - w] - besthist[h - 1 - 2 * w];
         double r = d2 > 0 ? std::min(d1 / d2, 0.95) : (d1 > 0 ? 0.95 : 0.0);

@@ -25,6 +25,8 @@
    -H N            give up (status hopeless) after N iterations when the certified
                    bound, extrapolated from its recent gains, stays below the
                    cutoff (default 200, 0 = off)
+   -R rho          with -H: give up instead when the gap to the cutoff shrank by
+                   less than the factor rho over the last 50 iterations
    -E i:j,...      eliminated assignments (x_ij = 0; free at the node): the bound is
                    for the node with them forbidden (DNNParams::elim)
    -C 1|2          child bounds from the best certificate (DNNResult::child_lb):
@@ -58,7 +60,7 @@ static void usage()
 {
   printf("usage: dnntest [-x i:j,... | -N nodefile] [-u ub | -c cutoff] [-i iters] [-t secs]\n"
          "               [-k every] [-b] [-l 0|1|2] [-P] [-f] [-s window] [-H iters] [-T threads]\n"
-         "               [-C 1|2] [-E i:j,...] [-v] file.dat\n");
+         "               [-R rho] [-C 1|2] [-E i:j,...] [-v] file.dat\n");
   exit(1);
 }
 
@@ -202,6 +204,7 @@ int main(int argc, char **argv)
     }
     else if (o == "-s" && more) par.stall_window = atoi(argv[++a]);
     else if (o == "-H" && more) par.hopeless_after = atoi(argv[++a]);
+    else if (o == "-R" && more) par.hopeless_gap_ratio = atof(argv[++a]);
     else if (o == "-T" && more) threads = atoi(argv[++a]);
     else if (o == "-f") par.eig_mode = DNN_EIG_SINGLE;
     else if (o == "-e" && more) par.eig_mode = atoi(argv[++a]);

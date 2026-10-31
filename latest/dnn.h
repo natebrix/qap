@@ -113,6 +113,13 @@ struct DNNParams {
                        // certified lb, extrapolated generously from its recent
                        // gains, stays below the cutoff. A heuristic (it may give
                        // up on a fathomable node); lb stays valid. 0 = off (200)
+  double hopeless_gap_ratio;  // > 0: instead of the extrapolation, from
+                       // hopeless_after on stop as HOPELESS when the gap to the
+                       // cutoff (of the running best) shrank by less than this
+                       // factor over the last 50 iterations: g(t)/g(t-50) > it.
+                       // Nodes that fathom shrink it about 2x per 50 iterations,
+                       // misses stall toward 1 (experiments/wil50_feasibility/
+                       // tuning). 0 = off (default)
   const double *L_add; // optional (m^2+1)^2 symmetric matrix added to the lifted
                        // objective L (unscaled, row-major), e.g. multiplier-weighted
                        // valid inequalities; the caller adjusts the shift for their
