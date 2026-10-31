@@ -1,7 +1,7 @@
 #!/bin/bash
 # $1 = node id, $2 = spec. Round 1: DNN bound with child bounds; round 2: re-bound with the children the certificate fathoms eliminated.
 S=${S:-$(dirname "$0")}
-cd /Users/nathan_brixius/dev/qap/latest
+cd "$(dirname "$0")/../../../../latest"
 export VECLIB_MAXIMUM_THREADS=1
 k=$1; spec=$2
 ./dnntest -T 1 -d 4 -g 1.0 -G 1.0 -H 0 -i 2500 -u 48816 -C 2 -x $spec ../qaplib/wil50.dat > $S/r1_$k.log 2>&1
