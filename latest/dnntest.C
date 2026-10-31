@@ -29,6 +29,7 @@
                    less than the factor rho over the last 50 iterations
    -E i:j,...      eliminated assignments (x_ij = 0; free at the node): the bound is
                    for the node with them forbidden (DNNParams::elim)
+   -X              print the primal assignment marginals x_ij (XBAR lines)
    -C 1|2          child bounds from the best certificate (DNNResult::child_lb):
                    print how many children it fathoms; 2: also every bound
    -e N            R-step eigensolver: 0 dsyevd (as dnn.py), 1 ssyevd, 2 subspace
@@ -60,7 +61,7 @@ static void usage()
 {
   printf("usage: dnntest [-x i:j,... | -N nodefile] [-u ub | -c cutoff] [-i iters] [-t secs]\n"
          "               [-k every] [-b] [-l 0|1|2] [-P] [-f] [-s window] [-H iters] [-T threads]\n"
-         "               [-R rho] [-C 1|2] [-E i:j,...] [-v] file.dat\n");
+         "               [-R rho] [-C 1|2] [-E i:j,...] [-X] [-v] file.dat\n");
   exit(1);
 }
 
@@ -84,6 +85,8 @@ static bool parse_fixes(const std::string &fixes, QAPAssignment &node, int n)
 // Bound one node; returns false on bad input or a DNN error. With child
 // ("i:j", original indices), the node's final ADMM state then bounds that
 // child twice, from scratch and warm-started (results 1 and 2).
+static bool print_xbar = false;   // -X: print the primal assignment marginals
+
 static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNParams &par0,
                      int index, const std::string &child = "",
                      const std::string &elims = "-")
@@ -125,7 +128,7 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
 
   DNNWarm warm;
   DNNResult r = dnn_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, par, NULL,
-                          child.empty() ? NULL : &warm);
+                          (child.empty() && !print_xbar) ? NULL : &warm);
 
   printf("RESULT node=%d m=%d lb=%.17g primal=%.17g status=%s iters=%d cpu=%.3f"
          " ms_per_iter=%.2f certs=%d cert_fail=%d refine=%d margin=%.3g fathomed=%d\n",
@@ -147,6 +150,18 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
           printf("CHILD %d %d %.17g\n", fr[i], fc[j], r.child_lb[i * m + j]);
       }
     printf("CHILDREN node=%d fathomed=%d of=%d\n", index, over, m * m);
+  }
+  if (print_xbar && !warm.Y.empty()) {
+    // -X: x_ij = Y_0,(ij) of the last primal iterate (a relaxation solution,
+    // not a bound), as "XBAR i j value" in original indices
+    const int m = n - node.nfix, n1 = m * m + 1;
+    std::vector<int> fr, fc;
+    for (int t = 0; t < n; t++) if (node.p[t] == NONE) fr.push_back(t);
+    for (int t = 0; t < n; t++) if (node.pinv[t] == NONE) fc.push_back(t);
+    for (int i = 0; i < m; i++)
+      for (int j = 0; j < m; j++)
+        printf("XBAR %d %d %.6f\n", fr[i], fc[j], warm.Y[1 + i * m + j]);
+    (void)n1;
   }
   fflush(stdout);
   if (child.empty() || r.status == DNN_ERROR) return r.status != DNN_ERROR;
@@ -216,6 +231,7 @@ int main(int argc, char **argv)
     else if (o == "-v") par.verbose++;
     else if (o == "-C" && more) par.child_bounds = atoi(argv[++a]);
     else if (o == "-E" && more) elims = argv[++a];
+    else if (o == "-X") print_xbar = true;
     else if (o[0] == '-') usage();
     else file = argv[a];
   }
