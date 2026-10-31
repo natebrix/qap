@@ -35,6 +35,11 @@
    -e N            R-step eigensolver: 0 dsyevd (as dnn.py), 1 ssyevd, 2 subspace
                    tracking (default) with a full ssyevd every -r N iterations
                    (20) and a Chebyshev filter of degree -d N (2)
+   -A N            Halpern anchoring with restarts at most N iterations apart
+                   (DNNParams::halpern; 0 = off)
+   -W N            Anderson acceleration with memory N (DNNParams::anderson; 0 = off)
+   -L N            subspace tracking: the filter's upper end from N power steps
+                   instead of the Weyl bound (DNNParams::tight_lam; 0 = Weyl)
    -f              same as -e 1
    -B X            ADMM penalty factor (beta = X * m/3; default 0.3, dnn.py 1)
    -g X            dual step length gamma (1.618)
@@ -131,10 +136,12 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
                           (child.empty() && !print_xbar) ? NULL : &warm);
 
   printf("RESULT node=%d m=%d lb=%.17g primal=%.17g status=%s iters=%d cpu=%.3f"
-         " ms_per_iter=%.2f certs=%d cert_fail=%d refine=%d margin=%.3g fathomed=%d\n",
+         " ms_per_iter=%.2f certs=%d cert_fail=%d refine=%d margin=%.3g fathomed=%d"
+         " restarts=%d\n",
          index, n - node.nfix, r.lb, r.primal, dnn_status_name(r.status), r.iterations,
          r.cpu, r.iterations > 0 ? 1e3 * r.cpu / r.iterations : 0.0, r.certificates,
-         r.cert_failures, r.refinements, r.margin, r.status == DNN_FATHOMED ? 1 : 0);
+         r.cert_failures, r.refinements, r.margin, r.status == DNN_FATHOMED ? 1 : 0,
+         r.halpern_restarts);
   if (!r.child_lb.empty()) {
     // child bounds (-C): how many children the node's certificate fathoms;
     // with -C 2 every bound, as "CHILD i j lb" in original indices
@@ -225,6 +232,9 @@ int main(int argc, char **argv)
     else if (o == "-e" && more) par.eig_mode = atoi(argv[++a]);
     else if (o == "-r" && more) par.refresh = atoi(argv[++a]);
     else if (o == "-d" && more) par.cheb_degree = atoi(argv[++a]);
+    else if (o == "-L" && more) par.tight_lam = atoi(argv[++a]);
+    else if (o == "-A" && more) par.halpern = atoi(argv[++a]);
+    else if (o == "-W" && more) par.anderson = atoi(argv[++a]);
     else if (o == "-B" && more) par.beta = atof(argv[++a]);
     else if (o == "-g" && more) par.gamma = atof(argv[++a]);
     else if (o == "-G" && more) par.gamma1 = atof(argv[++a]);

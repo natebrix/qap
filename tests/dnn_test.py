@@ -57,7 +57,10 @@ ENV = dict(os.environ)
 MODES = [("default", []), ("ssyevd", ["-e", "1"]), ("dsyevd", ["-e", "0"]),
          ("lap-reduce", ["-l", "0"]), ("lap-exact", ["-l", "1"]), ("box", ["-b"]),
          ("prototype", ["-P", "-s", "0"]),
-         ("prsm-cheb4", ["-d", "4", "-g", "1.0", "-G", "1.0"])]
+         ("prsm-cheb4", ["-d", "4", "-g", "1.0", "-G", "1.0"]),
+         ("tight-lam", ["-d", "3", "-L", "2", "-g", "1.0", "-G", "1.0"]),
+         ("anderson", ["-d", "4", "-W", "5", "-g", "1.0", "-G", "1.0"]),
+         ("halpern", ["-d", "4", "-A", "25", "-g", "1.0", "-G", "1.0"])]
 
 
 def load_brute_force():

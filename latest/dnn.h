@@ -90,6 +90,17 @@ struct DNNParams {
   double gamma;        // dual step length (1.618)
   double gamma1;       // Peaceman-Rachford: a first dual step of gamma1 * beta * (Y - VRV')
                        // between the R-step and the Y-step (0 = plain ADMM, the default)
+  int halpern;         // > 0: Halpern anchoring of the iteration: after each Y- and
+                       // Z-step, (Y, Z) <- (Y0, Z0)/(k+2) + (1 - 1/(k+2)) (Y, Z), k
+                       // iterations since the anchor (Y0, Z0) was set. The anchor
+                       // restarts at the current point when the fixed-point residual
+                       // |dY| + |dZ|/beta fell to 0.2x its value after the last
+                       // restart, or after `halpern` iterations. Only the iterates
+                       // move; certificates are unaffected. 0 = off (default)
+  int anderson;        // > 0: type-II Anderson acceleration of the (Y, Z) iteration
+                       // with this memory, safeguarded (memory cleared when the
+                       // fixed-point residual doubles). Only the iterates move;
+                       // certificates are unaffected. 0 = off (default)
   double beta;         // ADMM penalty, as a multiple of dnn.py's m/3 for the problem
                        // scaled to max |L| = 1. dnn.py uses 1; 0.3 needs 2-3x fewer
                        // iterations to certify on nug20/nug30 nodes (0.3)
@@ -105,6 +116,11 @@ struct DNNParams {
   int refresh;         // DNN_EIG_SUBSPACE: full eigendecomposition every this many
                        // iterations (20)
   int cheb_degree;     // DNN_EIG_SUBSPACE: Chebyshev filter degree (2)
+  int tight_lam;       // DNN_EIG_SUBSPACE: > 0: the filter's upper end lam_hi from this
+                       // many shifted power steps on the tracked top eigenvector
+                       // (padded by 10%) instead of the Weyl bound, which drifts
+                       // about 8x too high between refreshes. lam_hi only shapes
+                       // the filter; certificates are unaffected. 0 = Weyl (0)
   int stall_window;    // stop as STALLED when over the last stall_window checks the
                        // certified lb moved less than stall_lb and is within
                        // stall_gap of the primal value, as dnn.py; 0 = off (0)
@@ -149,6 +165,7 @@ struct DNNResult {
   int certificates;    // certified evaluations made
   int cert_failures;   // Cholesky checks that failed (bound not updated then)
   int refinements;     // double-precision re-projections (eig_mode != DOUBLE only)
+  int halpern_restarts;   // anchor restarts (par.halpern) or memory resets (par.anderson)
   double margin;       // largest safety margin subtracted from a certified value
   // With par.child_bounds, unless fathomed: child_lb[i * m + j] is a certified
   // lower bound (shift included) on the node with its facility i at location j

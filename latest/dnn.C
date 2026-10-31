@@ -126,6 +126,9 @@ void F77(sgemm)(const char *ta, const char *tb, const lapack_int *m, const lapac
                 const lapack_int *k, const float *alpha, const float *a, const lapack_int *lda,
                 const float *b, const lapack_int *ldb, const float *beta, float *c,
                 const lapack_int *ldc, size_t, size_t);
+void F77(sgemv)(const char *trans, const lapack_int *m, const lapack_int *n, const float *alpha,
+                const float *a, const lapack_int *lda, const float *x, const lapack_int *incx,
+                const float *beta, float *y, const lapack_int *incy, size_t);
 void F77(ssyrk)(const char *uplo, const char *trans, const lapack_int *n, const lapack_int *k,
                 const float *alpha, const float *a, const lapack_int *lda,
                 const float *beta, float *c, const lapack_int *ldc, size_t, size_t);
@@ -192,6 +195,9 @@ DNNParams::DNNParams()
   eig_mode = DNN_EIG_SUBSPACE;
   refresh = 20;
   cheb_degree = 2;
+  tight_lam = 0;
+  halpern = 0;
+  anderson = 0;
   stall_window = 0;
   stall_lb = 0.05;
   stall_gap = 0.5;
@@ -233,6 +239,122 @@ inline double dot4(const double *x, const double *y, size_t n)
   for (; i < n; i++) a0 += x[i] * y[i];
   return (a0 + a1) + (a2 + a3);
 }
+
+/*
+ Type-II Anderson acceleration of the fixed-point iteration u -> T(u) on the
+ ADMM state u = (Y, Z/beta), upper triangles packed (DNNParams::anderson).
+ With g = T(u), f = g - u and the last `mem` differences dF, dG of f and g,
+   gamma = argmin |f - dF gamma|  (ridge-regularized normal equations),
+   u_next = g - dG gamma.
+ Safeguard: when an extrapolated point's residual |f| grew past 2x the last
+ one, the memory is cleared and the plain step g is taken.
+*/
+struct Anderson {
+  int mem = 0, n1 = 0, cnt = 0, head = 0;
+  size_t P = 0, N = 0;
+  std::vector<double> u, fprev, gprev, dF, dG, gram, cur;
+  double rprev = -1;
+  bool have_prev = false, last_extrap = false;
+  int steps = 0, resets = 0;
+  void init(int mem_, int n1_) {
+    mem = mem_; n1 = n1_;
+    P = (size_t)n1 * (n1 + 1) / 2; N = 2 * P;
+    u.assign(N, 0); fprev.assign(N, 0); gprev.assign(N, 0); cur.assign(N, 0);
+    dF.assign((size_t)mem * N, 0); dG.assign((size_t)mem * N, 0);
+    gram.assign((size_t)mem * mem, 0);
+  }
+  void pack(const double *Y, const double *Z, double ibeta, double *out) const {
+    size_t t = 0;
+    for (int r = 0; r < n1; r++) {
+      const double *yr = Y + (size_t)r * n1;
+      for (int c = r; c < n1; c++) out[t++] = yr[c];
+    }
+    for (int r = 0; r < n1; r++) {
+      const double *zr = Z + (size_t)r * n1;
+      for (int c = r; c < n1; c++) out[t++] = zr[c] * ibeta;
+    }
+  }
+  void unpack(const double *in, double beta, double *Y, double *Z) const {
+    size_t t = 0;
+    for (int r = 0; r < n1; r++)
+      for (int c = r; c < n1; c++, t++)
+        Y[(size_t)r * n1 + c] = Y[(size_t)c * n1 + r] = in[t];
+    for (int r = 0; r < n1; r++)
+      for (int c = r; c < n1; c++, t++)
+        Z[(size_t)r * n1 + c] = Z[(size_t)c * n1 + r] = in[t] * beta;
+  }
+  // before the iteration: remember its input
+  void begin(const double *Y, const double *Z, double ibeta) { pack(Y, Z, ibeta, u.data()); }
+  // after the iteration (Y, Z) = T(u): replace them by the accelerated point
+  void step(double *Y, double *Z, double beta) {
+    double *g = cur.data();
+    pack(Y, Z, 1 / beta, g);
+    // f = g - u, kept in u
+    double *f = u.data();
+    for (size_t t = 0; t < N; t++) f[t] = g[t] - f[t];
+    const double r = sqrt(dot4(f, f, N));
+    if (last_extrap && rprev > 0 && r > 2 * rprev) {
+      cnt = 0; head = 0; resets++;
+      have_prev = false;
+    }
+    if (have_prev) {
+      double *df = dF.data() + (size_t)head * N, *dg = dG.data() + (size_t)head * N;
+      for (size_t t = 0; t < N; t++) { df[t] = f[t] - fprev[t]; dg[t] = g[t] - gprev[t]; }
+      cnt = std::min(cnt + 1, mem);
+      for (int k = 0; k < cnt; k++) {
+        double v = dot4(df, dF.data() + (size_t)k * N, N);
+        gram[(size_t)head * mem + k] = gram[(size_t)k * mem + head] = v;
+      }
+      head = (head + 1) % mem;
+    }
+    memcpy(fprev.data(), f, N * sizeof(double));
+    memcpy(gprev.data(), g, N * sizeof(double));
+    have_prev = true;
+    rprev = r;
+    last_extrap = false;
+    if (cnt == 0) return;   // (Y, Z) = g already
+    // solve (dF'dF + reg I) gamma = dF'f by Gaussian elimination, pivoting
+    const int k = cnt;
+    std::vector<double> M((size_t)k * (k + 1));
+    double tr = 0;
+    for (int a = 0; a < k; a++) tr += gram[(size_t)a * mem + a];
+    const double reg = 1e-10 * tr + 1e-300;
+    for (int a = 0; a < k; a++) {
+      for (int b = 0; b < k; b++) M[(size_t)a * (k + 1) + b] = gram[(size_t)a * mem + b];
+      M[(size_t)a * (k + 1) + a] += reg;
+      M[(size_t)a * (k + 1) + k] = dot4(dF.data() + (size_t)a * N, f, N);
+    }
+    for (int p = 0; p < k; p++) {
+      int piv = p;
+      for (int a = p + 1; a < k; a++)
+        if (fabs(M[(size_t)a * (k + 1) + p]) > fabs(M[(size_t)piv * (k + 1) + p])) piv = a;
+      if (piv != p)
+        for (int b = 0; b <= k; b++)
+          std::swap(M[(size_t)p * (k + 1) + b], M[(size_t)piv * (k + 1) + b]);
+      const double d = M[(size_t)p * (k + 1) + p];
+      if (!(fabs(d) > 0)) return;
+      for (int a = p + 1; a < k; a++) {
+        const double l = M[(size_t)a * (k + 1) + p] / d;
+        for (int b = p; b <= k; b++) M[(size_t)a * (k + 1) + b] -= l * M[(size_t)p * (k + 1) + b];
+      }
+    }
+    std::vector<double> gam(k);
+    for (int p = k - 1; p >= 0; p--) {
+      double s = M[(size_t)p * (k + 1) + k];
+      for (int b = p + 1; b < k; b++) s -= M[(size_t)p * (k + 1) + b] * gam[b];
+      gam[p] = s / M[(size_t)p * (k + 1) + p];
+      if (!std::isfinite(gam[p])) return;
+    }
+    for (int a = 0; a < k; a++) {
+      const double *dg = dG.data() + (size_t)a * N;
+      const double ga = gam[a];
+      for (size_t t = 0; t < N; t++) g[t] -= ga * dg[t];
+    }
+    unpack(g, beta, Y, Z);
+    last_extrap = true;
+    steps++;
+  }
+};
 
 /*
  Hungarian method (shortest augmenting paths, O(n^3)) on a dense n x n
@@ -330,6 +452,7 @@ struct Work {
   std::vector<float> Wf, evalsf, eworkf;   // single-precision eigensolver
   // subspace tracking of the negative eigenspace of W (DNN_EIG_SUBSPACE)
   std::vector<float> Xs, Ys, Ts, Hs;
+  std::vector<float> vtop, vtmp;   // top eigenvector estimate (tight_lam)
   std::vector<double> Wprev;
   int kb, since_refresh;
   bool have_basis;
@@ -352,7 +475,7 @@ struct Work {
     L.assign(nn, 0); Y.assign(nn, 0); Z.assign(nn, 0); VRV.assign(nn, 0);
     Zc.assign(nn, 0); T.assign(nn, 0);
     W.assign(kk, 0); W2.assign(kk, 0); F.assign(kk, 0); R.assign(kk, 0);
-    tmp.assign(3 * (size_t)n1 + m + 8, 0);
+    tmp.assign(4 * (size_t)n1 + m + 8, 0);
     evals.assign(K, 0);
     // dsyevd workspace for JOBZ='V'
     ework.assign(1 + 6 * (size_t)K + 2 * kk, 0);
@@ -391,6 +514,7 @@ struct Work {
     size_t kk = (size_t)K * K;
     alloc_single();
     Xs.assign(kk, 0); Ys.assign(kk, 0); Ts.assign(kk, 0); Hs.assign(kk, 0);
+    vtop.assign(K, 0); vtmp.assign(K, 0);
     Wprev.assign(kk, 0);
     kb = since_refresh = 0;
     have_basis = false;
@@ -633,7 +757,7 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
  approximation; only the ADMM step is inexact.
 */
 bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int refresh,
-                       int degree, int guard)
+                       int degree, int guard, int tight_lam)
 {
   const lapack_int K = w.K;
   const size_t kk = (size_t)K * K;
@@ -648,6 +772,32 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   }
   memcpy(w.Wprev.data(), Win, kk * sizeof(double));
   for (size_t t = 0; t < kk; t++) Wf[t] = (float)Win[t];
+  if (tight_lam > 0 && w.have_basis) {
+    // lam_hi from shifted power steps on the top eigenvector of the last full
+    // refresh, carried along. The shift by |most negative Ritz value| makes
+    // lambda_max + s the dominant eigenvalue of W + s I (late in a run
+    // |lambda_min| exceeds lambda_max). The Rayleigh quotient is a lower bound
+    // on lambda_max, so it is padded; an underestimate only weakens the filter
+    // for this iteration (the Ritz values above it are not damped), and the
+    // theta_top >= lam_hi test below still forces a refresh.
+    float *v = w.vtop.data(), *t = w.vtmp.data();
+    const lapack_int inc = 1;
+    const float sh = (float)(1.05 * std::max(0.0, -(double)w.evalsf[0]));
+    double rho = 0;
+    for (int it = 0; it < tight_lam; it++) {
+      F77(sgemv)("N", &K, &K, &one, Wf, &K, v, &inc, &zero, t, &inc, 1);
+      double vt = 0, tt = 0;
+      for (int i = 0; i < K; i++) {
+        t[i] += sh * v[i];
+        vt += (double)v[i] * t[i]; tt += (double)t[i] * t[i];
+      }
+      rho = vt - sh;   // Rayleigh quotient of W (v is a unit vector)
+      const double nrm = sqrt(tt) + 1e-30;
+      for (int i = 0; i < K; i++) v[i] = (float)(t[i] / nrm);
+    }
+    const double est = rho * 1.1 + 1e-3 * fabs(rho) + 1e-6;
+    w.lam_hi = std::max(est, w.theta_top + 1e-3 * (fabs(w.theta_top) + 1e-6));
+  }
 
   bool full = !w.have_basis || w.since_refresh >= refresh || w.theta_top >= w.lam_hi;
   if (full) { if (!w.have_basis || w.since_refresh >= refresh) w.ref_sched++; else w.ref_weyl++; }
@@ -669,6 +819,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       while (nneg < K && theta[nneg] < 0) nneg++;
       kb = std::min<lapack_int>(K, nneg + guard);
       w.lam_hi = theta[K - 1] + 1e-6 * (fabs(theta[K - 1]) + fabs(theta[0]));
+      if (tight_lam > 0) memcpy(w.vtop.data(), X + (size_t)(K - 1) * K, K * sizeof(float));
       w.since_refresh = 0;
       w.have_basis = true;
       break;
@@ -1038,6 +1189,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   res.lb = -HUGE_VAL; res.primal = HUGE_VAL; res.status = DNN_ERROR;
   res.iterations = 0; res.cpu = 0; res.certificates = 0; res.cert_failures = 0;
   res.refinements = 0;
+  res.halpern_restarts = 0;
   res.margin = 0;
   double t0 = thread_cpu();
 
@@ -1118,16 +1270,28 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // no finite cutoff: never close to it, so never the exact pass (was NaN)
   const double exact_above = std::isfinite(cutoff) ? cutoff - gap - shift : HUGE_VAL;
 
+  // Halpern anchoring (par.halpern)
+  std::vector<double> Y0, Z0;
+  int h_k = 0;
+  double h_r0 = -1;
+  Anderson aa;
+  if (par.anderson > 0) aa.init(par.anderson, n1);
+  if (par.halpern > 0) {
+    Y0.assign(Y, Y + (size_t)n1 * n1);
+    Z0.assign(Z, Z + (size_t)n1 * n1);
+  }
+
   for (int it = 1; it <= par.max_iter; it++) {
     // R-step: W = V'(Y + Z/beta)V, R = P_psd(W), VRV = V R V'
     double tp = thread_cpu(), tq;
+    if (par.anderson > 0) aa.begin(Y, Z, ibeta);
     forward(w, Y, w.W.data(), Z, ibeta);
     tq = thread_cpu(); w.prof[0] += tq - tp; tp = tq;
     bool check = it % check_every == 0 || it == par.max_iter;
     bool rstep_cert = check && !par.prototype_cert;
     bool okp = par.eig_mode == DNN_EIG_SUBSPACE
                    ? proj_psd_subspace(w, w.W.data(), w.R.data(), &npos, par.refresh,
-                                       par.cheb_degree, std::max(8, w.K / 20))
+                                       par.cheb_degree, std::max(8, w.K / 20), par.tight_lam)
                    : proj_psd(w, w.W.data(), w.R.data(), &npos,
                               par.eig_mode == DNN_EIG_SINGLE, rstep_cert);
     if (!okp) {
@@ -1140,7 +1304,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
 
     // Y-step, Z-step (and the certificate multiplier Zc = Z + beta (Y - VRV)),
     // a row at a time: clip, then the fixed entries, then the updates
-    long double pres2 = 0, dy2 = 0;
+    long double pres2 = 0, dy2 = 0, dz2 = 0;
     double *yn = w.tmp.data();
     for (int r = 0; r < n1; r++) {
       const double *lr = L + (size_t)r * n1, *vr = VRV + (size_t)r * n1;
@@ -1179,6 +1343,34 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       }
       pres2 += dot4(rs, rs, n1);
       dy2 += dot4(ds, ds, n1);
+      if (par.halpern > 0) {
+        // the Z change of this iteration, in units of Y: gamma1 (Y_old - VRV) +
+        // gamma (Y_new - VRV)
+        double *dzs = ds + n1;
+        for (int c = 0; c < n1; c++)
+          dzs[c] = gamma * rs[c] + (gamma1 > 0 ? gamma1 * (rs[c] - ds[c]) : 0);
+        dz2 += dot4(dzs, dzs, n1);
+      }
+    }
+    if (par.anderson > 0) {
+      aa.step(Y, Z, beta);   // timed with the Y/Z-step
+      res.halpern_restarts = aa.resets;
+    } else if (par.halpern > 0) {
+      const double r = sqrt((double)(dy2 + dz2));
+      if (h_r0 < 0) h_r0 = r;
+      if (h_k >= par.halpern || r <= 0.2 * h_r0) {
+        // restart: the anchor is the current point
+        memcpy(Y0.data(), Y, (size_t)n1 * n1 * sizeof(double));
+        memcpy(Z0.data(), Z, (size_t)n1 * n1 * sizeof(double));
+        h_k = 0; h_r0 = -1; res.halpern_restarts++;
+      } else {
+        const double lam = 1.0 / (h_k + 2);
+        for (size_t t = 0; t < (size_t)n1 * n1; t++) {
+          Y[t] = lam * Y0[t] + (1 - lam) * Y[t];
+          Z[t] = lam * Z0[t] + (1 - lam) * Z[t];
+        }
+        h_k++;
+      }
     }
     res.iterations = it;
     tq = thread_cpu(); w.prof[3] += tq - tp; tp = tq;
