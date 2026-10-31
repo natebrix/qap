@@ -9,11 +9,11 @@ CUT = 48816 - 1.95
 
 
 def parse(f):
-    r = {"lb": {}}
+    r = {"trace": {}}
     for line in open(f):
         m = re.match(r"it\s+(\d+) lb (\S+)", line)
         if m:
-            r["lb"][int(m.group(1))] = float(m.group(2))
+            r["trace"][int(m.group(1))] = float(m.group(2))
         if line.startswith("RESULT"):
             for kv in line.split()[1:]:
                 k, v = kv.split("=")
@@ -40,7 +40,7 @@ for n in names:
     cpu = [float(R[k]["cpu"]) for k in common]
     misses = [k for k in nodes if k not in fath[n]]
     mcpu = sum(float(R[k]["cpu"]) for k in misses)
-    d200 = [R[k]["lb"].get(200, float("nan")) - base[k]["lb"].get(200, float("nan"))
+    d200 = [R[k]["trace"].get(200, float("nan")) - base[k]["trace"].get(200, float("nan"))
             for k in nodes if k not in fath[names[0]]]
     d200 = [x for x in d200 if x == x]
     print("%-6s %5d %8.0f %8.1f %9d %9.0f %8.0f  median %+.2f  min %+.2f  max %+.2f" % (
