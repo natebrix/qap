@@ -70,7 +70,42 @@ Four runs, one core each, on the 2.1 GHz Xeon:
 | `polyak1` | as `polyak`, new cuts entering at multiplier 1 |
 | `control` | uncut PRSM for 7100 iterations (`dnntest -H 0`), the equal-budget reference |
 
-RESULTS PENDING
+Certified bound after each round (round 0 = the 1500 uncut iterations,
+48409.27 in every run; `control` at the same iteration counts):
+
+| round | iterations | `control` (uncut) | `astra` (μ = 1 fixed) | `polyak` | `polyak1` |
+|---|---|---|---|---|---|
+| 0 | 1500 | 48409.27 | 48409.27 | 48409.27 | 48409.27 |
+| 1 | 2200 | 48409.41 | **48449.17 (+39.9)** | 48438.24 | 48297.01 |
+| 2 | 2900 | 48409.45 | | 48472.31 | 48408.84 |
+| 3 | 3600 | 48409.47 | | 48369.02 | 48458.21 |
+| 4 | 4300 | 48409.48 | | 48452.81 | 48492.62 |
+| 5 | 5000 | 48409.49 | | 48495.47 | 48511.31 |
+| 6 | 5700 | 48409.49 | | 48518.33 | 48494.24 |
+| 7 | 6400 | 48409.49 | | **48530.25 (+121.0)** | 48422.87 |
+| 8 | 7100 | 48409.49 | | 48406.74 | 48416.05 |
+
+* **Astra's trial reproduces exactly**: +39.89 against their +39.83, same
+  1000 cuts at μ = 1, primal 48450.8 against the certificate 48449.2 (the
+  modified problem is solved, so that is the value of this Lagrangian).
+* **The uncut bound is converged at 1500 iterations**: 7100 iterations buy
+  0.22. The whole gain is from the cuts; the equal-budget control is flat.
+* **Optimizing the multipliers triples the gain**: the Polyak run reaches
+  **48530.25, +121.0**, in round 7 with 5311 active cuts (a new 1000 added per
+  round from the 7000–11000 violated), still rising 12 per round before the
+  round-8 overshoot (the step halves after a drop, so a longer run would
+  recover). Entering new cuts at μ = 1 (`polyak1`) overshoots in round 1
+  (−112) and ends at +102; new cuts should enter at 0.
+* Cost: each 700-iteration round is 410–430 s CPU, 2% more per iteration than
+  uncut (the `L_add` term); the +121 cost 8 rounds, 3400 s on top of the 844 s
+  uncut solve — about 5× the cost of the converged uncut bound and about 20×
+  the search's per-node spend (the give-up rule stops this node at 300
+  iterations).
+
+Node 1 needs 48814 to fathom; the cuts closed 30% of its 405-unit gap. The
+bound was still moving, and the multiplier update is the crudest possible
+(uniform Polyak step, no cut deletion, 1000 cuts per round); neither the
+ceiling of the family nor its price is established yet.
 
 ## Step 2: the 14 misses (`run_misses.sh`, logs in `misses/`)
 
