@@ -35,4 +35,33 @@ and resumes after an interruption.
 
 ## Check on nug30 (cloud)
 
-%%NUG30%%
+The nug30 depth-2 far miss `0:13,6:14` (75.7 short; the node of
+experiments/dnn_bound/predictor/lines), `--child-iters 300 --gain 40
+--branch 27`, 11 lines, 308 children (`nug30_check.txt`):
+
+| line | selected by | children fathomed | cost |
+|---|---|---|---|
+| row 4 | xbar (most concentrated row) | 20/28 | 111 (best) |
+| col 0 | ecc | 18/28 | 203 |
+| col 5, col 29 | U (col 29: lookahead's pick) | 18/28 | 238 |
+| random lines | | 11-16/28 | 221-420 |
+| col 15 | xbar (most concentrated column) | 13/28 | 429 (worst) |
+
+- **x_ij predicts a child's gap as well as the child's QPB does**, and it is
+  free once the node's DNN bound has run: pooled over the 308 children the
+  rank correlation with the gap is +0.745 for x_ij (larger x, harder child)
+  and -0.750 for the child's QPB.
+- **The line score matters.** Ranked by how well they order the 11 lines'
+  costs (Spearman): children with x > 0.05 (fewer is better) +0.70; with
+  x > 0.02 +0.51; sum of x^2 (the "xbar" selector above) +0.39; mean child
+  QPB (lookahead's criterion, which costs a QPB solve per child) +0.28;
+  children with x > 0.1 +0.25. The "most concentrated" selector found the
+  best line as a row and the worst as a column.
+- Eccentric and lookahead beat random (0.62x and 0.72x the random lines'
+  mean cost) but were 1.8-2.2x worse than the best line.
+
+One node and 11 lines: a hint, not a result. The wil50 run reports the same
+score correlations per parent; if "children with x > 0.05" holds up there, a
+branching rule that picks the line with the fewest such children would cost
+nothing per node (the DNN bound runs before branching) and replace lookahead
+at the DNN depths.

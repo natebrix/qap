@@ -197,7 +197,11 @@ def main():
             qsum = sum(qmap[t[4]] for t, r in ch)
             for (t, r), g in zip(ch, gaps):
                 pooled.append((xbar[(t[2], t[3])], qmap[t[4]], g))
+            xs = [xbar[(t[2], t[3])] for t, r in ch]
             rows.append({"line": f"{kind} {x}", "selected by": "+".join(sel), "children": len(ch),
+                         "sum x^2": sum(v * v for v in xs),
+                         "x>0.02": sum(1 for v in xs if v > 0.02), "x>0.05": sum(1 for v in xs if v > 0.05),
+                         "x>0.1": sum(1 for v in xs if v > 0.1),
                          "fathomed": sum(r["fathomed"] for t, r in ch),
                          "within a level": sum(1 for g in gaps if g < args.gain),
                          "median gap": sorted(gaps)[len(gaps) // 2], "cost": cost,
@@ -216,6 +220,26 @@ def main():
                   f"{r['within a level']:8d} {r['median gap']:10.1f} {r['cost']:12.4g} "
                   f"{r['mean child QPB']:9.1f} {r['dnn cpu']:7.0f}", flush=True)
         json.dump(rows, open(os.path.join(args.work, f"report_{pid}.json"), "w"), indent=1)
+        # how well does each score, computable before the children are bounded,
+        # rank the lines' actual cost? (Spearman; +1 = perfect)
+        def sp(a, b):
+            def rk(v):
+                o = sorted(range(len(v)), key=lambda i: v[i]); r = [0] * len(v)
+                for k, i in enumerate(o): r[i] = k
+                return r
+            ra, rb = rk(a), rk(b); m = len(a); ma, mb = sum(ra) / m, sum(rb) / m
+            c = sum((x - ma) * (y - mb) for x, y in zip(ra, rb))
+            d = (sum((x - ma) ** 2 for x in ra) * sum((y - mb) ** 2 for y in rb)) ** 0.5
+            return c / d if d else float("nan")
+        cost = [r["cost"] for r in rows]
+        scores = {"mean child QPB (high = good)": [-r["mean child QPB"] for r in rows],
+                  "sum x^2 (high = good)": [-r["sum x^2"] for r in rows],
+                  "children with x>0.02 (few = good)": [r["x>0.02"] for r in rows],
+                  "children with x>0.05 (few = good)": [r["x>0.05"] for r in rows],
+                  "children with x>0.1 (few = good)": [r["x>0.1"] for r in rows]}
+        print("  rank correlation of each line score with the line's cost:")
+        for k, v in scores.items():
+            print(f"    {k:36s} {sp(v, cost):+.2f}")
     if pooled and not args.dry_run:
         def spearman(a, b):
             def rk(v):

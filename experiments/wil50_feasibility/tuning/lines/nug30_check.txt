@@ -1,0 +1,25 @@
+parent far 0:13,6:14: lb 6046.3 (75.7 short); lines [('col', 0, 'ecc'), ('row', 21, 'U'), ('row', 9, 'U'), ('col', 29, 'U'), ('col', 5, 'U'), ('row', 4, 'xbar'), ('col', 15, 'xbar'), ('row', 13, 'random'), ('row', 11, 'random'), ('col', 28, 'random'), ('col', 17, 'random')]
+
+parent far 0:13,6:14, DNN lb 6046.3 (75.7 short)
+  line      selected by            fathomed <1 level median gap         cost  mean QPB     cpu
+  row 4     xbar                     20/28        26        0.0        110.6    5631.9     178
+  col 0     ecc                      18/28        26        0.0        203.1    5645.5     138
+  col 17    random                   11/28        26        5.6        221.3    5622.8     181
+  col 5     U                        18/28        25        0.0        238.1    5647.9     146
+  col 29    U+lookahead              18/28        25        0.0        238.2    5649.4     143
+  row 21    U                        17/28        24        0.0        243.5    5642.8     149
+  row 9     U                        19/28        24        0.0        262.2    5627.4     151
+  col 28    random                   12/28        25        5.9        314.2    5609.8     184
+  row 13    random                   16/28        22        0.0        363.4    5599.1     172
+  row 11    random                   15/28        21        0.0        420.2    5657.3     148
+  col 15    xbar                     13/28        24        3.9        428.7    5620.3     181
+  rank correlation of each line score with the line's cost:
+    mean child QPB (high = good)         +0.28
+    sum x^2 (high = good)                +0.39
+    children with x>0.02 (few = good)    +0.51
+    children with x>0.05 (few = good)    +0.70
+    children with x>0.1 (few = good)     +0.25
+
+pooled over 308 children: Spearman(x_ij, gap) +0.745, Spearman(child QPB, gap) -0.750 (negative: a larger x or QPB, a smaller gap)
+per parent: cost of each selector's line relative to the best line and to the random lines' mean
+  parent far: ecc 1.84x best, 0.62x random; lookahead 2.15x best, 0.72x random; xbar 1.00x best, 0.34x random
