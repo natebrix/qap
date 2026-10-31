@@ -180,3 +180,78 @@ cutoff (no bound needed); and give each surviving child the parent's
 elimination set (stored on the node, as the warm start's Z is) plus its own,
 passed to the DNN call as `DNNParams::elim` (commit 9862021). The machinery
 exists; the eliminations do not.
+
+# Results (laptop, Oct 31 2026: Apple M2 Pro, Accelerate, 8 workers)
+
+## nug30 A/B of the give-up rules (`giveup/nug30_ab/`)
+
+`nug_deep.par --ub 6124`, PRSM and degree 4 (`QAP_DNN_GAMMA1=1.0
+QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=4`), same binary, runs back to back. The
+gap-ratio rule reaches the solver through `QAP_DNN_GAP_RATIO` (commit d106a87).
+Baseline is the Oct 30 run in experiments/eigensolver/README.md section 8.
+
+| | `-x 2:7:1:300:1` (Oct 30) | `-x 2:7:1:200:1` | `-x 2:7:1:150:1`, gap ratio 0.65 |
+|---|---|---|---|
+| nodes | 4,555 | 4,529 | 1,040,545 |
+| DNN nodes / fathomed | 4,545 / 4,381 | 4,519 / 4,356 | 6,367 / 6,132 |
+| DNN CPU | 5,307 s | 4,876 s | 4,457 s |
+| CPU | 5,334 s | 4,904 s | 4,634 s |
+| wall | 13 min 21 s | 11 min 17 s | 10 min 26 s |
+
+- **H = 200 is clean on nug30**: 8% less CPU, no new misses (DNN nodes
+  4,519 against 4,545), no QPB tail. Together with the wil50 sample (0 false
+  give-ups of 32, -26%), H = 200 is the new recommendation with PRSM.
+- **The gap-ratio rule at 0.65 is not safe on nug30.** It gave up on about
+  40 nodes that fathom under H = 300: 1,800 more DNN nodes and a million-node
+  QPB tail. CPU still came out lower only because nug30's QPB tail is cheap;
+  at wil50 each false give-up costs 47 DNN children. The ratio was fit on four
+  wil50 traces without warm starts; the warm-started nug30 fathoms evidently
+  flatten below 0.65 somewhere after iteration 150. Not recommended as is. A
+  re-fit (later start, or a higher threshold) should be done on nug30 traces,
+  where the truth is known, before it is tried on wil50 again.
+
+## Branching lines at wil50 clear misses (`lines/`)
+
+`lines.py` on the 3 depth-3 clear misses of `lines/parents.txt`, 10 lines
+each, 1,410 child bounds at 300 iterations; 8.5 hours of wall time (about
+3x the cloud's estimate: a child costs 70 s here, and the console QPB
+runs are serial). Log `lines/wil50_lines_m2pro.log`, cache `lines/work/`.
+Cost = sum over children of 47^(gap/130), an estimate of the subtree size.
+
+| parent | short | best line (selector) | cost, best | ecc line | lookahead's line | xbar's line |
+|---|---|---|---|---|---|---|
+| 1 `34:40,28:22,14:29` | 405 | col 45 (xbar) | 8.5e4 | 4.68x best (8th of 10) | 1.58x | 1.00x |
+| 3 `27:44,5:16,17:9` | 241 | col 45 (xbar) | 5,143 | 1.96x (5th) | 1.11x | 1.00x |
+| 10 `39:27,30:48,25:49` | 158 | row 49 (U, xbar, lookahead) | 486 | 2.07x (4th) | 1.00x | 1.00x |
+
+- **Eccentric location (rule 6) is a poor line at wil50 clear misses**: 2 to
+  4.7x the best line's cost, and on parent 1 worse than two random lines.
+  wil50's locations lie on a grid with a smooth flow matrix, so the most
+  eccentric location has no special leverage.
+- **The DNN primal marginals pick the best line at all three parents** (the
+  row or column with the largest sum of x_ij^2), at no cost once the node's
+  DNN bound has run. Lookahead (rule 4, one QPB per child) is as good on
+  parent 10 and 1.1 to 1.6x worse on the others.
+- **Line scores** (Spearman with line cost, per parent): sum of x^2 +0.93 /
+  +0.73 / +0.84; children with x > 0.02 +0.93 / +0.75 / +0.92; mean child QPB
+  (lookahead's criterion) +0.88 / +0.70 / +0.72. The nug30 favorite,
+  children with x > 0.05, is -0.09 on parent 1; use sum of x^2 or the 0.02
+  count.
+- At the child level, pooled over 1,410 children, the child's QPB predicts
+  its DNN gap far better than x_ij (Spearman -0.94 against +0.50), unlike on
+  nug30 where they tied. x_ij works at the line level, which is what the
+  branching rule needs.
+- Column 45 was the xbar pick at all three parents (and the best line at
+  two); location 45 may be structurally special in wil50. Worth checking that
+  the rule is not just rediscovering one location.
+
+**What it is worth.** About 95% of the estimated wil50 tree is below the
+depth-3 clear misses (../NOTES.md section 4). Replacing the eccentric line
+with the xbar line at those nodes divides their subtrees by 2 to 4.7x on
+these three samples, and the same choice is available again at every DNN
+level below. This is the largest lever found so far that costs nothing per
+node; it needs a branching rule in branch.C that reads the DNN primal
+marginals (dnn_bound would return the x_ij of the last iterate alongside the
+warm start) and picks the line with the largest sum of x_ij^2, then an A/B
+on nug28/nug30 (where ecc was tuned) and a re-sample of wil50 depth-4
+nodes under the new rule.

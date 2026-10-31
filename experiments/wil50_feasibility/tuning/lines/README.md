@@ -65,3 +65,11 @@ score correlations per parent; if "children with x > 0.05" holds up there, a
 branching rule that picks the line with the fewest such children would cost
 nothing per node (the DNN bound runs before branching) and replace lookahead
 at the DNN depths.
+
+## wil50 result (laptop, Oct 31 2026)
+
+Three depth-3 clear misses, 1,410 children: the xbar line (largest sum of
+x_ij^2) is the best line at all three parents; eccentric is 2 to 4.7x worse,
+lookahead 1.0 to 1.6x worse. Full tables and the line-score correlations are
+in ../README.md ("Branching lines at wil50 clear misses"); log
+`wil50_lines_m2pro.log`, child cache `work/`.
