@@ -612,6 +612,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // incumbent: against 1e100 nothing fathoms and every call runs to its limit.
       bool dnn_fathomed = false;
       void *dnn_keep = NULL;   // this node's DNN state, for its children
+      std::vector<double> dnn_xbar;   // its primal marginals, for rule 8
 #ifdef HAVE_DNN
       if (bound <= s->getObjective() - DELTA && m >= 2 && s->getObjective() < 1e99 &&
 	  node.depth >= dnn_min_depth && node.depth <= dnn_max_depth) {
@@ -633,7 +634,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  if (const char *e = getenv("QAP_DNN_GAP_RATIO")) dp.hopeless_gap_ratio = atof(e);
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
-	  DNNWarm start, *save = dnn_warm ? new DNNWarm : NULL;
+	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR) ? new DNNWarm : NULL;
 	  const DNNWarm *sp = NULL;
 	  int di, dj;
 	  if (dnn_warm && node.warm && node.warm->dnn &&
@@ -648,7 +649,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    dnn_fathomed = true;
 	    stats->dnn_fathoms++;
 	  }
-	  if (save && !dnn_fathomed && save->m == m) dnn_keep = save;
+	  if (save && !dnn_fathomed && save->m == m && param->rule == BRANCH_DNN_XBAR) {
+	    // x_ij = Y_0,(ij) of the final primal iterate (row 0 of the lifted
+	    // matrix, after the leading 1), m x m row-major in local indices
+	    const int n1 = m * m + 1;
+	    dnn_xbar.assign(save->Y.begin() + 1, save->Y.begin() + n1);
+	  }
+	  if (save && !dnn_fathomed && save->m == m && dnn_warm) dnn_keep = save;
 	  else delete save;
 	}
       }
@@ -685,8 +692,14 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  dnn_keep = NULL;
 	}
 #endif
+#ifdef HAVE_DNN
+	branch_set_dnn_marginals(dnn_xbar.empty() ? NULL : dnn_xbar.data(), m);
+#endif
 	branch(q, node, X, U, kid, kids, bound + qpbp->lapU,
 	       qpbp, bp, loc_in_row, loc_kept);
+#ifdef HAVE_DNN
+	branch_set_dnn_marginals(NULL, 0);
+#endif
 	for (i = 0; i < kids; i++)
 	  kid[i].set_warm(warm);
 	warm_start_release(warm);

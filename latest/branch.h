@@ -183,6 +183,12 @@ void set_branch_parameters(BranchParameters *bp, BNBParameters *param,
 
 // utility functions
 void find_best_match(MAT *X, int *p);
+
+// Rule 8 (BRANCH_DNN_XBAR): the marginals x_ij of the node's DNN primal
+// iterate, m x m row-major in local indices (free facilities and locations in
+// increasing original order), or NULL when none. Set by bnb() before branch()
+// and cleared after; branch() keeps only the pointer.
+void branch_set_dnn_marginals(const double *x, int m);
 void merge_U(MAT *U1, double bound1, MAT *U2, double bound2);
 
 // branching functions

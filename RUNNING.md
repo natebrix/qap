@@ -165,7 +165,7 @@ Example from `PARAM/default.par`:
 --- repeated L times; the last level omits the first two lines ---
 0.20  use this level when the relative gap (opt-bnd)/opt is worse than...
 2     ...and depth is at most this
-4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead
+4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead, 8 DNN marginals (lookahead where no DNN bound ran; needs -x)
 150   Frank-Wolfe iterations for the bound
 100   Frank-Wolfe iterations when we know we can't fathom
 25    Frank-Wolfe iterations for row selection (lookahead children; each starts from the parent's X)

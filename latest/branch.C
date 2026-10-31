@@ -1362,6 +1362,62 @@ bool select_col_eccentric(QAP *qap,const QAPAssignment &assign,MAT *U,
   return best_ecc > low_ecc;
 }
 
+/*
+============================================================
+select_ind_dnn_xbar(...)
+
+Branching rule 8: branch on the free row (facility) or column (location)
+whose DNN primal marginals x_ij are most concentrated, i.e. the largest
+sum_j x_ij^2 (row) or sum_i x_ij^2 (column). The DNN relaxation puts most
+of a concentrated line's mass on a few assignments, so most of the line's
+children are assignments the relaxation considers near-zero, and they
+fathom sooner. Found on wil50 depth-3 misses and a nug30 depth-2 miss
+(experiments/wil50_feasibility/tuning/lines): the line with the largest
+sum x^2 was the best or second-best of about 10 candidates at every node,
+eccentric (rule 6) 2 to 4.7x worse, lookahead (rule 4) 1 to 1.6x worse.
+It costs nothing per node once the DNN bound has run. Columns only when
+no symmetry is left (rows_only otherwise, as the other rules). Returns
+false when no marginals were set for this node (no DNN bound ran); the
+caller then uses lookahead.
+============================================================
+*/
+static const double *dnn_xbar = NULL;
+static int dnn_xbar_m = 0;
+
+void branch_set_dnn_marginals(const double *x, int m)
+{
+  dnn_xbar = x;
+  dnn_xbar_m = m;
+}
+
+static bool select_ind_dnn_xbar(const QAPAssignment &assign, bool rows_only,
+				int &ind_in_U, int &ind_in_assign, bool &chose_row)
+{
+  const int n = assign.n, m = n - assign.nfix;
+  if (dnn_xbar == NULL || dnn_xbar_m != m) return false;
+  const double *x = dnn_xbar;
+  double best = -1.0;
+  ind_in_U = -1;  ind_in_assign = -1;  chose_row = true;
+  for (int i = 0, di = -1; i < n; i++) {
+    if (assign.p[i] > NONE) continue;
+    di++;
+    double s = 0.0;
+    for (int dj = 0; dj < m; dj++) s += x[di * m + dj] * x[di * m + dj];
+    if (s > best) { best = s;  chose_row = true;  ind_in_U = di;  ind_in_assign = i; }
+  }
+  if (!rows_only)
+    for (int j = 0, dj = -1; j < n; j++) {
+      if (assign.pinv[j] > NONE) continue;
+      dj++;
+      double s = 0.0;
+      for (int di = 0; di < m; di++) s += x[di * m + dj] * x[di * m + dj];
+      if (s > best) { best = s;  chose_row = false;  ind_in_U = dj;  ind_in_assign = j; }
+    }
+  if (getenv("QAP_XBAR_DEBUG") && ind_in_U >= 0)
+    fprintf(stderr, "xbar: depth %d %s %d sumsq %.4f\n", assign.nfix, chose_row ? "row" : "col", ind_in_assign, best);
+  return ind_in_U >= 0;
+}
+
 void select_ind_max_fathoms(QAP *qap,const QAPAssignment &assign,
 			    int *J3, int J3_dim,MAT *X,MAT *U,
 			    double bound,QPBParameters *qpbp,
@@ -2517,6 +2573,11 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
 				 row_in_U,row_in_assign);
     break;
 
+  case BRANCH_DNN_XBAR:
+    if (select_ind_dnn_xbar(assign, !can_branch_on_cols,
+			    row_in_U, row_in_assign, chose_row))
+      break;
+    // no DNN marginals at this node: lookahead, as rule 4
   case BRANCH_LOOKAHEAD:
     if(can_branch_on_cols) {
       select_ind_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
