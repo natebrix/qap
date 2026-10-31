@@ -626,6 +626,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  if (const char *e = getenv("QAP_DNN_GAMMA1")) dp.gamma1 = atof(e);
 	  if (const char *e = getenv("QAP_DNN_GAMMA")) dp.gamma = atof(e);
 	  if (const char *e = getenv("QAP_DNN_CHEB")) dp.cheb_degree = atoi(e);
+	  // gap-ratio give-up rule (experiments/wil50_feasibility/tuning), opt-in
+	  if (const char *e = getenv("QAP_DNN_GAP_RATIO")) dp.hopeless_gap_ratio = atof(e);
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
 	  DNNWarm start, *save = dnn_warm ? new DNNWarm : NULL;
