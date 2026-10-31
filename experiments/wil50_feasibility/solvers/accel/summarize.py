@@ -26,13 +26,13 @@ for f in glob.glob(os.path.join(D, "runs", "*.log")):
     name, k = re.match(r"(.+)_(\d+)\.log", os.path.basename(f)).groups()
     r = parse(f)
     if r: runs.setdefault(name, {})[int(k)] = r
-names = [n for n in ["d4", "d3", "d3L2", "d4L2", "d4W5", "d4A25"] if n in runs]
+names = [n for n in (sys.argv[1:] or ["d4", "d3", "d3L2", "d4L2", "d4W5", "d4A25"]) if n in runs]
 nodes = sorted(set.intersection(*[set(runs[n]) for n in names]))
 fath = {n: {k for k in nodes if runs[n][k]["fathomed"] == "1"} for n in names}
 common = set.intersection(*fath.values())
 print("%d nodes done in every configuration; %d fathomed by all" % (len(nodes), len(common)))
-print("%-6s %5s %8s %8s %9s %9s %8s  %s" % ("config", "fath", "med_it", "med_cpu", "sum_it",
-                                             "sum_cpu", "miss_cpu", "lb@200 - d4 (misses)"))
+print("%-6s %5s %7s %8s %8s %9s %9s %8s  %s" % ("config", "fath", "ms/it", "med_it", "med_cpu", "sum_it",
+                                                 "sum_cpu", "miss_cpu", "lb@200 - d4 (misses)"))
 base = runs[names[0]]
 for n in names:
     R = runs[n]
@@ -43,8 +43,9 @@ for n in names:
     d200 = [R[k]["trace"].get(200, float("nan")) - base[k]["trace"].get(200, float("nan"))
             for k in nodes if k not in fath[names[0]]]
     d200 = [x for x in d200 if x == x]
-    print("%-6s %5d %8.0f %8.1f %9d %9.0f %8.0f  median %+.2f  min %+.2f  max %+.2f" % (
-        n, len(fath[n]), statistics.median(it) if it else 0, statistics.median(cpu) if cpu else 0,
+    msit = sum(float(R[k]["cpu"]) for k in nodes) / sum(int(R[k]["iters"]) for k in nodes) * 1e3
+    print("%-6s %5d %7.0f %8.0f %8.1f %9d %9.0f %8.0f  median %+.2f  min %+.2f  max %+.2f" % (
+        n, len(fath[n]), msit, statistics.median(it) if it else 0, statistics.median(cpu) if cpu else 0,
         sum(it), sum(cpu), mcpu, statistics.median(d200) if d200 else 0,
         min(d200) if d200 else 0, max(d200) if d200 else 0))
     lost = sorted(fath[names[0]] - fath[n]); won = sorted(fath[n] - fath[names[0]])

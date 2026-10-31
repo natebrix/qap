@@ -193,3 +193,11 @@ DNN CPU 1.2-1.5x lower on nug27/28/30 with the same or smaller DNN trees,
 and the fathom/miss set shifts by a node or two at the frontier, so it should
 go with a depth setting that covers the frontier (`-x 2:7`) rather than
 `-x 2:5`.
+
+## Addendum (Oct 31 2026): tight lam_hi
+
+`DNNParams::tight_lam` (dnntest `-L N`, solver `QAP_DNN_TIGHT_LAM=N`) replaces
+the Weyl update of the filter's upper end by N shifted power steps on the
+tracked top eigenvector. With `QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2` the bound
+fathoms in the same iterations as degree 4 at 85% of the per-iteration cost:
+see `../wil50_feasibility/solvers/accel/README.md`.
