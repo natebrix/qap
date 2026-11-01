@@ -290,3 +290,30 @@ at this level. Rule 8 is a 13% smaller DNN tree and 16% less CPU on nug30,
 where rule 6 was tuned; on wil50 the line comparison above predicts a much
 larger gain because eccentric is so poor there. The picks were rows and
 columns both (`QAP_XBAR_DEBUG=1`).
+
+### nug28: rule 8 loses (`lines/nug28_{ctl,xbar}_H200_j8_m2pro.log`)
+
+Same settings, `--ub 5166`:
+
+| | `nug_deep.par` | `nug_deep_xbar.par` |
+|---|---|---|
+| DNN nodes / fathomed | 1,674 / 1,613 | 2,928 / 2,813 |
+| CPU | 1,130 s | 1,546 s (+37%) |
+| depth 3 nodes / fathomed | 590 / 561 | 590 / 537 |
+| depth 4 | 725 / 719 | 1,265 / 1,234 |
+
+The same 25 depth-2 misses; rule 8's lines leave 53 depth-3 misses where
+lookahead leaves 29. So on nug instances the single-line marginal rule is
+high-variance: nug30 -16% CPU, nug28 +37%. That matches the nug30 line
+check, where the marginal row was the best of 11 lines and the marginal
+column the worst. On wil50 both marginal lines were the top two at all three
+parents, so the rule's case there stands, but it should not replace lookahead
+on nug-type instances as is.
+
+Candidate fix, not yet built: use the marginals to shortlist (the top row and
+top column by sum x^2, plus lookahead's own candidates) and let lookahead's
+child QPB bounds choose among them. Lookahead costs 2(n-d) QPB solves per node,
+negligible next to a DNN bound at these depths, and on wil50 the mean child
+QPB ranked lines at +0.70 to +0.88, so it would separate the two marginal
+lines. The decisive test for wil50 is a depth-4 re-sample under rule 8 (the
+tree estimate in ../NOTES.md section 4), which does not depend on nug28.
