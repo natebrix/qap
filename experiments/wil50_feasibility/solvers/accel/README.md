@@ -33,6 +33,8 @@ iteration 200 on the misses relative to degree 4.
 | `-d 4 -L 2` | 18 | 529 | 220 | 105.2 | 4180 | 2078 | 2692 | +4.0 [+3.2, +6.2] |
 | `-d 4 -W 5` | 18 | 760 | 265 | 187.7 | 5110 | 3833 | 3473 | −83.4 [−190.7, −56.3] |
 | `-d 4 -A 25` | 18 | 554 | 415 | 207.8 | 8030 | 4224 | 3528 | −593.8 [−2362.8, −303.0] |
+| `-d 4 -r 120` (Goux D5) | 18 | 387 | 270 | 97.0 | 5080 | 1885 | 1838 | −80.9 [−144.3, −59.5] |
+| `-d 4 -B 0.21` (Goux D7) | 18 | 507 | 230 | 106.6 | 4450 | 2092 | 2619 | −79.2 [−382.8, −30.4] |
 
 ### Tight λ: degree 3 at degree-4 strength
 
@@ -80,6 +82,20 @@ denies it that. On the 32 wil50 nodes `-d 4 -W 5` fathoms every node but 45
 iterations later (265 vs 220) at 35% more per iteration (the mixing solve and
 the extra residual bookkeeping), 1.7× the CPU, and is 83 units behind at
 iteration 200 on the misses.
+
+### Goux's refresh spacing and β × 0.7 (Nov 1): tuned at m = 22, not free at m = 47
+
+J.-P. Goux's nug25-tuned settings (`experiments/wil50_feasibility/tuning`,
+"Two settings ported"): a full eigendecomposition every 120 iterations
+instead of 20 (`-r 120`, solver `QAP_DNN_REFRESH`) and β × 0.7 (`-B 0.21`,
+`QAP_DNN_BETA`). On nug30 Fable measured the pair at −20% CPU with the same
+tree. On the wil50 nodes both are weaker per iteration: `-r 120` is 31%
+cheaper per iteration but needs 50 more iterations to fathom and is 81
+behind at iteration 200 on the misses, net −11% on fathoms (the tracker is
+inexact at this size, as degree 2 was); `-B 0.21` is 10 iterations slower to
+fathom, 79 behind at 200 (−383 on one node), net nothing. Neither changes
+which nodes fathom. The tight-λ setting (`-d 3 -L 2`) remains the one that
+is cheaper at equal strength; a combination `-d 3 -L 2 -r 60` is untested.
 
 ## Verdict
 

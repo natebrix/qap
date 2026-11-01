@@ -494,3 +494,9 @@ Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
 `QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
 QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120`. Still to do: separate beta from
 refresh, re-run nug28 (rule 8 caveat), and try the same on the wil50 sample.
+
+Addendum (Nov 1, cloud): Goux's `-r 120` and `-B 0.21` on the 32 wil50 nodes
+(`../solvers/accel/README.md`): both weaker per iteration at m = 47 (−81 and
+−79 at iteration 200 on the misses), `-r 120` nets −11% CPU on fathoms,
+`-B 0.21` nets nothing; same fathoms. Good on nug25/nug30 (−20% on the
+laptop), not on wil50.
