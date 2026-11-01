@@ -265,7 +265,13 @@ cost); `QAP_DNN_GAP_RATIO=0.65` the gap-ratio give-up rule
 up to 20 levels below a last-level miss instead of handing its subtree to
 QPB alone, and `QAP_DNN_GU_ZONE=0.003` makes a give-up within 0.3% of the
 cutoff wait 100 iterations for confirmation (both from J.-P. Goux's nug30
-solver; experiments/wil50_feasibility/tuning/goux).
+solver; experiments/wil50_feasibility/tuning/goux). `QAP_DNN_CUT_ZONE=0.002`
+adds a cut phase after a DNN miss that ends within that fraction of the
+cutoff: regional triangle cuts (latest/dnncut.h) from the node's own iterate,
+`QAP_DNN_CUT_GRID=R:C` the grid whose row and column prefixes are the
+regions (wil50 `5:10`; nug30 `5:6` with `QAP_DNN_CUT_SIDE=1`, the second
+matrix), `QAP_DNN_CUT_ROUNDS` (12), `_ITERS` (300), `_K` (1000), `_DELTA`
+(50); every value stays certified (experiments/wil50_feasibility/stronger_bounds).
 
 Branching at the DNN depths is not a lever. The gap thresholds in
 `nug_deep.par` send nearly every depth-3 and depth-4 node (QPB relative gap

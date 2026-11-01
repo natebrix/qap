@@ -41,3 +41,14 @@ relaxation family (level-2 RLT) would be the next thing to try.
 Note: runs with only 300 ADMM iterations per round (an earlier attempt) look
 like gains of 6-10 units, but those come from the extra ADMM iterations, not
 the cuts: compare against the converged plain bound.
+
+## Addendum (Nov 1 2026): regional triangles
+
+The conclusion above holds for the atomic triangles. The regional family
+(triangles on the membership counts of location or facility sets, Astra's
+memo; `latest/dnncut.h`, `-grid R:C [-side 1]`) is not implied by the DNN
+relaxation and does move nug30: `-grid 5:6 -side 1` (the 5 x 6 grid of the
+second matrix) fathoms the depth-2 miss `4:7,6:14` (15 short) in four
+300-iteration rounds and lifts `4:29,6:7` by 25.9 of its 26.3. On wil50 it
+gives +69 to +121 on every clear miss and fathoms four of five near misses
+(`../wil50_feasibility/stronger_bounds/README.md`).

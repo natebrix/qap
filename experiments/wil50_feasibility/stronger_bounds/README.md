@@ -222,3 +222,34 @@ the depth-3 ones, which is the next thing to measure (the 16 depth-4
 children of nodes 6 and 9 in `../tuning/giveup/all32.txt`, ids 17–32, all of
 which fathom uncut in 170–690 iterations, are not the right sample: a depth-4
 sample under the clear misses is).
+
+## Step 5: the cut phase in the search (`latest/dnncut.h`, `bnb.C`, `QAP_DNN_CUT_ZONE`)
+
+The cut rounds are now a library (`latest/dnncut.{h,C}`, regions on either
+side; the `dnncuts` driver runs over it and reproduces every earlier log to
+the decimal), and `bnb.C` runs a **cut phase** after a DNN miss whose
+certified bound ends within `QAP_DNN_CUT_ZONE` × |incumbent| of the cutoff:
+from the node's own iterate, `QAP_DNN_CUT_ROUNDS` (12) rounds of
+`QAP_DNN_CUT_ITERS` (300) iterations with `QAP_DNN_CUT_K` (1,000) new regional
+triangles each and a Polyak step toward best + `QAP_DNN_CUT_DELTA` (50),
+stopping at the cutoff; the regions are the prefixes of the
+`QAP_DNN_CUT_GRID=R:C` grid over the original indices of side
+`QAP_DNN_CUT_SIDE` (wil50: `5:10`, side 0; nug30: `5:6`, side 1, the second
+matrix). The children keep the uncut multiplier; the results block counts
+`cut phase: nodes, fathomed, CPU`. Off by default.
+
+First runs:
+
+* nug20, `default.par -u 2570 -x 2:2:1:300:1`, PRSM + degree 4,
+  `QAP_DNN_CUT_ZONE=0.02 QAP_DNN_CUT_GRID=4:5 QAP_DNN_CUT_SIDE=1`: the two
+  depth-2 misses get a cut phase, **one fathoms** (15 s for both phases),
+  84,592 → 54,718 nodes.
+* **nug30's two depth-2 misses, standalone** (`dnncuts -grid 5:6 -side 1`,
+  800 uncut iterations then 300-iteration rounds, delta 20): `4:7,6:14`
+  (15.1 short) **fathoms in round 4** (2,000 iterations, 86 CPU-s);
+  `4:29,6:7` (26.3 short) reaches 6,121.59 in round 16 (+25.9, 0.46 short,
+  primal 6,124.5, still rising). The atomic triangles had given +0.2 and +0.4
+  on nug30 depth-2 misses (`../../dnn_cuts/README.md`); the regional family on
+  the grid of the second matrix is a different thing. On nug30 the depth-2
+  survivors carry the tree (58 of 225 under `nug_deep.par`, 1,552 depth-3
+  children), so a cut phase at depth 2 is the next nug30 A/B.

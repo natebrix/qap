@@ -67,6 +67,7 @@ extern bool bnb_stopped;
 extern volatile sig_atomic_t bnb_stop_requested;
 static void request_stop(int) { bnb_stop_requested = 1; }
 char *resume_file = NULL;
+char *root_fixes = NULL;   // -F i:j,...: the search starts at this node (depth 0 = the subtree's root)
 
 /*******************************************************************/
 
@@ -110,6 +111,7 @@ void print_help()
        << "\tDNN from its parent's when that missed (default 0)" << std::endl
        << "-t X\twith -o, stop after X CPU seconds, saving state (exit code 3)" << std::endl
        << "-r F\tresume from state file F instead of the root" << std::endl
+       << "-F i:j,...\tstart at the node with these assignments fixed (its depth is 0)" << std::endl
        << "-w W\tat lookahead/strong levels, stop a node's FW W iterations after it\n"
        << "\tlast fixed out more children (default 0 = off)" << std::endl;
   cerr << "(The path to a QAPLIB input file must also be provided.)" << std::endl;
@@ -237,6 +239,12 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	i++;
 	resume_file = new_string(argv[i]);
 	cout << "resume from: " << resume_file << std::endl;
+	break;
+
+      case 'F': // start at the node with these assignments fixed (i:j = first index i to second index j)
+	i++;
+	root_fixes = new_string(argv[i]);
+	cout << "root fixes: " << root_fixes << std::endl;
 	break;
 
       case 'x': // DNN bound at depths dmin..dmax: -x dmin:dmax[:maxgap[:hopeless[:warm]]]
@@ -455,6 +463,19 @@ int main(int argc, char *argv[])
   }
   else {
     stack_setup(stack,stats,id,n);
+    if (root_fixes) {
+      // the subtree below a node: its depth is 0 here, so -x and -d count
+      // from it (dnntest -x uses the same i:j spelling)
+      for (char *tok = strtok(root_fixes, ","); tok; tok = strtok(NULL, ",")) {
+	int fi, fj;
+	if (sscanf(tok, "%d:%d", &fi, &fj) != 2 || fi < 0 || fi >= n || fj < 0 || fj >= n ||
+	    stack->data.p[fi] != NONE || stack->data.pinv[fj] != NONE) {
+	  cerr << "-F: bad or repeated assignment " << tok << std::endl;
+	  exit(1);
+	}
+	stack->data.fix(fi, fj);
+      }
+    }
   }
   branch_init(n);
 
