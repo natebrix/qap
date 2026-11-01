@@ -314,3 +314,38 @@ child costs under a second, a wil50 depth-4 child about 75 s. The cut phase
 is a wil50 tool, and the research memo (`research_bound_quality.md`) says
 where its next gains are: the dual method and the certificate's lag, before
 new inequalities.
+
+## Step 6: the dual method's cheap fixes (`dual/run_dual.sh`, `dual/run_dual2.sh`)
+
+`research_bound_quality.md` read the step-2/3/4 logs and found three losses
+in the multiplier method, each with a cheap remedy: the Polyak target
+`min(cutoff, best + delta)` makes the step vanish within 0.01 of the cutoff
+(fathoming nodes crawled 4-6 rounds there); the certificate trails the
+Lagrangian primal by 25-90 at 300-iteration rounds (87-108 at 150); and the
+step overshoots (-100 to -390 rounds). `dnncut.C` gained `-nocap` (target =
+best + delta), `-freeze R:N` (a quiet round of N iterations with the
+multipliers frozen and no new cuts, after round R or at the end) and the
+driver `-t theta`; all protocols below start from the give-up point (400
+uncut iterations) unless stated.
+
+| experiment | nodes | result |
+|---|---|---|
+| **uncapped target**, 300-iteration rounds, delta 50 | near misses 6, 9, 15, 16 | **4 of 4 fathom in 1,000-2,800 iterations** (step 3: 1,900-3,400 and one miss at 4,000); the bounds cross the cutoff cleanly (48,814.3-48,815.5) instead of crawling |
+| | node 14 (84 short) | +84, ends 5 short (step 3: +77, 7.6 short) |
+| **quiet round** (600 it.) after the 150-iteration protocol that fathomed nothing in step 3 | 6, 9, 15, 16 | **4 of 4 fathom**: the certificate goes from 48,785-48,813 to 48,814.5-48,817.3 in the one frozen round |
+| quiet round after 12 capped 300-iteration rounds | depth-4 children 1, 2, 4, 11 (62, 109, 66, 66 short) | +35, +35, +17, 0 over the capped run; child 1 ends **11.5 short**, child 2 47, child 4 40, child 11 60 (its last round was an overshoot, so the frozen multipliers were poor); none fathoms |
+| 5,000 cuts per round instead of 1,000 (step-2 protocol) | clear misses 2, 7 | +65 and +98 against +89 and +101: no gain, the Polyak step gets coarser |
+| theta 0.4 instead of 1 (step-2 protocol) | overshooters 3, 8 | +75 and +74 against +69 and +77: the -337 and -389 rounds disappear, the eight-round value barely moves |
+| both fixes together (uncapped + quiet round) | depth-4 children 1, 4, 11 and node 14 | `dual/both_*.log` (see below) |
+
+The two fixes are now the search's cut-phase defaults (`bnb.C`:
+`cap_at_cutoff = 0`, a 600-iteration quiet round when the phase ends
+unfathomed with its primal above the cutoff; `QAP_DNN_CUT_NOCAP=0` and
+`QAP_DNN_CUT_FREEZE=0` restore the old behaviour). What they change: a
+near-miss fathom from the give-up point now costs **2.5-3x the give-up
+budget** (1,000-1,300 iterations on three of the four), down from 4-8x in
+step 3 and 20-40x in step 2; and the inner lag is real and recoverable, which
+moves the depth-4 62-66-short children to within 12-40 of the cutoff with
+the present cuts. The pool size and the step factor are not the limit; the
+memo's next items (a bundle method on the rounds, then the 5-point count
+inequalities) are.
