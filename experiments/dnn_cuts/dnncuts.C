@@ -76,6 +76,12 @@ int main(int argc, char **argv)
     }
     else if (o == "-side" && more) cp.side = atoi(argv[++a]);
     else if (o == "-stall" && more) cp.stall_rounds = atoi(argv[++a]);   // stop rule (dnncut.h), 0 = off
+    else if (o == "-nocap") cp.cap_at_cutoff = 0;                          // Polyak target = best + delta
+    else if (o == "-freeze" && more) {                                     // -freeze R:N: quiet round of N iterations after round R (0 = the last)
+      const char *z = argv[++a], *c = strchr(z, ':');
+      cp.freeze_after = atoi(z);
+      cp.freeze_iters = c ? atoi(c + 1) : 600;
+    }
     else if (o == "-prefix") cp.prefix = true;
     else if (o == "-atomic") cp.atomic = true;
     else if (o == "-d" && more) degree = atoi(argv[++a]);

@@ -15,6 +15,7 @@ DNNCutParams::DNNCutParams()
   delta = 50; theta = 1.0; mu0 = 0;
   grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
   stall_rounds = 0; stall_factor = 3.0;
+  cap_at_cutoff = 1; freeze_after = 0; freeze_iters = 0; freeze_if_primal_above = 0;
 }
 
 namespace {
@@ -189,38 +190,44 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   DNNWarm save;
   double prev_lb = -HUGE_VAL, theta_cur = cp.theta;
 
+  double last_primal = HUGE_VAL;
+  // one solve of the modified problem with the current multipliers
+  auto solve = [&](int r, int iters) {
+    std::fill(Ladd.begin(), Ladd.end(), 0.0);
+    double abs_add = 0, hsum = 0;
+    int active = 0;
+    for (const Cut &t : cuts)
+      if (t.mu > 0) {
+        abs_add += t.s < 0 ? add_cut(t, Ladd, n1, t.mu) : add_rcut(t, regions[t.s], Ladd, lift, n1, t.mu);
+        if (t.type == (t.s < 0 ? 2 : 3)) hsum += t.mu;
+        active++;
+      }
+    out.active = active;
+    DNNParams par = base;
+    par.max_iter = iters;
+    par.hopeless_after = 0;
+    par.hopeless_gap_ratio = 0;
+    par.L_add = active ? Ladd.data() : NULL;
+    par.L_add_abs = abs_add;
+    DNNResult res = dnn_bound(A, B, C, shift - hsum, cutoff, par, (r > 0 && warm) ? warm : NULL, &save);
+    if (warm) *warm = save; else warm = &save;
+    out.cpu += res.cpu;
+    if (r == 0) { out.first_lb = first_lb = res.lb; }
+    else { out.rounds++; out.iterations += res.iterations; }
+    out.best_lb = std::max(out.best_lb, res.lb);
+    out.status = res.status;
+    last_primal = res.primal;
+    return res;
+  };
+
   // round 0 is the uncut solve: run here (first_iters > 0) or the caller's
   // warm start, whose Y is separated; rounds 1.. solve with the cuts
-  for (int r = 0; r <= cp.rounds; r++) {
+  const int last_round = cp.freeze_after > 0 ? std::min(cp.rounds, cp.freeze_after) : cp.rounds;
+  for (int r = 0; r <= last_round; r++) {
     DNNResult res;
     res.lb = -HUGE_VAL; res.primal = HUGE_VAL; res.status = -1; res.iterations = 0; res.cpu = 0;
     const bool solved = r > 0 || cp.first_iters > 0;
-    if (solved) {
-      // the modified objective for the current multipliers
-      std::fill(Ladd.begin(), Ladd.end(), 0.0);
-      double abs_add = 0, hsum = 0;
-      int active = 0;
-      for (const Cut &t : cuts)
-        if (t.mu > 0) {
-          abs_add += t.s < 0 ? add_cut(t, Ladd, n1, t.mu) : add_rcut(t, regions[t.s], Ladd, lift, n1, t.mu);
-          if (t.type == (t.s < 0 ? 2 : 3)) hsum += t.mu;
-          active++;
-        }
-      out.active = active;
-      DNNParams par = base;
-      par.max_iter = r == 0 ? cp.first_iters : cp.iters;
-      par.hopeless_after = 0;
-      par.hopeless_gap_ratio = 0;
-      par.L_add = active ? Ladd.data() : NULL;
-      par.L_add_abs = abs_add;
-      res = dnn_bound(A, B, C, shift - hsum, cutoff, par, (r > 0 && warm) ? warm : NULL, &save);
-      if (warm) *warm = save; else warm = &save;
-      out.cpu += res.cpu;
-      if (r == 0) { out.first_lb = first_lb = res.lb; }
-      else { out.rounds++; out.iterations += res.iterations; }
-      out.best_lb = std::max(out.best_lb, res.lb);
-      out.status = res.status;
-    }
+    if (solved) res = solve(r, r == 0 ? cp.first_iters : cp.iters);
     // separate on the last primal iterate
     const std::vector<double> &Y = warm->Y;
     if (Y.size() != (size_t)n1 * n1) break;
@@ -300,7 +307,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
       printf("round  0  lb %.4f (the node's bound)  violated %zu (max %.4f)  added %d\n",
              first_lb, nviol, maxv, added);
     if (solved && res.status == DNN_FATHOMED) break;
-    if (r == cp.rounds) break;
+    if (r == last_round) break;
     if (cuts.empty()) break;
     best_hist.push_back(out.best_lb);
     if (cp.stall_rounds > 0 && r >= cp.stall_rounds && std::isfinite(cutoff)) {
@@ -326,10 +333,21 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
       if (cuts[t].mu > 0 || sg[t] > 0) s2 += sg[t] * sg[t];
     }
     if (s2 <= 0) break;
-    const double target = std::min(cutoff, out.best_lb + cp.delta);
+    const double target = cp.cap_at_cutoff ? std::min(cutoff, out.best_lb + cp.delta)
+                                           : out.best_lb + cp.delta;
     const double alpha = theta_cur * std::max(target - lb_now, 1e-6) / s2;
     for (size_t t = 0; t < cuts.size(); t++)
       cuts[t].mu = std::max(0.0, cuts[t].mu + alpha * sg[t]);
+  }
+  // the quiet round: the multipliers frozen, no new cuts, so that the
+  // certificate catches up with the Lagrangian value of the final multipliers
+  if (cp.freeze_iters > 0 && out.best_lb <= cutoff && !cuts.empty() &&
+      (!cp.freeze_if_primal_above || last_primal > cutoff)) {
+    DNNResult res = solve(1, cp.freeze_iters);
+    if (cp.verbose)
+      printf("quiet round  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  active %d\n",
+             res.lb, res.lb - first_lb, out.best_lb - first_lb, res.primal,
+             dnn_status_name(res.status), res.iterations, res.cpu, out.active);
   }
   if (out.best_lb > cutoff) out.status = DNN_FATHOMED;
   return out;

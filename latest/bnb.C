@@ -695,6 +695,11 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // exceeds 3x the gain of the last that many rounds (0 = off)
 	    cp.stall_rounds = 3;
 	    if (const char *e = getenv("QAP_DNN_CUT_STALL")) cp.stall_rounds = atoi(e);
+	    // QAP_DNN_CUT_NOCAP=1: Polyak target best + delta (no crawl at the
+	    // cutoff); QAP_DNN_CUT_FREEZE=N: a quiet round of N iterations when the
+	    // phase ends unfathomed with its primal above the cutoff
+	    if (const char *e = getenv("QAP_DNN_CUT_NOCAP")) cp.cap_at_cutoff = atoi(e) ? 0 : 1;
+	    if (const char *e = getenv("QAP_DNN_CUT_FREEZE")) { cp.freeze_iters = atoi(e); cp.freeze_if_primal_above = 1; }
 	    if (cp.grid_rows == 0) cp.prefix = true;
 	    std::vector<int> free_orig;
 	    for (int a = 0; a < n; a++)

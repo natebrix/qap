@@ -51,6 +51,15 @@ struct DNNCutParams {
   int side;           // 0: regions over the first index (A), 1: the second (B)
   bool prefix;        // regions: prefixes of the free elements (validation)
   bool atomic;        // atomic triangle cuts instead of regional ones
+  int cap_at_cutoff;  // 1: Polyak target = min(cutoff, best + delta) (default); 0: best +
+                      // delta, so the step does not vanish within 0.01 of the cutoff
+                      // (nodes crawled there for 4-6 rounds; research_bound_quality.md)
+  int freeze_after;   // > 0: run only this many cut rounds before the quiet round
+  int freeze_iters;   // > 0: a quiet round at the end when not fathomed (multipliers
+                      // frozen, no new cuts, this many iterations): the certificate
+                      // trails the Lagrangian primal by 25-90 at 300-iteration rounds
+  int freeze_if_primal_above;  // 1: the quiet round only when the last primal value is
+                      // above the cutoff (the search's use); 0: always (0)
   int stall_rounds;   // > 0: after this many cut rounds, stop when the gap to the
                       // cutoff exceeds stall_factor times the gain of the last
                       // stall_rounds rounds (the gain comes early: on wil50 depth-4
