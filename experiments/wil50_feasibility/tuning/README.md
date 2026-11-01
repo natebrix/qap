@@ -417,3 +417,39 @@ wil50 nodes. Goux's other iteration settings, a full eigendecomposition every
 120 iterations (`-r 120`, `QAP_DNN_REFRESH`) and beta x 0.7 (`-B 0.21`,
 `QAP_DNN_BETA`), use existing parameters and are on the all32 A/B queue
 (`../solvers/accel/run_all32.sh`, configs `d4r120`, `d4B021`).
+## nug30 refinements (`refine/nug30_xall_*_j8_m2pro.log`)
+
+Four runs on the rule 8 setting, each changing one thing on top of the last
+(binary at ae5595f, PRSM, `--ub 6124`, 8 workers, no D6/D8 flags). The
+parameter file `PARAM/nug_deep_xbar_all.par` lowers the third block's gap
+threshold from 0.05 to 0, so every node through depth 6 branches with rule 8;
+with `nug_deep_xbar.par` about 40% of depth-3 nodes and 85% of depth-4
+nodes fell through to the bottom block (rule 2). Baselines: default rules
+H = 200 4,904 s; rule 8 4,133 s.
+
+| run | change | DNN nodes / fathomed | depth-2 / 3 / 4 misses | CPU | wall |
+|---|---|---|---|---|---|
+| `xall_c4` | rule 8 for all nodes thru depth 6 | 3,936 / 3,797 | 58 / 59 / 17 | 4,008 s | 567 s |
+| `xall_c3t2` | + `QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2` | 3,964 / 3,824 | 59 / 59 / 17 | 3,653 s | 526 s |
+| `xall_c3t2_d1` | + DNN from depth 1 (`-x 1:7:1:200:1`) | 3,842 / 3,700 | 68 / 45 / 14 | **3,632 s** | **523 s** |
+| `xall_c3t2_h150` | c3t2 with H = 150 | 4,044 / 3,901 | 61 / 59 / 17 (+1 at depth 6) | 3,800 s | 582 s |
+
+- Opening rule 8 to the small-gap nodes changed no decision: the tree is the
+  same as `nug_deep_xbar.par` (3,946 nodes), so none of the rule-2 nodes was
+  a DNN miss. The 3% CPU difference is run-to-run noise.
+- Degree 3 with the tight lam_hi (the accel recommendation, so far tested
+  only on wil50 nodes) saves 9% of CPU in a full search at effectively equal
+  strength: one extra depth-2 miss, otherwise the same per-depth counts.
+- DNN from depth 1 costs 36 s on the nine depth-1 nodes and gives rule 8
+  marginals for the depth-1 branching. It produces 10 more depth-2 misses
+  (68 against 58) but their children fathom far better: 45 depth-3 misses
+  instead of 59, and 1,215 depth-4 nodes instead of 1,593. Net 3,632 s, the
+  lowest nug30 so far: -26% against today's default-rule baseline (4,904 s)
+  and -57% against the Oct 29 laptop run (8,355 s, H = 300, no PRSM).
+- H = 150 without the gap-ratio rule is unsafe on its own: two extra depth-2
+  misses and a depth-6 miss (24 extra depth-7 nodes), +4% CPU. H = 200 stays.
+
+Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
+`QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2`.
+The rule 8 caveat from the nug28 A/B stands: this setting has not been
+re-run on nug28, where rule 8 lost 37%.
