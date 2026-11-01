@@ -253,3 +253,42 @@ First runs:
   the grid of the second matrix is a different thing. On nug30 the depth-2
   survivors carry the tree (58 of 225 under `nug_deep.par`, 1,552 depth-3
   children), so a cut phase at depth 2 is the next nug30 A/B.
+
+## Step 4: depth 4 (`depth4/`, table by `depth4/summarize_depth4.py`)
+
+Sixteen depth-4 children of four clear misses (nodes 10, 13, 2, 7 of
+all32: 158, 182, 202, 203 short at convergence; one random free facility and
+four random free locations per parent, seed 20261101), each run uncut to
+1,500 iterations (`dnntest -v`, cold start) and with cuts from the give-up
+point (400 uncut iterations, then 300-iteration rounds, delta 50, up to 12
+rounds). Cutoff 48,814.05.
+
+| | nodes | what happens |
+|---|---|---|
+| fathom uncut | **7 of 16** | 4 within 140–240 iterations, 3 slow ones at 510–630 (0.1–0.5 above the cutoff at convergence); with cuts the slow ones fathom in 4 rounds (1,600 iterations) |
+| near misses, 1–22 short at convergence | 2 | **both fathom with cuts** (rounds 9, 3,100 iterations, 1,750 CPU-s) |
+| near misses, 62–109 short | 7 | none fathoms: gains +64 to +105 over the give-up-point bound, ending 25–61 short after 12 rounds (4,000 iterations, 2,200 CPU-s each) |
+
+Two things the sample settles. The level rule holds: parents 158–203 short
+give children −6 to +109 short, about 130 units closer, and 44% of them
+fathom uncut, which the `NOTES.md` model (children "170–370 short") was
+pessimistic about. And the cut phase at depth 4, from a cold give-up point,
+fathoms only the children within about 25 of the cutoff at convergence
+(about 60 at the give-up point): the gains are the same as at depth 3 (+64 to
++105), but a cold 400-iteration bound at m = 46 sits 48–55 below its
+converged value (26–36 at depth 3), so the 62–109-short children end 25–61
+short. In the search the children are warm-started from the parent and the
+stall rule stops a non-fathoming phase after three or four rounds, which
+changes both numbers in the right direction, but the depth-4 picture is
+**a 10–25% saving on the dominant class, not the 1.7–3× of the step-3
+model**: on these 16 children, the cuts remove two of nine near-miss
+subtrees (2 × 47 depth-5 children) for the price of nine cut phases.
+
+What would change it: a larger gain per node (the memo's next inequalities;
++130 at the median would fathom the 62–66-short children), or cheaper
+rounds. The cut phase from a *converged* bound (step 2's protocol) fathomed
+depth-3 nodes 43–84 short at 2,850–3,980 CPU-s; on the 62–66-short depth-4
+children that is about even with their uncut subtrees (47 depth-5 children at
+~100 s), so a two-stage policy (give-up → converge → cuts, for nodes within
+~70 of the cutoff at convergence) is the best use of the family at depth 4
+as it stands.
