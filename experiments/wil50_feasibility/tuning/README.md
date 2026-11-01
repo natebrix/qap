@@ -391,3 +391,29 @@ same budget as lines.py did. That is hours of laptop time or a cloud job.
 
 Untried: adding the two marginal lines to lookahead's candidate set at the
 depth >= 3 blocks (where use_best is 3 or 5), instead of replacing it.
+
+## Goux's momentum (D2/D4) against our PRSM step: negative (Nov 1 2026)
+
+Fast ADMM (Goldstein, O'Donoghue, Setzer, Baraniuk 2014) with Goux's three
+safeguards is in `dnn.C` as `DNNParams::momentum` (`dnntest -M eta[:cap]`,
+solver `QAP_DNN_MOMENTUM`): Nesterov momentum on (Y, Z), restart at the
+current point when the combined residual grows by more than eta, back to the
+last true iterate with the cap halved when a certificate falls below the
+running best, plain iterations within 1e-3 |cutoff| of the cutoff. Certificates
+stay valid (they are valid for any multiplier). Iterations to fathom, degree-4
+filter, one core:
+
+| node | ADMM (1.618, 0) | ADMM + momentum 1.05 | PRSM (1.0, 1.0) | PRSM + momentum 1.05 | PRSM + momentum, cap 0.25 |
+|---|---|---|---|---|---|
+| nug20 `1:7,19:11` (m = 18) | 260 | 200 | **160** | 230 | 200 |
+| nug30 `4:10,6:8` (m = 28) | 490 | 370 | **310** | false give-up at 210 | 350 |
+
+On plain ADMM the momentum reproduces Goux's gain (−23%). On top of the
+Peaceman-Rachford step it loses at every cap tried (0.1 to 1.0), and the
+certificate oscillation it causes made the extrapolation give-up rule abandon
+a fathomable node. The two are substitutes, and PRSM is the better one
+(310 against 370 iterations). Kept as an opt-in, off; not run on the 32
+wil50 nodes. Goux's other iteration settings, a full eigendecomposition every
+120 iterations (`-r 120`, `QAP_DNN_REFRESH`) and beta x 0.7 (`-B 0.21`,
+`QAP_DNN_BETA`), use existing parameters and are on the all32 A/B queue
+(`../solvers/accel/run_all32.sh`, configs `d4r120`, `d4B021`).

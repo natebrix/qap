@@ -40,6 +40,9 @@
    -A N            Halpern anchoring with restarts at most N iterations apart
                    (DNNParams::halpern; 0 = off)
    -W N            Anderson acceleration with memory N (DNNParams::anderson; 0 = off)
+   -M eta[:cap]    fast ADMM: Nesterov momentum on (Y, Z), restarted when the combined
+                   residual grows by more than eta (1.05), capped at cap (1.0);
+                   DNNParams::momentum, momentum_cap (0 = off)
    -L N            subspace tracking: the filter's upper end from N power steps
                    instead of the Weyl bound (DNNParams::tight_lam; 0 = Weyl)
    -f              same as -e 1
@@ -229,6 +232,11 @@ int main(int argc, char **argv)
     else if (o == "-s" && more) par.stall_window = atoi(argv[++a]);
     else if (o == "-H" && more) par.hopeless_after = atoi(argv[++a]);
     else if (o == "-R" && more) par.hopeless_gap_ratio = atof(argv[++a]);
+    else if (o == "-M" && more) {   // -M eta[:cap]
+      const char *z = argv[++a], *c = strchr(z, ':');
+      par.momentum = atof(z);
+      if (c) par.momentum_cap = atof(c + 1);
+    }
     else if (o == "-Z" && more) {   // -Z zone[:delay]: confirm a give-up near the cutoff
       const char *z = argv[++a], *c = strchr(z, ':');
       par.hopeless_zone = atof(z);

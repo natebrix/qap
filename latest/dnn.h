@@ -97,6 +97,16 @@ struct DNNParams {
                        // |dY| + |dZ|/beta fell to 0.2x its value after the last
                        // restart, or after `halpern` iterations. Only the iterates
                        // move; certificates are unaffected. 0 = off (default)
+  double momentum;     // > 0: fast ADMM (Goldstein, O'Donoghue, Setzer, Baraniuk
+                       // 2014, as tuned by Goux): Nesterov momentum on (Y, Z),
+                       // restarted at the current point when the combined residual
+                       // grows by more than this factor (1.05); when a certificate
+                       // falls below the running best the iterate reverts to the
+                       // last true one and the momentum cap halves; within
+                       // 1e-3 |cutoff| of the cutoff plain iterations resume.
+                       // Certificates are unaffected (valid for any multiplier).
+                       // 0 = off (default)
+  double momentum_cap; // the largest momentum factor (1.0)
   int anderson;        // > 0: type-II Anderson acceleration of the (Y, Z) iteration
                        // with this memory, safeguarded (memory cleared when the
                        // fixed-point residual doubles). Only the iterates move;
@@ -172,7 +182,8 @@ struct DNNResult {
   int certificates;    // certified evaluations made
   int cert_failures;   // Cholesky checks that failed (bound not updated then)
   int refinements;     // double-precision re-projections (eig_mode != DOUBLE only)
-  int halpern_restarts;   // anchor restarts (par.halpern) or memory resets (par.anderson)
+  int halpern_restarts;   // anchor restarts (par.halpern), memory resets (par.anderson)
+                          // or momentum restarts (par.momentum)
   double margin;       // largest safety margin subtracted from a certified value
   // With par.child_bounds, unless fathomed: child_lb[i * m + j] is a certified
   // lower bound (shift included) on the node with its facility i at location j

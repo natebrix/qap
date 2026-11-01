@@ -643,6 +643,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // a give-up within this fraction of the cutoff must be confirmed 100
 	  // iterations later (Goux's D6), opt-in
 	  if (const char *e = getenv("QAP_DNN_GU_ZONE")) dp.hopeless_zone = atof(e);
+	  // fast ADMM momentum with Goux's safeguards (restart factor), opt-in
+	  if (const char *e = getenv("QAP_DNN_MOMENTUM")) dp.momentum = atof(e);
+	  // ADMM penalty factor (0.3 = default; Goux: x 0.7 with momentum)
+	  if (const char *e = getenv("QAP_DNN_BETA")) dp.beta = atof(e);
+	  // full eigendecomposition every this many iterations (20; Goux: 120)
+	  if (const char *e = getenv("QAP_DNN_REFRESH")) dp.refresh = atoi(e);
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
 	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD) ? new DNNWarm : NULL;

@@ -198,6 +198,8 @@ DNNParams::DNNParams()
   tight_lam = 0;
   halpern = 0;
   anderson = 0;
+  momentum = 0;
+  momentum_cap = 1.0;
   stall_window = 0;
   stall_lb = 0.05;
   stall_gap = 0.5;
@@ -1283,6 +1285,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     Y0.assign(Y, Y + (size_t)n1 * n1);
     Z0.assign(Z, Z + (size_t)n1 * n1);
   }
+  // momentum (par.momentum): Y, Z hold the point the next R-step consumes
+  // (extrapolated), Yt, Zt the last true iterates
+  bool m_on = par.momentum > 0;
+  std::vector<double> Yt, Zt;
+  double m_a = 1, m_c = -1, m_cap = par.momentum_cap > 0 ? par.momentum_cap : 1.0;
+  int m_drops = 0;
+  if (m_on) {
+    Yt.assign(Y, Y + (size_t)n1 * n1);
+    Zt.assign(Z, Z + (size_t)n1 * n1);
+  }
 
   for (int it = 1; it <= par.max_iter; it++) {
     // R-step: W = V'(Y + Z/beta)V, R = P_psd(W), VRV = V R V'
@@ -1346,7 +1358,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       }
       pres2 += dot4(rs, rs, n1);
       dy2 += dot4(ds, ds, n1);
-      if (par.halpern > 0) {
+      if (par.halpern > 0 || m_on) {
         // the Z change of this iteration, in units of Y: gamma1 (Y_old - VRV) +
         // gamma (Y_new - VRV)
         double *dzs = ds + n1;
@@ -1373,6 +1385,24 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
           Z[t] = lam * Z0[t] + (1 - lam) * Z[t];
         }
         h_k++;
+      }
+    } else if (m_on) {
+      // fast ADMM: the combined residual decides between a momentum step
+      // and a restart at the current (true) point
+      const double c = (double)(dy2 + dz2);
+      if (m_c < 0 || c < par.momentum * m_c) {
+        const double an = 0.5 * (1 + sqrt(1 + 4 * m_a * m_a));
+        const double om = std::min((m_a - 1) / an, m_cap);
+        m_a = an; m_c = c;
+        for (size_t t = 0; t < (size_t)n1 * n1; t++) {
+          const double yt = Y[t], zt = Z[t];
+          Y[t] = yt + om * (yt - Yt[t]); Yt[t] = yt;
+          Z[t] = zt + om * (zt - Zt[t]); Zt[t] = zt;
+        }
+      } else {
+        m_a = 1; m_c = c; res.halpern_restarts++;
+        memcpy(Yt.data(), Y, (size_t)n1 * n1 * sizeof(double));
+        memcpy(Zt.data(), Z, (size_t)n1 * n1 * sizeof(double));
       }
     }
     res.iterations = it;
@@ -1414,6 +1444,18 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     }
     if (lbs > -HUGE_VAL) {
       double lb = nextafter(lbs + shift, -HUGE_VAL);   // covers the addition's rounding
+      if (m_on && best > -HUGE_VAL &&
+          (lb < best - 1e-6 * (1 + fabs(best)) ||
+           (std::isfinite(cutoff) && cutoff - std::max(best, lb) < 1e-3 * std::max(1.0, fabs(cutoff))))) {
+        // the certificate fell below the running best (the momentum overshot):
+        // back to the last true iterate, cap halved; or near the cutoff: plain
+        // iterations from the last true iterate for the rest of the node
+        memcpy(Y, Yt.data(), (size_t)n1 * n1 * sizeof(double));
+        memcpy(Z, Zt.data(), (size_t)n1 * n1 * sizeof(double));
+        m_a = 1; m_c = -1;
+        if (lb < best - 1e-6 * (1 + fabs(best))) { m_cap *= 0.5; m_drops++; }
+        else m_on = false;
+      }
       if (lb > best) {
         best = lb;
         if (w.want_red) { red_best = red_cur; lbs_best = lbs; }
