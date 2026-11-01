@@ -292,3 +292,25 @@ children that is about even with their uncut subtrees (47 depth-5 children at
 ~100 s), so a two-stage policy (give-up → converge → cuts, for nodes within
 ~70 of the cutoff at convergence) is the best use of the family at depth 4
 as it stands.
+
+### The cut phase in the search: A/B (`search/run_ab.sh`, cloud Xeon 2.1 GHz, 4 workers, PRSM + degree 4)
+
+| run | nodes | DNN nodes / fathomed | total CPU |
+|---|---|---|---|
+| wil50, subtree below near miss 6 (`-F 20:12,40:28,17:25 -x 0:4:1:300:1`), base | 48 | 48 / 47 | 3,565 s |
+| the same, `QAP_DNN_CUT_ZONE=0.002 QAP_DNN_CUT_GRID=5:10` | **1** | 1 / 0, the phase fathoms the node | **1,576 s** |
+| nug30 `nug_deep.par -x 2:7:1:300:1`, base | 4,528 | 4,518 / 4,355 | 11,748 s |
+| the same, `QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_GRID=5:6 QAP_DNN_CUT_SIDE=1 QAP_DNN_CUT_DELTA=20` | 3,342 | 3,332 / 3,169 (+46 by the phase) | 16,723 s (+42%) |
+
+(`bench/parallel.py` merges statistics through the state files, which do not
+carry the cut-phase counters, so the merged block has no "cut phase" line;
+phase fathoms = fathomed − DNN fathomed.) On the wil50 near-miss subtree the
+phase fathoms the node at depth 3 instead of bounding its 47 children:
+**2.3×**. On nug30 the phase removes 26% of the nodes and costs 42% more
+CPU; Fable's laptop A/B on the refined setting says the same (+34% at every
+depth, break-even restricted to depth 2 with `QAP_DNN_CUT_MAXDEPTH`,
+`../tuning/README.md`). The difference is per-node cost: a nug30 depth-3
+child costs under a second, a wil50 depth-4 child about 75 s. The cut phase
+is a wil50 tool, and the research memo (`research_bound_quality.md`) says
+where its next gains are: the dual method and the certificate's lag, before
+new inequalities.
