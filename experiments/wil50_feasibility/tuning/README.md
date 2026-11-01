@@ -453,3 +453,22 @@ Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
 `QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2`.
 The rule 8 caveat from the nug28 A/B stands: this setting has not been
 re-run on nug28, where rule 8 lost 37%.
+
+## Goux's D6/D8 in the solver: nug25 and nug28 A/B (`goux/run_ab.sh`, cloud Xeon 2.1 GHz, 4 workers, PRSM + degree 4)
+
+| run | setting | nodes | DNN nodes / fathomed | total time (s) |
+|---|---|---|---|---|
+| nug25 base | `nug_deep.par -x 2:5:1:300:1` | 696 | 689 / 658 | 485 |
+| nug25 + `QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003` | | 696 | 689 / 658 | 490 |
+| nug28 base | `nug_deep.par -x 2:5` | **3,500,289** | 1,602 / 1,543 | 7,361 |
+| nug28 + `QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003` | | **1,634** | 1,625 / 1,566 | 6,727 |
+
+nug25: identical trees, +1% time (no last-level miss, no decision changed by
+the confirmation). nug28 is the case D8 was ported for: under one depth-5
+PRSM miss the baseline sends 3.5 million nodes to QPB alone (eigensolver
+README section 8); with the extension those become 23 more DNN nodes, all
+fathomed, and the run is 9% faster. Together with Fable's laptop nug30 run
+(identical tree at H = 200, +4% from the deferred give-ups), the verdict:
+`QAP_DNN_EXT` is a pure safety net that costs nothing where no last-level
+miss exists and removes the QPB tails where one does; `QAP_DNN_GU_ZONE` is
+insurance worth about 4%. Both belong in the production setting.
