@@ -82,6 +82,7 @@ int main(int argc, char **argv)
       cp.freeze_after = atoi(z);
       cp.freeze_iters = c ? atoi(c + 1) : 600;
     }
+    else if (o == "-freeze-last") cp.freeze_best = 0;                     // quiet round from the last round's multipliers, not the best round's
     else if (o == "-prefix") cp.prefix = true;
     else if (o == "-atomic") cp.atomic = true;
     else if (o == "-d" && more) degree = atoi(argv[++a]);
