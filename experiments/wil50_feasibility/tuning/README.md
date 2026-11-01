@@ -472,3 +472,25 @@ fathomed, and the run is 9% faster. Together with Fable's laptop nug30 run
 `QAP_DNN_EXT` is a pure safety net that costs nothing where no last-level
 miss exists and removes the QPB tails where one does; `QAP_DNN_GU_ZONE` is
 insurance worth about 4%. Both belong in the production setting.
+### + Goux's beta and refresh (`refine/nug30_xall_c3t2_d1_b021r120_j8_m2pro.log`)
+
+The `xall_c3t2_d1` setting with `QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120`
+(binary at 2b9d0fd), both changed in one run:
+
+| | `xall_c3t2_d1` | + beta 0.21, refresh 120 |
+|---|---|---|
+| DNN nodes / fathomed | 3,842 / 3,700 | 3,820 / 3,679 |
+| misses depth 2 / 3 / 4 / 5 / 6 | 68 / 45 / 14 / 5 / 1 | 68 / 46 / 14 / 4 / 0 |
+| CPU | 3,632 s | **2,895 s** |
+| wall (8 workers) | 523 s | 419 s |
+
+The tree is the same to within a miss per depth, so the 20% is per-node
+cost: fewer full eigendecompositions (every 120 iterations instead of 20)
+and, with the smaller penalty, no loss of strength. The two were not
+separated; Goux's own setting pairs them. nug30 is now 2,895 CPU s against
+4,904 s this morning (default rules, H = 200) and 8,355 s on Oct 29.
+
+Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
+`QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
+QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120`. Still to do: separate beta from
+refresh, re-run nug28 (rule 8 caveat), and try the same on the wil50 sample.
