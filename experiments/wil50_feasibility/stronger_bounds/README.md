@@ -392,8 +392,8 @@ there either. A caveat seen on nug12: with a handful of cuts violated by
 by hundreds; the halving rule recovers over 8-12 rounds. On wil50 thousands
 of cuts are violated by 0.05-0.3 and the step is well-behaved.
 
-Strength on wil50 (`dual/run_five.sh`, queued behind the clear-miss subtree
-A/B so that at most four compute processes run): nodes 14 (84 short at
+Strength on wil50 (`dual/run_five.sh`, run on the laptop while the cloud's
+four cores hold the clear-miss subtree A/B): nodes 14 (84 short at
 convergence; 8.7 short after theta 0.4 + quiet), 10 (158), d2 (109) and 13
 (182), both arms from the give-up point with 12 rounds of 300 iterations,
 1,000 triangles a round, uncapped Polyak toward best + 50, quiet round of
