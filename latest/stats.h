@@ -106,6 +106,10 @@ public:
   // DNN bound (bnb -x): nodes it was computed for, nodes it fathomed, CPU s
   ctr_type dnn_nodes, dnn_fathoms;
   double dnn_time;
+  // cut phase after a DNN miss (QAP_DNN_CUT_ZONE): nodes, fathoms, CPU s;
+  // not in state files (a resumed run restarts these at 0)
+  ctr_type dnn_cut_nodes, dnn_cut_fathoms;
+  double dnn_cut_time;
 
   ctr_type *n_level;  // number of nodes at each level of the tree
   ctr_type *f_level;  // number of times nodes fathomed

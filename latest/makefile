@@ -17,7 +17,7 @@ CFLAGS = $(CF) -DBNB_STANDALONE -MMD -MP
 DNN ?= 1
 ifeq ($(DNN),1)
 CFLAGS += -DHAVE_DNN
-DNN_OBJ = dnn.o
+DNN_OBJ = dnn.o dnncut.o
 DNN_LIBS = $(DNN_LAPACK)
 endif
 
@@ -71,14 +71,17 @@ comma := ,
 dnn.o: dnn.C dnn.h
 	$(CPP) $(CFLAGS) $(DNN_LAPACK_DEFS) $(INCLUDES) -c dnn.C
 
+dnncut.o: dnncut.C dnncut.h dnn.h
+	$(CPP) $(CFLAGS) $(INCLUDES) -c dnncut.C
+
 dnntest.o: dnntest.C dnn.h
 	$(CPP) $(CFLAGS) $(INCLUDES) -c dnntest.C
 
-dnntest: $(OBJS) dnn.o dnntest.o
-	$(CPP) $(CFLAGS) $(OBJS) dnn.o dnntest.o -o dnntest $(LDLIBS) $(DNN_LAPACK)
+dnntest: $(OBJS) dnn.o dnncut.o dnntest.o
+	$(CPP) $(CFLAGS) $(OBJS) dnn.o dnncut.o dnntest.o -o dnntest $(LDLIBS) $(DNN_LAPACK)
 
 # prototype: the DNN bound strengthened by triangle inequalities (experiments/dnn_cuts)
-dnncuts: $(OBJS) dnn.o
-	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../experiments/dnn_cuts/dnncuts.C $(OBJS) dnn.o -o ../experiments/dnn_cuts/dnncuts $(LDLIBS) $(DNN_LAPACK)
+dnncuts: $(OBJS) dnn.o dnncut.o
+	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../experiments/dnn_cuts/dnncuts.C $(OBJS) dnn.o dnncut.o -o ../experiments/dnn_cuts/dnncuts $(LDLIBS) $(DNN_LAPACK)
 
 -include $(wildcard *.d)

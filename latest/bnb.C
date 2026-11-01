@@ -36,6 +36,7 @@ int dnn_hopeless_after = 0;          // DNNParams::hopeless_after; 0 = never giv
 int dnn_warm = 0;                    // start a child's DNN from its parent's (1) or not (0)
 #ifdef HAVE_DNN
 #include "dnn.h"
+#include "dnncut.h"
 static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
 #endif
 #include <math.h>
@@ -649,9 +650,19 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  if (const char *e = getenv("QAP_DNN_BETA")) dp.beta = atof(e);
 	  // full eigendecomposition every this many iterations (20; Goux: 120)
 	  if (const char *e = getenv("QAP_DNN_REFRESH")) dp.refresh = atoi(e);
+	  // cut phase (QAP_DNN_CUT_ZONE, experiments/wil50_feasibility/stronger_bounds):
+	  // when the uncut bound ends within this fraction of |incumbent| of the
+	  // cutoff, regional triangle cuts from the node's own iterate, rounds of
+	  // QAP_DNN_CUT_ITERS iterations with QAP_DNN_CUT_K new cuts each, Polyak
+	  // step toward best + QAP_DNN_CUT_DELTA, stopping at the cutoff. Regions:
+	  // the prefixes of the QAP_DNN_CUT_GRID=R:C grid over the original indices
+	  // of side QAP_DNN_CUT_SIDE (0: the first matrix; wil50 5:10, nug30 5:6
+	  // on side 1). Every value is certified; the children keep the uncut
+	  // multiplier.
+	  static const double cut_zone = getenv("QAP_DNN_CUT_ZONE") ? atof(getenv("QAP_DNN_CUT_ZONE")) : 0;
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
-	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD) ? new DNNWarm : NULL;
+	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD || cut_zone > 0) ? new DNNWarm : NULL;
 	  const DNNWarm *sp = NULL;
 	  int di, dj;
 	  if (dnn_warm && node.warm && node.warm->dnn &&
@@ -666,6 +677,30 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  if (r.status == DNN_FATHOMED) {
 	    dnn_fathomed = true;
 	    stats->dnn_fathoms++;
+	  }
+	  if (!dnn_fathomed && cut_zone > 0 && save && save->m == m && r.lb > -HUGE_VAL &&
+	      (inc - DELTA) - r.lb <= cut_zone * std::max(1.0, fabs(inc))) {
+	    DNNCutParams cp;
+	    if (const char *e = getenv("QAP_DNN_CUT_GRID")) sscanf(e, "%d:%d", &cp.grid_rows, &cp.grid_cols);
+	    if (const char *e = getenv("QAP_DNN_CUT_SIDE")) cp.side = atoi(e);
+	    if (const char *e = getenv("QAP_DNN_CUT_ROUNDS")) cp.rounds = atoi(e);
+	    if (const char *e = getenv("QAP_DNN_CUT_ITERS")) cp.iters = atoi(e);
+	    if (const char *e = getenv("QAP_DNN_CUT_K")) cp.kcuts = atoi(e);
+	    if (const char *e = getenv("QAP_DNN_CUT_DELTA")) cp.delta = atof(e);
+	    if (cp.grid_rows == 0) cp.prefix = true;
+	    std::vector<int> free_orig;
+	    for (int a = 0; a < n; a++)
+	      if ((cp.side == 0 ? node.p[a] : node.pinv[a]) == NONE) free_orig.push_back(a);
+	    DNNWarm wc = *save;
+	    DNNCutResult cr = dnn_cut_rounds(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp,
+	                                     free_orig, n, cp, &wc, r.lb);
+	    stats->dnn_cut_nodes++;
+	    stats->dnn_cut_time += cr.cpu;
+	    node.bound = std::max(node.bound, cr.best_lb);
+	    if (cr.status == DNN_FATHOMED) {
+	      dnn_fathomed = true;
+	      stats->dnn_cut_fathoms++;
+	    }
 	  }
 	  if (save && !dnn_fathomed && save->m == m &&
 	      (param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD)) {

@@ -22,6 +22,7 @@ QAPStatistics::QAPStatistics()
   enumerate = 0;
   fw_iter = 0;
   dnn_nodes = 0;  dnn_fathoms = 0;  dnn_time = 0.0;
+  dnn_cut_nodes = 0;  dnn_cut_fathoms = 0;  dnn_cut_time = 0.0;
 
   n_level = NULL;
   f_level = NULL;
@@ -56,6 +57,7 @@ QAPStatistics::QAPStatistics(int n_in,int m_in)
   enumerate = 0;
   fw_iter = 0;
   dnn_nodes = 0;  dnn_fathoms = 0;  dnn_time = 0.0;
+  dnn_cut_nodes = 0;  dnn_cut_fathoms = 0;  dnn_cut_time = 0.0;
 
   n_level = new_zero<ctr_type>(n+1);
   f_level = new_zero<ctr_type>(n+1);
@@ -93,6 +95,9 @@ QAPStatistics::QAPStatistics(const QAPStatistics &s)
   this->dnn_nodes = s.dnn_nodes;
   this->dnn_fathoms = s.dnn_fathoms;
   this->dnn_time = s.dnn_time;
+  this->dnn_cut_nodes = s.dnn_cut_nodes;
+  this->dnn_cut_fathoms = s.dnn_cut_fathoms;
+  this->dnn_cut_time = s.dnn_cut_time;
   this->fw_iter = s.fw_iter;
 
   this->n_level = copy_array<ctr_type>(s.n_level,s.n+1);
@@ -142,6 +147,7 @@ void QAPStatistics::clear()
   enumerate = 0;
   fw_iter = 0;
   dnn_nodes = 0;  dnn_fathoms = 0;  dnn_time = 0.0;
+  dnn_cut_nodes = 0;  dnn_cut_fathoms = 0;  dnn_cut_time = 0.0;
 
   for(int i=0; i<=n; i++)
     {
@@ -199,6 +205,9 @@ void QAPStatistics::print_default(std::ostream& outs,int print_level) const
   if (dnn_nodes > 0)
     outs << "     DNN bound: " << dnn_nodes << " nodes, " << dnn_fathoms
 	 << " fathomed, " << dnn_time << " s" << std::endl;
+  if (dnn_cut_nodes > 0)
+    outs << "     cut phase: " << dnn_cut_nodes << " nodes, " << dnn_cut_fathoms
+	 << " fathomed, " << dnn_cut_time << " s" << std::endl;
 
   if (print_level>0) {
     printf("\n");
@@ -495,6 +504,9 @@ void QAPStatistics::merge_stats(QAPStatistics *new_stats,
   dnn_nodes += new_stats->dnn_nodes;
   dnn_fathoms += new_stats->dnn_fathoms;
   dnn_time += new_stats->dnn_time;
+  dnn_cut_nodes += new_stats->dnn_cut_nodes;
+  dnn_cut_fathoms += new_stats->dnn_cut_fathoms;
+  dnn_cut_time += new_stats->dnn_cut_time;
   
   root_bound = new_stats->root_bound;
 
