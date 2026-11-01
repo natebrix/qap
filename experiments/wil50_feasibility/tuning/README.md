@@ -361,3 +361,33 @@ depth-7 miss for the extension to act on, and the give-up confirmation
 changed no decision. CPU 5,088 s against 4,904 s; part of that is the
 deferred give-ups' extra iterations, part a few minutes of nug20 tests that
 shared the machine. This is the reference for the rule 9 runs below.
+
+## Rule 9 A/B (`lines/nug2{8,30}_rule9_H200_d6d8_j8_m2pro.log`, control `lines/nug28_ctl_H200_d6d8_j8_m2pro.log`)
+
+Rule 9 (commit ae5595f): lookahead restricted to rule 8's two lines, the
+marginal row and the marginal column, chosen by the children's QPB bounds.
+Same flags as the D6/D8 baseline.
+
+| | nug28 rules 4/7/6 | nug28 rule 8 | nug28 rule 9 | nug30 rules 4/7/6 | nug30 rule 8 | nug30 rule 9 |
+|---|---|---|---|---|---|---|
+| DNN nodes / fathomed | 1,674 / 1,613 | 2,928 / 2,813 | 1,938 / 1,866 | 4,519 / 4,356 | 3,935 / 3,796 | 4,346 / 4,190 |
+| depth-3 misses | 29 | 53 | 32 | 85 | 59 | 73 |
+| CPU | 1,105 s | 1,546 s | 1,190 s (+8%) | 5,088 s | 4,133 s | 4,450 s (-13%) |
+
+(rule 8 rows from the runs without D6/D8; the flags did not change the tree.)
+
+Rule 9 hedges as intended: it repairs most of rule 8's nug28 loss (+8%
+instead of +37%) and keeps most of its nug30 gain (-13% instead of -16%,
+against the 5,088 s baseline), but it beats the default rules on neither
+instance decisively. On nug instances full lookahead (use_best 30 at depth
+<= 2 scores nearly every line) is already a good selector, and a shortlist of
+two lines can only match it by luck. On wil50 the picture was the reverse:
+lookahead's own line was 1.0 to 1.6x the best and the marginal lines were
+the top two at all three parents. So: keep rules 4/7/6 for nug-type
+instances; for wil50 the evidence favours rule 8 or 9, and the decisive
+test is wil50 itself, a depth-4 (and deeper) re-sample under rule 8, rule
+9 and eccentric from the same depth-3 misses, bounding every child with the
+same budget as lines.py did. That is hours of laptop time or a cloud job.
+
+Untried: adding the two marginal lines to lookahead's candidate set at the
+depth >= 3 blocks (where use_best is 3 or 5), instead of replacing it.
