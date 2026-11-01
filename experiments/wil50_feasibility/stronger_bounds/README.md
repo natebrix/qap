@@ -107,10 +107,80 @@ bound was still moving, and the multiplier update is the crudest possible
 (uniform Polyak step, no cut deletion, 1000 cuts per round); neither the
 ceiling of the family nor its price is established yet.
 
-## Step 2: the 14 misses (`run_misses.sh`, logs in `misses/`)
+## Step 2: the 14 misses (`run_misses.sh`, logs in `misses/`, table by `summarize_misses.py`)
 
-PENDING
+The `polyak` protocol of node 1 on each of the 14 misses of
+`../tuning/giveup/all32.txt` (ids = line numbers): 1,500 uncut PRSM
+iterations, then up to 8 rounds of 700 iterations, 1,000 new regional
+triangles per round entering at multiplier 0, Polyak step toward best + 100;
+the run stops when the certified bound clears the cutoff 48,814.05. One core
+per node, four at a time, Xeon 2.1 GHz. (Three container restarts killed runs
+in flight; the reruns reproduced the killed runs' rounds to the decimal, the
+partial logs are in `misses/partial/`.)
+
+| node | uncut, 1,500 it. | short | best certified | gain | round | fathomed | CPU s |
+|---|---|---|---|---|---|---|---|
+| 1 | 48,409.3 | 404.8 | 48,530.2 | +121.0 | 7 | no | 4,220 |
+| 2 | 48,611.8 | 202.2 | 48,700.5 | +88.7 | 7 | no | 4,167 |
+| 3 | 48,573.3 | 240.7 | 48,642.1 | +68.8 | 8 | no | 4,024 |
+| 4 | 48,586.1 | 228.0 | 48,689.0 | +102.9 | 8 | no | 4,236 |
+| 5 | 48,498.4 | 315.7 | 48,594.6 | +96.2 | 7 | no | 4,137 |
+| 6 | 48,758.0 | 56.0 | **48,814.06** | +56.0 | 5 | **yes** | 3,011 |
+| 7 | 48,611.4 | 202.6 | 48,712.2 | +100.7 | 7 | no | 3,998 |
+| 8 | 48,598.1 | 216.0 | 48,674.8 | +76.7 | 8 | no | 3,965 |
+| 9 | 48,770.4 | 43.6 | **48,814.07** | +43.6 | 7 | **yes** | 3,736 |
+| 10 | 48,655.9 | 158.2 | 48,730.5 | +74.6 | 7 | no | 4,045 |
+| 13 | 48,632.4 | 181.7 | 48,727.7 | +95.3 | 7 | no | 3,944 |
+| 14 | 48,729.9 | 84.1 | 48,812.3 | +82.4 | 8 | no (1.75 short) | 3,976 |
+| 15 | 48,753.5 | 60.6 | **48,814.06** | +60.6 | 5 | **yes** | 2,850 |
+| 16 | 48,758.5 | 55.6 | **48,814.05** | +55.6 | 7 | **yes** | 3,681 |
+
+* **Near misses (43–84 short at convergence): 4 of 5 fathomed**, in rounds 5–7
+  (5,000–6,400 iterations). Node 14, 84 short, ends 1.75 short after round 8,
+  still rising 3 per round.
+* **Clear misses (158–405 short): +69 to +121, median +95**; none fathoms. The
+  gain does not shrink with the gap (node 1, the worst, gained the most).
+* The uncut 1,500-iteration bound is the converged value (node 1: 7,100
+  iterations buy 0.2), so `first_lb` is a fair control; every gain is the cuts.
+* **Cost**: 4,000–4,200 CPU-s per clear miss, 2,850–3,740 per fathom, against
+  100–175 s for the same node under the search's give-up rule: 20–40×. The
+  Polyak step overshoots on some nodes (node 8: −341 in round 3 and three
+  rounds to recover; node 3: −294; node 7: −171), and 700 iterations per
+  round were chosen for safety, not tuned.
 
 ## Assessment
 
-PENDING
+The regional triangle cuts are the first thing that moves the *strength* of
+the wil50 bound rather than its speed, and they move it on every node tried:
++95 at the median, three quarters of the ~130 units that one level of the
+tree is worth (`../NOTES.md` section 5). Where the uncut bound is within
+~85 of the cutoff the node fathoms outright: these depth-3 near misses are
+what the depth-4 children of the clear misses look like, so the cuts should
+move a large fraction of the depth-4 frontier up one level and, on the worst
+tenth (node-1-like, 400 short), save the depth-6 tail. Modelled on the
+`NOTES.md` tree that is 2–3× fewer node-equivalents, not the 47× a full
+level gives: +95 against +130 sits on the threshold, and the outcome depends
+on the gain at depths 4 and 5, which has not been measured.
+
+At today's cost the cuts do not pay: 20–40× per node for 2–3× fewer nodes.
+Two things decide whether they will, in this order:
+
+1. **Cost.** Round 2 already gives +50 at 2,900 iterations; the warm-started
+   rounds probably need far fewer than 700 iterations, and a damped step
+   (smaller delta, or a step on the violated cuts only) would avoid the
+   overshoot rounds. A protocol at ~3× the give-up cost on the marginal
+   nodes looks reachable and is the next experiment: on nodes 6, 9, 15, 16,
+   the same gain with `-i 200`–`300` and a smaller delta, measured in CPU.
+2. **Selective use.** Run the cuts only where the uncut bound lands within
+   ~100 of the cutoff (the converged near misses, and depth-4 children of
+   clear misses after their give-up); branch the far ones as now. In the
+   search that is a second phase after the give-up rule fires: if the gap at
+   the give-up is below a threshold, add cuts instead of branching.
+
+Then the memo's next inequalities on the same regions (mixed-region and box
+inequalities, selective triple consistency, the regional second-order moment
+block), each worth testing on the same 14 nodes: +30–50 more at the median
+would make the full level. The exact fit of wil50's data to these regions
+(Manhattan distance = 13 threshold indicators) is why this family works
+where the atomic triangles did nothing (+0.2 on nug30); sko49 and tho40
+share the grid structure, tai instances do not.
