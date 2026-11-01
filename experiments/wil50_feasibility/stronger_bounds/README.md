@@ -184,3 +184,41 @@ would make the full level. The exact fit of wil50's data to these regions
 (Manhattan distance = 13 threshold indicators) is why this family works
 where the atomic triangles did nothing (+0.2 on nug30); sko49 and tho40
 share the grid structure, tai instances do not.
+
+## Step 3: the cost of a fathom (`cost/run_cost.sh`, table by `cost/summarize_cost.py`)
+
+The four near misses the cuts fathom, under cheaper protocols than step 2's
+(1,500 uncut iterations, then 700-iteration rounds). Iterations and CPU to
+the first certified bound above the cutoff; one core, four at a time:
+
+| protocol | 6 | 9 | 15 | 16 | fathomed | fathoms: mean iterations, CPU |
+|---|---|---|---|---|---|---|
+| step 2: 1,500 uncut, 700-iteration rounds, delta 100 | 5,000 | 6,400 | 5,000 | 6,400 | 4 of 4 | 5,700, 3,320 s |
+| 1,500 uncut, 300-iteration rounds, delta 100 | 3,900 | 3,000 | 3,900 | 3,600 | 4 of 4 | 3,600, 2,060 s |
+| the same with a damped step, delta 30 | 4,200 | 3,600 | 0.003 short at 4,500 | 1.3 short | 2 of 4 | 3,900, 2,310 s |
+| **from the give-up point**: 400 uncut, 300-iteration rounds, delta 50 | **2,500** | **1,900** | **3,400** | 0.003 short at 4,000 | 3 of 4 | **2,600, 1,510 s** |
+| from the give-up point, 150-iteration rounds | no (48,795) | no (48,813) | no | no | 0 of 4 | – |
+
+* Shorter rounds pay down to about 300 iterations: the warm-started PRSM
+  does not need 700 per round (−37% CPU at 4 of 4). At 150 the certificate
+  cannot follow the cuts: the primal sits 80–100 above the cutoff while the
+  certified bound stalls below it, so nothing fathoms.
+* Damping the step avoids the overshoot rounds but costs more rounds than it
+  saves; delta 50–100 is right.
+* Starting from the give-up point, where the search would hand the node
+  over, is the realistic protocol: **1,900–3,400 iterations in all for a
+  fathom, 1,100–2,000 CPU-s**, against about 250 s for the give-up itself
+  (360–480 iterations under H = 300): **4–8× the give-up budget**, down from
+  20–40× in step 2. Node 16 ends 0.003 below the cutoff twice (the same
+  margin it fathomed by in step 2); it would fathom with one more round.
+
+What this buys in the search, on the `NOTES.md` tree: the dominant work is
+the ~8e5 depth-4 children of the clear misses, each a near miss that today
+costs its give-up plus 47 depth-5 children (about 4,800 CPU-s). A cut phase
+at 1,500 s that fathoms three of four of them replaces that with about
+2,800 s per node; four of four, 1,600 s. That is **1.7–3× on the dominant
+class** at the cost and gain measured here, provided the depth-4 gains match
+the depth-3 ones, which is the next thing to measure (the 16 depth-4
+children of nodes 6 and 9 in `../tuning/giveup/all32.txt`, ids 17–32, all of
+which fathom uncut in 170–690 iterations, are not the right sample: a depth-4
+sample under the clear misses is).
