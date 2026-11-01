@@ -16,6 +16,7 @@ DNNCutParams::DNNCutParams()
   grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
   stall_rounds = 0; stall_factor = 3.0;
   cap_at_cutoff = 1; freeze_after = 0; freeze_iters = 0; freeze_if_primal_above = 0;
+  freeze_best = 1;
 }
 
 namespace {
@@ -191,6 +192,9 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   double prev_lb = -HUGE_VAL, theta_cur = cp.theta;
 
   double last_primal = HUGE_VAL;
+  std::vector<double> best_mu;   // the multipliers of the best round's solve (freeze_best)
+  DNNWarm best_save;
+  double best_mu_lb = -HUGE_VAL;
   // one solve of the modified problem with the current multipliers
   auto solve = [&](int r, int iters) {
     std::fill(Ladd.begin(), Ladd.end(), 0.0);
@@ -215,6 +219,12 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     if (r == 0) { out.first_lb = first_lb = res.lb; }
     else { out.rounds++; out.iterations += res.iterations; }
     out.best_lb = std::max(out.best_lb, res.lb);
+    if (cp.freeze_best && res.lb > best_mu_lb) {
+      best_mu_lb = res.lb;
+      best_mu.resize(cuts.size());
+      for (size_t t = 0; t < cuts.size(); t++) best_mu[t] = cuts[t].mu;
+      best_save = save;
+    }
     out.status = res.status;
     last_primal = res.primal;
     return res;
@@ -343,6 +353,11 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   // certificate catches up with the Lagrangian value of the final multipliers
   if (cp.freeze_iters > 0 && out.best_lb <= cutoff && !cuts.empty() &&
       (!cp.freeze_if_primal_above || last_primal > cutoff)) {
+    if (cp.freeze_best && !best_mu.empty() && best_mu_lb > -HUGE_VAL) {
+      // back to the best round's multipliers and iterate (cuts added later keep mu 0)
+      for (size_t t = 0; t < cuts.size(); t++) cuts[t].mu = t < best_mu.size() ? best_mu[t] : 0.0;
+      *warm = best_save;
+    }
     DNNResult res = solve(1, cp.freeze_iters);
     if (cp.verbose)
       printf("quiet round  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  active %d\n",

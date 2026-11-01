@@ -60,6 +60,10 @@ struct DNNCutParams {
                       // trails the Lagrangian primal by 25-90 at 300-iteration rounds
   int freeze_if_primal_above;  // 1: the quiet round only when the last primal value is
                       // above the cutoff (the search's use); 0: always (0)
+  int freeze_best;    // 1 (default): the quiet round runs from the multipliers (and
+                      // iterate) of the best round, not the last one: a last-round
+                      // overshoot otherwise freezes a bad multiplier (laptop stepA_2,
+                      // stepA_14, short4_d1 in stronger_bounds/laptop/dual). 0: the last
   int stall_rounds;   // > 0: after this many cut rounds, stop when the gap to the
                       // cutoff exceeds stall_factor times the gain of the last
                       // stall_rounds rounds (the gain comes early: on wil50 depth-4
