@@ -399,3 +399,28 @@ convergence; 8.7 short after theta 0.4 + quiet), 10 (158), d2 (109) and 13
 1,000 triangles a round, uncapped Polyak toward best + 50, quiet round of
 1,500 from the best round's multipliers; the five arm adds 500 five-point
 cuts a round. Results below when they finish.
+
+Results (laptop, Accelerate, 4 jobs at a time, Nov 1; cutoff 48,814.05;
+`dual/{tri,five}_<id>.log`):
+
+| node | first lb | tri: best Polyak round | tri: after quiet | five: best Polyak round | five: after quiet | five − tri |
+|---|---|---|---|---|---|---|
+| 14 | 48,692.1 | +85.8 | **fathomed** (+122.0, 740 quiet iters) | +100.8 | **fathomed** (+122.7, 490 quiet iters) | 0 |
+| 10 | 48,612.9 | +85.2 | +131.0 (70.1 short) | +81.7 | +131.4 (69.7 short) | +0.4 |
+| d2 | 48,656.9 | +73.7 | +133.0 (24.2 short) | +69.2 | +125.0 (32.1 short) | −7.9 |
+| 13 | 48,596.8 | +105.5 | +158.6 (58.6 short) | +131.2 | +175.1 (42.1 short) | +16.5 |
+
+Reading: a wash at the certified bound (mean +2.3, range −8 to +17 over
+four nodes), so the 5-point family does not move the ceiling of the Polyak
+protocol on wil50. Node 14 fathoms in both arms with this protocol (12 rounds
+of 1,000 triangles + quiet from the best round), which is better than the
+8.7-short result of theta 0.4 + quiet in step 6. The five arm's Polyak rounds
+are noisier (round-1 gains of −16, −121, −13, −1 against +32..+40 for the
+triangles: the first step toward best + 50 is over-sized with 500 extra cuts
+violated by up to 0.15), and the best Polyak round is better for five on 14
+and 13, worse on 10 and d2, so the quiet round is doing most of the work in
+both arms. Per-round CPU is the same (55-70 s at 300 iterations; separation
+over all 5-subsets is not visible against the eigensolver), total per node
+1,050-1,330 s. Not worth carrying into the search phase at 500 a round; a
+larger quota or a smaller first step would be the next test if the family is
+pursued, but the memo's ranking (dual method first) stands.
