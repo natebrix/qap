@@ -331,12 +331,12 @@ uncut iterations) unless stated.
 | experiment | nodes | result |
 |---|---|---|
 | **uncapped target**, 300-iteration rounds, delta 50 | near misses 6, 9, 15, 16 | **4 of 4 fathom in 1,000-2,800 iterations** (step 3: 1,900-3,400 and one miss at 4,000); the bounds cross the cutoff cleanly (48,814.3-48,815.5) instead of crawling |
-| | node 14 (84 short) | +84, ends 5 short (step 3: +77, 7.6 short) |
+| | node 14 (84 short) | +84, ends 37.6 short (step 3: +77, 61 short) |
 | **quiet round** (600 it.) after the 150-iteration protocol that fathomed nothing in step 3 | 6, 9, 15, 16 | **4 of 4 fathom**: the certificate goes from 48,785-48,813 to 48,814.5-48,817.3 in the one frozen round |
 | quiet round after 12 capped 300-iteration rounds | depth-4 children 1, 2, 4, 11 (62, 109, 66, 66 short) | +35, +35, +17, 0 over the capped run; child 1 ends **11.5 short**, child 2 47, child 4 40, child 11 60 (its last round was an overshoot, so the frozen multipliers were poor); none fathoms |
 | 5,000 cuts per round instead of 1,000 (step-2 protocol) | clear misses 2, 7 | +65 and +98 against +89 and +101: no gain, the Polyak step gets coarser |
 | theta 0.4 instead of 1 (step-2 protocol) | overshooters 3, 8 | +75 and +74 against +69 and +77: the -337 and -389 rounds disappear, the eight-round value barely moves |
-| both fixes together (uncapped + quiet round) | depth-4 children 1, 4, 11 and node 14 | `dual/both_*.log` (see below) |
+| both fixes together (uncapped + quiet round) | depth-4 children 1, 4, 11 and node 14 | identical to the quiet-round-only runs on the children (the cap is inactive while best + delta is below the cutoff, i.e. more than 50 short): child 1 **11.5 short**, child 4 40, child 11 60; node 14 goes from 37.6 short (uncapped alone) to **8.2 short** with the quiet round (+113.8 over the give-up point). None fathoms. The rounds still lose 2-3 overshoots each (-69 to -138), which is what theta 0.4 removes; theta 0.4 + quiet round on child 1 and node 14 is the next run |
 
 The two fixes are now the search's cut-phase defaults (`bnb.C`:
 `cap_at_cutoff = 0`, a 600-iteration quiet round when the phase ends
