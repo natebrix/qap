@@ -350,3 +350,17 @@ moves the depth-4 62-66-short children to within 12-40 of the cutoff with
 the present cuts. The pool size and the step factor are not the limit; the
 memo's next items (a bundle method on the rounds, then the 5-point count
 inequalities) are.
+
+**Laptop, same day (`laptop/README.md`):** with the quiet round started from
+the *best* round's multipliers (`DNNCutParams::freeze_best`, now the default;
+from the last round's an overshoot freezes a bad multiplier) and 900-1,600
+quiet iterations, **four of four depth-4 children 62-99 short at convergence
+fathom** (d1, d4, d6, d11; +117 to +134 each, a full level) at 690-1,050
+laptop CPU-s, about half of their 46 uncut depth-5 children: **about 2x on
+the dominant class**. In the search, the cut phase uncapped with the quiet
+round is 4.5-7x on the depth-3 near misses 6, 9, 15 (node 16 did not fathom
+uncapped and is the one to re-test with `freeze_best`). The zone has to be
+about 0.003 to reach children 117-134 short at the give-up point, and the
+stall rule carries the failures in that band (600-700 CPU-s each). Next: a
+clear-miss subtree in the search with zone 0.003 (`search/run_ab2.sh`), the
+end-to-end test on the dominant class.
