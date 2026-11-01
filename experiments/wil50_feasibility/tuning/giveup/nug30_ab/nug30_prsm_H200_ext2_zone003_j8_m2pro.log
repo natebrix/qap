@@ -1,0 +1,30 @@
+[Jan 1, 2023]
+nathan-brixiuss-MacBook-Pro.local
+parameters file: PARAM/nug_deep.par
+DNN bound at depths 2-7, relative gap <= 1, give up after 200 iterations (0 = never), warm-started from the parent, extended 2 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, Accelerate
+incumbent: 6124
+max_depth has been set to 0
+state file: /var/folders/68/8jygwsqs5qj02jbg458c7t9m0000gn/T/qap-par-25leusv7/frontier.state
+input file: /Users/nathan_brixius/dev/qap/qaplib/nug30.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	4	150/100/25	30	30	
+0.12	4	7	150/100/12	3	30	
+0.05	6	6	100/ 50/--	--	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+read symmetry info from ./SYM/nug30.sym
+parallel: frontier at depth 0 has 9 open nodes; 8 workers
+parallel: checkpoint with 188 open nodes, 3880 nodes so far -> latest/nug30_d6d8.ckpt
+  ---- RESULTS ----
+
+    Total Time: 5088.137810 seconds 
+         Nodes: 4529 / 4356 / 0
+    root bound: 5336.5829580034342
+ fw iterations: 1494475
+     DNN bound: 4519 nodes, 4356 fathomed, 5060.59 s
+
+parallel: 8 workers, 474 tasks, 26 steals, wall 718.96 s, CPU 5088.14 s (x7.08), best objective 6124
+parallel: final statistics -> latest/nug30_d6d8.ckpt

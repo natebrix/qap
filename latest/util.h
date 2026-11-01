@@ -80,6 +80,9 @@ const int BRANCH_LOOKAHEAD_ECC = 7; // lookahead on eccentric columns + best row
 const int BRANCH_DNN_XBAR = 8;    // the row or column whose DNN primal marginals are most
                                   // concentrated (largest sum x_ij^2); lookahead (rule 4)
                                   // at nodes where no DNN bound ran (select_ind_dnn_xbar)
+const int BRANCH_XBAR_LOOKAHEAD = 9; // lookahead between the two rule-8 lines only (the
+                                  // marginal row and the marginal column), chosen by the
+                                  // children's QPB bounds; lookahead where no DNN bound ran
 const int BRANCH_FIXED = -1;
 
 
