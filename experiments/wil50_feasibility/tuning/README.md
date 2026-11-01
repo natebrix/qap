@@ -317,3 +317,36 @@ negligible next to a DNN bound at these depths, and on wil50 the mean child
 QPB ranked lines at +0.70 to +0.88, so it would separate the two marginal
 lines. The decisive test for wil50 is a depth-4 re-sample under rule 8 (the
 tree estimate in ../NOTES.md section 4), which does not depend on nug28.
+
+
+# Two settings ported from Jean-Pierre Goux's nug30 solver (Nov 1 2026)
+
+J.-P. Goux's solver (github.com/jpgoux/nug30, journal items D6 and D8)
+reaches nug30 in 44 min 39 s on a 4-core 2.1 GHz Xeon with a set of changes
+tuned on nug25 to leave the tree unchanged. Two of them are policies rather
+than tunings and are now in `bnb.C`/`dnn.C` as opt-ins:
+
+- `QAP_DNN_EXT=k` (D8): a node below the last DNN depth whose parent's DNN
+  bound ran and did not fathom keeps the DNN bound, k levels down, warm-started
+  as usual; under a fathomed or QPB-only node nothing changes. The flag
+  travels with the parent's `WarmStart`, so not across a checkpoint restore.
+  His motivating case: a depth-7 give-up at 6,116.7 produced 345,000 QPB nodes
+  (99.8% of his tree); ours: 580,000 QPB nodes under two depth-7 misses in the
+  laptop nug30 run, 3.5 million under a depth-5 miss on nug28 (../../eigensolver
+  README section 8).
+- `QAP_DNN_GU_ZONE=z` (D6; `dnntest -Z z[:d]`): a give-up decided while the
+  certified bound is within z|cutoff| of the cutoff is deferred d = 100
+  iterations and must then fire again. His lost fathoms under faster settings
+  were all give-ups within 0.3% of the cutoff; so were ours under H = 150
+  (section 1 above).
+
+Functional checks (cloud Xeon, machine loaded by the regional-cut runs):
+
+| check | without | with |
+|---|---|---|
+| nug20 `default.par -u 2570 -x 2:2:1:300:1`, PRSM + degree 4 | 84,592 nodes (DNN 97 / 95 fathomed), 36.1 s | `QAP_DNN_EXT=3`: **141 nodes** (DNN 133 / 131), 26.6 s: the 36 depth-3 children of the two misses all fathom |
+| wil50 node 12 `38:40,40:27,18:29`, `dnntest -H 150` (a false give-up) | gives up at 170 at 48,703.4 | `-Z 0.003`: deferred at 170 to 270, **fathomed at 280** (48,814.9) |
+
+`make test` and `make dnncheck` pass with the port. A/B in the solver:
+`goux/run_ab.sh` (nug25 `-x 2:5:1:300:1` and nug28 `-x 2:5` with and without
+`QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003`, 4 workers); nug30 on the laptop.

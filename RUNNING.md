@@ -255,6 +255,18 @@ chosen for the CPU, so node counts with `-x` can differ between machines
 `make dnncheck` validates the bound itself; `python3 tests/brute_force.py
 --solver-args "-x 0:20"` checks it inside the search.
 
+Opt-in DNN settings, as environment variables read by `bnbdrv -x` (all off
+by default; each has its experiment report): `QAP_DNN_GAMMA1=1.0
+QAP_DNN_GAMMA=1.0` the Peaceman-Rachford step and `QAP_DNN_CHEB=4` the
+filter degree (experiments/eigensolver: 1.5x less DNN CPU on nug30);
+`QAP_DNN_TIGHT_LAM=2` with `QAP_DNN_CHEB=3` (degree-4 strength at 85% of the
+cost); `QAP_DNN_GAP_RATIO=0.65` the gap-ratio give-up rule
+(experiments/wil50_feasibility/tuning); `QAP_DNN_EXT=20` keeps the DNN bound
+up to 20 levels below a last-level miss instead of handing its subtree to
+QPB alone, and `QAP_DNN_GU_ZONE=0.003` makes a give-up within 0.3% of the
+cutoff wait 100 iterations for confirmation (both from J.-P. Goux's nug30
+solver; experiments/wil50_feasibility/tuning/goux).
+
 Branching at the DNN depths is not a lever. The gap thresholds in
 `nug_deep.par` send nearly every depth-3 and depth-4 node (QPB relative gap
 about 0.02) to the last block, rule 2, so changing the depth 3-4 block does
