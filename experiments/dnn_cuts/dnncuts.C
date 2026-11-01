@@ -75,6 +75,7 @@ int main(int argc, char **argv)
         fprintf(stderr, "bad -grid R:C\n"); return 1; }
     }
     else if (o == "-side" && more) cp.side = atoi(argv[++a]);
+    else if (o == "-stall" && more) cp.stall_rounds = atoi(argv[++a]);   // stop rule (dnncut.h), 0 = off
     else if (o == "-prefix") cp.prefix = true;
     else if (o == "-atomic") cp.atomic = true;
     else if (o == "-d" && more) degree = atoi(argv[++a]);

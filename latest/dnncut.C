@@ -14,6 +14,7 @@ DNNCutParams::DNNCutParams()
   rounds = 12; iters = 300; first_iters = 0; kcuts = 1000;
   delta = 50; theta = 1.0; mu0 = 0;
   grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
+  stall_rounds = 0; stall_factor = 3.0;
 }
 
 namespace {
@@ -176,8 +177,9 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 
   DNNCutResult out;
   out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
-  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0;
+  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0;
   out.nregions = (int)regions.size();
+  std::vector<double> best_hist;   // best after each round (index = round)
   if (regional && regions.empty()) return out;
 
   std::vector<Cut> cuts;
@@ -300,6 +302,16 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     if (solved && res.status == DNN_FATHOMED) break;
     if (r == cp.rounds) break;
     if (cuts.empty()) break;
+    best_hist.push_back(out.best_lb);
+    if (cp.stall_rounds > 0 && r >= cp.stall_rounds && std::isfinite(cutoff)) {
+      const double gain = out.best_lb - best_hist[r - cp.stall_rounds];
+      if (cutoff - out.best_lb > cp.stall_factor * std::max(gain, 0.0)) {
+        out.stalled = 1;
+        if (cp.verbose) printf("stalled: gap %.4f, gain of the last %d rounds %.4f\n",
+                               cutoff - out.best_lb, cp.stall_rounds, gain);
+        break;
+      }
+    }
     // Polyak subgradient step on all cuts toward the target; the step factor
     // halves whenever a round lowers the bound (an overshoot)
     if (cp.theta <= 0) continue;

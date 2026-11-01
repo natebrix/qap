@@ -51,6 +51,11 @@ struct DNNCutParams {
   int side;           // 0: regions over the first index (A), 1: the second (B)
   bool prefix;        // regions: prefixes of the free elements (validation)
   bool atomic;        // atomic triangle cuts instead of regional ones
+  int stall_rounds;   // > 0: after this many cut rounds, stop when the gap to the
+                      // cutoff exceeds stall_factor times the gain of the last
+                      // stall_rounds rounds (the gain comes early: on wil50 depth-4
+                      // nodes +53 in three rounds, then +3 a round). 0 = off
+  double stall_factor;  // (3.0)
   int verbose;        // >= 1: a line per round, >= 2: per region
   DNNCutParams();
 };
@@ -64,6 +69,7 @@ struct DNNCutResult {
   double cpu;         // CPU seconds of the cut rounds (and the uncut one when run here)
   int active;         // cuts with a positive multiplier at the end
   int nregions;
+  int stalled;        // 1 when the stall rule stopped the rounds
 };
 
 // A, B, C, shift: the node's reduced QAP (reduceQAP). free_orig: for each local
