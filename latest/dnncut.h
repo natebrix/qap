@@ -21,6 +21,17 @@
  which decompose a Manhattan distance exactly, mapped to the node's free
  elements; or the prefixes of the free elements (validation).
 
+ Five-point count inequalities (cp.kcuts5 > 0, regional only): for five free
+ elements T, a flip set F of them (z'_i = 1 - z_i on F) and alpha = 1, 2, the
+ count q' = sum_{i in T} z'_i is an integer, so (q' - alpha)(q' - alpha - 1)
+ >= 0, which in the moments (p, W) is the clique/cut inequality
+   alpha sum_i p'_i - sum_{i<j} W'_ij <= alpha (alpha + 1) / 2
+ (Padberg 1989, facets of the Boolean quadric polytope; the triangles are
+ the three-element case, and the pure pentagonal inequality is F empty,
+ alpha 2). Not implied by the triangles nor by any degree-2 moment matrix
+ (research_bound_quality.md section 2.2); separated exhaustively, 48
+ patterns per 5-subset per region.
+
  Atomic (cp.atomic): the same inequalities on single lifted variables.
 
  Each round solves the DNN relaxation with the current multipliers
@@ -43,6 +54,8 @@ struct DNNCutParams {
                       // 0: the caller's warm start (Y, Z) is the uncut solve
                       // and first_lb is its certified bound (0)
   int kcuts;          // new cuts per round (1000)
+  int kcuts5;         // > 0: also separate the 5-point count inequalities and add
+                      // this many per round, on top of kcuts triangles (0 = off)
   double delta;       // Polyak target = min(cutoff, best + delta) (50)
   double theta;       // Polyak step factor (1.0); 0: multipliers stay at mu0
   double mu0;         // multiplier of a newly added cut (0)

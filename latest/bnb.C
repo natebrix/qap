@@ -690,6 +690,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    if (const char *e = getenv("QAP_DNN_CUT_ROUNDS")) cp.rounds = atoi(e);
 	    if (const char *e = getenv("QAP_DNN_CUT_ITERS")) cp.iters = atoi(e);
 	    if (const char *e = getenv("QAP_DNN_CUT_K")) cp.kcuts = atoi(e);
+	    if (const char *e = getenv("QAP_DNN_CUT_K5")) cp.kcuts5 = atoi(e);   // 5-point count inequalities per round (0)
 	    if (const char *e = getenv("QAP_DNN_CUT_DELTA")) cp.delta = atof(e);
 	    // stop rule: after QAP_DNN_CUT_STALL rounds (3), stop when the gap
 	    // exceeds 3x the gain of the last that many rounds (0 = off)

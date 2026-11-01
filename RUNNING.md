@@ -271,7 +271,9 @@ cutoff: regional triangle cuts (latest/dnncut.h) from the node's own iterate,
 `QAP_DNN_CUT_GRID=R:C` the grid whose row and column prefixes are the
 regions (wil50 `5:10`; nug30 `5:6` with `QAP_DNN_CUT_SIDE=1`, the second
 matrix), `QAP_DNN_CUT_ROUNDS` (12), `_ITERS` (300), `_K` (1000), `_DELTA`
-(50); every value stays certified (experiments/wil50_feasibility/stronger_bounds).
+(50), `_K5` (0: also this many of the regional 5-point count inequalities a
+round, latest/dnncut.h); every value stays certified
+(experiments/wil50_feasibility/stronger_bounds).
 
 Branching at the DNN depths is not a lever. The gap thresholds in
 `nug_deep.par` send nearly every depth-3 and depth-4 node (QPB relative gap

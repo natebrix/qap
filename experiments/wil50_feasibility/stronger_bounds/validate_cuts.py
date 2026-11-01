@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Validity check of dnncuts' regional cuts (-prefix) and atomic cuts against
+"""Validity check of dnncuts' regional cuts (-prefix), atomic cuts and the
+regional 5-point count inequalities (-prefix -five 30) against
 enumeration on random small instances: every certified value printed by every
 round must be at or below the optimum of the node, and the final bound must not
 exceed it. Also records how often the cuts strengthen the bound.
@@ -56,7 +57,7 @@ def main():
     rng = random.Random(args.seed)
     tmp = tempfile.mkdtemp()
     checks = bad = 0
-    gains = {"prefix": [], "atomic": []}
+    gains = {"prefix": [], "atomic": [], "five": []}
     for t in range(args.N):
         fam = bf.FAMILIES[t % len(bf.FAMILIES)]
         A, B, C = bf.make_instance(fam, args.n, rng)
@@ -71,7 +72,7 @@ def main():
         for fx in nodes:
             fixes = [] if fx == "-" else [tuple(map(int, s.split(":"))) for s in fx.split(",")]
             opt = node_optimum(A, B, C, fixes)
-            for name, flags in (("prefix", ["-prefix"]), ("atomic", [])):
+            for name, flags in (("prefix", ["-prefix"]), ("atomic", []), ("five", ["-prefix", "-five", "30"])):
                 lbs, best, first = run(dat, fx, flags)
                 for lb in lbs:
                     checks += 1

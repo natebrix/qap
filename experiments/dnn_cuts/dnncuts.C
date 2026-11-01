@@ -6,7 +6,7 @@
    make -C latest dnncuts
    experiments/dnn_cuts/dnncuts [-x i:j,...] [-u ub | -c cutoff] [-r rounds]
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
-       [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-d degree]
+       [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
        [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
@@ -14,7 +14,8 @@
  locations; -side 1 the second matrix: nug30's 5 x 6 grid), mapped to the
  node's free elements. -prefix takes the prefixes of the free elements
  (validation on any instance); -atomic the single-variable triangles of
- README.md. Each round: solve (warm-started), separate the k most violated
+ README.md; -five K adds K of the regional 5-point count inequalities per
+ round on top of the triangles (dnncut.h). Each round: solve (warm-started), separate the k most violated
  cuts in the last primal iterate, Polyak step toward min(cutoff, best + delta);
  stop at the first certified bound above the cutoff. Every value printed is
  certified.
@@ -67,6 +68,7 @@ int main(int argc, char **argv)
     else if (o == "-i" && more) cp.iters = atoi(argv[++a]);
     else if (o == "-I" && more) cp.first_iters = atoi(argv[++a]);
     else if (o == "-k" && more) cp.kcuts = atoi(argv[++a]);
+    else if (o == "-five" && more) cp.kcuts5 = atoi(argv[++a]);               // 5-point count inequalities per round
     else if (o == "-t" && more) cp.theta = atof(argv[++a]);
     else if (o == "-delta" && more) cp.delta = atof(argv[++a]);
     else if (o == "-mu0" && more) cp.mu0 = atof(argv[++a]);

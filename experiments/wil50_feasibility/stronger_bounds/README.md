@@ -364,3 +364,38 @@ about 0.003 to reach children 117-134 short at the give-up point, and the
 stall rule carries the failures in that band (600-700 CPU-s each). Next: a
 clear-miss subtree in the search with zone 0.003 (`search/run_ab2.sh`), the
 end-to-end test on the dominant class.
+
+## Step 7: the 5-point count inequalities (memo candidate 2)
+
+The next facet class after the triangles on each region's 0/1 membership
+vector: for five free elements, a flip set F and alpha in {1, 2}, the count
+q' of the (flipped) members is an integer, so (q' − alpha)(q' − alpha − 1) ≥ 0,
+which in the regional moments (p, W) is Padberg's clique/cut inequality
+alpha Σ p'ᵢ − Σ W'ᵢⱼ ≤ alpha(alpha+1)/2 (the triangles are the 3-element
+case; F empty, alpha 2 is the pure pentagonal inequality). Not implied by
+the triangles nor by any degree-2 moment matrix (memo section 2.2). Now in
+`latest/dnncut.{h,C}` as cut type 4: exhaustive separation of all C(m,5)
+5-subsets against the 48 distinct patterns per region (the part over the
+first four elements shared by the innermost loop), its own quota per round
+(`DNNCutParams::kcuts5`; `dnncuts -five K`; search `QAP_DNN_CUT_K5`), the
+same Polyak step and certificate as the triangles.
+
+Validity: `validate_cuts.py` now runs a third variant (`-prefix -five 30`)
+through the enumeration check; 24 random n = 8 cases (prefix and 2×4 grid
+regions, cutoff at the optimum, 300 five-point cuts a round, 264 certified
+values) and the nug12 root (cutoff 578 = the optimum) never certified above
+the optimum. At the converged nug12 root no triangle is violated but 6-8
+five-point inequalities are (max violation 0.02): the family is not implied
+there either. A caveat seen on nug12: with a handful of cuts violated by
+0.01-0.02 the Polyak step toward best + delta is enormous (alpha = theta
+(target − lb) / Σ v², Σ v² ≈ 0.002) and the first round collapses the bound
+by hundreds; the halving rule recovers over 8-12 rounds. On wil50 thousands
+of cuts are violated by 0.05-0.3 and the step is well-behaved.
+
+Strength on wil50 (`dual/run_five.sh`, queued behind the clear-miss subtree
+A/B so that at most four compute processes run): nodes 14 (84 short at
+convergence; 8.7 short after theta 0.4 + quiet), 10 (158), d2 (109) and 13
+(182), both arms from the give-up point with 12 rounds of 300 iterations,
+1,000 triangles a round, uncapped Polyak toward best + 50, quiet round of
+1,500 from the best round's multipliers; the five arm adds 500 five-point
+cuts a round. Results below when they finish.
