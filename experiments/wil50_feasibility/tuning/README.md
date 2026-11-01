@@ -255,3 +255,38 @@ marginals (dnn_bound would return the x_ij of the last iterate alongside the
 warm start) and picks the line with the largest sum of x_ij^2, then an A/B
 on nug28/nug30 (where ecc was tuned) and a re-sample of wil50 depth-4
 nodes under the new rule.
+
+## Rule 8 in the solver: nug30 A/B (`lines/nug30_xbar_H200_j8_m2pro.log`)
+
+Branching rule 8 (commit 622af94, `BRANCH_DNN_XBAR`): at a node where the DNN
+bound ran and missed, branch on the free row or column with the largest sum
+of squared primal marginals x_ij; lookahead (rule 4) where no DNN bound ran.
+`PARAM/nug_deep_xbar.par` is `nug_deep.par` with rule 8 in the three upper
+blocks. Same binary and settings as the H = 200 run above (PRSM, degree 4,
+`-x 2:7:1:200:1 --ub 6124`, 8 workers).
+
+| | `nug_deep.par` (rules 4/7/6) | `nug_deep_xbar.par` (rule 8) |
+|---|---|---|
+| nodes | 4,529 | 3,946 |
+| DNN nodes / fathomed | 4,519 / 4,356 | 3,935 / 3,796 |
+| DNN CPU | 4,876 s | 4,125 s |
+| CPU | 4,904 s | 4,133 s (-16%) |
+| wall | 11 min 17 s | 9 min 56 s |
+
+Per depth (nodes / fathomed, from the checkpoints; depth 0-2 are identical
+because depth-1 nodes branch by lookahead in both):
+
+| depth | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|
+| rules 4/7/6 | 1,552 / 1,467 | 2,247 / 2,228 | 470 / 469 | 25 / 25 | |
+| rule 8 | 1,552 / 1,493 | 1,593 / 1,576 | 442 / 438 | 100 / 99 | 24 / 24 |
+
+The depth-2 misses are the same 58 nodes; rule 8's choice of line for them
+leaves 59 depth-3 misses instead of 85, so depth 4 has 1,593 nodes instead of
+2,247. The depth-3 children also bound faster (1.10 s against 1.31 s per
+node): children of a concentrated line are nearer to fathoming when the warm
+start begins. The tail is a little deeper (one depth-6 miss), which is noise
+at this level. Rule 8 is a 13% smaller DNN tree and 16% less CPU on nug30,
+where rule 6 was tuned; on wil50 the line comparison above predicts a much
+larger gain because eccentric is so poor there. The picks were rows and
+columns both (`QAP_XBAR_DEBUG=1`).
