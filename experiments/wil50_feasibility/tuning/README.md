@@ -500,3 +500,36 @@ Addendum (Nov 1, cloud): Goux's `-r 120` and `-B 0.21` on the 32 wil50 nodes
 −79 at iteration 200 on the misses), `-r 120` nets −11% CPU on fathoms,
 `-B 0.21` nets nothing; same fathoms. Good on nug25/nug30 (−20% on the
 laptop), not on wil50.
+
+## Cut phase on nug30, refined setting (`refine/nug30_refined_{base,cut,cut_d2}_j8_m2pro.log`)
+
+The cloud's cut phase (`QAP_DNN_CUT_ZONE`, `stronger_bounds/` step 5) on the
+refined nug30 setting above (rule 8 everywhere, `-x 1:7:1:200:1`, degree 3
+tight, beta 0.21, refresh 120; binary at 61c9b6c), the cloud's nug30 cut
+parameters `QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_GRID=5:6 QAP_DNN_CUT_SIDE=1
+QAP_DNN_CUT_DELTA=20`, 8 workers. `QAP_DNN_CUT_MAXDEPTH` (new, bnb.C) limits
+the phase to nodes of at most that depth. parallel.py's merged state does not
+carry the cut counters, so cut fathoms = fathomed − DNN fathomed and cut CPU
+= total − DNN time.
+
+| | base | cuts at every depth | cuts at depth <= 2 |
+|---|---|---|---|
+| nodes | 3,821 | 2,086 | 2,782 |
+| depth-2 misses (of 225) | 68 | 33 | 31 |
+| depth-3 nodes / misses | 1,880 / 46 | 924 / 21 | 868 / 45 |
+| depth-4 nodes | 1,242 | 567 | 1,215 |
+| cut fathoms / cut CPU | – | 62 / ~1,840 s | 37 / ~640 s |
+| DNN time | 2,937 s | 2,101 s | 2,273 s |
+| **total CPU** | **2,943 s** | 3,940 s (+34%) | 2,977 s (+1%) |
+
+* At depth 2 the cuts fathom about half the misses (35–37 of 68) at ~17 s a
+  phase, but they fathom the near misses, whose children were the cheap
+  ones: the depth-3 misses are unchanged (45 against 46) and the depth-4
+  count barely moves. Children removed ≈ 600 s against ≈ 640 s of phases:
+  break-even.
+* At depth 3 the phases cost ~1,100 s and remove little: a loss.
+* The contrast with the wil50 node-6 subtree (2.3x, `stronger_bounds/search/`)
+  is per-node cost. A nug30 depth-3 child costs ~0.7 s, so a fathomed depth-2
+  miss saves ~20 s and a phase must be cheaper than that; a wil50 depth-4
+  child costs ~75 s. The cut phase is a wil50 tool; on nug30 under the
+  refined setting it does not pay at any depth. nug30 stays at 2,895–2,943 s.
