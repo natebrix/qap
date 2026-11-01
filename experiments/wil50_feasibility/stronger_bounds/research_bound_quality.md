@@ -238,8 +238,9 @@ the same hypermetric origin and prove many of them facet-defining for the
 QAP polytope). In cut-polytope language (s = 1 - 2z, Q_ij = 1 - 2p_i - 2p_j
 + 4W_ij) these are the hypermetric inequalities b'Qb >= 1: |T| = 3 are the
 triangles, |T| = 4 adds nothing (CUT_4 = MET_4), |T| = 5 with r = 2 is the
-pure pentagonal inequality, and the signed patterns (three +1, two -1) are
-its switchings. So "second moments of the counts" and "pentagonal facets"
+pure pentagonal inequality, and its switchings (z_i -> 1 - z_i on a subset
+of the five facilities: 16 sign patterns per 5-subset up to global sign)
+are distinct valid inequalities in the 0/1 variables. So "second moments of the counts" and "pentagonal facets"
 are the same family, and it is the next facet class of the per-region cut
 polytope after the triangles. Two facts fix its place:
 
@@ -260,12 +261,12 @@ polytope after the triangles. Two facts fix its place:
   maximum pentagonal violation at a converged iterate (section 3.2).
 
 Separation is exhaustive at this size: C(47,5) = 1.53M facility 5-subsets
-per region, 11 sign patterns, 13 regions: 2.2e8 evaluations of a 5 x 5
+per region, 16 sign patterns, 13 regions: 3.2e8 evaluations of a 5 x 5
 quadratic form in (p, W), a few seconds in C per round; on the 5 mid regions
-2 seconds. Each cut has 10 pair terms and 5 linear terms, 1.7x a triangle in
+about 2 seconds. Each cut has 10 pair terms and 5 linear terms, 1.7x a triangle in
 `L_add`.
 
-Heptagonal (|T| = 7) separation is C(47,7) = 63M subsets x 36 patterns x 13
+Heptagonal (|T| = 7) separation is C(47,7) = 63M subsets x 64 patterns x 13
 regions: heuristic only (BiqBin solves it as a small QAP by simulated
 annealing). Defer until the support-5 family is measured.
 
@@ -352,14 +353,16 @@ loses on the polyhedral side without touching Z. What it costs:
   m = 47), 2m^3 = 208k block-sum equalities, 2m doubly-stochastic rows, and
   the pool (5-10k cuts with 1,200-5,300 nonzeros each, 10-50M nonzeros).
   Minutes with a barrier solver, so not every 10 iterations (an ADMM
-  iteration is 0.18 s alone at m = 47); affordable once per node at the
-  end of a cut phase as a last-chance certificate on near misses.
+  iteration is about 0.4 s alone on the Xeon at m = 47); affordable once
+  per node at the end of a cut phase as a last-chance certificate on near
+  misses.
 - Subgradient ascent on mu with GL evaluations: the polyhedral part of a
-  certificate is cheap (the 56 ms per certificate in the m = 47 profiles,
-  `../../eigensolver/node2_*.log`, is dominated by the 2,117 x 2,117
-  Cholesky; the GL part is of order 10-20 ms with reduce-mode LAPs), and the
-  lambda_max term is fixed for fixed Z, so 20-50 ascent steps per certificate
-  cost 0.3-1 s, every fifth certificate. The subgradient `G Y* - h` comes
+  certificate is cheap (a certificate is 3% of the run in the m = 47
+  profiles, `../../eigensolver/node2_*.log`: 56 ms on the laptop, about
+  130 ms on the Xeon, dominated by the 2,117 x 2,117 Cholesky; the GL part
+  is of order 20-50 ms with reduce-mode LAPs), and the lambda_max term is
+  fixed for fixed Z, so 20-50 ascent steps per certificate cost 0.5-2 s,
+  every fifth certificate (ten iterations are about 4 s). The subgradient `G Y* - h` comes
   from the GL minimizer (a vertex: the outer assignment and one inner
   assignment per column), which is cheap to aggregate per region. The
   resulting mu' can also seed the next round's multipliers, which turns
@@ -519,8 +522,8 @@ A. **Inner lag, L(mu_8).** Repeat the step-2 run (`-I 1500 -i 700 -k 1000
    runs do). Delta_inner = L(mu_8) - best_8. Prediction: +5 to +25 at depth
    3 (node 2's gap is 11 at the best round), +20 to +60 at depth 4 with the
    300-iteration protocol (`-I 400 -i 300 -delta 50 -freeze 12:2000`).
-   Cost: 12,000 iterations, about 40 min per node alone at 0.18-0.2 s per
-   iteration (2 h with four concurrent).
+   Cost: 12,000 iterations, about 80 min per node alone at 0.4 s per
+   iteration on the Xeon (2 h with four concurrent).
 B. **Multiplier loss, L*(pool_8).** From the same pool (a dump/reload of
    the pool and mu, or simply the same run continued with `-k 0`): 20
    rounds of 300 iterations with `theta 0.3, delta 30, -nocap` (no
@@ -532,7 +535,7 @@ C. **Pool loss, L*(family).** Alternate: re-separate at the converged
    iterate (`-k 3000`), 10 conservative rounds, freeze; repeat until the
    maximum violation at the converged iterate is below 0.01 or a cycle
    gains under 2. Delta_pool = L*(family) - L*(pool_8). Cost: 30-60 rounds,
-   2-4 h per node alone.
+   1-2 h per node alone, 2-4 h with four concurrent.
 D. (optional) **Certificate ceiling for the final Z.** Dump `L + Z_c`, the
    pool and mu at the end of C; solve the LP of section 3.3 with HiGHS
    (scipy 1.18) or run the GL subgradient ascent. Delta_cert = LP value -
@@ -607,13 +610,15 @@ Per-run primal and certified values (from `misses/`, `cost/`, `depth4/`):
 | depth4/cuts_11 | 48,690.0 / 48,727.0 | r9 48,753.9 / 48,843.3 | 89.5 |
 | depth4/uncut_1 (1,500 it.) | - | 48,751.9 / 48,758.1 | 6.2 |
 
-Per-iteration cost at m = 47 on the 2.1 GHz Xeon: 0.17-0.18 s alone
-(`../../eigensolver/node2_*.log`, 2,500 iterations in 425-443 s, of which
-eig 282 s, certify 14 s = 56 ms per certificate), 0.52-0.6 s with four
-concurrent workers (`depth4/uncut_*.log`). A 300-iteration round is 160-180
-s concurrent; the search's cut phase (12 rounds) about 2,000 s.
+Per-iteration cost at m = 47: 0.17-0.18 s on the M2 Pro laptop
+(`../../eigensolver/node2_*.log`, Accelerate, 2,500 iterations in 425-443
+s, of which eig 282 s and certify 14 s = 56 ms per certificate, 3%);
+`../NOTES.md` section 9 puts the 2.1 GHz Xeon at 2.4x that, about 0.4 s
+alone, and the cloud runs show 0.52-0.6 s with four concurrent workers
+(`depth4/uncut_*.log`, scipy OpenBLAS). A 300-iteration round is 160-180 s
+concurrent; the search's cut phase (12 rounds) about 2,000 s.
 
 Cut family sizes at m = 47: same-region triangles 13 x 4 x C(47,3) =
 843,180; rectangles (Astra, 770 regions) about 50M; mixed-region triangles
-151M; pentagonal (support 5, 11 patterns) 13 x 11 x C(47,5) = 219M;
-heptagonal 13 x 36 x C(47,7) = 2.9e10.
+151M; pentagonal (support 5, 16 patterns) 13 x 16 x C(47,5) = 319M;
+heptagonal 13 x 64 x C(47,7) = 5.2e10.
