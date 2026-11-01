@@ -350,3 +350,14 @@ Functional checks (cloud Xeon, machine loaded by the regional-cut runs):
 `make test` and `make dnncheck` pass with the port. A/B in the solver:
 `goux/run_ab.sh` (nug25 `-x 2:5:1:300:1` and nug28 `-x 2:5` with and without
 `QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003`, 4 workers); nug30 on the laptop.
+
+## Baseline with Goux's D6/D8 (`giveup/nug30_ab/nug30_prsm_H200_ext2_zone003_j8_m2pro.log`)
+
+Binary at 01025c9 (QAP_DNN_EXT, QAP_DNN_GU_ZONE merged), default rules,
+PRSM, degree 4, `-x 2:7:1:200:1`, `QAP_DNN_EXT=2 QAP_DNN_GU_ZONE=0.003`,
+8 workers. Tree identical to the H = 200 run without the flags (4,519 DNN
+nodes, 4,356 fathomed; the same per-depth counts): with H = 200 there is no
+depth-7 miss for the extension to act on, and the give-up confirmation
+changed no decision. CPU 5,088 s against 4,904 s; part of that is the
+deferred give-ups' extra iterations, part a few minutes of nug20 tests that
+shared the machine. This is the reference for the rule 9 runs below.
