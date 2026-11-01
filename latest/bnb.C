@@ -660,6 +660,10 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // on side 1). Every value is certified; the children keep the uncut
 	  // multiplier.
 	  static const double cut_zone = getenv("QAP_DNN_CUT_ZONE") ? atof(getenv("QAP_DNN_CUT_ZONE")) : 0;
+	  // QAP_DNN_CUT_MAXDEPTH: run the cut phase only at nodes of at most this
+	  // depth (default: every DNN depth); on nug30 the depth-2 phases pay and
+	  // the depth-3 ones do not (experiments/wil50_feasibility/tuning, refine/)
+	  static const int cut_max_depth = getenv("QAP_DNN_CUT_MAXDEPTH") ? atoi(getenv("QAP_DNN_CUT_MAXDEPTH")) : 1 << 30;
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
 	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD || cut_zone > 0) ? new DNNWarm : NULL;
@@ -678,7 +682,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    dnn_fathomed = true;
 	    stats->dnn_fathoms++;
 	  }
-	  if (!dnn_fathomed && cut_zone > 0 && save && save->m == m && r.lb > -HUGE_VAL &&
+	  if (!dnn_fathomed && cut_zone > 0 && node.depth <= cut_max_depth && save && save->m == m && r.lb > -HUGE_VAL &&
 	      (inc - DELTA) - r.lb <= cut_zone * std::max(1.0, fabs(inc))) {
 	    DNNCutParams cp;
 	    if (const char *e = getenv("QAP_DNN_CUT_GRID")) sscanf(e, "%d:%d", &cp.grid_rows, &cp.grid_cols);
