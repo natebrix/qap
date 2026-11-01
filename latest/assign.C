@@ -757,6 +757,7 @@ WarmStart *new_warm_start(const Index *p, int n, MAT *X)
   w->X = m_copy(X, MNULL);
   w->dnn = NULL;
   w->dnn_free = NULL;
+  w->dnn_ext = 0;
   return w;
 }
 

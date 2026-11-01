@@ -203,6 +203,8 @@ DNNParams::DNNParams()
   stall_gap = 0.5;
   hopeless_after = 200;
   hopeless_gap_ratio = 0;
+  hopeless_zone = 0;
+  hopeless_delay = 100;
   L_add = NULL;
   elim = NULL;
   L_add_abs = 0;
@@ -1264,6 +1266,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   double lbs_best = -HUGE_VAL;
   std::vector<double> lbhist;   // certified lb at each check (for the stall test)
   std::vector<double> besthist; // running best at each check (for the hopeless test)
+  int confirm_at = -1;          // par.hopeless_zone: a deferred give-up is confirmed from here
   int status = -1, npos = 0;
   double obj = HUGE_VAL;
   const double gap = par.auto_gap > 0 ? par.auto_gap : 1e-3 * std::max(1.0, fabs(cutoff));
@@ -1430,26 +1433,36 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     if (pres < par.tol && dy < par.tol) { status = DNN_CONVERGED; break; }
     if (par.time_limit > 0 && thread_cpu() - t0 > par.time_limit) { status = DNN_TIME_LIMIT; break; }
     besthist.push_back(best);
-    if (par.hopeless_after > 0 && it >= par.hopeless_after && best > -HUGE_VAL) {
+    if (par.hopeless_after > 0 && it >= par.hopeless_after && best > -HUGE_VAL &&
+        it >= confirm_at) {
       // extrapolate the running best certified value: with d1, d2 its gains
       // over the last two windows of ~50 iterations and r = d1/d2, a
       // geometric tail would add d1 r/(1-r); allow 5 times that
       int w = std::max(1, (50 + check_every - 1) / check_every);
       int h = (int)besthist.size();
+      bool fire = false;
       if (par.hopeless_gap_ratio > 0) {
         // gap-ratio rule: the gap to the cutoff over the last w checks
         if (h > w && besthist[h - 1 - w] > -HUGE_VAL) {
           double g1 = cutoff - besthist[h - 1], g0 = cutoff - besthist[h - 1 - w];
-          if (g0 > 0 && g1 / g0 > par.hopeless_gap_ratio) {
-            status = DNN_HOPELESS;
-            break;
-          }
+          if (g0 > 0 && g1 / g0 > par.hopeless_gap_ratio) fire = true;
         }
       } else if (h > 2 * w && besthist[h - 1 - 2 * w] > -HUGE_VAL) {
         double d1 = besthist[h - 1] - besthist[h - 1 - w];
         double d2 = besthist[h - 1 - w] - besthist[h - 1 - 2 * w];
         double r = d2 > 0 ? std::min(d1 / d2, 0.95) : (d1 > 0 ? 0.95 : 0.0);
-        if (best + 5 * d1 * r / (1 - r) < cutoff) {
+        if (best + 5 * d1 * r / (1 - r) < cutoff) fire = true;
+      }
+      if (fire) {
+        // near the cutoff a give-up must be confirmed: run hopeless_delay more
+        // iterations and give up only if the rule fires again after them
+        // (once per node; the rule is not consulted during the deferral)
+        if (par.hopeless_zone > 0 && confirm_at < 0 &&
+            cutoff - best <= par.hopeless_zone * std::max(1.0, fabs(cutoff))) {
+          confirm_at = it + par.hopeless_delay;
+          if (par.verbose) printf("it %5d give-up deferred to %d: %.4f within %.2g of %.4f\n",
+                                  it, confirm_at, best, par.hopeless_zone, cutoff);
+        } else {
           status = DNN_HOPELESS;
           break;
         }

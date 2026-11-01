@@ -92,6 +92,10 @@ struct WarmStart
   // files: it only changes where a child's ADMM starts.
   void *dnn;
   void (*dnn_free)(void *);
+  // > 0: the children may take the DNN bound below the last DNN depth, this
+  // many more levels (bnb.C, QAP_DNN_EXT): set when the parent's DNN bound ran
+  // and did not fathom. Not kept in state files either.
+  int dnn_ext;
 };
 
 /*

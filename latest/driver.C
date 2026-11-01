@@ -275,6 +275,8 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	       << ", relative gap <= " << dnn_max_gap << ", give up after "
 	       << dnn_hopeless_after << " iterations (0 = never), "
 	       << (dnn_warm ? "warm-started from the parent, " : "")
+	       << (getenv("QAP_DNN_EXT") ? std::string("extended ") + getenv("QAP_DNN_EXT") + " levels below a last-level miss, " : "")
+	       << (getenv("QAP_DNN_GU_ZONE") ? std::string("give-ups within ") + getenv("QAP_DNN_GU_ZONE") + " of the cutoff confirmed, " : "")
 	       << dnn_lapack_name() << std::endl;
 	}
 #else

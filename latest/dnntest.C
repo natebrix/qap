@@ -22,6 +22,8 @@
                    box part), beta factor 1, check every 50, stall window 6, no
                    hopeless test (each overridable after -P)
    -s N            stall window in checks (0 = off)
+   -Z z[:d]        a give-up within fraction z of the cutoff is deferred d (100)
+                   iterations and must then be confirmed (DNNParams::hopeless_zone)
    -H N            give up (status hopeless) after N iterations when the certified
                    bound, extrapolated from its recent gains, stays below the
                    cutoff (default 200, 0 = off)
@@ -227,6 +229,11 @@ int main(int argc, char **argv)
     else if (o == "-s" && more) par.stall_window = atoi(argv[++a]);
     else if (o == "-H" && more) par.hopeless_after = atoi(argv[++a]);
     else if (o == "-R" && more) par.hopeless_gap_ratio = atof(argv[++a]);
+    else if (o == "-Z" && more) {   // -Z zone[:delay]: confirm a give-up near the cutoff
+      const char *z = argv[++a], *c = strchr(z, ':');
+      par.hopeless_zone = atof(z);
+      if (c) par.hopeless_delay = atoi(c + 1);
+    }
     else if (o == "-T" && more) threads = atoi(argv[++a]);
     else if (o == "-f") par.eig_mode = DNN_EIG_SINGLE;
     else if (o == "-e" && more) par.eig_mode = atoi(argv[++a]);

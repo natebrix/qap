@@ -610,12 +610,20 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // some branching scores, so the search differs from a QPB-only run even
       // where the DNN bound does not fathom.) Skipped until there is a real
       // incumbent: against 1e100 nothing fathoms and every call runs to its limit.
-      bool dnn_fathomed = false;
+      bool dnn_fathomed = false, dnn_ran = false;
       void *dnn_keep = NULL;   // this node's DNN state, for its children
       std::vector<double> dnn_xbar;   // its primal marginals, for rule 8
+      // QAP_DNN_EXT=k: below dnn_max_depth a node whose parent's DNN bound ran
+      // and did not fathom keeps the DNN bound, up to k levels down; under a
+      // fathomed or a QPB-only node nothing changes. The flag travels with the
+      // parent's warm start, so not across a checkpoint restore. Without it a
+      // last-level miss hands its whole subtree to QPB alone (580,000 nodes
+      // under two depth-7 misses in the laptop nug30 run; Goux's D8).
+      static const int dnn_ext = getenv("QAP_DNN_EXT") ? atoi(getenv("QAP_DNN_EXT")) : 0;
+      const int dnn_ext_in = node.warm ? node.warm->dnn_ext : 0;
 #ifdef HAVE_DNN
       if (bound <= s->getObjective() - DELTA && m >= 2 && s->getObjective() < 1e99 &&
-	  node.depth >= dnn_min_depth && node.depth <= dnn_max_depth) {
+	  node.depth >= dnn_min_depth && (node.depth <= dnn_max_depth || dnn_ext_in > 0)) {
 	const double inc = s->getObjective();
 	const double gap = (inc - bound) / std::max(inc - stats->root_bound, 1e-9);
 	if (gap <= dnn_max_gap) {
@@ -632,6 +640,9 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  if (const char *e = getenv("QAP_DNN_TIGHT_LAM")) dp.tight_lam = atoi(e);
 	  // gap-ratio give-up rule (experiments/wil50_feasibility/tuning), opt-in
 	  if (const char *e = getenv("QAP_DNN_GAP_RATIO")) dp.hopeless_gap_ratio = atof(e);
+	  // a give-up within this fraction of the cutoff must be confirmed 100
+	  // iterations later (Goux's D6), opt-in
+	  if (const char *e = getenv("QAP_DNN_GU_ZONE")) dp.hopeless_zone = atof(e);
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
 	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR) ? new DNNWarm : NULL;
@@ -642,6 +653,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      dnn_warm_child(*(DNNWarm *)node.warm->dnn, di, dj, start))
 	    sp = &start;
 	  DNNResult r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, sp, save);
+	  dnn_ran = true;
 	  stats->dnn_nodes++;
 	  stats->dnn_time += r.cpu;
 	  node.bound = std::max(node.bound, r.lb);
@@ -691,6 +703,11 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  warm->dnn_free = free_dnn_warm;
 	  dnn_keep = NULL;
 	}
+	// the DNN extension below the last DNN depth: k levels from a miss at
+	// that depth, one fewer per level below it
+	if (warm && dnn_ran && !dnn_fathomed)
+	  warm->dnn_ext = node.depth < dnn_max_depth ? 0
+	    : (node.depth == dnn_max_depth ? dnn_ext : dnn_ext_in - 1);
 #endif
 #ifdef HAVE_DNN
 	branch_set_dnn_marginals(dnn_xbar.empty() ? NULL : dnn_xbar.data(), m);

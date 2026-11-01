@@ -136,6 +136,13 @@ struct DNNParams {
                        // Nodes that fathom shrink it about 2x per 50 iterations,
                        // misses stall toward 1 (experiments/wil50_feasibility/
                        // tuning). 0 = off (default)
+  double hopeless_zone;  // > 0: a give-up (either rule) decided while the running
+                       // best is within this fraction of |cutoff| of the cutoff is
+                       // deferred: the node runs hopeless_delay more iterations and
+                       // gives up only if the rule fires again after that. The
+                       // fathoms lost by faster settings were all give-ups within
+                       // 0.3% of the cutoff (Goux's D6). 0 = off (default)
+  int hopeless_delay;  // iterations of the deferral (100)
   const double *L_add; // optional (m^2+1)^2 symmetric matrix added to the lifted
                        // objective L (unscaled, row-major), e.g. multiplier-weighted
                        // valid inequalities; the caller adjusts the shift for their
