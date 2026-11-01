@@ -645,7 +645,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  if (const char *e = getenv("QAP_DNN_GU_ZONE")) dp.hopeless_zone = atof(e);
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
-	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR) ? new DNNWarm : NULL;
+	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD) ? new DNNWarm : NULL;
 	  const DNNWarm *sp = NULL;
 	  int di, dj;
 	  if (dnn_warm && node.warm && node.warm->dnn &&
@@ -661,7 +661,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    dnn_fathomed = true;
 	    stats->dnn_fathoms++;
 	  }
-	  if (save && !dnn_fathomed && save->m == m && param->rule == BRANCH_DNN_XBAR) {
+	  if (save && !dnn_fathomed && save->m == m &&
+	      (param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD)) {
 	    // x_ij = Y_0,(ij) of the final primal iterate (row 0 of the lifted
 	    // matrix, after the leading 1), m x m row-major in local indices
 	    const int n1 = m * m + 1;

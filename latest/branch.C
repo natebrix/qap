@@ -1390,29 +1390,37 @@ void branch_set_dnn_marginals(const double *x, int m)
   dnn_xbar_m = m;
 }
 
+// The free row and column (local indices) with the largest sum of squared
+// DNN marginals, and their scores; false when no marginals are set for a
+// node of this size.
+static bool dnn_xbar_lines(const QAPAssignment &assign, int &row_in_U, double &row_score,
+			   int &col_in_U, double &col_score)
+{
+  const int m = assign.n - assign.nfix;
+  if (dnn_xbar == NULL || dnn_xbar_m != m) return false;
+  const double *x = dnn_xbar;
+  row_in_U = col_in_U = -1;  row_score = col_score = -1.0;
+  for (int di = 0; di < m; di++) {
+    double s = 0.0;
+    for (int dj = 0; dj < m; dj++) s += x[di * m + dj] * x[di * m + dj];
+    if (s > row_score) { row_score = s;  row_in_U = di; }
+  }
+  for (int dj = 0; dj < m; dj++) {
+    double s = 0.0;
+    for (int di = 0; di < m; di++) s += x[di * m + dj] * x[di * m + dj];
+    if (s > col_score) { col_score = s;  col_in_U = dj; }
+  }
+  return row_in_U >= 0 && col_in_U >= 0;
+}
+
 static bool select_ind_dnn_xbar(const QAPAssignment &assign, bool rows_only,
 				int &ind_in_U, int &ind_in_assign, bool &chose_row)
 {
-  const int n = assign.n, m = n - assign.nfix;
-  if (dnn_xbar == NULL || dnn_xbar_m != m) return false;
-  const double *x = dnn_xbar;
-  double best = -1.0;
-  ind_in_U = -1;  ind_in_assign = -1;  chose_row = true;
-  for (int i = 0, di = -1; i < n; i++) {
-    if (assign.p[i] > NONE) continue;
-    di++;
-    double s = 0.0;
-    for (int dj = 0; dj < m; dj++) s += x[di * m + dj] * x[di * m + dj];
-    if (s > best) { best = s;  chose_row = true;  ind_in_U = di;  ind_in_assign = i; }
-  }
-  if (!rows_only)
-    for (int j = 0, dj = -1; j < n; j++) {
-      if (assign.pinv[j] > NONE) continue;
-      dj++;
-      double s = 0.0;
-      for (int di = 0; di < m; di++) s += x[di * m + dj] * x[di * m + dj];
-      if (s > best) { best = s;  chose_row = false;  ind_in_U = dj;  ind_in_assign = j; }
-    }
+  int dr, dc;  double sr, sc;
+  if (!dnn_xbar_lines(assign, dr, sr, dc, sc)) return false;
+  double best;
+  if (rows_only || sr >= sc) { chose_row = true;  ind_in_U = dr;  best = sr;  get_row_in_assign(assign, dr, ind_in_assign); }
+  else                       { chose_row = false; ind_in_U = dc;  best = sc;  get_col_in_assign(assign, dc, ind_in_assign); }
   if (getenv("QAP_XBAR_DEBUG") && ind_in_U >= 0)
     fprintf(stderr, "xbar: depth %d %s %d sumsq %.4f\n", assign.nfix, chose_row ? "row" : "col", ind_in_assign, best);
   return ind_in_U >= 0;
@@ -2138,7 +2146,8 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
 			  double bound,QPBParameters *qpbp,int use_best,
 			  bool weighted, int which_bound,
 			  int &ind_in_U,int &ind_in_assign,
-			  bool &chose_row, bool eccentric_cols = false)
+			  bool &chose_row, bool eccentric_cols = false,
+			  bool xbar_lines = false)
 {
   int i,j,di,dj,k,l,bi;
   int m = U->n;
@@ -2179,6 +2188,18 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
 	return a < b; });
     for (int k = 0; k < m; k++) col_order[by[k]] = k;
     kr = std::max(use_best - 1, 0);
+  }
+  bool xbar_used = false;
+  if (xbar_lines) {
+    // rule 9: the only candidates are the marginal row and the marginal
+    // column (rule 8's two lines); the children's bounds choose between them
+    int dr, dc;  double sr, sc;
+    if (dnn_xbar_lines(assign, dr, sr, dc, sc)) {
+      for (int d = 0; d < m; d++) { row_order[d] = m;  col_order[d] = m; }
+      row_order[dr] = 0;  col_order[dc] = 0;
+      kr = kc = 1;
+      xbar_used = true;
+    }
   }
 
   int n = assign.n;
@@ -2305,6 +2326,9 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
     get_col_in_assign(assign,col_in_U,ind_in_assign);
     //printf("%2d %2d %2d %2d 1\n",m,use_best,ind_in_U,col_order[ind_in_U]);
   }
+  if (xbar_used && getenv("QAP_XBAR_DEBUG"))
+    fprintf(stderr, "xbar9: depth %d %s %d (row %.1f col %.1f)\n", assign.nfix,
+	    chose_row ? "row" : "col", ind_in_assign, best_row_sum, best_col_sum);
 
   delete [] u_row_sum;  delete [] u_col_sum;
   delete [] u1_row_sum; delete [] u1_col_sum;
@@ -2579,11 +2603,13 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
       break;
     // no DNN marginals at this node: lookahead, as rule 4
   case BRANCH_LOOKAHEAD:
+  case BRANCH_XBAR_LOOKAHEAD:
     if(can_branch_on_cols) {
       select_ind_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
 			   bp->use_best,
 			   use_weighted_branching, bp->which_bound,
-			   row_in_U,row_in_assign,chose_row);
+			   row_in_U,row_in_assign,chose_row,false,
+			   bp->how == BRANCH_XBAR_LOOKAHEAD);
     }
     else
       select_row_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
