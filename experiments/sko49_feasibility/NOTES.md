@@ -180,6 +180,27 @@ rounds are noisier, with a -94 overshoot in round 9, and the quiet round lands a
 value). Rounds cost 150-170 s (300 iterations at m = 46), the same as the uncut solve
 per iteration.
 
+### Depth 4: node 2's children (`cuts/run_d4.sh`, `cuts/d4_*.log`)
+
+The same protocol on five of node 2's six depth-4 children from section 3. Child 14 was
+not run, to stay in budget.
+
+| child | short at convergence (uncut) | after cuts + quiet round | gain over converged | fathomed | CPU s |
+|---|---|---|---|---|---|
+| 12 | 35.9 | 23,385.63 | >= +37 | **yes** (round 2) | 406 |
+| 13 | 128.0 | 23,380.50, **3.5 short** | +124.5 | no | 2,470 |
+| 9 | 151.7 | 23,363.78, 20.3 short | +131.4 | no | 2,530 |
+| 11 | 160.8 | 23,355.56, 28.5 short | +132.3 | no | 2,570 |
+| 10 | 161.3 | 23,340.78, 43.3 short | +118.0 | no | 2,500 |
+
+The gain holds at depth 4: +118 to +132 over the converged bound, the same as at depth 3.
+But only the child that was already 36 short fathoms. The 128-161-short class ends 3.5-43
+short, so with cuts node 2 (304 short) still fathoms at depth 5, the same depth as without
+them. The model's +130 rows put this node at depth 4, so they are **optimistic for nodes
+whose shortfall is just above one level plus the cut gain**. Here that is 128-164 short
+against about 135 + 125. For sko49 the measured cut phase is worth less than a full level
+on such nodes, and the true cost sits between the plain and +130 rows of section 6.
+
 ## 5. Tree structure and symmetry
 
 Branching fixes one facility per level, so a depth-d node has 49 - d children (fewer where
@@ -319,6 +340,9 @@ wil50's clear misses, and every lever that moves a node by about 130 units moves
 a full level. The measured cut gain is about one level and not two, so the problem
 is still bound strength at depths 3 to 5. The estimate has about a factor-of-10
 uncertainty. It comes from the rounding at the level boundaries, a 12-node sample, and the
-cut gain at depth 4, which is measured on wil50 only. The next measurement is the cut phase
-on a handful of sko49 depth-4 children of node 2, the 128-164-short class, with `bnbdrv`
-and `QAP_DNN_CUT_ZONE` on the transposed instance with the symmetry file.
+cut gain at depth 4, which is measured on wil50 only. The cut phase on node 2's
+depth-4 children (section 4, end) gains +118 to +132, as at depth 3. The 128-161-short
+children end 3.5-43 short, and only a 36-short child fathoms, so the cut phase does not
+move that node class up a level. The cut-phase range of section 6 is therefore the
+optimistic end, and the realistic cost lies between it and the plain-DNN rows: still a
+1,000-core job of months.
