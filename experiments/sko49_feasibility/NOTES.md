@@ -72,3 +72,47 @@ The root gap in units is the same as wil50's, but sko49's objective is half the 
 **relative to the cutoff the DNN relaxation is 2.2 x weaker on sko49 at the root**. (Fujii
 et al. 2021 say that DNN-type lower bounds for sko42-sko81 were computed by Oliveira et al.
 and by the Newton-bracketing method but do not print the sko49 values; not checked here.)
+
+## 2. Depth-3 sample (`depth3/`, 12 random nodes, seed 20261102)
+
+Drawn as the wil50 sample was (three random facilities paired with three random locations,
+`depth3/draw_nodes.py`; 16 drawn, the queue stopped after 12 to keep the budget), each run
+with `dnntest -T 1 -g 1.0 -G 1.0 -d 4 -H 0 -i 1500 -k 10 -u 23386 -v` (PRSM, degree 4, one
+thread, no give-up, three or four processes at a time), cutoff 23,384.05. "At 400" is the
+certified bound at the search's give-up point; every value is certified. Table by
+`summarize.py depth3`:
+
+| node | spec | lb at 400 | short at 400 | lb at 1,500 | short | status | iters | CPU s |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `36:40,4:41,24:10` | 23,234.8 | 149.3 | 23,249.6 | 134.4 | iter_limit | 1500 | 838 |
+| 2 | `7:48,26:41,2:12` | 23,068.8 | 315.2 | 23,079.7 | 304.3 | iter_limit | 1500 | 855 |
+| 3 | `25:29,33:12,39:38` | 23,061.0 | 323.1 | 23,084.2 | 299.9 | iter_limit | 1500 | 868 |
+| 4 | `11:26,45:36,35:28` | 23,106.5 | 277.6 | 23,120.9 | 263.2 | iter_limit | 1500 | 846 |
+| 5 | `37:34,20:42,12:32` | 23,036.8 | 347.2 | 23,047.2 | 336.9 | iter_limit | 1500 | 854 |
+| 6 | `3:6,40:40,5:4` | 23,191.3 | 192.8 | 23,208.7 | 175.4 | iter_limit | 1500 | 843 |
+| 7 | `33:0,43:1,34:29` | 23,101.1 | 282.9 | 23,124.7 | 259.3 | iter_limit | 1500 | 782 |
+| 8 | `22:4,36:27,34:40` | 23,106.4 | 277.6 | 23,125.7 | 258.3 | iter_limit | 1500 | 792 |
+| 9 | `46:7,48:42,38:14` | 23,163.7 | 220.3 | 23,173.7 | 210.4 | iter_limit | 1500 | 791 |
+| 10 | `43:6,32:18,38:36` | 23,091.1 | 292.9 | 23,104.3 | 279.7 | iter_limit | 1500 | 777 |
+| 11 | `33:7,34:18,27:41` | 23,086.9 | 297.2 | 23,105.8 | 278.2 | iter_limit | 1500 | 777 |
+| 12 | `40:46,36:17,10:20` | 23,051.4 | 332.7 | 23,069.6 | 314.4 | iter_limit | 1500 | 776 |
+
+12 done: fathomed 0, short values 134, 175, 210, 258, 259, 263, 278, 280, 300, 304, 314, 337, median 271
+
+Primal and certified values agree within 3-20 at 1,500 iterations, so these are the
+relaxation values to within a few units (the bound gains only 10-24 between iteration 400
+and 1,500; wil50's depth-3 nodes gained 26-36 cold). Per iteration 520-580 ms at m = 46 with
+four processes running; 780-870 CPU-s per converged node.
+
+| | sko49 (12 nodes) | wil50 (16 nodes, `../wil50_feasibility/NOTES.md` sections 2, 7a) |
+|---|---|---|
+| fathomed at depth 3 | **0 of 12** | 2 of 16 |
+| converged near misses (within about 120 of the cutoff) | **0** | 5 (59-116 short) |
+| clear misses | **12 of 12: 134-337 short, median 271** | 9: 185-405 short, median about 240 |
+| shortfall as a fraction of the cutoff | **0.57-1.44%, median 1.16%** | 0.12-0.83%, clear misses 0.4-0.8% |
+| give-up point (400 iterations) | 149-347 short | 300-515 short at 300 iterations (`-f`, ADMM) |
+
+In units the sko49 depth-3 nodes look like wil50's clear misses (median 271 against 240),
+but there is no fathomed or near-miss class at all, and relative to the cutoff the
+shortfall is twice wil50's: every one of these nodes would be given up by the search and
+branched.
