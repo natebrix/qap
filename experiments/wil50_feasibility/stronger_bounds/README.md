@@ -482,3 +482,22 @@ are closed; what remains is higher-order consistency (the regional moment
 block, candidate 6, or Astra's section-10b moment separation), whose first
 question is whether the separated cuts' violations at these iterates are
 large enough to matter.
+
+## Step 10: the local-7 gate passes (laptop, Nov 2)
+
+`local7/README.md`: at the uncut converged iterates of node 13 and child d2,
+the 7-variable local marginal polytope is violated in the mid regions by up
+to 0.196 (node 13) and 0.129 (d2), 1.7-2.6x the triangle violations on the
+same 7-subsets; 2-13% of random 7-subsets there violate by more than 0.05.
+The 40 most violated cuts at a fixed multiplier of 5 gain +12.1 and +8.1
+certified through `dnntest -Ladd` (40% of the fixed-multiplier ceiling mu x
+sum of violations, where the triple cuts lost 45-49 against a ceiling of
+3.3); mu 20 overshoots. So the regional variables are not consistent to
+order 7 and the higher-order route is live. Next step, the same one the
+triangles took from +39.8 fixed to +160 optimized: the local-7 inequalities
+as a cut type in the pool (C++ separation over 7-subsets of the mid regions,
+exact right-hand side over the admissible configurations, the Polyak step
+and quiet round as for the triangles), run through the step-7 protocol on
+nodes 13 and d2 on top of the capped triangles. If the family scales as the
+triangles did, +40 to +50 at the median: a third of a level, enough for d2
+(18 short), the test for node 13 (51 short).
