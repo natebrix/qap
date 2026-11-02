@@ -365,6 +365,20 @@ stall rule carries the failures in that band (600-700 CPU-s each). Next: a
 clear-miss subtree in the search with zone 0.003 (`search/run_ab2.sh`), the
 end-to-end test on the dominant class.
 
+**run_ab2 stopped after 8 h, Nov 2 05:25.** Its only progress lines
+(`search/partial_ab2/`) read `nodes = 10000000  stack size = 271  cpu time =
+15889.9` on a worker that had started from two depth-4 children: with the
+DNN bound limited to four levels below the node (`-x 0:4`, full depth 7), every
+miss at the last DNN level handed its subtree to the QPB bound alone, and at
+43 free facilities those subtrees run past 10^7 QPB nodes each. The four
+workers had spent 21,000-29,000 CPU-s each in that tail; the earlier node-6
+A/B did not meet it because that subtree fathomed at depth 4. Relaunched as
+`search/run_ab3.sh`: the same two arms with `QAP_DNN_EXT=20` (the DNN keeps
+running below a last-level miss, Goux's D8) and a `parallel.py` checkpoint
+every 10 minutes so progress is visible. The base arm runs here after the cut
+arm unless the laptop runs it first (same command, logs under
+`laptop/search/`).
+
 ## Step 7: the 5-point count inequalities (memo candidate 2)
 
 The next facet class after the triangles on each region's 0/1 membership
