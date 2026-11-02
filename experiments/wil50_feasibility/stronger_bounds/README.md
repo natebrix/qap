@@ -467,3 +467,18 @@ list is the dual method itself (a bundle step or multipliers updated inside
 the ADMM, candidate 1) and genuinely higher-order consistency (the regional
 moment block, candidate 6, or Astra's section-10b moment separation with its
 verified certificate).
+
+## Step 9: the dual method (memo candidate 1), closed
+
+`dualtest/README.md` (laptop, Nov 2): a slow 30-round subgradient ascent
+(theta 0.3, target best + 30) gains +5 to +8 over the 12-round protocol on
+node 13 and child d2 whether or not new cuts enter after round 12 (`dnncuts
+-addto 12`), at 1.5x the CPU; 60 rounds of 100 iterations lose 2 to 4. The 12
+Polyak rounds plus the quiet round are within about 10 units of the pool's
+dual optimum, so a bundle step or in-ADMM multipliers would reach the same
+value faster, not a higher one. The regional triangles are capped at about
++165 on node 13 (51 short) and +139 on d2 (18 short). Candidates 1, 2 and 5
+are closed; what remains is higher-order consistency (the regional moment
+block, candidate 6, or Astra's section-10b moment separation), whose first
+question is whether the separated cuts' violations at these iterates are
+large enough to matter.
