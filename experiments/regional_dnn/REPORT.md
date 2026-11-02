@@ -4,6 +4,8 @@
 
 **Repository examined:** [natebrix/qap, cognac](https://github.com/natebrix/qap/tree/cd43c7645d8af01a2ec22aa0ae9bba9fafea7022), commit `cd43c7645d8af01a2ec22aa0ae9bba9fafea7022`.
 
+**Latest guidance (2 November, after Fable review):** Read [section 10b](#10b-revised-experiment-plan-after-fables-review--2-november-2026) before implementing. The +39.8 pilot below is historical; Fable reports substantially stronger results in newer cognac work. Section 10b records the provenance of those reports and specifies the next offline moment-separation experiment and its validity checks.
+
 ## 1. Assessment
 
 There is a mathematically sound route to a stronger bound that preserves the large DNN block and adds substantially smaller objects: **enforce higher-order consistency of membership in sets of locations**.
@@ -423,6 +425,8 @@ The `cpu` values in the logs follow the repository's timer convention; runs used
 
 ## 10. Recommended development sequence
 
+This is the original sequence; section 10b supersedes its immediate implementation priorities after the reported cognac progress.
+
 1. **Use the existing 16 depth-three wil50 nodes as the evaluation set.** Include the clear misses, not just nodes already close to fathoming. Maintain a well-converged uncut reference and an equal-budget uncut control.
 2. **Try regional and mixed-region cuts through `L_add`.** Begin with threshold sets, then rectangles or heuristically selected sets. Record certified gain, marginal residuals, active cuts, and time. Cut violation alone is not an objective improvement, and its magnitude depends on normalization.
 3. **Add a small number of projected triple-consistency cuts.** Select facilities from violated regional cuts or high-cost conflicting marginals. Check rounded cut validity independently.
@@ -456,6 +460,90 @@ For nug30, four row thresholds and five column thresholds give the exact distanc
 **Indexing is essential.** The native lifted variable is X[A-index, B-index]. In wil50, locations index A (rows); in these Nugent instances they index B (columns). The report's abstract x_ij uses facility first, location second. A Nugent implementation must aggregate native columns for each A-index facility. The delivered `region_cuts.py`, `build_trials.py`, and `triplet_separate.py` retain their original wil50 assumptions (n=50, a 5×10 grid, locations on A); they must not be run directly on nug30 checkpoints. The C++ probe itself accepts general QAP files. The new instance validator is general across the six explicitly listed instances; it is not a Nugent bound benchmark.
 
 For Mythos, the next implementation step is to parameterize instance order, original grid coordinates, and location axis together, and test the induced permutation of lifted indices in both cut evaluation and coefficient construction. Then benchmark nug20 and nug30 at the root and difficult internal nodes against equal-budget uncut controls. Regional cuts require no extra PSD block; the regional M2 SDP remains a proposed implementation. **No strengthened Nugent bound, Nugent speedup, or new wil50 root record is claimed by this report.**
+
+## 10b. Revised experiment plan after Fable's review — 2 November 2026
+
+This section supersedes the implementation priorities in section 10. It incorporates Nathan's relayed reviews from Fable on his laptop. The newer cloud/cognac results below are **reported by Fable, not independently reproduced in this branch**. Preserve the October pilot as reproducibility evidence, not as the current performance benchmark.
+
+### Current evidence and scope
+
+Fable reports regional-cut gains of approximately +122 to +175 on sampled nodes, a fathom at node 14, and no useful certified gain from the tested five-point count family. He reports the node-10 cut-arm subtree finishing at 76,755 CPU seconds with 31 cut-phase fathoms; the base arm was still pending at the time of his review. These are distinct experiments from section 9. Their node sets, controls, and resource budgets must be checked before making numerical comparisons or estimating search speedup.
+
+The reported nug30 laptop solve takes about seven minutes, and the tested cut phase adds about 34% cost there. On that evidence, use Nugent instances primarily as correctness and indexing checks for the next prototype, rather than as the main performance target. The warning about this bundle's wil50-specific scripts remains applicable; Fable reports that the newer cognac implementation handles both location axes.
+
+The next investigation is **offline regional moment separation, followed by evaluation through the existing certified cut machinery**. A full linked regional SDP is deferred. This document update launches no experiment on either Nathan's laptop or the cloud.
+
+### What the moment probe can establish
+
+Let K_S denote the projection of the normalized order-two moment set, including cardinality identities, onto (p,W). Testing whether an extracted point belongs to K_S answers whether that particular point admits an extension.
+
+- If an exact optimal feasible solution of the current relaxation admits the extension, adding that block cannot improve the exact relaxation optimum. A merely approximate quiet-round iterate does not establish this premise. Feasibility is useful but local negative evidence, not a reason to discard all regions or nodes.
+- Infeasibility can supply new information, but may also reflect violations of identities already present in the original model. Account for input residuals before attributing the result to higher-order consistency.
+- Distance to K_S is **neither a certified bound gain nor an upper bound on that gain**. It depends on the norm and scaling and does not account for objective direction or the coupling to the original assignment relaxation.
+
+A separating inequality has the form
+
+\[
+a^T p+\langle B,W\rangle\le\beta.
+\]
+
+Both p and W are linear images of Y, so a valid inequality of this form can be exported to the existing cut pool and `L_add` interface. Repeated offline separation may obtain useful strength without ever integrating a new PSD block into the C++ solver. A finite collection of such cuts need not reproduce the complete regional SDP.
+
+### Input conditioning and attribution of gain
+
+Freeze the exact cognac commit, checkpoint hash, node's fixed assignments, free-index maps, region membership, residual capacity k_S, and aggregation convention. In particular, state whether p uses first-row or diagonal entries of Y. Retain the original extracted moments.
+
+Projecting (p,W) onto the known affine identities can prevent the oracle from simply separating an assignment/cardinality error. Record the projection displacement and the identities imposed. For example, include symmetry, W_ii=p_i, sum_i p_i=k_S, and sum_j W_ij=k_S p_i. This affine projection is preprocessing, not proof of feasibility in K_S or in the original DNN model.
+
+Evaluate the final corrected cut on the **original** moments as well as the projected ones. Use a declared coefficient normalization and a compatible norm. For coefficient vector c and displacement delta, the discrepancy in cut evaluation is bounded by ||c||_* ||delta||. Report actual aggregate residuals; assignment-level residuals can grow under aggregation. A universal threshold such as 1e-3 is unjustified without this normalization and error accounting. The projection displacement is not itself a rigorous distance bound to the full DNN feasible set.
+
+Fable reports assignment residuals around 1e-4 to 1e-5 and triangle violations around 0.03 to 0.09. Thus 'exhausted triangles' should mean that further separation or pricing has stopped delivering certified gain under the tested settings, not that the iterate satisfies every triangle. An oracle may rediscover existing inequalities. Compare against an equally funded continuation of the existing triangle/count pipeline to identify incremental value.
+
+### Cut-validity certificate: the implementation contract
+
+An approximate separator is not automatically safe for fathoming. The existing DNN certificate validates the modified objective; it does not validate an inequality supplied by the caller. No new DNN bounding certificate is required, but an independently checked **cut-validity certificate** is new work.
+
+For an exported quadratic polynomial f(z), target a decomposition, after reduction by z_i^2=z_i,
+
+\[
+\beta-f(z)=v_2(z)^T Qv_2(z)
++h(z)\left(\sum_i z_i-k_S\right)+r(z),
+\]
+
+where v_2 contains all square-free monomials of degree at most two, Q is symmetric, h has degree at most three, and r collects the complete residual polynomial, of degree at most four. Include rounding of the exported f and beta, certificate coefficients, and arithmetic in the residual accounting. Compute or enclose those residual coefficients independently; the solver's reported residual norm alone is insufficient.
+
+If a verified spectral bound establishes Q >= -epsilon I and |r(z)| <= rho for every binary z of weight k_S, then
+
+\[
+f(z)\le\beta+\epsilon\tau_S+\rho,
+\qquad \tau_S=1+k_S+\binom{k_S}{2}.
+\]
+
+Indeed, the cardinality term vanishes and ||v_2(z)||^2=tau_S on every such z. One conservative residual bound is the sum of absolute values of the square-free residual coefficients, computed with outward error bounds or exact arithmetic. This may be loose; record how much violation it consumes before attempting a sharper bound.
+
+**Sign convention:** for an upper-form inequality f<=beta, add the safety allowance to the right-hand side. For a lower-form inequality, subtract it from the lower bound. A numerical eigensolver's minimum eigenvalue alone is not a verified spectral bound: use a checked factorization with a conservative error bound, interval methods, or another independently justified enclosure. If using a reduced or rescaled monomial basis, rederive its norm bound or lift the certificate back to the original basis; do not reuse tau_S without justification.
+
+After mapping the corrected cut to <G,Y><=b, use nonnegative mu, L_add=mu G, and shift_add=-mu b as in section 7. Include mapping and floating-point assembly errors in the appropriate conservative allowances. Check off-diagonal factors of two, local/original indexing, and node scope. A certificate proved for one residual capacity and free-variable set must not be reused at unrelated nodes without revalidation.
+
+Validate the implementation on small enumerable cardinality slices: compare polynomial evaluation, regional evaluation, and y^T G y; verify corrected validity exhaustively; and perturb/round certificates deliberately to ensure the error correction remains conservative. Also verify that the export retains useful violation on the original target iterate. These are proposed checks; no moment-cut verifier is implemented in this bundle.
+
+### Size, facial reduction, and runtime expectations
+
+At m=47, the unreduced PSD matrix order is 1+47+binomial(47,2)=1,129, while the distinct moments through degree four number 195,709. Matrix order is not scalar optimization dimension. The cardinality identities constrain sums of higher moments; they do not determine every individual degree-three or degree-four moment from (p,W).
+
+Relations generated by sum_i z_i-k_S and z_j(sum_i z_i-k_S) expose a singular face and can improve conditioning through facial reduction. Middle-capacity regions nevertheless remain substantial problems. Count independent equations, nonzeros, solver workspaces, and factorization costs as well as PSD storage. Benchmark model construction, peak memory, projection/factorization time, and iterations on the first region. Neither 'one afternoon' nor 'one region per hour' is an established runtime here.
+
+SCS is a candidate offline solver, not a certificate oracle whose status can be accepted without checking. Its [documented termination and infeasibility criteria](https://www.cvxgrp.org/scs/algorithm/index.html) are tolerance-based. Preserve primal/dual residuals and the actual candidate certificate for independent verification.
+
+### Ordered experiment and decision gates
+
+1. **Complete and interpret the node-10 subtree A/B**, and prioritize the hard-class depth-four sample under nodes 1 and 5 for cost extrapolation. Do not infer net benefit from the completed cut arm alone. Coordinate with the cloud run before starting laptop work.
+2. **Run one modest triple-consistency trial**, targeting roughly 50–100 selected cuts if separation cost permits. Reuse the exact rounded-potential validity check. Compare against the current strongest cut pipeline, not the old uncut pilot; record separation cost as well as bound cost. No +10–50 gain is assumed.
+3. **Prototype one mid-region moment separator on node 13**, using the actual quiet-round checkpoint and matching cognac cut code. First deliver one independently validated exported cut, its corrected violation on the original iterate, and its incremental certified gain under a matched control.
+4. **Expand only after evidence.** A gain below about +20 is a reason to deprioritize if the oracle, inner solve, and multiplier optimization were sufficiently thorough; it does not prove the full SDP useless. A gain of +50 or more justifies testing additional regions/nodes and repeated offline separation. These are proposed budget decisions, not mathematical thresholds or measured results.
+5. **Choose the integration architecture after those tests.** Compare repeated separation with linked-block integration using certified gains, total time, and additional fathoms. Strong exported cuts do not by themselves establish that maintaining the full PSD block is the best implementation.
+
+For each trial retain the source/checkpoint identities, raw and projected moments, normalization, certificate and verified error allowances, exported coefficients and node scope, corrected violations, strongest baseline and matched-control certificates, time/memory, and fathoming outcome. Keep the maximum certified bound across all controls and trials. This evidence makes the next implementation decision reviewable without confusing feasibility, separation, bound strength, and search performance.
 
 ## 11. References and reproducibility
 

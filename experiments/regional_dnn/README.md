@@ -2,6 +2,8 @@
 
 These are research drivers, not changes to the branch-and-bound solver. See [REPORT.md](REPORT.md) for proofs, interpretation, and limitations. The regional order-two SDP is formulated in the memo but is **not implemented** in this bundle.
 
+**Current research plan:** [REPORT.md, section 10b](REPORT.md#10b-revised-experiment-plan-after-fables-review--2-november-2026) contains the refinements following Fable’s review: offline moment separation, cut-validity verification, matched controls, and decision gates. These are a proposed next experiment; this bundle does not implement a moment separator.
+
 ## Source snapshot and dependencies
 
 - Repository: https://github.com/natebrix/qap
