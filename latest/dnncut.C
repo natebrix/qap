@@ -2,16 +2,20 @@
 // experiments/dnn_cuts/dnncuts.C made a library, with regions on either side.
 #include "dnncut.h"
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <cmath>
 #include <string>
 #include <map>
 #include <set>
 #include <algorithm>
+#include <array>
+#include <random>
 
 DNNCutParams::DNNCutParams()
 {
   rounds = 12; iters = 300; first_iters = 0; kcuts = 1000; kcuts5 = 0; add_until = 0;
+  kcuts7 = 0; sub7 = 1000;
   delta = 50; theta = 1.0; mu0 = 0;
   grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
   stall_rounds = 0; stall_factor = 3.0;
@@ -26,7 +30,93 @@ namespace {
 // elements of the other side (local indices), type 0/1/2 = apex a/b/c, 3 =
 // the sum inequality; type 4 = the 5-point count inequality on a < b < c <
 // d < e with flip set `mask` (bit x = element x of a..e flipped) and alpha
+// type 6 = a local-7 inequality: a is the index into the pool's L7Cut vector
 struct Cut { int type, a, b, c, s; double mu; int d, e, mask, alpha; };
+
+// ---- local-7 cuts (type 6), see dnncut.h
+struct L7Cut { int f[7]; double ca[7], cb[21], beta; };
+static std::vector<L7Cut> *g_l7 = NULL;   // the current call's pool of local-7 cuts
+static int P7[21][2];
+static void init_p7() { int q = 0; for (int i = 0; i < 7; i++) for (int j = i + 1; j < 7; j++) { P7[q][0] = i; P7[q][1] = j; q++; } }
+// the admissible configurations of a region of ksz locations among m, as 28-vectors
+struct L7Space { std::vector<std::array<double, 28>> V; };
+L7Space l7_space(int ksz, int m)
+{
+  L7Space sp;
+  for (int c = 0; c < 128; c++) {
+    int s = __builtin_popcount(c);
+    if (s > ksz || 7 - s > m - ksz) continue;
+    std::array<double, 28> v;
+    for (int i = 0; i < 7; i++) v[i] = (c >> i) & 1;
+    for (int q = 0; q < 21; q++) v[7 + q] = v[P7[q][0]] * v[P7[q][1]];
+    sp.V.push_back(v);
+  }
+  return sp;
+}
+// separate y = (p_T, W_TT) from the hull of sp.V: Frank-Wolfe projection, the
+// direction y - x scaled to max |coefficient| 1, beta exact over the vertices
+bool l7_separate(const L7Space &sp, const double *y, L7Cut &out, double &viol)
+{
+  const size_t nv = sp.V.size();
+  if (nv == 0) return false;
+  std::array<double, 28> x;
+  double best = HUGE_VAL; size_t c0 = 0;
+  for (size_t c = 0; c < nv; c++) {
+    double d2 = 0; for (int k = 0; k < 28; k++) d2 += (sp.V[c][k] - y[k]) * (sp.V[c][k] - y[k]);
+    if (d2 < best) { best = d2; c0 = c; }
+  }
+  // away-step Frank-Wolfe on the simplex weights (linear convergence on a
+  // polytope): x = sum lambda_c V_c, exact line search, stop at a tiny gap
+  std::vector<double> lam(nv, 0.0);
+  lam[c0] = 1.0; x = sp.V[c0];
+  for (int it = 0; it < 5000; it++) {
+    double gmin = HUGE_VAL, gmax = -HUGE_VAL; size_t cs = 0, ca = 0;
+    for (size_t c = 0; c < nv; c++) {
+      double g = 0; for (int k = 0; k < 28; k++) g += (x[k] - y[k]) * sp.V[c][k];
+      if (g < gmin) { gmin = g; cs = c; }
+      if (lam[c] > 0 && g > gmax) { gmax = g; ca = c; }
+    }
+    double gx = 0; for (int k = 0; k < 28; k++) gx += (x[k] - y[k]) * x[k];
+    const double fw_gap = gx - gmin, away_gap = gmax - gx;
+    if (fw_gap < 1e-10) break;
+    std::array<double, 28> d; double gmax_step;
+    bool away = away_gap > fw_gap;
+    if (!away) { for (int k = 0; k < 28; k++) d[k] = sp.V[cs][k] - x[k]; gmax_step = 1.0; }
+    else { for (int k = 0; k < 28; k++) d[k] = x[k] - sp.V[ca][k]; gmax_step = lam[ca] / (1.0 - lam[ca] + 1e-300); }
+    double gd = 0, dd = 0;
+    for (int k = 0; k < 28; k++) { gd += (x[k] - y[k]) * d[k]; dd += d[k] * d[k]; }
+    if (dd <= 0) break;
+    const double step = std::min(gmax_step, std::max(0.0, -gd / dd));
+    if (step <= 0) break;
+    if (!away) { for (size_t c = 0; c < nv; c++) lam[c] *= (1 - step); lam[cs] += step; }
+    else { for (size_t c = 0; c < nv; c++) lam[c] *= (1 + step); lam[ca] -= step; if (lam[ca] < 1e-15) lam[ca] = 0; }
+    for (int k = 0; k < 28; k++) x[k] += step * d[k];
+  }
+  double dmax = 0;
+  for (int k = 0; k < 28; k++) dmax = std::max(dmax, fabs(y[k] - x[k]));
+  if (dmax < 1e-7) return false;
+  for (int k = 0; k < 7; k++) out.ca[k] = (y[k] - x[k]) / dmax;
+  for (int q = 0; q < 21; q++) out.cb[q] = (y[7 + q] - x[7 + q]) / dmax;
+  double beta = -HUGE_VAL, ay = 0;
+  for (size_t c = 0; c < nv; c++) {
+    double v = 0;
+    for (int k = 0; k < 7; k++) v += out.ca[k] * sp.V[c][k];
+    for (int q = 0; q < 21; q++) v += out.cb[q] * sp.V[c][7 + q];
+    beta = std::max(beta, v);
+  }
+  for (int k = 0; k < 7; k++) ay += out.ca[k] * y[k];
+  for (int q = 0; q < 21; q++) ay += out.cb[q] * y[7 + q];
+  out.beta = beta; viol = ay - beta;
+  return viol > 1e-6;
+}
+double rviolation7(const Cut &t, const std::vector<double> &p, const std::vector<double> &W, int m)
+{
+  const L7Cut &c = (*g_l7)[t.a];
+  double v = -c.beta;
+  for (int k = 0; k < 7; k++) v += c.ca[k] * p[c.f[k]];
+  for (int q = 0; q < 21; q++) v += c.cb[q] * W[(size_t)c.f[P7[q][0]] * m + c.f[P7[q][1]]];
+  return v;
+}
 struct Region { std::string name; std::vector<int> loc; };   // local indices on `side`
 
 // lifted index of the variable with local index s on the region side and t on
@@ -141,12 +231,14 @@ double cut_rhs(const Cut &t)
   if (t.s < 0) return t.type == 2 ? 1.0 : 0.0;
   if (t.type == 3) return 1.0;
   if (t.type == 4) { Five f; five_coef(t.mask, t.alpha, f); return -f.c0; }
+  if (t.type == 6) return (*g_l7)[t.a].beta;
   return 0.0;
 }
 
 double rviolation(const Cut &t, const std::vector<double> &p, const std::vector<double> &W, int m)
 {
   if (t.type == 4) return rviolation5(t, p, W, m);
+  if (t.type == 6) return rviolation7(t, p, W, m);
   auto w = [&](int i, int j) { return W[(size_t)i * m + j]; };
   const int i = t.a, j = t.b, k = t.c;
   switch (t.type) {
@@ -183,6 +275,10 @@ double add_rcut(const Cut &t, const Region &S, std::vector<double> &L, const Lif
   } else if (t.type == 3) {
     lin(i, mu); lin(j, mu); lin(k, mu);
     pair(i, j, -mu); pair(i, k, -mu); pair(j, k, -mu);
+  } else if (t.type == 6) {
+    const L7Cut &c = (*g_l7)[t.a];
+    for (int x = 0; x < 7; x++) if (c.ca[x] != 0) lin(c.f[x], mu * c.ca[x]);
+    for (int q = 0; q < 21; q++) if (c.cb[q] != 0) pair(c.f[P7[q][0]], c.f[P7[q][1]], mu * c.cb[q]);
   } else {
     Five f; five_coef(t.mask, t.alpha, f);
     const int T[5] = {t.a, t.b, t.c, t.d, t.e};
@@ -262,6 +358,11 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 
   std::vector<Cut> cuts;
   std::map<std::vector<int>, int> index;
+  std::vector<L7Cut> l7;                // the pool's local-7 cuts (Cut::a indexes it)
+  init_p7(); g_l7 = &l7;
+  std::vector<L7Space> l7space;         // per region, the admissible configurations
+  if (cp.kcuts7 > 0 && m >= 7)
+    for (auto &R : regions) l7space.push_back(l7_space((int)R.loc.size(), m));
   std::vector<double> Ladd((size_t)n1 * n1, 0.0);
   std::vector<std::vector<double>> P, WW;         // regional aggregates of the last Y
   DNNWarm save;
@@ -318,8 +419,9 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     // separate on the last primal iterate
     const std::vector<double> &Y = warm->Y;
     if (Y.size() != (size_t)n1 * n1) break;
-    std::vector<std::pair<double, Cut>> found, found5;
-    size_t nviol = 0, nviol5 = 0;
+    std::vector<std::pair<double, Cut>> found, found5, found7;
+    std::vector<L7Cut> cand7;           // the local-7 candidates of this round (Cut::a indexes it)
+    size_t nviol = 0, nviol5 = 0, nviol7 = 0;
     auto by_violation = [](const std::pair<double, Cut> &u, const std::pair<double, Cut> &w) {
       return u.first > w.first; };
     auto trim = [&](std::vector<std::pair<double, Cut>> &v, int k) {
@@ -386,9 +488,45 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
                 }
           nviol5 += n5;
         }
+        // the local-7 inequalities: cp.sub7 random 7-subsets of the free
+        // elements plus a third as many from the 15 most fractional ones
+        double r7 = -HUGE_VAL; size_t n7 = 0;
+        if (cp.kcuts7 > 0 && m >= 7) {
+          const std::vector<double> &p = P[s], &W = WW[s];
+          std::mt19937 rng(1000003u * (unsigned)(r + 1) + (unsigned)s);
+          std::vector<int> frac(m);
+          for (int i = 0; i < m; i++) frac[i] = i;
+          std::sort(frac.begin(), frac.end(), [&](int i, int j) { return p[i] * (1 - p[i]) > p[j] * (1 - p[j]); });
+          const int nf = std::min(m, 15);
+          const int nsub = cp.sub7 + cp.sub7 / 3;
+          std::set<std::vector<int>> seen;
+          for (int t = 0; t < nsub; t++) {
+            std::vector<int> T;
+            if (t < cp.sub7) { std::vector<int> all(m); for (int i = 0; i < m; i++) all[i] = i;
+              std::shuffle(all.begin(), all.end(), rng); T.assign(all.begin(), all.begin() + 7); }
+            else { std::vector<int> top(frac.begin(), frac.begin() + nf);
+              std::shuffle(top.begin(), top.end(), rng); T.assign(top.begin(), top.begin() + 7); }
+            std::sort(T.begin(), T.end());
+            if (!seen.insert(T).second) continue;
+            double y[28];
+            for (int k = 0; k < 7; k++) y[k] = p[T[k]];
+            for (int q = 0; q < 21; q++) y[7 + q] = W[(size_t)T[P7[q][0]] * m + T[P7[q][1]]];
+            L7Cut c; double v;
+            if (!l7_separate(l7space[s], y, c, v)) continue;
+            for (int k = 0; k < 7; k++) c.f[k] = T[k];
+            r7 = std::max(r7, v);
+            if (v > 1e-3) {
+              cand7.push_back(c);
+              Cut ct = {6, (int)cand7.size() - 1, 0, 0, (int)s, 0.0};
+              found7.push_back({v, ct}); n7++;
+            }
+          }
+          nviol7 += n7;
+        }
         if (cp.verbose > 1) {
           printf("  region %-8s violated %zu  max %.4f", regions[s].name.c_str(), rn, rmax);
           if (cp.kcuts5 > 0) printf("  five %zu  max %.4f", n5, r5);
+          if (cp.kcuts7 > 0) printf("  seven %zu  max %.4f", n7, r7);
           printf("\n");
         }
         bound_memory();
@@ -434,8 +572,23 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     };
     const bool adding = cp.add_until <= 0 || r <= cp.add_until;
     const int added = add_from(found, adding ? cp.kcuts : 0), added5 = add_from(found5, adding ? cp.kcuts5 : 0);
+    // local-7 cuts: one per (region, 7-subset) in the pool; the candidate's data moves into l7
+    std::sort(found7.begin(), found7.end(), by_violation);
+    int added7 = 0;
+    for (auto &f : found7) {
+      if (added7 >= (adding ? cp.kcuts7 : 0)) break;
+      const L7Cut &c = cand7[f.second.a];
+      std::vector<int> key = {6, f.second.s, c.f[0], c.f[1], c.f[2], c.f[3], c.f[4], c.f[5], c.f[6]};
+      if (index.count(key)) continue;
+      index[key] = (int)cuts.size();
+      l7.push_back(c);
+      Cut ct = f.second; ct.a = (int)l7.size() - 1; ct.mu = cp.mu0;
+      cuts.push_back(ct);
+      added7++;
+    }
     const double maxv = found.empty() ? 0 : found[0].first;
     const double maxv5 = found5.empty() ? 0 : found5[0].first;
+    const double maxv7 = found7.empty() ? 0 : found7[0].first;
     if (cp.verbose && solved)
       printf("round %2d  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f"
              "  active %d  violated %zu (max %.4f)  added %d", r, res.lb, res.lb - first_lb,
@@ -446,6 +599,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
              first_lb, nviol, maxv, added);
     if (cp.verbose) {
       if (cp.kcuts5 > 0) printf("  five %zu (max %.4f) added5 %d", nviol5, maxv5, added5);
+      if (cp.kcuts7 > 0) printf("  seven %zu (max %.4f) added7 %d", nviol7, maxv7, added7);
       printf("\n");
     }
     if (solved && res.status == DNN_FATHOMED) break;

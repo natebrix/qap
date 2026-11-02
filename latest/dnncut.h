@@ -32,6 +32,18 @@
  (research_bound_quality.md section 2.2); separated exhaustively, 48
  patterns per 5-subset per region.
 
+ Local-7 inequalities (cp.kcuts7 > 0, regional only): for seven free elements
+ T of a region S, the moments (p_T, W_TT) are the first and second moments of
+ the 0/1 vector z_T, so they lie in the convex hull of the admissible
+ configurations c in {0,1}^7 (sum c <= |S|, 7 - sum c <= m - |S|). A point
+ outside it is separated by projecting onto that hull (Frank-Wolfe over the
+ at most 128 vertices): the direction y - x, scaled to max |coefficient| = 1,
+ with the right-hand side beta = max over the admissible c, is a valid
+ inequality a.p_T + <B, W_TT> <= beta for every permutation. The triangles are
+ the 3-element case. Separation samples cp.sub7 random 7-subsets per region
+ plus subsets of the most fractional elements (stronger_bounds/local7: the
+ violations are 1.7-2.6x the triangles' at wil50's converged iterates).
+
  Atomic (cp.atomic): the same inequalities on single lifted variables.
 
  Each round solves the DNN relaxation with the current multipliers
@@ -56,6 +68,10 @@ struct DNNCutParams {
   int kcuts;          // new cuts per round (1000)
   int kcuts5;         // > 0: also separate the 5-point count inequalities and add
                       // this many per round, on top of kcuts triangles (0 = off)
+  int kcuts7;         // > 0: also separate the local-7 inequalities and add this many
+                      // per round (0 = off)
+  int sub7;           // random 7-subsets sampled per region and round (1000); a third as
+                      // many again are drawn from the 15 most fractional elements
   int add_until;      // > 0: add new cuts only in rounds <= add_until; later rounds
                       // move the multipliers of the frozen pool (the dual-method test,
                       // stronger_bounds/dualtest). 0 = every round (default)

@@ -57,7 +57,7 @@ def main():
     rng = random.Random(args.seed)
     tmp = tempfile.mkdtemp()
     checks = bad = 0
-    gains = {"prefix": [], "atomic": [], "five": []}
+    gains = {"prefix": [], "atomic": [], "five": [], "seven": []}
     for t in range(args.N):
         fam = bf.FAMILIES[t % len(bf.FAMILIES)]
         A, B, C = bf.make_instance(fam, args.n, rng)
@@ -72,7 +72,7 @@ def main():
         for fx in nodes:
             fixes = [] if fx == "-" else [tuple(map(int, s.split(":"))) for s in fx.split(",")]
             opt = node_optimum(A, B, C, fixes)
-            for name, flags in (("prefix", ["-prefix"]), ("atomic", []), ("five", ["-prefix", "-five", "30"])):
+            for name, flags in (("prefix", ["-prefix"]), ("atomic", []), ("five", ["-prefix", "-five", "30"]), ("seven", ["-prefix", "-seven", "20:200"])):
                 lbs, best, first = run(dat, fx, flags)
                 for lb in lbs:
                     checks += 1

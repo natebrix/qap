@@ -97,3 +97,26 @@ optimized; if the local-7 family scales the same way from its fixed +12 it
 is in the +40 to +50 range at the median, which is a third of a level, not
 a level. Whether that reaches d2 (18 short) is the test; node 13 (51 short)
 is the harder one.
+
+## The pool cut type (Nov 2, `latest/dnncut.C` type 6, `dnncuts -seven K[:S]`)
+
+The local-7 inequalities are now a cut type in the library, separated inside
+the rounds: for each region, S random 7-subsets of the free elements plus
+S/3 subsets of the 15 most fractional ones; the moments (p_T, W_TT) are
+projected onto the convex hull of the admissible configurations by away-step
+Frank-Wolfe (linear convergence; plain Frank-Wolfe stalled at a residual of
+0.02 and found nothing); the projection direction, scaled to max
+|coefficient| 1, with the exact right-hand side over the admissible
+configurations is the cut, valid for every permutation. The K most violated
+enter the pool per round and take the same Polyak step and quiet round as
+the triangles. On the nug12 root iterate the C++ separator finds the col<1
+violation at 0.0267 against the LP's 0.0291 (the Euclidean projection normal
+is not the LP's L-infinity-optimal one, a few percent weaker). Validity:
+`validate_cuts.py` has a `seven` variant; the enumeration check and the
+nug12 root at cutoff 578 pass. Search: `QAP_DNN_CUT_K7`, `QAP_DNN_CUT_SUB7`.
+
+`run_pool.sh`: the step-7 protocol on nodes 13 and d2 with 300 local-7 cuts
+a round on top of the 1,000 triangles (1,000 and 3,000 subsets per region),
+and alone. Against the triangle-only references (58.6 and 24.2 short) the
+question is whether the optimized family reaches the +40 to +50 its fixed
++12 suggests, which would fathom d2.

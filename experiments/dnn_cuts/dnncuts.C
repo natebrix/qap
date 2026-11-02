@@ -7,7 +7,7 @@
    experiments/dnn_cuts/dnncuts [-x i:j,...] [-u ub | -c cutoff] [-r rounds]
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
        [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
-       [-Ladd file[:const]] [-dumpY prefix] [-addto R]
+       [-Ladd file[:const]] [-dumpY prefix] [-addto R] [-seven K[:S]]
        [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
@@ -76,6 +76,10 @@ int main(int argc, char **argv)
     else if (o == "-k" && more) cp.kcuts = atoi(argv[++a]);
     else if (o == "-five" && more) cp.kcuts5 = atoi(argv[++a]);               // 5-point count inequalities per round
     else if (o == "-addto" && more) cp.add_until = atoi(argv[++a]);           // add cuts only in rounds <= R
+    else if (o == "-seven" && more) {                                          // -seven K[:S]: K local-7 cuts a round, S random subsets per region
+      const char *z = argv[++a], *c = strchr(z, ':');
+      cp.kcuts7 = atoi(z); if (c) cp.sub7 = atoi(c + 1);
+    }
     else if (o == "-t" && more) cp.theta = atof(argv[++a]);
     else if (o == "-delta" && more) cp.delta = atof(argv[++a]);
     else if (o == "-mu0" && more) cp.mu0 = atof(argv[++a]);
