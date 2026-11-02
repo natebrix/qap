@@ -302,6 +302,10 @@ def main():
             pool.extend(st.nodes)          # unfinished nodes go back to the pool
         os.remove(path)
         os.remove(path + ".log")
+        # progress without stopping anyone (a checkpoint idles the early finishers)
+        dc = total.arrays.get("dnn_counts", [0, 0])
+        print(f"parallel: {tasks_run} tasks done, {total.counters[0]} nodes ({dc[0]} DNN, {dc[1]} DNN-fathomed), "
+              f"{len(pool)} open, {len(running)} running, CPU {total.times[0]:.0f} s", flush=True)
 
     wall = time.perf_counter() - wall0
 
