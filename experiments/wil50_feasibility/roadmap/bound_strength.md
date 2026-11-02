@@ -40,7 +40,7 @@ depth-3 clear miss itself.
 | # | idea | expected gain | cost per node | effort | risk | evidence | cheapest first test / kill result |
 |---|---|---|---|---|---|---|---|
 | 1 | **Inherit cut pool + multipliers into children**; also run a phase (no quiet round needed for fathoming) at depth-3 clear misses outside the zone, to equip their 47 children | **1.5-4x on the dominant class** on top of the measured 1.81x [e] | +2% per iteration for `L_add` [m, README step 1]; removes most child phases (~900 s each [m, derived]) | 2-4 days, including state-file v5 for the pool | medium: the transfer is bracketed but not measured | exact inequality above; node 10's cut value 48,743.9 [m, `dual/tri_10.log`] against uncut 48,655.9; children's uncut gains +96/+49/+92 (d1/d2/d4) [m, `depth4/uncut_*.log` via `research_bound_quality.md` 1.2] | dump node 10's pool; reload it frozen on d1, d2, d4 and 3 random siblings (`-r 0`, quiet 1,500); about 1 laptop-hour. **Kill** if median (inherited - child uncut converged) < +40, or d2 < its own phase (48,789.9) - 30 |
-| 2 | **Skew-symmetric polishing of the certificate** (Hahn-Grant / RLT1 dual ascent on the residual L+Z') | flips nodes ≤8 short after the quiet round; mainly shorter quiet rounds: **1.05-1.15x** on the phase side [e]; more if applied to plain nodes (speed angle) | 10-30 GL evaluations per certificate, about 0.2-1.5 s [e] against about 4 s of iterations between certificates [m, memo 3.3] | 2-4 days | medium: a near-optimal residual may already be nearly symmetric-tight | lag at 300-iteration rounds 25-90 [m, memo 1.2]; quiet rounds are 20-54% of a fathoming phase's iterations [m, `laptop/README.md` section 2] | dump L+Z' at the end of round 6 of d6 and round 3 of d1; ascent offline in Python (`scipy linear_sum_assignment`). **Kill** if it recovers < 20% of primal minus certified |
+| 2 | **Skew-symmetric polishing of the certificate** (Hahn-Grant / RLT1 dual ascent on the residual L+Z') | flips nodes ≤8 short after the quiet round; mainly shorter quiet rounds: **1.05-1.15x** on the phase side [e]; more if applied to plain nodes (speed angle) | 10-30 GL evaluations per certificate, about 0.2-1.5 s [e] against about 4 s of iterations between certificates [e, memo 3.3] | 2-4 days | medium: a near-optimal residual may already be nearly symmetric-tight | lag at 300-iteration rounds 25-90 [m, memo 1.2]; quiet rounds are 20-54% of a fathoming phase's iterations [m, `laptop/README.md` section 2] | dump L+Z' at the end of round 6 of d6 and round 3 of d1; ascent offline in Python (`scipy linear_sum_assignment`). **Kill** if it recovers < 20% of primal minus certified |
 | 3 | **Regional M2 block as Lagrangian decomposition** (= SOS-certified moment cuts, Astra 10b): DNN unchanged, one certified regional SDP per mid region per round | +10 to +40 at the phase [e]; P(≥ +65) about 10-15% [e]; net 0.8-1.5x [e] | 4 regions x 50-300 ADMM iterations x ~0.3 s eig (n = 1,129) per round: +40-200% on a phase [e] | 1 week certificate and validation, 2-3 weeks in all | high | local-7 gate violations 0.13-0.20 [m]; but 5-point wash, local-7 pool negative, triples tiny [m] | SCS projection of node 13's **triangle-capped** quiet iterate (col<5, row<3) onto the M2 set, alongside the projection onto MET. **Kill** if the excess normalized violation < 0.03, or the fixed-mu gain on top of the triangle pool's best multipliers is < +10 |
 | 4 | Per-cut normalized Polyak step (unit norm in moment space), then the local-7 closing check (b) under it | +5 to +20 over triangles alone [e]; **1.05-1.2x** | none | 0.5-1 day | low effort, low value | local-7 alone reaches 84-87% of the triangles' gain; the joint pool lands 15-25 below triangles alone [m, `local7/README.md`] | slow30 joint pool, normalized, on 13 and d2. **Kill** at ≤ triangle slow30 + 5 (48,762 / 48,795) |
 | 5 | Mixed-region and rectangle triangles (the only regional linear family not yet tried in a bound) | +5 to +15 [e]; 1.05-1.15x | separation +5-10 s per round [e] | 1-2 days | low value | same max violation 0.091 as the threshold family, near-duplicate top cuts [m, memo 1.3] | 12-round protocol on 13 and d2. **Kill** at < +5 |
@@ -84,7 +84,7 @@ symmetric Y. So GL(L + Z' + K) - (m+1)·lambda bound is a valid certificate
 for every K. The spectral term is unchanged, because V'KV is skew and
 lambda_max is taken of the symmetric part. The polyhedral set becomes
 P_GL ∩ {Y = Y'}, the Adams-Johnson RLT1 LP. Hahn-Grant ascent climbs it with
-GL-cost passes: about 20-50 ms each at m = 47 [m, memo 3.3], 2,209 inner
+GL-cost passes: about 20-50 ms each at m = 47 [e, memo 3.3], 2,209 inner
 LAPs.
 
 At the dual optimum it adds nothing, since every P that contains the DNN set
@@ -202,6 +202,13 @@ per-phase data, so the 39-phase sample is lost.
   dense matrix at m = 46 [e]. Carry the pool as tuples (about 100 KB), not
   the matrix. As `latest/state.C` v4 showed, anything carried by the warm
   start must also go into the state file.
+- **Overlap with `node_speed.md` item 5.** The speed memo proposes the same
+  inheritance, for the children of failed phases only, and prices it as a
+  speed gain of 1.1-1.25x. The difference here is the bound bracket (each
+  child starts at least at the parent's cut value) and the policy of running
+  a phase at out-of-zone depth-3 clear misses to equip their children. That
+  policy is where the 1.5-4x comes from. One test, the node-10 children with
+  the parent's pool, settles both estimates.
 - **Tree.** The 130 units per level and 47x per level apply to uniform
   gains. Items 3-5 act only at phase nodes, so their factors are lower.
   Item 1 changes which nodes are near misses at depth 4-5, and with it the
