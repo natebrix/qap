@@ -451,3 +451,19 @@ over all 5-subsets is not visible against the eigensolver), total per node
 1,050-1,330 s. Not worth carrying into the search phase at 500 a round; a
 larger quota or a smaller first step would be the next test if the family is
 pursued, but the memo's ranking (dual method first) stands.
+
+## Step 8: triple-consistency cuts (memo candidate 5), retired
+
+A fixed-multiplier trial of Astra's projected RLT2 cuts, run on the laptop
+(`triples/README.md` has the table and the reading): on node 13 and child d2
+all 60 random triples are violated, but by 0.0002-0.16 (median about 0.01),
+an order of magnitude below the 0.25-0.28 Astra reported for ten node-1
+triples, so the gain available at any multiplier the inner solve absorbs is a
+few units; the dense term costs the 1,500-iteration certificate 45-50 at mu 2
+and 54-55 on top of the triangles after the quiet round. With candidates 2
+(5-point counts, step 7) and 5 both retired, the linear families on the
+present variables look exhausted at this depth; what remains of the memo's
+list is the dual method itself (a bundle step or multipliers updated inside
+the ADMM, candidate 1) and genuinely higher-order consistency (the regional
+moment block, candidate 6, or Astra's section-10b moment separation with its
+verified certificate).
