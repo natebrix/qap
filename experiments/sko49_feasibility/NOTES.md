@@ -52,3 +52,23 @@ mechanism uses only the first matching J2 set at a node and gives nothing once a
 off every axis is assigned, so it realises the order-8 reduction at depth 1 (10 children)
 and most of it at depth 2; below that the tree is the plain one under each inequivalent
 depth-2 node, which is where the factor 8 of the table comes from.
+
+## 1. Root DNN bound (`root/root.log`)
+
+`dnntest -T 1 -g 1.0 -G 1.0 -d 4 -H 0 -i 1500 -k 10 -u 23386 -v` (PRSM step, degree-4
+filter, subspace tracker, one thread, four processes sharing the machine):
+
+| | sko49 | wil50 (`../wil50_feasibility/NOTES.md`) |
+|---|---|---|
+| certified root DNN bound | **22,652.2** (primal 22,640.0 at 1,500 iterations; 22,626.7 at 400, 22,649.6 at 800: converged to within about 3) | about 48,130 (root DNN "1.4% below the optimum", gap about 680) |
+| best known | 23,386 | 48,816 |
+| gap, units | **733.8** | about 680 |
+| gap, percent | **3.14%** | about 1.4% |
+| root QPB bound | 21,003.7 (10.2%) | – |
+| ms per iteration (m = 49, 1 thread, 4 processes running) | 823 | wil50 m = 50: 530-600 on the M2 Pro with `-f` |
+| CPU for 1,500 iterations | 1,234 s | – |
+
+The root gap in units is the same as wil50's, but sko49's objective is half the size, so
+**relative to the cutoff the DNN relaxation is 2.2 x weaker on sko49 at the root**. (Fujii
+et al. 2021 say that DNN-type lower bounds for sko42-sko81 were computed by Oliveira et al.
+and by the Newton-bracketing method but do not print the sko49 values; not checked here.)
