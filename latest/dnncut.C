@@ -17,6 +17,7 @@ DNNCutParams::DNNCutParams()
   stall_rounds = 0; stall_factor = 3.0;
   cap_at_cutoff = 1; freeze_after = 0; freeze_iters = 0; freeze_if_primal_above = 0;
   freeze_best = 1;
+  L_ext = NULL; L_ext_abs = 0; ext_const = 0;
 }
 
 namespace {
@@ -272,8 +273,9 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   double best_mu_lb = -HUGE_VAL;
   // one solve of the modified problem with the current multipliers
   auto solve = [&](int r, int iters) {
-    std::fill(Ladd.begin(), Ladd.end(), 0.0);
-    double abs_add = 0, hsum = 0;
+    if (cp.L_ext) std::copy(cp.L_ext, cp.L_ext + (size_t)n1 * n1, Ladd.begin());
+    else std::fill(Ladd.begin(), Ladd.end(), 0.0);
+    double abs_add = cp.L_ext_abs, hsum = cp.ext_const;
     int active = 0;
     for (const Cut &t : cuts)
       if (t.mu > 0) {
@@ -286,7 +288,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     par.max_iter = iters;
     par.hopeless_after = 0;
     par.hopeless_gap_ratio = 0;
-    par.L_add = active ? Ladd.data() : NULL;
+    par.L_add = (active || cp.L_ext) ? Ladd.data() : NULL;
     par.L_add_abs = abs_add;
     DNNResult res = dnn_bound(A, B, C, shift - hsum, cutoff, par, (r > 0 && warm) ? warm : NULL, &save);
     if (warm) *warm = save; else warm = &save;

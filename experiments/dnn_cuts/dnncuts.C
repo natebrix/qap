@@ -7,6 +7,7 @@
    experiments/dnn_cuts/dnncuts [-x i:j,...] [-u ub | -c cutoff] [-r rounds]
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
        [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
+       [-Ladd file[:const]] [-dumpY prefix]
        [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
@@ -15,7 +16,11 @@
  node's free elements. -prefix takes the prefixes of the free elements
  (validation on any instance); -atomic the single-variable triangles of
  README.md; -five K adds K of the regional 5-point count inequalities per
- round on top of the triangles (dnncut.h). Each round: solve (warm-started), separate the k most violated
+ round on top of the triangles (dnncut.h). -Ladd file[:const] adds an external
+ (m^2+1)^2 row-major double matrix (e.g. stronger_bounds/triples/make_ladd.py)
+ to every round's objective, const subtracted from the shift; -dumpY prefix
+ writes the final primal iterate Y to prefix.Y.bin (raw doubles, row-major).
+ Each round: solve (warm-started), separate the k most violated
  cuts in the last primal iterate, Polyak step toward min(cutoff, best + delta);
  stop at the first certified bound above the cutoff. Every value printed is
  certified.
@@ -58,6 +63,7 @@ int main(int argc, char **argv)
   int threads = 1, degree = 4, eig_mode = DNN_EIG_SUBSPACE, verbose = 0;
   double gamma = 1.0, gamma1 = 1.0;
   const char *file = NULL;
+  std::string ladd_spec, dumpy;
   for (int a = 1; a < argc; a++) {
     std::string o = argv[a];
     bool more = a + 1 < argc;
@@ -85,6 +91,8 @@ int main(int argc, char **argv)
       cp.freeze_iters = c ? atoi(c + 1) : 600;
     }
     else if (o == "-freeze-last") cp.freeze_best = 0;                     // quiet round from the last round's multipliers, not the best round's
+    else if (o == "-Ladd" && more) ladd_spec = argv[++a];
+    else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
     else if (o == "-atomic") cp.atomic = true;
     else if (o == "-d" && more) degree = atoi(argv[++a]);
@@ -117,6 +125,23 @@ int main(int argc, char **argv)
   std::vector<int> free_orig;
   for (int a = 0; a < n; a++)
     if ((cp.side == 0 ? node.p[a] : node.pinv[a]) == NONE) free_orig.push_back(a);
+  std::vector<double> Lext;
+  if (!ladd_spec.empty()) {
+    size_t c = ladd_spec.rfind(':');
+    std::string path = ladd_spec;
+    if (c != std::string::npos && c > 0 && ladd_spec.find('/', c) == std::string::npos) {
+      cp.ext_const = atof(ladd_spec.substr(c + 1).c_str()); path = ladd_spec.substr(0, c); }
+    const size_t n1 = (size_t)m * m + 1;
+    Lext.resize(n1 * n1);
+    FILE *f = fopen(path.c_str(), "rb");
+    if (!f || fread(Lext.data(), sizeof(double), n1 * n1, f) != n1 * n1) {
+      fprintf(stderr, "cannot read %zu doubles from %s\n", n1 * n1, path.c_str()); return 1; }
+    fclose(f);
+    double abs_ = 0; size_t nz = 0;
+    for (double v : Lext) { abs_ += fabs(v); nz += v != 0; }
+    cp.L_ext = Lext.data(); cp.L_ext_abs = abs_;
+    printf("external term %s: %zu nonzeros, |L_ext| = %.6f, const %.6f\n", path.c_str(), nz, abs_, cp.ext_const);
+  }
   printf("instance %s n=%d node %s m=%d cutoff %.4f  cuts %s", file, n, fixes.c_str(), m, cutoff,
          cp.atomic ? "atomic" : (cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
   if (cp.grid_rows > 0) printf(" side %d", cp.side);
@@ -136,6 +161,12 @@ int main(int argc, char **argv)
   DNNCutResult res = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, cp, &warm);
   printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", res.best_lb, res.first_lb,
          res.best_lb - res.first_lb);
+  if (!dumpy.empty() && !warm.Y.empty()) {
+    std::string path = dumpy + ".Y.bin";
+    FILE *f = fopen(path.c_str(), "wb");
+    if (f) { fwrite(warm.Y.data(), sizeof(double), warm.Y.size(), f); fclose(f);
+      printf("dumped Y (%zu doubles, m=%d) to %s\n", warm.Y.size(), warm.m, path.c_str()); }
+  }
   delete q;
   return 0;
 }

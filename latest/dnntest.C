@@ -97,6 +97,8 @@ static bool parse_fixes(const std::string &fixes, QAPAssignment &node, int n)
 // child twice, from scratch and warm-started (results 1 and 2).
 static bool print_xbar = false;   // -X: print the primal assignment marginals
 
+static std::string ladd_spec, dumpy;   // -Ladd file[:const], -dumpY prefix
+
 static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNParams &par0,
                      int index, const std::string &child = "",
                      const std::string &elims = "-")
@@ -135,10 +137,36 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
   if (par.verbose)
     printf("node %d fixed=%d m=%d shift=%.6f cutoff=%.6f\n", index, node.nfix,
            n - node.nfix, qr.shift, cutoff);
+  // an external objective term (externally separated cuts at fixed multipliers)
+  std::vector<double> Lext;
+  double ext_const = 0;
+  if (!ladd_spec.empty()) {
+    const int m = n - node.nfix;
+    const size_t n1 = (size_t)m * m + 1;
+    size_t c = ladd_spec.rfind(':');
+    std::string path = ladd_spec;
+    if (c != std::string::npos && c > 0 && ladd_spec.find('/', c) == std::string::npos) {
+      ext_const = atof(ladd_spec.substr(c + 1).c_str()); path = ladd_spec.substr(0, c); }
+    Lext.resize(n1 * n1);
+    FILE *f = fopen(path.c_str(), "rb");
+    if (!f || fread(Lext.data(), sizeof(double), n1 * n1, f) != n1 * n1) {
+      printf("cannot read %zu doubles from %s\n", n1 * n1, path.c_str()); return false; }
+    fclose(f);
+    double abs_ = 0; size_t nz = 0;
+    for (double v : Lext) { abs_ += fabs(v); nz += v != 0; }
+    par.L_add = Lext.data(); par.L_add_abs = abs_;
+    printf("external term %s: %zu nonzeros, |L_add| = %.6f, const %.6f\n", path.c_str(), nz, abs_, ext_const);
+  }
 
   DNNWarm warm;
-  DNNResult r = dnn_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, par, NULL,
-                          (child.empty() && !print_xbar) ? NULL : &warm);
+  DNNResult r = dnn_bound(qr.A, qr.B, qr.C, qr.shift - ext_const, cutoff, par, NULL,
+                          (child.empty() && !print_xbar && dumpy.empty()) ? NULL : &warm);
+  if (!dumpy.empty() && !warm.Y.empty()) {
+    std::string path = dumpy + ".Y.bin";
+    FILE *f = fopen(path.c_str(), "wb");
+    if (f) { fwrite(warm.Y.data(), sizeof(double), warm.Y.size(), f); fclose(f);
+      printf("dumped Y (%zu doubles, m=%d) to %s\n", warm.Y.size(), warm.m, path.c_str()); }
+  }
 
   printf("RESULT node=%d m=%d lb=%.17g primal=%.17g status=%s iters=%d cpu=%.3f"
          " ms_per_iter=%.2f certs=%d cert_fail=%d refine=%d margin=%.3g fathomed=%d"
@@ -257,6 +285,8 @@ int main(int argc, char **argv)
     else if (o == "-C" && more) par.child_bounds = atoi(argv[++a]);
     else if (o == "-E" && more) elims = argv[++a];
     else if (o == "-X") print_xbar = true;
+    else if (o == "-Ladd" && more) ladd_spec = argv[++a];   // external objective term file[:const]
+    else if (o == "-dumpY" && more) dumpy = argv[++a];      // write the final iterate to prefix.Y.bin
     else if (o[0] == '-') usage();
     else file = argv[a];
   }

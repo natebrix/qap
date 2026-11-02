@@ -83,6 +83,12 @@ struct DNNCutParams {
                       // nodes +53 in three rounds, then +3 a round). 0 = off
   double stall_factor;  // (3.0)
   int verbose;        // >= 1: a line per round, >= 2: per region
+  const double *L_ext;  // optional (m^2+1)^2 row-major term added to every round's
+                      // objective on top of the cuts (unscaled; e.g. externally
+                      // separated cuts at fixed multipliers, stronger_bounds/triples);
+                      // NULL: none
+  double L_ext_abs;   // sum of |entries| of L_ext (rounding margin)
+  double ext_const;   // constant subtracted from the shift for L_ext's right-hand sides
   DNNCutParams();
 };
 
