@@ -145,3 +145,98 @@ is the Lagrangian DNN relaxation (the same relaxation our certified bound solves
 same strength up to solver accuracy) and the paper does not mention symmetry, so their
 tree is the plain one; their node estimates are an independent check on section 6 once
 divided by the symmetry factor 8 (sko49) or 4 (wil50).
+
+## 3. Per-level closure: depth-4 children of two misses (`depth4/`)
+
+Eight random children each of node 1 (134.4 short at convergence) and node 2 (304.3 short):
+one random free facility per parent, eight random free locations
+(`depth4/draw_children.py`, seed 20261102), same `dnntest` settings as depth 3. A child
+that fathoms stops when its certificate clears the cutoff, so its gain is a lower bound.
+Table by `summarize.py depth4`:
+
+| child | spec | lb at 400 | short at 400 | lb at end | short | status | iters | CPU s |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `36:40,4:41,24:10,39:4` | 23,338.7 | 45.4 | 23,352.9 | 31.1 | iter_limit | 1500 | 742 |
+| 2 | `36:40,4:41,24:10,39:25` | 23,357.2 | 26.9 | 23,373.1 | 10.9 | iter_limit | 1500 | 706 |
+| 3 | `36:40,4:41,24:10,39:43` | 23,372.3 | 11.8 | 23,384.1 | -0.0 | fathomed | 1260 | 591 |
+| 4 | `36:40,4:41,24:10,39:44` | 23,335.3 | 48.8 | 23,348.3 | 35.7 | iter_limit | 1500 | 698 |
+| 5 | `36:40,4:41,24:10,39:11` | 23,347.1 | 36.9 | 23,359.3 | 24.8 | iter_limit | 1500 | 693 |
+| 6 | `36:40,4:41,24:10,39:7` | 23,382.3 | 1.8 | 23,384.2 | -0.1 | fathomed | 420 | 193 |
+| 7 | `36:40,4:41,24:10,39:27` | 23,385.2 | -1.1 | 23,385.2 | -1.1 | fathomed | 240 | 105 |
+| 8 | `36:40,4:41,24:10,39:2` | 23,353.4 | 30.7 | 23,367.2 | 16.9 | iter_limit | 1500 | 697 |
+| 9 | `7:48,26:41,2:12,44:13` | 23,218.9 | 165.1 | 23,232.4 | 151.7 | iter_limit | 1500 | 700 |
+| 10 | `7:48,26:41,2:12,44:26` | 23,210.5 | 173.6 | 23,222.8 | 161.3 | iter_limit | 1500 | 691 |
+| 11 | `7:48,26:41,2:12,44:34` | 23,214.5 | 169.6 | 23,223.3 | 160.8 | iter_limit | 1500 | 696 |
+| 12 | `7:48,26:41,2:12,44:40` | 23,332.0 | 52.1 | 23,347.8 | 36.3 | running | 1040 | nan |
+
+11 done: fathomed 3, short values -1, -0, -0, 11, 17, 25, 31, 36, 152, 161, 161, median 25
+DEPTH4_SUMMARY
+
+## 4. Regional cuts on the near misses (`cuts/`)
+
+The wil50 step-6/7 protocol from the give-up point, `dnncuts -x <node> -u 23386 -grid 7:7
+-side 0 -T 1 -k 1000 -v -I 400 -i 300 -r 12 -delta 50 -nocap -freeze 0:1500`: 400 uncut
+PRSM iterations, 12 rounds of 300 with 1,000 new regional triangles each (the row and
+column prefixes of the 7 x 7 grid, 12 regions), uncapped Polyak step toward best + 50, then
+a quiet round of up to 1,500 iterations from the best round's multipliers. The `five` arm
+adds `-five 500` (500 five-point count inequalities a round). Every value certified.
+
+| node (short at convergence) | arm | uncut lb at 400 | best Polyak round | after the quiet round | gain over the give-up point | fathomed | CPU s |
+|---|---|---|---|---|---|---|---|
+| 1 `36:40,4:41,24:10` (134.4) | tri | 23,234.8 (149.3 short) | 23,379.3 (+144.5, round 12) | **23,384.23** | **+149.5** | **yes** (380 quiet iterations) | 2,310 |
+| 1 | five | 23,234.8 | 23,378.2 (+143.5, round 8) | **23,384.21** | **+149.4** | **yes** (420 quiet iterations) | 2,320 |
+CUTS_6_9
+
+Node 1 is a depth-3 node that converges 134 short: its uncut subtree is 46 depth-4
+children, five of eight of which miss (section 3) and would each be branched into 45
+depth-5 children. The cut phase fathoms it at depth 3 in 2,300 CPU-s, about 3 x the uncut
+converged solve and 11 x the give-up budget. Compared with wil50: there the same protocol
+gained +117 to +134 on depth-4 children 62-99 short and +122 on depth-3 node 14 (84
+short), and fathomed nothing more than about 85-100 short at convergence; here it gains
+**+149.5 on a node 134 short**, i.e. the cuts are worth 10-25% more on the 7 x 7 grid,
+and a full level or more (sections 3 and 5). The five-point family is again a wash (its
+rounds are noisier, with a -94 overshoot in round 9, and the quiet round lands at the same
+value). Rounds cost 150-170 s (300 iterations at m = 46), the same as the uncut solve
+per iteration.
+
+## 6. Putting it together: the tree model (`model.py`, estimates)
+
+The `../wil50_feasibility/NOTES.md` section-5 model, applied to the depth-3 sample: a
+depth-3 node that converges s short fathoms k = round(s / g) levels lower (at least one when
+s > 0), g the gain per level; its subtree is 46 + 46 x 45 + ... DNN nodes; 13,818
+inequivalent depth-3 nodes (symmetry 8). Extra bound strength X per node (a cut phase at
+every DNN node) is s -> s - X. Costs on this 2.1 GHz Xeon, one thread: 250 CPU-s per plain
+DNN node (the give-up at 400 iterations costs 210; fathoms 105-590), 2,300 with the measured
+cut phase. All estimates; the inputs are the 12 converged shortfalls of section 2.
+
+`python3 model.py 49 8 <g> 250 2300 X=0,130,149,260 -- 134 175 210 258 259 263 278 280 300 304 314 337`
+
+| g per level | extra bound per node | DNN nodes | CPU-s | CPU-years | 1,000 cores | this 4-core box |
+|---|---|---|---|---|---|---|
+| 130 (wil50's) | none | 1.3e8 | 3.2e10 | 1,025 | 1.0 years | 250 years |
+| 130 | +130 (a full level, cut cost) | 3.0e6 | 7.0e9 | 221 | 81 days | 55 years |
+| 130 | **+149 (the measured cut gain)** | **6.0e5** | **1.4e9** | **43** | **16 days** | 11 years |
+| 130 | +260 | 3.8e5 | 8.8e8 | 28 | 10 days | 7 years |
+| 145 (measured here, section 3) | none | 2.2e7 | 5.5e9 | 175 | 64 days | 44 years |
+| 145 | +149 | 6.0e5 | 1.4e9 | 43 | 16 days | 11 years |
+| 120 (pessimistic) | none | 3.4e8 | 8.5e10 | 2,686 | 2.7 years | 670 years |
+| 120 | +149 | 3.0e6 | 6.9e9 | 217 | 79 days | 54 years |
+
+The same code on wil50's 16-node sample (`model.py 50 4 130 250 2300 -- -1 -2 59 74 79 83
+116 405 202 242 244 329 198 233 182 184`, the six unconverged clear misses entered at their
+300-iteration value minus 120 as NOTES.md section 7a does) gives 3.9e8 DNN nodes plain
+(NOTES.md: 4e7 for the median subtree, "nearer 1e8" with the depth-6 tail; the rounding
+puts two more sampled nodes in the depth-6 class), 8.8e6 at +130 and 2.0e5 at +260.
+
+Reading the table against Fujii et al.: their 1.6e8 (rule M, no symmetry) is 2e7 after the
+symmetry factor 8, inside the range of the plain rows here (2e7-3e8). Their wil50 estimate,
+3.3e7 plain or 8e6 after symmetry 4, is far below this model's plain wil50 row (3.9e8) and
+below NOTES.md's 4e7-1e8 as well, so the two models agree on sko49 and disagree on wil50;
+the reason is not established (different branching, a tree sampled rather than modelled from
+a depth-3 shortfall). Either way every row without a cut phase is a 1,000-core job of months
+to years, and the only rows under a month on 1,000 cores need the regional cuts at every
+DNN node.
+
+## 7. Verdict
+
+VERDICT
