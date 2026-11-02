@@ -520,3 +520,24 @@ fail and still pay their rounds plus the children, and the depth-5 misses
 the phase also runs on. Both arms are free of the QPB tail (every node is a
 DNN node). Per node: the base arm's 2,193 DNN nodes cost 63 CPU-s each, the
 cut arm's 365 cost 210 each including the phases.
+
+## Step 11: the local-7 inequalities as a pool cut type, negative (laptop, Nov 2)
+
+`local7/README.md`: in the step-7 protocol on nodes 13 and d2, 300 local-7
+cuts a round on top of the 1,000 triangles (1,000 or 3,000 subsets per
+region) or alone land 15-25 below the triangle-only references after the
+quiet round (node 13: 48,738.2 / 48,732.7 / 48,730.5 against 48,755.4; d2:
+48,772.0 / 48,775.3 / 48,772.6 against 48,789.9). The cuts bite (violated
+7-subsets fall from 63% to 25% of those sampled; the local-7 max falls from
+0.17 to 0.06), and alone the family reaches 84-87% of the triangles' gain
+with a third of the cuts, but the joint pool is no better than either family
+and its best Polyak round is about 15 lower in every joint run: a local-7 cut
+moves 35 moments where a triangle moves 6, so the shared step perturbs the
+iterate several times as much, and most of what the family expresses is the
+triangles' violation seen through a wider window. Two cheap closing checks
+are named in `local7/README.md` (the cuts at a small fixed multiplier on top
+of the triangle pool's best multipliers; the joint pool under the slow30
+ascent). If both are at or below the triangle pool, the linear families on
+the present regional variables are exhausted at this depth, with steps 7, 8,
+9 and 11 all closed by measurement, and what remains is the regional moment
+block or Astra's moment separation with its verified certificate.
