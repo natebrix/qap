@@ -379,6 +379,19 @@ every 10 minutes so progress is visible. The base arm runs here after the cut
 arm unless the laptop runs it first (same command, logs under
 `laptop/search/`).
 
+**run_ab3's first start (05:27-06:47) had the tail too**, 1,029,698 nodes
+against 38 DNN nodes at its 06:41 checkpoint (`search/partial_ab3/`): the
+extension flag lives on the warm start, and the state file that carries open
+nodes through a work-steal or a checkpoint wrote the warm start's X but not
+`dnn_ext`, so every node that passed through a state file below the last DNN
+level lost the extension and went to QPB alone. `latest/state.C` now writes
+the flag (format version 4; versions 1-3 still read; `tests/resume_test.py`
+passes), bnbdrv was rebuilt, and the arm restarted from scratch at 06:48 so
+its totals hold no QPB tail. Also found on the way: a `parallel.py`
+checkpoint stops every worker and the early finishers idle until the slowest
+node ends (a cut phase, up to 30 min), so the cadence is 2 h and progress
+comes from a line per finished task instead.
+
 ## Step 7: the 5-point count inequalities (memo candidate 2)
 
 The next facet class after the triangles on each region's 0/1 membership
