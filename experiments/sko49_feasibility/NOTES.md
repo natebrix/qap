@@ -116,3 +116,32 @@ In units the sko49 depth-3 nodes look like wil50's clear misses (median 271 agai
 but there is no fathomed or near-miss class at all, and relative to the cutoff the
 shortfall is twice wil50's: every one of these nodes would be given up by the search and
 branched.
+
+## 6b. Fujii, Ito, Kim, Kojima, Shinano, Toh (arXiv 2101.09629, ZIB report 21-02)
+
+Fetched as data (`curl` through the proxy, read with `pdftotext`; not in the repo). Their
+solver is a parallel branch and bound (UG framework) over a DNN-type relaxation solved by
+their Newton-bracketing / BBCPOP methods, with three branching rules M (fix a facility to
+each location), P and D.
+
+- **Table 4 (solved instances; branching rule M):** sko42, optimum 15,812, **6,019,419
+  nodes, 5.12e5 s of execution in parallel on 5,184 cores** (about 2.65e9 core-seconds, 84
+  core-years, 5.9 days of wall time); nug30 took 26,181 nodes and 3.14e3 s on 1,728 cores,
+  tai30a 34,000,579 nodes and 5.81e5 s on 1,728 cores.
+- **Table 5 (estimated total nodes, by sampling the tree the way our model does):**
+
+| instance | rule M | rule P | rule D | their comment |
+|---|---|---|---|---|
+| sko42 | 3,575,067 (6,019,419 generated) | 3,071,294 | 2,764,606 | solved |
+| **sko49** | **1.6e8** | **1.3e9** | **1.2e9** | "we may challenge sko49 (M)" |
+| wil50 | 32,963,810 | 20,523,849 | 39,330,160 | "could be solved" (P) |
+| tho40 | 7.1e11 | 37,382,192 | 97,834,698 | "could be solved" (P) |
+| tai35a | 2.1e11 | 3.9e10 | 1.3e10 | too difficult |
+
+They note that the nodes actually generated were at most 3 x the estimate on the solved
+instances. So by their own count **sko49 is 5 x (rule M) to 60 x (rules P, D) more nodes
+than wil50**, and 27 x sko42, which already took 5,184 cores for six days. Their relaxation
+is the Lagrangian DNN relaxation (the same relaxation our certified bound solves, so the
+same strength up to solver accuracy) and the paper does not mention symmetry, so their
+tree is the plain one; their node estimates are an independent check on section 6 once
+divided by the symmetry factor 8 (sko49) or 4 (wil50).
