@@ -120,3 +120,65 @@ a round on top of the 1,000 triangles (1,000 and 3,000 subsets per region),
 and alone. Against the triangle-only references (58.6 and 24.2 short) the
 question is whether the optimized family reaches the +40 to +50 its fixed
 +12 suggests, which would fathom d2.
+
+## Pool results (laptop, Nov 2; `<proto>_<id>.log`, two jobs at a time, one core each)
+
+Negative on both nodes: the local-7 cuts in the pool, with or without the
+triangles, end 15-25 below the triangle-only references after the quiet
+round. No fathom on d2; node 13 loses ground.
+
+| node | protocol | best Polyak round | after quiet | vs triangles | drops | round cpu (s) | total cpu (s) |
+|---|---|---|---|---|---|---|---|
+| 13 | triangles only (ref, `../dual/tri_13.log`) | 48,708.97 (r12) | 48,755.42 | — | 2 | 62-66 | 1,067 |
+| 13 | triseven (1,000 tri + 300 local-7, 1k subsets) | 48,693.63 (r10) | 48,738.16 | −17.3 | 3 | 45-50 | 866 |
+| 13 | triseven3k (3k subsets) | 48,688.64 (r12) | 48,732.67 | −22.8 | 2 | 46-51 | 872 |
+| 13 | sevenonly (300 local-7, no triangles) | 48,686.70 (r11) | 48,730.49 | −24.9 | 2 | 47-51 | 879 |
+| d2 | triangles only (ref, `../dual/tri_d2.log`) | 48,730.62 (r8) | 48,789.87 | — | 2 | 53-62 | 1,021 |
+| d2 | triseven | 48,715.42 (r12) | 48,771.95 | −17.9 | 2 | 40-44 | 752 |
+| d2 | triseven3k | 48,718.28 (r12) | 48,775.26 | −14.6 | 2 | 39-44 | 755 |
+| d2 | sevenonly | 48,716.33 (r12) | 48,772.63 | −17.2 | 3 | 39-45 | 766 |
+
+Every run is 400 + 12 x 300 Polyak iterations and a 1,500-iteration quiet
+round from the best round's multipliers; the quiet round adds 44-57 in every
+case, as in the references. Nothing came within 38 of the cutoff; no
+validity question arises.
+
+The cuts do bite. On node 13 the separator finds 10,859 violated 7-subsets of
+about 17,300 at round 0 (max 0.166; 31,948 of 52,000 with 3k subsets) and
+4,000-4,800 at round 12 (max 0.06-0.08); on d2 9,736 (max 0.122) falling to
+4,300-4,700 (max 0.05-0.08). The local-7 maximum falls from 0.17 to 0.06
+while the triangle maximum falls from 0.09 to 0.04-0.06, so the local-7
+violations keep their 1.5-2x ratio to the triangles' throughout; the 3,000
+subsets per region find larger maxima at the same K = 300 but add nothing.
+
+The 300 local-7 cuts a round alone (sevenonly) are worth 84-87% of 1,000
+triangles a round: +134/+116 against +159/+133 above the uncut value. Per
+cut they are 2.8x the triangles, which matches the fixed-multiplier ratio
+(0.2-0.3 a cut against 0.04). But the two families together are no better
+than either alone, and worse than the triangles: the best Polyak round is
+15 lower in every joint run, and the quiet round, which adds the same 45-55
+on top, does not recover it. The joint pool is a superset of the triangle
+pool, so its dual optimum is at least the triangles', and the dual test
+(step 9) put the Polyak protocol within about 10 of the triangle pool's
+optimum; the loss is therefore in the dynamics, not in the family. The
+likely mechanism is the one the fixed-mu trial showed at mu 20: a local-7
+cut moves 35 moments at coefficient up to 1 where a triangle moves 6, so
+the same multiplier step perturbs the PRSM iterate several times as much,
+and 300 inner iterations recover less of it (the fixed-mu trial already
+needed 1,500 iterations to realize 40% of the ceiling at mu 5). The
+violations the local-7 cuts express are largely the triangles' violations
+seen through a larger window (the gate found them in the same regions, on
+the same elements), so the two families spend the Polyak step on the same
+slack.
+
+Reading: the pool cut type does not reach the +40 to +50 the fixed +12
+suggested, and the higher-order route as a Lagrangian family does not add
+to the triangles under the step-7 protocol. Two cheap checks remain before
+closing it: (a) the local-7 cuts at a small fixed multiplier on top of the
+triangle pool's best multipliers (additivity at fixed mu, 1,500 iterations,
+one run per node), and (b) the joint pool under the slow30 protocol of step
+9, which approximates the dual optimum regardless of step dynamics; if (b)
+is also at or below the triangle pool's slow30 value (48,762 / 48,795) the
+family is closed. A smaller K (50-100 local-7 cuts a round) or adding them
+only after round 6 (`-addto`) are variants of the same question and not
+worth separate runs unless (a) is positive.
