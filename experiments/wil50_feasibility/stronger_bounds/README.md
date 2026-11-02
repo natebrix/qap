@@ -501,3 +501,22 @@ and quiet round as for the triangles), run through the step-7 protocol on
 nodes 13 and d2 on top of the capped triangles. If the family scales as the
 triangles did, +40 to +50 at the median: a third of a level, enough for d2
 (18 short), the test for node 13 (51 short).
+
+**run_ab3 result (Nov 2, cloud Xeon, 4 workers, `search/wil50n10ext_{cut,base}.log`):**
+the subtree below depth-3 clear miss node 10 (158 short at convergence), end
+to end, with `QAP_DNN_EXT=20` in both arms.
+
+| arm | nodes | fathomed | by the DNN bound | by the cut phase | branched | CPU-s | wall (4 workers) |
+|---|---|---|---|---|---|---|---|
+| base (no cut phase) | 2,193 | 2,144 | 2,144 | - | 49 | 139,149 | 9 h 54 min |
+| cut phase (zone 0.003, quiet 1,500 from the best multipliers, stall 3) | 365 | 357 | 326 | 31 | 8 | 76,755 | 6 h 06 min |
+
+**1.81x less CPU and 6.0x fewer nodes** on the dominant class, end to end.
+The phase ran 39 times (31 fathoms, 8 branched on): 31 of the 48 depth-4 and
+deeper misses that the base arm had to branch on were closed at their own
+node instead of through 45 children each. The gap between 1.8x here and the
+2x of the laptop's per-child measurement (step 6) is the eight phases that
+fail and still pay their rounds plus the children, and the depth-5 misses
+the phase also runs on. Both arms are free of the QPB tail (every node is a
+DNN node). Per node: the base arm's 2,193 DNN nodes cost 63 CPU-s each, the
+cut arm's 365 cost 210 each including the phases.
