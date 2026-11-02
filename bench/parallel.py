@@ -111,7 +111,7 @@ class State:
 
     def write(self, path, nodes=None):
         nodes = self.nodes if nodes is None else nodes
-        out = ["QAP-STATE 3",
+        out = [" ".join(self.magic),            # the version of the file read: its warm lines carry that version's fields
                f"n {self.n} levels {self.levels} strategies {self.strategies}",
                " ".join(["incumbent", repr(self.obj), str(self.found)] + list(self.perm)),
                f"root_bound {self.root_bound}",
