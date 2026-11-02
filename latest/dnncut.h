@@ -56,6 +56,9 @@ struct DNNCutParams {
   int kcuts;          // new cuts per round (1000)
   int kcuts5;         // > 0: also separate the 5-point count inequalities and add
                       // this many per round, on top of kcuts triangles (0 = off)
+  int add_until;      // > 0: add new cuts only in rounds <= add_until; later rounds
+                      // move the multipliers of the frozen pool (the dual-method test,
+                      // stronger_bounds/dualtest). 0 = every round (default)
   double delta;       // Polyak target = min(cutoff, best + delta) (50)
   double theta;       // Polyak step factor (1.0); 0: multipliers stay at mu0
   double mu0;         // multiplier of a newly added cut (0)

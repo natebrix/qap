@@ -11,7 +11,7 @@
 
 DNNCutParams::DNNCutParams()
 {
-  rounds = 12; iters = 300; first_iters = 0; kcuts = 1000; kcuts5 = 0;
+  rounds = 12; iters = 300; first_iters = 0; kcuts = 1000; kcuts5 = 0; add_until = 0;
   delta = 50; theta = 1.0; mu0 = 0;
   grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
   stall_rounds = 0; stall_factor = 3.0;
@@ -432,7 +432,8 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
       }
       return added;
     };
-    const int added = add_from(found, cp.kcuts), added5 = add_from(found5, cp.kcuts5);
+    const bool adding = cp.add_until <= 0 || r <= cp.add_until;
+    const int added = add_from(found, adding ? cp.kcuts : 0), added5 = add_from(found5, adding ? cp.kcuts5 : 0);
     const double maxv = found.empty() ? 0 : found[0].first;
     const double maxv5 = found5.empty() ? 0 : found5[0].first;
     if (cp.verbose && solved)
