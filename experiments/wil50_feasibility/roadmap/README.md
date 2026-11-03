@@ -35,7 +35,7 @@ the range, after the symmetry file.
 | tree | symmetry file for wil50 (transposed instance) | 3.98x against today's runs, already in the estimate | **done** (`sym/README.md`: `latest/SYM/wil50t.sym`, `qaplib/wil50t.dat`) | passed: 15 and 635 children at depths 1 and 2 (651 nodes against 2,501 plain); node 10's bound agrees to 0.02 after a cut round with `-side 1` |
 | tree | branch on the DNN marginal line (rule 9) at every DNN depth, DNN from depth 1 | **measured on the node-10 subtree: 1.41x less CPU, 1.13x fewer nodes** (rule 8 gives the same tree at 1.23x; `stronger_bounds/README.md` step 12); the 2-5x estimate was too high because rule 2 already finds decent lines | done | the node-3 subtree would confirm; DNN from depth 1 untested |
 | bound | children inherit the parent's cut pool and multipliers (and a phase at clear misses to equip their children) | 1.5-4x on the dominant class (bound memo); 1.1-1.3x (tree memo) | 2-4 days | one laptop-hour: node 10's pool reloaded frozen on d1, d2, d4 and three siblings; killed if the median gain over the child's plain-DNN value is under +40 |
-| speed | AMX bf16 for the filter and Rayleigh-Ritz products, plus CPU trims | **measured Nov 3 on the 32-node sample: 1.56x on fathoms, 1.68x on misses, same 18 fathoms, same iterations** (bundle A: AMX kernel for the five W*Y products, degree 3 with tight lambda, one-pass CholQR; `amx/README.md`); next: the memory-bound transforms, the refresh cadence, the kernel's last third, about 1.2x more | kernel and trims done; transforms 2-3 days | production: `DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2` |
+| speed | AMX bf16 for the filter and Rayleigh-Ritz products, plus CPU trims | **measured Nov 3 on the 32-node sample: 1.71x on fathoms, 1.75x on misses, same 18 fathoms, same iterations** (bundle D: AMX kernel for the five W*Y products, degree 3 with tight lambda, one-pass CholQR, refresh every 40; `amx/README.md`). Closed as not worth it: guard K/40, fp32 R (certificate margin), the small products on AMX, the row fusion; neutral: the symmetrisation skip. Left: the kernel's last third (ceiling 2 TF against 1 TF reached) | done | production: `DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40` |
 | speed | cut-phase trims: shorter inner solves with Y/Z restoration (Astra's Y12s: `-warmY`, 12 rounds x 200 iterations, quiet cap 1,000) | **measured on the phase: 1.56x** (64% of baseline CPU, bound and fathom gates kept on all six nodes; `same_node_continuation/budget_study/RESULTS.md`); 1.17-1.20x on the total at the 46% phase share | done; subtree A/B next | fewer rounds (Y6, Y8s) lose 4-16 units of bound on the short-of-cutoff nodes and are out |
 | speed | coordinator instead of the checkpoint barrier and node-end steals | 1.15-1.35x of the fleet | in plan.md | 70-85% busy today against 93-97% |
 | tree | confirm give-ups uncut before the phase (QAP_DNN_GU_ZONE was off in run_ab3), primal gate in the phase, zone 0.0035 | **replayed, about 1.1x; closed** (`trims/README.md`): the deferral has nothing to save (the extrapolation rule already lets slow uncut fathoms finish), the primal gate 4:20 is in the code (default off, no false stop on 88 logged phases) and worth about 6%, the zone a modelled 4%; the search A/B was abandoned as not worth four hours | done | switch `QAP_DNN_CUT_PGATE=4:20` on in the production configuration; no further test |
@@ -53,10 +53,10 @@ under 10% within a month (`bound_strength.md`).
 
 Centers, on top of the symmetry file, as estimated on Nov 2: rule-9 branching
 3x, inheritance 2x, per-node speed 2x, phase trims and fleet efficiency 1.3x:
-about **15x**. Two of these are now measured (Nov 3): rule 9 gives 1.41x, not
-3x, and the Y12s phase budget gives 1.17-1.20x on the total, inside the 1.3x
-allowed for trims and fleet efficiency together. With the measured branching
-factor the center is about **7x**, which puts a 1,000-core week out of reach
+about **15x**. Three of these are now measured (Nov 3): rule 9 gives 1.41x, not
+3x; the Y12s phase budget gives 1.17-1.20x on the total; per-node speed gives
+1.71x on the 32-node sample (AMX kernel plus eigensolver trims), close to its
+2x. With the measured factors the center is about **6-7x**, which puts a 1,000-core week out of reach
 unless inheritance delivers its upper estimate or the tree is at the small end
 of its range; GPUs or more cores remain the other way to the week.
 From a center of 290 days that is about 20 days on 1,000 Xeon cores; the low

@@ -108,7 +108,7 @@ the survivors on the accel study's 32-node harness
 | the small products of CholQR and Rayleigh-Ritz on AMX | `DNN_AMX=2` | 378 -> 387 | 520 | out: at inner dimension 550 the tile loop is store-bound and the Gram matrix's VNNI pack is a gather; CholQR 22 -> 31 ms, the others break even; code kept, default off |
 | full eigendecomposition every 40 iterations (with tight lambda; the accel study found 120 too coarse at m = 47) | `-r 40` (search: `QAP_DNN_REFRESH=40`) | | | in: 32-node run below, -8% CPU, two nodes fathom earlier, none later |
 | the transforms: the Y/Z step writes the next forward's row phase (row fusion) | `DNN_FUSE=1` | 375 -> 382: forward -9 ms, Y/Z step +11 (a sixth row stream in an already memory-bound loop); bound bit-identical | 520 | out |
-| skip W's symmetrisation (symmetric to rounding by construction; the eigensolver reads one triangle or multiplies by the full matrix) and write Wf inside forward's gather | `DNN_NOSYMW=1` | 375 -> 356: forward -6, convert -4 | 520 | in (bundle E below); bound 48,582.59 against 48,582.61 |
+| skip W's symmetrisation (symmetric to rounding by construction; the eigensolver reads one triangle or multiplies by the full matrix) and write Wf inside forward's gather | `DNN_NOSYMW=1` | 375 -> 356: forward -6, convert -4 | 520 | optional: bundle E below is within noise of D on the 32 nodes; bound 48,582.59 against 48,582.61 |
 
 **The 32-node harness** (`runs/amxA_*`, `runs/amxB_*`; d4 = degree 4 fp32, the
 search's setting; d3L2 = degree 3 tight lambda fp32):
@@ -120,16 +120,23 @@ search's setting; d3L2 = degree 3 tight lambda fp32):
 | **amxA: AMX, degree 3 tight, one-pass CholQR** | **18** | **354** | **220** | **4,250** | **1,394 s (1.56x)** | **1,720 s (1.68x)** | **+0.88** |
 | amxB: amxA with guard K/40 | 18 | 341 | 220 | 4,270 | 1,352 s | 1,643 s | +0.11 (min -0.37) |
 | **amxD: amxA with the refresh every 40** | **18** | **330** | **220** | **4,220** | **1,277 s (1.71x)** | **1,653 s (1.75x)** | **+0.03 (min -0.41)** |
+| amxE: amxD with the symmetrisation skip | 18 | 336 | 220 | 4,230 | 1,330 s | 1,666 s | -0.01 (min -0.38) |
 
 Bundle A fathoms the same 18 nodes as degree 4 at the same iteration on 15 of
 them and 10 iterations off on 3 (one check interval), with the misses' bound
 ahead. Bundle D adds the refresh every 40: the same 18 fathoms, two of them
 10-20 iterations earlier and none later, the misses' bound at 200 back at
-the degree-4 level, 8% less CPU again. **D is the production setting from
+the degree-4 level, 8% less CPU again. Bundle E (D plus `DNN_NOSYMW=1`)
+makes the same decisions (one node 10 iterations earlier than d4, as D) but
+its CPU is 4% above D's on this harness, against -5% in the two-process
+node-10 measurement: within the run-to-run swing of this VM (the AMX
+microbenchmarks varied 2-3x between identical runs), so the symmetrisation
+skip is neutral here and stays optional. **D is the production setting from
 here**: `DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
 QAP_DNN_REFRESH=40` in the search (the first two are read by `dnn.C`, the
 rest by `bnb.C`): **1.71x less CPU on the fathoms and 1.75x on the misses
-than the search's current setting**, with the same decisions.
+than the search's current setting**, with the same decisions on all 32
+nodes.
 
 Where the 354 ms go (node 10, bundle A, loaded): the five products 81 + pack 7,
 CholQR 22, Rayleigh-Ritz 13.5 + eigensolve 27.5 + update 13, convert and
