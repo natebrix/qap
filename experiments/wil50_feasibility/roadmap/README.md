@@ -32,7 +32,7 @@ the range, after the symmetry file.
 
 | angle | item | factor | effort | first test |
 |---|---|---|---|---|
-| tree | symmetry file for wil50 (transposed instance) | 3.98x against today's runs, already in the estimate | 0.5 day | depth-2 orbit counts 15 and 635; same certified bound on the transposed instance |
+| tree | symmetry file for wil50 (transposed instance) | 3.98x against today's runs, already in the estimate | **done** (`sym/README.md`: `latest/SYM/wil50t.sym`, `qaplib/wil50t.dat`) | passed: 15 and 635 children at depths 1 and 2 (651 nodes against 2,501 plain); node 10's bound agrees to 0.02 after a cut round with `-side 1` |
 | tree | branch on the DNN marginal line (rule 9) at every DNN depth, DNN from depth 1 | **measured on the node-10 subtree: 1.41x less CPU, 1.13x fewer nodes** (rule 8 gives the same tree at 1.23x; `stronger_bounds/README.md` step 12); the 2-5x estimate was too high because rule 2 already finds decent lines | done | the node-3 subtree would confirm; DNN from depth 1 untested |
 | bound | children inherit the parent's cut pool and multipliers (and a phase at clear misses to equip their children) | 1.5-4x on the dominant class (bound memo); 1.1-1.3x (tree memo) | 2-4 days | one laptop-hour: node 10's pool reloaded frozen on d1, d2, d4 and three siblings; killed if the median gain over the child's plain-DNN value is under +40 |
 | speed | AMX bf16 for the filter and Rayleigh-Ritz products, plus CPU trims (a free 16 ms/iteration found) | 1.8-2.2x per node | 5-9 days | time a 2117x2117x600 product; node 2 to 2,500 iterations; the 32-node sample |
@@ -81,8 +81,9 @@ The two measurements that decide between these outcomes are cheap:
 
 ## 4. Order of work
 
-1. Symmetry file for wil50 (transposed instance; `QAP_DNN_CUT_SIDE=1`, `-F`
-   specs as j:i), re-check the certified bound and the depth-2 counts.
+1. ~~Symmetry file for wil50~~ done Nov 3 (`sym/README.md`): every wil50 run
+   from here uses `qaplib/wil50t.dat` with `QAP_DNN_CUT_SIDE=1` and `-F` specs
+   as j:i; the node-10 subtree A/Bs are unaffected (no symmetry below node 10).
 2. Inheritance test (laptop, one hour) and the rule-9 subtree A/B (cloud, one
    day); per-phase logging in the search so that failures are visible.
 3. Confirm give-ups uncut (`QAP_DNN_GU_ZONE`), the primal gate, zone 0.0035;

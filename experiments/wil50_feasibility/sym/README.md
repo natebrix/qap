@@ -43,11 +43,12 @@ or `-s path`.
 |---|---|---|---|---|
 | depth-1 children with the file | `bnbdrv -p PARAM/nug_deep.par -d 1 -u 48816 ../qaplib/wil50t.dat` | 1 + 15 = 16 nodes | **16** (67 s) | `logs/d1_sym.txt` |
 | depth-1 children without it | same with `-s /nonexistent.sym` | 1 + 50 = 51 | **51** (294 s) | `logs/d1_plain.txt` |
-| depth-2 nodes with the file | same with `-d 2` | 1 + 15 + 635 = 651 | running | `logs/d2_sym.txt` |
+| depth-2 nodes with the file | same with `-d 2` | 1 + 15 + 635 = 651 | **651** (15 at depth 1, 635 at depth 2; 55 min) | `logs/d2_sym.txt` |
 | node 10 uncut, 400 iterations | `dnncuts -grid 5:10 -u 48816 -T 1 -k 1000 -v -I 400 -delta 50 -nocap -r 1 -i 300 -x 39:27,30:48,25:49 qaplib/wil50.dat` against `-side 1 -x 27:39,48:30,49:25 qaplib/wil50t.dat` | equal to rounding | 48,612.890 / 48,612.981 | `logs/n10_*.log` |
 | node 10 after one regional-cut round | same runs | equal to rounding | **48,650.809 / 48,650.785**; 9,051 / 9,052 violated triangles found, same CPU (553 / 554 s) | `logs/n10_*.log` |
 
-The bound checks say the transposition and the side switch are exact to the
+The node counts are exactly the Burnside orbit counts at depths 1 and 2, so
+the file realises the full order-4 reduction. The bound checks say the transposition and the side switch are exact to the
 PRSM's floating-point path: the same cut population is found on the same
 grid, and the certified values agree to 0.02-0.09 at 400 and 700 iterations.
 
