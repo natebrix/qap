@@ -69,4 +69,4 @@ Use a fresh output directory. The runner requires Linux affinity and resource-ac
 
 ## Results
 
-Pending. No outcomes or gate passes are inferred before the declared runs complete.
+Completed: all 30 runs finished successfully. **Y12s alone among the shortened budgets passed all three gates on all six nodes**, using 64.17% of baseline CPU (1.5583x phase-cost factor). The conditional 46%-share projection is 1.1973x across all six nodes, or 1.1656x on the three short-of-cutoff nodes. No unexpected cutoff crossing occurred. See [RESULTS.md](RESULTS.md) for the complete matrix, interpretation and evidence. The protocol above is unchanged from its prelaunch commit.
