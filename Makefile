@@ -8,6 +8,7 @@
 #   make parallel      bench/parallel.py matches the serial solver (~20 s)
 #   make dnntest       latest/dnntest, the DNN bound's driver (needs LAPACK, see latest/makefile)
 #   make dnncheck      validate the DNN bound (tests/dnn_test.py, ~2 min)
+#   make continuationcheck  same-node DNN continuation and exact-bound checks
 #   make clean
 
 PYTHON ?= python3
@@ -45,3 +46,8 @@ dnncheck: dnntest
 clean:
 	$(MAKE) -C latest clean
 	rm -f latest/bnbdrv
+
+.PHONY: continuationcheck
+continuationcheck: src/MESCHACH/meschach.a
+	$(MAKE) -C latest dnncontinuation
+	./latest/dnncontinuation

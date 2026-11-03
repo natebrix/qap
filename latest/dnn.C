@@ -210,6 +210,7 @@ DNNParams::DNNParams()
   L_add = NULL;
   elim = NULL;
   L_add_abs = 0;
+  warm_primal = 0;
   child_bounds = 0;
   verbose = 0;
 }
@@ -1258,10 +1259,28 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
 
   double *Y = w.Y.data(), *Z = w.Z.data(), *VRV = w.VRV.data(), *Zc = w.Zc.data();
   Y[0] = 1.0;
+  if (par.warm_primal && start) {
+    // Explicit same-node initialization; never infer it from dimension alone.
+    const size_t count = (size_t)n1 * n1;
+    if (start->m != m || start->Y.size() != count || start->Z.size() != count ||
+        !std::isfinite(start->scale) || start->scale <= 0) {
+      res.status = DNN_ERROR; res.cpu = thread_cpu() - t0; return res;
+    }
+    for (size_t t = 0; t < count; t++)
+      if (!std::isfinite(start->Y[t]) || !std::isfinite(start->Z[t])) {
+        res.status = DNN_ERROR; res.cpu = thread_cpu() - t0; return res;
+      }
+    std::copy(start->Y.begin(), start->Y.end(), Y);
+  }
   if (start && start->m == m && start->Z.size() == (size_t)n1 * n1 && start->scale > 0) {
     // multipliers are kept in unscaled units across nodes
     const double f = start->scale / scale;
-    for (size_t t = 0; t < (size_t)n1 * n1; t++) Z[t] = start->Z[t] * f;
+    for (size_t t = 0; t < (size_t)n1 * n1; t++) {
+      Z[t] = start->Z[t] * f;
+      if (par.warm_primal && !std::isfinite(Z[t])) {
+        res.status = DNN_ERROR; res.cpu = thread_cpu() - t0; return res;
+      }
+    }
   }
   double best = -HUGE_VAL;
   std::vector<double> red_cur, red_best;   // child bounds (par.child_bounds)

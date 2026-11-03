@@ -60,6 +60,7 @@
 #include <vector>
 
 struct DNNCutParams {
+  int warm_primal;    // opt-in same-node Y/Z restart between rounds (0); see DNNParams
   int rounds;         // cut rounds after the uncut solve (12)
   int iters;          // iterations per cut round (300)
   int first_iters;    // > 0: run the uncut round here with this many iterations;
