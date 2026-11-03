@@ -111,8 +111,9 @@ def physical_cores(count):
 
 
 def process_cpu(pid):
-    fields = Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()
-    return (int(fields[11])+int(fields[12])) / os.sysconf('SC_CLK_TCK')
+    # Some executor PID namespaces do not expose children through /proc.
+    # The kernel process clock avoids that mount/namespace dependency.
+    return time.clock_gettime(time.clock_getcpuclockid(pid))
 
 
 def main():
@@ -196,7 +197,7 @@ def main():
                 result = parse(out/job['log'])
                 if len(result['rounds']) > len(job['stage_observations']):
                     try: cpu = process_cpu(pid)
-                    except FileNotFoundError: continue
+                    except (OSError, ValueError): cpu = None
                     observe(job, result, cpu); job['progress'] = result
             persist()
             if elapsed-last_report >= 60:

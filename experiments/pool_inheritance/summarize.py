@@ -18,6 +18,19 @@ def gate(gains, d2_bound):
                          'KILL' if median<40 or d2_bound<48759.9 else 'PASS')
 
 
+def prefix_cpu_interval(job, index):
+    # Each DNN call reports disjoint main-thread CPU to 0.1 s. All other
+    # process CPU is nonnegative overhead whose placement is unknown. Charge
+    # none/all of it before the boundary, with printing/accounting slack.
+    rows=job['rounds'];total=job['process_cpu_seconds']
+    before=sum(r['dnn_cpu'] for r in rows[:index+1])
+    after=sum(r['dnn_cpu'] for r in rows[index+1:])
+    lower=max(0.0,before-0.05*(index+1)-0.01)
+    upper=min(total,total-after+0.05*(len(rows)-index-1)+0.01)
+    if lower>upper+0.01:raise ValueError('Inconsistent round/whole-process CPU accounting')
+    return dict(lower_seconds=lower,upper_seconds=max(lower,upper))
+
+
 def first_target(job, target):
     if target is None: return None
     for i, row in enumerate(job['rounds']):
@@ -25,8 +38,8 @@ def first_target(job, target):
         if crossed:
             return dict(stage=row['round'], iterations=row['cumulative_iterations'],
                         reported_bound=row['lb'],
-                        process_cpu_observed_seconds=job['stage_observations'][i]['observed_process_cpu_seconds'],
-                        cpu_is_polling_observation=True)
+                        process_cpu_interval=prefix_cpu_interval(job,i),
+                        terminal_process_cpu_seconds=job['process_cpu_seconds'] if row['status']=='fathomed' else None)
     return None
 
 

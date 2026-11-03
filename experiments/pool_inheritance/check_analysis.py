@@ -1,7 +1,7 @@
 """Small prelaunch checks for the queue, log parser and declared decision gates."""
 from pathlib import Path
 from run import plan, parse, CUTOFF
-from summarize import gate, evaluate, first_target
+from summarize import gate, evaluate, first_target, prefix_cpu_interval
 
 p=plan()
 assert p['sampled_facilities']==[5,10,11]
@@ -14,11 +14,14 @@ assert gate([40]*6,48760)['decision']=='ROUNDING_AMBIGUOUS'
 try:evaluate({'jobs':[]},p)
 except ValueError:pass
 else:raise AssertionError('Incomplete matrix accepted')
-job=dict(rounds=[dict(round='round  0',lb=48780,status='iter_limit',cumulative_iterations=400),
-                 dict(round='round  1',lb=48795,status='iter_limit',cumulative_iterations=700)],
+job=dict(rounds=[dict(round='round  0',lb=48780,status='iter_limit',cumulative_iterations=400,dnn_cpu=4),
+                 dict(round='round  1',lb=48795,status='iter_limit',cumulative_iterations=700,dnn_cpu=6)],
+         process_cpu_seconds=12,
          stage_observations=[dict(observed_process_cpu_seconds=5),dict(observed_process_cpu_seconds=9)])
 assert first_target(job,48789.9)['iterations']==700
 assert first_target(job,CUTOFF) is None and first_target(job,None) is None
+interval=prefix_cpu_interval(job,0)
+assert interval['lower_seconds']<4 and interval['upper_seconds']>6
 base=Path(__file__).parent/'results/preflight'
 if (base/'smoke-load.log').exists():
     q=parse(base/'smoke-load.log')

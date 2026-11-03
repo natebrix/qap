@@ -171,3 +171,22 @@ python3 experiments/pool_inheritance/summarize.py /tmp/qap-pool-repeat
 The output directory must be new. `--out` changes only the recorded pool/output
 path, not the node/arm queue or parameters. The full results go in RESULTS.md
 after completion; production integration and roadmap changes are left to Fable.
+
+## Execution note: intermediate CPU telemetry
+
+After the uncut controls, before any inherited solve, we found that this executor
+does not expose the runner's child PIDs through `/proc`. The launched runner is
+pinned at `ef25c61`; its intermediate CPU observations are therefore unavailable,
+and its recorded round observations are collected at process exit. Terminal
+`wait4` user+system accounting and all raw solver logs are unaffected. No node,
+arm, parameter, stopping rule, or numerical gate changes.
+
+For the first logged target round, the report instead bounds prefix process CPU
+between the sum of the preceding DNN call times and terminal process CPU minus
+the subsequent DNN call times. All unallocated CPU overhead can fall on either
+side. Allow 0.05 seconds per printed round plus 0.01 seconds accounting slack.
+This uses disjoint main-thread CPU intervals within total process CPU; it does
+not assign a fictitious exact time to a target. Fathoming runs also have their
+exact terminal process CPU. The analyzer is updated accordingly; the runner's
+future-run telemetry uses the kernel process clock and still records round
+progress if that clock is unavailable. The active run continues unchanged.
