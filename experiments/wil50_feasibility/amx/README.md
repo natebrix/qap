@@ -106,7 +106,7 @@ the survivors on the accel study's 32-node harness
 | block guard K/40 instead of K/20 | `DNN_GUARD_DIV=40` | 395 -> 371 | 520, 11 grows instead of 4, bound at 300 lower by 0.3 | out (3% for 0.8 of bound on the 32 nodes' misses) |
 | R's rank term in fp32 | `DNN_R32=1` | 409 -> 395 | 520 | out: the certificate's rigorous margin grows from 5e-6 to 0.08 per certificate (W - R is no longer exactly negative semidefinite), a systematic bound loss for 3% |
 | the small products of CholQR and Rayleigh-Ritz on AMX | `DNN_AMX=2` | 378 -> 387 | 520 | out: at inner dimension 550 the tile loop is store-bound and the Gram matrix's VNNI pack is a gather; CholQR 22 -> 31 ms, the others break even; code kept, default off |
-| full eigendecomposition every 40 iterations | `-r 40` | | | 32-node run below |
+| full eigendecomposition every 40 iterations (with tight lambda; the accel study found 120 too coarse at m = 47) | `-r 40` (search: `QAP_DNN_REFRESH=40`) | | | in: 32-node run below, -8% CPU, two nodes fathom earlier, none later |
 
 **The 32-node harness** (`runs/amxA_*`, `runs/amxB_*`; d4 = degree 4 fp32, the
 search's setting; d3L2 = degree 3 tight lambda fp32):
@@ -117,12 +117,17 @@ search's setting; d3L2 = degree 3 tight lambda fp32):
 | d3L2 | 18 | 480 | 220 | 4,250 | 1,889 s | 2,330 s | +0.81 |
 | **amxA: AMX, degree 3 tight, one-pass CholQR** | **18** | **354** | **220** | **4,250** | **1,394 s (1.56x)** | **1,720 s (1.68x)** | **+0.88** |
 | amxB: amxA with guard K/40 | 18 | 341 | 220 | 4,270 | 1,352 s | 1,643 s | +0.11 (min -0.37) |
+| **amxD: amxA with the refresh every 40** | **18** | **330** | **220** | **4,220** | **1,277 s (1.71x)** | **1,653 s (1.75x)** | **+0.03 (min -0.41)** |
 
 Bundle A fathoms the same 18 nodes as degree 4 at the same iteration on 15 of
 them and 10 iterations off on 3 (one check interval), with the misses' bound
-ahead. It is the production setting from here: `DNN_AMX=1 DNN_CHOLQR_PASSES=1
-QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2` in the search (the first two are read by
-`dnn.C`, the last two by `bnb.C`).
+ahead. Bundle D adds the refresh every 40: the same 18 fathoms, two of them
+10-20 iterations earlier and none later, the misses' bound at 200 back at
+the degree-4 level, 8% less CPU again. **D is the production setting from
+here**: `DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
+QAP_DNN_REFRESH=40` in the search (the first two are read by `dnn.C`, the
+rest by `bnb.C`): **1.71x less CPU on the fathoms and 1.75x on the misses
+than the search's current setting**, with the same decisions.
 
 Where the 354 ms go (node 10, bundle A, loaded): the five products 81 + pack 7,
 CholQR 22, Rayleigh-Ritz 13.5 + eigensolve 27.5 + update 13, convert and
