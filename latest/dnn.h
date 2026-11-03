@@ -165,6 +165,10 @@ struct DNNParams {
                        // columns at zero and the certificate excludes them, so
                        // the bound is for the node with these assignments
                        // forbidden. NULL: none (default)
+  int warm_primal;     // opt-in same-node Y/Z restart (0). Requires matching finite
+                       // start->Y and Z; Z is rescaled to the new objective scale.
+                       // Caller guarantees same node/indexing. This does not restore
+                       // spectral/acceleration history or stopping-rule counters.
   int child_bounds;    // 1: also return child bounds (DNNResult::child_lb) from the
                        // best certificate's outer assignment problem (0)
   int verbose;         // 1: print the certified bound at every check, 2: also a

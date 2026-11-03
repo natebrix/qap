@@ -14,6 +14,7 @@
 
 DNNCutParams::DNNCutParams()
 {
+  warm_primal = 0;
   rounds = 12; iters = 300; first_iters = 0; kcuts = 1000; kcuts5 = 0; add_until = 0;
   kcuts7 = 0; sub7 = 1000;
   delta = 50; theta = 1.0; mu0 = 0;
@@ -386,6 +387,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
       }
     out.active = active;
     DNNParams par = base;
+    par.warm_primal = cp.warm_primal && r > 0;
     par.max_iter = iters;
     par.hopeless_after = 0;
     par.hopeless_gap_ratio = 0;

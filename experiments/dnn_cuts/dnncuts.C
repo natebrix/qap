@@ -7,7 +7,7 @@
    experiments/dnn_cuts/dnncuts [-x i:j,...] [-u ub | -c cutoff] [-r rounds]
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
        [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
-       [-Ladd file[:const]] [-dumpY prefix] [-addto R] [-seven K[:S]]
+       [-Ladd file[:const]] [-warmY] [-dumpY prefix] [-addto R] [-seven K[:S]]
        [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
@@ -96,6 +96,7 @@ int main(int argc, char **argv)
       cp.freeze_iters = c ? atoi(c + 1) : 600;
     }
     else if (o == "-freeze-last") cp.freeze_best = 0;                     // quiet round from the last round's multipliers, not the best round's
+    else if (o == "-warmY") cp.warm_primal = 1;
     else if (o == "-Ladd" && more) ladd_spec = argv[++a];
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
@@ -150,6 +151,7 @@ int main(int argc, char **argv)
   printf("instance %s n=%d node %s m=%d cutoff %.4f  cuts %s", file, n, fixes.c_str(), m, cutoff,
          cp.atomic ? "atomic" : (cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
   if (cp.grid_rows > 0) printf(" side %d", cp.side);
+  if (cp.warm_primal) printf(" warmY 1");
   DNNParams base;
   base.eig_mode = eig_mode;
   base.cheb_degree = degree;

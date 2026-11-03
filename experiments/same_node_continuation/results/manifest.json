@@ -1,0 +1,27 @@
+{
+  "base_cognac_commit": "7392c10e673707061f98b44c30eea1bd1c5109e2",
+  "compiler": "g++ (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "blas": "SciPy bundled OpenBLAS, scipy_ symbol prefix, one BLAS thread per probe",
+  "build_defines": "-DDNN_BLAS_PREFIX=scipy_ -DDNN_OPENBLAS",
+  "probe_settings": {
+    "first_iterations": 200,
+    "continuation_iterations": 100,
+    "check_every": 5,
+    "eig_mode": 2,
+    "scheme": "PRSM",
+    "degree": 3,
+    "tight_lam": 2,
+    "inner_lap": "exact",
+    "early_stopping": false
+  },
+  "timing_note": "Probes and validation ran concurrently. CPU times are diagnostic, not controlled speedup measurements.",
+  "test_commands": [
+    "make continuationcheck",
+    "make -j4 test",
+    "python3 tests/dnn_test.py --quick"
+  ],
+  "fixed_cut_matrix_sha256": "21dd5cb2947628085ec03ecdad14ed5130c5f2276202621b9e6c11b34d520151",
+  "binary_note": "Large probes used the initial build before adding the malformed-start overflow guard; this adds no arithmetic change for their valid finite starts. The final formal checks and CLI smoke test use the final build.",
+  "cli_smoke_command": "./experiments/dnn_cuts/dnncuts -u 578 -I 50 -i 50 -r 2 -k 20 -prefix -warmY -t 0 -mu0 1 -freeze 0:50 qaplib/nug12.dat"
+}

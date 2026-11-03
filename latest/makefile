@@ -35,7 +35,7 @@ OBJS = qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o \
 all:    bnb
 
 clean:
-	rm -f *.o *.d *~ a.out dnntest
+	rm -f *.o *.d *~ a.out dnntest dnncontinuation
 
 .C.o:	
 	$(CPP) $(CFLAGS) $(INCLUDES) -c $<
@@ -85,3 +85,7 @@ dnncuts: $(OBJS) dnn.o dnncut.o
 	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../experiments/dnn_cuts/dnncuts.C $(OBJS) dnn.o dnncut.o -o ../experiments/dnn_cuts/dnncuts $(LDLIBS) $(DNN_LAPACK)
 
 -include $(wildcard *.d)
+
+# Same-node continuation identity, rescaling, and exact-bound checks.
+dnncontinuation: $(OBJS) dnn.o dnncut.o ../tests/dnn_continuation.C
+	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../tests/dnn_continuation.C $(OBJS) dnn.o dnncut.o -o dnncontinuation $(LDLIBS) $(DNN_LAPACK)
