@@ -116,3 +116,7 @@ python3 validate_instances.py
 This checks nug12/20/24/25/30 and wil50 directly in `../../qaplib`, including exact threshold-distance decomposition and file hashes. It does not compute strengthened Nugent bounds. The geometric separation scripts above remain wil50-specific.
 
 The branch is based on the original experimental commit, not later `cognac` changes. To reproduce its logs, build this branch. Before integrating with newer solver code, rebuild and rerun correctness checks. `REPORT.md` distinguishes implemented cuts, measured certificates, and the proposed regional M2 SDP. Large generated checkpoint files and executables are intentionally omitted.
+
+## Latest three-agent research review
+
+[Can wil50 or sko49 fit into a 1,000-core week?](roadmap_review/README.md) audits cognac at `ca50467`, proposes concrete new gates, and includes three detailed Astra memos plus small reproducible experiments. This review supersedes earlier performance-priority suggestions where noted; it does not claim a demonstrated 4–12x improvement.
