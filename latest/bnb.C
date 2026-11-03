@@ -669,11 +669,23 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD || cut_zone > 0) ? new DNNWarm : NULL;
 	  const DNNWarm *sp = NULL;
 	  int di, dj;
+	  // QAP_DNN_WARM_Y=2 (experiments/wil50_feasibility/warm_y): the child also
+	  // starts from the parent's final Y conditioned on its new assignment (1:
+	  // restricted); 0 (default) the parent's Z only. Falls back to Z only when
+	  // the parent's Y is missing.
+	  static const int warm_y = getenv("QAP_DNN_WARM_Y") ? atoi(getenv("QAP_DNN_WARM_Y")) : 0;
 	  if (dnn_warm && node.warm && node.warm->dnn &&
-	      ((DNNWarm *)node.warm->dnn)->m == m + 1 && warm_child_offsets(node, di, dj) &&
-	      dnn_warm_child(*(DNNWarm *)node.warm->dnn, di, dj, start))
-	    sp = &start;
+	      ((DNNWarm *)node.warm->dnn)->m == m + 1 && warm_child_offsets(node, di, dj)) {
+	    const DNNWarm &pw = *(DNNWarm *)node.warm->dnn;
+	    if (warm_y > 0 && dnn_warm_child(pw, di, dj, start, warm_y) && !start.Y.empty()) {
+	      sp = &start;
+	      dp.warm_primal = 1;
+	    } else if (dnn_warm_child(pw, di, dj, start)) {
+	      sp = &start;
+	    }
+	  }
 	  DNNResult r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, sp, save);
+	  dp.warm_primal = 0;   // the cut phase below sets its own
 	  dnn_ran = true;
 	  stats->dnn_nodes++;
 	  stats->dnn_time += r.cpu;
