@@ -8,6 +8,9 @@
    -x i:j,i:j,...  fix facility i to location j (0-based) before bounding
    -K i:j          after the node, bound its child fixing i to j, cold and
                    warm-started from the node's ADMM state
+   -Q list         with -K, the child's starts, comma-separated (default c,z):
+                   c cold, z the parent's Z, a Z and the parent's Y restricted,
+                   b Z and the parent's Y conditioned on the fixed assignment
    -N file         bound many nodes: one per line, "<i:j,... or -> [cutoff]"
    -u X            incumbent; the cutoff is X - (fathoming tolerance), the
                    tolerance being the solver's (1.95 for even objectives)
@@ -98,6 +101,7 @@ static bool parse_fixes(const std::string &fixes, QAPAssignment &node, int n)
 static bool print_xbar = false;   // -X: print the primal assignment marginals
 
 static std::string ladd_spec, dumpy;   // -Ladd file[:const], -dumpY prefix
+static std::string child_passes = "c,z";   // -Q: the child's starts
 
 static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNParams &par0,
                      int index, const std::string &child = "",
@@ -215,16 +219,26 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
   int il = 0, jl = 0;   // local indices in the node's reduced problem
   for (int t = 0; t < ci; t++) if (node.p[t] == NONE) il++;
   for (int t = 0; t < cj; t++) if (node.pinv[t] == NONE) jl++;
-  DNNWarm cw;
-  if (!dnn_warm_child(warm, il, jl, cw)) { printf("no warm start\n"); return false; }
   node.fix(ci, cj);
   QAP qc;
   reduceQAP(q, &qc, node);
-  for (int pass = 1; pass <= 2; pass++) {
-    DNNResult rc = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, par, pass == 2 ? &cw : NULL);
+  int pass = 0;
+  for (size_t t = 0; t < child_passes.size(); t++) {
+    const char mode = child_passes[t];
+    if (mode == ',') continue;
+    const int ymode = mode == 'a' ? 1 : mode == 'b' ? 2 : 0;
+    DNNWarm cw;
+    if (mode != 'c' && !dnn_warm_child(warm, il, jl, cw, ymode)) { printf("no warm start (%c)\n", mode); return false; }
+    DNNParams pc = par;
+    pc.warm_primal = ymode > 0;
+    pass++;
+    printf("CHILD-PASS %d start=%c\n", pass, mode);
+    fflush(stdout);
+    DNNResult rc = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, pc, mode == 'c' ? NULL : &cw);
     printf("RESULT node=%d m=%d lb=%.17g primal=%.17g status=%s iters=%d cpu=%.3f"
-           " warm=%d\n", pass, n - node.nfix, rc.lb, rc.primal, dnn_status_name(rc.status),
-           rc.iterations, rc.cpu, pass == 2);
+           " warm=%c\n", pass, n - node.nfix, rc.lb, rc.primal, dnn_status_name(rc.status),
+           rc.iterations, rc.cpu, mode);
+    fflush(stdout);
   }
   return true;
 }
@@ -244,6 +258,7 @@ int main(int argc, char **argv)
     bool more = a + 1 < argc;
     if (o == "-x" && more) fixes = argv[++a];
     else if (o == "-K" && more) child = argv[++a];
+    else if (o == "-Q" && more) child_passes = argv[++a];
     else if (o == "-N" && more) nodefile = argv[++a];
     else if (o == "-u" && more) ub = atof(argv[++a]);
     else if (o == "-c" && more) { cutoff = atof(argv[++a]); have_cutoff = true; }

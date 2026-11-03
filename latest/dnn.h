@@ -218,7 +218,12 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
 // j (indices local to the node's reduced problem, as reduceQAP numbers them).
 // The warm start only changes where the ADMM starts; certificates are
 // computed as usual. Returns false on bad input.
-bool dnn_warm_child(const DNNWarm &parent, int i, int j, DNNWarm &child);
+// ymode: 0 carries Z only (the default); 1 also the parent's final Y restricted
+// to the child's indices; 2 that Y conditioned on x_ij = 1 (row 0 from the
+// parent's row (ij) over x_ij, off-diagonals rescaled so diag(Y) = row 0).
+// With ymode > 0 the child must be run with DNNParams::warm_primal = 1 so that
+// dnn_bound starts from that Y; ymode > 0 needs the parent's Y (save->Y).
+bool dnn_warm_child(const DNNWarm &parent, int i, int j, DNNWarm &child, int ymode = 0);
 
 // Set the number of BLAS threads if the linked BLAS supports it (OpenBLAS);
 // returns false otherwise. The bound is meant to run on one core per node.

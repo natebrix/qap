@@ -1266,7 +1266,7 @@ double trivial_value(const MAT *A, const MAT *B, const MAT *C, int m, double shi
  carried over: starting Y from the parent's (conditioned on x_ij = 1)
  made the child slower in tests, starting Z alone 2-3x faster.
 */
-bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child)
+bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child, int ymode)
 {
   const int m = par.m, mc = m - 1;
   if (m < 3 || i < 0 || i >= m || j < 0 || j >= m ||
@@ -1295,6 +1295,43 @@ bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child)
     child.Z[a] = child.Z[(size_t)a * nc] = Z[pa] + Z[(size_t)r * n1 + pa];
   }
   child.Z[0] = Z[0] + 2 * Z[r] + Z[(size_t)r * n1 + r];
+  child.Y.clear();
+  if (ymode > 0) {
+    // the parent's final primal iterate, for a full-state start (ymode 1:
+    // restricted; ymode 2: conditioned on x_ij = 1). Both keep the child's
+    // gangster zeros (they are the parent's) and the box; the child's Y-step
+    // reimposes both at its first iteration anyway.
+    if (par.Y.size() != (size_t)n1 * n1) return false;
+    const double *Y = par.Y.data();
+    auto clip = [](double v) { return v < 0 ? 0.0 : (v > 1 ? 1.0 : v); };
+    child.Y.assign((size_t)nc * nc, 0);
+    child.Y[0] = 1;
+    if (ymode == 1) {
+      for (int a = 1; a < nc; a++) {
+        const int pa = map[a];
+        child.Y[a] = child.Y[(size_t)a * nc] = clip(Y[pa]);
+        for (int b = 1; b < nc; b++) child.Y[(size_t)a * nc + b] = clip(Y[(size_t)pa * n1 + map[b]]);
+      }
+    } else {
+      const double xr = Y[(size_t)r * n1 + r];
+      std::vector<double> q(nc, 0);
+      for (int a = 1; a < nc; a++) {
+        const int pa = map[a];
+        q[a] = xr >= 0.05 ? clip(Y[(size_t)r * n1 + pa] / xr) : clip(Y[pa]);
+        child.Y[a] = child.Y[(size_t)a * nc] = child.Y[(size_t)a * nc + a] = q[a];
+      }
+      for (int a = 1; a < nc; a++) {
+        const double da = Y[(size_t)map[a] * n1 + map[a]];
+        for (int b = 1; b < nc; b++) {
+          if (b == a) continue;
+          const double db = Y[(size_t)map[b] * n1 + map[b]];
+          const double den = da * db;
+          child.Y[(size_t)a * nc + b] = den > 1e-12
+              ? clip(Y[(size_t)map[a] * n1 + map[b]] * sqrt(q[a] * q[b] / den)) : 0.0;
+        }
+      }
+    }
+  }
   return true;
 }
 
