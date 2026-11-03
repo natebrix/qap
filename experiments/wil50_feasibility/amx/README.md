@@ -107,6 +107,8 @@ the survivors on the accel study's 32-node harness
 | R's rank term in fp32 | `DNN_R32=1` | 409 -> 395 | 520 | out: the certificate's rigorous margin grows from 5e-6 to 0.08 per certificate (W - R is no longer exactly negative semidefinite), a systematic bound loss for 3% |
 | the small products of CholQR and Rayleigh-Ritz on AMX | `DNN_AMX=2` | 378 -> 387 | 520 | out: at inner dimension 550 the tile loop is store-bound and the Gram matrix's VNNI pack is a gather; CholQR 22 -> 31 ms, the others break even; code kept, default off |
 | full eigendecomposition every 40 iterations (with tight lambda; the accel study found 120 too coarse at m = 47) | `-r 40` (search: `QAP_DNN_REFRESH=40`) | | | in: 32-node run below, -8% CPU, two nodes fathom earlier, none later |
+| the transforms: the Y/Z step writes the next forward's row phase (row fusion) | `DNN_FUSE=1` | 375 -> 382: forward -9 ms, Y/Z step +11 (a sixth row stream in an already memory-bound loop); bound bit-identical | 520 | out |
+| skip W's symmetrisation (symmetric to rounding by construction; the eigensolver reads one triangle or multiplies by the full matrix) and write Wf inside forward's gather | `DNN_NOSYMW=1` | 375 -> 356: forward -6, convert -4 | 520 | in (bundle E below); bound 48,582.59 against 48,582.61 |
 
 **The 32-node harness** (`runs/amxA_*`, `runs/amxB_*`; d4 = degree 4 fp32, the
 search's setting; d3L2 = degree 3 tight lambda fp32):
