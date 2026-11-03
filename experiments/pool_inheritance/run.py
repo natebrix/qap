@@ -111,9 +111,9 @@ def physical_cores(count):
 
 
 def process_cpu(pid):
-    # Some executor PID namespaces do not expose children through /proc.
-    # The kernel process clock avoids that mount/namespace dependency.
-    return time.clock_gettime(time.clock_getcpuclockid(pid))
+    # Child /proc entries are unavailable in this executor. Record the round
+    # without a CPU observation; wait4 supplies exact terminal accounting.
+    return None
 
 
 def main():

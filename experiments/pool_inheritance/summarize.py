@@ -78,11 +78,20 @@ def evaluate(manifest, definition):
     assert len({(lookup[node['id'],'B']['pool']['kept'],
                  lookup[node['id'],'B']['pool']['dropped']) for node in definition['nodes']})==1
     d2=lookup['d2','B']['final']['best_lb'];result=gate(deltas,d2)
+    completed_cpu=sum(j['process_cpu_seconds'] for j in jobs)
+    recovery=manifest.get('recovery')
+    recovery_plan=json.loads((Path(__file__).parent/'recovery_plan.json').read_text()) if recovery else None
+    lost_lower=sum(j['logged_DNN_CPU_lower_bound'] for j in recovery_plan['jobs']) if recovery else 0
     result.update(d2_frozen_bound=d2,rows=rows,parent=parent['final'],parent_pool=source,
                   parent_cpu_seconds=parent['process_cpu_seconds'],parent_floor_diagnostics=diagnostics,
                   validity_questions=[dict(node=j['node'],arm=j['arm']) for j in jobs if j['node'] in ('n10','d2') and j['fathomed']],
                   elapsed_wall_seconds=manifest['elapsed_wall_seconds'],
-                  total_process_cpu_seconds=sum(j['process_cpu_seconds'] for j in jobs))
+                  completed_attempt_cpu_seconds=completed_cpu,
+                  all_attempt_cpu_seconds=None if recovery else completed_cpu,
+                  all_attempt_cpu_lower_bound=completed_cpu+lost_lower,
+                  interrupted_logged_DNN_CPU_lower_bound=lost_lower,
+                  interrupted_attempts=len(recovery_plan['jobs']) if recovery else 0,
+                  completed_runs=len(jobs), recovery=recovery)
     return result
 
 

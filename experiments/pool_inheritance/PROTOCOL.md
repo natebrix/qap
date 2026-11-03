@@ -215,3 +215,21 @@ four interrupted attempts is unavailable; their logged DNN CPU supplies only
 a lower bound on the additional work, reported separately. C timing after
 recovery also has a different concurrency history. The frozen numerical gate
 is unaffected; no whole-search speedup is inferred from these timings.
+
+### Second executor loss and final detached retry
+
+The first replay session stopped at 18:35:15 UTC, before any of its four C
+solves completed a round. Resuming its session returned `executor key changed
+during session recovery`. Its unchanged files are under
+`results/interrupted_recovery1/`. No solver error or completed C value occurred.
+Before relaunch, `recovery_plan3.json` pins a final retry of the same four
+commands, binary, pool and cores, using a detached runner. The original six-hour
+deadline remains; another infrastructure loss will be reported as incomplete,
+without further retries. A completed matrix therefore has 19 completed runs
+and **eight interrupted attempts (27 launches)**. The second interruption has
+no completed DNN-call CPU observations, so its CPU overhead is unknown.
+
+A recovery-code review also removed an unavailable Python process-clock call
+before it was exercised. Round observations now explicitly have unknown CPU;
+terminal wait4 CPU and the conservative prefix intervals remain the accounting
+method. This changes no solver code, inputs, bound or gate.

@@ -47,25 +47,57 @@ def main():
         assert math.isfinite(job['process_cpu_seconds']) and job['process_cpu_seconds'] > 0
         for i in range(len(job['rounds'])):
             prefix_cpu_interval(job, i)
-    active = {}; started = set(); finished = set(); peak = 0
-    for line in (out/'events.jsonl').read_text().splitlines():
-        event = json.loads(line); key = (event['node'], event['arm'])
-        if event['event'] == 'started':
-            cpu = event['cpu']
-            assert key not in started and cpu not in active and cpu in manifest['cores']
-            assert by_id[key]['cpu'] == cpu
-            if by_id[key]['arm'] in ('B', 'C'):
-                assert ('n10', 'P') in finished
-            active[cpu] = key; started.add(key); peak = max(peak, len(active))
-        elif event['event'] == 'finished':
-            assert key not in finished and event['exit_code'] == 0
-            assert active.pop(by_id[key]['cpu']) == key
-            assert event['process_cpu_seconds'] == by_id[key]['process_cpu_seconds']
-            finished.add(key)
-    assert not active and started == finished == set(by_id) and peak <= 8
+    def audit_events(path, prior_finished=None):
+        active = {}; started = set(); finished = set(); peak = 0
+        for line in path.read_text().splitlines():
+            event = json.loads(line); key = (event['node'], event['arm'])
+            if event['event'] == 'started':
+                cpu = event['cpu']
+                assert key not in started and cpu not in active and cpu in manifest['cores']
+                assert by_id[key]['cpu'] == cpu
+                if by_id[key]['arm'] in ('B', 'C'):
+                    assert ('n10', 'P') in finished.union(prior_finished or set())
+                active[cpu] = key; started.add(key); peak = max(peak, len(active))
+            elif event['event'] == 'finished':
+                assert key not in finished and event['exit_code'] == 0
+                assert active.pop(by_id[key]['cpu']) == key
+                assert event['process_cpu_seconds'] == by_id[key]['process_cpu_seconds']
+                finished.add(key)
+        assert peak <= 8
+        return active, started, finished, peak
+    active, started, finished, peak = audit_events(out/'events.jsonl')
+    assert started == set(by_id)
+    replay_count = 0
+    if manifest.get('recovery'):
+        recovery = manifest['recovery']
+        recovery_plan = json.loads((HERE/'recovery_plan.json').read_text())
+        assert digest(HERE/'recovery_plan.json') == recovery['plan_sha256']
+        original = HERE/recovery['original_snapshot']
+        assert digest(original/'manifest.json') == recovery_plan['original_manifest_sha256']
+        assert digest(original/'parent.pool') == manifest['parent_pool_sha256']
+        repeated = {(j['node'], j['arm']) for j in recovery_plan['jobs']}
+        assert len(repeated) == 4 and set(active.values()) == repeated
+        assert len(finished) == 15 and finished.isdisjoint(repeated)
+        fields = ('round', 'lb', 'primal', 'iterations', 'status')
+        for key, job in by_id.items():
+            if key in repeated:
+                old = parse(original/job['log'])['rounds']
+                new = job['rounds'][:len(old)]
+                assert [[r[k] for k in fields] for r in old] == [[r[k] for k in fields] for r in new]
+                assert job['attempt'] == 2 and job['interrupted_prefix_matches']
+            else:
+                assert digest(original/job['log']) == digest(out/job['log'])
+        live, replay_started, replay_finished, replay_peak = audit_events(
+            out/'recovery_events.jsonl', finished)
+        assert not live and replay_started == replay_finished == repeated and replay_peak <= 4
+        replay_count = len(repeated)
+    else:
+        assert not active and finished == set(by_id)
     result = evaluate(manifest, plan)
-    print(f'PASS: 19 single-attempt runs; pinned plan/source/input/pool; raw-log agreement; '
-          f'parent dependency; distinct-core scheduling (peak {peak}); CPU accounting intervals.')
+    print(f'PASS: 19 completed runs; {replay_count} preserved executor-interrupted attempts; '
+          f'pinned plan/source/input/pool; raw-log agreement; parent dependency; '
+          f'distinct-core scheduling (peak {peak}); CPU accounting intervals; '
+          f'{replay_count} exact interrupted-prefix replays.')
     print(f'Numerical gates: {result["decision"]}; median {result["median"]:.6f}; '
           f'd2 {result["d2_frozen_bound"]:.6f}; '
           f'validity questions {result["validity_questions"]}.')

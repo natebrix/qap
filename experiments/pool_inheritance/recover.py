@@ -1,5 +1,6 @@
 """Complete only the four executor-interrupted C attempts, without changing inputs."""
 from datetime import datetime, timezone
+import argparse
 import json
 import math
 import os
@@ -12,9 +13,16 @@ from run import HERE, ROOT, atomic_json, digest, parse, physical_cores, process_
 
 
 def main():
-    definition = json.loads((HERE/'recovery_plan.json').read_text())
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--plan', default='recovery_plan.json')
+    args = ap.parse_args()
+    plan_path = HERE/args.plan
+    definition = json.loads(plan_path.read_text())
+    attempt = definition.get('attempt', 2)
+    events_file = definition.get('events_file', 'recovery_events.jsonl')
     out = HERE/'results/runs'
     original = HERE/definition['original_snapshot']
+    comparison = HERE/definition.get('comparison_snapshot', definition['original_snapshot'])
     manifest = json.loads((original/'manifest.json').read_text())
     assert digest(original/'manifest.json') == definition['original_manifest_sha256']
     assert digest(ROOT/'experiments/dnn_cuts/dnncuts') == definition['binary_sha256']
@@ -28,7 +36,10 @@ def main():
     elapsed = lambda: offset+time.monotonic()-start
     remaining = definition['wall_limit_seconds']-offset
     assert remaining > 0
-    manifest['recovery'] = dict(plan_sha256=digest(HERE/'recovery_plan.json'),
+    if manifest.get('recovery'):
+        manifest.setdefault('recovery_history', []).append(manifest['recovery'])
+    manifest['recovery'] = dict(plan_sha256=digest(plan_path), plan_file=args.plan,
+        events_file=events_file, attempt=attempt,
         source_commit=git('rev-parse', 'HEAD'), started_utc=datetime.now(timezone.utc).isoformat(),
         original_snapshot=definition['original_snapshot'],
         interrupted_whole_process_CPU_unknown=True, remaining_wall_seconds=remaining)
@@ -37,10 +48,10 @@ def main():
     assert len(jobs) == 4
     for j in jobs:
         assert j['state'] == 'running'
-        j['interrupted_first_started_elapsed'] = j['started_elapsed']
-        j.update(state='queued', attempt=2, stage_observations=[])
+        j.setdefault('interrupted_first_started_elapsed', j['started_elapsed'])
+        j.update(state='queued', attempt=attempt, stage_observations=[])
         j.pop('progress', None)
-    events = (out/'recovery_events.jsonl').open('x', buffering=1)
+    events = (out/events_file).open('x', buffering=1)
     running = {}
     env = dict(os.environ, **manifest['environment'])
     def persist():
@@ -48,7 +59,7 @@ def main():
         atomic_json(out/'manifest.json', manifest)
     def event(kind, job, **kw):
         events.write(json.dumps(dict(event=kind, elapsed=elapsed(), node=job['node'],
-                                    arm=job['arm'], attempt=2, **kw))+'\n')
+                                    arm=job['arm'], attempt=attempt, **kw))+'\n')
     def observe(job, result, cpu, at_exit=False):
         for row in result['rounds'][len(job['stage_observations']):]:
             item = dict(row, observed_process_cpu_seconds=cpu, observed_at_exit=at_exit,
@@ -61,7 +72,7 @@ def main():
         handle.close()
         result = parse(out/job['log']); cpu = usage.ru_utime+usage.ru_stime
         observe(job, result, cpu, True)
-        previous = parse(original/job['log'])['rounds']
+        previous = parse(comparison/job['log'])['rounds']
         fields = ('round', 'lb', 'primal', 'iterations', 'status')
         matches = [[r[k] for k in fields] for r in result['rounds'][:len(previous)]] == [
                   [r[k] for k in fields] for r in previous]
@@ -88,7 +99,7 @@ def main():
             job.update(state='running', started_elapsed=elapsed())
             running[proc.pid] = (proc, handle, job, time.monotonic())
             event('started', job, cpu=cpu)
-            print('START', job['node'], job['arm'], 'attempt 2 core', cpu, flush=True)
+            print('START', job['node'], job['arm'], 'attempt', attempt, 'core', cpu, flush=True)
         persist(); last_report = 0
         while running:
             if elapsed() >= definition['wall_limit_seconds']:
@@ -122,7 +133,7 @@ def main():
             manifest['interrupted'] = True
         persist(); events.close()
     assert all(j['state'] == 'completed' for j in manifest['jobs'])
-    print('COMPLETE recovery; 19 completed runs, 4 retained interrupted attempts', flush=True)
+    print('COMPLETE recovery; 19 completed runs; interrupted attempts preserved separately', flush=True)
 
 
 if __name__ == '__main__':
