@@ -2,7 +2,7 @@
 
 Based on cognac `7392c10e673707061f98b44c30eea1bd1c5109e2`. Experiment date: 2 November 2026, Los Angeles.
 
-**Result:** the formal full-spectrum continuation test passes. Restoring Y as well as Z also improves the certified bound in all three short, equal-iteration large-instance probes. This supports a full cut-phase A/B; it does not establish a search speedup or justify a 4–12x forecast.
+**Result:** the formal full-spectrum continuation test passes. Restoring Y as well as Z also improves the certified bound in all three short, equal-iteration large-instance probes. The [subsequent full cut-phase A/B](FULL_PHASE_AB.md) is now complete: the final gains shrink to +7.939138 on wil50 node 13 and +0.864434 on sko49 depth-4 node 13, with no additional fathoms. Neither experiment establishes a whole-search speedup or justifies a 4–12x forecast.
 
 ## What the formal test establishes
 
@@ -62,6 +62,8 @@ The tracked eigensolver retains more than Y and Z: its basis, previous projected
 CPU values are retained in the logs, but probes and validation ran concurrently. No timing speedup is claimed. Three hand-selected nodes also cannot establish a population average, tail behavior or tree-size reduction.
 
 ## Recommendation for Fable
+
+**Update:** the full-phase comparison described below has now been run on wil50 node 13 and sko49 depth-4 node 13. See [FULL_PHASE_AB.md](FULL_PHASE_AB.md) for final results and the revised next step: test a shorter Y/Z budget on held-out nodes before a subtree A/B. The following paragraph records the original follow-up protocol.
 
 Use the new `-warmY` option for a paired A/B of the full current cut protocol on the same representative wil50 and sko49 nodes, including near-converged quiet-round starts. Keep the node, cutoff, pool settings and first-iteration budget identical. Record the best certified bound, total phase CPU and additional fathoms. Because Y changes cut separation and multiplier updates, this full-phase comparison measures the complete resulting policy; the frozen-objective probes above isolate the restart choice more directly.
 

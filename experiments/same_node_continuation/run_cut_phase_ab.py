@@ -1,7 +1,8 @@
 """Run two full cut-phase A/B pairs; retain logs, process CPU, and provenance.
 
 Run from any directory. The output directory must not already exist.
-Four single-thread processes run concurrently on distinct physical cores.
+Four single-thread processes run concurrently. Linux runs pin distinct physical
+cores; macOS runs leave placement to the operating system.
 The only solver option differing within each pair is -warmY.
 """
 import argparse
@@ -12,6 +13,7 @@ from pathlib import Path
 import re
 import signal
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -43,6 +45,8 @@ def parse_log(path):
 
 
 def physical_cores():
+    if not hasattr(os, "sched_getaffinity"):
+        return [None] * 4
     selected, seen = [], set()
     for cpu in sorted(os.sched_getaffinity(0)):
         topo = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
@@ -72,7 +76,7 @@ def main():
                     binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                     started_utc=datetime.now(timezone.utc).isoformat(),
                     wall_limit_seconds=args.hours * 3600, jobs=[],
-                    timing_note="Four concurrent single-thread processes pinned to distinct physical cores; process CPU includes cut work. Shared-memory contention and core differences remain timing confounders.")
+                    timing_note="Four concurrent single-thread processes; pinned to distinct physical cores when CPU IDs are recorded, otherwise OS-scheduled. Process CPU includes cut work. Shared-memory contention and core differences remain timing confounders.")
     running = []
     env = dict(os.environ, OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1",
                MKL_NUM_THREADS="1", VECLIB_MAXIMUM_THREADS="1")
@@ -95,7 +99,7 @@ def main():
                 handle = log.open("w")
                 p = subprocess.Popen(command, cwd=ROOT, env=env, stdout=handle,
                                      stderr=subprocess.STDOUT, start_new_session=True,
-                                     preexec_fn=lambda cpu=cpu: os.sched_setaffinity(0, {cpu}))
+                                     preexec_fn=None if cpu is None else lambda cpu=cpu: os.sched_setaffinity(0, {cpu}))
                 job = dict(node=tag, arm=arm, cpu=cpu, command=command, log=log.name,
                            state="running", pid=p.pid)
                 manifest["jobs"].append(job)
@@ -113,7 +117,7 @@ def main():
                     result = parse_log(log)
                     job.update(result, exit_code=p.returncode, wall_seconds=time.monotonic()-t0,
                                process_cpu_seconds=usage.ru_utime+usage.ru_stime,
-                               max_rss_kib=usage.ru_maxrss,
+                               max_rss_kib=usage.ru_maxrss / (1024 if sys.platform == "darwin" else 1),
                                state="completed" if p.returncode == 0 and result["final"] and not result["solver_error"] else "failed")
                     running.remove(item)
                     print(f"DONE {job['node']} {job['arm']} {job['state']} {job['final']}", flush=True)
@@ -139,7 +143,7 @@ def main():
             job.update(parse_log(log), state="terminated", exit_code=p.returncode,
                        wall_seconds=time.monotonic()-t0,
                        process_cpu_seconds=usage.ru_utime+usage.ru_stime,
-                       max_rss_kib=usage.ru_maxrss)
+                       max_rss_kib=usage.ru_maxrss / (1024 if sys.platform == "darwin" else 1))
         persist()
     if any(j["state"] != "completed" for j in manifest["jobs"]):
         raise RuntimeError("An arm failed; inspect the retained logs")

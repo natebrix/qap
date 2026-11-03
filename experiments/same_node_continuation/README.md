@@ -75,3 +75,5 @@ For an adaptive-pool A/B, run the same existing `dnncuts` command once with and 
 ## Results
 
 See [RESULTS.md](RESULTS.md) and retained scalar logs under `results/`.
+
+The subsequent [full cut-phase A/B](FULL_PHASE_AB.md) is complete: +7.939138 on wil50 node 13 and +0.864434 on sko49 depth-4 node 13 after all cut and quiet rounds, with no additional fathoms. Use that follow-up when assessing the full policy; the short probes above measure a different budget. The runner and comparison validator are linked in the follow-up report.

@@ -1,6 +1,7 @@
 """Summarize a completed run_cut_phase_ab.py experiment without hiding failures."""
 import argparse
 import json
+import math
 from pathlib import Path
 
 ap = argparse.ArgumentParser(description=__doc__)
@@ -14,6 +15,10 @@ rows = []
 for node in sorted({j["node"] for j in jobs}):
     pair = {j["arm"]: j for j in jobs if j["node"] == node}
     a, b = pair["Z_only"], pair["YZ"]
+    for job in (a, b):
+        assert 0 < job["iterations"] <= 5500
+        assert all(math.isfinite(v) for v in job["final"].values())
+        assert all(math.isfinite(r["lb"]) for r in job["rounds"])
     assert a["command"] == [x for x in b["command"] if x != "-warmY"]
     assert a["final"]["first_lb"] == b["final"]["first_lb"], "Uncut starts differ"
     assert a["rounds"][0]["lb"] == b["rounds"][0]["lb"]
