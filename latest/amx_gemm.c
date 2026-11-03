@@ -97,7 +97,8 @@ static inline void split_n(const float *x, uint16_t *h, uint16_t *l, int n)
 }
 
 // W (symmetric, column-major, ld K) -> VNNI tiles of the bf16 hi and lo parts.
-// Tile (k32, i16) at ((k32 * Kp/16) + i16) * 512; row r, pair n: [2n+p] = W[k0+2r+p][i0+n].
+// Tile (k32, i16) at ((i16 * Kp/32) + k32) * 512, so an i-tile's k sweep reads a contiguous
+// stream (1.2x over the (k32, i16) order); row r, pair n: [2n+p] = W[k0+2r+p][i0+n].
 // Row k of W is contiguous (W[k][i] = W[i][k] = W + k*K): split it with the vector
 // routine, then interleave the pairs.
 void amx_pack_W(amx_ctx *c, const float *W)
@@ -111,7 +112,7 @@ void amx_pack_W(amx_ctx *c, const float *W)
     for (int i = K; i < Kp; i++) { rh0[i] = rl0[i] = rh1[i] = rl1[i] = 0; }
     const int k32 = k0 / 32, r = (k0 % 32) / 2;
     for (int i16 = 0; i16 < nI; i16++) {
-      uint16_t *th = c->Wh + ((size_t)k32 * nI + i16) * 512 + r * 32, *tl = c->Wl + ((size_t)k32 * nI + i16) * 512 + r * 32;
+      uint16_t *th = c->Wh + ((size_t)i16 * (Kp / 32) + k32) * 512 + r * 32, *tl = c->Wl + ((size_t)i16 * (Kp / 32) + k32) * 512 + r * 32;
       // interleave 16 pairs: (rh0[i], rh1[i]) for i in the i16 block
       __m256i a = _mm256_loadu_si256((const __m256i *)(rh0 + i16 * 16)), b = _mm256_loadu_si256((const __m256i *)(rh1 + i16 * 16));
       __m512i w = _mm512_inserti64x4(_mm512_castsi256_si512(a), b, 1);
@@ -176,9 +177,9 @@ void amx_gemm(amx_ctx *c, const float *Y, int kb, float *T)
           if (kb0 == 0) { _tile_zero(0); _tile_zero(1); }
           else { _tile_loadd(0, c0, s0); _tile_loadd(1, c1, s1); }
           for (int k32 = kb0; k32 < kb1; k32++) {
-            const size_t toff = ((size_t)k32 * nI + i16) * 512;
-            _tile_loadd(6, c->Wh + toff, 64);
-            _tile_loadd(7, c->Wl + toff, 64);
+            const size_t toff = ((size_t)i16 * nK32 + k32) * 512;
+            _tile_stream_loadd(6, c->Wh + toff, 64);   // W streams: the non-temporal hint keeps Y's k-block in L1
+            _tile_stream_loadd(7, c->Wl + toff, 64);
             _tile_loadd(2, yh1 + (size_t)k32 * 512, 64);
             _tile_loadd(3, yl1 + (size_t)k32 * 512, 64);
             _tile_dpbf16ps(0, 2, 6);
