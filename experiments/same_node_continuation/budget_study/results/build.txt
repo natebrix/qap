@@ -1,0 +1,7 @@
+Base: cognac 4095416756ef487251912396a727fac7ceacacaf
+Build: make -j8 -C latest dnncuts dnncontinuation
+DNN_LAPACK_DEFS='-DDNN_BLAS_PREFIX=scipy_ -DDNN_OPENBLAS'
+DNN_LAPACK='/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-6cdc3b4a.so -Wl,-rpath,/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs'
+Compiler flags: -O3 -march=native -ffp-contract=off
+Meschach archive reused from the prior identical-source build.
+Existing continuation regression and analysis gate checks passed before launch.
