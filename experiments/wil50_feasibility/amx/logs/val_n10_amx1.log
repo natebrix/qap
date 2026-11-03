@@ -1,0 +1,10 @@
+objective values are even integers: fathoming tolerance 1.95
+instance qaplib/wil50.dat n=50 lapack=OpenBLAS (prefix 'scipy_')
+node 0 fixed=3 m=47 shift=252.000000 cutoff=48814.050000
+profile (s): forward 11.691  eig 95.217  expand 9.171  Y/Z-step 8.804  certify 4.443
+eig split (s): full ssyevd 10.970 (15 refreshes, K=2117)  filter+RR 61.792 (285 steps, mean kb 605, mean nneg 499)  form R 16.101
+refresh reasons: scheduled 15  weyl bound 0  block too small 0  factorization failed 0  (block grown 4 times)
+RESULT node=0 m=47 lb=48582.74549113102 primal=48559.510222320096 status=iter_limit iters=300 cpu=133.018 ms_per_iter=443.39 certs=30 cert_fail=0 refine=0 margin=4.94e-06 fathomed=0 restarts=0
+it   100 lb 47387.6939 (cert 47387.6939, margin 3.85e-06) primal 40085.0709 pres 2.55e-01 dY 2.09e-01 npos 1574 cpu 38.82
+it   200 lb 48501.8903 (cert 48501.8903, margin 4.30e-06) primal 48373.8744 pres 6.06e-02 dY 7.26e-02 npos 1514 cpu 85.88
+it   300 lb 48582.7455 (cert 48582.7455, margin 4.36e-06) primal 48559.5102 pres 4.33e-02 dY 5.58e-02 npos 1532 cpu 133.02

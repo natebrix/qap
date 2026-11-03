@@ -65,5 +65,26 @@ Build: `amx_gemm.o` is plain C compiled with the AMX flags on x86-64 Linux
 |---|---|---|---|
 | nug12 root, 60 iterations, certified lb | 563.27895 | 563.27899 | 0.54 / 0.70 ms per iteration (tiny K, overhead) |
 | nug30 root, 100 iterations, certified lb | 5857.9953 | 5857.9948 | 52.97 / 43.12 ms per iteration: 1.23x |
-| wil50 node 10, 300 iterations | pending | pending | |
-| wil50 depth-4 node 3 (fathoms uncut at 510 iterations) | pending | pending | |
+| wil50 node 10 (m = 47), 300 iterations, certified lb | 48,582.776 | 48,582.745 | **521 / 443 ms per iteration: 1.18x**; filter+RR 300 -> 217 ms per step at kb 605 (`logs/val_n10_*`) |
+| wil50 depth-4 node 3 (m = 46), fathoms uncut | fathomed at iteration 510 | fathomed at iteration 510 | 48,814.559 / 48,814.563; **478 / 397 ms per iteration: 1.20x** (`logs/val_d4n3_*`) |
+| `tests/dnn_test.py`, `make continuationcheck` with `DNN_AMX=1` | | pass | |
+
+The four wil50 runs shared the four cores (one process per core), so the
+per-iteration times are the loaded figures the search sees, not the idle
+409 ms of the single-process profile.
+
+## Where the iteration stands with AMX, and what is left
+
+Node 10 with AMX, 300 iterations: eigensolver 95 s of 133 (71%): filter+RR
+62 s (217 ms per step: the five products about 100 ms including the 6 ms
+pack, the rest CholQR2, the two small Rayleigh-Ritz GEMMs, the 605 x 605
+ssyevd and the element-wise Chebyshev updates), full ssyevd refresh 11 s
+(37 ms per iteration), forming R 16 s (53 ms: dsyrk in fp64 plus the
+symmetrisation copy); forward 12 s, expand 9 s, Y/Z-step 9 s, certify 4 s.
+The AMX item alone is therefore about 1.2x, not the memo's 1.4-1.7x; the
+rest of that range needs (a) the kernel at its pattern's measured ceiling
+(17 -> about 10 ms per product, another 35 ms per iteration), (b) the
+small BLAS-3 of CholQR2 and Rayleigh-Ritz on AMX too (about 25 ms), and (c)
+the CPU trims of the memo (R in fp32, the Weyl copy, the refresh cadence,
+about 60-80 ms). All three together are worth about 1.45-1.5x on the
+iteration over today's sgemm path.
