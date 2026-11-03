@@ -36,7 +36,7 @@ the range, after the symmetry file.
 | tree | branch on the DNN marginal line (rule 9) at every DNN depth, DNN from depth 1 | 2-5x | 1 day | node-10 and node-3 subtree A/B; dropped if CPU is not below 0.9x on both |
 | bound | children inherit the parent's cut pool and multipliers (and a phase at clear misses to equip their children) | 1.5-4x on the dominant class (bound memo); 1.1-1.3x (tree memo) | 2-4 days | one laptop-hour: node 10's pool reloaded frozen on d1, d2, d4 and three siblings; killed if the median gain over the child's plain-DNN value is under +40 |
 | speed | AMX bf16 for the filter and Rayleigh-Ritz products, plus CPU trims (a free 16 ms/iteration found) | 1.8-2.2x per node | 5-9 days | time a 2117x2117x600 product; node 2 to 2,500 iterations; the 32-node sample |
-| speed | cut-phase trims (fewer or shorter rounds, rate-based quiet-round abort) | 1.08-1.2x | 2-3 days | the laptop near-miss set |
+| speed | cut-phase trims: shorter inner solves with Y/Z restoration (Astra's Y12s: `-warmY`, 12 rounds x 200 iterations, quiet cap 1,000) | **measured on the phase: 1.56x** (64% of baseline CPU, bound and fathom gates kept on all six nodes; `same_node_continuation/budget_study/RESULTS.md`); 1.17-1.20x on the total at the 46% phase share | done; subtree A/B next | fewer rounds (Y6, Y8s) lose 4-16 units of bound on the short-of-cutoff nodes and are out |
 | speed | coordinator instead of the checkpoint barrier and node-end steals | 1.15-1.35x of the fleet | in plan.md | 70-85% busy today against 93-97% |
 | tree | confirm give-ups uncut before the phase (QAP_DNN_GU_ZONE was off in run_ab3), primal gate in the phase, zone 0.0035 | 1.1-1.2x | 0.5 day | re-run run_ab3's cut arm |
 | bound | skew-symmetric certificate polishing at non-converged iterates | 1.05-1.15x on the phase | 2-3 days | offline ascent on a dumped residual; killed under 20% of the gap recovered |
@@ -79,7 +79,9 @@ The two measurements that decide between these outcomes are cheap:
    specs as j:i), re-check the certified bound and the depth-2 counts.
 2. Inheritance test (laptop, one hour) and the rule-9 subtree A/B (cloud, one
    day); per-phase logging in the search so that failures are visible.
-3. Confirm give-ups uncut (`QAP_DNN_GU_ZONE`), the primal gate, zone 0.0035.
+3. Confirm give-ups uncut (`QAP_DNN_GU_ZONE`), the primal gate, zone 0.0035;
+   the Y12s phase budget (`-warmY`, 12 x 200, quiet 1,000) as a search
+   option, priced on the node-10 subtree against run_ab3's cut arm.
 4. AMX and the CPU trims; the coordinator from docs/distributed/plan.md.
 5. The sampling plan on the first 1,000 cores, before the full run.
 6. In parallel, gated: the M2 projection test and the GPU prototype.
