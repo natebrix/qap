@@ -1439,7 +1439,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     double tp = thread_cpu(), tq;
     if (par.anderson > 0) aa.begin(Y, Z, ibeta);
     forward(w, Y, w.W.data(), Z, ibeta, w.t_rows_ready,
-            (fuse_ok && par.eig_mode == DNN_EIG_SUBSPACE) ? w.Wf.data() : NULL);
+            par.eig_mode == DNN_EIG_SUBSPACE ? w.Wf.data() : NULL);   // Wf with W (used when DNN_NOSYMW=1)
     tq = thread_cpu(); w.prof[0] += tq - tp; tp = tq;
     bool check = it % check_every == 0 || it == par.max_iter;
     bool rstep_cert = check && !par.prototype_cert;
