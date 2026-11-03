@@ -73,6 +73,10 @@ def evaluate(manifest, definition):
                 first_fathom_iteration=j['first_fathom_iteration'],
                 process_cpu_seconds=j['process_cpu_seconds'],
                 historical_target=node['target'],first_reported_target=first_target(j,node['target']) if arm=='C' else None))
+    # Every declared child fixes the same opposite-side index (location 5).
+    # Its region remap varies, but cut membership/drop decisions must agree.
+    assert len({(lookup[node['id'],'B']['pool']['kept'],
+                 lookup[node['id'],'B']['pool']['dropped']) for node in definition['nodes']})==1
     d2=lookup['d2','B']['final']['best_lb'];result=gate(deltas,d2)
     result.update(d2_frozen_bound=d2,rows=rows,parent=parent['final'],parent_pool=source,
                   parent_cpu_seconds=parent['process_cpu_seconds'],parent_floor_diagnostics=diagnostics,
