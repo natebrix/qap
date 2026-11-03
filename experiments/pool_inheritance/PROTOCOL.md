@@ -233,3 +233,8 @@ A recovery-code review also removed an unavailable Python process-clock call
 before it was exercised. Round observations now explicitly have unknown CPU;
 terminal wait4 CPU and the conservative prefix intervals remain the accounting
 method. This changes no solver code, inputs, bound or gate.
+
+The executor reaped the detached launcher child before it started any solver
+(no new events, logs, or manifest update). The final retry is therefore launched
+in a persistent PTY session; this launcher adjustment is recorded before launch
+and does not add a solver attempt.

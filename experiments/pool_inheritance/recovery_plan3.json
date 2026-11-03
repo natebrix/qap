@@ -1,5 +1,5 @@
 {
-  "reason": "Second executor transport loss: executor key changed during session recovery; runner heartbeat stopped at 18:35:15 UTC before any C round completed. Final retry uses a detached runner; unchanged solver inputs, no further retries.",
+  "reason": "Second executor transport loss: executor key changed during session recovery; runner heartbeat stopped at 18:35:15 UTC before any C round completed. Final retry uses a persistent PTY runner; unchanged solver inputs, no further retries.",
   "declared_utc": "2026-11-03T18:39:27.099649+00:00",
   "original_source_commit": "ef25c618bac794224e432f53ddfd03eaa6ef821c",
   "original_snapshot": "results/interrupted_recovery1",
@@ -177,5 +177,6 @@
   "whole_process_CPU_of_interrupted_attempts": null,
   "attempt": 3,
   "events_file": "recovery_events_3.jsonl",
-  "comparison_snapshot": "results/interrupted_original"
+  "comparison_snapshot": "results/interrupted_original",
+  "launch_mode": "persistent PTY session; detached launcher child was reaped before any solver launched"
 }
