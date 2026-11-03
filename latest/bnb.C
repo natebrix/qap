@@ -698,6 +698,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // exceeds 3x the gain of the last that many rounds (0 = off)
 	    cp.stall_rounds = 3;
 	    if (const char *e = getenv("QAP_DNN_CUT_STALL")) cp.stall_rounds = atoi(e);
+	    // primal gate (wil50_feasibility/trims): QAP_DNN_CUT_PGATE=R:M stops the
+	    // phase after round R when its best primal is more than M below the
+	    // cutoff (0 = off; the replay on 88 logged phases supports 4:20)
+	    if (const char *e = getenv("QAP_DNN_CUT_PGATE")) {
+	      cp.pgate_rounds = atoi(e);
+	      if (const char *c = strchr(e, ':')) cp.pgate_margin = atof(c + 1);
+	    }
 	    // the dual method's two fixes (research_bound_quality.md, measured in
 	    // stronger_bounds/dual): the Polyak target best + delta, uncapped, so
 	    // the step does not vanish at the cutoff (QAP_DNN_CUT_NOCAP=0 restores

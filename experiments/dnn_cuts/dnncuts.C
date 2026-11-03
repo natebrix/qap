@@ -8,7 +8,7 @@
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
        [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
        [-Ladd file[:const]] [-warmY] [-dumpY prefix] [-addto R] [-seven K[:S]]
-       [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
+       [-stall R] [-pgate R:M] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
  original indices of one side (default side 0, the first matrix: wil50's
@@ -89,6 +89,10 @@ int main(int argc, char **argv)
     }
     else if (o == "-side" && more) cp.side = atoi(argv[++a]);
     else if (o == "-stall" && more) cp.stall_rounds = atoi(argv[++a]);   // stop rule (dnncut.h), 0 = off
+    else if (o == "-pgate" && more) {                                      // -pgate R:M: primal gate after round R, margin M (dnncut.h)
+      const char *z = argv[++a], *c = strchr(z, ':');
+      cp.pgate_rounds = atoi(z); if (c) cp.pgate_margin = atof(c + 1);
+    }
     else if (o == "-nocap") cp.cap_at_cutoff = 0;                          // Polyak target = best + delta
     else if (o == "-freeze" && more) {                                     // -freeze R:N: quiet round of N iterations after round R (0 = the last)
       const char *z = argv[++a], *c = strchr(z, ':');

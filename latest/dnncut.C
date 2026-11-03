@@ -20,6 +20,7 @@ DNNCutParams::DNNCutParams()
   delta = 50; theta = 1.0; mu0 = 0;
   grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
   stall_rounds = 0; stall_factor = 3.0;
+  pgate_rounds = 0; pgate_margin = 20;
   cap_at_cutoff = 1; freeze_after = 0; freeze_iters = 0; freeze_if_primal_above = 0;
   freeze_best = 1;
   L_ext = NULL; L_ext_abs = 0; ext_const = 0;
@@ -352,7 +353,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 
   DNNCutResult out;
   out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
-  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0;
+  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0;
   out.nregions = (int)regions.size();
   std::vector<double> best_hist;   // best after each round (index = round)
   if (regional && regions.empty()) return out;
@@ -369,7 +370,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   DNNWarm save;
   double prev_lb = -HUGE_VAL, theta_cur = cp.theta;
 
-  double last_primal = HUGE_VAL;
+  double last_primal = HUGE_VAL, best_primal = -HUGE_VAL;   // best_primal: over the cut rounds
   std::vector<double> best_mu;   // the multipliers of the best round's solve (freeze_best)
   DNNWarm best_save;
   double best_mu_lb = -HUGE_VAL;
@@ -407,6 +408,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     }
     out.status = res.status;
     last_primal = res.primal;
+    if (r > 0 && std::isfinite(res.primal)) best_primal = std::max(best_primal, res.primal);
     return res;
   };
 
@@ -617,6 +619,13 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
         break;
       }
     }
+    if (cp.pgate_rounds > 0 && r >= cp.pgate_rounds && std::isfinite(cutoff) &&
+        best_primal < cutoff - cp.pgate_margin) {
+      out.gated = 1;
+      if (cp.verbose) printf("primal gate: best primal %.4f is %.4f below the cutoff after %d rounds\n",
+                             best_primal, cutoff - best_primal, r);
+      break;
+    }
     // Polyak subgradient step on all cuts toward the target; the step factor
     // halves whenever a round lowers the bound (an overshoot)
     if (cp.theta <= 0) continue;
@@ -639,7 +648,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   }
   // the quiet round: the multipliers frozen, no new cuts, so that the
   // certificate catches up with the Lagrangian value of the final multipliers
-  if (cp.freeze_iters > 0 && out.best_lb <= cutoff && !cuts.empty() &&
+  if (cp.freeze_iters > 0 && out.best_lb <= cutoff && !cuts.empty() && !out.gated &&
       (!cp.freeze_if_primal_above || last_primal > cutoff)) {
     if (cp.freeze_best && !best_mu.empty() && best_mu_lb > -HUGE_VAL) {
       // back to the best round's multipliers and iterate (cuts added later keep mu 0)

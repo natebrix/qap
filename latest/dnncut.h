@@ -102,6 +102,14 @@ struct DNNCutParams {
                       // stall_rounds rounds (the gain comes early: on wil50 depth-4
                       // nodes +53 in three rounds, then +3 a round). 0 = off
   double stall_factor;  // (3.0)
+  int pgate_rounds;   // > 0: the primal gate (wil50_feasibility/trims): after this many
+                      // cut rounds, stop when the best Lagrangian primal value of the
+                      // rounds so far is more than pgate_margin below the cutoff: the
+                      // certified bound never passes the primal, so the phase cannot
+                      // fathom soon. Replayed on 88 logged phases: 4 rounds, margin 20
+                      // stops 44 of 63 misses with no false stop (closest fathom 12.4
+                      // short, closest caught miss 26.6). 0 = off
+  double pgate_margin;  // (20)
   int verbose;        // >= 1: a line per round, >= 2: per region
   const double *L_ext;  // optional (m^2+1)^2 row-major term added to every round's
                       // objective on top of the cuts (unscaled; e.g. externally
@@ -122,6 +130,7 @@ struct DNNCutResult {
   int active;         // cuts with a positive multiplier at the end
   int nregions;
   int stalled;        // 1 when the stall rule stopped the rounds
+  int gated;          // 1 when the primal gate stopped the rounds
 };
 
 // A, B, C, shift: the node's reduced QAP (reduceQAP). free_orig: for each local
