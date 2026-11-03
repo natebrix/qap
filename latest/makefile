@@ -98,3 +98,7 @@ dnncuts: $(OBJS) dnn.o dnncut.o amx_gemm.o
 # Same-node continuation identity, rescaling, and exact-bound checks.
 dnncontinuation: $(OBJS) dnn.o dnncut.o amx_gemm.o ../tests/dnn_continuation.C
 	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../tests/dnn_continuation.C $(OBJS) dnn.o dnncut.o amx_gemm.o -o dnncontinuation $(LDLIBS) $(DNN_LAPACK)
+
+# Isolated complete-disjunction / cached child continuation experiment.
+dnnconditioned: $(OBJS) dnn.o dnncut.o amx_gemm.o ../experiments/conditioned_dnn/probe.C
+	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../experiments/conditioned_dnn/probe.C $(OBJS) dnn.o dnncut.o amx_gemm.o -o dnnconditioned $(LDLIBS) $(DNN_LAPACK)
