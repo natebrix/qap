@@ -553,10 +553,25 @@ default rules, which send the DNN-depth nodes to rule 2.
 |---|---|---|---|---|---|---|---|---|---|
 | default rules (run_ab3 cut arm) | 365 | 357 | 326 | 31 | 8 | 39 | 76,755 | 6 h 06 min | - |
 | rule 9 (lookahead over the two marginal lines) | 322 | 315 | 295 | 20 | 7 | 27 | 54,621 | 4 h 22 min | **1.41x less CPU**, 1.13x fewer nodes |
-| rule 8 (the largest-sum-of-squares marginal line) | running | | | | | | | | |
+| rule 8 (the largest-sum-of-squares marginal line) | 322 | 315 | 295 | 20 | 7 | 27 | 62,615 | 5 h 16 min | 1.23x less CPU, 1.13x fewer nodes |
 
 Rule 9 is a clear win but not the 2-5x of `roadmap/tree_size.md`: the
 children of a marginal-line branch fathom by the plain DNN bound more often
 (295 of 322 against 326 of 365), so 12 fewer cut phases run, and the phases
 and give-ups are where the CPU goes. Combined with the cut phase this subtree
 is now 139,149 / 54,621 = 2.55x cheaper than the plain search.
+
+Rule 8 (`wil50n10ext_cut_rule8.log`, finished 10:53) produces a tree of
+exactly the same shape: 322 nodes, 315 fathomed, 295 of them by the plain DNN
+bound, 7 branched, 27 phases. The two rules evidently pick the same line at
+every branching on this subtree, so rule 9's lookahead buys nothing here in
+nodes. Rule 8 nevertheless costs 15% more CPU (62,615 against 54,621), almost
+all of it in the plain DNN bounds (37,874 s against 30,982 s at the same node
+count); the phases and give-ups differ by 5%. The aggregate logs cannot say
+whether that is a different child order (and so different warm starts) or
+timing noise across the two runs; either way rule 9 is the rule to carry
+forward, and its own lookahead cost is small (the `fw iterations` line).
+The lever is worth 1.4x here, not the 2-5x the tree memo hoped for, because
+the default rule 2 already finds decent lines at these depths: both marginal
+rules cut nodes by 1.13x, and the CPU saving comes from the children fathoming
+by the cheaper plain DNN bound rather than from fewer nodes.

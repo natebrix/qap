@@ -33,7 +33,7 @@ the range, after the symmetry file.
 | angle | item | factor | effort | first test |
 |---|---|---|---|---|
 | tree | symmetry file for wil50 (transposed instance) | 3.98x against today's runs, already in the estimate | 0.5 day | depth-2 orbit counts 15 and 635; same certified bound on the transposed instance |
-| tree | branch on the DNN marginal line (rule 9) at every DNN depth, DNN from depth 1 | 2-5x | 1 day | node-10 and node-3 subtree A/B; dropped if CPU is not below 0.9x on both |
+| tree | branch on the DNN marginal line (rule 9) at every DNN depth, DNN from depth 1 | **measured on the node-10 subtree: 1.41x less CPU, 1.13x fewer nodes** (rule 8 gives the same tree at 1.23x; `stronger_bounds/README.md` step 12); the 2-5x estimate was too high because rule 2 already finds decent lines | done | the node-3 subtree would confirm; DNN from depth 1 untested |
 | bound | children inherit the parent's cut pool and multipliers (and a phase at clear misses to equip their children) | 1.5-4x on the dominant class (bound memo); 1.1-1.3x (tree memo) | 2-4 days | one laptop-hour: node 10's pool reloaded frozen on d1, d2, d4 and three siblings; killed if the median gain over the child's plain-DNN value is under +40 |
 | speed | AMX bf16 for the filter and Rayleigh-Ritz products, plus CPU trims (a free 16 ms/iteration found) | 1.8-2.2x per node | 5-9 days | time a 2117x2117x600 product; node 2 to 2,500 iterations; the 32-node sample |
 | speed | cut-phase trims: shorter inner solves with Y/Z restoration (Astra's Y12s: `-warmY`, 12 rounds x 200 iterations, quiet cap 1,000) | **measured on the phase: 1.56x** (64% of baseline CPU, bound and fathom gates kept on all six nodes; `same_node_continuation/budget_study/RESULTS.md`); 1.17-1.20x on the total at the 46% phase share | done; subtree A/B next | fewer rounds (Y6, Y8s) lose 4-16 units of bound on the short-of-cutoff nodes and are out |
@@ -51,8 +51,14 @@ under 10% within a month (`bound_strength.md`).
 
 ## 3. Multiplying out
 
-Centers, on top of the symmetry file: rule-9 branching 3x, inheritance 2x,
-per-node speed 2x, phase trims and fleet efficiency 1.3x: about **15x**.
+Centers, on top of the symmetry file, as estimated on Nov 2: rule-9 branching
+3x, inheritance 2x, per-node speed 2x, phase trims and fleet efficiency 1.3x:
+about **15x**. Two of these are now measured (Nov 3): rule 9 gives 1.41x, not
+3x, and the Y12s phase budget gives 1.17-1.20x on the total, inside the 1.3x
+allowed for trims and fleet efficiency together. With the measured branching
+factor the center is about **7x**, which puts a 1,000-core week out of reach
+unless inheritance delivers its upper estimate or the tree is at the small end
+of its range; GPUs or more cores remain the other way to the week.
 From a center of 290 days that is about 20 days on 1,000 Xeon cores; the low
 end of the tree range (120 days) lands at about 8 days, the high end (700) at
 about 45. **A week on 1,000 Xeon-class cores is reachable only if the tree
