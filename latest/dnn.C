@@ -467,6 +467,7 @@ struct Work {
   std::vector<double> sub, cmat, colmin;
   Hungarian hung;
   double prof[8];             // CPU seconds per phase, printed with verbose >= 2
+  double sp[14];              // subspace-step split, ms, printed with verbose >= 2 (DNN_AMX etc.)
   int n_refresh, sum_kb, sum_nneg, n_sub;   // subspace eigensolver statistics
   int ref_sched, ref_weyl, ref_small, ref_fail;   // why a full refresh ran
   int n_grow;                 // block extended with fresh vectors instead of a refresh
@@ -497,6 +498,7 @@ struct Work {
     sub.assign((size_t)m * m, 0); cmat.assign((size_t)m * m, 0); colmin.assign(m, 0);
     hung.init(m);
     for (int t = 0; t < 8; t++) prof[t] = 0;
+    for (int t = 0; t < 14; t++) sp[t] = 0;
     n_refresh = sum_kb = sum_nneg = n_sub = 0;
     ref_sched = ref_weyl = ref_small = ref_fail = 0;
     n_grow = 0; grow_seed = 12345u;
@@ -781,14 +783,19 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   float *Wf = w.Wf.data();
   const float one = 1, zero = 0;
 
-  // Weyl: lambda_max(W) <= lambda_max(Wprev) + ||W - Wprev||_F
-  if (w.have_basis) {
+  // Weyl: lambda_max(W) <= lambda_max(Wprev) + ||W - Wprev||_F. With tight_lam
+  // the estimate below replaces it, so the difference and the Wprev copy (two
+  // passes over W, about 16 ms at K = 2117) are skipped (node_speed.md trim a).
+  double tw0 = thread_cpu();
+  if (w.have_basis && !(tight_lam > 0)) {
     double *d = w.F.data();   // scratch: F is rebuilt below
     for (size_t t = 0; t < kk; t++) d[t] = Win[t] - w.Wprev[t];
     w.lam_hi += sqrt(dot4(d, d, kk)) * (1 + 1e-6);
   }
-  memcpy(w.Wprev.data(), Win, kk * sizeof(double));
+  if (!(tight_lam > 0)) memcpy(w.Wprev.data(), Win, kk * sizeof(double));
+  w.sp[0] += (thread_cpu() - tw0) * 1e3; tw0 = thread_cpu();
   for (size_t t = 0; t < kk; t++) Wf[t] = (float)Win[t];
+  w.sp[1] += (thread_cpu() - tw0) * 1e3;
   w.amx_packed = false;   // W changed: the AMX pack is rebuilt at the first product
   if (tight_lam > 0 && w.have_basis) {
     // lam_hi from shifted power steps on the top eigenvector of the last full
@@ -825,11 +832,13 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   std::vector<float> &theta = w.evalsf;
   // T = W Yin (K x kb): the five products of a filter step, on AMX when enabled
   auto WY = [&](const float *Yin, float *Tout) {
+    double tg0 = thread_cpu();
     if (w.use_amx) {
-      if (!w.amx_packed) { amx_pack_W(&w.amx, Wf); w.amx_packed = true; }
+      if (!w.amx_packed) { amx_pack_W(&w.amx, Wf); w.amx_packed = true; w.sp[2] += (thread_cpu() - tg0) * 1e3; tg0 = thread_cpu(); }
       amx_gemm(&w.amx, Yin, (int)kb, Tout);
     } else
       F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Yin, &K, &zero, Tout, &K, 1, 1);
+    w.sp[3] += (thread_cpu() - tg0) * 1e3;
   };
   while (true) {
     if (full) {
@@ -857,30 +866,40 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
                 h = (float)(0.5 * (w.lam_hi - w.theta_top));
     const size_t nb = (size_t)K * kb;
     WY(Yp, T);
+    double tc0 = thread_cpu();
     for (size_t t = 0; t < nb; t++) Y[t] = (T[t] - c * Yp[t]) / h;
+    w.sp[4] += (thread_cpu() - tc0) * 1e3;
     for (int d = 2; d <= degree; d++) {
       WY(Y, T);
+      tc0 = thread_cpu();
       for (size_t t = 0; t < nb; t++) Yp[t] = 2 * (T[t] - c * Y[t]) / h - Yp[t];
+      w.sp[4] += (thread_cpu() - tc0) * 1e3;
       std::swap(Y, Yp);
     }
     // Y now holds the filtered block (in Ys or Xs); orthonormalize by CholQR2
+    // (DNN_CHOLQR_PASSES: 1 saves a pass, node_speed.md trim d; default 2)
+    static const int cholqr_passes = getenv("DNN_CHOLQR_PASSES") ? std::max(1, atoi(getenv("DNN_CHOLQR_PASSES"))) : 2;
     float *G = w.Hs.data();
     bool ok = true;
-    for (int pass = 0; pass < 2 && ok; pass++) {
+    tc0 = thread_cpu();
+    for (int pass = 0; pass < cholqr_passes && ok; pass++) {
       F77(ssyrk)("U", "T", &kb, &K, &one, Y, &K, &zero, G, &kb, 1, 1);
       lapack_int info = 0;
       F77(spotrf)("U", &kb, G, &kb, &info, 1);
       if (info != 0) { ok = false; break; }
       F77(strsm)("R", "U", "N", "N", &K, &kb, &one, G, &kb, Y, &K, 1, 1, 1, 1);
     }
+    w.sp[5] += (thread_cpu() - tc0) * 1e3;
     if (!ok) { w.ref_fail++; full = true; continue; }
     // Rayleigh-Ritz: H = Y' W Y, X = Y Q
     WY(Y, T);
+    tc0 = thread_cpu();
     F77(sgemm)("T", "N", &kb, &kb, &K, &one, Y, &K, T, &K, &zero, G, &kb, 1, 1);
     for (int i = 0; i < kb; i++)
       for (int j = i + 1; j < kb; j++)
         G[(size_t)i * kb + j] = G[(size_t)j * kb + i] =
             0.5f * (G[(size_t)i * kb + j] + G[(size_t)j * kb + i]);
+    w.sp[6] += (thread_cpu() - tc0) * 1e3; tc0 = thread_cpu();
     {
       lapack_int lwork = (lapack_int)w.eworkf.size(), liwork = (lapack_int)w.eiwork.size(),
                  info = 0;
@@ -888,9 +907,11 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
                   w.eiwork.data(), &liwork, &info, 1, 1);
       if (info != 0) { w.ref_fail++; full = true; continue; }
     }
+    w.sp[7] += (thread_cpu() - tc0) * 1e3; tc0 = thread_cpu();
     float *Xn = (Y == X) ? T : X;
     F77(sgemm)("N", "N", &K, &kb, &kb, &one, Y, &K, G, &kb, &zero, Xn, &K, 1, 1);
     if (Xn != X) memcpy(X, Xn, nb * sizeof(float));
+    w.sp[8] += (thread_cpu() - tc0) * 1e3;
     nneg = 0;
     while (nneg < kb && theta[nneg] < 0) nneg++;
     w.prof[6] += thread_cpu() - ts0;
@@ -921,8 +942,36 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   if (full) w.theta_top = theta[kb - 1];
   *npos = K - nneg;
 
-  // R = W - sum_{theta<0} theta x x'
+  // R = W - sum_{theta<0} theta x x'. DNN_R32=1 (node_speed.md trim b): the
+  // rank-nneg term in fp32 (ssyrk on the fp32 eigenvectors, which is their
+  // precision anyway), added to W in fp64; the default keeps dsyrk.
+  static const int r32 = getenv("DNN_R32") ? atoi(getenv("DNN_R32")) : 0;
   double tr0 = thread_cpu();
+  lapack_int k = nneg;
+  if (r32 && k > 0) {
+    float *Ff = w.Hs.data(), *Rf = w.Ts.data();   // free after the filter step (K x K each)
+    for (int i = 0; i < nneg; i++) {
+      const float sq = (float)sqrt(-(double)theta[i]);
+      const float *x = X + (size_t)i * K;
+      float *f = Ff + (size_t)i * K;
+      for (int r = 0; r < K; r++) f[r] = sq * x[r];
+    }
+    w.sp[9] += (thread_cpu() - tr0) * 1e3; tr0 = thread_cpu();
+    F77(ssyrk)("L", "N", &K, &k, &one, Ff, &K, &zero, Rf, &K, 1, 1);
+    w.sp[10] += (thread_cpu() - tr0) * 1e3; tr0 = thread_cpu();
+    // lower triangle (column-major) of Rf holds F F'; R = W + it, both triangles
+    for (int c = 0; c < K; c++) {
+      const float *rc = Rf + (size_t)c * K;
+      Rout[(size_t)c * K + c] = Win[(size_t)c * K + c] + rc[c];
+      for (int r = c + 1; r < K; r++) {
+        const double v = Win[(size_t)c * K + r] + rc[r];
+        Rout[(size_t)c * K + r] = v; Rout[(size_t)r * K + c] = v;
+      }
+    }
+    w.sp[11] += (thread_cpu() - tr0) * 1e3;
+    w.prof[7] += thread_cpu() - tr0;
+    return true;
+  }
   double *F = w.F.data();
   for (int i = 0; i < nneg; i++) {
     double sq = sqrt(-(double)theta[i]);
@@ -931,11 +980,13 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
     for (int r = 0; r < K; r++) f[r] = sq * x[r];
   }
   memcpy(Rout, Win, kk * sizeof(double));
+  w.sp[9] += (thread_cpu() - tr0) * 1e3; tr0 = thread_cpu();
   const double done = 1;
-  lapack_int k = nneg;
   if (k > 0) F77(dsyrk)("L", "N", &K, &k, &done, F, &K, &done, Rout, &K, 1, 1);
+  w.sp[10] += (thread_cpu() - tr0) * 1e3; tr0 = thread_cpu();
   for (int c = 0; c < K; c++)
     for (int r = c + 1; r < K; r++) Rout[(size_t)r * K + c] = Rout[(size_t)c * K + r];
+  w.sp[11] += (thread_cpu() - tr0) * 1e3;
   w.prof[7] += thread_cpu() - tr0;
   return true;
 }
@@ -1336,6 +1387,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     Zt.assign(Z, Z + (size_t)n1 * n1);
   }
 
+  // subspace block guard = K / DNN_GUARD_DIV (20; node_speed.md trim c tries 40)
+  static const int guard_div = getenv("DNN_GUARD_DIV") ? std::max(1, atoi(getenv("DNN_GUARD_DIV"))) : 20;
   for (int it = 1; it <= par.max_iter; it++) {
     // R-step: W = V'(Y + Z/beta)V, R = P_psd(W), VRV = V R V'
     double tp = thread_cpu(), tq;
@@ -1346,7 +1399,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     bool rstep_cert = check && !par.prototype_cert;
     bool okp = par.eig_mode == DNN_EIG_SUBSPACE
                    ? proj_psd_subspace(w, w.W.data(), w.R.data(), &npos, par.refresh,
-                                       par.cheb_degree, std::max(8, w.K / 20), par.tight_lam)
+                                       par.cheb_degree, std::max(8, w.K / guard_div), par.tight_lam)
                    : proj_psd(w, w.W.data(), w.R.data(), &npos,
                               par.eig_mode == DNN_EIG_SINGLE, rstep_cert);
     if (!okp) {
@@ -1573,6 +1626,12 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
            w.prof[5], w.n_refresh, w.K, w.prof[6], w.n_sub,
            w.n_sub ? (double)w.sum_kb / w.n_sub : 0.0, w.n_sub ? (double)w.sum_nneg / w.n_sub : 0.0,
            w.prof[7]);
+  if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE && w.n_sub > 0) {
+    const double ns = w.n_sub, nr = std::max(1, w.n_sub + w.n_refresh);
+    printf("step split (ms per subspace step): weyl %.1f  convert %.1f  pack %.1f  W*Y %.1f  cheb %.1f  cholqr %.1f  rr-gemm %.1f  rr-eig %.1f  x-upd %.1f\n",
+           w.sp[0] / nr, w.sp[1] / nr, w.sp[2] / ns, w.sp[3] / ns, w.sp[4] / ns, w.sp[5] / ns, w.sp[6] / ns, w.sp[7] / ns, w.sp[8] / ns);
+    printf("form R (ms per iteration): F %.1f  syrk %.1f  symmetrize %.1f\n", w.sp[9] / nr, w.sp[10] / nr, w.sp[11] / nr);
+  }
   if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE)
     printf("refresh reasons: scheduled %d  weyl bound %d  block too small %d  factorization failed %d  (block grown %d times)\n",
            w.ref_sched, w.ref_weyl, w.ref_small, w.ref_fail, w.n_grow);
