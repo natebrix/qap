@@ -8,6 +8,7 @@
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
        [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
        [-Ladd file[:const]] [-warmY] [-dumpY prefix] [-addto R] [-seven K[:S]]
+       [-savepool file] [-loadpool file]
        [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
@@ -20,6 +21,10 @@
  (m^2+1)^2 row-major double matrix (e.g. stronger_bounds/triples/make_ladd.py)
  to every round's objective, const subtracted from the shift; -dumpY prefix
  writes the final primal iterate Y to prefix.Y.bin (raw doubles, row-major).
+ -savepool/-loadpool use the versioned regional-triangle file documented in
+ experiments/pool_inheritance/PROTOCOL.md. Both index sets use original labels;
+ Y/Z are not transferred. -loadpool -r 0 -freeze 0:N performs one quiet solve
+ with no initial uncut work. Other cut families fail closed in pool-file mode.
  Each round: solve (warm-started), separate the k most violated
  cuts in the last primal iterate, Polyak step toward min(cutoff, best + delta);
  stop at the first certified bound above the cutoff. Every value printed is
@@ -97,6 +102,8 @@ int main(int argc, char **argv)
     }
     else if (o == "-freeze-last") cp.freeze_best = 0;                     // quiet round from the last round's multipliers, not the best round's
     else if (o == "-warmY") cp.warm_primal = 1;
+    else if (o == "-savepool" && more) cp.save_pool = argv[++a];
+    else if (o == "-loadpool" && more) cp.load_pool = argv[++a];
     else if (o == "-Ladd" && more) ladd_spec = argv[++a];
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
@@ -113,6 +120,10 @@ int main(int argc, char **argv)
   if (!file) { fprintf(stderr, "usage: see the comment at the top of dnncuts.C\n"); return 1; }
   if (cp.grid_rows == 0 && !cp.prefix) cp.atomic = true;   // as before: no regions means atomic
   if (cp.first_iters <= 0) cp.first_iters = cp.iters;       // the driver always runs the uncut round
+  if (!cp.load_pool.empty() && cp.rounds == 0) {
+    if (cp.freeze_iters <= 0) { fprintf(stderr, "-loadpool -r 0 requires -freeze 0:N\n"); return 1; }
+    cp.first_iters = 0; // exactly one frozen solve; no hidden initial uncut work
+  }
   setvbuf(stdout, NULL, _IOLBF, 0);
   dnn_set_blas_threads(threads);
   QAP *q = readQAPLIB((char *)file);
@@ -131,6 +142,12 @@ int main(int argc, char **argv)
   std::vector<int> free_orig;
   for (int a = 0; a < n; a++)
     if ((cp.side == 0 ? node.p[a] : node.pinv[a]) == NONE) free_orig.push_back(a);
+  if (!cp.save_pool.empty() || !cp.load_pool.empty()) {
+    for (int a = 0; a < n; a++) {
+      cp.pool_assignment.push_back(node.p[a] == NONE ? -1 : node.p[a]);
+      if ((cp.side == 0 ? node.pinv[a] : node.p[a]) == NONE) cp.pool_other_orig.push_back(a);
+    }
+  }
   std::vector<double> Lext;
   if (!ladd_spec.empty()) {
     size_t c = ladd_spec.rfind(':');
@@ -161,11 +178,13 @@ int main(int argc, char **argv)
   if (!cp.atomic) {
     // count the regions for the banner (the library builds them again)
     DNNCutParams probe = cp; probe.rounds = -1; probe.first_iters = 0; probe.verbose = 0;
+    probe.load_pool.clear(); probe.save_pool.clear(); // banner must not perform I/O
     DNNCutResult pr = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, probe, &warm);
     printf(", %d regions", pr.nregions);
   }
   printf("\n");
   DNNCutResult res = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, cp, &warm);
+  if (res.status == DNN_ERROR) { delete q; return 2; }
   printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", res.best_lb, res.first_lb,
          res.best_lb - res.first_lb);
   if (!dumpy.empty() && !warm.Y.empty()) {

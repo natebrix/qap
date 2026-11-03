@@ -11,6 +11,9 @@
 #include <algorithm>
 #include <array>
 #include <random>
+#include <fstream>
+#include <iomanip>
+#include <stdexcept>
 
 DNNCutParams::DNNCutParams()
 {
@@ -333,6 +336,110 @@ std::vector<Region> prefix_regions(int m)
   return out;
 }
 
+// Version 1 deliberately accepts only the four symbolic regional triangles.
+// Reading arbitrary coefficient files would bypass the cut-validity contract.
+// The two sides have different original-index maps at a non-root node.
+void pool_require(bool ok, const char *message)
+{
+  if (!ok) throw std::runtime_error(message);
+}
+
+void pool_maps(int n, int side, const std::vector<int> &assignment,
+               const std::vector<int> &region_orig, const std::vector<int> &other_orig)
+{
+  pool_require(n > 0 && (side == 0 || side == 1) && assignment.size() == (size_t)n,
+               "bad pool dimensions/assignment");
+  std::vector<int> inverse(n, -1), rows, cols;
+  for (int i = 0; i < n; i++) {
+    int j = assignment[i];
+    pool_require(j >= -1 && j < n, "bad fixed index");
+    if (j >= 0) { pool_require(inverse[j] < 0, "duplicate fixed column"); inverse[j] = i; }
+  }
+  for (int i = 0; i < n; i++) {
+    if (assignment[i] < 0) rows.push_back(i);
+    if (inverse[i] < 0) cols.push_back(i);
+  }
+  pool_require(region_orig == (side ? cols : rows) && other_orig == (side ? rows : cols),
+               "pool original-index maps do not match node");
+}
+
+void write_pool(const std::string &path, int n, const DNNCutParams &cp,
+                const std::vector<int> &orig, const std::vector<Region> &regions,
+                const std::vector<Cut> &cuts, int round, bool quiet, double value)
+{
+  pool_require(std::isfinite(value), "cannot save pool without finite matching certificate");
+  std::ofstream f(path.c_str());
+  pool_require((bool)f, "cannot open savepool file");
+  f << std::setprecision(17) << "QAP_REGIONAL_TRIANGLE_POOL 1\n" << n << ' ' << cp.side << '\n';
+  auto list = [&](const std::vector<int> &v) { f << v.size(); for (int x : v) f << ' ' << x; f << '\n'; };
+  list(cp.pool_assignment); list(orig); list(cp.pool_other_orig);
+  f << round << ' ' << (quiet ? 1 : 0) << ' ' << value << '\n' << regions.size() << '\n';
+  for (const Region &r : regions) {
+    std::vector<int> ids; for (int a : r.loc) ids.push_back(orig[a]); list(ids);
+  }
+  f << cuts.size() << '\n';
+  for (const Cut &t : cuts) {
+    pool_require(t.type >= 0 && t.type <= 3 && t.s >= 0, "unsupported pool cut type");
+    pool_require(std::isfinite(t.mu) && t.mu >= 0 && t.mu <= 1e100, "bad saved multiplier");
+    f << t.type << ' ' << t.s << ' ' << cp.pool_other_orig[t.a] << ' '
+      << cp.pool_other_orig[t.b] << ' ' << cp.pool_other_orig[t.c] << ' ' << t.mu << '\n';
+  }
+  f << "END\n"; f.close(); pool_require((bool)f, "savepool write failed");
+}
+
+void read_pool(const std::string &path, int n, const DNNCutParams &cp,
+               const std::vector<int> &orig, std::vector<Region> &regions,
+               std::vector<Cut> &cuts, int &kept, int &dropped,
+               int &source_round, bool &source_quiet, double &source_value)
+{
+  std::ifstream f(path.c_str()); std::string magic; int version, pn, side;
+  pool_require((bool)(f >> magic >> version >> pn >> side) &&
+               magic == "QAP_REGIONAL_TRIANGLE_POOL" && version == 1 && pn == n && side == cp.side,
+               "bad pool header/version/side");
+  auto list = [&](int limit) {
+    int count; pool_require((bool)(f >> count) && count >= 0 && count <= limit, "bad pool list size");
+    std::vector<int> v(count); for (int &x : v) pool_require((bool)(f >> x), "truncated pool list"); return v;
+  };
+  const auto assignment = list(n), parent_orig = list(n), parent_other = list(n);
+  pool_maps(n, side, assignment, parent_orig, parent_other);
+  for (int i = 0; i < n; i++)
+    pool_require(assignment[i] < 0 || assignment[i] == cp.pool_assignment[i], "pool node is not an ancestor");
+  int quiet;
+  pool_require((bool)(f >> source_round >> quiet >> source_value) && source_round >= 0 &&
+               (quiet == 0 || quiet == 1) && std::isfinite(source_value), "bad pool provenance");
+  source_quiet = quiet;
+  std::vector<int> local(n, -1), other(n, -1), parent_has(n, 0), parent_other_has(n, 0);
+  for (size_t i = 0; i < orig.size(); i++) local[orig[i]] = (int)i;
+  for (size_t i = 0; i < cp.pool_other_orig.size(); i++) other[cp.pool_other_orig[i]] = (int)i;
+  for (int x : parent_orig) parent_has[x] = 1;
+  for (int x : parent_other) parent_other_has[x] = 1;
+  int nr; pool_require((bool)(f >> nr) && nr >= 0 && nr <= 10000, "bad pool region count");
+  std::vector<int> region_map(nr);
+  for (int s = 0; s < nr; s++) {
+    auto ids = list(n); std::vector<int> loc; int previous = -1;
+    for (int x : ids) {
+      pool_require(x > previous && x < n && parent_has[x], "bad pool region index"); previous = x;
+      if (local[x] >= 0) loc.push_back(local[x]);
+    }
+    size_t k = 0; while (k < regions.size() && regions[k].loc != loc) k++;
+    if (k == regions.size()) regions.push_back({"pool" + std::to_string(s), loc});
+    region_map[s] = (int)k;
+  }
+  int nc; pool_require((bool)(f >> nc) && nc >= 0 && nc <= 1000000, "bad pool cut count");
+  kept = dropped = 0;
+  for (int k = 0; k < nc; k++) {
+    int type, s, a, b, c; double mu;
+    pool_require((bool)(f >> type >> s >> a >> b >> c >> mu) && type >= 0 && type <= 3 &&
+                 s >= 0 && s < nr && a >= 0 && a < b && b < c && c < n &&
+                 parent_other_has[a] && parent_other_has[b] && parent_other_has[c] &&
+                 std::isfinite(mu) && mu >= 0 && mu <= 1e100, "bad pool cut/multiplier");
+    if (other[a] < 0 || other[b] < 0 || other[c] < 0) { dropped++; continue; }
+    cuts.push_back({type, other[a], other[b], other[c], region_map[s], mu}); kept++;
+  }
+  std::string end, extra;
+  pool_require((bool)(f >> end) && end == "END" && !(f >> extra), "bad pool terminator/trailing data");
+}
+
 }  // namespace
 
 DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
@@ -355,10 +462,33 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0;
   out.nregions = (int)regions.size();
   std::vector<double> best_hist;   // best after each round (index = round)
-  if (regional && regions.empty()) return out;
+  const bool loaded = !cp.load_pool.empty(), pool_io = loaded || !cp.save_pool.empty();
+  if (regional && regions.empty() && !pool_io) return out;
 
   std::vector<Cut> cuts;
   std::map<std::vector<int>, int> index;
+  try {
+    if (pool_io) {
+      pool_require(regional && cp.kcuts5 == 0 && cp.kcuts7 == 0 && !cp.L_ext &&
+                   cp.ext_const == 0 && cp.L_ext_abs == 0 && cp.mu0 == 0,
+                   "pool I/O requires regional triangles, mu0=0, and no external objective");
+      pool_maps(n_orig, cp.side, cp.pool_assignment, free_orig, cp.pool_other_orig);
+      pool_require(free_orig.size() == (size_t)m, "pool/node size mismatch");
+      if (loaded) {
+        if (warm) *warm = DNNWarm(); // files carry cuts, never a parent primal/dual state
+        int kept, dropped, sr; bool sq; double sv;
+        read_pool(cp.load_pool, n_orig, cp, free_orig, regions, cuts, kept, dropped, sr, sq, sv);
+        for (size_t k = 0; k < cuts.size(); k++) {
+          const Cut &c = cuts[k]; index[{c.type,c.a,c.b,c.c,c.s,c.d,c.e,c.mask,c.alpha}] = (int)k;
+        }
+        printf("POOL loaded kept %d dropped %d source_round %d source_quiet %d source_value %.17g cold_YZ 1\n",
+               kept, dropped, sr, (int)sq, sv);
+      }
+    }
+  } catch (const std::exception &e) {
+    fprintf(stderr, "POOL ERROR: %s\n", e.what()); out.status = DNN_ERROR; out.best_lb = -HUGE_VAL; return out;
+  }
+  out.nregions = (int)regions.size();
   std::vector<L7Cut> l7;                // the pool's local-7 cuts (Cut::a indexes it)
   init_p7(); g_l7 = &l7;
   std::vector<L7Space> l7space;         // per region, the admissible configurations
@@ -373,6 +503,10 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   std::vector<double> best_mu;   // the multipliers of the best round's solve (freeze_best)
   DNNWarm best_save;
   double best_mu_lb = -HUGE_VAL;
+  int last_source_round = 0, best_mu_round = 0;
+  double last_source_lb = -HUGE_VAL;
+  bool last_source_quiet = false;
+  std::vector<double> last_solved_mu;
   // one solve of the modified problem with the current multipliers
   auto solve = [&](int r, int iters) {
     if (cp.L_ext) std::copy(cp.L_ext, cp.L_ext + (size_t)n1 * n1, Ladd.begin());
@@ -393,14 +527,21 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     par.hopeless_gap_ratio = 0;
     par.L_add = (active || cp.L_ext) ? Ladd.data() : NULL;
     par.L_add_abs = abs_add;
-    DNNResult res = dnn_bound(A, B, C, shift - hsum, cutoff, par, (r > 0 && warm) ? warm : NULL, &save);
+    DNNWarm *start = (r > 0 && warm) ? warm : NULL;
+    if (loaded && start && start->Z.empty()) start = NULL;
+    DNNResult res = dnn_bound(A, B, C, shift - hsum, cutoff, par, start, &save);
     if (warm) *warm = save; else warm = &save;
     out.cpu += res.cpu;
     if (r == 0) { out.first_lb = first_lb = res.lb; }
     else { out.rounds++; out.iterations += res.iterations; }
     out.best_lb = std::max(out.best_lb, res.lb);
+    if (pool_io) {
+      last_source_round = r; last_source_lb = res.lb;
+      last_solved_mu.clear(); for (const Cut &t : cuts) last_solved_mu.push_back(t.mu);
+    }
     if (cp.freeze_best && res.lb > best_mu_lb) {
       best_mu_lb = res.lb;
+      best_mu_round = r;
       best_mu.resize(cuts.size());
       for (size_t t = 0; t < cuts.size(); t++) best_mu[t] = cuts[t].mu;
       best_save = save;
@@ -413,7 +554,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   // round 0 is the uncut solve: run here (first_iters > 0) or the caller's
   // warm start, whose Y is separated; rounds 1.. solve with the cuts
   const int last_round = cp.freeze_after > 0 ? std::min(cp.rounds, cp.freeze_after) : cp.rounds;
-  for (int r = 0; r <= last_round; r++) {
+  for (int r = 0; r <= last_round && !(loaded && cp.rounds == 0); r++) {
     DNNResult res;
     res.lb = -HUGE_VAL; res.primal = HUGE_VAL; res.status = -1; res.iterations = 0; res.cpu = 0;
     const bool solved = r > 0 || cp.first_iters > 0;
@@ -639,18 +780,33 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   }
   // the quiet round: the multipliers frozen, no new cuts, so that the
   // certificate catches up with the Lagrangian value of the final multipliers
-  if (cp.freeze_iters > 0 && out.best_lb <= cutoff && !cuts.empty() &&
+  if (cp.freeze_iters > 0 && out.best_lb <= cutoff && (!cuts.empty() || loaded) &&
       (!cp.freeze_if_primal_above || last_primal > cutoff)) {
     if (cp.freeze_best && !best_mu.empty() && best_mu_lb > -HUGE_VAL) {
       // back to the best round's multipliers and iterate (cuts added later keep mu 0)
       for (size_t t = 0; t < cuts.size(); t++) cuts[t].mu = t < best_mu.size() ? best_mu[t] : 0.0;
       *warm = best_save;
     }
+    int origin_round = cp.freeze_best && !best_mu.empty() ? best_mu_round : last_source_round;
     DNNResult res = solve(1, cp.freeze_iters);
+    if (loaded && cp.rounds == 0) out.first_lb = first_lb = res.lb;
+    if (pool_io) { last_source_round = origin_round; last_source_quiet = true; }
     if (cp.verbose)
       printf("quiet round  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  active %d\n",
              res.lb, res.lb - first_lb, out.best_lb - first_lb, res.primal,
              dnn_status_name(res.status), res.iterations, res.cpu, out.active);
+  }
+  if (!cp.save_pool.empty()) {
+    try {
+      // Cuts appended after the final solve had mu0=0 and were not in its objective.
+      for (size_t k = 0; k < cuts.size(); k++) cuts[k].mu = k < last_solved_mu.size() ? last_solved_mu[k] : 0;
+      write_pool(cp.save_pool, n_orig, cp, free_orig, regions, cuts,
+                 last_source_round, last_source_quiet, last_source_lb);
+      printf("POOL saved cuts %zu source_round %d source_quiet %d source_value %.17g\n",
+             cuts.size(), last_source_round, (int)last_source_quiet, last_source_lb);
+    } catch (const std::exception &e) {
+      fprintf(stderr, "POOL ERROR: %s\n", e.what()); out.status = DNN_ERROR; out.best_lb = -HUGE_VAL; return out;
+    }
   }
   if (out.best_lb > cutoff) out.status = DNN_FATHOMED;
   return out;

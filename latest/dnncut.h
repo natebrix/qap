@@ -58,14 +58,23 @@
 
 #include "dnn.h"
 #include <vector>
+#include <string>
 
 struct DNNCutParams {
+  // Experimental regional-triangle pool files, disabled when empty. Both
+  // original index maps and the original row->column assignment are required.
+  // Pool files do not contain Y/Z, and load_pool never restores a parent bound.
+  // Other cut families/external objectives fail closed with pool I/O enabled.
+  std::string save_pool, load_pool;
+  std::vector<int> pool_other_orig, pool_assignment; // -1 denotes a free row
   int warm_primal;    // opt-in same-node Y/Z restart between rounds (0); see DNNParams
   int rounds;         // cut rounds after the uncut solve (12)
   int iters;          // iterations per cut round (300)
   int first_iters;    // > 0: run the uncut round here with this many iterations;
                       // 0: the caller's warm start (Y, Z) is the uncut solve
                       // and first_lb is its certified bound (0)
+                      // With load_pool: the initial solve already uses the pool;
+                      // rounds=0 skips it and runs only the requested quiet solve.
   int kcuts;          // new cuts per round (1000)
   int kcuts5;         // > 0: also separate the 5-point count inequalities and add
                       // this many per round, on top of kcuts triangles (0 = off)
@@ -113,7 +122,7 @@ struct DNNCutParams {
 };
 
 struct DNNCutResult {
-  double first_lb;    // the uncut certified bound
+  double first_lb;    // first certified bound (uncut normally; inherited when loading)
   double best_lb;     // best certified bound over the rounds: valid
   int status;         // DNN_FATHOMED when best_lb > cutoff, else the last round's status
   int rounds;         // cut rounds run

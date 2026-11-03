@@ -1,0 +1,16 @@
+make -C latest
+make[1]: Entering directory '/workspace/scratch/3ee557ed1d52/qap_pool_inheritance/latest'
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o sa_qap.o stats.o console.o lgb_train.o state.o dnn.o dnncut.o driver.o -o bnbdrv -lm ../src/MESCHACH/meschach.a /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-6cdc3b4a.so -Wl,-rpath,/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs
+make[1]: Leaving directory '/workspace/scratch/3ee557ed1d52/qap_pool_inheritance/latest'
+python3 bench/bench.py check
+     nug12: ok       nodes=       246  time=    1.122s  wall=0.25s
+     nug14: ok       nodes=      2179  time=    3.722s  wall=2.88s
+     nug15: ok       nodes=      1964  time=    3.230s  wall=2.35s
+    nug16b: ok       nodes=      3187  time=    3.767s  wall=2.92s
+     had12: ok       nodes=       114  time=    1.079s  wall=0.19s
+     had14: ok       nodes=       370  time=    1.401s  wall=0.50s
+     had16: ok       nodes=      3251  time=    6.030s  wall=5.20s
+
+wrote bench/results/check-20261103-120001/  (7 instances, 0 not ok)
+
+regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)

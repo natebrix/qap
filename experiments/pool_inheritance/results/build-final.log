@@ -1,0 +1,17 @@
+make: Entering directory '/workspace/scratch/3ee557ed1d52/qap_pool_inheritance/latest'
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c bnb.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c dnncut.C
+In file included from bnb.C:3:
+linalg.h: In function ‘double mm_trace(MAT*, MAT*)’:
+linalg.h:22:25: warning: ISO C++17 does not allow ‘register’ storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow ‘register’ storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow ‘register’ storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o sa_qap.o stats.o console.o lgb_train.o state.o dnn.o dnncut.o driver.o -o bnbdrv -lm ../src/MESCHACH/meschach.a /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-6cdc3b4a.so -Wl,-rpath,/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I. -I../src/MESCHACH -I -I./ ../experiments/dnn_cuts/dnncuts.C qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o sa_qap.o stats.o console.o lgb_train.o state.o dnn.o dnncut.o -o ../experiments/dnn_cuts/dnncuts -lm ../src/MESCHACH/meschach.a /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-6cdc3b4a.so -Wl,-rpath,/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs
+make: Leaving directory '/workspace/scratch/3ee557ed1d52/qap_pool_inheritance/latest'
