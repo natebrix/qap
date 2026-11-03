@@ -1,0 +1,87 @@
+diff --git a/experiments/pool_inheritance/summarize.py b/experiments/pool_inheritance/summarize.py
+index aa741e3..c1bed21 100644
+--- a/experiments/pool_inheritance/summarize.py
++++ b/experiments/pool_inheritance/summarize.py
+@@ -80,8 +80,9 @@ def evaluate(manifest, definition):
+     d2=lookup['d2','B']['final']['best_lb'];result=gate(deltas,d2)
+     completed_cpu=sum(j['process_cpu_seconds'] for j in jobs)
+     recovery=manifest.get('recovery')
+-    recovery_plan=json.loads((Path(__file__).parent/'recovery_plan.json').read_text()) if recovery else None
+-    lost_lower=sum(j['logged_DNN_CPU_lower_bound'] for j in recovery_plan['jobs']) if recovery else 0
++    recovery_records=manifest.get('recovery_history',[])+([recovery] if recovery else [])
++    recovery_plans=[json.loads((Path(__file__).parent/r.get('plan_file','recovery_plan.json')).read_text()) for r in recovery_records]
++    lost_lower=sum(j['logged_DNN_CPU_lower_bound'] for p in recovery_plans for j in p['jobs'])
+     result.update(d2_frozen_bound=d2,rows=rows,parent=parent['final'],parent_pool=source,
+                   parent_cpu_seconds=parent['process_cpu_seconds'],parent_floor_diagnostics=diagnostics,
+                   validity_questions=[dict(node=j['node'],arm=j['arm']) for j in jobs if j['node'] in ('n10','d2') and j['fathomed']],
+@@ -90,7 +91,7 @@ def evaluate(manifest, definition):
+                   all_attempt_cpu_seconds=None if recovery else completed_cpu,
+                   all_attempt_cpu_lower_bound=completed_cpu+lost_lower,
+                   interrupted_logged_DNN_CPU_lower_bound=lost_lower,
+-                  interrupted_attempts=len(recovery_plan['jobs']) if recovery else 0,
++                  interrupted_attempts=sum(len(p['jobs']) for p in recovery_plans),
+                   completed_runs=len(jobs), recovery=recovery)
+     return result
+ 
+diff --git a/experiments/pool_inheritance/verify_results.py b/experiments/pool_inheritance/verify_results.py
+index f1b3fd2..2807768 100644
+--- a/experiments/pool_inheritance/verify_results.py
++++ b/experiments/pool_inheritance/verify_results.py
+@@ -68,14 +68,20 @@ def main():
+     active, started, finished, peak = audit_events(out/'events.jsonl')
+     assert started == set(by_id)
+     replay_count = 0
++    interrupted_count = 0
+     if manifest.get('recovery'):
+-        recovery = manifest['recovery']
+-        recovery_plan = json.loads((HERE/'recovery_plan.json').read_text())
+-        assert digest(HERE/'recovery_plan.json') == recovery['plan_sha256']
+-        original = HERE/recovery['original_snapshot']
+-        assert digest(original/'manifest.json') == recovery_plan['original_manifest_sha256']
+-        assert digest(original/'parent.pool') == manifest['parent_pool_sha256']
+-        repeated = {(j['node'], j['arm']) for j in recovery_plan['jobs']}
++        records = manifest.get('recovery_history', [])+[manifest['recovery']]
++        definitions = []
++        for record in records:
++            filename = record.get('plan_file', 'recovery_plan.json')
++            definition = json.loads((HERE/filename).read_text())
++            assert digest(HERE/filename) == record['plan_sha256']
++            snapshot = HERE/record['original_snapshot']
++            assert digest(snapshot/'manifest.json') == definition['original_manifest_sha256']
++            assert digest(snapshot/'parent.pool') == manifest['parent_pool_sha256']
++            definitions.append(definition)
++        original = HERE/records[0]['original_snapshot']
++        repeated = {(j['node'], j['arm']) for j in definitions[0]['jobs']}
+         assert len(repeated) == 4 and set(active.values()) == repeated
+         assert len(finished) == 15 and finished.isdisjoint(repeated)
+         fields = ('round', 'lb', 'primal', 'iterations', 'status')
+@@ -84,17 +90,24 @@ def main():
+                 old = parse(original/job['log'])['rounds']
+                 new = job['rounds'][:len(old)]
+                 assert [[r[k] for k in fields] for r in old] == [[r[k] for k in fields] for r in new]
+-                assert job['attempt'] == 2 and job['interrupted_prefix_matches']
++                assert job['attempt'] == len(records)+1 and job['interrupted_prefix_matches']
+             else:
+                 assert digest(original/job['log']) == digest(out/job['log'])
+-        live, replay_started, replay_finished, replay_peak = audit_events(
+-            out/'recovery_events.jsonl', finished)
+-        assert not live and replay_started == replay_finished == repeated and replay_peak <= 4
++        for i, (record, definition) in enumerate(zip(records, definitions)):
++            assert {(j['node'], j['arm']) for j in definition['jobs']} == repeated
++            live, replay_started, replay_finished, replay_peak = audit_events(
++                out/record.get('events_file', 'recovery_events.jsonl'), finished)
++            assert replay_started == repeated and replay_peak <= 4
++            if i < len(records)-1:
++                assert not replay_finished and set(live.values()) == repeated
++            else:
++                assert not live and replay_finished == repeated
+         replay_count = len(repeated)
++        interrupted_count = sum(len(p['jobs']) for p in definitions)
+     else:
+         assert not active and finished == set(by_id)
+     result = evaluate(manifest, plan)
+-    print(f'PASS: 19 completed runs; {replay_count} preserved executor-interrupted attempts; '
++    print(f'PASS: 19 completed runs; {interrupted_count} preserved executor-interrupted attempts; '
+           f'pinned plan/source/input/pool; raw-log agreement; parent dependency; '
+           f'distinct-core scheduling (peak {peak}); CPU accounting intervals; '
+           f'{replay_count} exact interrupted-prefix replays.')
