@@ -74,6 +74,7 @@
 ============================================================
 */
 
+#include "amx_gemm.h"   // fused split-bf16 W*Y on Intel AMX (DNN_AMX=1)
 #include "dnn.h"
 #include "assign.h"   // LowerSum
 #include <cmath>
@@ -471,6 +472,14 @@ struct Work {
   int n_grow;                 // block extended with fresh vectors instead of a refresh
   unsigned grow_seed;
   double delta_rel;           // last relative Cholesky shift that worked (certify)
+  // Chebyshev filter and Rayleigh-Ritz products W Y on Intel AMX (amx_gemm.h):
+  // opt-in with DNN_AMX=1 when the CPU has AMX-BF16; W is split into bf16 hi
+  // and lo parts once per iteration, Y per product, three tile products
+  // (about 16 significant bits per operand). Falls back to sgemm.
+  amx_ctx amx = {};
+  int use_amx = 0;
+  bool amx_packed = false;
+  ~Work() { if (use_amx) amx_ctx_free(&amx); }
 
   void alloc(int m_)
   {
@@ -524,6 +533,9 @@ struct Work {
     kb = since_refresh = 0;
     have_basis = false;
     lam_hi = theta_top = 0;
+    if (const char *e = getenv("DNN_AMX"))
+      if (atoi(e) > 0 && !use_amx && amx_available() && amx_ctx_init(&amx, K, K) == 0) use_amx = 1;
+    amx_packed = false;
   }
 };
 
@@ -777,6 +789,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   }
   memcpy(w.Wprev.data(), Win, kk * sizeof(double));
   for (size_t t = 0; t < kk; t++) Wf[t] = (float)Win[t];
+  w.amx_packed = false;   // W changed: the AMX pack is rebuilt at the first product
   if (tight_lam > 0 && w.have_basis) {
     // lam_hi from shifted power steps on the top eigenvector of the last full
     // refresh, carried along. The shift by |most negative Ritz value| makes
@@ -810,6 +823,14 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   lapack_int kb = w.kb;
   float *X = w.Xs.data();
   std::vector<float> &theta = w.evalsf;
+  // T = W Yin (K x kb): the five products of a filter step, on AMX when enabled
+  auto WY = [&](const float *Yin, float *Tout) {
+    if (w.use_amx) {
+      if (!w.amx_packed) { amx_pack_W(&w.amx, Wf); w.amx_packed = true; }
+      amx_gemm(&w.amx, Yin, (int)kb, Tout);
+    } else
+      F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Yin, &K, &zero, Tout, &K, 1, 1);
+  };
   while (true) {
     if (full) {
       lapack_int lwork = (lapack_int)w.eworkf.size(), liwork = (lapack_int)w.eiwork.size(),
@@ -835,10 +856,10 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
     const float c = (float)(0.5 * (w.lam_hi + w.theta_top)),
                 h = (float)(0.5 * (w.lam_hi - w.theta_top));
     const size_t nb = (size_t)K * kb;
-    F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Yp, &K, &zero, T, &K, 1, 1);
+    WY(Yp, T);
     for (size_t t = 0; t < nb; t++) Y[t] = (T[t] - c * Yp[t]) / h;
     for (int d = 2; d <= degree; d++) {
-      F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Y, &K, &zero, T, &K, 1, 1);
+      WY(Y, T);
       for (size_t t = 0; t < nb; t++) Yp[t] = 2 * (T[t] - c * Y[t]) / h - Yp[t];
       std::swap(Y, Yp);
     }
@@ -854,7 +875,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
     }
     if (!ok) { w.ref_fail++; full = true; continue; }
     // Rayleigh-Ritz: H = Y' W Y, X = Y Q
-    F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Y, &K, &zero, T, &K, 1, 1);
+    WY(Y, T);
     F77(sgemm)("T", "N", &kb, &kb, &K, &one, Y, &K, T, &K, &zero, G, &kb, 1, 1);
     for (int i = 0; i < kb; i++)
       for (int j = i + 1; j < kb; j++)

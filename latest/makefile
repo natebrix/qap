@@ -17,7 +17,7 @@ CFLAGS = $(CF) -DBNB_STANDALONE -MMD -MP
 DNN ?= 1
 ifeq ($(DNN),1)
 CFLAGS += -DHAVE_DNN
-DNN_OBJ = dnn.o dnncut.o
+DNN_OBJ = dnn.o dnncut.o amx_gemm.o
 DNN_LIBS = $(DNN_LAPACK)
 endif
 
@@ -71,21 +71,30 @@ comma := ,
 dnn.o: dnn.C dnn.h
 	$(CPP) $(CFLAGS) $(DNN_LAPACK_DEFS) $(INCLUDES) -c dnn.C
 
+# amx_gemm.c: the fused split-bf16 W*Y kernel for Intel AMX (dnn.C, DNN_AMX=1).
+# Plain C, compiled with the AMX and AVX-512 BF16 flags on x86-64 so the kernel
+# is present in every Linux build and chosen at run time only when the CPU has
+# AMX; on other architectures the file compiles to stubs.
+CC ?= gcc
+AMX_FLAGS = $(if $(filter x86_64,$(shell uname -m)),-mamx-tile -mamx-bf16 -mavx512f -mavx512bw -mavx512bf16 -mavx512vl,)
+amx_gemm.o: amx_gemm.c amx_gemm.h
+	$(CC) -O3 -march=native $(AMX_FLAGS) -MMD -MP -c amx_gemm.c
+
 dnncut.o: dnncut.C dnncut.h dnn.h
 	$(CPP) $(CFLAGS) $(INCLUDES) -c dnncut.C
 
 dnntest.o: dnntest.C dnn.h
 	$(CPP) $(CFLAGS) $(INCLUDES) -c dnntest.C
 
-dnntest: $(OBJS) dnn.o dnncut.o dnntest.o
-	$(CPP) $(CFLAGS) $(OBJS) dnn.o dnncut.o dnntest.o -o dnntest $(LDLIBS) $(DNN_LAPACK)
+dnntest: $(OBJS) dnn.o dnncut.o amx_gemm.o dnntest.o
+	$(CPP) $(CFLAGS) $(OBJS) dnn.o dnncut.o amx_gemm.o dnntest.o -o dnntest $(LDLIBS) $(DNN_LAPACK)
 
 # prototype: the DNN bound strengthened by triangle inequalities (experiments/dnn_cuts)
-dnncuts: $(OBJS) dnn.o dnncut.o
-	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../experiments/dnn_cuts/dnncuts.C $(OBJS) dnn.o dnncut.o -o ../experiments/dnn_cuts/dnncuts $(LDLIBS) $(DNN_LAPACK)
+dnncuts: $(OBJS) dnn.o dnncut.o amx_gemm.o
+	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../experiments/dnn_cuts/dnncuts.C $(OBJS) dnn.o dnncut.o amx_gemm.o -o ../experiments/dnn_cuts/dnncuts $(LDLIBS) $(DNN_LAPACK)
 
 -include $(wildcard *.d)
 
 # Same-node continuation identity, rescaling, and exact-bound checks.
-dnncontinuation: $(OBJS) dnn.o dnncut.o ../tests/dnn_continuation.C
-	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../tests/dnn_continuation.C $(OBJS) dnn.o dnncut.o -o dnncontinuation $(LDLIBS) $(DNN_LAPACK)
+dnncontinuation: $(OBJS) dnn.o dnncut.o amx_gemm.o ../tests/dnn_continuation.C
+	$(CPP) $(CFLAGS) -I. $(INCLUDES) ../tests/dnn_continuation.C $(OBJS) dnn.o dnncut.o amx_gemm.o -o dnncontinuation $(LDLIBS) $(DNN_LAPACK)
