@@ -65,7 +65,7 @@ The experiment supports a modest finite-budget improvement on these two nodes. I
 
 There is a useful budget-tuning observation: on wil50, Y/Z already certified **48,757.0704 after 4,000 iterations**, before the quiet solve. That exceeds the Z-only arm's eventual 5,500-iteration result of **48,754.619389**. Thus a shorter Y/Z phase could match the current full baseline quality on this particular node. This is a retrospective prefix comparison, not a validated stopping rule or an exact time-to-target measurement; the logs do not record every quiet checkpoint. Sko49 did not match its baseline's final bound by the end of the cut rounds.
 
-The next focused test would use a predeclared shorter Y/Z budget against the current baseline on held-out near-miss and clear-miss nodes, retaining the bound, fathom and total-cost gates. A subtree A/B would then price any benefit in search work. No further solver experiments were launched after the four declared arms completed.
+The next focused test would use a predeclared shorter Y/Z budget against the current baseline on held-out near-miss and clear-miss nodes, retaining the bound, fathom and total-cost gates. A subtree A/B would then price any benefit in search work. No further solver experiments were part of that four-arm study. The separately predeclared budget follow-up is now complete; see below.
 
 This standalone protocol always runs the quiet solve when no fathom has occurred. Production search can additionally gate the quiet phase on its primal/cutoff policy and can enter from different warm states; these results do not directly measure that complete search policy.
 
@@ -78,3 +78,7 @@ This standalone protocol always runs the quiet solve when no fathom has occurred
 - [Runner](run_cut_phase_ab.py) and [comparison validator](summarize_cut_phase_ab.py)
 
 The solver and runner used for the measurements are pinned at `fda28a6`. After completion, the runner received a macOS-compatible path that leaves CPU placement to the OS when affinity APIs are absent, plus a platform-correct RSS conversion. This compatibility path was checked without rerunning the solver and has not had a full macOS A/B here. The recorded experiment used the original Linux runner with explicit core pinning. Reproduction commands above use a fresh output directory so the committed logs are never overwritten.
+
+## Completed budget follow-up
+
+The requested [six-node, five-arm budget study](budget_study/RESULTS.md), based on merged cognac `4095416`, completed all 30 runs. **Y12s (`-warmY`, 12 x 200 plus quiet 1,000) passed the bound, fathom/earlier-iteration, and whole-process CPU gates on all six nodes.** It used 64.17% of baseline CPU, a 1.5583x phase-cost factor. The conditional whole-run projection at a 46% phase share is 1.1973x across all six nodes, or 1.1656x using the three short-of-cutoff nodes. Y6 and Y8s failed bound gates; no unexpected cutoff crossing occurred. See the follow-up for every raw log, exact first-fathom iteration, timing limitations, and the production/subtree A/B recommendation. Production defaults remain unchanged.

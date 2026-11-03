@@ -77,3 +77,5 @@ For an adaptive-pool A/B, run the same existing `dnncuts` command once with and 
 See [RESULTS.md](RESULTS.md) and retained scalar logs under `results/`.
 
 The subsequent [full cut-phase A/B](FULL_PHASE_AB.md) is complete: +7.939138 on wil50 node 13 and +0.864434 on sko49 depth-4 node 13 after all cut and quiet rounds, with no additional fathoms. Use that follow-up when assessing the full policy; the short probes above measure a different budget. The runner and comparison validator are linked in the follow-up report.
+
+The [shorter-budget follow-up](budget_study/RESULTS.md) is also complete: Y12s (`-warmY`, 12 x 200 plus quiet 1,000) passed all three gates on six wil50 nodes with 64.17% of baseline CPU. The report contains all 30 runs and conditional roadmap cost projections; production defaults remain unchanged.
