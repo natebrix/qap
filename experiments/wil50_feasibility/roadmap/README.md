@@ -25,8 +25,10 @@ two things the earlier estimate missed:
   the symmetry file: 3e8-1.8e9 DNN nodes, 1.0e10-6e10 CPU-s with the cut
   phase, **120-700 days on 1,000 Xeon cores, center about 290**.
 
-So a week (6e8 core-seconds) needs about 12x at the center and 3-45x across
-the range, after the symmetry file.
+So a week on 1,000 cores (6.05e8 core-seconds) needs about **41x** at the
+center and **17-100x** across the range, after the symmetry file and the cut
+phase (corrected Nov 3: this line said 12x and 3-45x, which do not follow
+from the range above).
 
 ## 2. What the three angles offer (factors on the total)
 
@@ -34,9 +36,10 @@ the range, after the symmetry file.
 |---|---|---|---|---|
 | tree | symmetry file for wil50 (transposed instance) | 3.98x against today's runs, already in the estimate | **done** (`sym/README.md`: `latest/SYM/wil50t.sym`, `qaplib/wil50t.dat`) | passed: 15 and 635 children at depths 1 and 2 (651 nodes against 2,501 plain); node 10's bound agrees to 0.02 after a cut round with `-side 1` |
 | tree | branch on the DNN marginal line (rule 9) at every DNN depth, DNN from depth 1 | **measured on the node-10 subtree: 1.41x less CPU, 1.13x fewer nodes** (rule 8 gives the same tree at 1.23x; `stronger_bounds/README.md` step 12); the 2-5x estimate was too high because rule 2 already finds decent lines | done | the node-3 subtree would confirm; DNN from depth 1 untested |
-| bound | children inherit the parent's cut pool and multipliers (and a phase at clear misses to equip their children) | 1.5-4x on the dominant class (bound memo); 1.1-1.3x (tree memo) | 2-4 days | one laptop-hour: node 10's pool reloaded frozen on d1, d2, d4 and three siblings; killed if the median gain over the child's plain-DNN value is under +40 |
+| bound | children inherit the parent's cut pool and multipliers (and a phase at clear misses to equip their children) | 1.5-4x on the dominant class (bound memo); 1.1-1.3x (tree memo). **Gate passed Nov 3** (Astra, `research/pool-inheritance`): one frozen solve on the inherited pool gains a median +54 over the child's own uncut value, d1 and s5 fathom from it; continuing with Polyak rounds adds only +10 to +21 before the quiet round, at 3.3x the iterations, so the frozen solve is the policy. Effect on the search not measured | search integration 2-4 days | node-10 subtree A/B on top of the stacked arm |
+| bound | children start from the parent's final Y as well as its Z (`warm_y/README.md`) | **measured Nov 3 on 16 depth-4 children: 1.17x per child** (1.29x on fathoms, 24% fewer iterations; +67 at iteration 100 on misses; no outcome changes) | done; in the search as `QAP_DNN_WARM_Y=2` | in the stacked node-10 A/B (`run_ab6.sh`) |
 | speed | AMX bf16 for the filter and Rayleigh-Ritz products, plus CPU trims | **measured Nov 3 on the 32-node sample: 1.71x on fathoms, 1.75x on misses, same 18 fathoms, same iterations** (bundle D: AMX kernel for the five W*Y products, degree 3 with tight lambda, one-pass CholQR, refresh every 40; `amx/README.md`). Closed as not worth it: guard K/40, fp32 R (certificate margin), the small products on AMX, the row fusion; neutral: the symmetrisation skip. Left: the kernel's last third (ceiling 2 TF against 1 TF reached) | done | production: `DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40` |
-| speed | cut-phase trims: shorter inner solves with Y/Z restoration (Astra's Y12s: `-warmY`, 12 rounds x 200 iterations, quiet cap 1,000) | **measured on the phase: 1.56x** (64% of baseline CPU, bound and fathom gates kept on all six nodes; `same_node_continuation/budget_study/RESULTS.md`); 1.17-1.20x on the total at the 46% phase share | done; subtree A/B next | fewer rounds (Y6, Y8s) lose 4-16 units of bound on the short-of-cutoff nodes and are out |
+| speed | cut-phase trims: shorter inner solves with Y/Z restoration (Astra's Y12s: `-warmY`, 12 rounds x 200 iterations, quiet cap 1,000) | **measured on the phase: 1.56x** (64% of baseline CPU, bound and fathom gates kept on all six nodes; `same_node_continuation/budget_study/RESULTS.md`); 1.17-1.20x on the total at the 46% phase share | **not pursued** (Nathan, Nov 3: too small); option exists | none |
 | speed | coordinator instead of the checkpoint barrier and node-end steals | 1.15-1.35x of the fleet | in plan.md | 70-85% busy today against 93-97% |
 | tree | confirm give-ups uncut before the phase (QAP_DNN_GU_ZONE was off in run_ab3), primal gate in the phase, zone 0.0035 | **replayed, about 1.1x; closed** (`trims/README.md`): the deferral has nothing to save (the extrapolation rule already lets slow uncut fathoms finish), the primal gate 4:20 is in the code (default off, no false stop on 88 logged phases) and worth about 6%, the zone a modelled 4%; the search A/B was abandoned as not worth four hours | done | switch `QAP_DNN_CUT_PGATE=4:20` on in the production configuration; no further test |
 | bound | skew-symmetric certificate polishing at non-converged iterates | 1.05-1.15x on the phase | 2-3 days | offline ascent on a dumped residual; killed under 20% of the gap recovered |
@@ -49,23 +52,43 @@ Anderson/Halpern, momentum, atomic triangles, eliminations from the
 certificate. Another full level from new inequalities at depths 3-5 is rated
 under 10% within a month (`bound_strength.md`).
 
-## 3. Multiplying out
+## 3. Multiplying out (revised Nov 3, evening)
 
-Centers, on top of the symmetry file, as estimated on Nov 2: rule-9 branching
-3x, inheritance 2x, per-node speed 2x, phase trims and fleet efficiency 1.3x:
-about **15x**. Three of these are now measured (Nov 3): rule 9 gives 1.41x, not
-3x; the Y12s phase budget gives 1.17-1.20x on the total; per-node speed gives
-1.71x on the 32-node sample (AMX kernel plus eigensolver trims), close to its
-2x. With the measured factors the center is about **6-7x**, which puts a 1,000-core week out of reach
-unless inheritance delivers its upper estimate or the tree is at the small end
-of its range; GPUs or more cores remain the other way to the week.
-From a center of 290 days that is about 20 days on 1,000 Xeon cores; the low
-end of the tree range (120 days) lands at about 8 days, the high end (700) at
-about 45. **A week on 1,000 Xeon-class cores is reachable only if the tree
-is at the small end of its range or the branching lever delivers its upper
-estimate.** With 100 H100-class GPUs in place of the cores (about 7x the
-wall-clock throughput at similar dollars, `node_speed.md`), the center falls
-to about 3 days and the whole range fits in a week.
+The Nov 2 centers were rule-9 branching 3x, inheritance 2x, per-node speed
+2x, phase trims and fleet efficiency 1.3x: about 15x. What has been measured
+since (`[m]`) and what is still an estimate (`[e]`):
+
+| lever | factor | status |
+|---|---|---|
+| rule 9 branching | 1.41x [m] | end to end on the node-10 subtree (`stronger_bounds/README.md` step 12) |
+| per-node speed, bundle D | 1.71x [m] | per node on the 32-node sample, same decisions (`amx/README.md`) |
+| parent-Y child warm start | 1.17x [m] | per child on 16 depth-4 children (`warm_y/README.md`) |
+| **measured, multiplied** | **about 2.8x** | the stacked node-10 A/B (`stronger_bounds/search/run_ab6.sh`, step 13) checks that they multiply in the search |
+| pool inheritance, frozen solve | 1.1-4x [e] | gate passed; search effect not measured |
+| coordinator (fleet busy 70-85% -> 93-97%) | 1.15-1.35x [e] of wall clock | not built |
+| shorter cut phase (Y12s), phase trims | 1.1-1.2x each [m on the phase] | not pursued |
+
+Against the baseline of section 1 (120-700 days on 1,000 Xeon cores, center
+290; a week needs about 41x at the center):
+
+- **Measured levers only (about 2.8x):** center about **100 days**, range
+  about 45-250.
+- **Plus inheritance at 2x and the coordinator at 1.25x (about 7x):** center
+  about **40 days**, range about 17-100. A week is reached only at the low
+  end of the tree range.
+- **100 H100-class GPUs in place of the cores** (about 7x the wall-clock
+  throughput at similar dollars, `node_speed.md`): center about 15 days on
+  the measured levers alone, about 6 days with inheritance and the
+  coordinator.
+
+**A week on 1,000 Xeon-class cores is not reachable at the center of the tree
+range with the levers we have.** It comes into reach if the tree is at the
+small end of its range (the 16 sampled depth-3 nodes branch on random lines,
+the production search on rule-9 lines that fathom far more children), or on
+GPUs. Caveat on the arithmetic: two of the measured factors were measured per
+node outside the search, and the two warm starts (pool and Y) both act on the
+children of missed nodes, so they may not fully multiply; the stacked A/B and
+the inheritance A/B measure this.
 
 The two measurements that decide between these outcomes are cheap:
 
@@ -75,21 +98,22 @@ The two measurements that decide between these outcomes are cheap:
    worst tail nodes, and run a cutoff ladder. About 1e7-2e7 CPU-s, 3-6 hours
    on 1,000 cores, 2-3% of the week, and every subtree finished is a piece of
    the proof. It pins the total within 1.5x instead of 15x.
-2. **The two subtree A/Bs** on the laptop or the cloud box: rule 9 at the DNN
-   depths, and inheritance of the pool. Together they are the 2-5x and
-   1.5-4x of the table, and each is a day of work plus a day of compute.
+2. **The subtree A/Bs** on the cloud box: rule 9 is done (1.41x); the
+   stacked arm is running; inheritance in the search is next. Each is a day
+   of work plus 3-5 hours of compute.
 
 ## 4. Order of work
 
 1. ~~Symmetry file for wil50~~ done Nov 3 (`sym/README.md`): every wil50 run
    from here uses `qaplib/wil50t.dat` with `QAP_DNN_CUT_SIDE=1` and `-F` specs
    as j:i; the node-10 subtree A/Bs are unaffected (no symmetry below node 10).
-2. Inheritance test (laptop, one hour) and the rule-9 subtree A/B (cloud, one
-   day); per-phase logging in the search so that failures are visible.
+2. ~~Inheritance test and the rule-9 subtree A/B~~ done Nov 3: rule 9 1.41x;
+   frozen-pool inheritance passed its gate. Next: the stacked node-10 A/B
+   (running), then inheritance in the search on top of it.
 3. ~~Confirm give-ups uncut, the primal gate, zone 0.0035~~ closed Nov 3 by
-   replay (`trims/README.md`, about 1.1x; the gate ships default off). Still
-   open here: the Y12s phase budget (`-warmY`, 12 x 200, quiet 1,000) as a
-   search option, priced on the node-10 subtree against the rule-9 arm.
-4. AMX and the CPU trims; the coordinator from docs/distributed/plan.md.
+   replay (`trims/README.md`, about 1.1x; the gate ships default off). The
+   Y12s phase budget was not pursued.
+4. ~~AMX and the CPU trims~~ done Nov 3 (1.71x per node); the coordinator
+   from docs/distributed/plan.md is still to build.
 5. The sampling plan on the first 1,000 cores, before the full run.
 6. In parallel, gated: the M2 projection test and the GPU prototype.
