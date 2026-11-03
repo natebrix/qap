@@ -133,6 +133,8 @@ void F77(sgemv)(const char *trans, const lapack_int *m, const lapack_int *n, con
 void F77(ssyrk)(const char *uplo, const char *trans, const lapack_int *n, const lapack_int *k,
                 const float *alpha, const float *a, const lapack_int *lda,
                 const float *beta, float *c, const lapack_int *ldc, size_t, size_t);
+void F77(strtri)(const char *uplo, const char *diag, const lapack_int *n, float *a,
+                 const lapack_int *lda, lapack_int *info, int, int);
 void F77(strsm)(const char *side, const char *uplo, const char *transa, const char *diag,
                 const lapack_int *m, const lapack_int *n, const float *alpha, const float *a,
                 const lapack_int *lda, float *b, const lapack_int *ldb,
@@ -536,7 +538,7 @@ struct Work {
     have_basis = false;
     lam_hi = theta_top = 0;
     if (const char *e = getenv("DNN_AMX"))
-      if (atoi(e) > 0 && !use_amx && amx_available() && amx_ctx_init(&amx, K, K) == 0) use_amx = 1;
+      if (atoi(e) > 0 && !use_amx && amx_available() && amx_ctx_init(&amx, K, K) == 0) use_amx = atoi(e);   // 1: W*Y; 2: also CholQR and Rayleigh-Ritz
     amx_packed = false;
   }
 };
@@ -883,18 +885,32 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
     bool ok = true;
     tc0 = thread_cpu();
     for (int pass = 0; pass < cholqr_passes && ok; pass++) {
-      F77(ssyrk)("U", "T", &kb, &K, &one, Y, &K, &zero, G, &kb, 1, 1);
       lapack_int info = 0;
-      F77(spotrf)("U", &kb, G, &kb, &info, 1);
-      if (info != 0) { ok = false; break; }
-      F77(strsm)("R", "U", "N", "N", &K, &kb, &one, G, &kb, Y, &K, 1, 1, 1, 1);
+      if (w.use_amx >= 2) {
+        // G = Y'Y on AMX (symmetric, so row-major is column-major), Cholesky, then
+        // Y <- Y R^-1 as an explicit inverse times Y on AMX (strtri is 1-3 ms)
+        amx_gemm_tn(&w.amx, Y, Y, (int)kb, (int)kb, G);
+        F77(spotrf)("U", &kb, G, &kb, &info, 1);
+        if (info != 0) { ok = false; break; }
+        F77(strtri)("U", "N", &kb, G, &kb, &info, 1, 1);
+        if (info != 0) { ok = false; break; }
+        for (int cc = 0; cc < kb; cc++)   // the strictly lower triangle (column-major) of the inverse is zero
+          for (int r = cc + 1; r < kb; r++) G[(size_t)cc * kb + r] = 0;
+        amx_gemm_ng(&w.amx, Y, (int)kb, G, (int)kb, (int)kb, Y);
+      } else {
+        F77(ssyrk)("U", "T", &kb, &K, &one, Y, &K, &zero, G, &kb, 1, 1);
+        F77(spotrf)("U", &kb, G, &kb, &info, 1);
+        if (info != 0) { ok = false; break; }
+        F77(strsm)("R", "U", "N", "N", &K, &kb, &one, G, &kb, Y, &K, 1, 1, 1, 1);
+      }
     }
     w.sp[5] += (thread_cpu() - tc0) * 1e3;
     if (!ok) { w.ref_fail++; full = true; continue; }
     // Rayleigh-Ritz: H = Y' W Y, X = Y Q
     WY(Y, T);
     tc0 = thread_cpu();
-    F77(sgemm)("T", "N", &kb, &kb, &K, &one, Y, &K, T, &K, &zero, G, &kb, 1, 1);
+    if (w.use_amx >= 2) amx_gemm_tn(&w.amx, NULL, T, (int)kb, (int)kb, G);   // Y's tiles are the last product's
+    else F77(sgemm)("T", "N", &kb, &kb, &K, &one, Y, &K, T, &K, &zero, G, &kb, 1, 1);
     for (int i = 0; i < kb; i++)
       for (int j = i + 1; j < kb; j++)
         G[(size_t)i * kb + j] = G[(size_t)j * kb + i] =
@@ -909,7 +925,8 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
     }
     w.sp[7] += (thread_cpu() - tc0) * 1e3; tc0 = thread_cpu();
     float *Xn = (Y == X) ? T : X;
-    F77(sgemm)("N", "N", &K, &kb, &kb, &one, Y, &K, G, &kb, &zero, Xn, &K, 1, 1);
+    if (w.use_amx >= 2) amx_gemm_ng(&w.amx, Y, (int)kb, G, (int)kb, (int)kb, Xn);
+    else F77(sgemm)("N", "N", &K, &kb, &kb, &one, Y, &K, G, &kb, &zero, Xn, &K, 1, 1);
     if (Xn != X) memcpy(X, Xn, nb * sizeof(float));
     w.sp[8] += (thread_cpu() - tc0) * 1e3;
     nneg = 0;
