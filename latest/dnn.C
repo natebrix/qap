@@ -482,6 +482,9 @@ struct Work {
   amx_ctx amx = {};
   int use_amx = 0;
   bool amx_packed = false;
+  // transform fusion (DNN_FUSE=1): the Y/Z step leaves the next forward's row phase
+  // in T (t_rows_ready) and forward writes Wf alongside W (wf_ready)
+  bool t_rows_ready = false, wf_ready = false;
   ~Work() { if (use_amx) amx_ctx_free(&amx); }
 
   void alloc(int m_)
@@ -643,30 +646,49 @@ void symmetrize(double *X, int n)
  Works in w.T (A may be w.T itself). Column side row by row (the row is in
  cache), then the row side in one chunked pass.
 */
+// rows_done: the row phase (A + coef B, Householder block, rotation) is already in w.T
+// (left there by the Y/Z step under DNN_FUSE=1). Wf_out: also write W in single
+// precision, so the eigensolver's conversion pass is saved. DNN_NOSYMW=1 skips the
+// final symmetrisation of W (W is symmetric to rounding by construction; the
+// eigensolver reads one triangle or multiplies by the full matrix, and R is
+// symmetrised again in expand).
 void forward(Work &w, const double *A, double *Wout, const double *B = NULL,
-             double coef = 0)
+             double coef = 0, bool rows_done = false, float *Wf_out = NULL)
 {
+  static const int nosym = getenv("DNN_NOSYMW") ? atoi(getenv("DNN_NOSYMW")) : 0;
   const int n1 = w.n1, K = w.K, ll = w.ll;
   double *T = w.T.data();
-  for (int r = 0; r < n1; r++) {
-    double *row = T + (size_t)r * n1;
-    const double *a = A + (size_t)r * n1;
-    if (B) {
-      const double *b = B + (size_t)r * n1;
-      for (int c = 0; c < n1; c++) row[c] = a[c] + coef * b[c];
-    } else if (A != T) {
-      memcpy(row, a, n1 * sizeof(double));
+  if (!rows_done)
+    for (int r = 0; r < n1; r++) {
+      double *row = T + (size_t)r * n1;
+      const double *a = A + (size_t)r * n1;
+      if (B) {
+        const double *b = B + (size_t)r * n1;
+        for (int c = 0; c < n1; c++) row[c] = a[c] + coef * b[c];
+      } else if (A != T) {
+        memcpy(row, a, n1 * sizeof(double));
+      }
+      hh_block(w, row + 1);
+      col_rot(row, ll);
     }
-    hh_block(w, row + 1);
-    col_rot(row, ll);
-  }
+  w.t_rows_ready = false;   // T is consumed (or overwritten) by this call
   rows_D(w, T);
   rows_rot(w, T);
-  for (int s = 0; s < K; s++) {
-    const double *row = T + (size_t)w.kept[s] * n1;
-    for (int t = 0; t < K; t++) Wout[(size_t)s * K + t] = row[w.kept[t]];
+  if (Wf_out) {
+    for (int s = 0; s < K; s++) {
+      const double *row = T + (size_t)w.kept[s] * n1;
+      double *wo = Wout + (size_t)s * K;
+      float *wf = Wf_out + (size_t)s * K;
+      for (int t = 0; t < K; t++) { const double v = row[w.kept[t]]; wo[t] = v; wf[t] = (float)v; }
+    }
+    w.wf_ready = !(!nosym);   // with the symmetrisation below Wf would be stale: only valid when it is skipped
+  } else {
+    for (int s = 0; s < K; s++) {
+      const double *row = T + (size_t)w.kept[s] * n1;
+      for (int t = 0; t < K; t++) Wout[(size_t)s * K + t] = row[w.kept[t]];
+    }
   }
-  symmetrize(Wout, K);
+  if (!nosym) symmetrize(Wout, K);
 }
 
 // Mout = V R V' (n1 x n1, symmetric) for a full symmetric K x K R:
@@ -796,7 +818,8 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   }
   if (!(tight_lam > 0)) memcpy(w.Wprev.data(), Win, kk * sizeof(double));
   w.sp[0] += (thread_cpu() - tw0) * 1e3; tw0 = thread_cpu();
-  for (size_t t = 0; t < kk; t++) Wf[t] = (float)Win[t];
+  if (!w.wf_ready) for (size_t t = 0; t < kk; t++) Wf[t] = (float)Win[t];
+  w.wf_ready = false;
   w.sp[1] += (thread_cpu() - tw0) * 1e3;
   w.amx_packed = false;   // W changed: the AMX pack is rebuilt at the first product
   if (tight_lam > 0 && w.have_basis) {
@@ -1404,13 +1427,19 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     Zt.assign(Z, Z + (size_t)n1 * n1);
   }
 
+  // DNN_FUSE=1: the Y/Z step writes the next forward's row phase into T while the row
+  // is in cache, and forward writes Wf with W (node_speed.md trim f); not with the
+  // accelerations, which rewrite Y and Z after the step
+  static const int fuse_env = getenv("DNN_FUSE") ? atoi(getenv("DNN_FUSE")) : 0;
+  const bool fuse_ok = fuse_env > 0 && par.anderson == 0 && par.halpern == 0 && !m_on;
   // subspace block guard = K / DNN_GUARD_DIV (20; node_speed.md trim c tries 40)
   static const int guard_div = getenv("DNN_GUARD_DIV") ? std::max(1, atoi(getenv("DNN_GUARD_DIV"))) : 20;
   for (int it = 1; it <= par.max_iter; it++) {
     // R-step: W = V'(Y + Z/beta)V, R = P_psd(W), VRV = V R V'
     double tp = thread_cpu(), tq;
     if (par.anderson > 0) aa.begin(Y, Z, ibeta);
-    forward(w, Y, w.W.data(), Z, ibeta);
+    forward(w, Y, w.W.data(), Z, ibeta, w.t_rows_ready,
+            (fuse_ok && par.eig_mode == DNN_EIG_SUBSPACE) ? w.Wf.data() : NULL);
     tq = thread_cpu(); w.prof[0] += tq - tp; tp = tq;
     bool check = it % check_every == 0 || it == par.max_iter;
     bool rstep_cert = check && !par.prototype_cert;
@@ -1468,6 +1497,13 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       }
       pres2 += dot4(rs, rs, n1);
       dy2 += dot4(ds, ds, n1);
+      if (fuse_ok) {
+        // the next R-step's forward, row phase: (Y + Z/beta) row, Householder block, rotation
+        double *trow = w.T.data() + (size_t)r * n1;
+        for (int c = 0; c < n1; c++) trow[c] = yr[c] + ibeta * zr[c];
+        hh_block(w, trow + 1);   // scratch w.tmp[0..m): yn is finished with
+        col_rot(trow, w.ll);
+      }
       if (par.halpern > 0 || m_on) {
         // the Z change of this iteration, in units of Y: gamma1 (Y_old - VRV) +
         // gamma (Y_new - VRV)
@@ -1477,6 +1513,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         dz2 += dot4(dzs, dzs, n1);
       }
     }
+    if (fuse_ok) w.t_rows_ready = true;
     if (par.anderson > 0) {
       aa.step(Y, Z, beta);   // timed with the Y/Z-step
       res.halpern_restarts = aa.resets;
