@@ -541,3 +541,22 @@ ascent). If both are at or below the triangle pool, the linear families on
 the present regional variables are exhausted at this depth, with steps 7, 8,
 9 and 11 all closed by measurement, and what remains is the regional moment
 block or Astra's moment separation with its verified certificate.
+
+## Step 12: branching on the DNN marginal line in the search (Nov 3, cloud)
+
+`search/run_ab4.sh`: the run_ab3 cut arm (node-10 subtree, zone 0.003, quiet
+1,500, EXT 20) with the branching rule changed at every node through depth
+6 (`PARAM/nug_deep_xbar9_all.par`, `nug_deep_xbar_all.par`), against the
+default rules, which send the DNN-depth nodes to rule 2.
+
+| arm | nodes | fathomed | by the DNN bound | by the cut phase | branched | phases run | CPU-s | wall (4 workers) | vs control |
+|---|---|---|---|---|---|---|---|---|---|
+| default rules (run_ab3 cut arm) | 365 | 357 | 326 | 31 | 8 | 39 | 76,755 | 6 h 06 min | - |
+| rule 9 (lookahead over the two marginal lines) | 322 | 315 | 295 | 20 | 7 | 27 | 54,621 | 4 h 22 min | **1.41x less CPU**, 1.13x fewer nodes |
+| rule 8 (the largest-sum-of-squares marginal line) | running | | | | | | | | |
+
+Rule 9 is a clear win but not the 2-5x of `roadmap/tree_size.md`: the
+children of a marginal-line branch fathom by the plain DNN bound more often
+(295 of 322 against 326 of 365), so 12 fewer cut phases run, and the phases
+and give-ups are where the CPU goes. Combined with the cut phase this subtree
+is now 139,149 / 54,621 = 2.55x cheaper than the plain search.
