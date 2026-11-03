@@ -81,4 +81,12 @@ everything else unchanged, 4 workers.
 | arm | nodes | fathomed | by the DNN bound | by the cut phase | branched | phases run | CPU-s | wall | vs rule 9 |
 |---|---|---|---|---|---|---|---|---|---|
 | rule 9 (run_ab4) | 322 | 315 | 295 | 20 | 7 | 27 | 54,621 | 4 h 22 min | - |
-| rule 9 + gate 4:20 + zone 0.0035 | running | | | | | | | | |
+| rule 9 + gate 4:20 + zone 0.0035 | stopped after 7 nodes (`search/partial_ab5/`) | | | | | | | | |
+
+**Abandoned (Nov 3).** With the deferral dead, the two surviving trims are
+worth about 1.1x together (6% from the gate on the rule-9 arm's 7 failed
+phases, a modelled 4% from the zone), and a four-hour run to confirm a 1.1x
+is not worth the machine time while larger levers (pool inheritance, the
+Y12s phase budget, speed) are unmeasured. The gate stays in the code,
+default off, replay-validated; switch it on with `QAP_DNN_CUT_PGATE=4:20`
+in any later production configuration, where it is free.

@@ -38,7 +38,7 @@ the range, after the symmetry file.
 | speed | AMX bf16 for the filter and Rayleigh-Ritz products, plus CPU trims (a free 16 ms/iteration found) | 1.8-2.2x per node | 5-9 days | time a 2117x2117x600 product; node 2 to 2,500 iterations; the 32-node sample |
 | speed | cut-phase trims: shorter inner solves with Y/Z restoration (Astra's Y12s: `-warmY`, 12 rounds x 200 iterations, quiet cap 1,000) | **measured on the phase: 1.56x** (64% of baseline CPU, bound and fathom gates kept on all six nodes; `same_node_continuation/budget_study/RESULTS.md`); 1.17-1.20x on the total at the 46% phase share | done; subtree A/B next | fewer rounds (Y6, Y8s) lose 4-16 units of bound on the short-of-cutoff nodes and are out |
 | speed | coordinator instead of the checkpoint barrier and node-end steals | 1.15-1.35x of the fleet | in plan.md | 70-85% busy today against 93-97% |
-| tree | confirm give-ups uncut before the phase (QAP_DNN_GU_ZONE was off in run_ab3), primal gate in the phase, zone 0.0035 | 1.1-1.2x | 0.5 day | re-run run_ab3's cut arm |
+| tree | confirm give-ups uncut before the phase (QAP_DNN_GU_ZONE was off in run_ab3), primal gate in the phase, zone 0.0035 | **replayed, about 1.1x; closed** (`trims/README.md`): the deferral has nothing to save (the extrapolation rule already lets slow uncut fathoms finish), the primal gate 4:20 is in the code (default off, no false stop on 88 logged phases) and worth about 6%, the zone a modelled 4%; the search A/B was abandoned as not worth four hours | done | switch `QAP_DNN_CUT_PGATE=4:20` on in the production configuration; no further test |
 | bound | skew-symmetric certificate polishing at non-converged iterates | 1.05-1.15x on the phase | 2-3 days | offline ascent on a dumped residual; killed under 20% of the gap recovered |
 | bound | regional M2 block as a Lagrangian decomposition (Astra's 10b) | +20 units (10-15% chance of +65) | 2-3 weeks | project node 13's capped iterate onto the M2 set offline; killed if the excess over the triangles is under 0.03 |
 | speed | GPU port, 8-16 nodes per device | wall clock: 100 H100s = about 7x the 1,000 cores | 3-6 weeks | one-day CuPy prototype; dropped above 10 ms per node-iteration on an A100 |
@@ -86,9 +86,10 @@ The two measurements that decide between these outcomes are cheap:
    as j:i; the node-10 subtree A/Bs are unaffected (no symmetry below node 10).
 2. Inheritance test (laptop, one hour) and the rule-9 subtree A/B (cloud, one
    day); per-phase logging in the search so that failures are visible.
-3. Confirm give-ups uncut (`QAP_DNN_GU_ZONE`), the primal gate, zone 0.0035;
-   the Y12s phase budget (`-warmY`, 12 x 200, quiet 1,000) as a search
-   option, priced on the node-10 subtree against run_ab3's cut arm.
+3. ~~Confirm give-ups uncut, the primal gate, zone 0.0035~~ closed Nov 3 by
+   replay (`trims/README.md`, about 1.1x; the gate ships default off). Still
+   open here: the Y12s phase budget (`-warmY`, 12 x 200, quiet 1,000) as a
+   search option, priced on the node-10 subtree against the rule-9 arm.
 4. AMX and the CPU trims; the coordinator from docs/distributed/plan.md.
 5. The sampling plan on the first 1,000 cores, before the full run.
 6. In parallel, gated: the M2 projection test and the GPU prototype.
