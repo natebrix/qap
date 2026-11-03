@@ -35,7 +35,7 @@ OBJS = qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o \
 all:    bnb
 
 clean:
-	rm -f *.o *.d *~ a.out dnntest dnncontinuation
+	rm -f *.o *.d *~ a.out dnntest dnncontinuation dnnconditioned
 
 .C.o:	
 	$(CPP) $(CFLAGS) $(INCLUDES) -c $<

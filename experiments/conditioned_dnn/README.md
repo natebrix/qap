@@ -79,7 +79,12 @@ the benefit of avoiding known duplicate work.
 
 ## Validation and running
 
-Build with the repository's supported BLAS/LAPACK settings:
+Build with the repository's **OpenBLAS** settings (for example its automatic
+`scipy-openblas32` detection, or explicit `DNN_LAPACK` and
+`DNN_LAPACK_DEFS` overrides). This experiment driver requires
+`dnn_set_blas_threads(1)` to succeed; the Accelerate/reference-LAPACK builds
+are not accepted by this driver. Exact measured link flags are retained in
+`results/build.log` and `results/probe_build.log`.
 
 ```sh
 make CC=gcc
@@ -116,4 +121,13 @@ both controls finish. Large regenerable Y/Z caches are ignored by git;
 their hashes, byte counts, and all scalar results are versioned. Snapshots
 are a local native-binary experiment format, not portable B&B checkpoints.
 
-Results will be recorded separately in `RESULTS.md`.
+After both cases complete, audit the raw results and render the report:
+
+```sh
+python3 experiments/conditioned_dnn/audit.py
+python3 experiments/conditioned_dnn/report.py
+```
+
+Results are recorded separately in `RESULTS.md`. The audit also checks all
+67 cached child-state hashes when their local payloads are present; the
+payloads themselves are not committed.
