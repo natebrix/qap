@@ -88,3 +88,49 @@ small BLAS-3 of CholQR2 and Rayleigh-Ritz on AMX too (about 25 ms), and (c)
 the CPU trims of the memo (R in fp32, the Weyl copy, the refresh cadence,
 about 60-80 ms). All three together are worth about 1.45-1.5x on the
 iteration over today's sgemm path.
+
+## Trims on top of the kernel (Nov 3, afternoon)
+
+Step-level timers (`dnntest -v -v`, `step split` and `form R` lines) priced
+every piece of a subspace step; the trims below were then measured on node 10
+(300 iterations) and on the depth-4 node 3 (fathoms uncut; degree 4 fathoms
+it at iteration 510), four processes on the four cores (`logs/trim_*`), and
+the survivors on the accel study's 32-node harness
+(`../solvers/accel/run_all32.sh`, `summarize.py d4 d3L2 amxA amxB`).
+
+| trim | switch | node 10, ms per iteration | depth-4 node 3 | verdict |
+|---|---|---|---|---|
+| AMX for the five W*Y products | `DNN_AMX=1` | 521 -> 443 | fathoms at 510, as fp32 | in |
+| degree 3 with tight lambda (the accel study's recommendation, never adopted by the search; with it the Weyl pass is skipped) | `-d 3 -L 2` (search: `QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2`) | 443 -> 409 | 520 | in |
+| one-pass CholQR | `DNN_CHOLQR_PASSES=1` | 409 -> 390 (CholQR 44 -> 22 ms) | 520, no factorisation failure, same 4 block grows | in |
+| block guard K/40 instead of K/20 | `DNN_GUARD_DIV=40` | 395 -> 371 | 520, 11 grows instead of 4, bound at 300 lower by 0.3 | out (3% for 0.8 of bound on the 32 nodes' misses) |
+| R's rank term in fp32 | `DNN_R32=1` | 409 -> 395 | 520 | out: the certificate's rigorous margin grows from 5e-6 to 0.08 per certificate (W - R is no longer exactly negative semidefinite), a systematic bound loss for 3% |
+| the small products of CholQR and Rayleigh-Ritz on AMX | `DNN_AMX=2` | 378 -> 387 | 520 | out: at inner dimension 550 the tile loop is store-bound and the Gram matrix's VNNI pack is a gather; CholQR 22 -> 31 ms, the others break even; code kept, default off |
+| full eigendecomposition every 40 iterations | `-r 40` | | | 32-node run below |
+
+**The 32-node harness** (`runs/amxA_*`, `runs/amxB_*`; d4 = degree 4 fp32, the
+search's setting; d3L2 = degree 3 tight lambda fp32):
+
+| configuration | fathomed | ms per iteration | median iterations | total iterations | CPU, fathoms | CPU, misses | misses' lb at 200 vs d4 |
+|---|---|---|---|---|---|---|---|
+| d4 | 18 | 562 | 220 | 4,240 | 2,181 s | 2,889 s | 0 |
+| d3L2 | 18 | 480 | 220 | 4,250 | 1,889 s | 2,330 s | +0.81 |
+| **amxA: AMX, degree 3 tight, one-pass CholQR** | **18** | **354** | **220** | **4,250** | **1,394 s (1.56x)** | **1,720 s (1.68x)** | **+0.88** |
+| amxB: amxA with guard K/40 | 18 | 341 | 220 | 4,270 | 1,352 s | 1,643 s | +0.11 (min -0.37) |
+
+Bundle A fathoms the same 18 nodes as degree 4 at the same iteration on 15 of
+them and 10 iterations off on 3 (one check interval), with the misses' bound
+ahead. It is the production setting from here: `DNN_AMX=1 DNN_CHOLQR_PASSES=1
+QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2` in the search (the first two are read by
+`dnn.C`, the last two by `bnb.C`).
+
+Where the 354 ms go (node 10, bundle A, loaded): the five products 81 + pack 7,
+CholQR 22, Rayleigh-Ritz 13.5 + eigensolve 27.5 + update 13, convert and
+Chebyshev updates 8 (eigensolver step about 172); the full ssyevd refresh 35;
+forming R 55 (fp64 dsyrk 35, symmetrise 13, F 7); the memory-bound transforms
+and the Y/Z step 98; the certificate 14. The remaining levers, in order: the
+transforms (fuse the Y/Z step with the next forward's row pass, skip the
+redundant symmetrisation of W, fuse gather, convert and pack: about -25 ms),
+the refresh cadence (-17 if `-r 40` holds on the 32 nodes), the kernel's last
+third (the pattern's measured ceiling is 2 TF against about 1 TF achieved),
+and R in fp32 if a 0.08 margin is acceptable (-14).
