@@ -190,3 +190,28 @@ not assign a fictitious exact time to a target. Fathoming runs also have their
 exact terminal process CPU. The analyzer is updated accordingly; the runner's
 future-run telemetry uses the kernel process clock and still records round
 progress if that clock is unavailable. The active run continues unchanged.
+
+## Execution amendment: executor loss and four completion replays
+
+At 2026-11-03 18:21:40 UTC the executor session was lost. The runner heartbeat
+and all four active C logs stopped together; process session 16235 became
+unavailable. Fifteen runs had completed successfully, including **all A and B
+runs**. No solver error was logged. A full immutable copy of that attempt is
+retained under `results/interrupted_original/`, including its manifest, event
+stream, partial C logs, parent pool, and runner output.
+
+Before any replay, [recovery_plan.json](recovery_plan.json) declares the four
+unfinished runs: d4/C, s5/C, d2/C, d1/C. [recover.py](recover.py) repeats only
+these runs from scratch, with the **same binary, pool, commands, and individual
+CPU affinities**, now four concurrently. It preserves the original six-hour
+deadline. Nodes, budgets, seeds, numerical gates, early stopping, and production
+code are unchanged. Each replay is compared with every logged numerical round
+of its interrupted prefix. The completed A/B evidence is never rerun or selected.
+
+This is an explicit deviation from the planned single attempt per arm: a
+completed study will have **19 completed runs and four interrupted attempts**.
+Whole-process CPU is measured for each completed attempt. Terminal CPU for the
+four interrupted attempts is unavailable; their logged DNN CPU supplies only
+a lower bound on the additional work, reported separately. C timing after
+recovery also has a different concurrency history. The frozen numerical gate
+is unaffected; no whole-search speedup is inferred from these timings.
