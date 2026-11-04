@@ -120,3 +120,31 @@ the lag); round 0 at 470 its: +4.6 (39% of an 11.9 lag). Stalled after round 5
 - E1w warm children (node 10's Z and conditioned Y, -Q b): 7:45 std 120 ->
   HG/HGR 100; 47:45 std 210 -> 170. Gains near the end +4.5 to +13 (30-60% of
   the lag).
+
+## 22:55-23:08 E1b/E1c: 13 more fathoming nodes (logs/e1b_table.md)
+
+Every node crosses earlier with the polish (first check above the cutoff,
+std -> HG8 / HGR13): d4 cold 20:45 130->120/120, 45:45 150->140/140, 16:45
+160->150/150, 26:45 160->140/140, 36:45 170->150/160, 6:45 180->160/160,
+46:45 200->180/180, 27:45 240->220/220, 17:45 260->240/240; d5 cold under
+49:45: 0:22 380->350/350, 0:17 470->440/450, 0:18 510->480/490, 0:11
+530->500/490. With E1: 17 cold nodes, 5,240 std iterations, HGR13 saves 350
+(6.7%), HG8 400 (7.6%); 2 warm children 330 -> 270 (18%).
+E6 started 23:08 (sub-subtree of [9:45], plain vs polish W=10, cores 2/3).
+
+## 23:08-23:35 E6: search A/B on the [9:45] sub-subtree (logs/e6_*, e6_summary.txt)
+
+bnbdrv serial, run_pool_search.sh's configuration, -F 39:27,30:48,25:49,9:45.
+Same tree in both arms (47 nodes, 46 fathomed, FW 3,492). Total 1,490.7 s
+(plain) -> 1,418.7 s (polish, W = 10): 1.051x. Root: identical first solve
+(430 its) and phase (1,200 its, same pool size; the polish arm reports best
+48,758.2 instead of 48,750.3 because round ends are evaluation points, but the
+Polyak steps use best + delta - lb_now and the exported pool is the same).
+46 pooled children: 3,400 -> 3,020 iterations (-11.2%), 943.0 -> 868.3 s
+(1.086x); 32 children unchanged (fast fathoms), 14 save 10-60 iterations; the
+8 children of 100+ iterations 2,060 -> 1,740 its, 571.6 -> 503.1 s.
+
+Effect estimate on the node-10 subtree (coord_search split, 18,465 DNN s):
+pooled 4,770 s at 1.086x (-378 s), non-pooled warm d5 297 s at ~15% (-45),
+cold fathoms 4,105 s at ~5% net (-205), fathomed phases ~4,000 s at ~2%
+(-80): about -700 s, 3.8%, 1.04x [e from measured per-class rates].
