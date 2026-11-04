@@ -210,10 +210,19 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
   fflush(stdout);
   if (child.empty() || r.status == DNN_ERROR) return r.status != DNN_ERROR;
 
+  // -K may list several children separated by ';', all from this one parent solve
+  const QAPAssignment parent_node = node;
+  int pass = 0;
+  for (size_t cpos = 0; cpos < child.size();) {
+  size_t cend = child.find(';', cpos);
+  if (cend == std::string::npos) cend = child.size();
+  const std::string one = child.substr(cpos, cend - cpos);
+  cpos = cend + 1;
+  node = parent_node;
   int ci, cj;
-  if (sscanf(child.c_str(), "%d:%d", &ci, &cj) != 2 || ci < 0 || ci >= n || cj < 0 ||
+  if (sscanf(one.c_str(), "%d:%d", &ci, &cj) != 2 || ci < 0 || ci >= n || cj < 0 ||
       cj >= n || node.p[ci] != NONE || node.pinv[cj] != NONE) {
-    printf("bad child '%s'\n", child.c_str());
+    printf("bad child '%s'\n", one.c_str());
     return false;
   }
   int il = 0, jl = 0;   // local indices in the node's reduced problem
@@ -222,7 +231,7 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
   node.fix(ci, cj);
   QAP qc;
   reduceQAP(q, &qc, node);
-  int pass = 0;
+  printf("CHILDNODE %s\n", one.c_str());
   for (size_t t = 0; t < child_passes.size(); t++) {
     const char mode = child_passes[t];
     if (mode == ',') continue;
@@ -239,6 +248,7 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
            " warm=%c\n", pass, n - node.nfix, rc.lb, rc.primal, dnn_status_name(rc.status),
            rc.iterations, rc.cpu, mode);
     fflush(stdout);
+  }
   }
   return true;
 }
