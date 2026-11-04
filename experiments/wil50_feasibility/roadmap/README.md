@@ -40,7 +40,7 @@ from the range above).
 | bound | children start from the parent's final Y as well as its Z (`warm_y/README.md`) | **measured Nov 3 on 16 depth-4 children: 1.17x per child** (1.29x on fathoms, 24% fewer iterations; +67 at iteration 100 on misses; no outcome changes) | done; in the search as `QAP_DNN_WARM_Y=2` | in the stacked node-10 A/B (`run_ab6.sh`) |
 | speed | AMX bf16 for the filter and Rayleigh-Ritz products, plus CPU trims | **measured Nov 3 on the 32-node sample: 1.71x on fathoms, 1.75x on misses, same 18 fathoms, same iterations** (bundle D: AMX kernel for the five W*Y products, degree 3 with tight lambda, one-pass CholQR, refresh every 40; `amx/README.md`). Closed as not worth it: guard K/40, fp32 R (certificate margin), the small products on AMX, the row fusion; neutral: the symmetrisation skip. Left: the kernel's last third (ceiling 2 TF against 1 TF reached) | done | production: `DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40` |
 | speed | cut-phase trims: shorter inner solves with Y/Z restoration (Astra's Y12s: `-warmY`, 12 rounds x 200 iterations, quiet cap 1,000) | **measured on the phase: 1.56x** (64% of baseline CPU, bound and fathom gates kept on all six nodes; `same_node_continuation/budget_study/RESULTS.md`); 1.17-1.20x on the total at the 46% phase share | **not pursued** (Nathan, Nov 3: too small); option exists | none |
-| speed | coordinator instead of the checkpoint barrier and node-end steals | 1.15-1.35x of the fleet | in plan.md | 70-85% busy today against 93-97% |
+| speed | coordinator instead of the checkpoint barrier and node-end steals | 1.15-1.35x of the fleet [e]; **built Nov 4** (`coord/`, plan.md phase 1, local and AWS backends, exact totals under worker kills, coordinator restarts and drains); on the 4-slot node-10 subtree the same tree with **1.09x fewer DNN iterations** (warm starts kept: 23 units, no barrier) and the same 81% busy (the subtree's tail) (`coord_search/README.md`) | phase 2 of plan.md (Terraform, Spot handler) to run it on a fleet | the fleet factor needs plan.md phase 2 (100 Spot cores) |
 | tree | confirm give-ups uncut before the phase (QAP_DNN_GU_ZONE was off in run_ab3), primal gate in the phase, zone 0.0035 | **replayed, about 1.1x; closed** (`trims/README.md`): the deferral has nothing to save (the extrapolation rule already lets slow uncut fathoms finish), the primal gate 4:20 is in the code (default off, no false stop on 88 logged phases) and worth about 6%, the zone a modelled 4%; the search A/B was abandoned as not worth four hours | done | switch `QAP_DNN_CUT_PGATE=4:20` on in the production configuration; no further test |
 | bound | skew-symmetric certificate polishing at non-converged iterates | 1.05-1.15x on the phase | 2-3 days | offline ascent on a dumped residual; killed under 20% of the gap recovered |
 | bound | regional M2 block as a Lagrangian decomposition (Astra's 10b) | +20 units (10-15% chance of +65); **downgraded Nov 4 to about 0** (`new_cuts/SYNTHESIS.md`: after the triangle phase every single threshold is already saturated, so per-region blocks have nothing left) | 2-3 weeks | not worth running |
@@ -67,7 +67,7 @@ since (`[m]`) and what is still an estimate (`[e]`):
 | **all three in the search** | **2.34x [m]** | **end to end on the node-10 subtree** (`stronger_bounds/README.md` step 13): the same tree as rule 9 at 32,740 CPU-s against 76,755 for the baseline configuration; the per-node levers give 1.67x in the search against 2.0x measured separately (lost warm starts at checkpoints and restarts, and cut phases not measured per node) |
 | pool inheritance in the search | 1.37x [m] | end to end on the node-10 subtree on top of the stacked arm (`pool_search/README.md`): same tree, 23,905 against 32,740 CPU-s |
 | **all four in the search** | **3.21x [m]** | **against the baseline configuration's 76,755 CPU-s on the same subtree (5.8x against the plain search's 139,149)** |
-| coordinator (fleet busy 70-85% -> 93-97%) | 1.15-1.35x [e] of wall clock | not built |
+| coordinator (fleet busy 70-85% -> 93-97%) | 1.15-1.35x [e] of wall clock; 1.09x [m] in iterations on the 4-slot subtree | built (`coord/`); the fleet factor is measured at plan.md phase 2 |
 | shorter cut phase (Y12s), phase trims | 1.1-1.2x each [m on the phase] | not pursued |
 
 Against the baseline of section 1 (120-700 days on 1,000 Xeon cores, center
@@ -116,7 +116,11 @@ The two measurements that decide between these outcomes are cheap:
 3. ~~Confirm give-ups uncut, the primal gate, zone 0.0035~~ closed Nov 3 by
    replay (`trims/README.md`, about 1.1x; the gate ships default off). The
    Y12s phase budget was not pursued.
-4. ~~AMX and the CPU trims~~ done Nov 3 (1.71x per node); the coordinator
-   from docs/distributed/plan.md is still to build.
+4. ~~AMX and the CPU trims~~ done Nov 3 (1.71x per node); ~~the coordinator
+   from docs/distributed/plan.md~~ built Nov 4 (phase 1, `coord/`; on the
+   node-10 subtree the same tree with 1.09x fewer iterations,
+   `coord_search/`). Next for it: plan.md phases 2-3 (Terraform, the Spot
+   handler, 100 cores with induced interruptions) once an AWS account is
+   connected.
 5. The sampling plan on the first 1,000 cores, before the full run.
 6. In parallel, gated: the M2 projection test and the GPU prototype.

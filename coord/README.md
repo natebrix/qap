@@ -73,6 +73,15 @@ about 90 units a run):
 | noub | no incumbent: the run finds the optimum and publishes it verified | optimum |
 | aws | normal, on S3/SQS/DynamoDB (a local moto server) | = serial |
 
+On wil50 (`experiments/wil50_feasibility/coord_search/README.md`): the
+node-10 subtree with the production settings, one 4-slot worker: the same
+322-node tree as `bench/parallel.py`, 1.09x fewer DNN iterations (23 units
+and no barrier keep more parents' warm starts: 228 warm-started nodes against
+176), the same 81% busy (one subtree's tail, which no driver can split). Its
+CPU and wall ratios against the parallel.py run (1.29x, 1.28x) are mostly a
+faster host after a container restart (1.23x per iteration on identical
+nodes).
+
 Not built yet (later phases of the plan): the Terraform and the Spot
 instance-metadata handler (the drain path is what it will call), the
 dashboard, pruning queued units against a new incumbent (the solver fathoms
