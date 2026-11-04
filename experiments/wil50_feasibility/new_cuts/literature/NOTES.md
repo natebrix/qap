@@ -299,3 +299,12 @@ protocol's dynamics noise; mu 1 is running.
   mu 1 -57.9 / +4.4: the Lagrangian gain peaks near mu 0.3 and the dense term
   (856k nonzeros) costs certification at larger mu, the triples' failure mode.
   Next (queue i3, running): d2 reference + box arm mu 0.3, same protocol.
+
+## ~11:20 d2 (39:27,30:48,25:49,26:5), same protocol
+- reference (runs/d2_tri.log, dumped iterate): r0 48,656.94 ... r3 48,717.50,
+  r4 48,702.34 (overshoot), r5 48,717.82, quiet 48,749.62 (64.4 short), primal
+  48,778.16. (Laptop 12-round reference 48,789.87.)
+- box gate at that iterate (runs/d2_tri.box.log): max 0.158; top 200: col<2 98,
+  row<1 41, col<1 22, col<3 18 (edge regions again), median |Q| 16; all 200
+  checked on 3,000 random permutations + count-targeted ones, all tight.
+- box arm mu 0.3, 200 cuts: running (runs/d2_tribox_mu0.3_k200.log).

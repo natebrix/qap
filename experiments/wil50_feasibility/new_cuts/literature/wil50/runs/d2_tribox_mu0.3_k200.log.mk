@@ -1,0 +1,1 @@
+200 cuts (200 tight on a test permutation; all checked on 3000 random permutations), violations 0.0421..0.1581, mu 0.3, nonzeros 825996, |L| 1941360.600, const 1164.600000 -> use: -Ladd d2_L_mu0.3_k200.bin:1164.6
