@@ -308,3 +308,14 @@ protocol's dynamics noise; mu 1 is running.
   row<1 41, col<1 22, col<3 18 (edge regions again), median |Q| 16; all 200
   checked on 3,000 random permutations + count-targeted ones, all tight.
 - box arm mu 0.3, 200 cuts: running (runs/d2_tribox_mu0.3_k200.log).
+- d2 box arm mu 0.3, 200 cuts (runs/d2_tribox_mu0.3_k200.log): quiet 48,745.63
+  (-4.0 certified vs 48,749.62), primal 48,794.96 (+16.8 vs 48,778.16). Per
+  round lb/primal vs ref: r0 -2.4/+10.7, r1 -12.5/+3.6, r2 -16.2/+5.0, r3
+  -17.0/+4.0, r4 -4.2/+32.3, r5 -12.2/+18.3. Certificate lag after the quiet
+  round 49.3 (ref 28.5).
+=> Large-Q boxes at a fixed mu 0.3 on top of the triangle phase move the
+  Lagrangian primal by +17.0 (node 13) and +16.8 (d2) after the quiet round;
+  certified +14.3 and -4.0 because the 0.83-0.86 M-nonzero term slows the
+  certificate (lag 49 vs 29 on d2). Best literature family found, but its
+  measured size is about +15-20, not +40; in the pool with optimized
+  multipliers and a 1,500-iteration quiet round it might certify +15-30.
