@@ -9,7 +9,7 @@
 #   children start from the parent's Y as well as Z, conditioned on the new
 #     assignment (QAP_DNN_WARM_Y=2, warm_y/README.md); 1.17x on 16 children
 # Everything else as run_ab4: PRSM (1, 1), -x 0:4:1:300:1, 4 workers,
-# checkpoint every 2 h. Resumable (Total Time line = done; else the .ckpt).
+# checkpoint every 30 min (the container restarted roughly hourly on Nov 3-4: 21:19, 22:02, 23:02, 00:15 UTC; the first attempt, partial_ab6/, died at 00:15 after 70 min with no checkpoint). Resumable (Total Time line = done; else the .ckpt).
 D=$(cd "$(dirname "$0")" && pwd); R=$(cd "$D/../../../.." && pwd)
 export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_EXT=20
 export QAP_DNN_CUT_ZONE=0.003 QAP_DNN_CUT_GRID=5:10 QAP_DNN_CUT_SIDE=0 QAP_DNN_CUT_FREEZE=1500
@@ -20,7 +20,7 @@ run() {  # name params
   name=$1; par=$2; f=$D/$name.log; grep -q "Total Time" "$f" 2>/dev/null && return
   resume=(); [ -s "$D/$name.ckpt" ] && resume=(--resume "$D/$name.ckpt")
   (cd "$R" && python3 bench/parallel.py qaplib/wil50.dat --jobs 4 --ub 48816 \
-     --params $par --extra "-F 39:27,30:48,25:49 -x 0:4:1:300:1" --checkpoint "$D/$name.ckpt" --checkpoint-every 7200 "${resume[@]}") \
+     --params $par --extra "-F 39:27,30:48,25:49 -x 0:4:1:300:1" --checkpoint "$D/$name.ckpt" --checkpoint-every 1800 "${resume[@]}") \
      >> "$f.tmp" 2>&1 && mv "$f.tmp" "$f"
 }
 run wil50n10ext_cut_rule9_stacked PARAM/nug_deep_xbar9_all.par
