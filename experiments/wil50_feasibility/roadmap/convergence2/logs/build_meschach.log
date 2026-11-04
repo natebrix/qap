@@ -1,0 +1,769 @@
+clang -c -O -DHAVE_CONFIG_H copy.c
+copy.c:32:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   32 | MAT     *_m_copy(in,out,i0,j0)
+      |          ^
+copy.c:55:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   55 | VEC     *_v_copy(in,out,i0)
+      |          ^
+copy.c:76:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   76 | PERM    *px_copy(in,out)
+      |          ^
+copy.c:106:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  106 | MAT     *m_move(in,i0,j0,m0,n0,out,i1,j1)
+      |          ^
+copy.c:134:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  134 | VEC     *v_move(in,i0,dim0,out,i1)
+      |          ^
+copy.c:157:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  157 | VEC     *mv_move(in,i0,j0,m0,n0,out,i1)
+      |          ^
+copy.c:185:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  185 | MAT     *vm_move(in,i0,out,i1,j1,m1,n1)
+      |          ^
+7 warnings generated.
+clang -c -O -DHAVE_CONFIG_H err.c
+err.c:133:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  133 | int err_list_attach(list_num, list_len,err_ptr,warn)
+      |     ^
+err.c:166:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  166 | int err_list_free(list_num)
+      |     ^
+err.c:183:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  183 | int err_is_list_attached(list_num)
+      |     ^
+err.c:200:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  200 | int     set_err_flag(flag)
+      |         ^
+err.c:211:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  211 | int     count_errs(flag)
+      |         ^
+err.c:226:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  226 | int     ev_err(file,err_num,line_num,fn_name,list_num)
+      |         ^
+err.c:325:13: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  325 | static void     float_error(num)
+      |                 ^
+7 warnings generated.
+clang -c -O -DHAVE_CONFIG_H matrixio.c
+matrixio.c:46:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   46 | int     skipjunk(fp)
+      |         ^
+matrixio.c:72:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   72 | MAT     *m_finput(fp,a)
+      |          ^
+matrixio.c:79:20: warning: passing arguments to 'im_finput' without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   79 |           return im_finput(fp,a);
+      |                           ^
+matrixio.c:81:20: warning: passing arguments to 'bm_finput' without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   81 |           return bm_finput(fp,a);
+      |                           ^
+matrixio.c:85:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   85 | MAT     *im_finput(fp,mat)
+      |          ^
+matrixio.c:147:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  147 | MAT     *bm_finput(fp,mat)
+      |          ^
+matrixio.c:182:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  182 | PERM    *px_finput(fp,px)
+      |          ^
+matrixio.c:189:21: warning: passing arguments to 'ipx_finput' without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  189 |           return ipx_finput(fp,px);
+      |                            ^
+matrixio.c:191:21: warning: passing arguments to 'bpx_finput' without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  191 |           return bpx_finput(fp,px);
+      |                            ^
+matrixio.c:196:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  196 | PERM    *ipx_finput(fp,px)
+      |          ^
+matrixio.c:250:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  250 | PERM    *bpx_finput(fp,px)
+      |          ^
+matrixio.c:292:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  292 | VEC     *v_finput(fp,x)
+      |          ^
+matrixio.c:299:19: warning: passing arguments to 'ifin_vec' without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  299 |           return ifin_vec(fp,x);
+      |                          ^
+matrixio.c:301:19: warning: passing arguments to 'bfin_vec' without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  301 |           return bfin_vec(fp,x);
+      |                          ^
+matrixio.c:305:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  305 | VEC     *ifin_vec(fp,vec)
+      |          ^
+matrixio.c:350:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  350 | VEC     *bfin_vec(fp,vec)
+      |          ^
+matrixio.c:385:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  385 | char    *setformat(f_string)
+      |          ^
+matrixio.c:396:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  396 | void    m_foutput(fp,a)
+      |         ^
+matrixio.c:419:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  419 | void    px_foutput(fp,px)
+      |         ^
+matrixio.c:438:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  438 | void    v_foutput(fp,x)
+      |         ^
+matrixio.c:458:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  458 | void    m_dump(fp,a)
+      |         ^
+matrixio.c:485:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  485 | void    px_dump(fp,px)
+      |         ^
+matrixio.c:503:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  503 | void    v_dump(fp,x)
+      |         ^
+23 warnings generated.
+clang -c -O -DHAVE_CONFIG_H memory.c
+memory.c:34:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   34 | MAT     *m_get(m,n)
+      |          ^
+memory.c:92:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   92 | PERM    *px_get(size)
+      |          ^
+memory.c:123:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  123 | VEC     *v_get(size)
+      |          ^
+memory.c:152:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  152 | int     m_free(mat)
+      |         ^
+memory.c:199:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  199 | int     px_free(px)
+      |         ^
+memory.c:229:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  229 | int     v_free(vec)
+      |         ^
+memory.c:260:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  260 | MAT     *m_resize(A,new_m,new_n)
+      |          ^
+memory.c:397:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  397 | PERM    *px_resize(px,new_size)
+      |          ^
+memory.c:439:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  439 | VEC     *v_resize(x,new_dim)
+      |          ^
+9 warnings generated.
+clang -c -O -DHAVE_CONFIG_H vecop.c
+vecop.c:35:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   35 | double  _in_prod(a,b,i0)
+      |         ^
+vecop.c:61:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   61 | VEC     *sv_mlt(scalar,vector,out)
+      |          ^
+vecop.c:89:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   89 | VEC     *v_add(vec1,vec2,out)
+      |          ^
+vecop.c:115:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  115 | VEC     *v_mltadd(v1,v2,scale,out)
+      |          ^
+vecop.c:154:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  154 | VEC     *v_sub(vec1,vec2,out)
+      |          ^
+vecop.c:181:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  181 | VEC     *v_map(f,x,out)
+      |          ^
+vecop.c:199:19: warning: passing arguments to a function without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  199 |                 *out_ve++ = (*f)(*x_ve++);
+      |                                 ^
+vecop.c:204:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  204 | VEC     *_v_map(f,params,x,out)
+      |          ^
+vecop.c:223:19: warning: passing arguments to a function without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  223 |                 *out_ve++ = (*f)(params,*x_ve++);
+      |                                 ^
+vecop.c:229:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  229 | VEC     *v_lincomb(n,v,a,out)
+      |          ^
+vecop.c:352:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  352 | VEC     *v_star(x1, x2, out)
+      |          ^
+vecop.c:373:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  373 | VEC     *v_slash(x1, x2, out)
+      |          ^
+vecop.c:398:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  398 | double  v_min(x, min_idx)
+      |         ^
+vecop.c:428:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  428 | double  v_max(x, max_idx)
+      |         ^
+vecop.c:464:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  464 | VEC     *v_sort(x, order)
+      |          ^
+vecop.c:543:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  543 | double  v_sum(x)
+      |         ^
+vecop.c:560:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  560 | VEC     *v_conv(x1, x2, out)
+      |          ^
+vecop.c:582:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  582 | VEC     *v_pconv(x1, x2, out)
+      |          ^
+18 warnings generated.
+clang -c -O -DHAVE_CONFIG_H matop.c
+matop.c:36:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   36 | MAT     *m_add(mat1,mat2,out)
+      |          ^
+matop.c:61:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   61 | MAT     *m_sub(mat1,mat2,out)
+      |          ^
+matop.c:86:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   86 | MAT     *m_mlt(A,B,OUT)
+      |          ^
+matop.c:132:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  132 | MAT     *mmtr_mlt(A,B,OUT)
+      |          ^
+matop.c:167:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  167 | MAT     *mtrm_mlt(A,B,OUT)
+      |          ^
+matop.c:203:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  203 | VEC     *mv_mlt(A,b,out)
+      |          ^
+matop.c:239:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  239 | MAT     *sm_mlt(scalar,matrix,out)
+      |          ^
+matop.c:261:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  261 | VEC     *vm_mlt(A,b,out)
+      |          ^
+matop.c:298:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  298 | MAT     *m_transp(in,out)
+      |          ^
+matop.c:329:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  329 | MAT     *swap_rows(A,i,j,lo,hi)
+      |          ^
+matop.c:354:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  354 | MAT     *swap_cols(A,i,j,lo,hi)
+      |          ^
+matop.c:381:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  381 | MAT     *ms_mltadd(A1,A2,s,out)
+      |          ^
+matop.c:420:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  420 | VEC     *mv_mltadd(v1,v2,A,alpha,out)
+      |          ^
+matop.c:462:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  462 | VEC     *vm_mltadd(v1,v2,A,alpha,out)
+      |          ^
+14 warnings generated.
+clang -c -O -DHAVE_CONFIG_H pxop.c
+pxop.c:45:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   45 | PERM    *px_inv(px,out)
+      |          ^
+pxop.c:75:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   75 | PERM    *px_mlt(px1,px2,out)
+      |          ^
+pxop.c:100:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  100 | VEC     *px_vec(px,vector,out)
+      |          ^
+pxop.c:167:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  167 | VEC     *pxinv_vec(px,x,out)
+      |          ^
+pxop.c:207:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  207 | PERM    *px_transp(px,i1,i2)
+      |          ^
+pxop.c:228:12: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  228 | static int myqsort(a,num)
+      |            ^
+pxop.c:268:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  268 | int     px_sign(px)
+      |         ^
+pxop.c:277:22: warning: passing 'u_int *' (aka 'unsigned int *') to parameter of type 'int *' converts between pointers to integer types with different sign [-Wpointer-sign]
+  277 |         numtransp = myqsort(px2->pe,px2->size);
+      |                             ^~~~~~~
+pxop.c:286:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  286 | MAT     *px_cols(px,A,out)
+      |          ^
+pxop.c:323:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  323 | MAT     *px_rows(px,A,out)
+      |          ^
+10 warnings generated.
+clang -c -O -DHAVE_CONFIG_H submat.c
+submat.c:35:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   35 | VEC     *get_col(mat,col,vec)
+      |          ^
+submat.c:56:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   56 | VEC     *get_row(mat,row,vec)
+      |          ^
+submat.c:77:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   77 | MAT     *_set_col(mat,col,vec,i0)
+      |          ^
+submat.c:96:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   96 | MAT     *_set_row(mat,row,vec,j0)
+      |          ^
+submat.c:118:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  118 | MAT     *sub_mat(old,row1,col1,row2,col2,new)
+      |          ^
+submat.c:155:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  155 | VEC     *sub_vec(old,i1,i2,new)
+      |          ^
+6 warnings generated.
+clang -c -O -DHAVE_CONFIG_H init.c
+init.c:39:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   39 | VEC     *v_zero(x)
+      |          ^
+init.c:54:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   54 | IVEC    *iv_zero(ix)
+      |          ^
+init.c:70:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   70 | MAT     *m_zero(A)
+      |          ^
+init.c:90:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   90 | MAT     *m_ident(A)
+      |          ^
+init.c:108:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  108 | PERM    *px_ident(px)
+      |          ^
+init.c:171:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  171 | void    mrandlist(a, len)
+      |         ^
+init.c:198:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  198 | void smrand(seed)
+      |      ^
+init.c:220:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  220 | VEC     *v_rand(x)
+      |          ^
+init.c:238:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  238 | MAT     *m_rand(A)
+      |          ^
+init.c:256:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  256 | VEC     *v_ones(x)
+      |          ^
+init.c:271:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  271 | MAT     *m_ones(A)
+      |          ^
+init.c:287:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  287 | VEC     *v_count(x)
+      |          ^
+12 warnings generated.
+clang -c -O -DHAVE_CONFIG_H otherio.c
+otherio.c:48:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   48 | int     fy_or_n(fp,s)
+      |         ^
+otherio.c:75:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   75 | int     yn_dflt(val)
+      |         ^
+otherio.c:84:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   84 | int     fin_int(fp,s,low,high)
+      |         ^
+otherio.c:123:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  123 | double  fin_double(fp,s,low,high)
+      |         ^
+4 warnings generated.
+clang -c -O -DHAVE_CONFIG_H machine.c
+machine.c:39:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   39 | double  __ip__(dp1,dp2,len)
+      |         ^
+machine.c:75:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   75 | void    __mltadd__(dp1,dp2,s,len)
+      |         ^
+machine.c:101:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  101 | void    __smlt__(dp,s,out,len)
+      |         ^
+machine.c:112:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  112 | void    __add__(dp1,dp2,out,len)
+      |         ^
+machine.c:122:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  122 | void    __sub__(dp1,dp2,out,len)
+      |         ^
+machine.c:132:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  132 | void    __zero__(dp,len)
+      |         ^
+6 warnings generated.
+clang -c -O -DHAVE_CONFIG_H matlab.c
+matlab.c:43:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   43 | MAT     *m_save(fp,A,name)
+      |          ^
+matlab.c:78:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   78 | VEC     *v_save(fp,x,name)
+      |          ^
+matlab.c:110:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  110 | double  d_save(fp,x,name)
+      |         ^
+matlab.c:139:10: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  139 | MAT     *m_load(fp,name)
+      |          ^
+4 warnings generated.
+clang -c -O -DHAVE_CONFIG_H ivecop.c
+ivecop.c:39:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   39 | IVEC    *iv_get(dim)
+      |          ^
+ivecop.c:66:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   66 | int     iv_free(iv)
+      |         ^
+ivecop.c:95:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   95 | IVEC    *iv_resize(iv,new_dim)
+      |          ^
+ivecop.c:131:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  131 | IVEC    *iv_copy(in,out)
+      |          ^
+ivecop.c:149:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  149 | IVEC    *iv_move(in,i0,dim0,out,i1)
+      |          ^
+ivecop.c:168:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  168 | IVEC    *iv_add(iv1,iv2,out)
+      |          ^
+ivecop.c:194:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  194 | IVEC    *iv_sub(iv1,iv2,out)
+      |          ^
+ivecop.c:218:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  218 | void    iv_foutput(fp,iv)
+      |         ^
+ivecop.c:244:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  244 | IVEC    *iv_finput(fp,x)
+      |          ^
+ivecop.c:251:23: warning: passing arguments to 'iiv_finput' without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  251 |      return iiv_finput(fp,x);
+      |                       ^
+ivecop.c:253:23: warning: passing arguments to 'biv_finput' without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  253 |      return biv_finput(fp,x);
+      |                       ^
+ivecop.c:257:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  257 | IVEC    *iiv_finput(fp,iv)
+      |          ^
+ivecop.c:298:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  298 | IVEC    *biv_finput(fp,iv)
+      |          ^
+ivecop.c:325:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  325 | void    iv_dump(fp,iv)
+      |         ^
+ivecop.c:358:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  358 | IVEC    *iv_sort(x, order)
+      |          ^
+15 warnings generated.
+clang -c -O -DHAVE_CONFIG_H version.c
+clang -c -O -DHAVE_CONFIG_H meminfo.c
+meminfo.c:107:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  107 | int mem_attach_list(list, ntypes, type_names, free_funcs, info_sum)
+      |     ^
+meminfo.c:133:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  133 | int mem_free_vars(list)
+      |     ^
+meminfo.c:151:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  151 | int mem_is_list_attached(list)
+      |     ^
+meminfo.c:166:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  166 | void mem_dump_list(fp,list)
+      |      ^
+meminfo.c:210:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  210 | int mem_info_on(sw)
+      |     ^
+meminfo.c:233:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  233 | long mem_info_bytes(type,list)
+      |      ^
+meminfo.c:247:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  247 | int mem_info_numvar(type,list)
+      |     ^
+meminfo.c:263:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  263 | void mem_info_file(fp,list)
+      |      ^
+meminfo.c:313:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  313 | void mem_bytes_list(type,old_size,new_size,list)
+      |      ^
+meminfo.c:360:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  360 | void mem_numvar_list(type,num,list)
+      |      ^
+10 warnings generated.
+clang -c -O -DHAVE_CONFIG_H memstat.c
+memstat.c:80:21: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   80 | static unsigned int mem_hash(ptr)
+      |                     ^
+memstat.c:90:12: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   90 | static int mem_lookup(var)
+      |            ^
+memstat.c:151:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  151 | int mem_stat_reg_list(var,type,list)
+      |     ^
+memstat.c:191:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  191 | int mem_stat_mark(mark)
+      |     ^
+memstat.c:220:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  220 | int mem_stat_free_list(mark,list)
+      |     ^
+memstat.c:253:14: warning: passing arguments to a function without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  253 |                  (*free_fn)(*mem_stat_var[j].var);
+      |                            ^
+memstat.c:276:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  276 | void mem_stat_dump(fp,list)
+      |      ^
+7 warnings generated.
+ar ru meschach.a copy.o err.o matrixio.o memory.o vecop.o matop.o pxop.o submat.o init.o otherio.o machine.o matlab.o ivecop.o version.o meminfo.o memstat.o
+ar: `u' modifier ignored since `D' is the default (see `U')
+ar: creating meschach.a
+/usr/bin/ranlib meschach.a
+clang -c -O -DHAVE_CONFIG_H lufactor.c
+lufactor.c:43:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   43 | MAT     *LUfactor(A,pivot)
+      |          ^
+lufactor.c:137:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  137 | VEC     *LUsolve(A,pivot,b,x)
+      |          ^
+lufactor.c:156:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  156 | VEC     *LUTsolve(LU,pivot,b,x)
+      |          ^
+lufactor.c:176:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  176 | MAT     *m_inverse(A,out)
+      |          ^
+lufactor.c:213:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  213 | double  LUcondest(LU,pivot)
+      |         ^
+5 warnings generated.
+clang -c -O -DHAVE_CONFIG_H bkpfacto.c
+bkpfacto.c:45:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   45 | double  sqr(x)
+      |         ^
+bkpfacto.c:50:13: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   50 | static void interchange(A,i,j)
+      |             ^
+bkpfacto.c:102:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  102 | MAT     *BKPfactor(A,pivot,blocks)
+      |          ^
+bkpfacto.c:227:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  227 | VEC     *BKPsolve(A,pivot,block,b,x)
+      |          ^
+4 warnings generated.
+clang -c -O -DHAVE_CONFIG_H chfactor.c
+chfactor.c:43:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   43 | MAT     *CHfactor(A)
+      |          ^
+chfactor.c:91:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   91 | VEC     *CHsolve(A,b,x)
+      |          ^
+chfactor.c:107:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  107 | MAT     *LDLfactor(A)
+      |          ^
+chfactor.c:150:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  150 | VEC     *LDLsolve(LDL,b,x)
+      |          ^
+chfactor.c:170:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  170 | MAT     *MCHfactor(A,tol)
+      |          ^
+5 warnings generated.
+clang -c -O -DHAVE_CONFIG_H qrfactor.c
+qrfactor.c:53:13: warning: a function declaration without a prototype is deprecated in all versions of C and is treated as a zero-parameter prototype in C23, conflicting with a previous declaration [-Wdeprecated-non-prototype]
+   53 | extern  VEC     *Usolve();      /* See matrix2.h */
+      |                  ^
+./matrix2.h:159:4: note: conflicting prototype is here
+  159 |                 *Usolve(MAT *A,VEC *b,VEC *x,double diag_val),
+      |                  ^
+qrfactor.c:64:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   64 | MAT     *QRfactor(A,diag)
+      |          ^
+qrfactor.c:101:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  101 | MAT     *QRCPfactor(A,diag,px)
+      |          ^
+qrfactor.c:184:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  184 | VEC     *_Qsolve(QR,diag,b,x,tmp)
+      |          ^
+qrfactor.c:225:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  225 | MAT     *makeQ(QR,diag,Qout)
+      |          ^
+qrfactor.c:275:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  275 | MAT     *makeR(QR,Rout)
+      |          ^
+qrfactor.c:294:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  294 | VEC     *QRsolve(QR,diag,b,x)
+      |          ^
+qrfactor.c:320:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  320 | VEC     *QRCPsolve(QR,diag,pivot,b,x)
+      |          ^
+qrfactor.c:342:13: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  342 | static  VEC     *Umlt(U,x,out)
+      |                  ^
+qrfactor.c:362:13: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  362 | static  VEC     *UTmlt(U,x,out)
+      |                  ^
+qrfactor.c:389:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  389 | VEC *QRTsolve(A,diag,c,sc)
+      |      ^
+qrfactor.c:448:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  448 | double  QRcondest(QR)
+      |         ^
+12 warnings generated.
+clang -c -O -DHAVE_CONFIG_H solve.c
+solve.c:46:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   46 | VEC     *Usolve(matrix,b,out,diag)
+      |          ^
+solve.c:99:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   99 | VEC     *Lsolve(matrix,b,out,diag)
+      |          ^
+solve.c:153:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  153 | VEC     *UTsolve(U,b,out,diag)
+      |          ^
+solve.c:207:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  207 | VEC     *Dsolve(A,b,x)
+      |          ^
+solve.c:236:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  236 | VEC     *LTsolve(L,b,out,diag)
+      |          ^
+5 warnings generated.
+clang -c -O -DHAVE_CONFIG_H hsehldr.c
+hsehldr.c:46:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   46 | VEC     *hhvec(vec,i0,beta,out,newval)
+      |          ^
+hsehldr.c:71:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   71 | VEC     *hhtrvec(hh,beta,i0,in,out)
+      |          ^
+hsehldr.c:99:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   99 | MAT     *hhtrrows(M,i0,j0,hh,beta)
+      |          ^
+hsehldr.c:145:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  145 | MAT     *hhtrcols(M,i0,j0,hh,beta)
+      |          ^
+4 warnings generated.
+clang -c -O -DHAVE_CONFIG_H givens.c
+givens.c:46:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   46 | void    givens(x,y,c,s)
+      |         ^
+givens.c:60:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   60 | VEC     *rot_vec(x,i,k,c,s,out)
+      |          ^
+givens.c:84:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   84 | MAT     *rot_rows(mat,i,k,c,s,out)
+      |          ^
+givens.c:112:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  112 | MAT     *rot_cols(mat,i,k,c,s,out)
+      |          ^
+4 warnings generated.
+clang -c -O -DHAVE_CONFIG_H update.c
+update.c:47:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   47 | MAT     *LDLupdate(CHmat,w,alpha)
+      |          ^
+update.c:86:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   86 | MAT     *QRupdate(Q,R,u,v)
+      |          ^
+2 warnings generated.
+clang -c -O -DHAVE_CONFIG_H norm.c
+norm.c:38:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   38 | double  _v_norm1(x,scale)
+      |         ^
+norm.c:64:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   64 | double  square(x)
+      |         ^
+norm.c:69:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   69 | double cube(x)
+      |        ^
+norm.c:74:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   74 | double  _v_norm2(x,scale)
+      |         ^
+norm.c:103:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  103 | double  _v_norm_inf(x,scale)
+      |         ^
+norm.c:132:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  132 | double  m_norm1(A)
+      |         ^
+norm.c:156:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  156 | double  m_norm_inf(A)
+      |         ^
+norm.c:180:8: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  180 | double  m_norm_frob(A)
+      |         ^
+8 warnings generated.
+clang -c -O -DHAVE_CONFIG_H hessen.c
+hessen.c:44:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   44 | MAT     *Hfactor(A, diag, beta)
+      |          ^
+hessen.c:85:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   85 | MAT     *makeHQ(H, diag, beta, Qout)
+      |          ^
+hessen.c:132:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  132 | MAT     *makeH(H,Hout)
+      |          ^
+3 warnings generated.
+clang -c -O -DHAVE_CONFIG_H symmeig.c
+symmeig.c:48:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   48 | VEC     *trieig(a,b,Q)
+      |          ^
+symmeig.c:173:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  173 | VEC     *symmeig(A,Q,out)
+      |          ^
+2 warnings generated.
+clang -c -O -DHAVE_CONFIG_H schur.c
+schur.c:154:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  154 | MAT     *schur(A,Q)
+      |          ^
+schur.c:431:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  431 | void    schur_evals(T,real_pt,imag_pt)
+      |         ^
+schur.c:487:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  487 | MAT     *schur_vecs(T,Q,X_re,X_im)
+      |          ^
+3 warnings generated.
+clang -c -O -DHAVE_CONFIG_H svd.c
+svd.c:49:13: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   49 | static void     fixsvd(d,U,V)
+      |                 ^
+svd.c:141:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  141 | VEC     *bisvd(d,f,U,V)
+      |          ^
+svd.c:293:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  293 | MAT     *bifactor(A,U,V)
+      |          ^
+svd.c:350:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  350 | VEC     *svd(A,U,V,d)
+      |          ^
+4 warnings generated.
+clang -c -O -DHAVE_CONFIG_H fft.c
+fft.c:44:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   44 | void    fft(x_re,x_im)
+      |         ^
+fft.c:136:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  136 | void    ifft(x_re,x_im)
+      |         ^
+2 warnings generated.
+clang -c -O -DHAVE_CONFIG_H mfunc.c
+mfunc.c:44:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   44 | MAT     *_m_pow(A, p, tmp, out)
+      |          ^
+mfunc.c:98:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   98 | MAT     *m_pow(A, p, out)
+      |          ^
+mfunc.c:133:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  133 | MAT *_m_exp(A,eps,out,q_out,j_out)
+      |      ^
+mfunc.c:296:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  296 | MAT *m_exp(A,eps,out)
+      |      ^
+mfunc.c:310:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  310 | MAT *m_poly(A,a,out)
+      |      ^
+5 warnings generated.
+clang -c -O -DHAVE_CONFIG_H bdfactor.c
+bdfactor.c:52:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   52 | BAND *bd_get(lb,ub,n)
+      |       ^
+bdfactor.c:73:5: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   73 | int bd_free(A)
+      |     ^
+bdfactor.c:94:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+   94 | BAND *bd_resize(A,new_lb,new_ub,new_n)
+      |       ^
+bdfactor.c:155:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  155 | BAND *bd_copy(A,B)
+      |       ^
+bdfactor.c:186:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  186 | MAT *band2mat(bA,A)
+      |      ^
+bdfactor.c:217:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  217 | BAND *mat2band(A,lb,ub,bA)
+      |       ^
+bdfactor.c:252:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  252 | BAND *bd_transp(in,out)
+      |       ^
+bdfactor.c:365:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  365 | BAND    *bdLUfactor(bA,pivot)
+      |          ^
+bdfactor.c:448:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  448 | VEC     *bdLUsolve(bA,pivot,b,x)
+      |          ^
+bdfactor.c:506:7: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  506 | BAND *bdLDLfactor(A)
+      |       ^
+bdfactor.c:553:9: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  553 | VEC    *bdLDLsolve(A,b,x)
+      |         ^
+bdfactor.c:612:6: warning: a function definition without a prototype is deprecated in all versions of C and is not supported in C23 [-Wdeprecated-non-prototype]
+  612 | VEC *bd_mv_mlt(A, x, out)
+      |      ^
+12 warnings generated.
+ar ru meschach.a lufactor.o bkpfacto.o chfactor.o qrfactor.o solve.o hsehldr.o givens.o update.o norm.o hessen.o symmeig.o schur.o svd.o fft.o mfunc.o bdfactor.o
+ar: `u' modifier ignored since `D' is the default (see `U')
+/usr/bin/ranlib meschach.a

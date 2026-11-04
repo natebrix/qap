@@ -1,0 +1,54 @@
+== E: equip phase at node 10
+  round  0  lb 48582.4671 (gain 0.0000, best 0.0000)  primal 48560.2248  status iter_limit  iters 300  cpu 105.5  active 0  violated 9473 (max 0.0869)  added 1000
+  round  1  lb 48645.6965 (gain 63.2294, best 63.2294)  primal 48690.5124  status iter_limit  iters 300  cpu 116.1  active 1000  violated 29090 (max 0.0642)  added 1000
+  round  2  lb 48672.6956 (gain 90.2286, best 90.2286)  primal 48722.6017  status iter_limit  iters 300  cpu 109.7  active 1989  violated 19858 (max 0.0406)  added 1000
+  round  3  lb 48684.9079 (gain 102.4408, best 102.4408)  primal 48739.9266  status iter_limit  iters 300  cpu 109.8  active 2710  violated 23407 (max 0.0641)  added 1000
+  round  4  lb 48564.4603 (gain -18.0068, best 102.4408)  primal 48610.2629  status iter_limit  iters 300  cpu 110.1  active 3709  violated 17735 (max 0.0690)  added 1000
+  stalled: gap 129.1421, gain of the last 3 rounds 39.2115
+  FINAL best_lb 48684.907913 first_lb 48582.467073 gain 102.440840
+  pool file 92180 bytes
+   child | search (cold, no pool)                           | with node-10 pool (cold)                
+    48:45 | hope  470 it   81.2 short + phase 2560 it fath   | fath 1100 it   -0.3 short, kept 2392
+    49:45 | hope  310 it  185.7 short                        | hope  700 it   82.6 short, kept 2392
+    38:45 | hope  600 it   43.7 short + phase 2000 it fath   | fath  530 it   -0.7 short, kept 2392
+    29:45 | hope  370 it  129.6 short + phase 1200 it iter   | hope  680 it   44.1 short, kept 2392
+    28:45 | hope  990 it    7.6 short + phase  870 it fath   | fath  350 it   -0.5 short, kept 2392
+    19:45 | hope  370 it  124.6 short + phase 1200 it iter   | hope  620 it   44.2 short, kept 2392
+    18:45 | hope  740 it   17.7 short + phase  600 it fath   | fath  390 it   -0.9 short, kept 2392
+     9:45 | hope  430 it  106.2 short + phase 1200 it iter   | hope  600 it   42.0 short, kept 2392
+     8:45 | hope  520 it   39.9 short + phase 1500 it fath   | fath  450 it   -0.3 short, kept 2392
+     0:45 | fath  130 it  -13.5 short                        | fath  120 it  -26.8 short, kept 2392
+    46:45 | fath  200 it   -2.2 short                        | fath  150 it   -8.5 short, kept 2392
+    37:45 | fath  290 it   -0.2 short                        | fath  180 it   -2.8 short, kept 2392
+    47:45 | fath  450 it   -0.2 short                        | fath  220 it   -1.1 short, kept 2392
+  iterations, search (first solve + phase) 17000; first solve with the pool 6090 (children still short need a phase on top)
+  E2: child 49:45, its phase from the inherited pool
+    pool solve  lb 48731.4698  primal 48767.8155  status hopeless  iters 700  cpu 221.9  kept 2392 dropped 318
+    inherited pool: kept 2392 dropped 318, 13 regions
+    round  0  lb 48731.4698 (the node's bound)  violated 17692 (max 0.0761)  added 1000
+    round  1  lb 48615.5934 (gain -115.8764, best 0.0000)  primal 48683.9032  status iter_limit  iters 300  cpu 97.2  active 3202  violated 23347 (max 0.0758)  added 1000
+    round  2  lb 48677.1673 (gain -54.3025, best 0.0000)  primal 48752.0432  status iter_limit  iters 300  cpu 94.7  active 4216  violated 24230 (max 0.0537)  added 1000
+    round  3  lb 48706.8272 (gain -24.6426, best 0.0000)  primal 48784.1008  status iter_limit  iters 300  cpu 100.3  active 4978  violated 23588 (max 0.0362)  added 1000
+    stalled: gap 82.5802, gain of the last 3 rounds 0.0000
+
+== P: parent 1,000 iterations vs parent 300 (warm_y)
+  parent 13: lb at 300 48570.9746, at end 48630.0672 (1000 it)
+    (warm_y parent lb at 300: 48570.9746)
+    child  5: parent@300 fath  340 it  lb@50/100/200  48719.5  48775.7  48802.9  |  P fath  270 it   48714.6  48776.7  48806.7
+    child  6: parent@300 hope  300 it  lb@50/100/200  48625.2  48662.6  48686.8  |  P hope  300 it   48637.3  48678.1  48698.9
+    child  7: parent@300 hope  310 it  lb@50/100/200  48552.5  48632.2  48672.8  |  P hope  310 it   48549.0  48635.6  48676.9
+    child  8: parent@300 fath   90 it  lb@50/100/200  48762.5  48815.5  48815.5  |  P fath   90 it   48760.0  48816.4  48816.4
+  parent 7: lb at 300 48561.1925, at end 48610.6556 (1000 it)
+    (warm_y parent lb at 300: 48561.1925)
+    child 13: parent@300 fath  420 it  lb@50/100/200  48687.8  48751.6  48791.0  |  P fath  360 it   48689.4  48756.0  48795.5
+    child 14: parent@300 hope  310 it  lb@50/100/200  48598.3  48660.9  48688.9  |  P hope  300 it   48597.8  48668.1  48695.6
+    child 15: parent@300 fath   40 it  lb@50/100/200  48814.8  48814.8  48814.8  |  P fath   50 it   48819.2  48819.2  48819.2
+    child 16: parent@300 fath   60 it  lb@50/100/200  48796.5  48824.3  48824.3  |  P fath   60 it   48789.5  48820.0  48820.0
+
+== S: parent state rounded to bf16 vs exact (warm_y)
+  parent 13: lb at 300 48570.9746, at end 48570.9746 (300 it)
+    (warm_y parent lb at 300: 48570.9746)
+    child  5: parent@300 fath  340 it  lb@50/100/200  48719.5  48775.7  48802.9  |  S fath  340 it   48719.5  48775.7  48802.9
+    child  6: parent@300 hope  300 it  lb@50/100/200  48625.2  48662.6  48686.8  |  S hope  300 it   48625.0  48662.8  48686.8
+    child  7: parent@300 hope  310 it  lb@50/100/200  48552.5  48632.2  48672.8  |  S hope  310 it   48551.7  48632.2  48672.8
+    child  8: parent@300 fath   90 it  lb@50/100/200  48762.5  48815.5  48815.5  |  S fath   90 it   48762.4  48815.2  48815.2
