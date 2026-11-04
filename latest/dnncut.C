@@ -25,6 +25,7 @@ DNNCutParams::DNNCutParams()
   cap_at_cutoff = 1; freeze_after = 0; freeze_iters = 0; freeze_if_primal_above = 0;
   freeze_best = 1;
   L_ext = NULL; L_ext_abs = 0; ext_const = 0;
+  pool_in = NULL; pool_out = NULL; other_orig = NULL; fixed_at = NULL; pool_check = 0;
 }
 
 namespace {
@@ -394,6 +395,148 @@ std::vector<Region> grid_regions(int rows, int cols, const std::vector<int> &fre
   return out;
 }
 
+// the objective term of the cuts with mu > 0 added into L (the box terms
+// summed per region first), its sum of |entries| into abs_add, the constant
+// sum mu h into hsum; returns the number of active cuts
+int assemble(const std::vector<Cut> &cuts, const std::vector<Region> &regions,
+             const std::vector<BoxCut> &boxes, const Lift &lift, int n1, std::vector<double> &L,
+             double &abs_add, double &hsum)
+{
+  const int m = lift.m;
+  int active = 0;
+  std::vector<std::vector<double>> bpc, bwc;   // per region, the summed box terms
+  for (const Cut &t : cuts)
+    if (t.mu > 0) {
+      if (t.type == 8) {
+        if (bpc.empty()) { bpc.assign(regions.size(), {}); bwc.assign(regions.size(), {}); }
+        if (bpc[t.s].empty()) { bpc[t.s].assign(m, 0.0); bwc[t.s].assign((size_t)m * m, 0.0); }
+        const BoxCut &c = boxes[t.a];
+        for (size_t x = 0; x < c.Q.size(); x++) {
+          bpc[t.s][c.Q[x]] += t.mu * c.b;
+          for (size_t y = x + 1; y < c.Q.size(); y++) {
+            const int i = std::min(c.Q[x], c.Q[y]), j = std::max(c.Q[x], c.Q[y]);
+            bwc[t.s][(size_t)i * m + j] -= t.mu;
+          }
+        }
+      } else
+        abs_add += t.s < 0 ? add_cut(t, L, n1, t.mu) : add_rcut(t, regions[t.s], L, lift, n1, t.mu);
+      hsum += t.mu * cut_rhs(t);
+      active++;
+    }
+  for (size_t s = 0; s < bpc.size(); s++)
+    if (!bpc[s].empty()) abs_add += add_region_terms(regions[s], bpc[s], bwc[s], L, lift, n1);
+  return active;
+}
+
+// a parent's pool remapped to this node (dnncut.h, DNNPool): regions to the
+// node's free region-side elements, matched to `regions` or appended (empty or
+// full ones dropped with their cuts); a triangle with a fixed member dropped; a
+// box's fixed members leave Q, those fixed inside the region lowering b by one,
+// kept while |Q| >= 3 and 1 <= b <= |Q| - 1. Appends to cuts (and boxes) and
+// returns the number kept.
+int remap_pool(const DNNPool &in, const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,
+               std::vector<Region> &regions, std::vector<Cut> &cuts, std::vector<BoxCut> &boxes,
+               int &dropped)
+{
+  const int m = (int)free_orig.size();
+  std::vector<int> local(n_orig, -1), olocal(n_orig, -1);
+  for (int t = 0; t < m; t++) local[free_orig[t]] = t;
+  for (size_t t = 0; t < cp.other_orig->size(); t++) olocal[(*cp.other_orig)[t]] = (int)t;
+  std::vector<int> rmap(in.regions.size(), -1);
+  std::vector<std::vector<char>> inreg(in.regions.size());
+  for (size_t s = 0; s < in.regions.size(); s++) {
+    std::vector<int> loc;
+    inreg[s].assign(n_orig, 0);
+    for (int x : in.regions[s])
+      if (x >= 0 && x < n_orig) { inreg[s][x] = 1; if (local[x] >= 0) loc.push_back(local[x]); }
+    std::sort(loc.begin(), loc.end());
+    if (loc.empty() || (int)loc.size() == m) continue;
+    size_t k = 0;
+    while (k < regions.size() && regions[k].loc != loc) k++;
+    if (k == regions.size()) regions.push_back({"pool" + std::to_string(s), loc});
+    rmap[s] = (int)k;
+  }
+  int kept = 0;
+  dropped = 0;
+  for (const DNNPoolCut &c : in.cuts) {
+    if (c.region < 0 || c.region >= (int)rmap.size() || rmap[c.region] < 0 || !(c.mu > 0)) { dropped++; continue; }
+    bool ok = true;
+    for (int x : c.mem) ok = ok && x >= 0 && x < n_orig;
+    if (!ok) { dropped++; continue; }
+    if (c.type >= 0 && c.type <= 3 && c.mem.size() == 3) {
+      const int a = olocal[c.mem[0]], b = olocal[c.mem[1]], d = olocal[c.mem[2]];
+      if (a < 0 || b < 0 || d < 0 || !(a < b && b < d)) { dropped++; continue; }
+      Cut t = {c.type, a, b, d, rmap[c.region], c.mu, 0, 0, 0, 0};
+      cuts.push_back(t); kept++;
+    } else if (c.type == 8) {
+      BoxCut bc; bc.b = c.b;
+      for (int x : c.mem) {
+        if (olocal[x] >= 0) bc.Q.push_back(olocal[x]);
+        else { const int at = (*cp.fixed_at)[x]; if (at >= 0 && at < n_orig && inreg[c.region][at]) bc.b--; }
+      }
+      std::sort(bc.Q.begin(), bc.Q.end());
+      if (bc.Q.size() < 3 || bc.b < 1 || bc.b > (int)bc.Q.size() - 1) { dropped++; continue; }
+      boxes.push_back(bc);
+      Cut t = {8, (int)boxes.size() - 1, 0, 0, rmap[c.region], c.mu, 0, 0, 0, 0};
+      cuts.push_back(t); kept++;
+    } else dropped++;
+  }
+  return kept;
+}
+
+// the pool of these cuts at multipliers mu (or the cuts' own when NULL), in
+// original indices; only regional triangles and boxes with mu > 0
+void export_pool(const std::vector<Cut> &cuts, const std::vector<double> *mu, const std::vector<Region> &regions,
+                 const std::vector<BoxCut> &boxes, const std::vector<int> &free_orig,
+                 const std::vector<int> &other_orig, int side, DNNPool &out)
+{
+  out = DNNPool();
+  out.side = side;
+  std::vector<int> rid(regions.size(), -1);
+  for (size_t t = 0; t < cuts.size(); t++) {
+    const Cut &c = cuts[t];
+    const double u = mu ? (t < mu->size() ? (*mu)[t] : 0.0) : c.mu;
+    if (!(u > 0) || c.s < 0 || !((c.type >= 0 && c.type <= 3) || c.type == 8)) continue;
+    if (rid[c.s] < 0) {
+      rid[c.s] = (int)out.regions.size();
+      std::vector<int> r;
+      for (int a : regions[c.s].loc) r.push_back(free_orig[a]);
+      std::sort(r.begin(), r.end());
+      out.regions.push_back(r);
+    }
+    DNNPoolCut pc;
+    pc.type = c.type; pc.region = rid[c.s]; pc.mu = u; pc.b = 0;
+    if (c.type == 8) {
+      const BoxCut &bc = boxes[c.a];
+      pc.b = bc.b;
+      for (int x : bc.Q) pc.mem.push_back(other_orig[x]);
+    } else
+      pc.mem = {other_orig[c.a], other_orig[c.b], other_orig[c.c]};
+    out.cuts.push_back(pc);
+  }
+}
+
+// the largest <L, v v'> - hsum over K random permutations of the node
+// (v = (1, x), lifted index 1 + (first index) m + (second index)): every cut is
+// valid, so a positive value means the term was assembled wrong
+double check_term(const std::vector<double> &L, double hsum, int m, int K, unsigned seed)
+{
+  const int n1 = m * m + 1;
+  std::mt19937 rng(seed);
+  std::vector<int> pi(m), idx(m + 1);
+  for (int i = 0; i < m; i++) pi[i] = i;
+  double worst = -HUGE_VAL;
+  for (int k = 0; k < K; k++) {
+    std::shuffle(pi.begin(), pi.end(), rng);
+    idx[0] = 0;
+    for (int a = 0; a < m; a++) idx[a + 1] = 1 + a * m + pi[a];
+    double v = 0;
+    for (int r : idx) for (int c : idx) v += L[(size_t)r * n1 + c];
+    worst = std::max(worst, v - hsum);
+  }
+  return worst;
+}
+
 std::vector<Region> prefix_regions(int m)
 {
   std::vector<Region> out;
@@ -407,9 +550,64 @@ std::vector<Region> prefix_regions(int m)
 
 }  // namespace
 
+std::string dnn_pool_encode(const DNNPool &p)
+{
+  if (p.cuts.empty()) return "-";
+  std::string s = "P1/" + std::to_string(p.side) + "/" + std::to_string(p.regions.size()) + "/";
+  char buf[64];
+  for (const auto &r : p.regions) {
+    for (size_t k = 0; k < r.size(); k++) { if (k) s += ','; s += std::to_string(r[k]); }
+    s += ';';
+  }
+  s += "/" + std::to_string(p.cuts.size()) + "/";
+  for (const DNNPoolCut &c : p.cuts) {
+    snprintf(buf, sizeof buf, "%.17g", c.mu);
+    s += std::to_string(c.type) + "," + std::to_string(c.region) + "," + std::to_string(c.b) + "," + buf;
+    for (int x : c.mem) s += "," + std::to_string(x);
+    s += ';';
+  }
+  return s;
+}
+
+bool dnn_pool_decode(const std::string &s, DNNPool &p)
+{
+  p = DNNPool();
+  if (s.empty() || s == "-") return true;
+  auto split = [](const std::string &t, char d) {
+    std::vector<std::string> v; size_t a = 0;
+    while (a <= t.size()) { size_t b = t.find(d, a); if (b == std::string::npos) b = t.size(); v.push_back(t.substr(a, b - a)); a = b + 1; }
+    return v; };
+  const std::vector<std::string> f = split(s, '/');
+  // P1 / side / regions / r0;r1;... / cuts / c0;c1;...
+  if (f.size() != 6 || f[0] != "P1") return false;
+  char *e;
+  p.side = (int)strtol(f[1].c_str(), &e, 10);
+  const long nr = strtol(f[2].c_str(), &e, 10), nc = strtol(f[4].c_str(), &e, 10);
+  if ((p.side != 0 && p.side != 1) || nr < 0 || nc < 0) return false;
+  std::vector<std::string> rs = split(f[3], ';'), cs = split(f[5], ';');
+  if ((long)rs.size() != nr + 1 || (long)cs.size() != nc + 1) return false;
+  for (long k = 0; k < nr; k++) {
+    std::vector<int> r;
+    for (const std::string &x : split(rs[k], ',')) { if (x.empty()) return false; r.push_back(atoi(x.c_str())); }
+    p.regions.push_back(r);
+  }
+  for (long k = 0; k < nc; k++) {
+    std::vector<std::string> t = split(cs[k], ',');
+    if (t.size() < 4) return false;
+    DNNPoolCut c;
+    c.type = atoi(t[0].c_str()); c.region = atoi(t[1].c_str()); c.b = atoi(t[2].c_str());
+    c.mu = strtod(t[3].c_str(), &e);
+    if (!std::isfinite(c.mu) || c.mu < 0 || c.region < 0 || c.region >= nr) return false;
+    for (size_t x = 4; x < t.size(); x++) c.mem.push_back(atoi(t[x].c_str()));
+    p.cuts.push_back(c);
+  }
+  return true;
+}
+
 DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
                             const DNNParams &base, const std::vector<int> &free_orig,
-                            int n_orig, const DNNCutParams &cp, DNNWarm *warm, double first_lb)
+                            int n_orig, const DNNCutParams &cp, DNNWarm *warm, double first_lb,
+                            double first_primal)
 {
   const int m = A->m, n1 = m * m + 1;
   const Lift lift = {m, cp.side};
@@ -435,6 +633,20 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   init_p7(); g_l7 = &l7;
   std::vector<BoxCut> boxes;            // the pool's box cuts (Cut::a indexes it)
   g_box = &boxes;
+  // an inherited pool: its cuts at their multipliers, before any new cut
+  const bool inherited = regional && cp.pool_in && !cp.pool_in->cuts.empty() && cp.other_orig && cp.fixed_at;
+  if (inherited) {
+    int dropped = 0;
+    const int kept = remap_pool(*cp.pool_in, free_orig, n_orig, cp, regions, cuts, boxes, dropped);
+    for (size_t k = 0; k < cuts.size(); k++) {
+      const Cut &c = cuts[k];
+      std::vector<int> key = {c.type, c.a, c.b, c.c, c.s, c.d, c.e, c.mask, c.alpha};
+      if (c.type == 8) { key = {8, c.s, boxes[c.a].b}; key.insert(key.end(), boxes[c.a].Q.begin(), boxes[c.a].Q.end()); }
+      index[key] = (int)k;
+    }
+    out.nregions = (int)regions.size();
+    if (cp.verbose) printf("inherited pool: kept %d dropped %d, %d regions\n", kept, dropped, out.nregions);
+  }
   std::vector<L7Space> l7space;         // per region, the admissible configurations
   if (cp.kcuts7 > 0 && m >= 7)
     for (auto &R : regions) l7space.push_back(l7_space((int)R.loc.size(), m));
@@ -446,34 +658,27 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   double last_primal = HUGE_VAL, best_primal = -HUGE_VAL;   // best_primal: over the cut rounds
   std::vector<double> best_mu;   // the multipliers of the best round's solve (freeze_best)
   DNNWarm best_save;
-  double best_mu_lb = -HUGE_VAL;
+  double best_mu_lb = -HUGE_VAL, best_mu_primal = HUGE_VAL;
+  if (inherited && cp.first_iters <= 0 && warm && first_lb > -HUGE_VAL) {
+    // the caller's solve with the inherited pool is round 0 and the best so far
+    best_mu_lb = first_lb; best_mu_primal = first_primal;
+    best_mu.resize(cuts.size());
+    for (size_t t = 0; t < cuts.size(); t++) best_mu[t] = cuts[t].mu;
+    best_save = *warm;
+  }
+  bool pool_checked = false;
   // one solve of the modified problem with the current multipliers
   auto solve = [&](int r, int iters) {
     if (cp.L_ext) std::copy(cp.L_ext, cp.L_ext + (size_t)n1 * n1, Ladd.begin());
     else std::fill(Ladd.begin(), Ladd.end(), 0.0);
     double abs_add = cp.L_ext_abs, hsum = cp.ext_const;
-    int active = 0;
-    std::vector<std::vector<double>> bpc, bwc;   // per region, the summed box terms
-    for (const Cut &t : cuts)
-      if (t.mu > 0) {
-        if (t.type == 8) {
-          if (bpc.empty()) { bpc.assign(regions.size(), {}); bwc.assign(regions.size(), {}); }
-          if (bpc[t.s].empty()) { bpc[t.s].assign(m, 0.0); bwc[t.s].assign((size_t)m * m, 0.0); }
-          const BoxCut &c = boxes[t.a];
-          for (size_t x = 0; x < c.Q.size(); x++) {
-            bpc[t.s][c.Q[x]] += t.mu * c.b;
-            for (size_t y = x + 1; y < c.Q.size(); y++) {
-              const int i = std::min(c.Q[x], c.Q[y]), j = std::max(c.Q[x], c.Q[y]);
-              bwc[t.s][(size_t)i * m + j] -= t.mu;
-            }
-          }
-        } else
-          abs_add += t.s < 0 ? add_cut(t, Ladd, n1, t.mu) : add_rcut(t, regions[t.s], Ladd, lift, n1, t.mu);
-        hsum += t.mu * cut_rhs(t);
-        active++;
-      }
-    for (size_t s = 0; s < bpc.size(); s++)
-      if (!bpc[s].empty()) abs_add += add_region_terms(regions[s], bpc[s], bwc[s], Ladd, lift, n1);
+    const int active = assemble(cuts, regions, boxes, lift, n1, Ladd, abs_add, hsum);
+    if (cp.pool_check > 0 && !cp.L_ext && !pool_checked) {
+      const double w = check_term(Ladd, hsum - cp.ext_const, m, cp.pool_check, 12345u + r);
+      if (w > 1e-7 * (1 + fabs(hsum))) {
+        fprintf(stderr, "dnn_cut_rounds: the cut term is positive (%g) at a permutation\n", w); abort(); }
+      pool_checked = true;
+    }
     out.active = active;
     DNNParams par = base;
     par.warm_primal = cp.warm_primal && r > 0;
@@ -490,6 +695,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     out.best_lb = std::max(out.best_lb, res.lb);
     if (cp.freeze_best && res.lb > best_mu_lb) {
       best_mu_lb = res.lb;
+      best_mu_primal = res.primal;
       best_mu.resize(cuts.size());
       for (size_t t = 0; t < cuts.size(); t++) best_mu[t] = cuts[t].mu;
       best_save = save;
@@ -798,19 +1004,77 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   }
   // the quiet round: the multipliers frozen, no new cuts, so that the
   // certificate catches up with the Lagrangian value of the final multipliers
+  // an inherited phase tests the primal of the round the quiet round starts from
+  const double quiet_primal = (inherited && cp.freeze_best && !best_mu.empty()) ? best_mu_primal : last_primal;
+  bool quiet_ran = false;
+  double quiet_lb = -HUGE_VAL;
   if (cp.freeze_iters > 0 && out.best_lb <= cutoff && !cuts.empty() && !out.gated &&
-      (!cp.freeze_if_primal_above || last_primal > cutoff)) {
+      (!cp.freeze_if_primal_above || quiet_primal > cutoff)) {
+    quiet_ran = true;
     if (cp.freeze_best && !best_mu.empty() && best_mu_lb > -HUGE_VAL) {
       // back to the best round's multipliers and iterate (cuts added later keep mu 0)
       for (size_t t = 0; t < cuts.size(); t++) cuts[t].mu = t < best_mu.size() ? best_mu[t] : 0.0;
       *warm = best_save;
     }
     DNNResult res = solve(1, cp.freeze_iters);
+    quiet_lb = res.lb;
     if (cp.verbose)
       printf("quiet round  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  active %d\n",
              res.lb, res.lb - first_lb, out.best_lb - first_lb, res.primal,
              dnn_status_name(res.status), res.iterations, res.cpu, out.active);
   }
   if (out.best_lb > cutoff) out.status = DNN_FATHOMED;
+  if (cp.pool_out && cp.other_orig && regional && out.status != DNN_FATHOMED) {
+    // the children's pool: the quiet round's multipliers, else the best round's
+    // (and its state), else the last solve's; a phase that did not inherit
+    // hands its pool on only when that solve beat the uncut bound (else zero
+    // multipliers are the better start and the children get none)
+    *cp.pool_out = DNNPool();
+    if (quiet_ran) {
+      if (inherited || quiet_lb > first_lb)
+        export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+    } else if (cp.freeze_best && !best_mu.empty() && best_mu_lb > -HUGE_VAL) {
+      if (inherited || best_mu_lb > first_lb) {
+        export_pool(cuts, &best_mu, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+        if (warm) *warm = best_save;
+      }
+    } else if (inherited)
+      export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+  }
   return out;
+}
+
+DNNResult dnn_pool_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+                         const DNNParams &par, const std::vector<int> &free_orig, int n_orig,
+                         const DNNCutParams &cp, const DNNWarm *start, DNNWarm *save,
+                         int *kept, int *dropped)
+{
+  const int m = A->m, n1 = m * m + 1;
+  const Lift lift = {m, cp.side};
+  std::vector<Region> regions;
+  std::vector<Cut> cuts;
+  std::vector<BoxCut> boxes;
+  g_box = &boxes;
+  int nd = 0, nk = 0;
+  if (cp.pool_in && cp.other_orig && cp.fixed_at)
+    nk = remap_pool(*cp.pool_in, free_orig, n_orig, cp, regions, cuts, boxes, nd);
+  if (kept) *kept = nk;
+  if (dropped) *dropped = nd;
+  std::vector<double> L;
+  DNNParams p = par;
+  double abs_add = 0, hsum = 0;
+  if (nk > 0) {
+    L.assign((size_t)n1 * n1, 0.0);
+    assemble(cuts, regions, boxes, lift, n1, L, abs_add, hsum);
+    if (cp.pool_check > 0) {
+      const double w = check_term(L, hsum, m, cp.pool_check, 54321u);
+      if (w > 1e-7 * (1 + fabs(hsum))) {
+        fprintf(stderr, "dnn_pool_bound: the pool term is positive (%g) at a permutation\n", w); abort(); }
+    }
+    p.L_add = L.data();
+    p.L_add_abs = abs_add;
+  }
+  DNNResult r = dnn_bound(A, B, C, shift - hsum, cutoff, p, start, save);
+  if (cp.pool_out) export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+  return r;
 }

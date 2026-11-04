@@ -10,7 +10,7 @@
 #include <vector>
 
 static const char *STATE_MAGIC = "QAP-STATE";
-static const int STATE_VERSION = 4;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts (all still read)
+static const int STATE_VERSION = 5;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools (all still read)
 
 template <class T>
 static void write_array(std::ostream &f, const char *tag, const T *a, int len)
@@ -86,6 +86,7 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
     for (unsigned int i = 0; i < w->X->m; i++)
       for (unsigned int j = 0; j < w->X->n; j++) f << ' ' << w->X->me[i][j];
     f << ' ' << w->dnn_ext;   // version 4: QAP_DNN_EXT levels left below a last-level miss
+    f << ' ' << (w->dnn_pool.empty() ? std::string("-") : w->dnn_pool);   // version 5: the cut pool
     f << '\n';
   }
 
@@ -186,8 +187,14 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
       for (int i = 0; ok && i < wm; i++)
 	for (int j = 0; ok && j < wm; j++) ok = (bool)(f >> X->me[i][j]);
       int ext = 0;
+      std::string pool;
       if (ok && version >= 4) ok = (bool)(f >> ext);
-      if (ok) { warms.push_back(new_warm_start(wp, n, X)); warms.back()->dnn_ext = ext; }
+      if (ok && version >= 5) ok = (bool)(f >> pool);
+      if (ok) {
+	warms.push_back(new_warm_start(wp, n, X));
+	warms.back()->dnn_ext = ext;
+	if (pool != "-") warms.back()->dnn_pool = pool;
+      }
       delete [] wp;
       M_FREE(X);
       if (!ok) {

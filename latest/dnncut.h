@@ -70,6 +70,28 @@
 
 #include "dnn.h"
 #include <vector>
+#include <string>
+
+// A node's cut pool in original indices, handed to its children (pool
+// inheritance, bnb.C QAP_DNN_POOL; experiments/pool_inheritance): the cuts with
+// a positive multiplier in the solve whose state the children start from, with
+// those multipliers. regions: sorted original indices of the region side;
+// mem: original indices of the other side (a < b < c for a triangle of type
+// 0-3, the sorted set Q for a box, type 8, with its b). Every cut of these
+// families is valid for any region, members and b >= 1, so a child keeps a
+// cut on its own free part of the region: a triangle loses nothing unless one
+// of its members was fixed (then dropped); a box member fixed inside the region
+// counts one (b - 1), outside zero.
+struct DNNPoolCut { int type, region, b; double mu; std::vector<int> mem; };
+struct DNNPool {
+  int side;
+  std::vector<std::vector<int>> regions;
+  std::vector<DNNPoolCut> cuts;
+  DNNPool() : side(0) {}
+};
+// one whitespace-free token for state files ("-" for an empty pool)
+std::string dnn_pool_encode(const DNNPool &p);
+bool dnn_pool_decode(const std::string &s, DNNPool &p);
 
 struct DNNCutParams {
   int warm_primal;    // opt-in same-node Y/Z restart between rounds (0); see DNNParams
@@ -134,6 +156,24 @@ struct DNNCutParams {
                       // NULL: none
   double L_ext_abs;   // sum of |entries| of L_ext (rounding margin)
   double ext_const;   // constant subtracted from the shift for L_ext's right-hand sides
+  // pool inheritance (DNNPool above). pool_in: a parent's pool, remapped to
+  // this node; with first_iters 0 the caller's warm start (first_lb,
+  // first_primal) was solved with it at its multipliers (dnn_pool_bound), else
+  // round 0 solves with it. The phase then runs as usual from that start, the
+  // best round so far being round 0, and its quiet-round test uses the best
+  // round's primal (the start of an inherited phase is usually its best round
+  // and the rounds after it overshoot). pool_out: out, the pool for the
+  // children, at the multipliers of the solve left in *warm (the quiet round's,
+  // else the best round's: *warm is set to that round's state); empty when a
+  // phase that did not inherit never beat the uncut bound (first_lb).
+  const DNNPool *pool_in;
+  DNNPool *pool_out;
+  const std::vector<int> *other_orig;  // with a pool: the original indices of the other
+                      // side's free elements, in local order
+  const std::vector<int> *fixed_at;    // with pool_in: for each original index of the other
+                      // side, the original region-side index it is fixed to (-1: free)
+  int pool_check;     // > 0: evaluate the pool's term on this many random permutations of
+                      // the node and abort if it is positive (a guard on the assembly)
   DNNCutParams();
 };
 
@@ -158,6 +198,15 @@ struct DNNCutResult {
 DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
                             const DNNParams &base, const std::vector<int> &free_orig,
                             int n_orig, const DNNCutParams &cp, DNNWarm *warm,
-                            double first_lb = -HUGE_VAL);
+                            double first_lb = -HUGE_VAL, double first_primal = HUGE_VAL);
+
+// The node's bound with cp.pool_in remapped to it at the inherited multipliers
+// (frozen): one dnn_bound(par, start, save) on the modified problem; every
+// value is certified. cp.side, cp.other_orig and cp.fixed_at describe the node;
+// cp.pool_out (optional) gets the remapped pool. kept: cuts kept.
+DNNResult dnn_pool_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+                         const DNNParams &par, const std::vector<int> &free_orig, int n_orig,
+                         const DNNCutParams &cp, const DNNWarm *start, DNNWarm *save,
+                         int *kept = NULL, int *dropped = NULL);
 
 #endif

@@ -2,6 +2,7 @@
 #define ASSIGN_H
 
 #include <iostream>
+#include <string>
 #include "meschach.h"
 #undef catch
 #include "qap.h"
@@ -96,6 +97,11 @@ struct WarmStart
   // many more levels (bnb.C, QAP_DNN_EXT): set when the parent's DNN bound ran
   // and did not fathom. Not kept in state files either.
   int dnn_ext;
+  // The parent's cut pool for its children (bnb.C QAP_DNN_POOL; DNNPool in
+  // dnncut.h, dnn_pool_encode: one whitespace-free token), empty if none.
+  // Kept in state files (version 5), unlike the DNN state: a child restored
+  // from a file starts its DNN cold but still with the inherited pool.
+  std::string dnn_pool;
 };
 
 /*

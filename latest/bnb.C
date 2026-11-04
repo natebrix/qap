@@ -37,6 +37,7 @@ int dnn_warm = 0;                    // start a child's DNN from its parent's (1
 #ifdef HAVE_DNN
 #include "dnn.h"
 #include "dnncut.h"
+#include <unistd.h>
 static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
 #endif
 #include <math.h>
@@ -614,6 +615,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       bool dnn_fathomed = false, dnn_ran = false;
       void *dnn_keep = NULL;   // this node's DNN state, for its children
       std::vector<double> dnn_xbar;   // its primal marginals, for rule 8
+      std::string dnn_pool_out;       // its cut pool for its children (QAP_DNN_POOL)
       // QAP_DNN_EXT=k: below dnn_max_depth a node whose parent's DNN bound ran
       // and did not fathom keeps the DNN bound, up to k levels down; under a
       // fathomed or a QPB-only node nothing changes. The flag travels with the
@@ -684,8 +686,45 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      sp = &start;
 	    }
 	  }
-	  DNNResult r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, sp, save);
+	  // QAP_DNN_POOL=1 (experiments/pool_inheritance, wil50_feasibility/
+	  // pool_search): a node whose cut phase ran hands its cut pool (the
+	  // cuts with a positive multiplier in the solve its children start from,
+	  // at those multipliers) to its children with that solve's state. A child
+	  // with a pool solves with it frozen in place of the uncut solve (same
+	  // iteration limit and give-up rule); its cut phase, if it runs, starts
+	  // from the pool and that solve, and hands on its own pool; without a cut
+	  // phase the child hands on the inherited pool. The pool travels in state
+	  // files (the DNN state does not). QAP_DNN_POOL_CHECK=K checks each
+	  // assembled term on K random permutations; QAP_DNN_TRACE=file appends a
+	  // line per DNN node.
+	  static const int dnn_pool = getenv("QAP_DNN_POOL") ? atoi(getenv("QAP_DNN_POOL")) : 0;
+	  static const int pool_check = getenv("QAP_DNN_POOL_CHECK") ? atoi(getenv("QAP_DNN_POOL_CHECK")) : 0;
+	  static const char *dnn_trace = getenv("QAP_DNN_TRACE");
+	  static const int cut_side = getenv("QAP_DNN_CUT_SIDE") ? atoi(getenv("QAP_DNN_CUT_SIDE")) : 0;
+	  std::vector<int> free_orig, other_orig, fixed_at(n, -1);
+	  for (int a = 0; a < n; a++) {
+	    if ((cut_side == 0 ? node.p[a] : node.pinv[a]) == NONE) free_orig.push_back(a);
+	    if ((cut_side == 0 ? node.pinv[a] : node.p[a]) == NONE) other_orig.push_back(a);
+	    else fixed_at[a] = cut_side == 0 ? node.pinv[a] : node.p[a];
+	  }
+	  DNNPool pool_in, pool_mid;
+	  bool have_pool = dnn_pool && node.warm && !node.warm->dnn_pool.empty() &&
+	    dnn_pool_decode(node.warm->dnn_pool, pool_in) && pool_in.side == cut_side && !pool_in.cuts.empty();
+	  int pool_kept = 0, pool_dropped = 0;
+	  DNNResult r;
+	  if (have_pool) {
+	    DNNCutParams pc;
+	    pc.side = cut_side; pc.pool_in = &pool_in; pc.pool_out = &pool_mid;
+	    pc.other_orig = &other_orig; pc.fixed_at = &fixed_at; pc.pool_check = pool_check;
+	    r = dnn_pool_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, free_orig, n, pc, sp, save,
+	                       &pool_kept, &pool_dropped);
+	    if (pool_kept == 0) have_pool = false;
+	  } else
+	    r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, sp, save);
 	  dp.warm_primal = 0;   // the cut phase below sets its own
+	  DNNWarm *cut_state = NULL;   // the cut phase's state for the children (QAP_DNN_POOL)
+	  DNNCutResult cr_trace;
+	  bool cut_ran = false;
 	  dnn_ran = true;
 	  stats->dnn_nodes++;
 	  stats->dnn_time += r.cpu;
@@ -733,12 +772,21 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    if (const char *e = getenv("QAP_DNN_CUT_NOCAP")) cp.cap_at_cutoff = atoi(e) ? 0 : 1;
 	    if (const char *e = getenv("QAP_DNN_CUT_FREEZE")) cp.freeze_iters = atoi(e);
 	    if (cp.grid_rows == 0) cp.prefix = true;
-	    std::vector<int> free_orig;
-	    for (int a = 0; a < n; a++)
-	      if ((cp.side == 0 ? node.p[a] : node.pinv[a]) == NONE) free_orig.push_back(a);
-	    DNNWarm wc = *save;
+	    DNNPool pool_out;
+	    if (dnn_pool && cp.side == cut_side) {
+	      cp.pool_in = have_pool ? &pool_in : NULL;
+	      cp.pool_out = &pool_out;
+	      cp.other_orig = &other_orig; cp.fixed_at = &fixed_at; cp.pool_check = pool_check;
+	    }
+	    DNNWarm *wc = new DNNWarm(*save);
 	    DNNCutResult cr = dnn_cut_rounds(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp,
-	                                     free_orig, n, cp, &wc, r.lb);
+	                                     free_orig, n, cp, wc, r.lb, r.primal);
+	    cut_ran = true; cr_trace = cr;
+	    if (dnn_pool && cr.status != DNN_FATHOMED && !pool_out.cuts.empty() && wc->m == m) {
+	      dnn_pool_out = dnn_pool_encode(pool_out);
+	      cut_state = wc;
+	    } else
+	      delete wc;
 	    stats->dnn_cut_nodes++;
 	    stats->dnn_cut_time += cr.cpu;
 	    node.bound = std::max(node.bound, cr.best_lb);
@@ -753,6 +801,23 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // matrix, after the leading 1), m x m row-major in local indices
 	    const int n1 = m * m + 1;
 	    dnn_xbar.assign(save->Y.begin() + 1, save->Y.begin() + n1);
+	  }
+	  if (have_pool && dnn_pool_out.empty() && !dnn_fathomed && !pool_mid.cuts.empty())
+	    dnn_pool_out = dnn_pool_encode(pool_mid);   // no cut phase: hand on the inherited pool
+	  if (cut_state && save && !dnn_fathomed) { *save = std::move(*cut_state); }
+	  delete cut_state;
+	  if (dnn_trace) {
+	    if (FILE *tf = fopen(dnn_trace, "a")) {
+	      fprintf(tf, "pid %d depth %d fixes", (int)getpid(), node.depth);
+	      for (int a = 0; a < n; a++) if (node.p[a] != NONE) fprintf(tf, " %d:%d", a, (int)node.p[a]);
+	      fprintf(tf, " | first lb %.4f primal %.4f status %s iters %d cpu %.2f warm %d pool %d kept %d dropped %d"
+	              " | cut %d", r.lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, sp ? 1 : 0,
+	              have_pool ? 1 : 0, pool_kept, pool_dropped, cut_ran ? 1 : 0);
+	      if (cut_ran) fprintf(tf, " best %.4f rounds %d iters %d cpu %.2f status %s", cr_trace.best_lb,
+	                           cr_trace.rounds, cr_trace.iterations, cr_trace.cpu, dnn_status_name(cr_trace.status));
+	      fprintf(tf, " | cutoff %.4f fathomed %d pool_out %zu\n", inc - DELTA, dnn_fathomed ? 1 : 0, dnn_pool_out.size());
+	      fclose(tf);
+	    }
 	  }
 	  if (save && !dnn_fathomed && save->m == m && dnn_warm) dnn_keep = save;
 	  else delete save;
@@ -795,6 +860,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	if (warm && dnn_ran && !dnn_fathomed)
 	  warm->dnn_ext = node.depth < dnn_max_depth ? 0
 	    : (node.depth == dnn_max_depth ? dnn_ext : dnn_ext_in - 1);
+	if (warm && !dnn_pool_out.empty()) warm->dnn_pool.swap(dnn_pool_out);
 #endif
 #ifdef HAVE_DNN
 	branch_set_dnn_marginals(dnn_xbar.empty() ? NULL : dnn_xbar.data(), m);

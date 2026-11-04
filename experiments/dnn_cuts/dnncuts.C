@@ -8,7 +8,8 @@
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
        [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
        [-Ladd file[:const]] [-warmY] [-dumpY prefix] [-addto R] [-seven K[:S]]
-       [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
+       [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-loadpool F] [-savepool F]
+       [-poolcheck K] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
  original indices of one side (default side 0, the first matrix: wil50's
@@ -20,7 +21,12 @@
  inequalities per round (largest |Q| QMAX, default 24; STARTS local-search
  starts per region and b, default 40). The search's per-node settings
  QAP_DNN_CHEB, QAP_DNN_TIGHT_LAM and QAP_DNN_REFRESH are read from the
- environment as bnb does (QAP_DNN_CHEB overrides -d). -Ladd file[:const] adds an external
+ environment as bnb does (QAP_DNN_CHEB overrides -d). -loadpool F: a
+ parent's cut pool (dnn_pool_encode's token, or Astra's
+ QAP_REGIONAL_TRIANGLE_POOL v1 file, experiments/pool_inheritance), remapped
+ to the node: the first solve (-I iterations) uses it frozen, as the search's
+ QAP_DNN_POOL does, then -r rounds continue from it (-r 0: that solve only).
+ -savepool F writes the pool the node would hand to its children. -Ladd file[:const] adds an external
  (m^2+1)^2 row-major double matrix (e.g. stronger_bounds/triples/make_ladd.py)
  to every round's objective, const subtracted from the shift; -dumpY prefix
  writes the final primal iterate Y to prefix.Y.bin (raw doubles, row-major).
@@ -40,6 +46,47 @@
 #include <cmath>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <cctype>
+
+// a pool file: dnn_pool_encode's token, or Astra's v1 file
+// (QAP_REGIONAL_TRIANGLE_POOL 1: n side, the assignment, region-side and
+// other-side original index lists, provenance, regions, cuts "type s a b c mu")
+static bool read_pool_file(const std::string &path, DNNPool &p)
+{
+  FILE *f = fopen(path.c_str(), "r");
+  if (!f) return false;
+  std::string text;
+  char buf[1 << 16];
+  size_t k;
+  while ((k = fread(buf, 1, sizeof buf, f)) > 0) text.append(buf, k);
+  fclose(f);
+  if (text.compare(0, 26, "QAP_REGIONAL_TRIANGLE_POOL") != 0) {
+    while (!text.empty() && isspace((unsigned char)text.back())) text.pop_back();
+    return dnn_pool_decode(text, p);
+  }
+  std::istringstream in(text);
+  std::string magic; int version, n, side;
+  if (!(in >> magic >> version >> n >> side) || version != 1) return false;
+  auto list = [&](std::vector<int> &v) { int c; if (!(in >> c) || c < 0) return false; v.resize(c);
+    for (int &x : v) if (!(in >> x)) return false; return true; };
+  std::vector<int> asg, orig, other;
+  if (!list(asg) || !list(orig) || !list(other)) return false;
+  int round, quiet; double value;
+  if (!(in >> round >> quiet >> value)) return false;
+  int nr; if (!(in >> nr) || nr < 0) return false;
+  p = DNNPool(); p.side = side;
+  for (int s = 0; s < nr; s++) { std::vector<int> r; if (!list(r)) return false; p.regions.push_back(r); }
+  int nc; if (!(in >> nc) || nc < 0) return false;
+  for (int c = 0; c < nc; c++) {
+    DNNPoolCut pc; int a, b, d;
+    if (!(in >> pc.type >> pc.region >> a >> b >> d >> pc.mu)) return false;
+    pc.b = 0; pc.mem = {a, b, d};
+    p.cuts.push_back(pc);
+  }
+  std::string end;
+  return (bool)(in >> end) && end == "END";
+}
 
 static bool parse_fixes(const std::string &fixes, QAPAssignment &node, int n)
 {
@@ -67,7 +114,7 @@ int main(int argc, char **argv)
   int threads = 1, degree = 4, eig_mode = DNN_EIG_SUBSPACE, verbose = 0;
   double gamma = 1.0, gamma1 = 1.0;
   const char *file = NULL;
-  std::string ladd_spec, dumpy;
+  std::string ladd_spec, dumpy, loadpool, savepool;
   for (int a = 1; a < argc; a++) {
     std::string o = argv[a];
     bool more = a + 1 < argc;
@@ -111,6 +158,9 @@ int main(int argc, char **argv)
       if (c) { cp.box_qmax = atoi(c + 1); if (const char *c2 = strchr(c + 1, ':')) cp.box_starts = atoi(c2 + 1); }
     }
     else if (o == "-Ladd" && more) ladd_spec = argv[++a];
+    else if (o == "-loadpool" && more) loadpool = argv[++a];              // a parent's cut pool (dnncut.h DNNPool; also Astra's v1 file)
+    else if (o == "-savepool" && more) savepool = argv[++a];              // write the pool handed to the children
+    else if (o == "-poolcheck" && more) cp.pool_check = atoi(argv[++a]);
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
     else if (o == "-atomic") cp.atomic = true;
@@ -182,7 +232,42 @@ int main(int argc, char **argv)
     printf(", %d regions", pr.nregions);
   }
   printf("\n");
+  // the other side's free elements and where its fixed ones sit (pools)
+  std::vector<int> other_orig, fixed_at(n, -1);
+  for (int a = 0; a < n; a++) {
+    if ((cp.side == 0 ? node.pinv[a] : node.p[a]) == NONE) other_orig.push_back(a);
+    else fixed_at[a] = cp.side == 0 ? node.pinv[a] : node.p[a];
+  }
+  DNNPool pin, pout;
+  if (!savepool.empty()) { cp.pool_out = &pout; cp.other_orig = &other_orig; }
+  if (!loadpool.empty()) {
+    if (!read_pool_file(loadpool, pin) || pin.side != cp.side) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", loadpool.c_str()); return 1; }
+    size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
+    printf("pool %s: %zu regions, %zu cuts (%zu with mu > 0)\n", loadpool.c_str(), pin.regions.size(), pin.cuts.size(), pos);
+    cp.pool_in = &pin; cp.other_orig = &other_orig; cp.fixed_at = &fixed_at;
+    DNNParams p0 = base;
+    p0.max_iter = cp.first_iters;
+    int kept = 0, dropped = 0;
+    DNNCutParams pc = cp;
+    if (cp.rounds > 0) pc.pool_out = NULL;
+    DNNResult r0 = dnn_pool_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, p0, free_orig, n, pc, NULL, &warm, &kept, &dropped);
+    printf("pool solve  lb %.4f  primal %.4f  status %s  iters %d  cpu %.1f  kept %d dropped %d\n", r0.lb, r0.primal,
+           dnn_status_name(r0.status), r0.iterations, r0.cpu, kept, dropped);
+    if (cp.rounds <= 0 || r0.status == DNN_FATHOMED) {
+      printf("FINAL best_lb %.6f first_lb %.6f gain 0.000000\n", r0.lb, r0.lb);
+      if (!savepool.empty()) { FILE *f = fopen(savepool.c_str(), "w"); if (f) { fprintf(f, "%s\n", dnn_pool_encode(pout).c_str()); fclose(f); } }
+      delete q;
+      return 0;
+    }
+    cp.first_iters = 0;
+    DNNCutResult res = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, cp, &warm, r0.lb, r0.primal);
+    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", std::max(res.best_lb, r0.lb), r0.lb, std::max(res.best_lb, r0.lb) - r0.lb);
+    if (!savepool.empty()) { FILE *f = fopen(savepool.c_str(), "w"); if (f) { fprintf(f, "%s\n", dnn_pool_encode(pout).c_str()); fclose(f); } }
+    delete q;
+    return 0;
+  }
   DNNCutResult res = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, cp, &warm);
+  if (!savepool.empty()) { FILE *f = fopen(savepool.c_str(), "w"); if (f) { fprintf(f, "%s\n", dnn_pool_encode(pout).c_str()); fclose(f); } }
   printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", res.best_lb, res.first_lb,
          res.best_lb - res.first_lb);
   if (!dumpy.empty() && !warm.Y.empty()) {
