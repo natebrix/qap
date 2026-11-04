@@ -206,3 +206,7 @@ the per-triple inconsistency of the DNN shrinks with n, the same trend as
 the literature's RLT2-vs-DNN gap units (+1.0 at n = 12 to -0.6 at n = 30,
 -1.25 at n = 42). At m = 47 the coherent part of 3-facility consistency is
 the regional aggregate, i.e. the threshold triangles we already have.
+- nug12 DNN + facility-triple LMP3, round 5 (1,000 cuts): 574.18 (max viol 0.16, still rising).
+- nug12 DNN + LOCATION-triple LMP3 (logs/nug12_cp_lmp0.log, 3 rounds): 567.99 ->
+  569.71 -> 570.41 -> 570.86 (max viol 0.208 -> 0.133). After 3 rounds the
+  facility side had 573.33: the location half is weaker at nug12.

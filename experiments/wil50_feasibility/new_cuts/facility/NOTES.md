@@ -230,3 +230,23 @@ sep_dist.py --fam hull3 (logs/hull3_n13_uncut1500.log), gapdecomp.py (logs/gapde
   certificate lags at the larger multiplier). The side's value is about +5: the DNN moves the
   fractional count mass 0.58 down for ~5 units. Dropped the mu = 160 runs (killed one; log in
   runs/n13/zonly/). Side c >= 9 running; then the mid-region split (col<4).
+- side c >= 9: mu 10 -> 48,749.17 (+2.4; primal 48,752.94), mu 40 -> 48,746.09 (primal 48,750.93).
+  Outer count split (col<2, |Q| = 12, box violation 0.14 = the most violated box at this iterate):
+  hull value min(+4.7, +2.4) = +2.4 over the equal-iteration control, for two DNN solves; the
+  23.4-per-side threshold for binary splits to compete with 47-way line branching is far away.
+- Mid-region count split (runs/n13/split_pick_mid.log: col<4, |Q| = 14 signed, beta 7, E c 7.46,
+  Var 0.178, box violation 0.070): c <= 7: mu 10 -> 48,749.65 (+2.9), mu 40 -> 48,723.20 (overshoot);
+  c >= 8: mu 10 -> 48,749.40 (+2.6). Hull value ~ +2.6. Both count splits: +2.4..+2.9 per split.
+- splitmid c >= 8 at mu 40: 48,728.52 (overshoot). 08:02 LMP3 heavy-triple pool started.
+- LMP3 heavy pool: round 0 (200 it, mu 0) 48,746.66; round 1 (first Polyak step, delta 5, theta
+  0.5) 48,708.55 (-38.1), primal 48,716.90, and 0 of 60 cuts still violated: a modest multiplier
+  over-satisfies every cut and costs 33 in the Lagrangian primal, i.e. the DNN repairs the heavy
+  triples' inconsistency by a small move of Y; the dual over these cuts is flat on top.
+- round 2: 48,724.10 (-22.6), 0 violated. Best round = round 0 (mu = 0), so the quiet round from the
+  best multipliers is the control itself; dropped the separate 2,200-it control job. The location
+  pool now uses a gentler step (delta 2, theta 0.25) to probe small multipliers.
+- Reading: the LMP3 inconsistency sits in objective-neutral directions (moving pair mass between
+  location pairs at the same distance / the same threshold memberships), so it is repaired for free;
+  consistent with the triple distance hull being satisfied apart from the threshold metric facets.
+- rounds 3, 4: 48,730.27 (-16.4), 48,733.76 (-12.9); 0 violated in every round; active multipliers
+  60 -> 49. Every positive multiplier tried lowered the certified bound.

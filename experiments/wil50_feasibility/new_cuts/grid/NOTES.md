@@ -148,3 +148,25 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
   shared by ~70-230 depth-3 nodes, but 3-5 coarse levels: not a cheap cut.
   Coarse level-1 experiment (coarse_bb.py) dropped: one level cannot close 184.
 - Started runs/d2_tri5.log (d2 = 39:27,30:48,25:49,26:5, tri5 protocol, dump).
+- Coarse (mid5) SA optima: node 10 = 24,230 (best of 5 seeds; 24,236 on 4),
+  d2 = 24,230 (5 seeds agree): the extra fix 26:5 is coarse-consistent with
+  an optimal coarse solution of its parent, so d2 gains no coarse strength.
+- 07:3x: the Write tool refuses REPORT.md in this subagent session ("return
+  findings as text"); the report goes into the hand-back message for the
+  coordinator to save as REPORT.md.
+
+## 07:31-08:05 d2
+
+- runs/d2_tri5.log (tri5 protocol, d2): 48,749.62 certified (round 0 at 400 it.
+  48,656.94; laptop 12-round reference 48,789.87). 1,700 s CPU.
+- Its iterate's ORIGINAL objective <L,Y> is 48,872.7, 123 above the certified
+  value and 95 above the Lagrangian primal (48,778.2): the quiet round's
+  multipliers over-satisfy the cuts (round 4 overshot), so every part
+  measured at this iterate is inflated by ~100; node 13's iterate did not
+  have this (<L,Y> 48,715.2 vs 48,713.9). Readings at d2 (analyze_Y,
+  threshold_split, coupled_split, root_vs_node): parity 0 violated,
+  dispersion slack (most clustered 3-set 5.19 vs 4), all thresholds +25..+123
+  above their bisection optima, row and column problems +187/+192 above,
+  mid5 -3 (vs SA 24,242 in this run; 24,230 best), K=7 -49, K=9 -141.
+- Started runs/d2_tri5_mid5a1of2.log (objective splitting at alpha 0.5 on
+  top of the triangles; bound = lb'/2 + 0.5 x 24,230).
