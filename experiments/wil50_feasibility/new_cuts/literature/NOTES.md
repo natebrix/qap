@@ -271,3 +271,25 @@ agent, uncut); location central 0.044 / 0.017, random 0.016 / 0.011, mixed
 Random-triple medians fall ~1/n^2 (0.086 -> 0.020 -> 0.007). On nug the
 heaviest-flow facility triples stay at 0.28-0.40 up to n = 30; on wil50 they
 are 0.02-0.03: wil50's DNN is locally consistent even on its heaviest triples.
+
+## ~10:20 wil50 node 13: large-Q boxes at FIXED mu ON TOP of the triangle phase
+
+wil50/run_box_ontop.sh (grid agent's n13_tri5 protocol: 400 + 5 x 300 Polyak
+rounds of 1,000 triangles, uncapped delta 50, quiet 600 from the best round;
+reference grid/runs/n13_tri5.log quiet 48,713.85, primal 48,735.51):
+200 box cuts separated at the reference's own final iterate, mu 0.3 fixed
+(runs/n13_ontop_mu0.3_k200.log): quiet 48,728.10 (+14.25 certified),
+primal 48,752.51 (+17.0). Per round (ref / box): r0 48,596.8 / 48,598.9,
+r1 48,636.4 / 48,634.5, r2 48,666.1 / 48,664.7, r3 48,686.3 / 48,685.1,
+r4 48,661.5 / 48,688.5 (the reference overshot), r5 48,681.7 / 48,700.4.
+Confound: the reference's quiet round froze round 3's multipliers, the box
+arm round 5's. A placebo arm (mu 0.01, same cuts) is queued to measure the
+protocol's dynamics noise; mu 1 is running.
+- The 200 box cuts used on node 13: regions col<2 61, row<1 47, col<1 43, col<3
+  26, the mid regions (col<4..6, row<2,3) only 23; |Q| 3-38 (median 17); b 1-7.
+  They act on the EDGE threshold regions (5-14 cells) with large facility
+  sets, where the triangles are weak (the triangles' violations live in the
+  mid regions, local7/README), i.e. not "the triangles seen through a wider
+  window" as local-7 was. Step 7's 5-point family (|Q| = 5) had +16.5 on node
+  13 in the pool but -7.9 on d2 and +0.4 on node 10: d2 is the test
+  (queue i3: ROUNDS=5 QUIET=600 run_box.sh d2 "0.3" 200).

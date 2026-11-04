@@ -207,3 +207,8 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
   (vs 24,242 in this SA run; -143 vs the best 24,230), K=7 -190, K=9 -260;
   mid5 against the root optimum -25. The node-13 pattern replicates.
 - runs/n10_tri5_mid5a1of2.log started (objective splitting, alpha 0.5).
+- runs/n10_tri5_mid5a1of2.log: lb' 73,264.53 -> 36,632.26 + 0.5 x 24,230 =
+  48,747.3 = **+35.6** over plain tri5 (48,711.63); 400-it. point +87.0.
+  Break-even LB_K 24,158.7. On top of tri5, three test nodes: +38.3 (13),
+  +35.6 (10), +32.1 (d2); median +35.6, conditional on proving the SA coarse
+  optima (24,250 / 24,230 / 24,230).
