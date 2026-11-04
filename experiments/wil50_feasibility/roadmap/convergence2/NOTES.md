@@ -68,6 +68,18 @@ Cold = no parent state (unit boundaries; DNN state does not travel in state file
   drops 48,731.5 -> 48,615.6 (-116), rounds 2-3 recover to 48,706.8, stall after 3 rounds
   with no gain over the pooled solve (stopped in the quiet round, which the search would
   not run: primal 48,767.8 < cutoff). E2w = the same with -warmY (pending).
+- E2w (the same with -warmY): round 1 still drops (-88, to 48,643.4), rounds 2-3 recover to
+  48,746.5 (+15 over the pooled solve), stall: the drop is the first Polyak step on
+  inherited near-optimal multipliers (target best + 50), not only the Y reset.
+- S (parent 13 at 300, Y and Z rounded to bf16): its 4 children take 340/300/310/90
+  iterations, exactly as unrounded (warm_y), bounds at 50/100/200 within 0.8.
+- C n6: 780 (B 1,260, Y12 860, Y12s 780); C n9: 700 (B 990, Y12 810, Y12s 720).
+- C misses (23:39): n13 final 48,741.39 (B 48,754.62: -13.2), n10 48,720.74 (B 48,743.88:
+  -23.1) after 2,100 iterations; overshoots -302 (n13 round 7), -88/-51 (n10 rounds 4, 8).
+  **Y12q fails the bound gate on misses; 100-iteration rounds are killed.** Y12s (200, quiet
+  1,000) passed on both (+5.2, +4.5) in the budget study: carry Y12s.
+- The report text is in the session's final message (the harness refused a REPORT.md
+  file from this subagent); `logs/C_summary.txt`, `logs/E_P_S_summary.txt` hold the tables.
 - C n14 (Y12q: warm Y, 12 x 100, quiet 500): fathoms at 1,680 total iterations
   (B 4,750, Y12 3,640, Y12s 2,110); round 0 48,692.0959 vs the study's 48,692.0828
   (solver changed since; not bit-identical).
