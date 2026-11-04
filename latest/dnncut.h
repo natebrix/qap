@@ -44,6 +44,18 @@
  plus subsets of the most fractional elements (stronger_bounds/local7: the
  violations are 1.7-2.6x the triangles' at wil50's converged iterates).
 
+ Box (count) inequalities (cp.kbox > 0, regional only; Junger-Kaibel,
+ Math. Prog. 91, 2001, on the regions' membership vectors): for a set Q of
+ free elements of any size and an integer b >= 1, the count q = sum_{i in Q}
+ z_i is an integer, so (q - b)(q - b - 1) >= 0, which in the moments reads
+   b sum_{i in Q} p_i - sum_{i<j in Q} W_ij <= b (b + 1) / 2
+ (the sum triangle is |Q| = 3, b = 1; the 5-point family with no flips is
+ |Q| = 5). Separated per region by a local search over Q (add/drop moves
+ from cp.box_starts starts per b = 1..cp.box_bmax, sizes 3..cp.box_qmax;
+ new_cuts/literature/wil50/box_gate.py): on wil50 the violated ones sit on
+ the edge regions with |Q| about 16, where the triangles are weak. The pool's
+ box terms are summed per region before they are written into the objective.
+
  Atomic (cp.atomic): the same inequalities on single lifted variables.
 
  Each round solves the DNN relaxation with the current multipliers
@@ -73,6 +85,11 @@ struct DNNCutParams {
                       // per round (0 = off)
   int sub7;           // random 7-subsets sampled per region and round (1000); a third as
                       // many again are drawn from the 15 most fractional elements
+  int kbox;           // > 0: also separate the box (count) inequalities and add this many
+                      // per round (0 = off)
+  int box_qmax;       // largest |Q| of a box cut (24)
+  int box_starts;     // local-search starts per region and b (40)
+  int box_bmax;       // b = 1..box_bmax (7)
   int add_until;      // > 0: add new cuts only in rounds <= add_until; later rounds
                       // move the multipliers of the frozen pool (the dual-method test,
                       // stronger_bounds/dualtest). 0 = every round (default)

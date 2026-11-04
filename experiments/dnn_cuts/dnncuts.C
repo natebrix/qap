@@ -8,7 +8,7 @@
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
        [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
        [-Ladd file[:const]] [-warmY] [-dumpY prefix] [-addto R] [-seven K[:S]]
-       [-stall R] [-pgate R:M] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
+       [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
  original indices of one side (default side 0, the first matrix: wil50's
@@ -16,7 +16,11 @@
  node's free elements. -prefix takes the prefixes of the free elements
  (validation on any instance); -atomic the single-variable triangles of
  README.md; -five K adds K of the regional 5-point count inequalities per
- round on top of the triangles (dnncut.h). -Ladd file[:const] adds an external
+ round on top of the triangles (dnncut.h); -box K adds K box (count)
+ inequalities per round (largest |Q| QMAX, default 24; STARTS local-search
+ starts per region and b, default 40). The search's per-node settings
+ QAP_DNN_CHEB, QAP_DNN_TIGHT_LAM and QAP_DNN_REFRESH are read from the
+ environment as bnb does (QAP_DNN_CHEB overrides -d). -Ladd file[:const] adds an external
  (m^2+1)^2 row-major double matrix (e.g. stronger_bounds/triples/make_ladd.py)
  to every round's objective, const subtracted from the shift; -dumpY prefix
  writes the final primal iterate Y to prefix.Y.bin (raw doubles, row-major).
@@ -101,6 +105,11 @@ int main(int argc, char **argv)
     }
     else if (o == "-freeze-last") cp.freeze_best = 0;                     // quiet round from the last round's multipliers, not the best round's
     else if (o == "-warmY") cp.warm_primal = 1;
+    else if (o == "-box" && more) {                                        // -box K[:QMAX[:STARTS]]: K box (count) inequalities a round (dnncut.h)
+      const char *z = argv[++a], *c = strchr(z, ':');
+      cp.kbox = atoi(z);
+      if (c) { cp.box_qmax = atoi(c + 1); if (const char *c2 = strchr(c + 1, ':')) cp.box_starts = atoi(c2 + 1); }
+    }
     else if (o == "-Ladd" && more) ladd_spec = argv[++a];
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
@@ -156,10 +165,14 @@ int main(int argc, char **argv)
          cp.atomic ? "atomic" : (cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
   if (cp.grid_rows > 0) printf(" side %d", cp.side);
   if (cp.warm_primal) printf(" warmY 1");
+  if (cp.kbox > 0) printf(" box %d qmax %d starts %d", cp.kbox, cp.box_qmax, cp.box_starts);
   DNNParams base;
   base.eig_mode = eig_mode;
   base.cheb_degree = degree;
   base.gamma = gamma; base.gamma1 = gamma1;
+  if (const char *e = getenv("QAP_DNN_CHEB")) base.cheb_degree = atoi(e);
+  if (const char *e = getenv("QAP_DNN_TIGHT_LAM")) base.tight_lam = atoi(e);
+  if (const char *e = getenv("QAP_DNN_REFRESH")) base.refresh = atoi(e);
   cp.verbose = std::max(1, verbose);
   DNNWarm warm;
   if (!cp.atomic) {

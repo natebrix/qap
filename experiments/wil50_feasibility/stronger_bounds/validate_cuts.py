@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Validity check of dnncuts' regional cuts (-prefix), atomic cuts and the
-regional 5-point count inequalities (-prefix -five 30) against
+regional 5-point count inequalities (-prefix -five 30), the local-7
+inequalities (-prefix -seven 20:200) and the box inequalities (-prefix -box
+30:6) against
 enumeration on random small instances: every certified value printed by every
 round must be at or below the optimum of the node, and the final bound must not
 exceed it. Also records how often the cuts strengthen the bound.
 
   python3 experiments/wil50_feasibility/stronger_bounds/validate_cuts.py [-n 7] [-N 12] [--seed 1]
+      [--families prefix,atomic,five,seven,box]
 """
 import argparse, importlib.util, os, random, re, subprocess, sys, tempfile
 
@@ -53,11 +56,13 @@ def main():
     ap.add_argument("-n", type=int, default=7)
     ap.add_argument("-N", type=int, default=12, help="instances")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--families", default="prefix,atomic,five,seven,box")
     args = ap.parse_args()
+    fams = args.families.split(",")
     rng = random.Random(args.seed)
     tmp = tempfile.mkdtemp()
     checks = bad = 0
-    gains = {"prefix": [], "atomic": [], "five": [], "seven": []}
+    gains = {f: [] for f in fams}
     for t in range(args.N):
         fam = bf.FAMILIES[t % len(bf.FAMILIES)]
         A, B, C = bf.make_instance(fam, args.n, rng)
@@ -72,7 +77,10 @@ def main():
         for fx in nodes:
             fixes = [] if fx == "-" else [tuple(map(int, s.split(":"))) for s in fx.split(",")]
             opt = node_optimum(A, B, C, fixes)
-            for name, flags in (("prefix", ["-prefix"]), ("atomic", []), ("five", ["-prefix", "-five", "30"]), ("seven", ["-prefix", "-seven", "20:200"])):
+            for name, flags in (("prefix", ["-prefix"]), ("atomic", []), ("five", ["-prefix", "-five", "30"]),
+                                ("seven", ["-prefix", "-seven", "20:200"]), ("box", ["-prefix", "-box", "30:6"])):
+                if name not in fams:
+                    continue
                 lbs, best, first = run(dat, fx, flags)
                 for lb in lbs:
                     checks += 1

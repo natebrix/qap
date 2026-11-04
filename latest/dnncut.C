@@ -17,6 +17,7 @@ DNNCutParams::DNNCutParams()
   warm_primal = 0;
   rounds = 12; iters = 300; first_iters = 0; kcuts = 1000; kcuts5 = 0; add_until = 0;
   kcuts7 = 0; sub7 = 1000;
+  kbox = 0; box_qmax = 24; box_starts = 40; box_bmax = 7;
   delta = 50; theta = 1.0; mu0 = 0;
   grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
   stall_rounds = 0; stall_factor = 3.0;
@@ -32,8 +33,52 @@ namespace {
 // elements of the other side (local indices), type 0/1/2 = apex a/b/c, 3 =
 // the sum inequality; type 4 = the 5-point count inequality on a < b < c <
 // d < e with flip set `mask` (bit x = element x of a..e flipped) and alpha
-// type 6 = a local-7 inequality: a is the index into the pool's L7Cut vector
+// type 6 = a local-7 inequality: a is the index into the pool's L7Cut vector;
+// type 8 = a box inequality: a is the index into the pool's BoxCut vector
 struct Cut { int type, a, b, c, s; double mu; int d, e, mask, alpha; };
+
+// ---- box (count) inequalities (type 8), see dnncut.h:
+//   b sum_{i in Q} p_i - sum_{i<j in Q} W_ij - b (b + 1) / 2 <= 0
+struct BoxCut { std::vector<int> Q; int b; };
+static std::vector<BoxCut> *g_box = NULL;   // the current call's pool of box cuts
+double box_value(const BoxCut &c, const std::vector<double> &p, const std::vector<double> &W, int m)
+{
+  double v = -0.5 * c.b * (c.b + 1);
+  for (size_t x = 0; x < c.Q.size(); x++) {
+    v += c.b * p[c.Q[x]];
+    const double *w = &W[(size_t)c.Q[x] * m];
+    for (size_t y = x + 1; y < c.Q.size(); y++) v -= w[c.Q[y]];
+  }
+  return v;
+}
+// best-improvement add/drop local search from the set `in` for one b: the
+// gain of adding i is b p_i - sum_{k in Q} W_ik, of dropping i its negative
+// (W_ii excluded); sizes kept in [3, qmax]
+void box_local(const std::vector<double> &p, const std::vector<double> &W, int m, int b, int qmax,
+               std::vector<char> &in)
+{
+  std::vector<double> Wm(m, 0.0);
+  int sz = 0;
+  for (int k = 0; k < m; k++)
+    if (in[k]) {
+      sz++;
+      const double *w = &W[(size_t)k * m];
+      for (int i = 0; i < m; i++) if (i != k) Wm[i] += w[i];
+    }
+  for (int moves = 0; moves < 20 * m; moves++) {
+    double best = 1e-10; int bi = -1;
+    for (int i = 0; i < m; i++) {
+      const double g = b * p[i] - Wm[i];
+      if (in[i]) { if (sz > 3 && -g > best) { best = -g; bi = i; } }
+      else if (sz < qmax && g > best) { best = g; bi = i; }
+    }
+    if (bi < 0) return;
+    const double sgn = in[bi] ? -1.0 : 1.0;
+    in[bi] = !in[bi]; sz += in[bi] ? 1 : -1;
+    const double *w = &W[(size_t)bi * m];
+    for (int i = 0; i < m; i++) if (i != bi) Wm[i] += sgn * w[i];
+  }
+}
 
 // ---- local-7 cuts (type 6), see dnncut.h
 struct L7Cut { int f[7]; double ca[7], cb[21], beta; };
@@ -234,6 +279,7 @@ double cut_rhs(const Cut &t)
   if (t.type == 3) return 1.0;
   if (t.type == 4) { Five f; five_coef(t.mask, t.alpha, f); return -f.c0; }
   if (t.type == 6) return (*g_l7)[t.a].beta;
+  if (t.type == 8) { const BoxCut &c = (*g_box)[t.a]; return 0.5 * c.b * (c.b + 1); }
   return 0.0;
 }
 
@@ -241,6 +287,7 @@ double rviolation(const Cut &t, const std::vector<double> &p, const std::vector<
 {
   if (t.type == 4) return rviolation5(t, p, W, m);
   if (t.type == 6) return rviolation7(t, p, W, m);
+  if (t.type == 8) return box_value((*g_box)[t.a], p, W, m);
   auto w = [&](int i, int j) { return W[(size_t)i * m + j]; };
   const int i = t.a, j = t.b, k = t.c;
   switch (t.type) {
@@ -288,6 +335,30 @@ double add_rcut(const Cut &t, const Region &S, std::vector<double> &L, const Lif
     for (int x = 0; x < 5; x++) {
       if (f.cp[x] != 0) lin(T[x], mu * f.cp[x]);
       for (int y = x + 1; y < 5; y++, q++) pair(T[x], T[y], mu * f.cw[q]);
+    }
+  }
+  return abs_;
+}
+
+// the summed box terms of one region: coefficient pc_i on p_i and wc_ij
+// (i < j, upper triangle of an m x m array) on W_ij, written as add_rcut does
+double add_region_terms(const Region &S, const std::vector<double> &pc, const std::vector<double> &wc,
+                        std::vector<double> &L, const Lift &lift, int n1)
+{
+  const int m = lift.m;
+  double abs_ = 0;
+  for (int i = 0; i < m; i++) {
+    if (pc[i] != 0)
+      for (int a : S.loc) { const size_t r = lift(a, i); L[r * n1 + r] += pc[i]; abs_ += fabs(pc[i]); }
+    for (int j = i + 1; j < m; j++) {
+      const double v = wc[(size_t)i * m + j];
+      if (v == 0) continue;
+      for (int a : S.loc)
+        for (int b : S.loc) {
+          if (a == b) continue;   // gangster zero
+          const size_t r = lift(a, i), c = lift(b, j);
+          L[r * n1 + c] += v / 2; L[c * n1 + r] += v / 2; abs_ += fabs(v);
+        }
     }
   }
   return abs_;
@@ -362,6 +433,8 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   std::map<std::vector<int>, int> index;
   std::vector<L7Cut> l7;                // the pool's local-7 cuts (Cut::a indexes it)
   init_p7(); g_l7 = &l7;
+  std::vector<BoxCut> boxes;            // the pool's box cuts (Cut::a indexes it)
+  g_box = &boxes;
   std::vector<L7Space> l7space;         // per region, the admissible configurations
   if (cp.kcuts7 > 0 && m >= 7)
     for (auto &R : regions) l7space.push_back(l7_space((int)R.loc.size(), m));
@@ -380,12 +453,27 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     else std::fill(Ladd.begin(), Ladd.end(), 0.0);
     double abs_add = cp.L_ext_abs, hsum = cp.ext_const;
     int active = 0;
+    std::vector<std::vector<double>> bpc, bwc;   // per region, the summed box terms
     for (const Cut &t : cuts)
       if (t.mu > 0) {
-        abs_add += t.s < 0 ? add_cut(t, Ladd, n1, t.mu) : add_rcut(t, regions[t.s], Ladd, lift, n1, t.mu);
+        if (t.type == 8) {
+          if (bpc.empty()) { bpc.assign(regions.size(), {}); bwc.assign(regions.size(), {}); }
+          if (bpc[t.s].empty()) { bpc[t.s].assign(m, 0.0); bwc[t.s].assign((size_t)m * m, 0.0); }
+          const BoxCut &c = boxes[t.a];
+          for (size_t x = 0; x < c.Q.size(); x++) {
+            bpc[t.s][c.Q[x]] += t.mu * c.b;
+            for (size_t y = x + 1; y < c.Q.size(); y++) {
+              const int i = std::min(c.Q[x], c.Q[y]), j = std::max(c.Q[x], c.Q[y]);
+              bwc[t.s][(size_t)i * m + j] -= t.mu;
+            }
+          }
+        } else
+          abs_add += t.s < 0 ? add_cut(t, Ladd, n1, t.mu) : add_rcut(t, regions[t.s], Ladd, lift, n1, t.mu);
         hsum += t.mu * cut_rhs(t);
         active++;
       }
+    for (size_t s = 0; s < bpc.size(); s++)
+      if (!bpc[s].empty()) abs_add += add_region_terms(regions[s], bpc[s], bwc[s], Ladd, lift, n1);
     out.active = active;
     DNNParams par = base;
     par.warm_primal = cp.warm_primal && r > 0;
@@ -423,9 +511,10 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     // separate on the last primal iterate
     const std::vector<double> &Y = warm->Y;
     if (Y.size() != (size_t)n1 * n1) break;
-    std::vector<std::pair<double, Cut>> found, found5, found7;
+    std::vector<std::pair<double, Cut>> found, found5, found7, found8;
     std::vector<L7Cut> cand7;           // the local-7 candidates of this round (Cut::a indexes it)
-    size_t nviol = 0, nviol5 = 0, nviol7 = 0;
+    std::vector<BoxCut> cand8;          // the box candidates of this round (Cut::a indexes it)
+    size_t nviol = 0, nviol5 = 0, nviol7 = 0, nviol8 = 0;
     auto by_violation = [](const std::pair<double, Cut> &u, const std::pair<double, Cut> &w) {
       return u.first > w.first; };
     auto trim = [&](std::vector<std::pair<double, Cut>> &v, int k) {
@@ -527,10 +616,54 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
           }
           nviol7 += n7;
         }
+        // the box inequalities: local search over Q for b = 1..box_bmax from
+        // the b + 2 largest p_i and from random weighted starts
+        double r8 = -HUGE_VAL; size_t n8 = 0;
+        if (cp.kbox > 0 && m >= 4) {
+          const std::vector<double> &p = P[s], &W = WW[s];
+          std::mt19937 rng(7919u * (unsigned)(r + 1) + 104729u * (unsigned)s + 17u);
+          std::uniform_real_distribution<double> U(0.0, 1.0);
+          const int qmax = std::min(cp.box_qmax, m - 1);
+          std::set<std::vector<int>> seen;
+          std::vector<int> order(m);
+          for (int i = 0; i < m; i++) order[i] = i;
+          std::sort(order.begin(), order.end(), [&](int i, int j) { return p[i] > p[j]; });
+          for (int b = 1; b <= cp.box_bmax; b++) {
+            if (b + 2 > qmax) break;
+            for (int st = 0; st < cp.box_starts; st++) {
+              std::vector<char> in(m, 0);
+              if (st == 0) for (int i = 0; i < b + 2; i++) in[order[i]] = 1;
+              else {
+                const int hi = std::min(qmax, 3 * b + 6), k0 = b + 1 + (int)(U(rng) * (hi - b));
+                // weighted sampling without replacement, weights p(1-p) + 1e-3
+                std::vector<std::pair<double, int>> key(m);
+                for (int i = 0; i < m; i++)
+                  key[i] = {log(std::max(U(rng), 1e-300)) / (p[i] * (1 - p[i]) + 1e-3), i};
+                std::partial_sort(key.begin(), key.begin() + std::min(k0, m), key.end(),
+                                  [](const std::pair<double, int> &u, const std::pair<double, int> &w) { return u.first > w.first; });
+                for (int i = 0; i < std::min(k0, m); i++) in[key[i].second] = 1;
+              }
+              box_local(p, W, m, b, qmax, in);
+              BoxCut c; c.b = b;
+              for (int i = 0; i < m; i++) if (in[i]) c.Q.push_back(i);
+              std::vector<int> key = c.Q; key.push_back(-b);
+              if (!seen.insert(key).second) continue;
+              const double v = box_value(c, p, W, m);
+              r8 = std::max(r8, v);
+              if (v > 1e-3) {
+                cand8.push_back(c);
+                Cut ct = {8, (int)cand8.size() - 1, 0, 0, (int)s, 0.0};
+                found8.push_back({v, ct}); n8++;
+              }
+            }
+          }
+          nviol8 += n8;
+        }
         if (cp.verbose > 1) {
           printf("  region %-8s violated %zu  max %.4f", regions[s].name.c_str(), rn, rmax);
           if (cp.kcuts5 > 0) printf("  five %zu  max %.4f", n5, r5);
           if (cp.kcuts7 > 0) printf("  seven %zu  max %.4f", n7, r7);
+          if (cp.kbox > 0) printf("  box %zu  max %.4f", n8, r8);
           printf("\n");
         }
         bound_memory();
@@ -590,6 +723,22 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
       cuts.push_back(ct);
       added7++;
     }
+    // box cuts: one per (region, b, Q) in the pool; the candidate's data moves into boxes
+    std::sort(found8.begin(), found8.end(), by_violation);
+    int added8 = 0;
+    for (auto &f : found8) {
+      if (added8 >= (adding ? cp.kbox : 0)) break;
+      const BoxCut &c = cand8[f.second.a];
+      std::vector<int> key = {8, f.second.s, c.b};
+      key.insert(key.end(), c.Q.begin(), c.Q.end());
+      if (index.count(key)) continue;
+      index[key] = (int)cuts.size();
+      boxes.push_back(c);
+      Cut ct = f.second; ct.a = (int)boxes.size() - 1; ct.mu = cp.mu0;
+      cuts.push_back(ct);
+      added8++;
+    }
+    const double maxv8 = found8.empty() ? 0 : found8[0].first;
     const double maxv = found.empty() ? 0 : found[0].first;
     const double maxv5 = found5.empty() ? 0 : found5[0].first;
     const double maxv7 = found7.empty() ? 0 : found7[0].first;
@@ -604,6 +753,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     if (cp.verbose) {
       if (cp.kcuts5 > 0) printf("  five %zu (max %.4f) added5 %d", nviol5, maxv5, added5);
       if (cp.kcuts7 > 0) printf("  seven %zu (max %.4f) added7 %d", nviol7, maxv7, added7);
+      if (cp.kbox > 0) printf("  box %zu (max %.4f) addedB %d", nviol8, maxv8, added8);
       printf("\n");
     }
     if (solved && res.status == DNN_FATHOMED) break;
