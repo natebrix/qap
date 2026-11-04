@@ -319,3 +319,13 @@ protocol's dynamics noise; mu 1 is running.
   certificate (lag 49 vs 29 on d2). Best literature family found, but its
   measured size is about +15-20, not +40; in the pool with optimized
   multipliers and a 1,500-iteration quiet round it might certify +15-30.
+
+## ~12:05 box family vs n at the roots (fixed mu, certified, dnntest 3,000 it., grid on side 0)
+small/run_queue_i3.sh, small/logs/nug{20,30}_sw_*.log: best fixed-mu gain over the
+uncut root, in units of the DNN gap: nug12 +2.31 / 10.0 = 0.23 (10 cuts, mu 2;
+exact cutting planes 1.00), nug20 +4.42 / 63.7 = 0.07 (100 cuts, mu 0.5; mu 2
+overshoots -54.6), nug30 +3.59 / 174.6 = 0.02 (100 cuts, mu 0.5; mu 2 -33.5).
+(The nug12 step of this queue failed on a path; nug12 was measured in wil50/plumb.)
+Cleanup: removed all dumped Y.bin / L.bin binaries (regenerable). papers/ keeps
+the downloaded preprints (third-party PDFs: probably not for the repository).
+Done; report delivered in the hand-back.

@@ -1,0 +1,1 @@
+100 cuts (100 tight on a test permutation; all checked on 1000 random permutations), violations 0.0740..0.1784, mu 2.0, nonzeros 230650, |L| 1672364.000, const 2176.000000 -> use: -Ladd logs/L_tmp.bin:2176

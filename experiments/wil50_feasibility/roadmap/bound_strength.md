@@ -1,6 +1,12 @@
 # wil50 in a week: the bound-strength angle (depths 3-5)
 
-Memo, Nov 2 2026. Nothing was run. Every number is either **[m]**, measured and
+Memo, Nov 2 2026. Nothing was run.
+
+**Update Nov 4:** a three-agent study (`new_cuts/SYNTHESIS.md`) closed item 3
+(the regional M2 block: every single threshold is already saturated after the
+triangle phase) and item 5 (mixed-region and rectangle triangles: 0-5), and
+found no family that adds +40 on top of the triangles. Item 1 (inheritance)
+passed its gate (Astra, `research/pool-inheritance`). Every number is either **[m]**, measured and
 read from the named file (paths relative to `experiments/wil50_feasibility/stronger_bounds/`
 unless they start with `latest/`), or **[e]**, my estimate. One level is +130
 units at depths 3-5, worth 47x on the tree (`../NOTES.md` section 5). A gain of

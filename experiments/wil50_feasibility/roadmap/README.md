@@ -43,14 +43,15 @@ from the range above).
 | speed | coordinator instead of the checkpoint barrier and node-end steals | 1.15-1.35x of the fleet | in plan.md | 70-85% busy today against 93-97% |
 | tree | confirm give-ups uncut before the phase (QAP_DNN_GU_ZONE was off in run_ab3), primal gate in the phase, zone 0.0035 | **replayed, about 1.1x; closed** (`trims/README.md`): the deferral has nothing to save (the extrapolation rule already lets slow uncut fathoms finish), the primal gate 4:20 is in the code (default off, no false stop on 88 logged phases) and worth about 6%, the zone a modelled 4%; the search A/B was abandoned as not worth four hours | done | switch `QAP_DNN_CUT_PGATE=4:20` on in the production configuration; no further test |
 | bound | skew-symmetric certificate polishing at non-converged iterates | 1.05-1.15x on the phase | 2-3 days | offline ascent on a dumped residual; killed under 20% of the gap recovered |
-| bound | regional M2 block as a Lagrangian decomposition (Astra's 10b) | +20 units (10-15% chance of +65) | 2-3 weeks | project node 13's capped iterate onto the M2 set offline; killed if the excess over the triangles is under 0.03 |
+| bound | regional M2 block as a Lagrangian decomposition (Astra's 10b) | +20 units (10-15% chance of +65); **downgraded Nov 4 to about 0** (`new_cuts/SYNTHESIS.md`: after the triangle phase every single threshold is already saturated, so per-region blocks have nothing left) | 2-3 weeks | not worth running |
+| bound | new cut families, three research agents (literature, grid, facility; `new_cuts/SYNTHESIS.md`) | **none meets +40; no path to +130 through linear inequalities on Y.** The residual gap is the global coupling of the middle thresholds (117-143 at depth 3), which only branching resolves. One optional side-bet: large-Q box inequalities in the pool, +10 to +25 estimated | box test about 1 day | kill if the median over nodes 10, 13, d2 is under +15 |
 | speed | GPU port, 8-16 nodes per device | wall clock: 100 H100s = about 7x the 1,000 cores | 3-6 weeks | one-day CuPy prototype; dropped above 10 ms per node-iteration on an A100 |
 
 Closed this week, do not revisit without new evidence: 5-point counts, triple
 consistency, the dual method (bundle), the local-7 family as a pool cut type,
 Anderson/Halpern, momentum, atomic triangles, eliminations from the
 certificate. Another full level from new inequalities at depths 3-5 is rated
-under 10% within a month (`bound_strength.md`).
+under 10% within a month (`bound_strength.md`). Closed Nov 4 by the three-agent study (`new_cuts/`): every facility-side family, the location-side geometric families (parity, dispersion, free regions, rectangles, l1/hypermetric), the row/column decomposition, objective splitting with a coarse optimum, the three local RLT2 projections, RLT2/RLT3/Lasserre-2, disjunctive and lift-and-project cuts, and the per-region moment block.
 
 ## 3. Multiplying out (revised Nov 3, evening)
 
