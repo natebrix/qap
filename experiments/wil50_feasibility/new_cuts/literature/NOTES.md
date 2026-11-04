@@ -210,3 +210,7 @@ the regional aggregate, i.e. the threshold triangles we already have.
 - nug12 DNN + LOCATION-triple LMP3 (logs/nug12_cp_lmp0.log, 3 rounds): 567.99 ->
   569.71 -> 570.41 -> 570.86 (max viol 0.208 -> 0.133). After 3 rounds the
   facility side had 573.33: the location half is weaker at nug12.
+- nug12 DNN + MIXED triples (both types, coupled projection; logs/nug12_cp_mix.log,
+  300 cuts a round): 567.99 -> 570.25 -> 571.28 -> 572.00 (3 rounds, max viol
+  0.238 -> 0.127), between the facility half (573.33 at 3 rounds) and the
+  location half (570.86).

@@ -170,3 +170,9 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
   mid5 -3 (vs SA 24,242 in this run; 24,230 best), K=7 -49, K=9 -141.
 - Started runs/d2_tri5_mid5a1of2.log (objective splitting at alpha 0.5 on
   top of the triangles; bound = lb'/2 + 0.5 x 24,230).
+- runs/d2_tri5_mid5a1of2.log (tri5 protocol on inst/wil50_mid5_a1of2.dat, -c 1e12
+  -delta 100, d2): lb' 73,333.45 -> 36,666.73 + 0.5 x 24,230 = 48,781.7 =
+  **+32.1** over plain tri5 (48,749.62); at the 400-it. point +71.1
+  (48,728.0 vs 48,656.9). Break-even LB_K at d2 = 24,165.8.
+- 08:30 coarse level-1 B&B on node 13's mid5 problem (facility 40, 12
+  children, 400 it. each, plain DNN) started: runs/n13_coarse_level1_f40.log.

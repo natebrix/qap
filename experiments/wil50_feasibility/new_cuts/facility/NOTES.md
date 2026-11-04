@@ -250,3 +250,14 @@ sep_dist.py --fam hull3 (logs/hull3_n13_uncut1500.log), gapdecomp.py (logs/gapde
   consistent with the triple distance hull being satisfied apart from the threshold metric facets.
 - rounds 3, 4: 48,730.27 (-16.4), 48,733.76 (-12.9); 0 violated in every round; active multipliers
   60 -> 49. Every positive multiplier tried lowered the certified bound.
+- LMP3 heavy pool result (runs/n13/lmp3pool.log): best round = round 0 (mu = 0); the quiet round from
+  it (800 it, active 0) 48,747.82 = the triangle-only continuation (round 0 48,746.66 + 1.15 from
+  iterations). Gain of the family: 0 at this step size. Gentle-step rerun queued.
+- LMP3_loc pool (compact location triples, delta 2, theta 0.25): round 0 48,746.66; r1 48,747.96
+  (+1.29, primal 48,749.66 = control primal, 9 of 60 still violated); r2 48,748.21 (+1.54, primal
+  48,749.70, 60 violated again at max 0.079 after the multipliers fell). Gains at the level of the
+  iteration drift of the control (+1.15 per 800 it).
+- LMP3_loc pool result (runs/n13/lmp3locpool.log): r3 48,744.76 (-1.9, overshoot), r4 48,746.37;
+  best round 2 48,748.21 (+1.54 over round 0); quiet from it 48,748.09 (42 active). The mu = 0
+  continuation reached 48,747.82 after 200 + 800 it (lmp3pool quiet), so the family's gain over an
+  equal-iteration control is about +0.3..+0.5: nil. 08:47 gentle-step facility pool started.
