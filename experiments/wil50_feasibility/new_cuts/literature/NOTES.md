@@ -214,3 +214,17 @@ the regional aggregate, i.e. the threshold triangles we already have.
   300 cuts a round): 567.99 -> 570.25 -> 571.28 -> 572.00 (3 rounds, max viol
   0.238 -> 0.127), between the facility half (573.33 at 3 rounds) and the
   location half (570.86).
+
+## ~08:55 wil50 node 13, large-Q box cuts at a fixed multiplier on the UNCUT DNN
+
+wil50/run_box_uncut.sh: dnntest -x 21:28,8:41,28:19 -u 48816 -d 3 -L 2 -r 40
+-i 1500 -H 0 (the grid agent's flags). Reference (runs/n13_unc_ref.log):
+48,627.29, primal 48,628.42, 934 s. 200 box cuts separated at the uncut
+iterate (13 threshold regions, |Q| 4-40, b 1-7, raw violations
+0.06-0.15; all checked on 300 random permutations + one per count value),
+mu = 1 (runs/n13_unc_box_mu1_k200.log): certified 48,599.43 (-27.9),
+Lagrangian primal 48,638.62 (+10.2 over the reference primal). The term
+(859k nonzeros, |L| 4.7e6) lags the certificate by 39 at 1,500 iterations,
+exactly the triples' failure mode; the Lagrangian moves +10 at most, the
+same order as local-7's +12 at its gate. mu = 3 killed (would overshoot);
+mu = 0.3 queued later.

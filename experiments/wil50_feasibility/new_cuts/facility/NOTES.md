@@ -261,3 +261,7 @@ sep_dist.py --fam hull3 (logs/hull3_n13_uncut1500.log), gapdecomp.py (logs/gapde
   best round 2 48,748.21 (+1.54 over round 0); quiet from it 48,748.09 (42 active). The mu = 0
   continuation reached 48,747.82 after 200 + 800 it (lmp3pool quiet), so the family's gain over an
   equal-iteration control is about +0.3..+0.5: nil. 08:47 gentle-step facility pool started.
+- Correction: anti-child gain at node 10 is +23.7 certified-vs-certified and +18.9 primal-vs-primal,
+  so the single-variable N+ level is worth +19..+24 (not +21..+24).
+- Gentle facility LMP3 pool round 1: 48,747.04 (+0.38), primal 48,748.89 (below the control's
+  48,749.65), all 60 cuts over-satisfied even at the small first step.

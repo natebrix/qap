@@ -176,3 +176,10 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
   (48,728.0 vs 48,656.9). Break-even LB_K at d2 = 24,165.8.
 - 08:30 coarse level-1 B&B on node 13's mid5 problem (facility 40, 12
   children, 400 it. each, plain DNN) started: runs/n13_coarse_level1_f40.log.
+- runs/n13_coarse_level1_f40.log (coarse_bb.py 21:28,8:41,28:19 40 --iters 400;
+  12 children, 120-130 s CPU each, ~0.31 s/it): children 23,968.1 (super-cell
+  row 2 x col 4, the single cell 24) .. 24,043.5; LB_K after one coarse level
+  = 23,968.1, +40.6 over the parent's 400-it. plain value 23,927.5 and below
+  its tri5 value 23,988.9. At this rate the break-even 24,173 is 4-6 coarse
+  levels away. Converged check queued: runs/coarse_conv.sh (parent and the two
+  lowest children at 1,500 it.).
