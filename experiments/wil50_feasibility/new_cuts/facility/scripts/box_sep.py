@@ -47,11 +47,11 @@ def main():
     rng = np.random.default_rng(a.seed)
     regs = [('row<%d' % t, nd.rc[:, 0] < t) for t in range(1, 5)] + [('col<%d' % t, nd.rc[:, 1] < t) for t in range(1, 10)]
     regs += [('checker', nd.rc.sum(1) % 2 == 0), ('rowpar', nd.rc[:, 0] % 2 == 0), ('colpar', nd.rc[:, 1] % 2 == 0)]
-    print('location regions (s over facilities): region capacity | best box violation, support size; best with support <= 3 (triangle), <= 5')
+    print('location regions (s over facilities): region capacity | best box violation (box measure = 2 x triangle units), support <= 15; best with support <= 3 (triangle), <= 5')
     for name, mask in regs:
         idx = np.where(mask)[0]
         p = x[idx].sum(0); W = T[np.ix_(idx, range(m), idx, range(m))].sum(axis=(0, 2))
-        v, s = search(p, W, rng, a.starts)
+        v, s = search(p, W, rng, a.starts, 15)   # support <= 15: larger supports approach the cardinality equality sum z = |S|, whose violation is primal infeasibility of an unconverged iterate, not a cut
         v3, _ = search(p, W, rng, a.starts // 3, 3); v5, _ = search(p, W, rng, a.starts // 3, 5)
         print('  %-8s %2d | %.4f (support %2d)  tri %.4f  five %.4f' % (name, len(idx), v, np.count_nonzero(s), v3, v5))
     print('facility regions (random sets; s over locations):')

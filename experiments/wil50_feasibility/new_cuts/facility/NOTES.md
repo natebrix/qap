@@ -119,3 +119,84 @@ sep_dist.py --fam hull3 (logs/hull3_n13_uncut1500.log), gapdecomp.py (logs/gapde
 - Star inequalities (scripts/star_check.py, logs/star_n13_uncut1500.log): hub j with weights
   B_j.: DNN value minus the conditional GL bound sum_a x_aj LAP_a is 110-264 per hub (minus
   min_a LAP_a: 144+). Implied (proof in the report) and far from binding.
+
+## 06:13 n13 phase done; give-up iterate diagnostics
+- runs/n13/phase.log: 8 rounds, best round 7 48,700.75 (+103.6 over round 0 48,597.17); laptop
+  reference dual/tri_13.log r7 48,699.80 (+103.0). cpu 1,614 s. State saved (tri.*, 6,199 cuts).
+- Give-up iterate (round 0, 400 it; logs/*_n13_giveup400.log): same picture as converged uncut
+  (facility regions max 0.008, triple min 4.81, checker none, dispersion slack 2.8-12.3), BUT the
+  iterate is not PSD (min eig of Y -0.0105; regional covariances down to -0.44 vs -0.0003 at 1,500 it),
+  so large-support box "violations" (up to 12 box units at support 43-46, 2.9 at support 15) are
+  primal infeasibility, not cuts: the count inequalities of near-full support are the cardinality
+  equality sum_j z_j = |S| that the facial reduction already enforces. Diagnostics are meaningful
+  at converged iterates only; box_sep.py now caps the support at 15.
+
+## 06:18 Draft conclusions so far (to be confirmed at the triangle-phase iterate)
+1. No facility structure: B is a random 0-9 matrix (spectrum, dense subsets, heavy triangles all
+   at random-matrix values). The only facility-side structure is first order (flow degree 168-267,
+   corr -0.90 with the DNN's expected eccentricity), which the DNN already prices exactly (stars).
+2. The objective is <B, Delta> + linear, Delta_jl = sum over the 13 thresholds of P(j, l split by
+   the threshold). The regional triangles ARE bisection inequalities of the flow graph B (one
+   cardinality-constrained bisection per threshold), i.e. the facility side already enters every
+   family tried, through B's weights. Facility regions T make the objective linear in their
+   moments only through a cut decomposition of B + c(J - I) (O(n^2) regions, real weights).
+3. At converged iterates the DNN is consistent on every facility-side count/triangle searched
+   (QUBO-optimized facility regions max 0.006-0.008, both-sides-free boxes only on thresholds,
+   parity/dispersion/star slack): it cheats only on the threshold memberships.
+4. Disjunctions: one level of lift-and-project on a line = min over its children; bounded by the
+   bottleneck child (the largest-x cell); N+ on a single variable = min(child, anti-child);
+   dominated by branching. Measurements pending (node 10 cell 49:45; count split on n13).
+- Facility-triple consistency LMP3_fac (scripts/lmp3.py: LP over the 97k injective placements of
+  a facility triple, min L1 deviation of the three DNN pair blocks; logs/lmp3_n13_uncut1500.log),
+  uncut converged node 13: heaviest-flow triples (flow sum 27) 0.0268, 0.0199, 0.0026; random
+  triples 0.0023, 0.0002, 0.0013. The DNN's pair blocks ARE least consistent on the heaviest
+  triples (about 10x random), but at the 1-3% mass level: each block has mass 1, so ~0.01 of
+  probability would have to move. Order of magnitude per heavy triple in objective units:
+  0.01 x (1-2 distance) x flows 9 x 3 pairs ~ 0.3-0.5.
+
+## 06:30 n13 after the triangle phase (quiet round 1,500 it from round 7's multipliers)
+- runs/n13/quiet.log: lb 48,745.63 (+148.5 over the give-up 48,597.17; laptop 12-round reference
+  48,755.42), primal 48,749.34; 68.4 short of the cutoff.
+- Certificate child bounds from the cut certificate (fdrv -C): 0 of 2,209 children fathomed;
+  excess over lb median 0.054, 90% 0.22, 99% 19.4, max 43.5 (68.4 needed); 2,043 within 1 of lb.
+  The cut certificate is as flat as the uncut one (tuning/README.md section 2).
+- Diagnostics at the quiet iterate (logs/*_n13_tri.log): threshold triangles max 0.015-0.054
+  (counts 45-438, down from 0.034-0.080); facility regions (QUBO over T, 120 location triples)
+  max 0.0001; checker none; triple min 4.87; dispersion slack 2.9-11.0; hull3 only 3 metric facets
+  (0.08-0.14, implied by threshold triangles). Signed boxes on thresholds with support 5-15:
+  0.02-0.07 triangle units (the 5-point family was a wash in the pool). box2 found |P|=46,|Q|=43
+  "violations" of 0.055: cancellation artifacts of near-full counts (E c^2 - (E c)^2 with
+  E c ~ 42 and column-sum residuals 5e-4), not cuts.
+- LMP3_fac at the quiet iterate: heaviest triples 0.023, 0.022, 0.011, 0.009 (uncut: 0.027, 0.020,
+  0.003): the triangle phase does not repair heavy-triple consistency. The one facility-side
+  family still violated -> pool test (scripts/lmp3_sep.py --k 60 on the quiet iterate, then
+  fdrv -pool on top of the frozen triangle term, against an equal-iteration control).
+- Count split picked at the quiet iterate (runs/n13/split_pick.log): col<2, Q+ {34,38},
+  Q- 10 facilities, beta 8, E c 8.576, Var 0.104 (f(1-f) 0.244); jobs queued (mu 10/40/160 per side).
+
+## 06:40 LMP3 on heavy facility triples and compact location triples (n13 quiet iterate)
+- scripts/lmp3_sep.py --k 60 (logs/lmp3sep_n13_tri.log, runs/n13/lmp3_heavy60.cb): 60 cuts from the
+  60 heaviest-flow facility triples (flow sum 27): violations min 0.0006, median 0.016, max 0.114,
+  sum 1.46; the largest on triples inside the densest 4-set {5, 9, 20, 27} (0.065-0.114). Exact RHS
+  (rounded potentials, max over all placements), perm check passes. ~6 s per LP.
+- LMP3_loc (scripts/lmp3.py --loc, logs/lmp3loc_n13_tri.log): compact location triples (L-shapes,
+  perimeter 4) 0.059, 0.053; random location triples 0.006, 0.0015. Cross-mandate observation (the
+  location side): the 3-local consistency of compact location triples is violated ~10x more than
+  random ones, in directions no facility-region triangle sees (facreg max 0.0001 at this iterate).
+  scripts/lmp3_sep_loc.py writes those cuts (runs/n13/lmp3loc_compact60.cb, running).
+- Queued: runs/n13/lmp3pool.log (fdrv -pool on the 60 heavy-triple cuts, 200 + 4 x 300 + quiet 800,
+  delta 5, theta 0.5, warm Y) and runs/n13/lmp3ctl.log (equal-iteration control, 2,200 it).
+- LMP3_loc cuts (runs/n13/lmp3loc_compact60.cb, logs/lmp3locsep_n13_tri.log): 60 L-shaped location
+  triples, violations min 0.007, median 0.044, max 0.104, sum 2.76 (twice the heavy facility triples'
+  1.46); perm check passes. Pool test queued (runs/n13/lmp3locpool.log).
+
+## 06:48 Node 10's bottleneck cell 49:45 (the cell disjunction)
+- runs/n10c/child4945.log (dnntest -x 39:27,30:48,25:49,49:45 -u 48816 -T 1 -d 3 -L 2 -r 40 -i 1500
+  -H 0 -C 1): certified 48,690.99 at 1,500 it, primal 48,710.09 (m = 46, not fully converged; the
+  child's DNN value is in [48,691, ~48,710]). Parent node 10 converged uncut 48,655.9 (misses table).
+  So every disjunction on row 49 or on column 45 (the full line closures included; one level of
+  lift-and-project on either line) is worth at most +35 certified / ~+54 by the primal estimate at
+  node 10, which is 158 short. The child's certificate fathoms 0 of its 2,116 grandchildren.
+- Lines study, all 30 lines of the 3 parents: the line's minimum child is its largest-x cell on 22
+  of 30 lines, the second-largest on 7, the 5th on 1 (logs/lines_xweighted.log). The cap on any
+  line disjunction is the child of the cell the DNN favours most.

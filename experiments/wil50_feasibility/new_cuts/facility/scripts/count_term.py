@@ -10,11 +10,15 @@ entries (0, (aj)) and ((aj), 0) get half the coefficient each.
 import argparse
 import numpy as np
 from ynode import Node
-ap = argparse.ArgumentParser(); ap.add_argument('spec'); ap.add_argument('--region', required=True)
+ap = argparse.ArgumentParser(); ap.add_argument('spec'); ap.add_argument('--region'); ap.add_argument('--pick', help='pick_split.py log: take region, Q+, Q-, beta from its ARGS line')
 ap.add_argument('--plus', default=''); ap.add_argument('--minus', default='')
-ap.add_argument('--beta', type=int, required=True); ap.add_argument('--side', choices=['le', 'ge'], required=True)
+ap.add_argument('--beta', type=int); ap.add_argument('--side', choices=['le', 'ge'], required=True)
 ap.add_argument('--mu', type=float, required=True); ap.add_argument('--out', required=True)
 a = ap.parse_args()
+if a.pick:
+    toks = [l for l in open(a.pick) if l.startswith('ARGS')][0].split()[1:]
+    kv = dict(zip(toks[0::2], toks[1::2]))
+    a.region = kv['--region']; a.plus = kv.get('--plus', ''); a.minus = kv.get('--minus', ''); a.beta = int(kv['--beta'])
 nd = Node(a.spec); m = nd.m; n1 = m * m + 1
 kind, t = a.region.split('<'); t = int(t)
 inS = (nd.rc[:, 0] < t) if kind == 'row' else (nd.rc[:, 1] < t)

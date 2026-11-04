@@ -12,6 +12,7 @@ nd = Node(sys.argv[1]).load(sys.argv[2]); m = nd.m; x = nd.x; T = nd.T
 rng = np.random.default_rng(5)
 best = (-1, None)
 regs = [('row<%d' % t, nd.rc[:, 0] < t) for t in range(1, 5)] + [('col<%d' % t, nd.rc[:, 1] < t) for t in range(1, 10)]
+if len(sys.argv) > 3: regs = [r for r in regs if r[0] in sys.argv[3].split(',')]   # optional region filter
 for name, mask in regs:
     idx = np.where(mask)[0]
     p = x[idx].sum(0); W = T[np.ix_(idx, range(m), idx, range(m))].sum(axis=(0, 2))
@@ -34,4 +35,4 @@ for name, mask in regs:
             best = (cur, name, np.where(s > 0)[0].tolist(), np.where(s < 0)[0].tolist(), int(np.floor(mu)), mu, var)
 v, name, qp, qm, beta, mu, var = best
 print('best split: region %s  Q+ %s  Q- %s  beta %d  E c %.4f  Var c %.4f  box violation %.4f (triangle units %.4f)' % (name, qp, qm, beta, mu, var, v, v / 2))
-print('ARGS --region %s --plus %s --minus %s --beta %d' % (name, ','.join(map(str, qp)), ','.join(map(str, qm)) or '""', beta))
+print('ARGS --region %s --plus %s%s --beta %d' % (name, ','.join(map(str, qp)), (' --minus ' + ','.join(map(str, qm))) if qm else '', beta))

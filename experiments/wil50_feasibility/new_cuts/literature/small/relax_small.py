@@ -198,7 +198,7 @@ def regional_triangles(n, regions):
     return G, np.array(h)
 
 
-def solve(n, L, which, regions=None, solver="CLARABEL", verbose=False, psd=True):
+def solve(n, L, which, regions=None, solver="CLARABEL", verbose=False, psd=True, extra=None, eps=1e-7):
     N = n * n + 1
     d = (n - 1) ** 2 + 1
     Vh = vhat(n)
@@ -225,12 +225,15 @@ def solve(n, L, which, regions=None, solver="CLARABEL", verbose=False, psd=True)
             z = cp.Variable(nzt, nonneg=True)
             cons.append(Az @ z + Ay @ y == 0)
             nz += nzt
+    if extra is not None:
+        for (Ge, he) in extra:
+            cons.append(Ge @ y <= he)
     obj = cp.Minimize(L.reshape(-1) @ y)
     prob = cp.Problem(obj, cons)
     t0 = time.time()
     kw = {}
     if solver == "SCS":
-        kw = dict(eps_abs=1e-7, eps_rel=1e-7, max_iters=200000)
+        kw = dict(eps_abs=eps, eps_rel=eps, max_iters=200000)
     prob.solve(solver=solver, verbose=verbose, **kw)
     return prob.value, prob.status, time.time() - t0, y.value
 
@@ -261,6 +264,7 @@ if __name__ == "__main__":
     ap.add_argument("--brute", action="store_true")
     ap.add_argument("--opt", type=float, default=None)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--eps", type=float, default=1e-7)
     args = ap.parse_args()
     n, A, B, C = read_qaplib(args.dat)
     L = lifted_cost(n, A, B, C)
@@ -276,6 +280,8 @@ if __name__ == "__main__":
         "lmp0": (["lmp0"], True), "lmp01": (["lmp0", "lmp1"], True), "rlt2": (["rlt2"], True),
         "tri_lmp1": (["tri", "lmp1"], True),
         "rlt1lp": (["dnn"], False), "rlt2lp": (["rlt2"], False),
+        "lmp1lp": (["lmp1"], False), "lmp0lp": (["lmp0"], False), "lmp01lp": (["lmp0", "lmp1"], False),
+        "trilp": (["tri"], False),
     }
     for w in args.which.split(","):
         tags, psd = variants[w]
@@ -283,7 +289,7 @@ if __name__ == "__main__":
             continue
         solver = args.solver if psd else "HIGHS"
         try:
-            val, st, t, yv = solve(n, L, tags, regions, solver=solver, psd=psd)
+            val, st, t, yv = solve(n, L, tags, regions, solver=solver, psd=psd, eps=args.eps)
         except Exception as e:
             val, st, t = None, "error: %s" % e, 0
         res[w] = val

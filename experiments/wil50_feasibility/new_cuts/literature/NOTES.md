@@ -71,3 +71,86 @@ Small-instance experiment (small/relax_small.py, cvxpy + SCS/Clarabel/HiGHS):
   2x3/2x4 (gap <= 0.45). Gaps only at the nug12 root (568 vs 578).
 - Launched run_nug12.sh (background, core 1): nug12 root, grid on side 0:
   dnn, rlt1lp, rlt2lp, tri, lmp1, lmp0, rlt2, lmp01; logs/nug12_<v>.log.
+
+## ~07:00 more literature, first gates
+
+- Jünger-Kaibel box inequalities (MP 91, 2001; report zpr97-285,
+  papers/kaibel_box_zpr97-285, Tables 1-3): LP (symmetric equation bound) +
+  1-box cutting planes: nug12 576.3 (DNN 568, opt 578), nug15 1129.4 (DNN
+  1141), nug16a 1567 (1600), nug16b 1208.2 (1219), nug17 1643.5 (1708),
+  nug18 1809.3 (1894), nug20 2313.5 (2507); all esc16 except esc16a closed to
+  the optimum (esc16a 66 of 68; DNN 64). 1-box beat 2-box and 4-box in their
+  separation; b in {2, 3}. So at n = 12 the LP + boxes beats the DNN; at
+  n = 20 it is 200 below. Nobody has run boxes on top of an SDP/DNN for QAP.
+- de Klerk, Nagy, Sotirov, Truetsch, EJOR 2014 (optimization-online 2012/01/
+  3303, papers/deklerk_symrlt_3303): QAP_SDP+RLT-2 (every slice Z[ij] DNN,
+  RLT2 marginals) >= Povh-Rendl; computable only with large symmetry
+  (Higman-Sims k-section: min 20-section 950 -> 975 (ub 980), min 25-section
+  960 -> 1000 (opt), max 4-section 1100 -> 1048). n^2 PSD blocks of order n^2.
+- RLT1 LP on nug12 computed here: 522.894 (HiGHS) = Resende et al.'s 523:
+  the formulation checks out.
+- Box gate on wil50 node 13 (wil50/box_gate.py, local search per b over Q,
+  13 threshold regions), raw violation = -E[(q-b)(q-b-1)] (= 2x the
+  dnncut.h normalisation): triangle-capped iterate (grid agent's
+  runs/n13_tri5.Y.bin, 5 triangle rounds + 600 quiet) max 0.152, top-20
+  0.12-0.15, from |Q| = 4..20, b = 1..7; uncut iterate (runs/n13_uncut.Y.bin)
+  max 0.150. So ~0.07 in triangle units, the same scale as the 5-point
+  family's violations; the triangles barely reduce them. Same shape as the
+  5-point and local-7 gates that passed but washed out as pools.
+
+## ~07:30 note on the deliverable
+
+The harness refuses to let this subagent Write a file named REPORT.md
+("subagents should return findings as text"). The report will be delivered
+as the agent's final message to the coordinator; the coordinator can save
+it as REPORT.md. NOTES.md holds everything needed to reconstruct it.
+
+Gap-unit reading of the literature tables ((bound - DNN)/(OPT - DNN)):
+  RLT2 (best of Hahn / Date-Nagi): nug12 +1.00, nug15 +1.00, nug18 +0.31,
+  nug20 +0.21, nug22 +0.42, nug24 -0.38, nug25 -0.14, nug27 -0.52, nug30
+  -0.60, rou20 +0.14, tai20a +0.13, tai25a -0.08, tai30a -0.17, tai35a -0.19,
+  tai40a -0.22, tho30 -0.43, tho40 -0.94, sko42 -1.25.
+  RLT3 (Hahn et al. 2012): nug12 0.92 (verifies opt), nug15 0.97, nug18 1.00,
+  nug20 0.98, nug22 0.97, nug24 0.98, nug25 0.83, rou20 0.99, tai20a 1.00,
+  tai25a 0.52.
+  JK LP + 1-box: nug12 +0.83, nug15 -1.29, nug16a -3.3, nug16b -1.04,
+  nug17 -2.8, nug18 -2.4, nug20 -3.1; esc16 closed where the DNN is not.
+Our regional triangles on the wil50 test nodes, in units of the gap to the
+cutoff (a lower bound on the node's true DNN gap): node 10 +88/158 = 0.56,
+node 13 +123/182 = 0.68 (slow30: +0.72), d2 +85/109 = 0.78 (slow30 0.83).
+So DNN + regional triangles at m = 46-47 already closes a fraction of the
+gap comparable to RLT3 at n = 25 (0.52-0.83), and far more than RLT2 does at
+any n >= 20.
+
+## ~06:45 wil50 gates (node 13, grid agent's triangle iterate runs/n13_tri5.Y.bin)
+
+- Location-triple LMP3 (the RLT2 half step 8 did not test; wil50/lmp_loc_gate.py,
+  exact LP over the 97,290 injective facility triples per location triple,
+  potentials in [-1,1]): central adjacent-cell triples (L-shapes, segments)
+  max 0.044 (cells 14,24,34), median 0.017; random triples max 0.016, median
+  0.011 (wil50/n13_tri5.lmploc.log). The facility agent measured facility
+  triples at 0.02-0.027 (heaviest) / 0.002 (random). So BOTH halves of
+  projected RLT2 are consistent to 1-4% of probability mass at the triangle
+  iterate. Each LP 10-20 s.
+- Box (JK 1-box) on grid rectangles instead of threshold regions: max 0.057
+  raw (wil50/n13_tri5.boxrect.log) vs 0.15 on the threshold regions: the
+  DNN's count errors sit on the threshold regions only.
+- Grid agent (their NOTES): at the triangle iterate every single threshold is
+  at or above its own bisection optimum in the objective direction; what is
+  left is row-column coupling (mid5 super-cell coupled optimum 117 above the
+  iterate). => every SINGLE-REGION family (5-point, local-7, boxes with P a
+  threshold region, the per-region M2/Lasserre block) is bounded by a
+  quantity that is already met; the literature mechanism for the coupling is
+  RLT2's location-side (conditional capacity) equations, at a coarse level.
+- Queue d (small/run_queue_d.sh) runs the nug12 cutting planes, then
+  wil50/run_box.sh d2 "1 4" 50 (box cuts at fixed mu on top of the triangle
+  phase, 6 rounds + quiet 900), then the LP decompositions.
+
+## ~06:50 box plumbing/validity check (wil50/plumb/)
+
+nug12 root (grid on side 0, small/inst/nug12_sw.dat), dnntest 600 iterations,
+cutoff 578: uncut 567.98; box_gate over the 5 threshold regions finds 1-box
+violations up to 0.193 raw (no triangle is violated at this root); the top 10
+cuts at fixed mu through -Ladd: mu 0.5 568.81 (+0.83), mu 2 570.29 (+2.31),
+mu 8 490.4 (overshoot). Never above 578. make_box_ladd.py checks every cut on
+3,000 random permutations plus one permutation per count value (all tight).
