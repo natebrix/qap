@@ -293,3 +293,9 @@ protocol's dynamics noise; mu 1 is running.
   window" as local-7 was. Step 7's 5-point family (|Q| = 5) had +16.5 on node
   13 in the pool but -7.9 on d2 and +0.4 on node 10: d2 is the test
   (queue i3: ROUNDS=5 QUIET=600 run_box.sh d2 "0.3" 200).
+- mu 1, same 200 cuts (runs/n13_ontop_mu1_k200.log): quiet 48,655.94 (-57.9
+  certified), primal 48,739.90 (+4.4); certificate lag 84 after the 600
+  quiet iterations (r0 lag 92). So: mu 0.3 +14.3 certified / +17.0 primal,
+  mu 1 -57.9 / +4.4: the Lagrangian gain peaks near mu 0.3 and the dense term
+  (856k nonzeros) costs certification at larger mu, the triples' failure mode.
+  Next (queue i3, running): d2 reference + box arm mu 0.3, same protocol.
