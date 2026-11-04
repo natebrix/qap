@@ -575,3 +575,42 @@ The lever is worth 1.4x here, not the 2-5x the tree memo hoped for, because
 the default rule 2 already finds decent lines at these depths: both marginal
 rules cut nodes by 1.13x, and the CPU saving comes from the children fathoming
 by the cheaper plain DNN bound rather than from fewer nodes.
+
+## Step 13: the stacked arm (Nov 4, cloud)
+
+`search/run_ab6.sh`: the rule-9 arm of step 12 with every per-node lever
+measured since, as opt-in switches: bundle D (`../amx/README.md`: the AMX
+kernel, degree 3 with tight lambda, one-pass CholQR, refresh every 40) and
+children starting from the parent's Y as well as Z (`QAP_DNN_WARM_Y=2`,
+`../warm_y/README.md`). Same subtree, cut phase, rule 9 and 4 workers.
+
+| arm | nodes | fathomed | by the DNN bound | branched | CPU-s | of which DNN bound | vs this arm |
+|---|---|---|---|---|---|---|---|
+| plain search (run_ab3 base) | 2,193 | - | - | - | 139,149 | - | 4.25x |
+| cut phase, default rules (run_ab3 cut) | 365 | 357 | 326 | 8 | 76,755 | 41,796 | 2.34x |
+| cut phase, rule 9 (run_ab4) | 322 | 315 | 295 | 7 | 54,621 | 30,982 | 1.67x |
+| **cut phase, rule 9, bundle D, parent Y (run_ab6)** | **322** | **315** | **295** | **7** | **32,740** | **18,256** | - |
+
+The tree is identical to the rule-9 arm's, node for node (the same 30,816
+QPB Frank-Wolfe iterations above the DNN levels), so the whole difference is
+per-node cost: **1.67x on the total, 1.70x on the DNN bounds, 1.63x on the
+cut phases and the rest.** Against the cut-phase arm with the default rules,
+the configuration the roadmap baseline assumes, the subtree is **2.34x**
+cheaper, and 4.25x cheaper than the plain search.
+
+The two per-node levers were measured at 1.71x (bundle D, 32 nodes) and 1.17x
+(parent Y, 16 children), 2.0x together; the search gives 1.67x. Two things
+account for the shortfall and cannot be separated from these logs. First,
+the parent-Y start only helps a child whose parent's state is still in
+memory: every parallel.py checkpoint (every 30 minutes here, against every 2
+hours for the rule-9 arm) and every resume after a container restart (three
+here: the first attempt was lost at 00:15 with no checkpoint, then resumes
+after restarts at 01:21 and 02:00, `partial_ab6/` and the notes in the log)
+hands its open nodes back without their DNN state, so their children start
+from scratch. Second, the per-node bundle-D factor was measured on nodes
+that fathom or give up; in the search the cut phases are about 40% of the CPU
+and were not measured separately. The laptop's full nug30 search (`../tuning/
+README.md`, 4ae70b9) gives an independent reading for the parent-Y start with
+one-pass CholQR and two give-up settings: 2,870 to 2,156 CPU-s (25% less) at
+the same tree.
+

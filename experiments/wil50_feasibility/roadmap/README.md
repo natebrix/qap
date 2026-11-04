@@ -62,8 +62,8 @@ since (`[m]`) and what is still an estimate (`[e]`):
 |---|---|---|
 | rule 9 branching | 1.41x [m] | end to end on the node-10 subtree (`stronger_bounds/README.md` step 12) |
 | per-node speed, bundle D | 1.71x [m] | per node on the 32-node sample, same decisions (`amx/README.md`) |
-| parent-Y child warm start | 1.17x [m] | per child on 16 depth-4 children (`warm_y/README.md`) |
-| **measured, multiplied** | **about 2.8x** | the stacked node-10 A/B (`stronger_bounds/search/run_ab6.sh`, step 13) checks that they multiply in the search |
+| parent-Y child warm start | 1.17x [m] | per child on 16 depth-4 children (`warm_y/README.md`); 25% on the laptop's full nug30 search with one-pass CholQR and two give-up settings |
+| **all three in the search** | **2.34x [m]** | **end to end on the node-10 subtree** (`stronger_bounds/README.md` step 13): the same tree as rule 9 at 32,740 CPU-s against 76,755 for the baseline configuration; the per-node levers give 1.67x in the search against 2.0x measured separately (lost warm starts at checkpoints and restarts, and cut phases not measured per node) |
 | pool inheritance, frozen solve | 1.1-4x [e] | gate passed; search effect not measured |
 | coordinator (fleet busy 70-85% -> 93-97%) | 1.15-1.35x [e] of wall clock | not built |
 | shorter cut phase (Y12s), phase trims | 1.1-1.2x each [m on the phase] | not pursued |
@@ -71,14 +71,14 @@ since (`[m]`) and what is still an estimate (`[e]`):
 Against the baseline of section 1 (120-700 days on 1,000 Xeon cores, center
 290; a week needs about 41x at the center):
 
-- **Measured levers only (about 2.8x):** center about **100 days**, range
-  about 45-250.
-- **Plus inheritance at 2x and the coordinator at 1.25x (about 7x):** center
-  about **40 days**, range about 17-100. A week is reached only at the low
+- **Measured end to end (2.34x):** center about **125 days**, range about
+  50-300.
+- **Plus inheritance at 2x and the coordinator at 1.25x (about 5.9x):** center
+  about **50 days**, range about 20-120. A week is reached only at the low
   end of the tree range.
 - **100 H100-class GPUs in place of the cores** (about 7x the wall-clock
-  throughput at similar dollars, `node_speed.md`): center about 15 days on
-  the measured levers alone, about 6 days with inheritance and the
+  throughput at similar dollars, `node_speed.md`): center about 18 days on
+  the measured levers alone, about 7 days with inheritance and the
   coordinator.
 
 **A week on 1,000 Xeon-class cores is not reachable at the center of the tree
@@ -99,7 +99,7 @@ The two measurements that decide between these outcomes are cheap:
    on 1,000 cores, 2-3% of the week, and every subtree finished is a piece of
    the proof. It pins the total within 1.5x instead of 15x.
 2. **The subtree A/Bs** on the cloud box: rule 9 is done (1.41x); the
-   stacked arm is running; inheritance in the search is next. Each is a day
+   stacked arm is done (2.34x end to end); inheritance in the search is next. Each is a day
    of work plus 3-5 hours of compute.
 
 ## 4. Order of work
@@ -108,8 +108,9 @@ The two measurements that decide between these outcomes are cheap:
    from here uses `qaplib/wil50t.dat` with `QAP_DNN_CUT_SIDE=1` and `-F` specs
    as j:i; the node-10 subtree A/Bs are unaffected (no symmetry below node 10).
 2. ~~Inheritance test and the rule-9 subtree A/B~~ done Nov 3: rule 9 1.41x;
-   frozen-pool inheritance passed its gate. Next: the stacked node-10 A/B
-   (running), then inheritance in the search on top of it.
+   frozen-pool inheritance passed its gate; the stacked node-10 A/B gives
+   2.34x end to end (Nov 4, step 13). Next: inheritance in the search on top
+   of the stacked arm.
 3. ~~Confirm give-ups uncut, the primal gate, zone 0.0035~~ closed Nov 3 by
    replay (`trims/README.md`, about 1.1x; the gate ships default off). The
    Y12s phase budget was not pursued.
