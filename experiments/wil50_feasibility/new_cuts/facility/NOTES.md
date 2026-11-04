@@ -200,3 +200,26 @@ sep_dist.py --fam hull3 (logs/hull3_n13_uncut1500.log), gapdecomp.py (logs/gapde
 - Lines study, all 30 lines of the 3 parents: the line's minimum child is its largest-x cell on 22
   of 30 lines, the second-largest on 7, the 5th on 1 (logs/lines_xweighted.log). The cap on any
   line disjunction is the child of the cell the DNN favours most.
+- runs/n10c/elim4945.log (node 10 with x_(49,45) = 0 imposed, dnntest -E 49:45, 1,500 it):
+  certified 48,672.21 (primal 48,670.03: converged). Anti-child +16.3 over the parent's 48,655.9.
+  So one level of Sherali-Adams / N+ on the variable x_(49,45) (the hull of child and anti-child)
+  is worth min(+35..+54, +16.3) = +16 at node 10 (158 short), for two DNN solves.
+- The densest flow cluster {5, 9, 20, 27} (all six flows 9) at node 13: expected pairwise distance
+  sum 13.9 (uncut) / 14.0 (after triangles) against the grid minimum 8; expected number of adjacent
+  pairs 2.27 / 2.26 (at most 4 possible). Not placed too compactly; its LMP3 inconsistency
+  (0.065-0.114 on its triples) is in the joint of the pair blocks, not in the distances.
+
+## 07:18 Node 10 parent with the same settings; the cell disjunction in one table
+- runs/n10c/parent.log (dnntest -x 39:27,30:48,25:49 -u 48816 -T 1 -d 3 -L 2 -r 40 -i 1500 -H 0
+  -C 2 -X): certified 48,648.55, primal 48,651.14 (the -d 4 misses run gave 48,655.9).
+  Same settings: anti-child (x_(49,45) = 0) 48,672.21 / 48,670.03 -> +21..+24;
+  child 49:45 48,690.99 / 48,710.09 -> +42 certified, ~+59 by the primal.
+  One level of N+ / Sherali-Adams on x_(49,45) (x = 0.47): +21..+24 for 2 DNN solves.
+  Any disjunction on row 49 or column 45: <= +42..+59. Node 10 is 166 short (this run).
+- Certificate child bounds at node 10 (logs/child_n10_parent.log): 0 of 2,209 fathomed; excess
+  over lb median 0.16, 99% 0.48, max 7.6; 2,195 within 1. On the 446 lines-study children the
+  certificate excess vs the child's own 300-it gain (median +117): Spearman 0.21; x vs gain -0.72.
+- 07:22 split control with a Z-only restart from the converged quiet state (runs/n13/zonly/
+  split_ctl_zonly.log, fdrv -cont quiet -iters 400): certified 48,713.37 against 48,745.63 at the end
+  of the quiet round, primal 48,752.09: restarting Y from scratch costs ~32 certified units that 400
+  iterations do not recover. All split jobs switched to -wy (Y and Z from the saved state) and rerun.

@@ -154,3 +154,42 @@ violations up to 0.193 raw (no triangle is violated at this root); the top 10
 cuts at fixed mu through -Ladd: mu 0.5 568.81 (+0.83), mu 2 570.29 (+2.31),
 mu 8 490.4 (overshoot). Never above 578. make_box_ladd.py checks every cut on
 3,000 random permutations plus one permutation per count value (all tight).
+
+## ~07:05 mixed triples (coupled projection of RLT2)
+
+Observation: every RLT2 equation is a marginal equation of some MIXED triple
+(two facilities + one location, or two locations + one facility): for z with
+facilities {i,k,p} at {j,l,q}, the mixed triple (i,k; q) has the marginals
+sum_p z = y_(ij),(kl) (location-side RLT2 equation) and sum_l z = y_(ij),(pq),
+sum_j z = y_(kl),(pq) (facility-side equations), all on the same z. So the
+mixed 3-local polytope is a coupled projection of RLT2 that neither the step-8
+triples (facility triples) nor location triples see. Implemented:
+small/cp_small.py mix1/mix0 (validated on w8_1: reaches the optimum 332, never
+above), wil50/mix_gate.py.
+wil50 node 13 triangle iterate (wil50/n13_tri5.mix.log): type F (two
+facilities + location) heaviest-flow pairs at central locations max 0.0185,
+median 0.006; random 0.009/0.005; type L (two central locations + facility)
+max 0.008. Smaller than either pure half. 10-40 s per LP.
+=> On wil50 at the triangle iterate, every local projection of RLT2 we can
+write (facility triples, location triples, mixed triples) is satisfied to
+within 0.5-4% of probability mass.
+nug12 root: facility-triple (lmp1) max violation 0.278 at the DNN optimum
+(logs/nug12_cp_lmp1.log round 0).
+
+## ~07:10 facts for the write-up
+
+- Date & Nagi Table 5: F2-RLT2-DA, 2000 iterations; sko42 needs 1,482,642 LAPs
+  per iteration on K = 95 GPUs at 21.5 s/iteration (12 h); tho40, tai40a K = 71.
+  At m = 47: 2,337,122 LAPs of size 45 per iteration and ~1.6e9 cubic
+  multipliers. Date & Nagi Table 6: Burer-Vandenbussche L&P (DNN class)
+  dominates RLT2-DA for n > 22 except taiXXb (RLT2 0.00% gap on tai20b/25b,
+  L&P 4.1%/11.7%: sparse, weakly planar, widely separated asymmetric data).
+- RLT-d dual (Adams-Johnson / Hahn-Grant / Adams et al.): nested LAPs, i.e. a
+  Gilmore-Lawler bound at depth d with costs split across the symmetric
+  copies of each (d+1)-tuple; the LP says every depth-d conditional
+  subproblem is an assignment problem, consistently.
+- Roberson & Seppelt (ICALP 2023, arXiv 2302.10538): for graph isomorphism
+  SA level 3t is as strong as Lasserre level t, tight; i.e. the PSD condition
+  is worth a bounded number of SA levels, consistent with DNN ~ RLT2.
+- nug12 lmp1 (facility-triple LMP3) cutting planes: round 0 567.99 (max viol
+  0.278), round 1 571.21 with 200 cuts.

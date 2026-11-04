@@ -107,3 +107,30 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
   at node 13 is at least 2 x 95 = 190.
 - Started runs/n13_tri5_mid5a1of2.log (same tri5 protocol on the alpha = 0.5
   instance, -delta 100 for the doubled scale, -c 1e12): on top of triangles.
+
+## 06:40-07:10 On top of the triangles; validation
+
+- runs/n13_tri5_mid5a1of2.log: dnncuts -grid 5:10 -c 1e12 -T 1 -k 1000 -v -I 400
+  -i 300 -r 5 -delta 100 -nocap -freeze 0:600 -x 21:28,8:41,28:19
+  -dumpY runs/n13_tri5_mid5a1of2 inst/wil50_mid5_a1of2.dat  (2,040 s CPU)
+  -> lb' 73,254.29 (round 0 at 400 it.: 73,153.17). Wil50 bound = lb'/2 +
+  0.5 LB_K: with LB_K = 24,250 (node SA optimum) 48,752.1 = +38.3 over the
+  plain tri5 run (48,713.85, same protocol); with the root SA optimum 24,112
+  it is 48,683.1 (-30.7). Break-even LB_K = 24,173.4. At the 400-it. give-up
+  point: 48,701.6 vs 48,596.8 (+104.8). The triangles gain less on top
+  (+101 scaled = +50.6 original, vs +117 plain): the two overlap.
+- The coarse problem's own DNN at node 13 is <= 2 (48,627.3 - 36,597.4) =
+  24,059.8 (superadditivity at the uncut level), so certifying LB_K >= 24,173
+  (break-even) means closing >= 113 of its >= 190-unit gap, and +38 needs the
+  coarse optimum itself.
+- validate_objpart.py -N 12 --seed 3 (2x3, 2x4, 3x3 grids, random flows,
+  random K, 0-2 fixes, alpha in {0.25, 0.5, 0.75}, exact OPT_K by
+  enumeration): 48 certified values, 0 above the node optimum
+  (runs/validate_objpart.log).
+- Started runs/n13_tri5_mid5only.log: the coarse problem (A = D_mid5) at
+  node 13 with the same tri5 protocol (-delta 25): its own DNN + triangle bound.
+- Coarse (mid5) SA optima at node 13's ancestors: depth 2: 24,198 (21:28,8:41),
+  24,192 (21:28,28:19), 24,160 (8:41,28:19); depth 1: 24,130-24,164; root
+  24,112; the node 24,250. Against the break-even 24,173 on top of the
+  triangles, a depth-2 key gives +0..+12.5, the node's own key +38: the cut
+  must come from the node's own coarse problem (or its own coarse subtree).
