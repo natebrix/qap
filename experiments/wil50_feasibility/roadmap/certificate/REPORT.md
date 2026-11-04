@@ -245,6 +245,13 @@ paper was re-read or downloaded.)
   This catches errors in the dual-ascent identities, not rounding errors:
   the rounding allowances are about 1e-6 units, far below what
   enumeration resolves.
+- **Correction to Q2.** In the production protocol PRSM does not restart
+  from the old (Y, Z) after a Polyak update: it keeps Z and resets Y to
+  e0e0' (`dnncut.C`: `par.warm_primal = cp.warm_primal && r > 0`, and
+  `cp.warm_primal` was 0 in the search). The convergence study
+  (`../convergence2/REPORT.md`, F1) shows that this reset causes most of
+  the round-end lag. The measured split of the lag (84% certificate
+  deficiency) stands.
 - **Open before the polish goes into the proof run:** an independent read of
   the HG/HGR rounding allowance (`mg_hg`, `mg_hgr` and the per-pass `he` in
   `dnn.C`). The E3 run on 47:45 shows why it matters: the polished bound
