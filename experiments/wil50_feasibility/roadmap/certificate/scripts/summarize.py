@@ -28,10 +28,12 @@ def parse(path):
             if not m:
                 continue
             hg = [(int(a), float(b)) for a, b in re.findall(r" (\d+):(-?[\d.]+)", m.group(4))]
-            mr = re.search(r" hgr(.*) cpu (\S+)\s*$", line)
+            mr = re.search(r" hgr(.*?) cpu (\S+)", line)
+            mp = re.search(r" proj (\S+) cpup (\S+)", line)
             hgr = [(int(a), float(b)) for a, b in re.findall(r" (\d+):(-?[\d.]+)", mr.group(1))] if mr else []
             cur["checks"].append(dict(it=int(m.group(1)), std=f(m.group(2)), exact=f(m.group(3)), hg=hg, hgr=hgr,
                                       hgr_cpu=float(mr.group(2)) if mr else 0.0,
+                                      proj=f(mp.group(1)) if mp else float("-inf"), proj_cpu=float(mp.group(2)) if mp else 0.0,
                                       ls=f(m.group(5)), t=float(m.group(6)), avg=f(m.group(8)),
                                       primal=f(m.group(9)), cutoff=f(m.group(10)),
                                       cpu=[float(m.group(i)) for i in range(11, 15)]))
@@ -67,4 +69,5 @@ def main():
                       f"ls {ch['cpu'][2]:.2f} avg {ch['cpu'][3]:.2f}")
 
 
-main()
+if __name__ == "__main__":
+    main()

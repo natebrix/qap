@@ -1358,6 +1358,8 @@ bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child, int ymode)
   64  warm polishing: the skew matrix K accumulated by earlier checks of this
       call is added to M (GL_exact(M + K) is a certificate for any skew K),
       then DNN_CERTX_WPASSES (2) exact passes from there update K
+ 128  the post-step multiplier Z with its face part projected in double,
+      Z - V P_psd(V'ZV) V' (one dsyevd), with the exact GL
  Evaluated at every DNN_CERTX_EVERY-th check (5), and at every check once the
  running best is within DNN_CERTX_WINDOW (80) of the cutoff, and at the last
  iteration. DNN_CERTX_CALLS=<bitmask> restricts it to those dnn_bound calls of
@@ -1796,8 +1798,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   std::vector<std::vector<double>> cx_ring;   // the last navg certificate multipliers (bit 8)
   int cx_ring_n = 0, cx_ring_pos = 0;
   std::vector<double> cx_M, cx_M2, cx_M3, cx_Zt, cx_R, cx_K;
-  int cx_first[7] = {-1, -1, -1, -1, -1, -1, -1};  // std, exact, hg, ls, avg, hgr, hgw: first check above the cutoff
-  double cx_best[7] = {-HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL};
+  // std, exact, hg, ls, avg, hgr, hgw, proj: first check above the cutoff, best value
+  int cx_first[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+  double cx_best[8] = {-HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL};
   double cx_cpu = 0;
   if (cx_on) printf("certx call %d m %d mode %d passes %d rpasses %d avg %d every %d window %g use %d\n", call_idx,
                     m, cxe.mode, cxe.passes, cxe.rpasses, cxe.navg, cxe.every, cxe.window, cxe.use);
@@ -1979,8 +1982,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
                        (std::isfinite(cutoff) && run_best > -HUGE_VAL && cutoff - run_best <= cxe.window);
       if (due) {
         const double dr_save = w.delta_rel;
-        double u_[7] = {lbs, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL};   // unshifted
-        double tm[6] = {0, 0, 0, 0, 0, 0}, t_best = 0;
+        double u_[8] = {lbs, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL};   // unshifted
+        double tm[7] = {0, 0, 0, 0, 0, 0, 0}, t_best = 0;
         std::vector<long double> hv, hv2, hv3;
         std::vector<double> he, he2, he3;
         double mg_hg = 0, mg_hgr = 0, mg_hgw = 0;
@@ -2096,6 +2099,24 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
                           exact_below, ca);
           tm[3] = thread_cpu() - tq;
         }
+        if (cxe.mode & 128) {
+          // the post-step multiplier Z (box side exact) with its face part projected
+          // onto the negative semidefinite cone in double: Zp = Z - V P_psd(V'ZV) V'
+          // (the prototype's certificate, here with the exact GL); w.R and VRV are
+          // free until the next R-step, as in the refinement above
+          tq = thread_cpu();
+          cx_Zt.resize(nn);
+          forward(w, Z, w.W.data());
+          int np2;
+          if (proj_psd(w, w.W.data(), w.R.data(), &np2)) {
+            expand(w, w.R.data(), VRV);
+            for (size_t q = 0; q < nn; q++) cx_Zt[q] = Z[q] - VRV[q];
+            CertInfo cp2;
+            u_[7] = certify(w, cx_Zt.data(), scale, (double)sumabsL, par.poly, DNN_LAP_EXACT, exact_above,
+                            exact_below, cp2);
+          }
+          tm[6] = thread_cpu() - tq;
+        }
         if ((cxe.mode & 16) && !cxe.dump.empty() && cx.chol_ok) {
           // M = L + scale Zc and what is needed to turn a polyhedral value into a bound
           std::string pm = cxe.dump + ".M.bin", pt = cxe.dump + ".meta";
@@ -2129,9 +2150,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
             printf(" %zu:%.4f", p + 1, (double)hv3[p] - he3[p] - mg_hgw + shift);
           printf(" cpuw %.2f", tm[5]);
         }
+        if (cxe.mode & 128) printf(" proj %.4f cpup %.2f", u_[7] + shift, tm[6]);
         printf("\n");
         double vmax = -HUGE_VAL;
-        for (int v = 0; v < 7; v++) {
+        for (int v = 0; v < 8; v++) {
           if (u_[v] > -HUGE_VAL) {
             cx_best[v] = std::max(cx_best[v], u_[v] + shift);
             vmax = std::max(vmax, u_[v]);
@@ -2227,10 +2249,11 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   if (status < 0) status = DNN_ITER_LIMIT;
   if (cx_on) {
     printf("certx-summary call %d status %s iters %d cutoff %.4f first std %d exact %d hg %d ls %d avg %d hgr %d"
-           " hgw %d best std %.4f exact %.4f hg %.4f ls %.4f avg %.4f hgr %.4f hgw %.4f cpu_certx %.2f\n",
+           " hgw %d proj %d best std %.4f exact %.4f hg %.4f ls %.4f avg %.4f hgr %.4f hgw %.4f proj %.4f"
+           " cpu_certx %.2f\n",
            call_idx, dnn_status_name(status), res.iterations, cutoff, cx_first[0], cx_first[1], cx_first[2],
-           cx_first[3], cx_first[4], cx_first[5], cx_first[6], cx_best[0], cx_best[1], cx_best[2], cx_best[3],
-           cx_best[4], cx_best[5], cx_best[6], cx_cpu);
+           cx_first[3], cx_first[4], cx_first[5], cx_first[6], cx_first[7], cx_best[0], cx_best[1], cx_best[2],
+           cx_best[3], cx_best[4], cx_best[5], cx_best[6], cx_best[7], cx_cpu);
     fflush(stdout);
   }
   if (par.verbose >= 2)

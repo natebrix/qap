@@ -16,7 +16,7 @@ for x in "$@"; do
   f=$D/logs/e1_c${x}_m${mode}.log
   grep -q '^RESULT' "$f" 2>/dev/null && continue
   echo "$(date -u +%FT%TZ) $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2) core $core" > "$f.tmp"
-  DNN_CERTX=$mode DNN_CERTX_EVERY=5 DNN_CERTX_WINDOW=80 \
+  DNN_CERTX=$mode DNN_CERTX_EVERY=${EVERY:-5} DNN_CERTX_WINDOW=${WIN:-50} \
     taskset -c "$core" "$R/latest/dnntest" -T 1 -g 1.0 -G 1.0 -d 3 -L 2 -r 40 -H 300 -u 48816 \
     -x "39:27,30:48,25:49,$x:45" "$R/qaplib/wil50.dat" >> "$f.tmp" 2>&1 && mv "$f.tmp" "$f"
 done
