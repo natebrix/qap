@@ -48,3 +48,22 @@ Cold = no parent state (unit boundaries; DNN state does not travel in state file
   (d5 pooled, parallel.py run); misses give up at 320-330 warm vs 872-1,007 cold.
 - 16 depth-4 children cold (stronger_bounds/depth4/uncut) vs warm Z+Y (warm_y):
   7 shared fathoms 2,440 vs 1,360 iterations (1.8x) (`cold_vs_warm.py`).
+- Search phases (`phase_split.py`, `logs/phase_split_coord.txt`): 19,100 phase iterations,
+  4,740 (25%) in quiet rounds; near-near misses (3.5-7.6 short after 990-1,190 uncut
+  iterations) spend 870-1,370 phase iterations (3+ full rounds) to gain 8-9.
+
+## 22:45 test results (runs/, summarize_ep.py)
+
+- Measurement gate passed 22:12; tests on cores 0-1 from 22:12.
+- E0: node 10's phase reproduces the search's round 0 exactly (48,582.4671 at 300);
+  +63/+90/+102 in rounds 1-3, overshoot -18 in round 4, stall; 1,200 phase iterations,
+  446 CPU-s; pool (best round) 2,392 cuts kept by the children.
+- E children (cold, pool frozen, give-up 300): the 4 phase fathoms of the search
+  (48, 38, 28, 8 on location 45) fathom on the first solve at 1,100/530/350/450 it
+  (search 3,030/2,600/1,860/2,020 incl. phase); phase misses 29, 9 end 44/42 short
+  (search 130/106 short, 79/64 after their phase); 49:45 (out of zone in the search,
+  its subtree 137 nodes 8,002 CPU-s = 43%) ends 82.6 short (search 185.7); easy
+  fathoms 130->120, 200->150.
+- P (parents 13, 7 at 1,000 vs 300 iterations): fathoming children 950 -> 830 it
+  (-13%), misses unchanged (give-up 300-310, +4..+12 at 200). Break-even against the
+  parent's extra 700. Closed.

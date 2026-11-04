@@ -71,6 +71,12 @@ for f in [48, 49, 38, 29, 28, 19, 18, 9, 8, 0, 46, 37, 47]:
     tot_new += it
 print(f'  iterations, search (first solve + phase) {tot_old:.0f}; first solve with the pool {tot_new:.0f}'
       ' (children still short need a phase on top)')
+p2 = os.path.join(RUNS, 'E2_c49_phase.log')
+if os.path.exists(p2):
+    print('  E2: child 49:45, its phase from the inherited pool')
+    for l in open(p2):
+        if l.startswith(('pool solve', 'inherited', 'round', 'quiet', 'stalled', 'FINAL')):
+            print('    ' + l.rstrip()[:170])
 
 # ---------------- P and S ----------------
 fam = {'13': [5, 6, 7, 8], '7': [13, 14, 15, 16], '10': [1, 2, 3, 4], '2': [9, 10, 11, 12]}
@@ -103,10 +109,10 @@ for tag, fn, base_pass in [('P', 'P_{}_J1000.log', 3), ('S', 'S_{}_J300_bf16.log
                             else 'parent state rounded to bf16 vs exact (warm_y)'))
     for par, kids in fam.items():
         lp = os.path.join(RUNS, fn.format(par))
-        if not os.path.exists(lp):
+        if not os.path.exists(lp) or 'SKIPPED' in open(lp).read(200):
             continue
         parent, mine, res = child_blocks(lp)
-        if not res:
+        if not res or not parent:
             continue
         print(f'  parent {par}: lb at 300 {at(parent, 300):.4f}, at end {parent[-1][1]:.4f} ({parent[-1][0]} it)')
         for k, (tr, rl) in enumerate(zip(mine, res[1:])):
