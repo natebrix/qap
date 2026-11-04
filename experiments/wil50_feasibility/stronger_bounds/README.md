@@ -614,3 +614,24 @@ README.md`, 4ae70b9) gives an independent reading for the parent-Y start with
 one-pass CholQR and two give-up settings: 2,870 to 2,156 CPU-s (25% less) at
 the same tree.
 
+
+## Step 14: pool inheritance in the search (Nov 4, cloud)
+
+The stacked arm plus `QAP_DNN_POOL=1` (`../pool_search/README.md`: a node
+whose cut phase beat its uncut bound hands its cut pool, multipliers and
+solve state to its children, which solve with the pool frozen in place of the
+uncut solve; the pool travels in state files). Same subtree, same host type,
+predeclared adoption threshold 1.25x.
+
+| arm | nodes | CPU s | factor |
+|---|---|---|---|
+| plain (step 9) | | 139,149 | 1 |
+| default cut arm | | 76,755 | 1.81x |
+| rule 9 (step 12) | 322 | 54,621 | 2.55x |
+| stacked (step 13) | 322 | 32,740 | 4.25x |
+| **stacked + pool inheritance** | **322** | **23,905** | **5.82x (1.37x on the stacked arm, 3.21x on the default cut arm)** |
+
+The tree is the same (322 / 315 / 7 branched); all 228 children that
+inherited a pool fathomed on their first solve, in 101 iterations on
+average, and the cut phases fell from about 14,440 to 7,016 CPU-s (13 phases
+against the 27 of the rule-9 arm on the same tree). Adopted.
