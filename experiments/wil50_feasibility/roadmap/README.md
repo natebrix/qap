@@ -65,7 +65,7 @@ since (`[m]`) and what is still an estimate (`[e]`):
 | per-node speed, bundle D | 1.71x [m] | per node on the 32-node sample, same decisions (`amx/README.md`) |
 | parent-Y child warm start | 1.17x [m] | per child on 16 depth-4 children (`warm_y/README.md`); 25% on the laptop's full nug30 search with one-pass CholQR and two give-up settings |
 | **all three in the search** | **2.34x [m]** | **end to end on the node-10 subtree** (`stronger_bounds/README.md` step 13): the same tree as rule 9 at 32,740 CPU-s against 76,755 for the baseline configuration; the per-node levers give 1.67x in the search against 2.0x measured separately (lost warm starts at checkpoints and restarts, and cut phases not measured per node) |
-| pool inheritance in the search | 1.37x [m] | end to end on the node-10 subtree on top of the stacked arm (`pool_search/README.md`): same tree, 23,905 against 32,740 CPU-s |
+| pool inheritance in the search | 1.37x [m] | end to end on the node-10 subtree on top of the stacked arm (`pool_search/README.md`): same tree, 23,905 against 32,740 CPU-s. **Same-host check through the coordinator: 1.40x on the 322 shared nodes, 1.56x end to end** (without the pool two marginal nodes branch into 89 more) |
 | **all four in the search** | **3.21x [m]** | **against the baseline configuration's 76,755 CPU-s on the same subtree (5.8x against the plain search's 139,149)** |
 | coordinator (fleet busy 70-85% -> 93-97%) | 1.15-1.35x [e] of wall clock; 1.09x [m] in iterations on the 4-slot subtree | built (`coord/`); the fleet factor is measured at plan.md phase 2 |
 | shorter cut phase (Y12s), phase trims | 1.1-1.2x each [m on the phase] | not pursued |

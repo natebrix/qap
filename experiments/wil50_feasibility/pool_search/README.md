@@ -99,3 +99,29 @@ arm was, not on a sample of the tree; the fraction of work in children of
 cut-phase misses elsewhere decides how much it carries over. The stacked
 arm's wall time is not comparable (two container restarts). The trace was
 not run in the stacked arm, so its per-node split is inferred from totals.
+
+## Same-host check (Nov 4, 20:00-22:12 UTC, `../coord_search/`)
+
+The comparison above uses a stacked arm run on Nov 3-4 hosts of unknown
+speed, and the host after the Nov 4 17:49 container restart is 1.23x faster
+per iteration than the one before it (`../coord_search/README.md`). So both
+arms were run again through the coordinator on that one host
+(`coord_search/run_coord_search.sh` with the pool, `run_coord_stacked.sh`
+without), with per-node traces:
+
+| arm, coordinator, same host | nodes / fathomed / branched | cut phases | DNN iterations | CPU s | wall s | slots busy |
+|---|---|---|---|---|---|---|
+| stacked | 411 / 402 / 9 | 26 | 100,090 | 28,883 | 7,903 | 93.5% |
+| stacked + pool inheritance | 322 / 315 / 7 | 13 | 58,870 | 18,496 | 5,736 | 81.6% |
+
+- **On the 322 nodes both trees share: 1.40x less DNN CPU, 1.47x fewer
+  iterations** with inheritance (25,932 against 18,465 CPU-s).
+- **End to end: 1.56x CPU, 1.70x iterations.** Without the pool two marginal
+  nodes (a depth-5 and a depth-6 node whose cut phases fell just short) branch
+  into 89 more nodes at depths 6-7 (2,920 CPU-s); with the pool both fathom on
+  their first solve, as they did in both pool runs. The stacked arm's tree is
+  322 nodes with parallel.py and 411 with the coordinator: near the cutoff a
+  cut phase's outcome depends on where its solve starts, and inheritance
+  makes those nodes robust.
+- So the 1.37x above stands and is, if anything, conservative: the measured
+  range is 1.37-1.56x end to end, 1.40x on a fixed tree.
