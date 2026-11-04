@@ -533,3 +533,28 @@ carry the cut counters, so cut fathoms = fathomed − DNN fathomed and cut CPU
   miss saves ~20 s and a phase must be cheaper than that; a wil50 depth-4
   child costs ~75 s. The cut phase is a wil50 tool; on nug30 under the
   refined setting it does not pay at any depth. nug30 stays at 2,895–2,943 s.
+
+### Nov 3: the recommended setting re-run, plus warm Y, one-pass CholQR and D6/D8 (`refine/nug30_best_nov3*_j8_m2pro.log`)
+
+Binary at a2836ef, 8 workers, `--ub 6124`, `nug_deep_xbar_all.par`,
+`-x 1:7:1:200:1`, PRSM, degree 3 tight, beta 0.21, refresh 120 (the Nov 1
+recommended setting), then the same with the cloud's Nov 3 per-node levers
+that apply on Apple silicon (the AMX kernel is Intel-only and is skipped):
+
+| run | added | nodes / DNN fathomed | tasks | CPU | wall |
+|---|---|---|---|---|---|
+| `nug30_best_nov3` | — | 3,821 / 3,679 | 300 | 2,870 s | 459 s (x6.25) |
+| `nug30_best_nov3_warmy_cq1_ext` | `QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1 QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003` | 3,844 / 3,701 | 345 | **2,156 s** | **346 s** (x6.22) |
+
+The baseline reproduces the Nov 1 tree exactly (3,821 nodes) at 2,870 s
+against 2,895 s. The three levers together take 25% off the CPU and the
+wall at a tree 23 nodes larger (the warm Y changes the iterates, so a few
+give-up decisions move; EXT confirms the depth-7 children). The per-child
+1.17x the cloud measured on wil50 children carries to nug30 as 1.33x
+overall, so one-pass CholQR is adding on top; the three were not separated.
+nug30 is now 2,156 CPU s against 8,355 s on Oct 29 (3.9x).
+
+Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
+`QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
+QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1
+QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003`. Not yet re-run on nug28.
