@@ -56,7 +56,7 @@ def main():
             vals = []
             for line in out.splitlines():
                 if line.startswith("certx it"):
-                    vals += [float(x) for x in re.findall(r"(?:std|exact|ls|avg\d+) (-?[\d.]+)", line)]
+                    vals += [float(x) for x in re.findall(r"(?:std|exact|ls|avg\d+|proj) (-?[\d.]+)", line)]
                     vals += [float(x) for x in re.findall(r" \d+:(-?[\d.]+)", line)]
             mx = max(vals)
             worst = max(worst, mx - opt)

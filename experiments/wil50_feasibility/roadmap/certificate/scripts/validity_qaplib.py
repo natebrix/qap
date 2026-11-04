@@ -11,7 +11,7 @@ import os, re, subprocess, sys
 
 exe, qdir, logdir = sys.argv[1:4]
 os.makedirs(logdir, exist_ok=True)
-env = dict(os.environ, DNN_CERTX="47", DNN_CERTX_EVERY="1", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
+env = dict(os.environ, DNN_CERTX=os.environ.get("CERTX_MODE", "239"), DNN_CERTX_EVERY="1", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
 ok = True
 for spec in sys.argv[4:]:
     name, opt = spec.split(":")
@@ -22,7 +22,7 @@ for spec in sys.argv[4:]:
     mx, last = -1e300, None
     for line in out.splitlines():
         if line.startswith("certx it"):
-            v = [float(x) for x in re.findall(r"(?:std|exact|ls|avg\d+) (-?[\d.]+)", line)]
+            v = [float(x) for x in re.findall(r"(?:std|exact|ls|avg\d+|proj) (-?[\d.]+)", line)]
             v += [float(x) for x in re.findall(r" \d+:(-?[\d.]+)", line)]
             mx = max(mx, max(v)); last = line
     res = [l for l in out.splitlines() if l.startswith("RESULT")][0]

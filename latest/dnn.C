@@ -1439,7 +1439,8 @@ static long double gl_full(Work &w, const double *M, bool exact, long double &ab
 */
 static void hg_polish(Work &w, const double *M, int passes, std::vector<double> &R,
                       std::vector<long double> &vals, std::vector<double> &errs,
-                      long double *absM1 = NULL, int exact_from = 0, double *Kacc = NULL)
+                      long double *absM1 = NULL, int exact_from = 0, double *Kacc = NULL,
+                      double stop_val = HUGE_VAL)
 {
   // passes p >= exact_from solve the inner LAPs exactly; earlier ones use the
   // row-then-column reduction (also dual feasible, O(m^2) a block).
@@ -1565,6 +1566,9 @@ static void hg_polish(Work &w, const double *M, int passes, std::vector<double> 
                             (double)m * (8 * maxc + 4 * maxUV) + 4 * fabsl(B));
     vals.push_back(B);
     errs.push_back(err);
+    // early exit once the value net of this pass's margins clears stop_val
+    // (the caller's cutoff less the margins that do not depend on the passes)
+    if ((double)B - err - 8.0 * (m + 2) * U_ROUND * (double)absM > stop_val) break;
   }
 }
 
@@ -2039,7 +2043,11 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         if ((cxe.mode & 2) && cx.chol_ok) {
           tq = thread_cpu();
           long double absM1 = 0;
-          hg_polish(w, cx_M.data(), cxe.passes, cx_R, hv, he, &absM1);
+          // with DNN_CERTX_USE, stop as soon as the cutoff is crossed
+          const double stop_val = (cxe.use && std::isfinite(cutoff))
+            ? cutoff - shift + (m + 2) * U_ROUND * (double)sumabsL + cx.sdp_penalty + 1e-9 * (1 + fabs(cutoff))
+            : HUGE_VAL;
+          hg_polish(w, cx_M.data(), cxe.passes, cx_R, hv, he, &absM1, 0, NULL, stop_val);
           // pass 1 is the exact GL value of the same M: certify's margin formula
           // (forming M, the GL sums, L) with pass 1's magnitudes, the semidefinite
           // term, plus the passes' own rounding (he)
@@ -2054,7 +2062,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         if ((cxe.mode & 32) && cx.chol_ok) {
           tq = thread_cpu();
           long double absR = 0;
-          hg_polish(w, cx_M.data(), cxe.rpasses + 1, cx_R, hv2, he2, &absR, cxe.rpasses);
+          const double stop_val = (cxe.use && std::isfinite(cutoff))
+            ? cutoff - shift + (m + 2) * U_ROUND * (double)sumabsL + cx.sdp_penalty + 1e-9 * (1 + fabs(cutoff))
+            : HUGE_VAL;
+          hg_polish(w, cx_M.data(), cxe.rpasses + 1, cx_R, hv2, he2, &absR, cxe.rpasses, NULL, stop_val);
           mg_hgr = 8.0 * (m + 2) * U_ROUND * (double)absR + (m + 2) * U_ROUND * (double)sumabsL +
                    cx.sdp_penalty;
           for (size_t p = 0; p < hv2.size(); p++) {
