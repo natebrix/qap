@@ -64,6 +64,13 @@ Cold = no parent state (unit boundaries; DNN state does not travel in state file
   (search 130/106 short, 79/64 after their phase); 49:45 (out of zone in the search,
   its subtree 137 nodes 8,002 CPU-s = 43%) ends 82.6 short (search 185.7); easy
   fathoms 130->120, 200->150.
+- E2 (49:45 with the pool, then the search's phase from it, Y reset as today): round 1
+  drops 48,731.5 -> 48,615.6 (-116), rounds 2-3 recover to 48,706.8, stall after 3 rounds
+  with no gain over the pooled solve (stopped in the quiet round, which the search would
+  not run: primal 48,767.8 < cutoff). E2w = the same with -warmY (pending).
+- C n14 (Y12q: warm Y, 12 x 100, quiet 500): fathoms at 1,680 total iterations
+  (B 4,750, Y12 3,640, Y12s 2,110); round 0 48,692.0959 vs the study's 48,692.0828
+  (solver changed since; not bit-identical).
 - P (parents 13, 7 at 1,000 vs 300 iterations): fathoming children 950 -> 830 it
   (-13%), misses unchanged (give-up 300-310, +4..+12 at 200). Break-even against the
   parent's extra 700. Closed.
