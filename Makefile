@@ -13,7 +13,7 @@
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel regression clean dnntest dnncheck
+.PHONY: all solver test bruteforce resume parallel coord regression clean dnntest dnncheck
 
 all: solver
 
@@ -23,7 +23,7 @@ solver: src/MESCHACH/meschach.a
 src/MESCHACH/meschach.a:
 	$(MAKE) -C src/MESCHACH basic
 
-test: bruteforce resume parallel regression
+test: bruteforce resume parallel coord regression
 
 bruteforce: solver
 	$(PYTHON) tests/brute_force.py
@@ -33,6 +33,12 @@ resume: solver
 
 parallel: solver
 	$(PYTHON) tests/parallel_test.py
+
+# the coordinator (coord/): totals equal serial under worker kills, a
+# coordinator restart and a drain; the AWS scenario runs when boto3 and moto
+# are importable (else it is skipped)
+coord: solver
+	$(PYTHON) tests/coord_test.py
 
 regression: solver
 	$(PYTHON) bench/bench.py check

@@ -66,6 +66,9 @@ extern bool bnb_resumed;
 extern bool bnb_stopped;
 extern volatile sig_atomic_t bnb_stop_requested;
 static void request_stop(int) { bnb_stop_requested = 1; }
+extern const char *bnb_incumbent_file;
+extern volatile sig_atomic_t bnb_incumbent_poke;
+static void poke_incumbent(int) { bnb_incumbent_poke = 1; }
 char *resume_file = NULL;
 char *root_fixes = NULL;   // -F i:j,...: the search starts at this node (depth 0 = the subtree's root)
 
@@ -105,6 +108,7 @@ void print_help()
        << "-u X\tset initial upper bound X"  << std::endl
        << "-o F\twrite branch-and-bound state to F (at checkpoints, on -t, at the end)" << std::endl
        << "-k X\twith -o, checkpoint every X CPU seconds" << std::endl
+       << "-U F\tincumbent file 'obj [perm]', re-read every 50 nodes and on SIGUSR2;\n\ta lower value is adopted" << std::endl
        << "-x D1:D2[:G[:H[:W]]]\tDNN bound on nodes QPB does not fathom at depths D1-D2\n"
        << "\twith relative gap at most G (default 1); H: give up after H\n"
        << "\titerations when hopeless (default 0, never); W=1: start a node's\n"
@@ -221,6 +225,13 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	i++;
 	bnb_state_file = new_string(argv[i]);
 	cout << "state file: " << bnb_state_file << std::endl;
+	break;
+
+      case 'U': // incumbent file, re-read at node boundaries (SIGUSR2: at once)
+	i++;
+	bnb_incumbent_file = new_string(argv[i]);
+	signal(SIGUSR2, poke_incumbent);
+	cout << "incumbent file: " << bnb_incumbent_file << std::endl;
 	break;
 
       case 'k': // checkpoint every X CPU seconds

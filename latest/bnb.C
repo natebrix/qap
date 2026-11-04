@@ -14,6 +14,8 @@
 
 #include <fstream>
 #include <algorithm>
+#include <iomanip>
+#include <vector>
 #include "state.h"
 #include <csignal>
 
@@ -26,6 +28,31 @@ bool bnb_stopped = false;            // set when bnb() stops on the time limit
 // Set by SIGUSR1 (see driver.C): save state and stop at the next node, like -t.
 // bench/parallel.py uses it to take work back from a busy worker.
 volatile sig_atomic_t bnb_stop_requested = 0;
+// -U FILE (docs/distributed/plan.md 5.2): an incumbent published elsewhere,
+// "obj [p0 .. p(n-1)]" in the state file's convention, re-read at node
+// boundaries every bnb_incumbent_every nodes or at once after SIGUSR2, and
+// adopted when lower. Any attained objective is a safe cutoff at any time.
+const char *bnb_incumbent_file = NULL;
+int bnb_incumbent_every = 50;
+volatile sig_atomic_t bnb_incumbent_poke = 0;
+
+static void read_incumbent_file(QAPSolution *s, int n)
+{
+  FILE *f = fopen(bnb_incumbent_file, "r");
+  if (!f) return;
+  double obj;
+  if (fscanf(f, "%lf", &obj) == 1 && obj < s->getObjective()) {
+    std::vector<int> p(n), seen(n, 0);
+    bool perm = true;
+    for (int i = 0; i < n && perm; i++)
+      perm = fscanf(f, "%d", &p[i]) == 1 && p[i] >= 0 && p[i] < n && !seen[p[i]]++;
+    s->setObjective(obj);
+    if (perm) s->setPermutation(p.data());
+    std::cout << "incumbent from file: " << std::setprecision(17) << obj
+              << std::setprecision(6) << (perm ? "" : " (no permutation)") << std::endl;
+  }
+  fclose(f);
+}
 
 // DNN bound (-x dmin:dmax[:maxgap[:hopeless[:warm]]]): applied to nodes QPB does not
 // fathom at depths dmin..dmax whose relative gap (inc - QPB)/(inc - root QPB)
@@ -403,6 +430,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	if (bnb_checkpoint_every > 0 && stats->total_time >= next_checkpoint) {
 	  write_state(bnb_state_file, stack, s, stats);
 	  next_checkpoint = stats->total_time + bnb_checkpoint_every;
+	}
+      }
+      if (bnb_incumbent_file) {
+	static long inc_tick = 0;
+	if (bnb_incumbent_poke || inc_tick++ % std::max(1, bnb_incumbent_every) == 0) {
+	  bnb_incumbent_poke = 0;
+	  read_incumbent_file(s, n);
 	}
       }
 

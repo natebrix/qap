@@ -1,0 +1,200 @@
+#!/usr/bin/env python3
+"""The coordinator (coord/, docs/distributed/plan.md) against the serial
+solver: with a fixed incumbent every scenario must reproduce the serial
+node, fathom, enumerate and Frank-Wolfe totals exactly.
+
+  normal     coordinator + one worker, small budgets (units return, steals)
+  kill9      the worker is killed (SIGKILL, solvers included) mid-run; a new
+             worker takes the units over after their leases run out
+  kill9ckpt  the same with 4-second units, so the killed units resume from
+             their uploaded checkpoints
+  coordkill  the coordinator is killed mid-run and restarted
+  drain      the worker gets SIGTERM mid-run (spot notice): running units
+             return their open nodes; a new worker finishes
+  noub       no incumbent given: the run finds the optimum and publishes it
+             (totals then depend on timing; only the objective is checked)
+  aws        `normal` on the AWS backend against a local moto server
+             (needs boto3 and moto: --python VENV/bin/python)
+
+  python3 tests/coord_test.py [--instance nug17 --opt 1732] [--only kill9,drain] [--python PY]
+"""
+import argparse
+import os
+import re
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+FAST = ["--ckpt-upload", "0.5", "--budget", "0.3", "--target-unit-cpu", "0.5", "--steal-after", "0.5", "--heartbeat", "0.5",
+        "--checkpoint-every", "0.2", "--poll", "0.3", "--status-every", "5", "--slots", "3"]
+
+
+def totals(text):
+    m = re.search(r"Nodes: (\d+) / (\d+) / (\d+)", text)
+    f = re.search(r"fw iterations: (\d+)", text)
+    b = re.search(r"best objective (\S+)", text)
+    return (tuple(map(int, m.groups())) if m else None, int(f.group(1)) if f else None,
+            float(b.group(1)) if b else None)
+
+
+def serial(inst, opt):
+    r = subprocess.run([os.path.join(ROOT, "latest", "bnbdrv"), "-p", "PARAM/default.par", "-u", str(opt),
+                        os.path.join(ROOT, "qaplib", inst + ".dat")], cwd=os.path.join(ROOT, "latest"),
+                       capture_output=True, text=True)
+    return totals(r.stdout)
+
+
+class Run:
+    def __init__(self, py, backend, run_id, inst, opt, extra=(), lease=4):
+        self.py, self.backend, self.run_id = py, backend, run_id
+        self.args = ["--backend", backend]
+        self.init = ["init", run_id] + self.args + ["--instance", os.path.join(ROOT, "qaplib", inst + ".dat"),
+                                                    "--lease", str(lease)] + FAST + list(extra)
+        if opt is not None:
+            self.init += ["--ub", str(opt)]
+        self.procs = []
+        self.tmp = tempfile.mkdtemp(prefix="coordtest-")
+
+    def ctl(self, *a, wait=True, log=None):
+        cmd = [self.py, "-m", "coord.qapctl"] + list(a)
+        out = open(log, "a") if log else subprocess.DEVNULL
+        p = subprocess.Popen(cmd, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+        if wait:
+            p.wait()
+            return p
+        self.procs.append(p)
+        return p
+
+    def worker(self, tag):
+        return self.ctl("worker", self.run_id, *self.args, "--slots", "3", "--workdir",
+                        os.path.join(self.tmp, tag), wait=False, log=os.path.join(self.tmp, tag + ".log"))
+
+    def coordinator(self, tag="coord"):
+        return self.ctl("coordinator", self.run_id, *self.args, "--poll", "0.3", wait=False,
+                        log=os.path.join(self.tmp, tag + ".log"))
+
+    def results(self):
+        from coord.backend import open_backend
+        b = open_backend(self.backend)
+        data = b.get_bytes(f"runs/{self.run_id}/results.txt")
+        return data.decode() if data else ""
+
+    def cleanup(self):
+        for p in self.procs:
+            if p.poll() is None:
+                os.killpg(p.pid, signal.SIGKILL)
+
+
+def wait_all(procs, timeout):
+    t0 = time.time()
+    for p in procs:
+        p.wait(timeout=max(1, timeout - (time.time() - t0)))
+
+
+def scenario(name, py, base, inst, opt, aws_endpoint=None):
+    if name == "aws":
+        backend = f"aws:qaptest/{name}?region=us-east-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
+        r = Run(py, backend, name, inst, opt)
+        r.ctl("aws-setup", *r.args)
+    else:
+        extra = ["--budget", "4", "--target-unit-cpu", "4", "--steal-after", "3"] if name == "kill9ckpt" else []
+        r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra)
+    try:
+        r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
+        c = r.coordinator()
+        w = r.worker("w1")
+        if name == "kill9ckpt":
+            # kill once a running unit has uploaded a checkpoint
+            from coord.backend import open_backend
+            b = open_backend(r.backend)
+            t_end = time.time() + 30
+            while time.time() < t_end and not any(
+                    b.exists(f"runs/{r.run_id}/units/{u['uid']}/ckpt.state")
+                    for u in b.units_by_status(r.run_id, "leased")):
+                time.sleep(0.1)
+            time.sleep(0.3)
+        if name in ("kill9", "kill9ckpt"):
+            if name == "kill9":
+                time.sleep(3)
+            os.killpg(w.pid, signal.SIGKILL)       # the worker and its solvers
+            w.wait()
+            time.sleep(1)
+            w = r.worker("w2")
+        elif name == "coordkill":
+            time.sleep(3)
+            os.killpg(c.pid, signal.SIGKILL)
+            c.wait()
+            time.sleep(2)
+            c = r.coordinator("coord2")
+        elif name == "drain":
+            time.sleep(3)
+            os.killpg(w.pid, signal.SIGTERM)       # the supervisor drains; solvers get SIGUSR1
+            w.wait(timeout=60)
+            w = r.worker("w2")
+        wait_all([c, w], 400)
+        from coord.backend import open_backend
+        units = open_backend(r.backend).all_units(r.run_id)
+        r.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
+                   "returned": sum(u.get("outcome") == "returned" for u in units),
+                   "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
+        return totals(r.results()), r
+    finally:
+        r.cleanup()
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--instance", default="nug17")
+    ap.add_argument("--opt", type=float, default=1732)
+    ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,drain,noub,aws")
+    ap.add_argument("--python", default=sys.executable)
+    a = ap.parse_args()
+    ref = serial(a.instance, int(a.opt))
+    print(f"serial: nodes {ref[0]}, fw {ref[1]}")
+    base = tempfile.mkdtemp(prefix="coordtest-backends-")
+    server = None
+    endpoint = None
+    bad = 0
+    for name in a.only.split(","):
+        if name == "aws" and server is None:
+            try:
+                import importlib
+                subprocess.run([a.python, "-c", "import boto3, moto"], check=True)
+                s = socket.socket(); s.bind(("127.0.0.1", 0)); port = s.getsockname()[1]; s.close()
+                env = dict(os.environ)
+                server = subprocess.Popen([a.python, "-c", f"from moto.server import ThreadedMotoServer; "
+                                          f"s = ThreadedMotoServer(ip_address='127.0.0.1', port={port}); s.start(); "
+                                          f"import time; time.sleep(3600)"], env=env,
+                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                endpoint = f"http://127.0.0.1:{port}"
+                time.sleep(2)
+                for k, v in (("AWS_ACCESS_KEY_ID", "test"), ("AWS_SECRET_ACCESS_KEY", "test"),
+                             ("NO_PROXY", "127.0.0.1,localhost"), ("no_proxy", "127.0.0.1,localhost")):
+                    os.environ[k] = v
+                os.environ.pop("AWS_CA_BUNDLE", None)
+            except Exception as e:
+                print(f"aws: skipped ({e})")
+                continue
+        t0 = time.time()
+        got, r = scenario(name, a.python, base, a.instance, a.opt, endpoint)
+        ok = got[2] == a.opt if name == "noub" else (got[0] == ref[0] and got[1] == ref[1] and got[2] == a.opt)
+        bad += not ok
+        print(f"{name:10s} {'ok ' if ok else 'BAD'} nodes {got[0]} fw {got[1]} best {got[2]}  ({time.time() - t0:.0f} s)"
+              + f"  units {r.stats['units']}, retried {r.stats['retried']} ({r.stats['resumed']} from a checkpoint), "
+              f"returned {r.stats['returned']}"
+              + ("" if ok else f"  logs in {r.tmp}"))
+    if server:
+        server.kill()
+    shutil.rmtree(base, ignore_errors=True)
+    print("all coordinator scenarios passed" if not bad else f"{bad} scenario(s) failed")
+    sys.exit(1 if bad else 0)
+
+
+if __name__ == "__main__":
+    main()
