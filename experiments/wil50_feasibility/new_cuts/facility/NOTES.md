@@ -223,3 +223,10 @@ sep_dist.py --fam hull3 (logs/hull3_n13_uncut1500.log), gapdecomp.py (logs/gapde
   split_ctl_zonly.log, fdrv -cont quiet -iters 400): certified 48,713.37 against 48,745.63 at the end
   of the quiet round, primal 48,752.09: restarting Y from scratch costs ~32 certified units that 400
   iterations do not recover. All split jobs switched to -wy (Y and Z from the saved state) and rerun.
+
+## 07:36 Count split on node 13 (outer region col<2, from the quiet state, Y+Z warm, 400 it)
+- control (fdrv -cont quiet -wy -iters 400): 48,746.78 (primal 48,749.60), +1.15 over the quiet end.
+- side c <= 8 (E c = 8.576): mu 10 -> 48,751.48 (+4.7), mu 40 -> 48,744.32 (primal 48,751.51; the
+  certificate lags at the larger multiplier). The side's value is about +5: the DNN moves the
+  fractional count mass 0.58 down for ~5 units. Dropped the mu = 160 runs (killed one; log in
+  runs/n13/zonly/). Side c >= 9 running; then the mid-region split (col<4).

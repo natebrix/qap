@@ -193,3 +193,16 @@ nug12 root: facility-triple (lmp1) max violation 0.278 at the DNN optimum
   is worth a bounded number of SA levels, consistent with DNN ~ RLT2.
 - nug12 lmp1 (facility-triple LMP3) cutting planes: round 0 567.99 (max viol
   0.278), round 1 571.21 with 200 cuts.
+
+## ~07:25 nug12 DNN + facility-triple LMP3 (Astra's family), exact cutting planes
+
+logs/nug12_cp_lmp1.log (SCS 1e-5, 200 cuts a round over all 220 facility
+triples): 567.99 -> 571.21 -> 572.63 -> 573.33 -> 573.82 (rounds 0-4), max
+violation 0.278 -> 0.185, still rising ~0.5 a round. So at n = 12 the
+step-8 family closes >= 58% of the DNN gap ON TOP of the DNN (RLT2 alone
+closes 100% here). At wil50 m = 47 the same family is violated by 0.02
+(facility agent, heaviest triples, triangle iterate) against 0.28 here:
+the per-triple inconsistency of the DNN shrinks with n, the same trend as
+the literature's RLT2-vs-DNN gap units (+1.0 at n = 12 to -0.6 at n = 30,
+-1.25 at n = 42). At m = 47 the coherent part of 3-facility consistency is
+the regional aggregate, i.e. the threshold triangles we already have.

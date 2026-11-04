@@ -134,3 +134,17 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
   24,112; the node 24,250. Against the break-even 24,173 on top of the
   triangles, a depth-2 key gives +0..+12.5, the node's own key +38: the cut
   must come from the node's own coarse problem (or its own coarse subtree).
+
+## 07:10-07:35 The coarse problem's own bound (prices the certification)
+
+- runs/n13_tri5_mid5only.log: dnncuts -grid 5:10 -c 1e12 -T 1 -k 1000 -v -I 400 -i 300
+  -r 5 -delta 25 -nocap -freeze 0:600 -x 21:28,8:41,28:19 inst/wil50_mid5only.dat
+  -> round 0 (plain DNN, 400 it.) 23,927.5; after 5 rounds + quiet 23,988.9
+  (primal 24,007.7). Coarse SA optimum 24,250 (d2: 24,230, 5 seeds agree).
+  The coarse problem's relaxation gap is >= 242 (1.0%), larger in relative
+  terms than the fine node's (node 13: 48,714 tri5 vs 49,022 SA = 0.63%).
+  Certifying the break-even LB_K = 24,173 needs a coarse B&B closing 184 of
+  it; the +38 needs the full 261. 12-way branching instead of 47-way, keys
+  shared by ~70-230 depth-3 nodes, but 3-5 coarse levels: not a cheap cut.
+  Coarse level-1 experiment (coarse_bb.py) dropped: one level cannot close 184.
+- Started runs/d2_tri5.log (d2 = 39:27,30:48,25:49,26:5, tri5 protocol, dump).
