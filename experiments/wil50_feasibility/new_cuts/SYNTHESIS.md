@@ -43,7 +43,17 @@ reach the same diagnosis independently:
   disjunctions at most +42 to +59, one N+ level +19 to +24), so ordinary
   branching dominates them (facility).
 
-## The one candidate left
+## The one candidate left (tested Nov 4: killed)
+
+**Update, Nov 4 (`box_pool/README.md`).** Built as cut type 8 in the pool and
+run with the predeclared protocol: -32.3 on node 10 and -22.6 on node 13
+against the triangles alone, so the gate (median over 10, 13, d2 at least
++15) failed on the first wave. The boxes do not raise the Lagrangian value
+inside the Polyak rounds (equal on node 10, -13 on node 13 by round 12); they
+widen the certificate's lag (83 / 66 against 54 / 51 per round) and move the
+best certified round earlier, so the quiet round starts from weaker
+multipliers. The linear families on Y are closed.
+
 
 **Large-Q 1-box count inequalities on the threshold regions** (Junger-Kaibel),
 from the literature agent: on nug12 they close the DNN's gap where the
@@ -96,5 +106,5 @@ The bound is not where another factor of 47 will come from. The roadmap's
 remaining levers stand as they were: pool inheritance in the search (the
 largest unmeasured one), the coordinator, per-node speed and hardware (GPUs),
 and above all the sampling plan, which decides whether the tree sits at the
-small end of its range. The box-inequality pool test is a cheap optional
-side-bet worth at most a fifth of a level.
+small end of its range. The box-inequality pool test, the one optional
+side-bet, failed its gate on Nov 4 (above).
