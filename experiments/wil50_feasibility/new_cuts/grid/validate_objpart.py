@@ -41,11 +41,13 @@ def thr(R, C, name):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument('-N', type=int, default=10); ap.add_argument('--seed', type=int, default=1)
+    ap = argparse.ArgumentParser(); ap.add_argument('-N', type=int, default=10); ap.add_argument('--seed', type=int, default=1); ap.add_argument('--gap-only', action='store_true', help='keep drawing until N instances have a DNN gap')
     a = ap.parse_args()
     rng = random.Random(a.seed); tmp = tempfile.mkdtemp(dir=gl.ROOT + '/experiments/wil50_feasibility/new_cuts/grid/runs')
     checks = bad = 0; gains = []
-    for inst in range(a.N):
+    inst = -1; kept = 0
+    while kept < a.N:
+        inst += 1
         R, C = rng.choice([(2, 4), (2, 3), (3, 3)])
         n = R * C
         Dr, Dc = gl.grid_dist(R, C); D = Dr + Dc
@@ -63,6 +65,7 @@ def main():
         opt = node_opt(D, F, fixes); optK = node_opt(DK, F, fixes)
         # plumbing: Node's row/col split of the optimal value via a brute-force permutation
         vals = {}
+        kept += 1
         for s_, k_ in ((1, 0), (2, 1), (4, 1), (4, 3)):
             Ap = s_ * D - k_ * DK
             f = f'{tmp}/v{inst}_{s_}_{k_}.dat'; gl.write_qaplib(f, Ap, F)
@@ -76,6 +79,10 @@ def main():
             if lb > opt + 1e-6:
                 bad += 1; print(f'  INVALID: inst {inst} {R}x{C} K={K} node {spec} s={s_} k={k_}: bound {lb:.4f} > opt {opt}')
             vals[(s_, k_)] = lb
+            if a.gap_only and (s_, k_) == (1, 0) and lb > opt - 0.5:
+                checks -= 1; kept -= 1; break
+        if a.gap_only and vals.get((1, 0), opt) > opt - 0.5:
+            continue
         print(f'inst {inst}: {R}x{C} K={"+".join(K)} node {spec} opt {opt:.0f} optK {optK:.0f} DNN {vals.get((1,0),0):.3f} '
               f'alpha .5 {vals.get((2,1),0):.3f} .25 {vals.get((4,1),0):.3f} .75 {vals.get((4,3),0):.3f}', flush=True)
     print(f'{checks} certified values, {bad} above the node optimum')

@@ -183,3 +183,15 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
   its tri5 value 23,988.9. At this rate the break-even 24,173 is 4-6 coarse
   levels away. Converged check queued: runs/coarse_conv.sh (parent and the two
   lowest children at 1,500 it.).
+- runs/coarseconv_*.log (dnntest -c 1e12 -T 1 -d 3 -L 2 -r 40 -i 1500 -H 0 on
+  inst/wil50_mid5only.dat): node 13's coarse problem, plain DNN converged
+  23,949.9 (primal 23,941.6; coarse gap to 24,250 = 300, 1.24%); its lowest
+  coarse child (facility 40 -> cell 24) 23,989.8 = +39.9: the converged
+  per-level rise of the coarse LB is ~40, the same as at 400 it. Break-even
+  (24,173) is 223 above the plain coarse bound: ~5-6 coarse levels.
+  => the certification of the objective-splitting cut is a coarse B&B of
+  10^4-10^5 nodes per key: item 1 is killed by its own criterion (< 60/level).
+- 09:15 queued node 10 tri5 (dump) then node 10 objective splitting alpha 0.5.
+- second-lowest coarse child (facility 40 -> cell 34) converged 24,003.6
+  (400 it.: 23,977.4). Convergence adds ~22-26 to parent and children alike;
+  the min-child rise per coarse level stays ~40.

@@ -265,3 +265,25 @@ sep_dist.py --fam hull3 (logs/hull3_n13_uncut1500.log), gapdecomp.py (logs/gapde
   so the single-variable N+ level is worth +19..+24 (not +21..+24).
 - Gentle facility LMP3 pool round 1: 48,747.04 (+0.38), primal 48,748.89 (below the control's
   48,749.65), all 60 cuts over-satisfied even at the small first step.
+- Gentle facility LMP3 pool rounds 2-4: 48,747.82 (+1.16), 48,748.07 (+1.40), 48,748.09 (+1.43);
+  Lagrangian primal 48,749.19-48,749.49 (control 48,749.65); by round 4 the multipliers fell to 11
+  active and all 60 cuts are violated again (max 0.1145): the dual maximum is at mu ~ 0, and the
+  +1.4 is the continuation drift (mu = 0 control: +1.15 after 1,000 it).
+- Gentle facility LMP3 pool final (runs/n13/lmp3pool_gentle.log): best 48,748.09 (round 4, 11 active),
+  quiet 48,747.96. Same as the mu = 0 continuation: gain 0. LMP3_fac on heavy triples retired.
+- 09:10 d2 triangle phase started (runs/d2), then its quiet round with -C: second node for the
+  facility-side diagnostics and the cut-certificate child bounds.
+
+## 09:15 Conclusions (final unless d2 contradicts)
+- Facility side: closed. Flows random; facility-side inequalities not violated at converged
+  iterates (before and after triangles); the only violated facility-side family (LMP3_fac on heavy
+  triples) and its location analogue (LMP3_loc on L-shapes) give 0 and +0.3..+0.5 in a Polyak pool
+  on top of the frozen triangle term (best multipliers ~0): the inconsistency is objective-neutral.
+- Disjunctions: closed. Line closure = min child = largest-x cell's child (22/30 lines); node 10:
+  line disjunctions <= +42..+59, N+ on the bottleneck variable +19..+24, count splits +2.4..+2.9;
+  certificate child bounds flat (0 fathomed at n10 uncut and n13 cut).
+- By-product: Z-only restart from a converged state -32 certified at 400 it vs Y+Z +1.2.
+- The report text is delivered in the hand-back (REPORT.md writes are refused for subagents).
+- d2 phase (runs/d2/phase.log): round 0 48,657.14 (laptop 48,656.9), r1 +30.9, r2 +54.2, r3 +60.0,
+  r4 +61.7, r5 48,726.31 (+69.2, best), r6 -264 (Polyak overshoot), r7 -108, r8 -18.7. Quiet round
+  from round 5's multipliers running.

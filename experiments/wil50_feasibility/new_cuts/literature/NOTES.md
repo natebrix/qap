@@ -228,3 +228,30 @@ Lagrangian primal 48,638.62 (+10.2 over the reference primal). The term
 exactly the triples' failure mode; the Lagrangian moves +10 at most, the
 same order as local-7's +12 at its gate. mu = 3 killed (would overshoot);
 mu = 0.3 queued later.
+
+## ~09:10 nug12: DNN + Jünger-Kaibel 1-box cuts on the 5 threshold regions CLOSES THE GAP
+
+logs/nug12_cp_box1.log (cp_small.py box1: exhaustive over facility sets Q,
+|Q| >= 3, b = floor(E q), P = the 5 threshold regions of the 3x4 grid, 200
+cuts a round, SCS 1e-5): 567.99 -> 576.83 -> 578.011 -> 578.011 (round 2-3,
+max viol 2e-4; 578.011 vs OPT 578 is SCS tolerance). Triangles: none violated
+at this root (stronger_bounds step 7). So at n = 12 the 1-box family alone
+does everything RLT2 does, and more than any local RLT2 projection
+(facility 0.62, mixed 0.40, location 0.29 of the gap after 3-5 rounds).
+Validity: algebraic (integer count), make_box_ladd.py permutation checks,
+dnntest -Ladd certified values never above 578; check_box_nug12.py re-checks
+cp_small's rows on 100k permutations (running).
+Consequence: the on-top-of-triangles test on wil50 is the one that matters;
+queue h runs wil50/run_box_ontop.sh "0.3 1" 200 on node 13 with the grid
+agent's n13_tri5 protocol (reference 48,713.85).
+- check_box_nug12.py: the 200 box rows cp_small separates at the nug12 root
+  are valid on 100,000 random permutations (worst value - rhs = 0) and each is
+  tight on some permutation. Shapes: |P| = 6 (col<2) or 4/8, |Q| = 5-9,
+  b = 2-4, i.e. b ~ E q ~ |Q|/2: large balanced boxes on the half-grid
+  region, the cut-polytope clique/hypermetric inequalities of one threshold's
+  bisection, not the 5-point family's |Q| = 5 alone.
+- nug12 lmp1+lmp0 (decoupled both halves) round 1: 571.48 (running).
+- nug12 DNN + both local halves, decoupled (logs/nug12_cp_lmp01.log, 300 cuts a
+  round): 567.99 -> 571.48 -> 572.95 -> 573.73 (3 rounds; max viol still
+  0.20): barely above the facility half alone at 3 rounds (573.33). All the
+  local-projection runs are lower estimates (cutting planes not converged).
