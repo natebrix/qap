@@ -212,3 +212,22 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
   Break-even LB_K 24,158.7. On top of tri5, three test nodes: +38.3 (13),
   +35.6 (10), +32.1 (d2); median +35.6, conditional on proving the SA coarse
   optima (24,250 / 24,230 / 24,230).
+- validate_objpart.py -N 8 --seed 11 --gap-only (only instances whose plain
+  DNN is below the optimum; 2x3, 2x4, 3x3): 32 certified values, 0 above the
+  node optimum (runs/validate_objpart_gap.log). With K = all thresholds
+  (OPT_K = OPT) the split bound tends to OPT as alpha -> 1 (inst 51: 575.3 at
+  alpha 0.75, optimum 576), as it must. Total: 80 values, 0 invalid.
+
+## 10:30 Done. Conclusions (the hand-back message carries the full report)
+
+1. No location-side inequality family beyond the prefix triangles is worth
+   carrying: parity, dispersion, sub-QAP packing, free/rectangle/XOR regions,
+   l1/hypermetric on E[d] are unviolated or dominated at 4 iterates.
+2. After the triangles, every single threshold and both 1-D problems are at
+   or above their own optima in the objective direction (nodes 13, 10; d2
+   inflated); the remaining gap is the row x column coupling of the middle
+   thresholds, global in thresholds and facilities.
+3. Objective splitting along the 12-super-cell (mid5) problem: +32..+38 on
+   top of tri5 on 13/10/d2 IF the coarse optimum is proven; proving it needs
+   a coarse B&B ~5 levels deep (coarse relaxation gap 1.0-1.2%, min-child
+   rise ~40/level): killed by its pre-declared criterion.
