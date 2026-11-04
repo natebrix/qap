@@ -6,6 +6,7 @@ L=/home/user/qap/latest
 OB=$(python3 -c "import scipy_openblas32 as o; print(o.get_lib_dir())")
 CF="-O3 -march=native -ffp-contract=off -DBNB_STANDALONE -DHAVE_DNN"
 INC="-I$L -I/home/user/qap/src/MESCHACH"
+cp $L/dnncut.C dnncut_f.C.orig
 python3 -I make_dnncut_f.py
 g++ $CF $INC -c dnncut_f.C -o dnncut_f.o
 g++ $CF $INC -c fdrv.C -o fdrv.o
