@@ -85,6 +85,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include <atomic>
 
 /*
  LAPACK / BLAS. DNN_BLAS_PREFIX is prepended to the Fortran names
@@ -1364,12 +1365,16 @@ bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child, int ymode)
  running best is within DNN_CERTX_WINDOW (80) of the cutoff, and at the last
  iteration. DNN_CERTX_CALLS=<bitmask> restricts it to those dnn_bound calls of
  the process (bit k = call k; default all). DNN_CERTX_USE=1 lets the best
- variant replace the standard value (changes the run; off by default).
+ variant replace the standard value (changes the run; off by default), and
+ the polish then stops as soon as it crosses the cutoff. DNN_CERTX_QUIET=1
+ prints nothing (for search runs). A search configuration that uses the
+ polish only near the cutoff: DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1
+ DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=<W> [DNN_CERTX_RPASSES=<k>].
  Modes 2, 32 and 34 alone reuse the standard certificate's lambda bound
  (no second Cholesky), as a production version would.
 */
 struct CertXEnv {
-  int mode = 0, passes = 8, rpasses = 12, wpasses = 2, navg = 4, every = 5, use = 0;
+  int mode = 0, passes = 8, rpasses = 12, wpasses = 2, navg = 4, every = 5, use = 0, quiet = 0;
   long calls = -1;
   double window = 80;
   std::string dump;
@@ -1385,6 +1390,7 @@ struct CertXEnv {
     if (const char *e = getenv("DNN_CERTX_CALLS")) calls = atol(e);
     if (const char *e = getenv("DNN_CERTX_USE")) use = atoi(e);
     if (const char *e = getenv("DNN_CERTX_DUMP")) dump = e;
+    if (const char *e = getenv("DNN_CERTX_QUIET")) quiet = atoi(e);   // 1: no certx output (search runs)
   }
 };
 static const CertXEnv &certx_env() { static CertXEnv e; return e; }
@@ -1663,7 +1669,7 @@ static double cert_lambda(Work &w, const double *Zm)
   return HUGE_VAL;
 }
 
-static int dnn_call_counter = 0;   // DNN_CERTX_CALLS: index of this dnn_bound call in the process
+static std::atomic<int> dnn_call_counter(0);   // DNN_CERTX_CALLS: index of this dnn_bound call in the process
 
 DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
                     double cutoff, const DNNParams &par, const DNNWarm *start,
@@ -1806,7 +1812,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   int cx_first[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
   double cx_best[8] = {-HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL};
   double cx_cpu = 0;
-  if (cx_on) printf("certx call %d m %d mode %d passes %d rpasses %d avg %d every %d window %g use %d\n", call_idx,
+  if (cx_on && !cxe.quiet) printf("certx call %d m %d mode %d passes %d rpasses %d avg %d every %d window %g use %d\n", call_idx,
                     m, cxe.mode, cxe.passes, cxe.rpasses, cxe.navg, cxe.every, cxe.window, cxe.use);
 
   // DNN_FUSE=1: the Y/Z step writes the next forward's row phase into T while the row
@@ -2140,6 +2146,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
           }
         }
         w.delta_rel = dr_save;
+        if (!cxe.quiet) {
         const double primal = dot4(L, Y, nn) + shift;
         printf("certx it %5d std %.4f exact %.4f hg", it, u_[0] + shift, u_[1] + shift);
         for (size_t p = 0; p < hv.size(); p++)
@@ -2163,6 +2170,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         }
         if (cxe.mode & 128) printf(" proj %.4f cpup %.2f", u_[7] + shift, tm[6]);
         printf("\n");
+        }
         double vmax = -HUGE_VAL;
         for (int v = 0; v < 8; v++) {
           if (u_[v] > -HUGE_VAL) {
@@ -2258,7 +2266,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     }
   }
   if (status < 0) status = DNN_ITER_LIMIT;
-  if (cx_on) {
+  if (cx_on && !cxe.quiet) {
     printf("certx-summary call %d status %s iters %d cutoff %.4f first std %d exact %d hg %d ls %d avg %d hgr %d"
            " hgw %d proj %d best std %.4f exact %.4f hg %.4f ls %.4f avg %.4f hgr %.4f hgw %.4f proj %.4f"
            " cpu_certx %.2f\n",
