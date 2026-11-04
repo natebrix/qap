@@ -1,0 +1,357 @@
+make: Entering directory '/home/user/qap/.claude/worktrees/agent-ad7e23f428d87011e/latest'
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c qpbnd.C
+In file included from qpbnd.C:5:
+linalg.h: In function 'double mm_trace(MAT*, MAT*)':
+linalg.h:22:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+qpbnd.C: In function 'void init_gradient(MAT*, MAT*, MAT*, MAT*, double&, double&, int)':
+qpbnd.C:65:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   65 |   register double v;
+      |                   ^
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c qpbnd2.C
+In file included from qpbnd2.C:4:
+linalg.h: In function 'double mm_trace(MAT*, MAT*)':
+linalg.h:22:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c lap.C
+lap.C: In function 'cost lap(int, cost**, col*, row*, cost*, cost*)':
+lap.C:59:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   59 |   register row i;
+      |                ^
+lap.C:60:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   60 |   register col j;
+      |                ^
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c dlap.C
+dlap.C: In function 'double dlap(int, double**, int*, int*, double*, double*, double, bool)':
+dlap.C:38:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   38 |   register int i,j;
+      |                ^
+dlap.C:38:18: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   38 |   register int i,j;
+      |                  ^
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c qap.C
+In file included from qap.C:4:
+linalg.h: In function 'double mm_trace(MAT*, MAT*)':
+linalg.h:22:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+qap.C: In function 'void printQAP(QAP*)':
+qap.C:52:27: warning: ISO C++ forbids converting a string constant to 'char*' [-Wwrite-strings]
+   52 |   my_nice_m_output(qap->A,"A = ",qap->A->m,qap->A->n);
+      |                           ^~~~~~
+qap.C:53:27: warning: ISO C++ forbids converting a string constant to 'char*' [-Wwrite-strings]
+   53 |   my_nice_m_output(qap->B,"B = ",qap->B->m,qap->B->n);
+      |                           ^~~~~~
+qap.C:54:27: warning: ISO C++ forbids converting a string constant to 'char*' [-Wwrite-strings]
+   54 |   my_nice_m_output(qap->C,"C = ",qap->C->m,qap->C->n);
+      |                           ^~~~~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c assign.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c link1.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c solution.C
+solution.C: In function 'std::ostream& operator<<(std::ostream&, const QAPSolution&)':
+solution.C:82:1: warning: no return statement in function returning non-void [-Wreturn-type]
+   82 | }
+      | ^
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c branch.C
+In file included from branch.C:26:
+linalg.h: In function 'double mm_trace(MAT*, MAT*)':
+linalg.h:22:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c bnb.C
+In file included from bnb.C:3:
+linalg.h: In function 'double mm_trace(MAT*, MAT*)':
+linalg.h:22:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c util.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c linalg.C
+In file included from linalg.C:2:
+linalg.h: In function 'double mm_trace(MAT*, MAT*)':
+linalg.h:22:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+linalg.C: In function 'MAT* my_m_mlt(MAT*, MAT*, MAT*)':
+linalg.C:208:38: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  208 |                     register double *dp1, *dp2, s;
+      |                                      ^~~
+linalg.C:208:44: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  208 |                     register double *dp1, *dp2, s;
+      |                                            ^~~
+linalg.C:208:49: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  208 |                     register double *dp1, *dp2, s;
+      |                                                 ^
+linalg.C:209:41: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  209 |                     register int        l;
+      |                                         ^
+linalg.C: In function 'MAT* my_mtrm_mlt(MAT*, MAT*, MAT*)':
+linalg.C:255:38: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  255 |                     register double *dp1, *dp2, s;
+      |                                      ^~~
+linalg.C:255:44: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  255 |                     register double *dp1, *dp2, s;
+      |                                            ^~~
+linalg.C:255:49: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  255 |                     register double *dp1, *dp2, s;
+      |                                                 ^
+linalg.C:256:41: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  256 |                     register int        l;
+      |                                         ^
+linalg.C: In function 'MAT* mtvm_mlt(MAT*, VEC*, MAT*)':
+linalg.C:336:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  336 |   register double *Ak,*Aki,bk;
+      |                    ^~
+linalg.C:336:24: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  336 |   register double *Ak,*Aki,bk;
+      |                        ^~~
+linalg.C:336:28: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  336 |   register double *Ak,*Aki,bk;
+      |                            ^~
+linalg.C: In function 'void permrows(MAT*, int*, MAT*)':
+linalg.C:378:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  378 |   register double *op, *op2;
+      |                    ^~
+linalg.C:378:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  378 |   register double *op, *op2;
+      |                         ^~~
+linalg.C:379:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  379 |   register int i,j;
+      |                ^
+linalg.C:379:18: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  379 |   register int i,j;
+      |                  ^
+linalg.C: In function 'void permcols(MAT*, int*, MAT*)':
+linalg.C:402:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  402 |   register double *op,*op2;
+      |                    ^~
+linalg.C:402:24: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  402 |   register double *op,*op2;
+      |                        ^~~
+linalg.C:403:18: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  403 |   register u_int i,j;
+      |                  ^
+linalg.C:403:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  403 |   register u_int i,j;
+      |                    ^
+linalg.C: In function 'double rowdot(MAT*, int, MAT*, int)':
+linalg.C:427:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  427 |   register double *a = A->me[ra];
+      |                    ^
+linalg.C:428:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  428 |   register double *b = B->me[rb];
+      |                    ^
+linalg.C:429:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  429 |   register double sum = 0.0;
+      |                   ^~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c fw.C
+In file included from fw.C:21:
+linalg.h: In function 'double mm_trace(MAT*, MAT*)':
+linalg.h:22:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+fw.C: In function 'void init_X(MAT*, int)':
+fw.C:106:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  106 |   register int i,j;
+      |                ^
+fw.C:106:18: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  106 |   register int i,j;
+      |                  ^
+fw.C: In function 'void search_dir(int*, MAT*, MAT*, int)':
+fw.C:246:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  246 |   register int i,j;
+      |                ^
+fw.C:246:18: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  246 |   register int i,j;
+      |                  ^
+fw.C: In function 'void deltaG(MAT*, MAT*, MAT*, MAT*, MAT*, MAT*, MAT*, MAT*, int*, int*, double&, int)':
+fw.C:294:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  294 |   register int i,j,k;
+      |                ^
+fw.C:294:18: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  294 |   register int i,j,k;
+      |                  ^
+fw.C:294:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  294 |   register int i,j,k;
+      |                    ^
+fw.C:295:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  295 |   register double v;
+      |                   ^
+fw.C: In function 'void deltaG_alt(double**, double**, double**, double**, double**, double**, double**, double**, int*, int*, double&, int)':
+fw.C:322:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  322 |   register int i,j,k;
+      |                ^
+fw.C:322:18: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  322 |   register int i,j,k;
+      |                  ^
+fw.C:322:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  322 |   register int i,j,k;
+      |                    ^
+fw.C:323:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  323 |   register double aik, *ai, *bkj;
+      |                   ^~~
+fw.C:323:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  323 |   register double aik, *ai, *bkj;
+      |                         ^~
+fw.C:323:30: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  323 |   register double aik, *ai, *bkj;
+      |                              ^~~
+fw.C:324:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  324 |   register double *dgi;
+      |                    ^~~
+fw.C:346:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  346 |   register double *Si, *Tpi;
+      |                    ^~
+fw.C:346:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  346 |   register double *Si, *Tpi;
+      |                         ^~~
+fw.C: In function 'void deltaG_alt2(double**, double**, double**, double**, double**, double**, double**, double**, int*, int*, double&, double&, int)':
+fw.C:384:16: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  384 |   register int i,j,k;
+      |                ^
+fw.C:384:18: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  384 |   register int i,j,k;
+      |                  ^
+fw.C:384:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  384 |   register int i,j,k;
+      |                    ^
+fw.C:385:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  385 |   register double aik, *ai, *bkj;
+      |                   ^~~
+fw.C:385:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  385 |   register double aik, *ai, *bkj;
+      |                         ^~
+fw.C:385:30: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  385 |   register double aik, *ai, *bkj;
+      |                              ^~~
+fw.C:386:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  386 |   register double *dgi;
+      |                    ^~~
+fw.C:404:20: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  404 |   register double *Si, *Tpi;
+      |                    ^~
+fw.C:404:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+  404 |   register double *Si, *Tpi;
+      |                         ^~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c estimate.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c svd.C
+svd.C: In function 'void __mltadd__(double*, double*, double, int)':
+svd.C:12:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   12 |     register int        i;
+      |                         ^
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c sa_qap.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c stats.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c console.C
+In file included from console.C:2:
+linalg.h: In function 'double mm_trace(MAT*, MAT*)':
+linalg.h:22:25: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                         ^
+linalg.h:22:27: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   22 |   register unsigned int i,j;
+      |                           ^
+linalg.h:23:19: warning: ISO C++17 does not allow 'register' storage class specifier [-Wregister]
+   23 |   register double sum=0.0;
+      |                   ^~~
+console.C: In function 'void run_for_unassigned(QAP*, QAPAssignment&, QAPSolution*, QAPStatistics*, BNBParameters*, ConsoleParameters*, QPBParameters*, BranchParameters*, int*, const char*)':
+console.C:284:34: warning: '%d' directive output may be truncated writing between 1 and 10 bytes into a region of size 9 [-Wformat-truncation=]
+  284 |     snprintf(run_prefix, 10, "%s|%d", prefix, i);
+      |                                  ^~
+console.C:284:30: note: directive argument in the range [0, 2147483646]
+  284 |     snprintf(run_prefix, 10, "%s|%d", prefix, i);
+      |                              ^~~~~~~
+In file included from /usr/include/stdio.h:980,
+                 from /usr/include/c++/13/cstdio:42,
+                 from /usr/include/c++/13/ext/string_conversions.h:45,
+                 from /usr/include/c++/13/bits/basic_string.h:4109,
+                 from /usr/include/c++/13/string:54,
+                 from /usr/include/c++/13/bits/locale_classes.h:40,
+                 from /usr/include/c++/13/bits/ios_base.h:41,
+                 from /usr/include/c++/13/ios:44,
+                 from /usr/include/c++/13/ostream:40,
+                 from /usr/include/c++/13/iostream:41,
+                 from util.h:12,
+                 from console.C:1:
+In function 'int snprintf(char*, size_t, const char*, ...)',
+    inlined from 'void run_for_unassigned(QAP*, QAPAssignment&, QAPSolution*, QAPStatistics*, BNBParameters*, ConsoleParameters*, QPBParameters*, BranchParameters*, int*, const char*)' at console.C:284:13:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:35: note: '__builtin___snprintf_chk' output 3 or more bytes (assuming 12) into a destination of size 10
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+console.C: In function 'void branch_trial(QAP*, QAPAssignment&, QAPSolution*, QAPStatistics*, BNBParameters*, ConsoleParameters*, QPBParameters*, int, int)':
+console.C:442:35: warning: '%d' directive output may be truncated writing between 1 and 10 bytes into a region of size 5 [-Wformat-truncation=]
+  442 |     snprintf(prefix, prefix_len, "%d", trial+1);
+      |                                   ^~
+console.C:442:34: note: directive argument in the range [1, 2147483647]
+  442 |     snprintf(prefix, prefix_len, "%d", trial+1);
+      |                                  ^~~~
+In function 'int snprintf(char*, size_t, const char*, ...)',
+    inlined from 'void branch_trial(QAP*, QAPAssignment&, QAPSolution*, QAPStatistics*, BNBParameters*, ConsoleParameters*, QPBParameters*, int, int)' at console.C:442:13:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:35: note: '__builtin___snprintf_chk' output between 2 and 11 bytes into a destination of size 5
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c lgb_train.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c state.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -DDNN_BLAS_PREFIX=scipy_ -DDNN_OPENBLAS -I../src/MESCHACH -I -I./ -c dnn.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c dnncut.C
+cc -O3 -march=native -mamx-tile -mamx-bf16 -mavx512f -mavx512bw -mavx512bf16 -mavx512vl -MMD -MP -c amx_gemm.c
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c dnntest.C
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o sa_qap.o stats.o console.o lgb_train.o state.o dnn.o dnncut.o amx_gemm.o dnntest.o -o dnntest -lm ../src/MESCHACH/meschach.a -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I. -I../src/MESCHACH -I -I./ ../experiments/dnn_cuts/dnncuts.C qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o sa_qap.o stats.o console.o lgb_train.o state.o dnn.o dnncut.o amx_gemm.o -o ../experiments/dnn_cuts/dnncuts -lm ../src/MESCHACH/meschach.a -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN -I../src/MESCHACH -I -I./ -c driver.C
+driver.C: In function 'int main(int, char**)':
+driver.C:417:9: warning: ignoring return value of 'int system(const char*)' declared with attribute 'warn_unused_result' [-Wunused-result]
+  417 |   system("hostname");
+      |   ~~~~~~^~~~~~~~~~~~
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o sa_qap.o stats.o console.o lgb_train.o state.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm ../src/MESCHACH/meschach.a -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make: Leaving directory '/home/user/qap/.claude/worktrees/agent-ad7e23f428d87011e/latest'

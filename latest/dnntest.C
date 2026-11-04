@@ -11,6 +11,13 @@
    -Q list         with -K, the child's starts, comma-separated (default c,z):
                    c cold, z the parent's Z, a Z and the parent's Y restricted,
                    b Z and the parent's Y conditioned on the fixed assignment
+                   (-K also takes several children, i:j,i:j,..., each started
+                   from the same parent state)
+   -J N            with -K: the parent runs N iterations with no give-up (or
+                   until it fathoms); the children keep -H and -i (default:
+                   the parent runs as the children)
+   -Wr 16|32       with -K: round the parent's saved Y and Z to bf16 (16) or fp32
+                   (32) before the children start from them
    -N file         bound many nodes: one per line, "<i:j,... or -> [cutoff]"
    -u X            incumbent; the cutoff is X - (fathoming tolerance), the
                    tolerance being the solver's (1.95 for even objectives)
@@ -61,6 +68,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cstdint>
 #include <cmath>
 #include <ctime>
 #include <string>
@@ -102,6 +110,22 @@ static bool print_xbar = false;   // -X: print the primal assignment marginals
 
 static std::string ladd_spec, dumpy;   // -Ladd file[:const], -dumpY prefix
 static std::string child_passes = "c,z";   // -Q: the child's starts
+static int parent_iters = 0;   // -J: the parent's own iteration budget, no give-up (0: as the children)
+static int round_warm = 0;     // -Wr 16|32: round the parent's saved Y and Z to bf16 or fp32
+                               // before the children start from them (a shipped warm start)
+
+// round to bf16 (8 significant bits, round to nearest even) or to fp32
+static double round_to(double x, int bits)
+{
+  float f = (float)x;
+  if (bits == 32 || !std::isfinite(f)) return f;
+  uint32_t u;
+  memcpy(&u, &f, 4);
+  u += 0x7fff + ((u >> 16) & 1);
+  u &= 0xffff0000u;
+  memcpy(&f, &u, 4);
+  return f;
+}
 
 static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNParams &par0,
                      int index, const std::string &child = "",
@@ -163,7 +187,11 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
   }
 
   DNNWarm warm;
-  DNNResult r = dnn_bound(qr.A, qr.B, qr.C, qr.shift - ext_const, cutoff, par, NULL,
+  // -J N (with -K): the parent runs exactly N iterations with no give-up (or
+  // until it fathoms); the children keep -H / -i (roadmap/convergence2)
+  DNNParams ppar = par;
+  if (parent_iters > 0 && !child.empty()) { ppar.max_iter = parent_iters; ppar.hopeless_after = 0; }
+  DNNResult r = dnn_bound(qr.A, qr.B, qr.C, qr.shift - ext_const, cutoff, ppar, NULL,
                           (child.empty() && !print_xbar && dumpy.empty()) ? NULL : &warm);
   if (!dumpy.empty() && !warm.Y.empty()) {
     std::string path = dumpy + ".Y.bin";
@@ -210,19 +238,33 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
   fflush(stdout);
   if (child.empty() || r.status == DNN_ERROR) return r.status != DNN_ERROR;
 
+  if (round_warm == 16 || round_warm == 32) {
+    for (double &v : warm.Y) v = round_to(v, round_warm);
+    for (double &v : warm.Z) v = round_to(v, round_warm);
+    printf("WARM-ROUNDED to %s\n", round_warm == 16 ? "bf16" : "fp32");
+  }
+  // -K i:j,i:j,...: several children of the same parent state, in turn
+  int pass = 0;
+  const QAPAssignment parent_node = node;
+  for (size_t cpos = 0; cpos < child.size();) {
+  size_t cend = child.find(',', cpos);
+  if (cend == std::string::npos) cend = child.size();
+  const std::string one = child.substr(cpos, cend - cpos);
+  cpos = cend + 1;
+  node = parent_node;
   int ci, cj;
-  if (sscanf(child.c_str(), "%d:%d", &ci, &cj) != 2 || ci < 0 || ci >= n || cj < 0 ||
+  if (sscanf(one.c_str(), "%d:%d", &ci, &cj) != 2 || ci < 0 || ci >= n || cj < 0 ||
       cj >= n || node.p[ci] != NONE || node.pinv[cj] != NONE) {
-    printf("bad child '%s'\n", child.c_str());
+    printf("bad child '%s'\n", one.c_str());
     return false;
   }
+  printf("CHILD-SPEC %s\n", one.c_str());
   int il = 0, jl = 0;   // local indices in the node's reduced problem
   for (int t = 0; t < ci; t++) if (node.p[t] == NONE) il++;
   for (int t = 0; t < cj; t++) if (node.pinv[t] == NONE) jl++;
   node.fix(ci, cj);
   QAP qc;
   reduceQAP(q, &qc, node);
-  int pass = 0;
   for (size_t t = 0; t < child_passes.size(); t++) {
     const char mode = child_passes[t];
     if (mode == ',') continue;
@@ -239,6 +281,7 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
            " warm=%c\n", pass, n - node.nfix, rc.lb, rc.primal, dnn_status_name(rc.status),
            rc.iterations, rc.cpu, mode);
     fflush(stdout);
+  }
   }
   return true;
 }
@@ -259,6 +302,8 @@ int main(int argc, char **argv)
     if (o == "-x" && more) fixes = argv[++a];
     else if (o == "-K" && more) child = argv[++a];
     else if (o == "-Q" && more) child_passes = argv[++a];
+    else if (o == "-J" && more) parent_iters = atoi(argv[++a]);
+    else if (o == "-Wr" && more) round_warm = atoi(argv[++a]);
     else if (o == "-N" && more) nodefile = argv[++a];
     else if (o == "-u" && more) ub = atof(argv[++a]);
     else if (o == "-c" && more) { cutoff = atof(argv[++a]); have_cutoff = true; }

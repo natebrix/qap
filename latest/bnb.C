@@ -805,6 +805,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    cp.freeze_iters = 600; cp.freeze_if_primal_above = 1;
 	    if (const char *e = getenv("QAP_DNN_CUT_NOCAP")) cp.cap_at_cutoff = atoi(e) ? 0 : 1;
 	    if (const char *e = getenv("QAP_DNN_CUT_FREEZE")) cp.freeze_iters = atoi(e);
+	    // QAP_DNN_CUT_WARMY=1 (roadmap/convergence2): every cut round and the
+	    // quiet round restart from the previous round's Y as well as its Z
+	    // (dnncuts -warmY; same_node_continuation). Off by default: today each
+	    // round restarts from Y = e0 e0', and the certificate spends the first
+	    // part of every round rebuilding it
+	    if (const char *e = getenv("QAP_DNN_CUT_WARMY")) cp.warm_primal = atoi(e) ? 1 : 0;
 	    if (cp.grid_rows == 0) cp.prefix = true;
 	    DNNPool pool_out;
 	    if (dnn_pool && cp.side == cut_side) {

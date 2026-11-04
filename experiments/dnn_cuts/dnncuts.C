@@ -112,6 +112,8 @@ int main(int argc, char **argv)
   DNNCutParams cp;
   cp.rounds = 15; cp.iters = 400; cp.kcuts = 2000;
   int threads = 1, degree = 4, eig_mode = DNN_EIG_SUBSPACE, verbose = 0;
+  int hopeless_after = -1;   // -H N: the give-up of the -loadpool first solve (default: DNNParams')
+  int check_trace = 0;       // -vc: per-check trace of every solve (DNNParams::verbose)
   double gamma = 1.0, gamma1 = 1.0;
   const char *file = NULL;
   std::string ladd_spec, dumpy, loadpool, savepool;
@@ -169,6 +171,8 @@ int main(int argc, char **argv)
     else if (o == "-g" && more) gamma = atof(argv[++a]);
     else if (o == "-G" && more) gamma1 = atof(argv[++a]);
     else if (o == "-T" && more) threads = atoi(argv[++a]);
+    else if (o == "-H" && more) hopeless_after = atoi(argv[++a]);    // give-up of the -loadpool solve (the search: 300)
+    else if (o == "-vc") check_trace = 1;                             // per-check trace of every solve
     else if (o == "-v") verbose++;
     else if (o[0] == '-') { fprintf(stderr, "bad option %s\n", o.c_str()); return 1; }
     else file = argv[a];
@@ -223,6 +227,8 @@ int main(int argc, char **argv)
   if (const char *e = getenv("QAP_DNN_CHEB")) base.cheb_degree = atoi(e);
   if (const char *e = getenv("QAP_DNN_TIGHT_LAM")) base.tight_lam = atoi(e);
   if (const char *e = getenv("QAP_DNN_REFRESH")) base.refresh = atoi(e);
+  if (hopeless_after >= 0) base.hopeless_after = hopeless_after;
+  base.verbose = check_trace;   // -vc: the certified bound at every check of every solve
   cp.verbose = std::max(1, verbose);
   DNNWarm warm;
   if (!cp.atomic) {
