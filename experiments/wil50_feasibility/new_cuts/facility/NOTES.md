@@ -287,3 +287,18 @@ sep_dist.py --fam hull3 (logs/hull3_n13_uncut1500.log), gapdecomp.py (logs/gapde
 - d2 phase (runs/d2/phase.log): round 0 48,657.14 (laptop 48,656.9), r1 +30.9, r2 +54.2, r3 +60.0,
   r4 +61.7, r5 48,726.31 (+69.2, best), r6 -264 (Polyak overshoot), r7 -108, r8 -18.7. Quiet round
   from round 5's multipliers running.
+
+## 09:50 d2 after the triangle phase (second node)
+- runs/d2/quiet.log: 48,784.25 (+127.1 over the give-up 48,657.14), primal 48,790.48, 29.8 short
+  (laptop 12-round reference 48,789.87, 24.2 short).
+- Cut-certificate child bounds: 14 of 2,116 children fathomed for free (excess median 0.107, 99% 24.3,
+  max 59.3 vs 29.8 needed; 1,921 within 1 of lb). They sit on the heaviest facilities' lines:
+  facility 40 (row sum 267, the heaviest) 7 children, facility 31 (259) 4, and corners/edges
+  (locations 0, 9, 40, 49 ...): heavy facilities priced out of the periphery. At most 7 of 46
+  children of one line: a small free saving, only where the node ends near the cutoff.
+- Diagnostics (logs/*_d2_tri.log): facility-region triangles (QUBO) max 0.003; checker none;
+  parity min 5.02; dispersion slack 3.3-11.4; hull3 only metric facets (max 0.081); threshold
+  triangles 0.010-0.040 (counts 21-815). Same picture as node 13.
+- Queue empty; all runs done. Report delivered in the hand-back.
+
+## 09:55 Done. Report text handed back to the coordinator (save as REPORT.md). No processes left running.

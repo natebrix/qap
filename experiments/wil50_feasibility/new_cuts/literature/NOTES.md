@@ -255,3 +255,19 @@ agent's n13_tri5 protocol (reference 48,713.85).
   round): 567.99 -> 571.48 -> 572.95 -> 573.73 (3 rounds; max viol still
   0.20): barely above the facility half alone at 3 rounds (573.33). All the
   local-projection runs are lower estimates (cutting planes not converged).
+
+## ~09:50 scale of the DNN's 3-local inconsistency (small/lmp_scale.py, small/logs/nug*_lmpscale.log)
+
+Root DNN iterates (dnntest -i 3000 -H 0): nug12 567.99, nug20 2506.34, nug30
+5949.40 (QAPLIB orientation: side 0 = facilities (flow), side 1 = grid).
+Exact LMP3 separation value (max / median over 30 triples):
+  n   facility heaviest   facility random   location heaviest-distance   location random
+  12  0.272 / 0.114       0.269 / 0.086     0.121 / 0.072                0.168 / 0.064
+  20  0.398 / 0.134       0.193 / 0.020     0.055 / 0.015                0.171 / 0.026
+  30  0.280 / 0.146       0.173 / 0.007     0.017 / 0.006                0.143 / 0.007
+wil50 node 13 (m = 47): facility heaviest 0.027 / random 0.002 (facility
+agent, uncut); location central 0.044 / 0.017, random 0.016 / 0.011, mixed
+0.0185 max (mine, triangle iterate).
+Random-triple medians fall ~1/n^2 (0.086 -> 0.020 -> 0.007). On nug the
+heaviest-flow facility triples stay at 0.28-0.40 up to n = 30; on wil50 they
+are 0.02-0.03: wil50's DNN is locally consistent even on its heaviest triples.

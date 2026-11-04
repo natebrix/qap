@@ -195,3 +195,15 @@ Agent: grid research agent, Nov 4 2026, core 2 only. Append-only log.
 - second-lowest coarse child (facility 40 -> cell 34) converged 24,003.6
   (400 it.: 23,977.4). Convergence adds ~22-26 to parent and children alike;
   the min-child rise per coarse level stays ~40.
+
+## 09:22-09:55 node 10
+
+- runs/n10_tri5.log (tri5, node 10 = 39:27,30:48,25:49): 48,711.63 certified
+  (round 0: 48,612.89; laptop 12-round reference 48,743.94). Iterate <L,Y>
+  48,688.7 (cuts net violated, no inflation).
+- At the tri5 iterate: parity 0 violated; dispersion slack (3-set 5.15 vs 4);
+  every threshold at or above its bisection optimum (min col<4 +2.9); row
+  problem +137, column problem +77 above their optima; coupled mid5 -155
+  (vs 24,242 in this SA run; -143 vs the best 24,230), K=7 -190, K=9 -260;
+  mid5 against the root optimum -25. The node-13 pattern replicates.
+- runs/n10_tri5_mid5a1of2.log started (objective splitting, alpha 0.5).
