@@ -1,0 +1,1710 @@
+                                                   On Integrality in Semidefinite Programming for Discrete
+                                                                        Optimization
+                                                                           Frank de Meijer ∗                Renata Sotirov †
+
+
+                                                                                                 Abstract
+arXiv:2306.09865v2 [math.OC] 8 Nov 2023
+
+
+
+
+                                                     It is well-known that by adding integrality constraints to the semidefinite programming (SDP)
+                                                 relaxation of the max-cut problem, the resulting integer semidefinite program is an exact formulation
+                                                 of the problem. In this paper we show similar results for a wide variety of discrete optimization
+                                                 problems for which SDP relaxations have been derived. Based on a comprehensive study on discrete
+                                                 positive semidefinite matrices, we introduce a generic approach to derive mixed-integer semidefinite
+                                                 programming (MISDP) formulations of binary quadratically constrained quadratic programs and bi-
+                                                 nary quadratic matrix programs. Applying a problem-specific approach, we derive more compact
+                                                 MISDP formulations of several problems, such as the quadratic assignment problem, the graph par-
+                                                 tition problem and the integer matrix completion problem. We also show that several structured
+                                                 problems allow for novel compact MISDP formulations through the notion of association schemes.
+                                                 Complementary to the recent advances on algorithmic aspects related to MISDP, this work opens
+                                                 new perspectives on solution approaches for the here considered problems.
+                                             Keywords: mixed-integer semidefinite programming, discrete positive semidefinite matrices, binary
+                                          quadratic programming, quadratic matrix programming, association schemes
+
+
+                                          1      Introduction
+                                          Semidefinite programming (SDP) deals with the optimization of a linear function over the cone of pos-
+                                          itive semidefinite matrices under the presence of affine constraints. Over the last decades, semidefinite
+                                          programs (SDPs) have proven themselves particularly useful in providing tight relaxations of discrete
+                                          optimization problems. Following the extension from linear programming to integer linear programming
+                                          initiated in the 1960s, a recent interest in incorporating integer variables in SDPs has arisen. Indeed,
+                                          many real-world decision problems are most naturally modeled by including integer variables in optimiza-
+                                          tion problems. When the variables in an SDP are required to be integer, we refer to the problem as an
+                                          integer semidefinite program (ISDP). When an SDP contains both integer and continuous variables, we
+                                          refer to the program as a mixed-integer semidefinite program (MISDP). As mixed-integer linear programs
+                                          (MILPs) form a subclass of MISDPs, mixed-integer semidefinite programming is in general N P-hard.
+                                              The combination of positive semidefiniteness and integrality induces a lot of structure in matrices.
+                                          Exploiting this fact, it has been shown that several structured discrete optimization problems allow for
+                                          a formulation as a (M)ISDP. To the best of our knowledge, the first ISDP formulation of a discrete
+                                          optimization problem is derived for the symmetric traveling salesman problem by Cvetković et al. [18].
+                                          Eisenblätter [24] derives an ISDP formulation of the minimum k-partition problem, which asks for a
+                                          partition of the vertex set of a graph into at most k sets such that the total weight of the edges within
+                                          the same set is minimized. Anjos and Wolkowicz [3] show that the standard SDP relaxation of the max-
+                                          cut problem becomes exact when adding integrality constraints. As an immediate consequence, also the
+                                          SDP relaxation of the max-2-sat problem, i.e., the maximum satisfiability problem where each clause has
+                                          at most two literals, see e.g., [31], can be modeled as an ISDP. An ISDP formulation of the chromatic
+                                          number of a graph is derived by Meurdesoif [54]. The quadratic traveling salesman problem (QTSP) is
+                                          formulated as an ISDP in [53]. Next to these classical textbook problems, integrality in SDPs has also
+                                              ∗ Delft Institute of Applied Mathematics, Delft University of Technology, The Netherlands, f.j.j.demeijer@tudelft.nl
+                                              † CentER, Department of Econometrics and OR, Tilburg University, The Netherlands, r.sotirov@uvt.nl
+
+
+
+
+                                                                                                     1
+been at consideration in more applied problems. Yonekura and Kanno [65] formulate an optimization
+problem in robust truss topology design as a MISDP, see also [15, 43, 51]. The problem of computing
+restricted isometry constants also allows for a MISDP formulation, see [26]. A MISDP formulation of the
+regularized cardinality constrained least squares problem is derived in [59]. Gil-González et al. [29] use
+a MISDP to formulate an optimal location problem in power system analysis. Zheng et al. [66] model a
+robust version of a power system unit commitment problem using a mixture of semidefinite constraints
+and integer variables. Duarte [22] exploits MISDPs to find exact optimal designs of experiments in
+the domain of surface response modeling in statistics. Finally, Wei et al. [64] show that mixed-integer
+quadratic programs with indicator variables can be solved as a MISDP.
+    Despite the literature on these particular problems, a generic approach for deriving problem for-
+mulations based on mixed-integer semidefinite programming has not been followed. Although there do
+exist several approaches in the literature where SDP relaxations are used in a branching scheme, see
+e.g., [44, 61], the branching strategies are based on the problem structure rather than on the matrix
+variables being integer. Accordingly, exploiting integrality in the MISDP models itself has not been the
+method of choice so far. This might be due to the fact that solving SDPs of large sizes is still practically
+challenging, discouraging to look into the extension of adding hard integrality constraints to the model.
+    In this paper we refute these objections to consider MISDPs as a general solution technique, advocating
+that they have a great potential to be also numerically advantageous. We particularly focus on binary
+quadratic programs (BQPs), which aim to optimize a quadratic objective function g(x) over a feasible
+set X defined by quadratic or linear constraints, where x is required to be binary, see Figure 1. A common
+approach to solve these programs is by exploiting standard linearization techniques to model them as a
+MILP. This is often done in a branch-and-bound setting, where the subproblems correspond to the linear
+programming relaxations of the MILP. This research line is depicted in the top stream of Figure 1. An
+alternative approach is to lift the vector variable x in a BQP to a matrix variable X = xx⊤ so as to
+model the problem as an SDP with a nonconvex rank constraint. After relaxing this rank constraint,
+we obtain an SDP relaxation of the problem, see e.g., [2]. This relaxation approach corresponds to the
+bottom arrow in Figure 1. Apart from the particular problems mentioned earlier, it is disregarded up
+to this point that this relaxation can also be obtained via relaxing integrality in a MISDP model that
+is equivalent to the BQP. More precisely, there exists a bijection between the elements in X and the
+integer points in the feasible set of the SDP relaxation. Realizing that fact, this provides a systematic
+way of approaching BQPs via mixed-integer semidefinite programming. Comparing the three equivalent
+formulations given in Figure 1, the MISDP formulation has the advantages to have both a linear objective
+function (compared to the BQP formulation) and a convex relaxation that is often stronger than standard
+linear programming relaxations. After reformulating the mixed-integer nonlinear program as a convex
+mixed-integer nonlinear program possessing a tight relaxation, all solution techniques from convex mixed-
+integer nonlinear programming can be applied to tackle the problem. With the advancing state of the
+solution approaches in this field, the perspectives of this solution approach are hopeful.
+    There exist various related works on the representation of optimization problems as convex mixed-
+integer nonlinear programs in the literature. Lubin et al. [50] focus on characterizations of general
+mixed-integer convex representability. The special case of mixed-integer second-order cone programming
+has received some more attention, see the survey by Benson and Sağlam [8]. To the best of our knowledge,
+we are the first to address the case of mixed-integer semidefinite representability on a generic level.
+    The focus of this paper is primarily on the modeling aspect of discrete optimization problems as
+(M)ISDPs, and less on the algorithmic aspects of solving these. With respect to the computational side,
+several general-purpose solution approaches have been considered recently. Gally et al. [27] propose a
+branch-and-bound framework for solving MISDPs, with the characteristic that strict duality is maintained
+throughout the branching tree. Solver ingredients, such as dual fixing and branching rules, are also
+considered in [27]. Kobayashi and Takano [41] propose a cutting-plane and a branch-and-cut algorithm
+for solving generic MISDPs, where it is shown that the branch-and-cut algorithm performs best. This
+branch-and-cut algorithm is strengthened in [53], where specialized cuts, such as Chvátal-Gomory cuts,
+are incorporated in the approach. Presolving techniques for MISDPs have been studied by Matter
+and Pfetsch [52]. Hojny and Pfetsch [38] consider reduction techniques for solving MISDPs based on
+permutation symmetries. Another project that supports solving MISDPs while exploiting sparsity is
+GravitySDP [36]. The computational ingredients of the above-mentioned approaches combined with
+
+
+                                                     2
+                               Mixed-Integer                 Convex Mixed-
+                                Nonlinear                   Integer Nonlinear
+                               Programming                    Programming
+                                                               Mixed-Integer
+                                                                  Linear
+                                                               Programming                           Linear
+                                                                                                   Programming
+                                                            min f (x, y)                            Relaxation
+                                                            s.t. (x, y) ∈ XM ILP
+                                                                                                min f (x, y)
+                                                                                                s.t. (x, y) ∈ X M ILP
+                                                           f (x, y) linear function
+                                  Binary                   XM ILP mixed-integer
+                                                                    polyhedral set
+                                Quadratic
+                               Programming
+
+                                  min g(x)
+                                  s.t. x ∈ X
+
+
+                           g(x) quadratic function
+                                                               Mixed-Integer
+                           X    integer quadratically
+                                 constrained set
+                                                               Semidefinite
+                                                               Programming                         Semidefinite
+                                                                                                   Programming
+                                                           min h(x, X)                              Relaxation
+                                                           s.t. (x, X) ∈ XM ISDP
+                                                                                                min h(x, X)
+                                                          h(x, X)    linear function            s.t. (x, X) ∈ X M ISDP
+                                                          XM ISDP    mixed-integer
+                                                                     spectrahedral
+                                                                     set
+
+
+
+
+                                                        lift x to X and relax rank-constraint
+
+
+Figure 1: Overview of various exact formulations of binary quadratic program and their relaxations. A
+double arrow (⇐⇒) denotes equivalence between the formulations, while a solid arrow (→) denotes that
+the formulation is relaxed from the former to the latter. The sets X , XMILP and XMISDP are defined
+by nonconvex integer constraints, while X MILP and X MISDP are convex relaxations.
+
+
+the theoretical framework of modeling problems as (M)ISDPs that we derive in this paper, provide a
+complementary foundation of mixed-integer semidefinite programming in discrete optimization.
+
+Main results and outline
+This paper studies the theoretical role of mixed-integer semidefinite programming in discrete optimization.
+We show that many problems can be modeled as a (M)ISDP, either by a generic approach for certain large
+problem classes, or by a more problem-specific approach. Gradually, we cover and exploit results from
+matrix theory, optimization, algebraic combinatorics and graph theory. Our approach is accompanied
+with a large number of examples of various discrete optimization problems.
+    We start our approach with an extensive overview of results on the matrix theory of discrete positive
+semidefinite (PSD) matrices. Without considering explicit optimization problems, we focus on the struc-
+ture of PSD {0, 1}–, {±1}– and {0, ±1}–matrices. This overview reviews results from [9, 23, 48, 49], but
+also introduces new results and formulations of these matrix sets, such as a combinatorial viewpoint of
+PSD {0, 1}–matrices of rank at most r. We also extend results that are known for {0, 1}–matrices to the
+other two matrix sets.
+    These matrix theoretical results are exploited when proving that many binary quadratic problems
+allow for a formulation as a binary semidefinite program (BSDP). We establish this result for binary
+quadratically constrained quadratic programs and, in particular, for binary quadratic matrix programs.
+Problems that allow for a formulation as a binary quadratic matrix program, e.g., quadratic clustering
+or packing problems, can be modeled as a compact BSDP with a PSD matrix variable of relatively low
+order.
+    After that, we treat several specific problem classes for which we obtain MISDP formulations that
+do not follow from the above-mentioned framework or for which it is possible to obtain a more efficient
+formulation. Among these are the quadratic assignment problem, including its extensive number of
+special cases, see e.g., [14], several graph partition problems and graph problems that can be modeled
+based on association schemes. Also, as most formulations that we discuss include binary variables, we
+present two problems that have a MISDP formulation where the variables are integer, but nonbinary,
+
+
+                                                                    3
+namely the integer matrix completion problem [1] and the sparse integer least squares problem [58].
+    This paper is structured as follows. In Section 2 we present results on the matrix theory of discrete
+PSD matrices. These results are exploited in Section 3, where MISDP formulations of generic quadrati-
+cally constrained quadratic programs and quadratic matrix programs are derived. In Section 4 we treat
+problem-specific MISDP formulations that do not follow from the previous section. Concluding remarks
+are given in Section 5.
+
+Notation
+We denote by 0n ∈ Rn the vector of all zeros, and by 1n ∈ Rn the vector of all ones. The identity matrix
+and the matrix of ones of order n are denoted by In and Jn , respectively. We omit the subscripts of these
+matrices when there is no confusion about the order. The ith unit vector is denoted by ei and we define
+Eij := ei e⊤
+           j . The set of n × n permutation matrices is denoted by Πn .
+    For n ∈ Z+ , we define the set [n] := {1, . . . , n}. For any S ⊆ [n], we let 1S be the binary indicator
+vector of S. The support of x ∈ Rn is denoted by supp(x).
+    We denote the set of all n × n real symmetric matrices by S n . The cone of symmetric positive
+                                         n
+semidefinite matrices is defined as S+     := {X ∈ S n : X P   0}, where X  0 denotes that X is PSD. The
+                                                                                           n×m
+trace of a square matrix X = (Xij ) is givenP     by tr(X)  =     i Xii . For any X, Y ∈ R     the trace inner
+                                         ⊤         n Pm
+product is defined as hX, Y i := tr(X Y ) = i=1 j=1 Xij Yij .
+    The operator diag : Rn×n → Rn maps a square matrix to a vector consisting of its diagonal ele-
+ments. We denote by Diag : Rn → Rn×n its adjoint operator. The Hadamard product of two matri-
+ces X = (Xij ), Y = (Yij ) ∈ Rn×m is denoted by X ◦ Y and is defined as (X ◦ Y )ij := Xij Yij . The direct
+sum of matrices X and Y is defined as X ⊕ Y = ( X            0
+                                                           0 Y ). The Kronecker product X ⊗ Y of matrices
+       p×q              r×s
+X ∈R        and Y ∈ R        is defined as the pr × qs matrix composed of pq blocks of size r × s, with block
+ij given by xij Y , i ∈ [p], j ∈ [q].
+
+
+2     Theory on discrete PSD matrices
+Most discrete optimization problems that we consider in this paper are defined using binary variables, i.e.,
+variables taking values in {0, 1} or {±1}, or ternary variables, i.e., variables whose values are in {0, ±1}. In
+this section we derive several useful results on these matrix sets with respect to positive semidefiniteness.
+We start by considering the PSD {0, 1}–matrices, after which we extend these results to PSD {±1}–
+and {0, ±1}–matrices.
+
+2.1    Theory on PSD {0, 1}–matrices
+In this section we consider the set of positive semidefinite {0, 1}–matrices. We derive and recall several
+formulations of this matrix set, including a combinatorial, polyhedral and a set-completely positive de-
+scription. We start this section with two known results, i.e., Theorem 1 and Proposition 1, after which
+we present a series of new results.
+    Positive semidefinite {0, 1}–matrices are studied explicitly by Letchford and Sørensen [48]. They
+derive the following decomposition result on PSD {0, 1}–matrices.
+                                                                                              Pr
+Theorem 1 ([48]). Let X ∈ {0, 1}n×n be a symmetric matrix. Then X  0 if and only if X = j=1 xj x⊤      j
+for some xj ∈ {0, 1}n, j ∈ [r].
+    Given S ⊆ R+ , a matrix X is called S-completely positive if X = P P ⊤ for some P ∈ S n×k . In
+case S = R+ , we call X completely positive. It follows from Theorem 1 that any PSD {0, 1}–matrix
+is {0, 1}–completely positive, see also Berman and Xu [9].
+    The decomposition of PSD {0, 1}–matrices gives rise to a useful combinatorial interpretation on the
+complete graph Kn . Viewing each vector xj ∈ {0, 1}n as an indicator vector on the vertices of Kn , the
+matrix xj x⊤ j can be seen as the characteristic matrix of a clique in Kn . Given a decomposition X =
+Pk         ⊤
+   j=1 xj xj , the cliques indexed by j ∈ [k] are pairwise disjoint, since the diagonal of X is at most one.
+
+
+
+
+                                                       4
+Therefore, each PSD {0, 1}–matrix is the characteristic matrix of a set of pairwise disjoint cliques in Kn .
+This combinatorial structure is in the literature also known as a clique packing.
+   As we will see in the next section, many SDP formulations arise from a lifting P P ⊤ , where P is an
+appropriate n×r {0, 1}–matrix. Consequently, the resulting PSD {0, 1}–matrix has rank at most r. From
+that perspective, it makes sense to consider the set of PSD {0, 1}–matrices that have an upper bound on
+the rank. For positive integers r, n with r ≤ n, let us define the discrete set
+                                    
+                            Drn := X ∈ {0, 1}n×n : X  0, rank(X) ≤ r .                             (1)
+
+Theorem 1 induces the following {0, 1}–completely positive description of Drn :
+                                 
+                           Drn = P P ⊤ : P ∈ {0, 1}n×r , P 1r ≤ 1n .                                     (2)
+
+Next, we will derive another formulation of Drn , where the constraint rank(X) ≤ r is established by an
+appropriate linear matrix inequality. To that end, we exploit the following result that is implicitly proved
+in many sources and explicitly by Dukanovic and Rendl [23].
+Proposition 1 ([23]). Let X ∈ {0, 1}n×n be symmetric. Then, the following are equivalent:
+  (i) diag(X) = 1n , rank(X) = r, X  0.
+ (ii) There exists a permutation matrix Q such that QXQ⊤ = Jn1 ⊕ · · · ⊕ Jnr with n = n1 + · · · + nr .
+(iii) diag(X) = 1n , rank(X) = r and X satisfies the triangle inequalities Xij + Xik − Xjk ≤ 1 for all
+      (i, j, k) ∈ [n] × [n] × [n].
+ (iv) diag(X) = 1n and (tX − J  0 ⇐⇒ t ≥ r).
+   Proposition 1 establishes the equivalence between useful characterizations of rank-r PSD {0, 1}–
+matrices that have ones on the diagonal. In the following corollary we generalize this result by relaxing
+the condition diag(X) = 1n . The proof is similar to the proof of Proposition 1.
+Corollary 1. Let X ∈ {0, 1}n×n be symmetric. Then, the following statements are equivalent:
+  (i) rank(X) = r, X  0.
+ (ii) There exists a permutation matrix Q such that QXQ⊤ = Jn1 ⊕ · · · ⊕ Jnr ⊕ 0nz ×nz with n =
+      n1 + · · · + nr + nz .
+(iii) rank(X) = r and X satisfies the triangle inequalities Xij ≤ Xii for all i 6= j and Xij + Xik − Xjk ≤
+      Xii for all j < k, i 6= j, k.
+ (iv) tX − diag(X)diag(X)⊤  0 if and only if t ≥ r.
+Proof. Throughout the proof, let N1 := {i ∈ [n] : Xii = 1} and let N0 := [n]\N1 . Moreover, let Q′ denote
+a permutation matrix corresponding to a permutation of [n] that maps the ordered set (1, 2, . . . , n) to an
+ordered set where the elements in N1 occupy the first N1 positions.
+   (i) ⇐⇒ (ii) : Let X be positive semidefinite with rank(X) = r. Then, the rows and columns indexed
+by N0 only contain zeros. As a consequence, Q′ X(Q′ )⊤ is of the form Y ⊕ 0|N0 |×|N0 | with diag(Y ) = 1|N1 |
+and Y  0. By Proposition 1 there exists a permutation matrix Q̄ such that Q̄Y Q̄⊤ = Jn1 ⊕ · · · ⊕ Jnr
+with |N1 | = n1 + · · · + nr . Let Q := (Q̄ ⊕ I|N0 | )Q′ , then QXQ⊤ = Jn1 ⊕ · · · ⊕ Jnr ⊕ 0|N0 |×|N0 | .
+   Conversely, suppose that QXQ⊤ = Jn1 ⊕ · · · ⊕ Jnr ⊕ 0nz ×nz with n = n1 + · · · + nr + nz for some
+permutation matrix Q. Then, obviously, QXQ⊤ is positive semidefinite with rank(QXQ⊤ ) = r, from
+which it follows that X  0 with rank(X) = r.
+   (i) ⇐⇒ (iii) : For n = 2, the inequalities Xij ≤ Xii , i 6= j, are trivially necessary and sufficient for
+X  0. For n ≥ 3, the result follows from Letchford and Sørensen [48, Proposition 3].
+   (i) ⇐⇒ (iv) : Suppose X is PSD with rank(X) = r. Then, Q′ X(Q′ )⊤ = Y ⊕ 0|N0 |×|N0 | with diag(Y ) =
+1|N1 | and Y  0. This leads to the following sequence of equivalences:
+
+           tX − diag(X)diag(X)⊤  0        ⇐⇒     t Q′ X(Q′ )⊤ − Q′ diag(X)diag(X)⊤ (Q′ )⊤  0
+
+                                                     5
+                                                                                       ⊤
+                                                                         1|N1 |   1|N1 |
+                                            ⇐⇒      t Y ⊕ 0|N0 |×|N0 | −                     0
+                                                                          0|N0 |   0|N0 |
+
+which holds if and only if t ≥ r, by statement (iv) of Proposition 1.
+   Conversely, suppose that tX − diag(X)diag(X)⊤  0 if and only if t ≥ r. If r = 0, then t = 0 induces
+diag(X) = 0n , while t = 1 implies X − diag(X)diag(X)⊤ = X  0, since diag(X) = 0n . Hence, X must
+be the zero matrix, which is positive semidefinite with rank zero. Now, assume that r ≥ 1. Then, rX −
+diag(X)diag(X)⊤  0 can be written as X  r1 diag(X)diag(X)⊤  0. Let r∗ := rank(X). It follows
+from the previously proven implication, (i) =⇒ (iv), that r∗ = min{t : tX − diag(X)diag(X)⊤  0}.
+By assumption, this value equals r, so r∗ = r. We conclude that X is PSD with rank(X) = r.
+  Corollary 1 can be exploited to prove the following result.
+                                                                        
+                                                              r diag(X)⊤
+Corollary 2. Let X ∈ {0, 1}n×n be symmetric. If Y = diag(X)         X
+                                                                            0, then X  0 with
+rank(X) ≤ r.
+Proof. The assertion X  0 is trivial, so it suffices to show that Y  0 implies rank(X) ≤ r. If r = 0,
+then diag(X) = 0n . Since X  0, X must be the zero matrix and, thus, rank(X) = 0.
+   Now,
+         let r ≥ 1. The Schur complement lemma implies that rX − diag(X)diag(X)⊤  0. Let r∗ :=
+min t : tX − diag(X)diag(X)⊤  0 ≤ r. Since r∗ X − diag(X)diag(X)⊤  0 and X  0, it follows
+that tX − diag(X)diag(X)⊤  0 for all t ≥ r∗ . Therefore, tX − diag(X)diag(X)⊤  0 if and only if
+t ≥ r∗ . Corollary 1 then implies rank(X) = r∗ ≤ r.
+     Corollary 2 implies the following characterization of Drn , where the rank constraint is merged into a
+lifted linear matrix inequality:
+                                                                             
+                            n               n×n          r       diag(X)⊤
+                          Dr = X ∈ {0, 1}        :                           0 .                       (3)
+                                                     diag(X)         X
+For some optimization problems, the upper bound constraint on the rank of X is not sufficient, as we
+require that X is exactly of rank r. The max k-cut problem, for instance, requires to partition the vertex
+set of a graph into exactly k nonempty and pairwise disjoint subsets. The following two results show that
+the description given in (3) can be extended to also include a lower bound on the rank of X.
+
+            X ∈
+Theorem 2. Let  {0, 1}
+                        n×n
+                            be symmetric. If there exists a matrix P ∈ {0, 1}n×r with P ⊤ 1 ≥ 1
+such that Y =    Ir P ⊤    0, then X  0 with rank(X) ≥ r.
+                 P X
+
+Proof. The assertion X  0 is trivial. It suffices to show that rank(X) ≥ r. As Y  0 and Y has binary
+                                              P       u  u ⊤
+entries, it follows from Theorem 1 that Y = kj=1 xjj xjj         for some uj ∈ {0, 1}r and xj ∈ {0, 1}n, j ∈
+            Pk        ⊤
+[k]. Since j=1 uj uj = Ir , we must have k ≥ r. Moreover, the set {uj : j ∈ [k]} must contain e1 , . . . , er
+and k − r copies of 0r . Without loss of generality, let us assume that the first r vectors in {uj : j ∈ [k]}
+                                                                     Pk            Pr
+correspond to the elementary vectors. Then, it follows that P = j=1 xj u⊤     j =
+                                                                                             ⊤
+                                                                                     j=1 xj ej = [x1 . . . xr ].
+         ⊤
+Since P 1 ≥ 1, it follows that the vectors xj , j P
+                                                  ∈ [r], cannot be the zero vector. Since these are moreover
+linearly independent, we have rank(X) ≥ rank( rj=1 xj x⊤    j ) = r.
+
+  Theorem 2 and Corollary 2 together impose the following integer semidefinite characterization of
+PSD {0, 1}–matrices of rank r.
+Corollary 3. Let X ∈ {0, 1}n×n
+                             be symmetric.
+                                             If there exists a matrix P ∈ {0, 1}n×r with P ⊤ 1 ≥ 1,
+                                   ⊤
+P 1 = diag(X), such that Y = IPr PX  0, then X  0 with rank(X) = r.
+
+Proof. It immediately follows from Theorem 2 that X  0 with rank(X) ≥ r. Moreover, since Y  0,
+we also know that
+                                         ⊤                                 
+                                  ⊤    1r Ir 1r 1⊤   ⊤
+                                                   r P In       r    diag(X)⊤
+            1⊤r ⊕ In   Y  1 ⊤
+                            r ⊕ In    =                    =                     0.
+                                         In P 1r   In XIn    diag(X)     X
+It then follows from Corollary 2 that rank(X) ≤ r.
+
+                                                       6
+    The integer semidefinite characterization of Drn given in (3) shows that if a {0, 1}–matrix satisfies a
+certain linear matrix inequality, then a rank condition is implied. For the case of rank-one matrices, we
+can show that the converse implication does also hold, i.e., if a rank-one matrix satisfies a certain linear
+matrix inequality, then its entries must be in {0, 1}.
+                            ⊤
+                              
+Theorem 3. Let Y = x1 xX  0 with diag(X) = x. Then, rank(Y ) = 1 if and only if X ∈ {0, 1}n×n.
+
+Proof. (=⇒) : If rank(Y ) = 1, then Y = x̄x̄⊤ with x̄ = [1 x⊤ ]⊤ ∈ Rn+1 and X = xx⊤ . From the positive
+semidefiniteness of order two principal submatrices of Y we obtain 0n ≤ x ≤ 1n . Since diag(xx⊤ ) = x,
+we have x2i = xi for all i ∈ [n], so x ∈ {0, 1}n. We conclude that X = xx⊤ ∈ {0, 1}n×n.
+    (⇐=) : Since X ∈ {0, 1}n×n and x = diag(X), it follows that Y ∈ {0, 1}(n+1)×(n+1). From Theorem 1
+                     Pk
+it follows that Y = j=1 xj x⊤   j for some xj ∈ {0, 1}
+                                                       n+1
+                                                           , j ∈ [k], i.e., Y can be decomposed in terms of
+cliques. Since Y11 = 1 and diag(Y ) = (1, x⊤ )⊤ , all indices i ∈ [n + 1] for which Yii = 1 must be in the
+same clique as the first index. Hence, the decomposition consists of only one clique and rank(Y ) = 1.
+    Theorem 3 plays a central role in deriving integer SDP formulations of binary quadratic problems
+defined over vectors of variables in Section 3.1. However, Theorem 3 cannot be extended to matrices
+with a rank larger than one. That is, if Y is a PSD matrix satisfying diag(Y ) = Y e1 and Y11 = 2, then
+integrality of Y is not equivalent to be of rank 2. For example, the matrix Y = 12 (J3 + 3E11 ) satisfies
+Y  0, diag(Y ) = Y e1 and rank(Y ) = 2, but Y is not integer.
+   The characterizations given in (2) and (3) rely on conditions involving discreteness. Let us now move
+on to continuous descriptions. Of course, since Drn is itself a discrete set, a continuous description does
+not aim at describing Drn , but rather its convex hull, i.e.,
+
+                                                Prn := conv(Drn ).                                         (4)
+
+Observe that although the matrices in Drn have an upper bound on the rank, the polytopes Prn are full-
+dimensional, since n1 In ∈ Prn for all 1 ≤ r ≤ n. In order to gain more insight into the structure of Prn ,
+we introduce the notion of a so-called packing family.
+Definition 1. Let T be a finite set of elements. A collection F of nonempty subsets of T is called a
+packing of T if the subsets in F are pairwise disjoint. The family of all packings of T is called the packing
+family of T , denoted by F(T ).
+
+   Observe that F = ∅ also belongs to F(T ). Next, we define the notion of an r-packing of T .
+Definition 2. Let T be a finite set of elements. A packing F of T is called an r-packing of T if |F | ≤ r.
+The family of all r-packings of T is called the r-packing family of T , denoted by Fr (T ).
+    The r-packing family of [n] can be exploited to describe Prn . Let X ∈ Drn . By Theorem 1 we know
+that X is the sum of at most r rank-one PSD {0, 1}–matrices. From a combinatorial point of view, this
+implies that X corresponds to an r-packing of [n]. In fact, there is aPbijection between the matrices in
+Drn and the r-packings in Fr ([n]). For any r-packing F , let EF := S∈F 1S 1⊤     S . Then, we obtain the
+following polyhedral description of Prn for all positive integers r ≤ n:
+                                                                                              
+                                   X                 X                                        
+         Prn = X ∈ S n : X =              λF EF ,           λF = 1, λF ≥ 0 for all F ∈ Fr ([n]) .     (5)
+                                                                                              
+                                  F ∈Fr ([n])        F ∈Fr ([n])
+
+We call the description above the packing description of Prn . Let us now consider the cardinality of the
+vertices of Prn .                                                                                   S
+    In the vein of Definition 2, we call F ⊆ P([n]) an r-partition of [n] if it is an r-packing with S∈F = [n].
+Here, P([n]) denotes the power set of [n]. The number of partitions of the set [n] into    k nonempty subsets
+is in the literature known as the Stirling number of the second kind, denoted by nk . The total number
+                                                                                    Pn
+of partitions of [n] equals the Bell number Bn [7], for which we have Bn = k=0 nk . We can now show
+the following result regarding the cardinality of Drn .
+
+
+                                                        7
+                                                                    Pr+1 n+1
+Theorem 4. For n ≥ 1 and 0 ≤ r ≤ n, we have |Drn | =                  k=1    k   . In particular, |D1n | = 2n
+and |Dnn | = Bn+1 .
+Proof. It follows from the discussion above that |Drn | equals the number of r-packings in Fr ([n]). In order
+to count these, we count the number of packings that consist of exactly k subsets, while k ranges from 0
+to r. Any packing of [n] into k subsets corresponds to a partition of [n + 1] into k + 1 subsets. To see this,
+observe that to each packing F of [n] into k subsets one can add a (k+1)th set containing the element n+1
+and the elements not covered by F . Conversely, given a partition of [n+1] into k +1 subsets, dropping the
+set containing the element n + 1 yields a packing of [n] consisting
+                                                                   of exactly k subsets. Hence, the number
+                                                                                 Pr n+1        Pr+1 n+1
+of packings of [n] consisting of exactly k subsets equals n+1k+1   and  |D n
+                                                                           r | =   k=0 k+1 =      k=1    k   .
+                                          n
+                                               n+1      n+1          2n+1 −2     n
+For the special case r = 1, we obtain |D1 | = 1 + 2 = 1 +                 2     = 2 . When r = n, we exploit
+n+1                            n
+                                     Pn+1 n+1        Pn+1 n+1
+   0   = 0 to conclude that |Dn | = k=1 k = k=0 k = Bn+1 .
+    The polytope Prn has several relationships with other well-known polytopes from the literature.
+Letchford and Sørensen [48] study the polytope Pnn , albeit in a different embedding, and refer to it
+as the binary PSD polytope of order n. They emphasize its relationship with the clique partition-
+ing polytope that was introduced by Grötschel and Wakabayashi [33] and later studied in [5, 56].
+Given the complete graph G = (V, E), a clique partition is a subset A ⊆ E such that there is a par-
+          V into nonempty disjoint sets V1 , . . . , Vk such that each Vj , j ∈ [k], induces a clique in G
+tition of S
+and A = j∈[k] {{i, ℓ} : i, ℓ ∈ Vj , i 6= ℓ}. The incidence vectors of clique partitions are only defined on
+the edge set, and therefore the clique partition polytope can be seen as a projection of Pnn .
+    Among one of the first graph partition problems is the one considered by Chopra and Rao [17]. Given
+an undirected graph G, the vertices need to be partitioned into at most k subsets so as to minimize
+the total cost of edges cut by the partition. If G is the complete graph, the partition polytope P 1 (r)
+considered in [17] coincides with Prn (apart from the embedding).
+    The polytope Pnn can also be related to the stable set polytope. Let GP = (VP , EP ) be the power
+set graph, i.e., each vertex in VP corresponds to a nonempty subset of [n] and the edge set is defined
+                        (2)
+as EP := {{S, T } ∈ VP : S ∩ T 6= ∅}. A set of vertices is stable in GP if and only if its corresponding
+collection of subsets is a packing of [n]. Hence, the packing family Fn ([n]) is the collection of all stable
+sets in GP . It follows that there is a bijection between the elements in Pnn and the stable set polytope of
+GP .
+    Finally, for r = 1, the r-packings of [n] are subsets of [n], so the polytope P1n simplifies to
+                                                                                            
+                                         X              X                                   
+               Rn1 := X ∈ S n : X =            θS 1S 1⊤
+                                                      S,      θS = 1, θS ≥ 0 for all S ⊆ [n] .            (6)
+                                                                                            
+                                       S⊆[n]                S⊆[n]
+
+The polytope Rn1 relates to the convex hull of the characteristic vectors of all cliques in Kn , i.e., the
+clique polytope of Kn . This polytope is in the literature also known as the complete set packing polytope,
+see [12]. Finally, apart from the embedding, the polytope Rn1 also coincides with the Boolean quadric
+polytope [57].
+    Another continuous formulation of the convex hull of PSD {0, 1}–matrices is       given by a conic
+                                                                                                      de-
+scription. The cone of completely positive matrices is defined as CP n := conv xx⊤ : x ∈ Rn+ . An
+extension of the completely positive matrices are the so-called set-completely positive matrices, see e.g.,
+[49, 10], where the membership condition x ∈ Rn+ is replaced by x ∈ K for a general convex cone K.
+Lieder et al. [49] considered the following set-completely positive matrix cone:
+                                                                                     
+                     SCP n := conv xx⊤ : x ∈ Rn+ , x1 ≥ xi for all i ∈ {2, . . . , n} .                 (7)
+
+Since the membership condition given in (7) is more restricted than x ∈ Rn+ , we have SCP n ( CP n . Let
+us now consider the following set-completely positive matrix set:
+                                                                           
+                                           1 x⊤
+                       C1n := X ∈ S n :             ∈ SCP n+1 , diag(X) = x .                        (8)
+                                           x X
+
+The following result follows from Lieder et al. [49].
+
+                                                        8
+Theorem 5 ([49]). We have P1n = C1n .
+   A natural question is whether the descriptions Rn1 and C1n for P1n given in (6) and (8), respectively,
+can be extended to higher ranks. The extensions of these sets are as follows:
+                                                                                               
+                            X               X             X                                    
+   Rnr := X ∈ S n : X =           θS 1S 1⊤
+                                         S,       θS = r,       θS ≤ 1 ∀i ∈ [n], θS ≥ 0 ∀S ⊆ [n] , (9)
+                                                                                               
+                            S⊆[n]           S⊆[n]         S:i∈S
+                                                                       
+                          r        diag(X)⊤
+    Crn := X ∈ S n :                          ∈ SCP n+1 , diag(X) ≤ 1n .                            (10)
+                       diag(X)         X
+
+The extension from C1n to Crn follows from the intersection of the Minkowski sum of r copies of C1n with the
+upper bound constraint X ≤ Jn . Since Xii ≥ Xij for all i, j ∈ [n] if X ∈ C1n , itPsuffices to add diag(X) ≤
+1n . The extension from Rn1 to Rnr is derived as follows. If X ∈ Prn , then X = F ∈Fr ([n]) λF EF for some
+nonnegative weights λF . By splitting each r-packing into its separate subsets, we obtain
+                X                  X         X             X       X                    X
+         X=           λF EF =            λF      1S 1⊤
+                                                     S =                  λF 1S 1⊤
+                                                                                 S =         θS 1S 1⊤
+                                                                                                    S,
+              F ∈Fr ([n])        F ∈Fr ([n])   S∈F         S⊆[n] F ∈Fr ([n]):          S⊆[n]
+                                                                    S∈F
+              P                                 P             P                       P
+where θS := F ∈Fr ([n]):S∈F λF . Moreover, S⊆[n] θS = F ∈Fr ([n]) λF |F | ≤ r F ∈Fr ([n]) λF = r. By
+                          P                                                                P
+increasing θ∅ , we obtain S⊆[n] θS = r. Finally, since Xii ≤ 1 for i ∈ [n], we have S:i∈S θS ≤ 1. We
+conclude that Prn ⊆ Rnr .
+    Unfortunately, for r ≥ 2, the sets Rnr and Crn do no longer exactly describe Prn . Namely, consider the
+matrix X = 21 P P ⊤ where P = I3 + E23 + E32 + E31 + E41 . For this matrix one can verify that X ∈ R42
+and X ∈ C24 , while X ∈/ P24 . For r ≥ 2, the following relationship between Prn , Crn , Rnr holds.
+Theorem 6. We have Prn ⊆ Crn = Rnr , while for r = 1 the three sets are equal.
+                    n           n                                                         n     n            n
+Proof. Since   PP r
+                    r = conv(Dr ), it suffices to consider membership of the elements in Dr in Cr . Let X ∈ Dr ,
+                           ⊤                        n                 j       ⊤
+then X = j=1 xj xj for some xj ∈ {0, 1} , j ∈ [r]. Let Y := xj xj for all j ∈ [r]. We clearly have
+                       
+      1      diag(Y j )
+  diag(Y j )    Yj
+                          ∈ SCP n+1 for all j ∈ [r], from which it follows that
+
+                      r 
+                      X                                          
+                                1      diag(Y j )      r    diag(X)
+                                                  =                  ∈ SCP n+1 .
+                            diag(Y j )    Yj        diag(X)    X
+                      j=1
+
+
+Moreover, X ∈ {0, 1}n×n, so diag(X) ≤ 1n . We conclude that X ∈ Crn .
+  To prove Crn = Rnr , let X ∈ Crn . We define the matrix Y as
+                                                                               
+                           1       r     diag(X)⊤            1       diag( 1r X)⊤
+                    Y :=                             =                              .                      (11)
+                           r diag(X)          X          diag( 1r X)     1
+                                                                         rX
+
+From the fact that X ∈ Crn , it follows that Y ∈ SCP n+1 . Applying Theorem 5 to the matrix Y implies
+that r1P
+       X is a convex combination of rankP                                              ′
+                                                                                   P θS ≥ 0 ′for all⊤ S ⊆ [n]
+                                           one binary PSD matrices, i.e., there exist
+with S⊆[n] θS = 1, such that r X = S⊆[n] θS 1S 1S , or equivalently, X =
+               ′                  1               ′    ⊤
+                                                                                     S⊆[n] rθS 1S 1S . Now,
+             ′
+                                                          P
+let θS := rθS for all S ⊆ [n], from which it follows that S⊆[n] θS = r. Since diag(X) ≤ 1n , it follows
+             P
+that Xii = S:i∈S θS ≤ 1. We conclude that X ∈ Rnr .
+    Finally, observe that the argument above can also be followed in the converse direction. That is, given
+X ∈ Rnr with corresponding weights θS for all S ⊆ [n], we define θS′ := r1 θS , S ⊆ [n], which implies that
+1        n                                                                  n+1
+r X ∈ P1 . By Theorem 5, we know that Y , see (11), is contained in SCP         , implying X ∈ Crn .
+
+2.2    Theory on PSD {±1}–matrices
+In this section we present several results for PSD matrices that have entries in {±1}. Let us first state
+the following well-known result.
+
+
+                                                       9
+Proposition 2 ([3]). Let X be a symmetric matrix. Then, X  0, X ∈ {±1}n×n if and only if X = xx⊤
+for some x ∈ {±1}n.
+    A simple necessary condition for X ∈ {±1}n×n to be PSD is that diag(X) = 1. The next result
+establishes the equivalence between {0, 1}– and {±1}–PSD matrices by exploiting their rank.
+Proposition 3. Let X ∈ {±1}n×n be a symmetric matrix and Y := 12 (X + J) ∈ {0, 1}n×n. Then, X  0
+if and only if diag(Y ) = 1, Y  0 and rank(Y ) ≤ 2.
+Proof. (=⇒): Let X  0. Since J  0, it follows that Y  0. Moreover, diag(X) = diag(J) = 1 implies
+that diag(Y ) = 1. Finally, by Proposition 2 we know that X = xx⊤ for some x ∈ {±1}n. Therefore, Y
+is the weighted sum of two rank one matrices, so rank(Y ) ≤ 2.
+    (⇐=): Let Y = 12 (X+J)  0, diag(Y ) = 1 and rank(Y ) ≤ 2 for some symmetric matrix X ∈ {±1}n×n.
+Since Y is binary positive semidefinite with rank at most two, it follows from Theorem 1 that Y = x1 x⊤       ⊤
+                                                                                                      1 + x2 x2
+                         n                                             ⊤
+for some x1 , x2 ∈ {0, 1} . Then, X = 2Y − J = (x1 − x2 )(x1 − x2 ) , which implies that X  0.
+    Note that the matrix Y from the previous theorem has rank one if and only if Y = X = J. Similar
+to (1), we define the discrete set of all {±1}–matrices as
+                                             
+                                       b n := X ∈ {±1}n×n : X  0 ,
+                                       D                                                                     (12)
+
+                                                                 b n have rank one. Based on Proposition 2,
+where the subscript r is not present anymore, as all matrices in D
+                               b n
+we can easily establish that |D | = 2  n−1
+                                           . Next, we summarize known results on sets related to {±1}–
+matrices. The convex hull of all PSD {±1}–matrices is known as the cut polytope:
+
+                                                b n := conv(D
+                                                P           b n ),                                           (13)
+
+see e.g., [46]. Also, we define the following set-completely positive matrix cone:
+                                                                                                    
+              b n := conv
+           SC P                 xx⊤ : x ∈ Rn , x1 + xi ≥ 0, x1 − xi ≥ 0 for all i ∈ {2, . . . , n}       .   (14)
+
+The cone SC Pbn is considered in [49], where the authors show that SC P  b n and SCP n , see (7), are related
+                     n
+as follows: T (SCP ) = SC P    b and T (SC P
+                                n        −1     b ) = SCP , where T is an appropriate linear mapping.
+                                                 n         n
+
+Lieder et al. [49] consider the following set-completely positive matrix set:
+                                                                              
+                                              1 x⊤
+                         Cbn := X ∈ S n :             ∈ SC Pb n+1 , diag(X) = 1n ,                       (15)
+                                              x X
+
+which is the analogue of the set C1n for {0, 1}–matrices, see (8).
+                          b n = Cbn .
+Theorem 7 ([49]). We have P
+    This theorem is the analogue of Theorem 5 that provides a result for {0, 1}–matrices. For the equiv-
+alence transformation between {±1}– and {0, 1}–representations of SDP relaxations of binary quadratic
+optimization problems, we refer the interested reader to Helmberg [34].
+
+2.3    Theory on PSD {0, ±1}–matrices
+In the sequel we generalize several results from the previous sections to PSD {0, ±1}–matrices. The follow-
+ing result shows that a PSD {0, ±1}–matrix is block-diagonalizable, which is the analogue of Proposition 1
+for {0, 1}–matrices.
+Proposition 4. Let X ∈ {0, ±1}n×n be symmetric. Then, the following statements are equivalent:
+  (i) diag(X) = 1n , rank(X) = r, X  0.
+ (ii) There exists a permutation matrix Q such that QXQ⊤ = Bn1 ⊕ · · · ⊕ Bnr , where Bni = bi b⊤
+                                                                                               i ,
+      bi ∈ {±1}ni for i ∈ [r], n = n1 + · · · + nr .
+
+                                                        10
+Proof. Suppose that QXQ⊤ is in the block form given in (ii), then it trivially satisfies the conditions
+given in (i). Conversely, let X ∈ {0, ±1}n×n satisfy (i). Let us consider the ith row in X. Suppose j
+and k are two distinct indices not equal to i in the support of this row, i.e., Xij , Xik 6= 0. For the sake
+of contradiction, suppose that Xjk = 0. Then, the submatrix of X induced by i, j and k is either one of
+the following matrices:
+
+                i   j   k               i   j   k               i   j   k                     i      j      k
+                                                                                                         
+        i       1 1     1       i       1   −1 −1       i       1   1   −1            i       1     −1      1
+                                                                                                       
+        j 1 1          0 ,    j  −1      1   0 ,    j 1 1          0 ,     or   j  −1         1      0 .
+        k 1 0           1       k −1        0   1       k −1 0          1             k   1          0      1
+
+One easily checks that the determinants of these matrices are all negative, contradicting that X  0.
+Hence, Xjk 6= 0. This argument can be repeated to conclude that the submatrix of X indexed by the
+support of row i has entries in {±1}. Since the submatrix of X is also positive semidefinite, it follows
+from Proposition 2 that the submatrix is of the form bb⊤ with b ∈ {±1}ni for some positive integer ni .
+   By the same argument, it follows that the other indices in the submatrix induced by row i have the
+same support as row i. Indeed, if this would not be the case, one of the four matrices above should be a
+submatrix of X. We conclude that X can be fully constructed from nonoverlapping submatrices of the
+form bb⊤ with b ∈ {±1}ni for some positive integer ni . Since its rank equals r, there must be r of those
+submatrices. From here the claim follows.
+   Proposition 4 extends easily to the following result.
+Corollary 4. Let X ∈ {0, ±1}n×n be symmetric. Then, the following statements are equivalent:
+  (i) rank(X) = r, X  0.
+ (ii) There exists a permutation matrix Q such that QXQ⊤ = Bn1 ⊕ · · · ⊕Bnr ⊕0nz ×nz where Bni = bi b⊤
+                                                                                                     i ,
+      bi ∈ {±1}ni for i ∈ [r], n = n1 + · · · + nr + nz .
+Proof. The proof is similar to the proof of Corollary 1.
+   Let X ∈ {0, ±1}n×n be given as in Corollary 4, then
+                                                                                              r
+                                                                                              X
+            QXQ⊤ = Bn1 ⊕ · · · ⊕ Bnr ⊕ 0nz ×nz = b1 b⊤               ⊤
+                                                     1 ⊕ · · · ⊕ br br ⊕ 0nz ×nz =                  x̄i x̄⊤
+                                                                                                          i ,
+                                                                                              i=1
+
+where
+Pr     x̄⊤      ⊤   ⊤        ⊤     ⊤    ⊤  ⊤
+         1 = [b1 0n−n1 ], x̄2 = [0n1 b2 0n−n1 −n2 ], and so on. Let xi := Qx̄i for i ∈ [r], then X =
+          ⊤                     n
+  i=1 xi xi , where xi ∈ {0, ±1} . This construction yields the following decomposition of PSD {0, ±1}–
+matrices.
+                                                                                         Pr         ⊤
+Theorem 8. Let X ∈ {0, ±1}n×n be symmetric. Then, X  0 if and only if X =                  j=1 xj xj for
+                   n
+some xj ∈ {0, ±1} , j ∈ [r].
+   The previous result is an extension of Theorem 1 to {0, ±1}–matrices. We now consider an equivalence
+between a PSD {0, ±1}–matrix of rank one and an extended linear matrix inequality, i.e., the analogue
+of Theorem 3.
+                                 
+                            1 x⊤
+Proposition 5. Let Y =               ∈ S n+1 with supp(diag(X)) = supp(x). Then, Y ∈ {0, ±1}(n+1)×(n+1),
+                            x X
+Y  0 if and only if X = xx⊤ .
+Proof. Let Yij ∈ {0, ±1} for all i, j ∈ [n + 1] and Y  0. Then x ∈ {0, ±1}n. The Schur complement
+lemma implies X − xx⊤  0. If Xii = 0 then xi = 0, and if Xii = 1 then xi = 1 or xi = −1. Thus
+diag(X − xx⊤ ) = 0, from which it follows that X = xx⊤ . The converse direction is trivial.
+   Clearly, the condition supp(diag(X)) = supp(x) can be replaced by diag(X)ii = |xi | for all i ∈ [n],
+where | · | denotes the absolute value.
+
+                                                        11
+3     Binary quadratic optimization problems
+In this section we exploit the theoretical results on discrete PSD matrices from the previous section to
+derive exact reformulations of binary quadratic programs (BQPs) as binary semidefinite programs. In
+Section 3.1 we consider the general class of binary quadratically constrained quadratic programs. In
+Section 3.2 we consider a subclass of these programs that allow for a formulation as a binary quadratic
+matrix program.
+
+3.1    Binary quadratically constrained quadratic programs
+A quadratically constrained quadratic program (QCQP) is an optimization problem with a quadratic
+objective function under the presence of quadratic constraints. Many discrete optimization problems can
+be formulated as QCQPs.
+   Let Q0 , Qi ∈ S n , c0 , ci ∈ Rn for all i ∈ [m], and ai ∈ Rn , bi ∈ R for all i ∈ [p], where m, p ∈ N. We
+consider binary programs of the following form:
+
+                          min x⊤ Q0 x + c⊤
+                                         0x
+
+                          s.t. x⊤ Qi x + c⊤
+                                          i x ≤ di        ∀i ∈ [m]
+                                                                                                   (QCQP )
+                                  ⊤
+                                ai x = b i     ∀i ∈ [p]
+                                x ∈ {0, 1}n.
+
+The quadratic terms in (QCQP ) can be written as hQi , Xi+ c⊤                                          ⊤
+                                                            i x for all i, where we substitute X for xx .
+This yields the following exact reformulation of (QCQP ):
+
+                          min hQ0 , Xi + c⊤
+                                          0x
+
+                          s.t. hQi , Xi + c⊤
+                                           i x ≤ di        ∀i ∈ [m]
+                                  ⊤
+                                ai x = bi ∀i ∈ [p]
+                                          
+                                      1 x⊤
+                                Y =           0, diag(X) = x, rank(Y ) = 1.
+                                      x X
+
+Here we used the conventional notion of exactness, i.e., the nonconvex constraint rank(Y ) = 1. We also
+exploit here Theorem 3 in order to not explicitly require x to be binary. However, one can utilize an
+alternative notion of exactness in terms of integrality, namely by exploiting Theorem 3. This leads to the
+following binary semidefinite program (BSDP):
+
+                          min hQ0 , Xi + c⊤
+                                          0x
+
+                          s.t. hQi , Xi + c⊤
+                                           i x ≤ di        ∀i ∈ [m]
+                                  ⊤
+                                ai x = bi ∀i ∈ [p]                                           (BSDPQCQP )
+                                       
+                                  1 x⊤
+                                           0, diag(X) = x, x ∈ {0, 1}n.
+                                  x X
+
+Observe that it is sufficient to impose integrality on the diagonal of X. Namely, it follows from the
+determinants of the 3 × 3 principal submatrices of the matrix Y that Xij ∈ {0, 1} whenever Xii , Xjj ∈
+{0, 1} for all i and j, see e.g., [35, Section 3.2]. Note that a binary matrix X that satisfies the linear
+matrix inequality from (BSDPQCQP ) with x = diag(X), is an element of D1n , see (3). The next result
+follows directly from the previous discussion and Theorem 3.
+Theorem 9. (BSDPQCQP ) is equivalent to (QCQP ).
+   To provide a more compact BSDP formulation of (QCQP ), we prove the following result.
+                      P             −b ⊤                    
+Lemma 1. Let S = pi=1 −b
+                                                            ⊤
+                               ai
+                                 i
+                                     ai
+                                       i
+                                           and Y = x1 xX  0, where diag(X) = x and X ∈ {0, 1}n×n.
+Then, a⊤
+       i x = bi for all i ∈ [p] if and only if hS, Y i = 0.
+
+
+                                                          12
+                                                           ⊤
+Proof. It follows from Theorem 3 that Y = ( x1 )( x1 ) . If a⊤   i x = bi for all i ∈ [p], it is not difficult
+                                                                          Pp D −bi  −bi ⊤ 1 1 ⊤ E
+to verify that hS, Y i = 0. Conversely, let hS, Y i = 0. Then, 0 =         i=1     ai   ai     , ( x )( x ) =
+Pp           ⊤ 2                                ⊤
+  i=1 (bi − ai x) , from which it follows that ai x = bi for all i ∈ [p].
+
+   Lemma 1 induces the following compact BSDP that is equivalent to (QCQP ):
+                             min hQ0 , Xi + c⊤ x
+                              s.t. hQi , Xi + c⊤
+                                               i x ≤ di  ∀i ∈ [m]
+                                     p
+                                        *                     +
+                                   X                    ⊤
+                                           −bi     −bi        1 x⊤
+                                                          ,           =0
+                                            ai      ai       x X
+                                    i=1
+                                           
+                                      1 x⊤
+                                                0, diag(X) = x, x ∈ {0, 1}n.
+                                      x X
+There are various equivalent formulations of the binary quadratic program (QCQP ) in the literature.
+We finalize this subsection by mentioning below only those that are closely related to our approach.
+    Assume that Qi = 0, ci = 0, and di = 0 for all i ∈ [m] in (QCQP ). Burer [13] proved that the
+resulting optimization problem with a quadratic objective and linear constraints is equivalent to the
+following completely positive program:
+                           min hQ0 , Xi + c⊤ x
+                            s.t. ai ⊤ x = bi ∀i ∈ [p], hai ai ⊤ , Xi = b2i   ∀i ∈ [p]
+                                          
+                                    1 x⊤
+                                             ∈ CP n+1 , diag(X) = x,
+                                    x X
+provided that the inequalities 0 ≤ xi ≤ 1 for i ∈ [n] are implied by the constraints of the original problem.
+Here CP n+1 is the cone of completely positive matrices.
+   On the other hand, Lieder et al. [49] proved the following equivalent formulation of the BQP with
+quadratic objective and linear constraints:
+                           min hQ0 , Xi + c⊤ x
+                            s.t. ai ⊤ x = bi ∀i ∈ [p]
+                                          
+                                    1 x⊤
+                                             ∈ SCP n+1 , diag(X) = x,
+                                    x X
+
+where the cone SCP n+1 is defined in (7). The authors of [49] also proved that, under mild assumptions,
+the binary quadratic problem (QCQP ) with also quadratic constraints can be equivalently reformulated
+as an optimization problem over the set-completely positive matrix cone SCP n+1 .
+   We end this section by providing an example of a problem that can be modeled as (BSDPQCQP ).
+Example 1 (The stable set problem). Let G = (V, E) be a simple graph on n vertices. A stable set in
+G is a subset S ⊆ V such that no two vertices in S are adjacent in G. The stable set problem (SSP) asks
+for the largest size of a stable set in G. To model this problem, let x ∈ {0, 1}n be such that xi = 1 if
+i ∈ S and xi = 0 otherwise. Then, x is the characteristic vector of a stable set in G if x⊤ (Eij + E⊤
+                                                                                                    ij )x = 0
+for all {i, j} ∈ E. The cardinality of the stable set equals x⊤ x, hence the SSP is of the form (QCQP ).
+Applying Theorem 9, the following BSDP models the SSP:
+                        α(G) := max       hIn , Xi
+                                   s.t.   Xij = 0 ∀{i, j} ∈ E
+                                                                                                        (16)
+                                            1 x⊤
+                                                    0, diag(X) = x, x ∈ {0, 1}n .
+                                            x X
+The doubly nonnegative relaxation of (16) obtained after replacing X ∈ {0, 1}n×n by 0 ≤ X ≤ J, is
+well-studied in the literature, see e.g., [32]. It is equivalent to a strengthened version of the Lovász theta
+number, known as the Schrijver ϑ′ -number [62].
+
+                                                      13
+3.2    Binary quadratic matrix programs
+A quadratic matrix program (QMP) [6] is a programming formulation where the objective and constraints
+are given by
+
+                                         tr(P ⊤ Qi P ) + 2tr(Bi⊤ P ) + di                                 (17)
+
+for some Qi ∈ S n , Bi ∈ Rn×k and ci ∈ R, where P is an n × k matrix variable. QMPs are a special case
+of QCQPs and are particularly useful to model optimization problems where the matrix P has entries
+in {0, 1} and represents a classification of n objects over k classes, i.e., Pij = 1 if and only if object i is
+assigned to class j. For example, if each object needs to be assigned in exactly (resp. at most) one class,
+we call P a partition (resp. packing) matrix.
+    In this section we consider two different binary QMPs of increasing generality and show how these
+can be reformulated as BSDPs. For both QMPs, we consider some well-known problems that fit into the
+framework.
+    Our first QMP incorporates a specific objective and constraint structure, while optimizing over the
+packing or partition matrices. Let Q0 , Qi ∈ S n , di ∈ R for all i ∈ [m], ai ∈ Rn and bi ∈ R+ for all i ∈ [p].
+We consider the binary quadratic matrix program
+
+                          min tr(P ⊤ Q0 P )
+                          s.t. tr(P ⊤ Qi P ) + di ≤ 0 ∀i ∈ [m], P ⊤ ai ≤ bi 1k   ∀i ∈ [p]            (QM P1 )
+                                                        n×k
+                               P 1k ≤ 1n , P ∈ {0, 1}         .
+
+Observe that P 1k ≤ 1n implies that P is a packing matrix. This constraint is replaced by P 1k = 1n in
+case we deal with partition matrices. The constraints tr(P ⊤ Qi P ) + di ≤ 0 and P ⊤ ai ≤ bi 1k might follow
+from the structure of the problem under consideration. Observe that these constraints differ from the
+general form (17) in the sense that the linear part tr(Bi⊤ P ) is only included in a very specific form.
+    A possible way to deal with the quadratic terms in (QM P1 ) is by lifting the variables in a higher-
+dimensional space. By vectorizing the matrix P , the problem (QM P1 ) can be written in the form (QCQP ),
+after which we can follow the approach of Section 3.1. This results in a BSDP where the matrix variable
+is of order nk + 1. Since the resulting program is obtained from a lifting of the vectorization of P , we
+say that we applied a vector-lifting approach. To obtain a more compact problem formulation where the
+matrix variable is of lower order, we here consider a matrix-lifting approach. In particular, the objective
+function can be written as tr(P ⊤ Q0 P ) = tr(Q0 P P ⊤ ) = tr(Q0 X), where X = P P ⊤ . By doing so, we
+obtain the following BSDP:
+                  min      hQ0 , Xi
+                   s.t.    hQi , Xi + di ≤ 0 ∀i ∈ [m], Xai ≤ bi x ∀i ∈ [p]
+                                                                                             (BSDPQMP 1 )
+                             k x⊤
+                                        0, diag(X) = x, X ∈ {0, 1}n×n.
+                             x X
+
+If a QMP is defined over the partition matrices, then P 1k ≤ 1n is replaced by P 1k = 1n in (QM P1 ),
+and consequently diag(X) = x is replaced by diag(X) = 1n in (BSDPQMP 1 ). By exploiting theory from
+Section 2.1, we show the following equivalence.
+Theorem 10. (BSDPQMP 1 ) is equivalent to (QM P1 ).
+Proof. Let P be feasible for (QM P1 ) and define X = P P ⊤ and x = P 1k . Since P represents a
+packing matrix, we have X ∈ {0, 1}n×n, where x is a {0, 1}–vector indicating whether object i is
+packed in one of the classes or not. Then, hQi , Xi + di = hQi , P P ⊤ i + di = tr(P ⊤ Qi P ) + di ≤ 0 for
+all i ∈ [m]. Moreover, we have Xai = P P ⊤ ai ≤ bi P 1k = bi x. To show that diag(X) = x, ob-
+                P             P                                                                          
+serve that Xii = kj=1 Pij2 = kj=1 Pij = e⊤  i P 1k = xi . Finally, we can decompose the matrix
+                                                                                                    k x⊤
+                                                                                                    x X
+         ⊤
+             ⊤  1⊤ ⊤
+into xk xX = 1Pk     k
+                     P
+                           , showing that it is PSD. We conclude that X and x are feasible for (BSDPQMP 1 ).
+   To show the converse inclusion, let X and x = diag(X) be feasible for (BSDPQMP 1 ). It follows from
+Corollary 2 that X can be decomposed as the sum of at most k rank-one symmetric {0, 1}–matrices. By
+
+                                                         14
+adding copies of the zero matrix in case rank(X) < k, we may assume that there exist x1 , . . . , xk ∈ {0, 1}n
+                  P                                                                                 P
+such that X = kj=1 xj x⊤    j . Now, let P = [x1 . . . xk ]. Then, P ∈ {0, 1}
+                                                                                   n×k
+                                                                                       with P 1k = kj=1 xj =
+diag(X) ≤ 1n . To prove that P ⊤ ai ≤ bi 1k , consider column j ∗ of P . If all entries in P ej ∗ (= xj ∗ ) are
+zero, implying that e⊤     ⊤                                                              ∗
+                      j ∗ P ai = 0 ≤ bi , since bi ∈ R+ . Otherwise, there exists a row i such that Pi∗ j ∗ = 1.
+                                               P k
+For the i∗ th row of X, we know e⊤    i∗ X =
+                                                              ⊤    ⊤          ∗
+                                                 j=1 (xj )i∗ xj = xj ∗ . The i th row of the system Xai ≤ bi x
+then reads xj ∗ ai ≤ bi xi∗ = bi . Hence, P ai ≤ bi 1k . Finally, the constraint tr(P ⊤ Qi P ) + di ≤ 0 follows
+             ⊤                               ⊤
+
+immediately from hQi , Xi + di ≤ 0 for all i ∈ [m]. Thus, P is feasible for (QM P1 ).
+   As the objective functions of (QM P1 ) and (BSDPQMP 1 ) clearly coincide with respect to the given
+mapping between P and X, we conclude that the two programs are equivalent.
+   The matrix P no longer appears explicitly in (BSDPQMP 1 ), and therefore we will not be able to
+write all quadratic problems over the packing or partition matrices in this form. The typical problems
+that can be modeled as (BSDPQMP 1 ), are the ones that are symmetric over the classes [k], i.e., we do
+not add constraints for one specific class. Below we discuss two examples from the literature that fit in
+the framework of (QM P1 ).
+Example 2 (The maximum k-colorable subgraph problem). Let G = (V, E) be a simple graph with n :=
+|V | and m := |E|. Given a positive integer k, a graph is called k-colorable if it is possible to assign to
+each vertex in V a color in [k] such that any two adjacent vertices get assigned a different color. The
+maximum k-colorable subgraph (MkCS) problem, see e.g., [45, 55], asks to find an induced subgraph
+G′ = (V ′ , E ′ ) of G that is k-colorable such that |V ′ | is maximized.
+    The MkCS problem can be modeled as (QM P1 ) where P ∈ {0, 1}n×k is such that Pij = 1 if and only
+if vertex i ∈ [V ] is in color class j ∈ [k]. In order to model that P induces a coloring in G, we include the
+constraints tr(P ⊤ (Eij + Eji )P ) = 0 for all {i, j} ∈ E. Additional constraints of the form P ⊤ ai ≤ bi 1k
+do not appear in the formulation.
+    Now, it follows from Theorem 10 that the MkCS problem can be modeled as the following BSDP:
+
+               max      hIn , Xi
+                                                       
+                                                 k x⊤                                                      (18)
+                 s.t.   Xij = 0 ∀{i, j} ∈ E,                 0, diag(X) = x, X ∈ {0, 1}n×n.
+                                                 x X
+
+The doubly nonnegative relaxation of (18) obtained after replacing X ∈ {0, 1}n×n by 0 ≤ X ≤ J, equals
+the formulation θk3 (G) derived in [45].
+   The next example shows that the parameter k in (BSDPQMP 1 ) can also be used as a variable in
+order to quantify the number of classes in the solution.
+Example 3 (The quadratic bin packing problem). Let a set of n items be given, each with a positive
+weight wi ∈ R+ , i ∈ [n]. Assume an unbounded number of bins is available, each with total capacity W ∈
+R+ and cost c ∈ R+ . Moreover, let D = (dij ) ∈ S n denote a dissimilarity matrix, where dij equals the
+cost of packing item i and j in the same bin. The goal of the quadratic bin packing problem (QBPP),
+see e.g., [16], is to assign each item to exactly one bin, under the condition that the total sum of weights
+for each bin does not exceed W , such that the sum of the total dissimilarity and the cost of the used bins
+is minimized.
+    Let us first consider the related problem where the number of available bins equals k. This problem
+can be modeled in the form (QM P1 ), where P ∈ {0, 1}n×k is a matrix with Pij = 1 if and only if item
+i is contained in bin j. Since all items need to be packed, we require P to be a partition matrix, i.e.,
+P 1k = 1n . Moreover, the capacity constraints can be modeled as P ⊤ w ≤ W 1k . Theorem 10 shows that
+this problem can be modeled as a BSDP where the number of bins k appears as a parameter. If we
+replace k by a variable z, we obtain the following formulation of the QBPP:
+                                          
+                             z 1⊤  n
+                  min                  , c⊕D
+                            1n X
+                                                                                                      (19)
+                                                        z 1⊤  n                   n×n
+                  s.t. Xw ≤ W 1n , diag(X) = 1n ,                  0, X ∈ {0, 1}     , z ∈ R.
+                                                       1n X
+
+
+                                                      15
+The variable z is not explicitly restricted to be integer, since at an optimal solution it will always be
+equal to rank(X).
+    The quadratic matrix program (QM P1 ) only includes specific types of constraints of the form (17).
+We now consider a generalization of (QM P1 ). Let Q0 , Qi ∈ S n , B0 , Bi ∈ Rn×k and d0 , di ∈ R for
+all i ∈ [m] and consider the quadratic matrix program
+
+          min tr(P ⊤ Q0 P ) + 2tr(B0⊤ P ) + d0
+           s.t. tr(P ⊤ Qi P ) + 2tr(Bi⊤ P ) + di ≤ 0      ∀i ∈ [m]                                             (QM P2 )
+                 P 1k ≤ 1n , P ∈ {0, 1}n×k .
+
+Again, the constraint P 1k ≤ 1n can be replaced by P 1k = 1n when optimizing over partition matrices.
+Now, let us consider the BSDP
+                d                    
+                   k Ik
+                    0
+                          B0⊤    Ik P ⊤
+         min                   ,
+                   B0⊤ Q0         P X
+                d                   
+                   k Ik
+                    i
+                         Bi⊤     Ik P ⊤
+          s.t.                 ,            ≤ 0 ∀i ∈ [m]                              (BSDPQMP 2 )
+                   Bi⊤ Qi        P X
+                        
+                 Ik P ⊤
+                            0, diag(X) = P 1k , X ∈ {0, 1}n×n, P ∈ {0, 1}n×k ,
+                 P X
+
+which is equivalent to (QM P2 ), as shown below.
+Theorem 11. (BSDPQMP 2 ) is equivalent to (QM P2 ).
+                                                                                        ⊤           
+                                                                                                     ⊤
+Proof. Let P be feasible for (QM P2 ) and define Y ∈ {0, 1}(n+k)×(n+k) as Y = IPk IPk        = IPk PX ,
+                                                         P           P
+where X := P P ⊤ . Clearly, we have Y  0 and Xii = kj=1 Pij2 = kj=1 Pij = e⊤      i P 1k for all i ∈ [n],
+showing that diag(X) = P 1k . Moreover, we have
+                                                                     d                    
+           ⊤               ⊤                           ⊤
+                                                                         i
+                                                                           Ik Bi⊤      Ik P ⊤
+       tr(P Qi P ) + 2tr(Bi P ) + di = tr(Qi X) + 2tr(Bi P ) + di =    k           ,
+                                                                       Bi⊤ Qi          P X
+
+for all i ∈ [m] and i = 0. Hence, X and P are feasible for (BSDPQMP 2 ) and the objective functions
+coincide.
+    Conversely, let P ∈ {0, 1}n×k and X ∈ {0, 1}n×n be feasible for (BSDPQMP 2 ). Following the proof
+of Theorem 2, it follows that there exist x1 , . . . , xk′ ∈ {0, 1}n with k ′ ≥ k such that P = [x1 . . . xk ]
+            Pk ′          ⊤                                                                                        ⊤
+and X =       j=1 xj xj . Since diag(X) = P 1k , it follows that for all i ∈ [n] we have Xii = ei P 1k
+                Pk ′               P k
+implying that j=1 (xj )2i = j=1 (xj )i . Since (xj )i ∈ {0, 1}, the equality above only holds if (xj )i = 0
+for all j = k + 1, . . . , k . As this is true for all i ∈ [n], we have xj = 0n for all j = k + 1, . . . , k ′ , implying
+                            ′
+           P
+that X = kj=1 xj x⊤               ⊤
+                         j = P P . We can now follow the derivation of the first part of the proof in the
+converse order to conclude that P is feasible for (QM P2 ).
+   Typical problems that fit in the framework of (QM P2 ) and (BSDPQMP 2 ) are quadratic matrix
+programs over the packing or partition matrices that require constraints for specific classes, see e.g.,
+Example 4. Another important feature of (BSDPQMP 2 ) is that it is possible to impose a condition
+on the rank of X. Corollary 3 implies that if we add the constraint P ⊤ 1n ≥ 1k to (BSDPQMP 2 ), the
+resulting matrix X has rank exactly k. This makes this formulation suitable for quadratic classification
+problems that require an exact number of classes, e.g., the (capacitated) max-k-cut problem [28].
+Example 4 (The quadratic multiple knapsack problem). Let a set of n items be given, each with a
+weight wi ∈ R+ and a profit pi ∈ R+ , i ∈ [n]. We are also given a set of k knapsacks, each with a
+capacity cj ∈ R+ , j ∈ [k]. Finally, let R = (riℓ ) denote a revenue matrix, where riℓ denotes the revenue of
+including items i and ℓ in the same knapsack. The quadratic multiple knapsack problem (QMKP) aims
+at allocating each item to at most one knapsack such that we maximize the total profit of the included
+items and their interaction revenues, see [37].
+
+                                                           16
+   Let P ∈ {0, 1}n×k be a packing matrix where Pij = 1 if and only if item i is allocated to knapsack j.
+The capacity constraint can be modeled as P ⊤ w ≤ c, where w ∈ Rn+ and c ∈ Rk+ denote the vector of item
+weights and knapsack capacities, respectively. The total profit can be computed as hR, P P ⊤ i + p⊤ P 1k ,
+where p ∈ Rn denotes the vector of item profits. It follows from Theorem 11 that we can model the
+QMKP as the following binary SDP:
+                                         1      ⊤
+                                                            
+                                      0    2 1k p      Ik P ⊤
+                         max       1    ⊤            ,
+                                   2 p1k      R         P X
+                          s.t. P ⊤ w ≤ c, diag(X) = P 1k                                             (20)
+                                        
+                                 Ik P ⊤
+                                            0, X ∈ {0, 1}n×n, P ∈ {0, 1}n×k .
+                                 P X
+
+
+4     Problem-specific formulations
+In this section we consider MISDP formulations of problems that do not belong to the binary quadratic
+problems or for which the reformulation technique differs from the ones in Section 3.
+
+4.1    The QAP as a MISDP
+We present a MISDP formulation of the quadratic assignment problem (QAP) that is derived by a
+matrix-lifting approach. To the best of our knowledge, our QAP formulation provides the most compact
+convex mixed-integer formulation of the problem in the literature. The formulation is motivated by the
+matrix-lifting SDP relaxations of the QAP derived in [21].
+   The quadratic assignment problem is an optimization problem of the following form:
+
+                                      min tr(AXBX ⊤ ) + tr(CX ⊤ ),                                   (21)
+                                     X∈Πn
+
+where A, B ∈ S n , C ∈ Rn×n and Πn is the set of n × n permutation matrices. The QAP is among
+the most difficult N P-hard combinatorial optimization problems to solve in practice. The QAP was
+introduced in 1957 by Koopmans and Beckmann [42] as a model for location problems. Nowadays, the
+QAP is known as a generic model for various (real-life) problems.
+     By exploiting properties of the Kronecker product and Theorem 3, one can lift the QAP into the space
+of (n2 + 1) × (n2 + 1) {0, 1}–matrix variables and obtain a BSDP formulation of the QAP, see Section 3.1.
+Since this vector-lifting approach results in a problem formulation with a large matrix variable, we
+consider here a matrix-lifting approach for the QAP. Ding and Wolkowicz [21] introduce several matrix-
+lifting SDP relaxations of the QAP with matrix variables of order 3n. By imposing integrality on the
+matrix variable X in one of these SDP relaxations, i.e., the relaxation MSDR 0 in [21], we obtain the
+following MISDP:
+
+                                 min hA, Y i + hC, Xi
+                                                     
+                                        In X ⊤ R⊤
+                                 s.t.  X In       Y   0, R = XB                                   (22)
+                                        R     Y    Z
+                                       X ∈ Πn , R ∈ Rn×n , Y, Z ∈ S n .
+
+Note that if B is an integer matrix, then R is also an integer matrix. However, we do not have to impose
+integrality on R explicitly.
+    The Schur complement lemma implies that the linear matrix inequality in (22) is equivalent to
+                                                             
+                                      In Y         XX ⊤ XR⊤
+                                              −                    0.                              (23)
+                                      Y Z          RX ⊤ RR⊤
+
+Now, we are ready to prove the following result.
+
+
+                                                   17
+Proposition 6. The MISDP (22) is equivalent to (21).
+                                                                                                 
+                                                                                In −XX ⊤ Y −XR⊤
+Proof. Let (X, Y, Z, R) be feasible for (22). Then XX ⊤ = In and                Y −RX ⊤ Z−RR⊤
+                                                                                                       0 imply
+              ⊤                  ⊤    ⊤         ⊤
+that Y = XR . Thus, Y = XB X = XBX , meaning that the two objectives coincide.
+   Conversely, let X be feasible for (21). Define R := XB, Y := XR⊤ and Z := RR⊤ . It trivially follows
+that the constraints in (22) are satisfied and that the two objective functions coincide.
+   Many combinatorial optimization problems can be formulated as the QAP, see e.g., [14]. We provide
+an example below.
+Example 5 (The traveling salesman problem). Given is a complete undirected graph Kn = (V, E)
+with n := |V | vertices and a matrix D = (dij ) ∈ S n , where dij is the cost of edge {i, j} ∈ E. The
+goal of the traveling salesman problem (TSP) is to find a Hamiltonian cycle of minimum cost in Kn .
+     Let B be the adjacency matrix of the tour on n vertices, i.e., B is a symmetric Toeplitz matrix whose
+first row is [0 1 0⊤n−3 1]. It is well-known, see e.g., [40], that (21) with this matrix B and A = D is a
+formulation of the TSP. Therefore, a MISDP formulation of the TSP is the optimization problem (22)
+where the objective is replaced by 21 hD, Y i.
+     Another MISDP formulation of the TSP is given in Section 4.3, see also (35). The latter formulation
+is, to the best of our knowledge, the most compact formulation of the TSP.
+
+4.2    MISDP formulations of the graph partition problem
+We present here various MISDP formulations of the graph partition problem (GPP). Several of the here
+derived formulations cannot be obtained by using results from Section 3.1 and Section 3.2.
+    The GPP is the problem of partitioning the vertex set of a graph into a fixed number of sets, say k,
+of given sizes such that the sum of weights of edges joining different sets is optimized. If all sets are of
+equal size, then the corresponding problem is known as the k-equipartition problem (k-EP). The case of
+the GPP with k = 2 is known as the graph bisection problem (GBP). To formalize, let G = (V, E) be
+an undirected graph on n := |V | vertices and let W := (wij ) ∈ S n denote a weight matrix with wij = 0
+if {i, j} ∈
+          / E. The graph partition problem aims to partition the vertices of G into k (2 ≤ k ≤ n − 1)
+                                                                     Pk
+disjoint sets S1 , . . . , Sk of specified sizes m1 ≥ · · · ≥ mk ≥ 1, j=1 mj = n such that the total weight of
+edges joining different sets Sj is minimized.
+    For a given partition of V into k subsets, let P = (Pij ) ∈ {0, 1}n×k be the partition matrix,
+where Pij = 1 if and only if i ∈ Sj for i ∈ [n] and j ∈ [k]. The total weight of the partition equals:
+
+                                     1                    1
+                                       tr W (Jn − P P ⊤ ) = tr(LP P ⊤ ),                                   (24)
+                                     2                     2
+where L := Diag(W 1n ) − W is the weighted Laplacian matrix of G. The GPP can be formulated as the
+following quadratic matrix program:
+                          1
+                    min     hL, P P ⊤ i s.t. P 1k = 1n , P ⊤ 1n = m, P ∈ {0, 1}n×k ,                       (25)
+                          2
+where m = [m1 . . . mk ]⊤ . The formulation (25) is a special case of the quadratic matrix program (QM P2 ).
+Therefore, applying Theorem 11, the GPP can be modeled as follows:
+                         1
+                    min    hL, Xi
+                         2
+                    s.t. P 1k = 1n , P ⊤ 1n = m, diag(X) = 1n                                              (26)
+                                  
+                           Ik P ⊤
+                                      0, X ∈ {0, 1}n×n, P ∈ {0, 1}n×k .
+                           P X
+
+
+
+
+                                                     18
+The doubly nonnegative relaxation of (26) is similar to the relaxation for the k-partition problem from
+[25]. For the k-EP and the GBP, we can derive simpler formulations by removing P from the model.
+    In the case of the k-EP, the QMP (25) is a special case of (QM P1 ), and therefore k-EP can be modeled
+as follows:
+                           1
+                     min     hL, Xi
+                           2
+                                                  n                                                   (27)
+                      s.t. diag(X) = 1n , X1n = 1n
+                                                  k
+                           kX − Jn  0, X ∈ S n , X ∈ {0, 1}n×n.
+This result follows from Theorem 10. An alternative proof is provided below.
+Proposition 7. Let m = nk 1k . Then, the QMP (25) for the k-EP is equivalent to the BSDP (27).
+Proof. Let P be feasible for (25) where m = nk 1k . We define X := P P ⊤ . The first and second constraint
+in (27), as well as X ∈ {0, 1}n×n follow by direct verification. Let pi be the ith column of P for i ∈ [k],
+then
+                                       k            k
+                                                         ! k        !⊤
+                                      X            X          X          X
+                       ⊤       ⊤             ⊤
+      kX − Jn = kP P − 1n 1n = k         pi pi −      pi         pi    =     (pi − pj )(pi − pj )⊤  0.
+                                            i=1       i=1        i=1            i<j
+
+Conversely, let X be feasible for (27). Then, it follows
+                                                       Pr from ⊤Theorem P  1 and Proposition 1 that there
+                                                                             r
+exist xi ∈ {0, 1}n, i ∈ [r], k ≥ r such that X =          i=1 xi xi where    i=1 xi = 1n . Since the con-
+straint X1n = nk 1n is invariant under permutation of rows and columns of X, we have that the sum of
+the elements in each row and column of the block matrix Jn1 ⊕ · · · ⊕ Jnr equals n/k. From this it follows
+that r = k and 1⊤ n xi = n/k for i ∈ [k]. It is easy to verify that P := [x1 . . . xk ] ∈ {0, 1}
+                                                                                                 n×k
+                                                                                                     is feasible
+for (25). Since the two objectives coincide, the result follows.
+   Next result shows that the MISDP (26) also simplifies for the GBP. It has to be noted, however, that
+the GBP is not a special case of (QM P1 ).
+Proposition 8. Let m = [m1 n − m1 ]⊤ , 1 ≤ m1 ≤ n/2. Then, the QMP (25) for the GBP is equivalent
+to the following BSDP:
+                                       1
+                              min        hL, Xi
+                                       2
+                               s.t.    diag(X) = 1n , hJn , Xi = m21 + (n − m1 )2                          (28)
+
+                                       2X − Jn  0, X ∈ S n , X ∈ {0, 1}n×n.
+Proof. Let P be feasible for (25). We define X := P P ⊤ . The first and second constraint in (28) follow
+by direct verification. Let pi be the ith column of P for i ∈ [2], then
+                                         2           2
+                                                           ! 2        !⊤
+                                        X           X         X
+       2X − Jn = 2P P ⊤ − 1n 1⊤   n =2      pi p⊤
+                                                i −     pi         pi    = (p1 − p2 )(p1 − p2 )⊤  0.
+                                                i=1     i=1       i=1
+
+    Conversely, let X be feasible for (28). Then, it follows from Theorem 1 and Corollary 2 that there
+exist x1 , x2 ∈ {0, 1}n such that X = x1 x⊤1 + x2 x2
+                                                     ⊤
+                                                       where x1 + x2 = 1n . Note that X cannot have
+rank one or zero for 1 ≤ m1 < n. From hJn , Xi = m21 + (n − m1 )2 , it follows that 1⊤    n x1 = m1 or
+1⊤                                                             ⊤
+  n x1 = n − m1 . Without loss of generality, we assume that 1 x1 = m1 . Clearly, P := [x1 x2 ] is feasible
+for (25). Moreover, the two objective functions coincide.
+    In the remainder of this section, we derive yet another alternative MISDP formulation of the GPP,
+different from (26). For that purpose we notice that the GPP can also be formulated as a QMP of the
+following form:
+                     min     tr(P ⊤ Q0 P ) + tr(P C0 P ⊤ ) + 2tr(B0⊤ P ) + d0
+                      s.t.   tr(P ⊤ Qi P ) + tr(P Ci P ⊤ ) + 2tr(Bi⊤ P ) + di ≤ 0 ∀i ∈ [m]            (QM P3 )
+                                      n×k
+                             P ∈R           ,
+
+                                                        19
+where Qi ∈ S n , Ci ∈ S k , Bi ∈ Rn×k , di ∈ R for i = 0, 1, . . . , m. Note that (QM P2 ) is a special case
+of (QM P3 ). Examples of problems that are of this form are quadratic problems with orthogonality
+constraints, see e.g., [4]. The GPP can be formulated as follows, see e.g., [20]:
+                                      1
+                                min     hL, P P ⊤ i
+                                      2
+                                 s.t. P ⊤ 1n = m, P ⊤ P = Diag(m)                                         (29)
+
+                                       diag(P P ⊤ ) = 1n , P ≥ 0, P ∈ Rn×k .
+
+To reformulate (29) as a MISDP we introduce matrices X1 ∈ S n and X2 ∈ S k such that X1 = P P ⊤
+and X2 = P ⊤ P and relax these matrix equalities to the linear matrix inequalities (LMIs) X1 − P P ⊤  0
+and X2 − P ⊤ P  0, respectively. These can be rewritten as
+                                                               
+                                 Ik P ⊤                    In   P
+                                           0 and                     0.
+                                 P X1                     P ⊤ X2
+
+After introducing the constraints diag(X1 ) = 1n and X2 = Diag(m), we obtain the following MISDP:
+                    1
+              min     hL, X1 i
+                    2
+               s.t. P 1k = 1n , diag(X1 ) = 1n , X2 = Diag(m)                                             (30)
+                                              
+                      Ik P ⊤             In   P
+                                  0,               0, X1 ∈ S n , X2 ∈ S k , P ∈ {0, 1}n×k .
+                       P X1             P ⊤ X2
+
+We prove below that (30) is an exact formulation of the GPP.
+Proposition 9. The MISDP (30) is an exact formulation of the GPP.
+Proof. We prove the result by showing the equivalence between (29) and (30).
+                                                                                                 P
+    Let P ∈ Rn×k be feasible for (29). Then, it follows from diag(P P ⊤ ) = 1n that (P P ⊤ )ii = kj=1 Pij2 =
+                                                                                                    ⊤
+1 for i ∈ [n]. From
+                P this and P ≥ 0, we obtain           0 ≤ Pij ≤ 1 for all i ∈ [n], j ∈ [k]. From
+                                                                                               PP 12n = m
+                                              ⊤                           ⊤
+it follows that    i,j Pij = n and from P P = Diag(m) that tr(P P ) = n, and thus                i,j Pij = n.
+                                                                        ⊤
+Therefore, Pij ∈ {0, 1} for all i ∈ [n], j ∈ [k]. The equality diag(P P ) = 1n then implies that P 1k = 1n .
+It follows from the discussion prior to the proposition that X1 := P P ⊤ and X2 := P ⊤ P are feasible
+for (30).
+    Conversely, let X1 , X2 and P be feasible for (30). From P ∈ {0, 1}n×k and P 1k = 1n it follows that
+diag(P P ⊤ ) = 1n . From X2 − P ⊤ P  0 and 1⊤      k (X2 −PP ⊤ P )1k = P
+                                                                        0 it follows that (X2 − P ⊤ P )1k = 0
+             ⊤                                    ⊤           n    2       n
+and thus P 1n = m. Moreover, we have (P P )ii = j=1 Pji = j=1 Pji = mi for i ∈ [k], implying
+that diag(P ⊤ P ) = m. Finally, we have X2 − P ⊤ P = Diag(m) − P ⊤ P  0, where it follows from above
+that the latter matrix has a diagonal of zeros. Thus, we must have P ⊤ P = Diag(m), which concludes
+the proof.
+   The MISDP (30) has two LMIs and requires integrality constraints only on a matrix of size n × k,
+while (26) has only one LMI and asks for integrality on matrices of size n × n and n × k.
+
+4.3    MISDP formulations via association schemes
+Association schemes provide a unifying framework for the treatment of problems in several branches of
+mathematics, including algebraic graph theory and coding theory. Delsarte [19] was the first to combine
+association schemes and linear programming for codes. Schrijver [63] refined the Delsarte bound by using
+semidefinite programming. De Klerk et al. [39] introduce a framework for deriving SDP relaxations of
+optimization problems on graphs by using association schemes. In Section 4.3.1 (resp. Section 4.3.2) we
+derive MISDP formulations of the TSP (resp. k-EP) by exploiting association schemes.
+    An association scheme of rank r is a set {A0 , A1 , . . . , Ar } ⊆ Rn×n of {0, 1}–matrices that satisfy the
+following properties:
+
+
+                                                      20
+                       Pr
+  (i) A0 = In and         i=0 Ai = Jn ;
+
+ (ii) A⊤
+       i ∈ {A0 , A1 , . . . , Ar } for i ∈ {0, 1, . . . , r};
+
+(iii) Ai Aj = Aj Ai for i, j ∈ {0, 1, . . . , r};
+                                                          Pr
+(iv) There exist scalars phij such that Ai Aj =                      h
+                                                                h=0 pij Ah for i, j ∈ {0, 1, . . . , r}.
+
+The numbers phij are called the intersection numbers of the association scheme. For more background on
+association schemes, we refer to [11, 30].
+    We restrict here to symmetric association schemes, i.e., we assume that all matrices Ai are symmetric.
+Matrices Ai are linearly independent and they generate a commutative (r + 1)-dimensional algebra of
+symmetric matrices. This algebra is called the Bose-Mesner algebra of the association scheme. Since the
+matrices Ai for all i = 0, 1, . . . , r commute, they can be simultaneously diagonalized. Moreover, there
+exists a unique basis for the Bose-Mesner algebra consisting of minimal   Pr idempotents Ei , i = 0, 1, . . . , r.
+These matrices satisfy Ei Ej = δij Ei for all i, j ∈ {0, 1, . . . , r} and i=0 Ei = In , where δij is the Kro-
+necker delta function. We assume without loss of generality that E0 = n1 Jn . Bases {A0 , A1 , . . . , Ar }
+and {E0 , E1 , . . . , Er } are related by:
+                                    r
+                                    X                                   r
+                                                                    1X
+                             Aj =         Pij Ei   and Ej =               Qij Ai     j = 0, 1, . . . , r.           (31)
+                                    i=0
+                                                                    n i=0
+
+Parameters Pij and Qij for i, j = 0, 1, . . . , r are known as the eigenvalues of the association scheme
+and P = (Pij )ri,j=0 and Q = (Qij )ri,j=0 are the eigenmatrices of the association scheme.
+    Distance-regular graphs are closely related to association schemes. Classes of distance-regular graphs
+include complete graphs, complete bipartite graphs and cycle graphs. Let us define the distance-i graph
+Γi as the graph with vertex set V , in which two vertices x and y are adjacent if and only if the length
+of the shortest path between x and y in G is i. The adjacency matrix Ai of Γi is called the distance-i
+matrix of G for i = 0, 1, . . . , d. It is known that the set of so generated matrices {A0 , A1 , . . . , Ar } form
+an association scheme. It follows from the construction that this association scheme forms a (regular)
+partition of the edge set of a complete graph.
+    If {A0 , A1 , . . . , Ar } is an association scheme and P ∈ Πn , then {P ⊤ A0 P, P ⊤ A1 P, . . . , P ⊤ Ar P } is also
+an association scheme. Let us define the following polytope:
+                                                      
+                      H(A0 , A1 , . . . , Ar ) := conv (P ⊤ A0 P, P ⊤ A1 P, . . . , P ⊤ Ar P ) : P ∈ Πn .            (32)
+                                                                
+The vertices of H(A0 , A1 , . . . , Ar ) are of the form P ⊤ A0 P, P ⊤ A1 P, . . . , P ⊤ Ar P with P ∈ Πn . De
+Klerk et al. [39] show that many combinatorial optimization problems may be formulated as optimization
+problems over the polytope (32). The key is to formulate a combinatorial optimization problem as the
+problem of finding an optimal weight distance-regular subgraph of a weighted complete graph. Since
+the distance matrices of a distance-regular graph form an association scheme, the problem can then be
+reformulated as an optimization problem over the polytope (32) for an appropriate association scheme.
+    For a given association scheme {A0 , A1 , . . . , Ar }, De Klerk et al. [39] approximate H(A0 , A1 , . . . , Ar )
+by the following larger set:
+                                         r
+                                          X             r
+                                                        X                                                
+   A :=    (X0 , . . . , Xr ) : X0 = In ,   Xi , = Jn ,   Qij Xi  0, j ∈ [r], Xi ≥ 0, Xi = Xi⊤ , i ∈ [r] ,         (33)
+                                           i=0              i=0
+
+where Qij are the dual eigenvalues of the association scheme {A0 , A1 , . . . , Ar }. They exploit the set A to
+derive SDP relaxations of various combinatorial optimization problems. The LMIs in A follow from the
+properties of the basis of minimal idempotents, see (31) and [39] for details. In the sequel, we show that
+by imposing integrality to only one of the matrices in (33), one obtains an exact problem formulation.
+
+
+
+
+                                                                  21
+4.3.1   The traveling salesman problem
+Let us reconsider the traveling salesman problem (TSP), see Example 5. In this section we assume that
+n is odd. The results for n even can be derived similarly.
+    The adjacency matrix of a Hamiltonian cycle is a symmetric circulant matrix that belongs to the
+association scheme of symmetric circulant matrices, known as the Lee scheme [47]. The dual eigenvalues
+of the Lee scheme are Q0j = 2 for j ∈ [r] and Qi0 = 1 for i = 0, 1, . . . , r, where r = ⌊n/2⌋. After
+incorporating those dual eigenvalues in (33), the authors of [39, 40] derive an SDP relaxation for the
+TSP. By imposing integrality on the variable X1 in the SDP relaxation from [39, 40] we obtain the
+following MISDP:
+                            1
+                       min    hD, X1 i
+                            2
+                                 Xr                 Xr            
+                                                              2ijπ                                           (34)
+                       s.t. In +     Xi = Jn , In +     cos          Xi  0 ∀j ∈ [r]
+                                 i=1                i=1
+                                                               n
+                                 X1 = X1⊤ ∈ {0, 1}n×n, Xi ≥ 0, Xi ∈ S n ∀i = 2, . . . , r,
+
+where r = ⌊n/2⌋. Next, we show that the MISDP (34) is an exact model of the TSP.
+Theorem 12. The MISDP (34) is an exact formulation of the TSP.
+Proof. To prove the result we use the following ISDP formulation of the TSP by Cvetković et al. [18]:
+                                   1
+                      min            hD, Xi
+                                   2                   
+                                                        2π                                                   (35)
+                          s.t.     2In − X + 2 1 − cos      (Jn − In )  0
+                                                         n
+                                   X1n = 21n , diag(X) = 0, X ∈ S n , X ∈ {0, 1}n×n.
+
+The ISDP (35) is derived by exploiting the algebraic connectivity of a cycle on n vertices.
+    Let X be feasible for (35). Then, X is the adjacency matrix of a Hamiltonian cycle, hence X is
+a symmetric circulant matrix. Define X0 := In , X1 := X and X2 := X12 − 2In , and the recurrence
+relation X1 Xi = Xi+1 + Xi−1 for i = 2, . . . , r − 1. Then, the set {X0 , X1 , . . . , Xr } where r = ⌊n/2⌋
+forms an association scheme of (permuted) symmetric circulant matrices. Note that Xi i = 0, 1, . . . , r
+are the distance matrices of the Hamiltonian cycle whose adjacency matrix is X1 . The LMIs in (34)
+   Pr from the fact that the corresponding basis of minimal idempotents {E0 , . . . , Er } satisfies Ej =
+follow
+ 1
+n     i=0 Qij Xi  0, for j = 0, 1, . . . , r. See also [40] for a direct proof of the validity of these LMIs that
+exploits the fact that the Xi ’s may be simultaneously diagonalized.
+    Conversely, let Xi for i ∈ [r] be feasible for (34). Define X := X1 . Now,   Pr similarly as in [40, Theorem
+4.1] one can show that 2In + (1 − 2 cos (2π/n)) X1 + (2 − 2 cos (2π/n))   Pr       i=2 Xi  0 may be obtained as
+a nonnegative linear combination of r LMIs from (34) and In + i=1 Xi  0. From [39, Theorem 7.3],
+it follows that X1n = 21n . Since the two objectives clearly coincide, the result follows.
+
+4.3.2   The k-equipartition problem
+In Section 4.2 we derived various MISDP formulations of the GPP, including the special case of the k-EP.
+We now derive an alternative formulation of the k-EP by exploiting an appropriate association scheme.
+    Let n, k, m ∈ Z+ , and D be a nonnegative symmetric matrix of order n, where n = mk. The k-EP
+can be equivalently formulated as finding a complete regular k-partite subgraph on n vertices in Kmk of
+minimum weight. The complete regular k-partite graph is strongly regular. The dual eigenvalues of the
+corresponding association scheme are given in the following matrix:
+                                                               
+                                            1 (m − 1)k k − 1
+                                     Q = 1        0        −1  .                                  (36)
+                                            1     −k      k−1
+
+
+                                                         22
+De Klerk et al. [39] combine (33) and (36) to derive an association scheme-based SDP relaxation of
+the k-EP. By imposing integrality on the matrix variable X2 in the SDP relaxation from [39] we obtain:
+                   min hD, X1 i
+                    s.t. (m − 1)In − X2  0, (k − 1)In − X1 + (k − 1)X2  0                           (37)
+                                                            n                              n×n
+                         In + X1 + X2 = Jn , X1 , X2 ∈ S , X1 ≥ 0, X2 ∈ {0, 1}                   .
+In the sequel we show that the MISDP (37) is an exact formulation of the k-EP. Note that in (37) it is
+sufficient to require that X2 ∈ {0, 1}n×n, since the integrality of X1 follows from In + X1 + X2 = Jn .
+Proposition 10. The BSDP (27) is equivalent to the MISDP (37).
+Proof. Let X1 , X2 be feasible for (37). We define matrix X := In + X2 , and show that it is feasible
+for (27). It follows trivially that diag(X) = 1n . Further, X1n = (In + X2 )1n = (In + A2 )1n = m1n
+follows from the fact that X2 1n = A2 1n , see [39, Theorem 7.3], where A2 := Diag(1k ) ⊗ (Jm − Im ). To
+verify the PSD constraint we proceed as follows:
+              (k − 1)In − X1 + (k − 1)X2 = k(In + X2 ) − (In + X1 + X2 ) = kX − Jn  0.
+   Conversely, let X be feasible for (27). Define X1 := Jn − X and X2 := X − In , from where it follows
+that X1 , X2 ∈ {0, 1}n×n. Then, the first constraint in (37) is trivially satisfied and
+         (k − 1)In − X1 + (k − 1)X2 = (k − 1)In − Jn + X + (k − 1)(X − In ) = kX − Jn  0.
+For the second LMI, we have (m − 1)In − X2 = mIn − X  0, where we use the fact that the spectral
+radius ρ(X) ≤ kXk∞ = m. The two objective functions clearly coincide.
+   Note that the MISDP (37) has two LMIs and the BSDP (27) only one. Moreover, observe that one
+may replace in (37) the constraint (m − 1)In − X2  0 by X2 1n = (m − 1)1n and obtain a MISDP for
+the k-EP with only one PSD constraint. This follows directly from the proof of Proposition 10.
+
+4.4    MISDP formulations beyond binarity
+Almost all problem formulations that have been discussed before involve matrix variables with entries
+in {0, 1}. In this section we consider several problems that allow for semidefinite formulations where
+(some of) the variables are integers, but not necessarily restricted to {0, 1}.
+Example 6 (The integer matrix completion problem). A well-known problem in data analysis is the
+problem of low-rank matrix completion. Suppose a partially observed data matrix is given, i.e., let Ω ⊆
+[n] × [m] denote the set of observed entries and let D ∈ Rn×m denote a given data matrix that has its
+support on Ω. The goal of the low-rank matrix completion problem is to find a minimum rank matrix
+X ∈ Rn×m such that X coincides with D on the set Ω, e.g., see [1].
+    Since minimizing rank(X) leads to a nonconvex and therefore hard problem,
+                                                                         Pn     a related but tractable
+alternative is given by minimizing the nuclear norm of X, i.e., ||X||∗ := i=1 σi (X), where σi denotes
+the ith singular value of X. Hence, we consider the following program:
+                          min     ||X||∗   s.t. Xij = Dij       for all (i, j) ∈ Ω.
+                        X∈Rn×m
+
+As shown by Recht et al. [60], the optimization problem above is equivalent to the following SDP:
+                         min      hIn , Z1 i + hIm , Z2 i
+                                              
+                                     Z1 X
+                          s.t.                    0, Xij = Dij      for all (i, j) ∈ Ω.
+                                    X ⊤ Z2
+Since X can be thought of as a multiplicative model underlying the data observed in D, see [1], a possible
+generalization would be to require the entries in X to be integer. This yields the following integer matrix
+completion problem:
+                     min hIn , Z1 i + hIm , Z2 i
+
+                                                    23
+                         s.t. Xij = Dij for all (i, j) ∈ Ω,     Xij ∈ S for all (i, j) ∈
+                                                                                       /Ω
+                                      
+                                Z1 X
+                                          0.
+                               X ⊤ Z2
+
+where S ⊆ Z is a discrete set.
+Example 7 (The sparse integer least squares problem). In the integer least squares problem we are given
+a matrix M ∈ Rn×k and a column b ∈ Rn and we seek the closest point to b in the lattice spanned by the
+columns of M . Del Pia and Zhou [58] consider the related sparse integer least squares (SILS) problem,
+which can be formulated as
+                           1
+                   min       ||M x − b||22   s.t. x ∈ {0, ±1}k , ||x||0 ≤ K.                                   (38)
+                           n
+The SILS problem has applications in, among other, multiuser detection and sensor networks, see [58]
+and the references therein. Now, consider the following ternary SDP:
+                                   ⊤                 
+                        1    1 x⊤         b b     −b⊤ M
+                 min                 ,
+                        n    x X        −M ⊤ b M ⊤ M
+                    s.t. tr(X) ≤ K, diag(X) = y1 + y2 , x = y1 − y2                                            (39)
+                                            
+                           1 x⊤           1 x⊤
+                                    0,           ∈ {0, ±1}(k+1)×(k+1) , y1 , y2 ∈ Rn+ .
+                           x X           x X
+
+It is easy to verify that if x is a solution to (38), then x, X = xx⊤ , y1 = max(x, 0) and y2 = max(−x, 0)
+is feasible for (39) with the same objective value. Conversely, if (x, X, y1 , y2 ) is feasible for (39), it follows
+from Proposition 5 that x = y1 − y2 is a solution to (38) with the same objective value.
+
+
+5     Conclusions
+In this paper we showed that the class of mixed-integer semidefinite programs embodies a rich structure,
+allowing for compact formulations of many well-known discrete optimization problems. Due to the recent
+progress in computational methods for solving MISDPs [27, 36, 38, 41, 52, 53], these formulations can be
+exploited to obtain alternative methods for solving the problems to optimality.
+     As most problems are naturally encoded using binary or ternary variables, we started our research
+with a study on the general theory related to PSD {0, 1}–, {±1}– and {0, ±1}–matrices. Section 2
+provides a comprehensive overview on this matter, including known and new results. In particular, we
+presented a combinatorial, polyhedral, set-completely positive and integer hull description of the set of
+PSD {0, 1}–matrices bounded by a certain rank, see Section 2.1. Several of these results are extended to
+matrices having entries in {±1} and {0, ±1}.
+     Based on these matrix results, in particular Theorem 1–3 and Corollary 3, we derived a generic
+approach to model binary quadratic problems as BSDPs. We derived a BSDP for the class of binary
+quadratically constrained quadratic programs, see (BSDPQCQP ), and for two types of binary quadratic
+matrix programs, see (BSDPQMP 1 ) and (BSDPQMP 2 ). These results are widely applicable to a large
+number of discrete optimization problems, see also the examples in Section 3.
+     We moreover we considered problem-specific MISDP formulations that are derived in a different way
+than through this generic approach. We provided compact MISDP formulations of the QAP, see (22),
+and various variants of the GPP, see (26), (27) and (28). We derived several MISDP formulations of
+discrete optimization problems that can be modeled using association schemes, see Section 4.3. We also
+considered problems that have discrete but non-binary variables, e.g., the integer matrix completion
+problem and the sparse integer least squares problem, see Example 6 and 7, respectively.
+     Given the wide range of discrete optimization problems for which we derived new formulations based
+on mixed-integer semidefinite programming, we expect more problems to allow for such representations.
+It is also interesting to study the behaviour of MISDP solvers on the presented formulations to see whether
+this leads to competitive solution approaches for the considered problems.
+
+
+                                                         24
+References
+ [1] acm sigkdd and netflix.            Proceedings of KDD Cup and Workshop.                   Available at
+     http://www.cs.uic.edu/~liub/KDD-cup-2007/proceedings.html, 2007.
+ [2] M.F. Anjos and J.B. Lasserre. Handbook on semidefinite, conic and polynomial optimization, volume
+     166. Springer Science & Business Media, 2011.
+ [3] M.F. Anjos and H. Wolkowicz. Strengthened semidefinite relaxations via a second lifting for the
+     max-cut problem. Discrete Appl. Math., 119(1–2):79–106, 2002.
+ [4] K. Anstreicher and H. Wolkowicz. On Lagrangian relaxation of quadratic matrix constraints. SIAM
+     J. Matrix Anal. Appl., 22(1):41–55, 2000.
+ [5] H.J. Bandelt, M. Oosten, J.H.G.C. Rutten, and F.C.R. Spieksma. Lifting theorems and facet char-
+     acterization for a class of clique partitioning inequalities. Oper. Res. Lett., 24:235–243, 1999.
+ [6] A. Beck. Quadratic matrix programming. SIAM J. Optim., 17:1224–1238, 2007.
+ [7] E.T. Bell. Exponential numbers. Amer. Math. Monthly, 41:411–419, 1934.
+ [8] H.Y. Benson and Ü. Sağlam. Mixed-integer second-order cone programming: A survey. In Theory
+     Driven by Influential Applications, pages 13–36. INFORMS, 2013.
+ [9] A. Berman and C. Xu. {0,1} completely positive matrices. Linear Algebra Appl., 399:35–51, 2005.
+[10] I.M. Bomze and M. Gable. Optimization under uncertainty and risk: Quadratic and copositive
+     approaches. Eur. J. Oper. Res., 310:449–476, 2023.
+[11] A.E. Brouwer and W.H. Haemers. Handbook of Combinatorics, chapter Association schemes, pages
+     747–771. Elsevier Science, Amsterdam, 1995.
+[12] T. Bulhões, A. Pessoa, F. Protti, and E. Uchoa. On the complete set packing and set partitioning
+     polytopes: Properties and rank 1 facet. Oper. Res. Lett., 46:389–392, 2018.
+[13] S. Burer. On the copositive representation of binary and continuous nonconvex quadratic programs.
+     Math. Program., 120:479–495, 2009.
+[14] R. Burkard, M. Dell’Amico, and S. Martello. Assignment Problems. Society for Industrial and
+     Applied Mathematics, Philadelphia, PA, USA, 2009.
+[15] A. Cerveira, A. Agra, F. Bastos, and J. Gromicho. A new branch and bound method for a discrete
+     truss topology design problem. Comput. Optim. Appl., 54(1):163–187, 2013.
+[16] V.G. Chagas. Exact Algorithms for the Quadratic Bin Packing Problem. PhD thesis, Universidade
+     Estadual de Campinas, 2021.
+[17] S. Chopra and M.R. Rao. The partition problem. Math. Program., 59:87–115, 1993.
+[18] D. Cvetković, M. Čangalović, and V. Kovačević-Vujčić. Semidefinite programming methods for the
+     symmetric traveling salesman problem. In G. Cornuj́ols, R.E. Burkard, and G.J. Woeginger, editors,
+     Integer programming and Combinatorial Optimization (IPCO 1999), volume 1610 of Lecture Notes
+     in Computer Science. Springer, Berlin, Heidelberg, 1999.
+[19] P. Delsarte. An algebraic approach to the association schemes of coding theory. Philips Research
+     Reports Suppl, 10, 1973.
+[20] Y. Ding, D. Ge, and H. Wolkowicz. On equivalence of semidefinite relaxations for quadratic matrix
+     programming. Math. Oper. Res., 36(1):88–104, 2011.
+[21] Y. Ding and H. Wolkowicz. A low-dimensional semidefinite relaxation for the quadratic assignment
+     problem. Math. Oper. Res., 34(4):1008–1022, 2009.
+[22] B.P.M. Duarte. Exact optimal designs of experiments for factorial models via mixed-integer semidef-
+     inite programming. Math., 11(4):854, 2023.
+[23] I. Dukanovic and F. Rendl. Semidefinite programming relaxations for graph coloring and maximal
+     clique problems. Math. Program., 109:345–365, 2007.
+[24] A. Eisenblätter. Frequency assignment in GSM networks: Models, heuristics, and lower bounds.
+     PhD thesis, 2001.
+[25] Jamie Fairbrother and Adam N. Letchford. Projection results for the k-partition problem. Discrete
+     Optim., 26:97–111, 2017.
+
+                                                    25
+[26] T.      Gally     and     M.E.     Pfetsch.          Computing       restricted    isometry     con-
+     stants      via    mixed-integer    semidefinite   programming.             Optimization     Online:
+     http://www.optimization-online.org/DB_FILE/2016/04/5395.pdf, 2016.
+[27] T. Gally, M.E. Pfetsch, and S. Ulbrich. A framework for solving mixed-integer semidefinite programs.
+     Optim. Methods Softw., 33(3):594–632, 2018.
+[28] D.R. Gaur, R. Krishnamurti, and R. Kohli. The capacitated max k-cut problem. Math. Program.,
+     115:65–72, 2008.
+[29] W. Gil-González, A. Molina-Cabrera, O.D. Montoya, and L.F. Grisales-Noreña. An MI-SDP model
+     for optimal location and sizing of distributed generators in dc grids that guarantees the global
+     optimum. Appl. Sci., 10(21):7681, 2020.
+[30] C.D. Godsil. Algebraic Combinatorics. Chapman & Hall, New York, 1993.
+[31] M. X. Goemans and D. P. Williamson. Improved approximation algorithms for maximum cut and
+     satisfiability problems using semidefinite programming. J. ACM, 42(6):1115–1145, 1995.
+[32] M. Grötschel, L. Lovász, and A. Schrijver. Geometric algorithms and combinatorial optimization,
+     volume 2. Springer, Berlin, 1988.
+[33] M. Grötschel and Y. Wakabayashi. Facets of the clique partitioning polytope. Math. Program.,
+     47:367–387, 1990.
+[34] C. Helmberg. Fixing variables in semidefinite relaxations. SIAM J. Matrix Anal. Appl., 21(2):952–
+     –969, 2000.
+[35] C. Helmberg. Semidefinite programming for combinatorial optimization. habilitation, Germany,
+     2000.
+[36] H. Hijazi, G. Wang, and C. Coffrin. GravitySDP: A solver for sparse mixed-integer semidefinite
+     programming, 2018. Available at https://github.com/coin-or/Gravity/tree/GravitySDP.
+[37] A. Hiley and B.A. Julstrom. The quadratic multiple knapsack problem and three heuristic approaches
+     to it. In P. Heggernes, editor, Genetic and Evolutionary Computation Conference (GECCO), pages
+     547–552, 2006.
+[38] C. Hojny and M.E. Pfetsch. Handling symmetries in mixed-integer semidefinite programs. In Interna-
+     tional Conference on Integration of Constraint Programming, Artificial Intelligence, and Operations
+     Research, pages 69–78. Springer, 2023.
+[39] E. de Klerk, F.M. Oliveira Filho, and D.V. Pasechnik. Relaxations of combinatorial problems via
+     association schemes. In Miguel F. Anjos and Jean B. Lasserre, editors, Handbook on Semidefinite,
+     Conic and Polynomial Optimization, International Series in Operations Research & Management
+     Science, chapter 0, pages 171–199. Springer, June 2012.
+[40] E. de Klerk, D.V. Pasechnik, and R. Sotirov. On semidefinite programming relaxations of the
+     traveling salesman problem. SIAM J. Optim., 19(4):1559–1573, 2009.
+[41] K. Kobayashi and Y. Takano. A branch-and-cut algorithm for solving mixed-integer semidefinite
+     optimization problems. Comput. Optim. Appl., 75:493–513, 2020.
+[42] T. C. Koopmans and M. Beckmann. Assignment problems and the location of economic activities.
+     Econometrica, 25(1):53–76, 1957.
+[43] M. Kočvara. Truss topology design with integer variables made easy. Optimization Online:
+     https://optimization-online.org/2010/05/2614/, 2010.
+[44] N. Krislock, J. Malick, and F. Roupin. A semidefinite branch-and-bound method for solving binary
+     quadratic problems. ACM Trans. Math. Softw., 43(4), 2017.
+[45] O. Kuryatnikova, R. Sotirov, and J.C. Vera. The maximum k-colorable subgraph problem and
+     related problems. INFORMS J. Comput., 34(1):656–669, 2021.
+[46] M. Laurent, S. Poljak, and F. Rendl. Connections between semidefinite relaxations of the max-cut
+     and stable set problems. Math. Program., 77:225–246, 1997.
+[47] S.L. Lee, Y.L. Luo, B.E. Sagan, and Y.N. Yeh. Eigenvector and eigenvalues of some special graphs.
+     IV. multilevel circulants. Int. J. Quantum Chem., 41(1):105–116, 1992.
+[48] A.N. Letchford and M.M. Sørensen. Binary positive semidefinite matrices and associated integer
+     polytopes. Math. Program. Series A, 131:253–271, 2012.
+
+                                                   26
+[49] F. Lieder, F.B.A. Rad, and F. Jarre. Unifying semidefinite and set-copositive relaxations of binary
+     problems and randomization techniques. Comput. Optim. Appl., 61:669–688, 2015.
+[50] M. Lubin, J.P. Vielma, and I. Zadik. Mixed-integer convex representability. arXiv:1706.05135v3,
+     2020.
+[51] S. Mars. Mixed-integer semidefinite programming with an application to truss topology design. PhD
+     thesis, FAU Erlangen-Nürnberg, 2013.
+[52] F. Matter and M.E. Pfetsch. Presolving for mixed-integer semidefinite optimization. INFORMS J.
+     Optim., 5(2):131–154, 2022.
+[53] F. de Meijer and R. Sotirov. The Chvátal-Gomory procedure for integer SDPs with applications in
+     combinatorial optimization. arXiv:2201.10224v2, 2023.
+[54] P. Meurdesoif. Strengthening the Lovász bound for graph coloring. Math. Program., 102:577 – 588,
+     2005.
+[55] G. Narasimhan. The maximum k-colorable subgraph problem. PhD thesis, University of Wisconsin-
+     Madison, 1989.
+[56] M. Oosten, J.H.G.C. Rutten, and F.C.R. Spieksma. The clique partitioning problem: Facets and
+     patching facets. Networks, 38:209–226, 2001.
+[57] M. Padberg. The Boolean quadric polytope: some characteristics, facets and relatives. Math.
+     Program., 45:139–172, 1989.
+[58] A. Del Pia and D. Zhou. An SDP relaxation for the sparse integer least square problem.
+     arXiv:2203.02607, 2023.
+[59] M. Pilanci, M.J. Wainwright, and L. El Ghaoui. Sparse learning via Boolean relaxations. Math.
+     Prog., 151:63–87, 2015.
+[60] B. Recht, M. Fazel, and P.A. Parrilo. Guaranteed minimum-rank solutions of linear matrix equations
+     via nuclear norm minimization. SIAM Rev., 52(3):471–501, 2010.
+[61] F. Rendl, G. Rinaldi, and A. Wiegele. Solving max-cut to optimality by intersecting semidefinite
+     and polyhedral relaxations. Math. Program., 121(2):307, 2010.
+[62] A. Schrijver. A comparison of the Delsarte and Lovász bounds. IEEE Trans. Inform. Theory,
+     25:425–429, 1979.
+[63] A. Schrijver. New code upper bounds from the Terwilliger algebra and semidefinite programming.
+     IEEE Transactions on Information Theory, 51:2859–2866, 2005.
+[64] L. Wei, A. Atamtürk, A. Gómez, and S. Küçükyavuz. On the convex hull of convex quadratic
+     optimization problems with indicators. arXiv:2201.00387v2, 2022.
+[65] K. Yonekura and Y. Kanno. Global optimization of robust truss topology via mixed integer semidef-
+     inite programming. Optim. Eng., 11(3):355–379, 2010.
+[66] X. Zheng, H. Chen, Y. Xu, Z. Li, Z. Lin, and Z. Liang. A mixed-integer SDP solution to distribu-
+     tionally robust unit commitment with second order moment constraints. CSEE J. Power Energy
+     Syst., 6(2):374–383, 2020.
+
+
+
+
+                                                  27
+

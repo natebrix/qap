@@ -1,0 +1,10 @@
+# dir log command  (runq.sh; one at a time on core 3)
+runs/n13 wait.log while kill -0 3004 2>/dev/null; do sleep 15; done; grep -q '^FINAL' phase.log.tmp && mv phase.log.tmp phase.log; grep '^FINAL' phase.log
+runs/n13 quiet.log /home/user/qap/experiments/wil50_feasibility/new_cuts/facility/src/fdrv -u 48816 -d 3 -L 2 -r 40 -x 21:28,8:41,28:19 -cont tri -iters 1500 -C -dumpY quiet -save quiet /home/user/qap/qaplib/wil50.dat
+runs/valid validate.log python3 /home/user/qap/experiments/wil50_feasibility/new_cuts/facility/scripts/validate_fdrv.py -N 8 --seed 3; echo FINAL
+runs/n10c wait0.log echo FINAL
+runs/n10c child4945.log /home/user/qap/latest/dnntest -x 39:27,30:48,25:49,49:45 -u 48816 -T 1 -d 3 -L 2 -r 40 -i 1500 -H 0 -C 1 -dumpY child4945 /home/user/qap/qaplib/wil50.dat; echo FINAL
+runs/n10c elim4945.log /home/user/qap/latest/dnntest -x 39:27,30:48,25:49 -E 49:45 -u 48816 -T 1 -d 3 -L 2 -r 40 -i 1500 -H 0 /home/user/qap/qaplib/wil50.dat; echo FINAL
+runs/n10c parent.log /home/user/qap/latest/dnntest -x 39:27,30:48,25:49 -u 48816 -T 1 -d 3 -L 2 -r 40 -i 1500 -H 0 -C 2 -X -dumpY parent /home/user/qap/qaplib/wil50.dat; echo FINAL
+runs/d2 phase.log /home/user/qap/experiments/wil50_feasibility/new_cuts/facility/src/fdrv -u 48816 -d 3 -L 2 -r 40 -x 39:27,30:48,25:49,26:5 -grid 5:10 -k 1000 -I 400 -i 300 -rounds 8 -delta 50 -nocap -freeze 1500 -phase tri /home/user/qap/qaplib/wil50.dat
+runs/d2 quiet.log /home/user/qap/experiments/wil50_feasibility/new_cuts/facility/src/fdrv -u 48816 -d 3 -L 2 -r 40 -x 39:27,30:48,25:49,26:5 -cont tri -iters 1500 -C -dumpY quiet -save quiet /home/user/qap/qaplib/wil50.dat

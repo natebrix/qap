@@ -1,0 +1,666 @@
+// dnncut.C: triangle cuts on top of the DNN bound (see dnncut.h); the code of
+// experiments/dnn_cuts/dnncuts.C made a library, with regions on either side.
+#include "dnncut.h"
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cmath>
+#include <string>
+#include <map>
+#include <set>
+#include <algorithm>
+#include <array>
+#include <random>
+
+DNNCutParams::DNNCutParams()
+{
+  warm_primal = 0;
+  rounds = 12; iters = 300; first_iters = 0; kcuts = 1000; kcuts5 = 0; add_until = 0;
+  kcuts7 = 0; sub7 = 1000;
+  delta = 50; theta = 1.0; mu0 = 0;
+  grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
+  stall_rounds = 0; stall_factor = 3.0;
+  pgate_rounds = 0; pgate_margin = 20;
+  cap_at_cutoff = 1; freeze_after = 0; freeze_iters = 0; freeze_if_primal_above = 0;
+  freeze_best = 1;
+  L_ext = NULL; L_ext_abs = 0; ext_const = 0;
+}
+
+namespace {
+
+// s < 0: atomic, a, b, c lifted indices; s >= 0: region s, a, b, c free
+// elements of the other side (local indices), type 0/1/2 = apex a/b/c, 3 =
+// the sum inequality; type 4 = the 5-point count inequality on a < b < c <
+// d < e with flip set `mask` (bit x = element x of a..e flipped) and alpha
+// type 6 = a local-7 inequality: a is the index into the pool's L7Cut vector
+struct Cut { int type, a, b, c, s; double mu; int d, e, mask, alpha; };
+
+// ---- local-7 cuts (type 6), see dnncut.h
+struct L7Cut { int f[7]; double ca[7], cb[21], beta; };
+static std::vector<L7Cut> *g_l7 = NULL;   // the current call's pool of local-7 cuts
+static int P7[21][2];
+static void init_p7() { int q = 0; for (int i = 0; i < 7; i++) for (int j = i + 1; j < 7; j++) { P7[q][0] = i; P7[q][1] = j; q++; } }
+// the admissible configurations of a region of ksz locations among m, as 28-vectors
+struct L7Space { std::vector<std::array<double, 28>> V; };
+L7Space l7_space(int ksz, int m)
+{
+  L7Space sp;
+  for (int c = 0; c < 128; c++) {
+    int s = __builtin_popcount(c);
+    if (s > ksz || 7 - s > m - ksz) continue;
+    std::array<double, 28> v;
+    for (int i = 0; i < 7; i++) v[i] = (c >> i) & 1;
+    for (int q = 0; q < 21; q++) v[7 + q] = v[P7[q][0]] * v[P7[q][1]];
+    sp.V.push_back(v);
+  }
+  return sp;
+}
+// separate y = (p_T, W_TT) from the hull of sp.V: Frank-Wolfe projection, the
+// direction y - x scaled to max |coefficient| 1, beta exact over the vertices
+bool l7_separate(const L7Space &sp, const double *y, L7Cut &out, double &viol)
+{
+  const size_t nv = sp.V.size();
+  if (nv == 0) return false;
+  std::array<double, 28> x;
+  double best = HUGE_VAL; size_t c0 = 0;
+  for (size_t c = 0; c < nv; c++) {
+    double d2 = 0; for (int k = 0; k < 28; k++) d2 += (sp.V[c][k] - y[k]) * (sp.V[c][k] - y[k]);
+    if (d2 < best) { best = d2; c0 = c; }
+  }
+  // away-step Frank-Wolfe on the simplex weights (linear convergence on a
+  // polytope): x = sum lambda_c V_c, exact line search, stop at a tiny gap
+  std::vector<double> lam(nv, 0.0);
+  lam[c0] = 1.0; x = sp.V[c0];
+  for (int it = 0; it < 5000; it++) {
+    double gmin = HUGE_VAL, gmax = -HUGE_VAL; size_t cs = 0, ca = 0;
+    for (size_t c = 0; c < nv; c++) {
+      double g = 0; for (int k = 0; k < 28; k++) g += (x[k] - y[k]) * sp.V[c][k];
+      if (g < gmin) { gmin = g; cs = c; }
+      if (lam[c] > 0 && g > gmax) { gmax = g; ca = c; }
+    }
+    double gx = 0; for (int k = 0; k < 28; k++) gx += (x[k] - y[k]) * x[k];
+    const double fw_gap = gx - gmin, away_gap = gmax - gx;
+    if (fw_gap < 1e-10) break;
+    std::array<double, 28> d; double gmax_step;
+    bool away = away_gap > fw_gap;
+    if (!away) { for (int k = 0; k < 28; k++) d[k] = sp.V[cs][k] - x[k]; gmax_step = 1.0; }
+    else { for (int k = 0; k < 28; k++) d[k] = x[k] - sp.V[ca][k]; gmax_step = lam[ca] / (1.0 - lam[ca] + 1e-300); }
+    double gd = 0, dd = 0;
+    for (int k = 0; k < 28; k++) { gd += (x[k] - y[k]) * d[k]; dd += d[k] * d[k]; }
+    if (dd <= 0) break;
+    const double step = std::min(gmax_step, std::max(0.0, -gd / dd));
+    if (step <= 0) break;
+    if (!away) { for (size_t c = 0; c < nv; c++) lam[c] *= (1 - step); lam[cs] += step; }
+    else { for (size_t c = 0; c < nv; c++) lam[c] *= (1 + step); lam[ca] -= step; if (lam[ca] < 1e-15) lam[ca] = 0; }
+    for (int k = 0; k < 28; k++) x[k] += step * d[k];
+  }
+  double dmax = 0;
+  for (int k = 0; k < 28; k++) dmax = std::max(dmax, fabs(y[k] - x[k]));
+  if (dmax < 1e-7) return false;
+  for (int k = 0; k < 7; k++) out.ca[k] = (y[k] - x[k]) / dmax;
+  for (int q = 0; q < 21; q++) out.cb[q] = (y[7 + q] - x[7 + q]) / dmax;
+  double beta = -HUGE_VAL, ay = 0;
+  for (size_t c = 0; c < nv; c++) {
+    double v = 0;
+    for (int k = 0; k < 7; k++) v += out.ca[k] * sp.V[c][k];
+    for (int q = 0; q < 21; q++) v += out.cb[q] * sp.V[c][7 + q];
+    beta = std::max(beta, v);
+  }
+  for (int k = 0; k < 7; k++) ay += out.ca[k] * y[k];
+  for (int q = 0; q < 21; q++) ay += out.cb[q] * y[7 + q];
+  out.beta = beta; viol = ay - beta;
+  return viol > 1e-6;
+}
+double rviolation7(const Cut &t, const std::vector<double> &p, const std::vector<double> &W, int m)
+{
+  const L7Cut &c = (*g_l7)[t.a];
+  double v = -c.beta;
+  for (int k = 0; k < 7; k++) v += c.ca[k] * p[c.f[k]];
+  for (int q = 0; q < 21; q++) v += c.cb[q] * W[(size_t)c.f[P7[q][0]] * m + c.f[P7[q][1]]];
+  return v;
+}
+struct Region { std::string name; std::vector<int> loc; };   // local indices on `side`
+
+// lifted index of the variable with local index s on the region side and t on
+// the other side
+struct Lift {
+  int m, side;
+  size_t operator()(int s, int t) const { return side == 0 ? 1 + (size_t)s * m + t : 1 + (size_t)t * m + s; }
+};
+
+// ---- atomic cuts
+
+double violation(const Cut &t, const std::vector<double> &Y, int n1)
+{
+  auto y = [&](int r, int c) { return Y[(size_t)r * n1 + c]; };
+  if (t.type == 1)
+    return y(t.a, t.b) + y(t.a, t.c) - y(t.b, t.c) - y(t.a, t.a);
+  return y(t.a, t.a) + y(t.b, t.b) + y(t.c, t.c) - y(t.a, t.b) - y(t.a, t.c) - y(t.b, t.c) - 1;
+}
+
+double add_cut(const Cut &t, std::vector<double> &L, int n1, double mu)
+{
+  auto off = [&](int r, int c, double v) {
+    L[(size_t)r * n1 + c] += v / 2; L[(size_t)c * n1 + r] += v / 2; };
+  if (t.type == 1) {
+    off(t.a, t.b, mu); off(t.a, t.c, mu); off(t.b, t.c, -mu);
+    L[(size_t)t.a * n1 + t.a] -= mu;
+  } else {
+    L[(size_t)t.a * n1 + t.a] += mu; L[(size_t)t.b * n1 + t.b] += mu;
+    L[(size_t)t.c * n1 + t.c] += mu;
+    off(t.a, t.b, -mu); off(t.a, t.c, -mu); off(t.b, t.c, -mu);
+  }
+  return 6 * mu;
+}
+
+// ---- regional cuts
+
+// p_i = sum_{a in S} Y_(ai),(ai),  W_ij = sum_{a,b in S} Y_(ai),(bj)
+void aggregate(const Region &S, const std::vector<double> &Y, const Lift &lift, int n1,
+               std::vector<double> &p, std::vector<double> &W)
+{
+  const int m = lift.m;
+  p.assign(m, 0.0); W.assign((size_t)m * m, 0.0);
+  for (int a : S.loc)
+    for (int i = 0; i < m; i++) {
+      const size_t r = lift(a, i);
+      p[i] += Y[r * n1 + r];
+      double *w = &W[(size_t)i * m];
+      for (int b : S.loc)
+        for (int j = 0; j < m; j++) w[j] += Y[r * n1 + lift(b, j)];
+    }
+}
+
+// ---- 5-point count inequalities (type 4). For T = {a..e}, the flip set F
+// and alpha, with z'_i = 1 - z_i on F and q' = sum_T z'_i, the inequality
+// (q' - alpha)(q' - alpha - 1) >= 0 reads, in the moments p_i = E z_i and
+// W_ij = E z_i z_j,
+//   sum_i cp_i p_i + sum_{i<j} cw_ij W_ij + c0 <= 0,
+//   cp_i = sg_i (alpha - |F \ {i}|),  cw_ij = -sg_i sg_j,
+//   c0 = alpha |F| - C(|F|, 2) - alpha (alpha + 1) / 2,   sg_i = -1 on F, +1 off it
+// (expand p'_i = 1 - p_i on F, W'_ij = p_j - W_ij for i in F only, 1 - p_i -
+// p_j + W_ij for both). |T| = 3, alpha = 1 gives the four triangles. Pairs
+// are indexed (0,1) (0,2) (0,3) (0,4) (1,2) (1,3) (1,4) (2,3) (2,4) (3,4).
+struct Five { double cp[5], cw[10], c0; };
+void five_coef(int mask, int alpha, Five &f)
+{
+  int nf = 0;
+  for (int i = 0; i < 5; i++) nf += (mask >> i) & 1;
+  double sg[5];
+  for (int i = 0; i < 5; i++) {
+    const int fi = (mask >> i) & 1;
+    sg[i] = fi ? -1.0 : 1.0;
+    f.cp[i] = sg[i] * (alpha - (nf - fi));
+  }
+  int t = 0;
+  for (int i = 0; i < 5; i++)
+    for (int j = i + 1; j < 5; j++, t++) f.cw[t] = -sg[i] * sg[j];
+  f.c0 = alpha * nf - nf * (nf - 1) / 2 - alpha * (alpha + 1) / 2;
+}
+
+// the 48 distinct patterns: alpha = 1 with every flip set, alpha = 2 with the
+// flip sets not containing the first element (its complement with alpha 2 is
+// the same inequality; alpha = 3 is the complement of alpha = 1)
+struct FivePatterns {
+  std::vector<std::pair<int, int>> pat;   // (mask, alpha)
+  std::vector<Five> f;
+  FivePatterns() {
+    for (int alpha = 1; alpha <= 2; alpha++)
+      for (int mask = 0; mask < 32; mask++) {
+        if (alpha == 2 && (mask & 1)) continue;
+        Five x; five_coef(mask, alpha, x);
+        pat.push_back({mask, alpha}); f.push_back(x);
+      }
+  }
+};
+
+double rviolation5(const Cut &t, const std::vector<double> &p, const std::vector<double> &W, int m)
+{
+  Five f; five_coef(t.mask, t.alpha, f);
+  const int T[5] = {t.a, t.b, t.c, t.d, t.e};
+  double v = f.c0;
+  int k = 0;
+  for (int i = 0; i < 5; i++) {
+    v += f.cp[i] * p[T[i]];
+    for (int j = i + 1; j < 5; j++, k++) v += f.cw[k] * W[(size_t)T[i] * m + T[j]];
+  }
+  return v;
+}
+
+// the constant of a cut lin(Y) <= rhs, moved into the shift as mu * rhs
+double cut_rhs(const Cut &t)
+{
+  if (t.s < 0) return t.type == 2 ? 1.0 : 0.0;
+  if (t.type == 3) return 1.0;
+  if (t.type == 4) { Five f; five_coef(t.mask, t.alpha, f); return -f.c0; }
+  if (t.type == 6) return (*g_l7)[t.a].beta;
+  return 0.0;
+}
+
+double rviolation(const Cut &t, const std::vector<double> &p, const std::vector<double> &W, int m)
+{
+  if (t.type == 4) return rviolation5(t, p, W, m);
+  if (t.type == 6) return rviolation7(t, p, W, m);
+  auto w = [&](int i, int j) { return W[(size_t)i * m + j]; };
+  const int i = t.a, j = t.b, k = t.c;
+  switch (t.type) {
+    case 0: return w(i, j) + w(i, k) - w(j, k) - p[i];
+    case 1: return w(i, j) + w(j, k) - w(i, k) - p[j];
+    case 2: return w(i, k) + w(j, k) - w(i, j) - p[k];
+    default: return p[i] + p[j] + p[k] - w(i, j) - w(i, k) - w(j, k) - 1;
+  }
+}
+
+double add_rcut(const Cut &t, const Region &S, std::vector<double> &L, const Lift &lift, int n1,
+                double mu)
+{
+  double abs_ = 0;
+  auto pair = [&](int i, int j, double v) {
+    for (int a : S.loc)
+      for (int b : S.loc) {
+        if (a == b) continue;   // gangster zero
+        const size_t r = lift(a, i), c = lift(b, j);
+        L[r * n1 + c] += v / 2; L[c * n1 + r] += v / 2; abs_ += fabs(v);
+      }
+  };
+  auto lin = [&](int i, double v) {
+    for (int a : S.loc) {
+      const size_t r = lift(a, i);
+      L[r * n1 + r] += v; abs_ += fabs(v);
+    }
+  };
+  const int i = t.a, j = t.b, k = t.c;
+  if (t.type < 3) {
+    const int apex = t.type == 0 ? i : (t.type == 1 ? j : k);
+    const int o1 = t.type == 0 ? j : i, o2 = t.type == 2 ? j : k;
+    pair(apex, o1, mu); pair(apex, o2, mu); pair(o1, o2, -mu); lin(apex, -mu);
+  } else if (t.type == 3) {
+    lin(i, mu); lin(j, mu); lin(k, mu);
+    pair(i, j, -mu); pair(i, k, -mu); pair(j, k, -mu);
+  } else if (t.type == 6) {
+    const L7Cut &c = (*g_l7)[t.a];
+    for (int x = 0; x < 7; x++) if (c.ca[x] != 0) lin(c.f[x], mu * c.ca[x]);
+    for (int q = 0; q < 21; q++) if (c.cb[q] != 0) pair(c.f[P7[q][0]], c.f[P7[q][1]], mu * c.cb[q]);
+  } else {
+    Five f; five_coef(t.mask, t.alpha, f);
+    const int T[5] = {t.a, t.b, t.c, t.d, t.e};
+    int q = 0;
+    for (int x = 0; x < 5; x++) {
+      if (f.cp[x] != 0) lin(T[x], mu * f.cp[x]);
+      for (int y = x + 1; y < 5; y++, q++) pair(T[x], T[y], mu * f.cw[q]);
+    }
+  }
+  return abs_;
+}
+
+// the regions of a rows x cols grid in original indices, mapped to the free
+// elements (local indices), without empty, full, duplicate or complementary sets
+std::vector<Region> grid_regions(int rows, int cols, const std::vector<int> &free_orig, int n)
+{
+  std::vector<int> local(n, -1);
+  for (size_t t = 0; t < free_orig.size(); t++) local[free_orig[t]] = (int)t;
+  std::vector<std::pair<std::string, std::vector<char>>> cand;
+  for (int t = 1; t < rows; t++) {
+    std::vector<char> in(n, 0);
+    for (int a = 0; a < n; a++) in[a] = a / cols < t;
+    cand.push_back({"row<" + std::to_string(t), in});
+  }
+  for (int t = 1; t < cols; t++) {
+    std::vector<char> in(n, 0);
+    for (int a = 0; a < n; a++) in[a] = a % cols < t;
+    cand.push_back({"col<" + std::to_string(t), in});
+  }
+  std::vector<Region> out;
+  std::set<std::vector<int>> seen;
+  for (auto &c : cand) {
+    std::vector<int> loc, comp;
+    for (int a = 0; a < n; a++)
+      if (local[a] >= 0) (c.second[a] ? loc : comp).push_back(local[a]);
+    if (loc.empty() || comp.empty() || seen.count(loc) || seen.count(comp)) continue;
+    seen.insert(loc);
+    out.push_back({c.first, loc});
+  }
+  return out;
+}
+
+std::vector<Region> prefix_regions(int m)
+{
+  std::vector<Region> out;
+  for (int t = 1; t < m; t++) {
+    Region r; r.name = "free<" + std::to_string(t);
+    for (int a = 0; a < t; a++) r.loc.push_back(a);
+    out.push_back(r);
+  }
+  return out;
+}
+
+}  // namespace
+
+DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+                            const DNNParams &base, const std::vector<int> &free_orig,
+                            int n_orig, const DNNCutParams &cp, DNNWarm *warm, double first_lb)
+{
+  const int m = A->m, n1 = m * m + 1;
+  const Lift lift = {m, cp.side};
+  std::vector<Region> regions;
+  if (!cp.atomic) {
+    if (cp.grid_rows > 0) regions = grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
+    else if (cp.prefix) regions = prefix_regions(m);
+  }
+  const bool regional = !cp.atomic;
+  if (cp.verbose >= 2)
+    for (auto &R : regions) printf("  region %-8s capacity %zu\n", R.name.c_str(), R.loc.size());
+
+  DNNCutResult out;
+  out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
+  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0;
+  out.nregions = (int)regions.size();
+  std::vector<double> best_hist;   // best after each round (index = round)
+  if (regional && regions.empty()) return out;
+
+  std::vector<Cut> cuts;
+  std::map<std::vector<int>, int> index;
+  std::vector<L7Cut> l7;                // the pool's local-7 cuts (Cut::a indexes it)
+  init_p7(); g_l7 = &l7;
+  std::vector<L7Space> l7space;         // per region, the admissible configurations
+  if (cp.kcuts7 > 0 && m >= 7)
+    for (auto &R : regions) l7space.push_back(l7_space((int)R.loc.size(), m));
+  std::vector<double> Ladd((size_t)n1 * n1, 0.0);
+  std::vector<std::vector<double>> P, WW;         // regional aggregates of the last Y
+  DNNWarm save;
+  double prev_lb = -HUGE_VAL, theta_cur = cp.theta;
+
+  double last_primal = HUGE_VAL, best_primal = -HUGE_VAL;   // best_primal: over the cut rounds
+  std::vector<double> best_mu;   // the multipliers of the best round's solve (freeze_best)
+  DNNWarm best_save;
+  double best_mu_lb = -HUGE_VAL;
+  // one solve of the modified problem with the current multipliers
+  auto solve = [&](int r, int iters) {
+    if (cp.L_ext) std::copy(cp.L_ext, cp.L_ext + (size_t)n1 * n1, Ladd.begin());
+    else std::fill(Ladd.begin(), Ladd.end(), 0.0);
+    double abs_add = cp.L_ext_abs, hsum = cp.ext_const;
+    int active = 0;
+    for (const Cut &t : cuts)
+      if (t.mu > 0) {
+        abs_add += t.s < 0 ? add_cut(t, Ladd, n1, t.mu) : add_rcut(t, regions[t.s], Ladd, lift, n1, t.mu);
+        hsum += t.mu * cut_rhs(t);
+        active++;
+      }
+    out.active = active;
+    DNNParams par = base;
+    par.warm_primal = cp.warm_primal && r > 0;
+    par.max_iter = iters;
+    par.hopeless_after = 0;
+    par.hopeless_gap_ratio = 0;
+    par.L_add = (active || cp.L_ext) ? Ladd.data() : NULL;
+    par.L_add_abs = abs_add;
+    DNNResult res = dnn_bound(A, B, C, shift - hsum, cutoff, par, (r > 0 && warm) ? warm : NULL, &save);
+    if (warm) *warm = save; else warm = &save;
+    out.cpu += res.cpu;
+    if (r == 0) { out.first_lb = first_lb = res.lb; }
+    else { out.rounds++; out.iterations += res.iterations; }
+    out.best_lb = std::max(out.best_lb, res.lb);
+    if (cp.freeze_best && res.lb > best_mu_lb) {
+      best_mu_lb = res.lb;
+      best_mu.resize(cuts.size());
+      for (size_t t = 0; t < cuts.size(); t++) best_mu[t] = cuts[t].mu;
+      best_save = save;
+    }
+    out.status = res.status;
+    last_primal = res.primal;
+    if (r > 0 && std::isfinite(res.primal)) best_primal = std::max(best_primal, res.primal);
+    return res;
+  };
+
+  // round 0 is the uncut solve: run here (first_iters > 0) or the caller's
+  // warm start, whose Y is separated; rounds 1.. solve with the cuts
+  const int last_round = cp.freeze_after > 0 ? std::min(cp.rounds, cp.freeze_after) : cp.rounds;
+  for (int r = 0; r <= last_round; r++) {
+    DNNResult res;
+    res.lb = -HUGE_VAL; res.primal = HUGE_VAL; res.status = -1; res.iterations = 0; res.cpu = 0;
+    const bool solved = r > 0 || cp.first_iters > 0;
+    if (solved) res = solve(r, r == 0 ? cp.first_iters : cp.iters);
+    // separate on the last primal iterate
+    const std::vector<double> &Y = warm->Y;
+    if (Y.size() != (size_t)n1 * n1) break;
+    std::vector<std::pair<double, Cut>> found, found5, found7;
+    std::vector<L7Cut> cand7;           // the local-7 candidates of this round (Cut::a indexes it)
+    size_t nviol = 0, nviol5 = 0, nviol7 = 0;
+    auto by_violation = [](const std::pair<double, Cut> &u, const std::pair<double, Cut> &w) {
+      return u.first > w.first; };
+    auto trim = [&](std::vector<std::pair<double, Cut>> &v, int k) {
+      if (v.size() > 4000000) {
+        size_t keep = std::max<size_t>(100000, 8 * (size_t)k);
+        std::nth_element(v.begin(), v.begin() + keep, v.end(), by_violation);
+        v.resize(keep);
+      }
+    };
+    auto bound_memory = [&]() { trim(found, cp.kcuts); };
+    if (regional) {
+      P.assign(regions.size(), {}); WW.assign(regions.size(), {});
+      for (size_t s = 0; s < regions.size(); s++) {
+        aggregate(regions[s], Y, lift, n1, P[s], WW[s]);
+        double rmax = -HUGE_VAL; size_t rn = 0;
+        for (int i = 0; i < m; i++)
+          for (int j = i + 1; j < m; j++)
+            for (int k = j + 1; k < m; k++)
+              for (int type = 0; type < 4; type++) {
+                Cut t = {type, i, j, k, (int)s, 0.0};
+                double v = rviolation(t, P[s], WW[s], m);
+                rmax = std::max(rmax, v);
+                if (v > 1e-4) { found.push_back({v, t}); rn++; }
+              }
+        nviol += rn;
+        // the 5-point count inequalities: every 5-subset of the free elements
+        // against the 48 patterns; the part over the first four elements is
+        // shared by the innermost loop
+        double r5 = -HUGE_VAL; size_t n5 = 0;
+        if (cp.kcuts5 > 0 && m >= 5) {
+          static const FivePatterns FP;
+          const size_t np = FP.f.size();
+          const std::vector<double> &p = P[s], &W = WW[s];
+          auto w = [&](int i, int j) { return W[(size_t)i * m + j]; };
+          std::vector<double> base(np), c4(np), c04(np), c14(np), c24(np), c34(np);
+          for (size_t q = 0; q < np; q++) {
+            c4[q] = FP.f[q].cp[4]; c04[q] = FP.f[q].cw[3]; c14[q] = FP.f[q].cw[6];
+            c24[q] = FP.f[q].cw[8]; c34[q] = FP.f[q].cw[9];
+          }
+          int T[5];
+          for (T[0] = 0; T[0] < m; T[0]++)
+            for (T[1] = T[0] + 1; T[1] < m; T[1]++)
+              for (T[2] = T[1] + 1; T[2] < m; T[2]++)
+                for (T[3] = T[2] + 1; T[3] < m; T[3]++) {
+                  for (size_t q = 0; q < np; q++) {
+                    const Five &f = FP.f[q];
+                    base[q] = f.c0 + f.cp[0] * p[T[0]] + f.cp[1] * p[T[1]] + f.cp[2] * p[T[2]] + f.cp[3] * p[T[3]]
+                            + f.cw[0] * w(T[0], T[1]) + f.cw[1] * w(T[0], T[2]) + f.cw[2] * w(T[0], T[3])
+                            + f.cw[4] * w(T[1], T[2]) + f.cw[5] * w(T[1], T[3]) + f.cw[7] * w(T[2], T[3]);
+                  }
+                  for (T[4] = T[3] + 1; T[4] < m; T[4]++) {
+                    const double pe = p[T[4]], w04 = w(T[0], T[4]), w14 = w(T[1], T[4]),
+                                 w24 = w(T[2], T[4]), w34 = w(T[3], T[4]);
+                    for (size_t q = 0; q < np; q++) {
+                      const double v = base[q] + c4[q] * pe + c04[q] * w04 + c14[q] * w14 + c24[q] * w24 + c34[q] * w34;
+                      if (v > r5) r5 = v;
+                      if (v > 1e-3) {
+                        Cut t = {4, T[0], T[1], T[2], (int)s, 0.0, T[3], T[4], FP.pat[q].first, FP.pat[q].second};
+                        found5.push_back({v, t}); n5++;
+                      }
+                    }
+                  }
+                  trim(found5, cp.kcuts5);
+                }
+          nviol5 += n5;
+        }
+        // the local-7 inequalities: cp.sub7 random 7-subsets of the free
+        // elements plus a third as many from the 15 most fractional ones
+        double r7 = -HUGE_VAL; size_t n7 = 0;
+        if (cp.kcuts7 > 0 && m >= 7) {
+          const std::vector<double> &p = P[s], &W = WW[s];
+          std::mt19937 rng(1000003u * (unsigned)(r + 1) + (unsigned)s);
+          std::vector<int> frac(m);
+          for (int i = 0; i < m; i++) frac[i] = i;
+          std::sort(frac.begin(), frac.end(), [&](int i, int j) { return p[i] * (1 - p[i]) > p[j] * (1 - p[j]); });
+          const int nf = std::min(m, 15);
+          const int nsub = cp.sub7 + cp.sub7 / 3;
+          std::set<std::vector<int>> seen;
+          for (int t = 0; t < nsub; t++) {
+            std::vector<int> T;
+            if (t < cp.sub7) { std::vector<int> all(m); for (int i = 0; i < m; i++) all[i] = i;
+              std::shuffle(all.begin(), all.end(), rng); T.assign(all.begin(), all.begin() + 7); }
+            else { std::vector<int> top(frac.begin(), frac.begin() + nf);
+              std::shuffle(top.begin(), top.end(), rng); T.assign(top.begin(), top.begin() + 7); }
+            std::sort(T.begin(), T.end());
+            if (!seen.insert(T).second) continue;
+            double y[28];
+            for (int k = 0; k < 7; k++) y[k] = p[T[k]];
+            for (int q = 0; q < 21; q++) y[7 + q] = W[(size_t)T[P7[q][0]] * m + T[P7[q][1]]];
+            L7Cut c; double v;
+            if (!l7_separate(l7space[s], y, c, v)) continue;
+            for (int k = 0; k < 7; k++) c.f[k] = T[k];
+            r7 = std::max(r7, v);
+            if (v > 1e-3) {
+              cand7.push_back(c);
+              Cut ct = {6, (int)cand7.size() - 1, 0, 0, (int)s, 0.0};
+              found7.push_back({v, ct}); n7++;
+            }
+          }
+          nviol7 += n7;
+        }
+        if (cp.verbose > 1) {
+          printf("  region %-8s violated %zu  max %.4f", regions[s].name.c_str(), rn, rmax);
+          if (cp.kcuts5 > 0) printf("  five %zu  max %.4f", n5, r5);
+          if (cp.kcuts7 > 0) printf("  seven %zu  max %.4f", n7, r7);
+          printf("\n");
+        }
+        bound_memory();
+      }
+    } else {
+      std::vector<int> sup;
+      for (int a = 1; a < n1; a++) if (Y[(size_t)a * n1 + a] > 1e-4) sup.push_back(a);
+      auto compatible = [&](int a, int b) {
+        int ia = (a - 1) / m, ja = (a - 1) % m, ib = (b - 1) / m, jb = (b - 1) % m;
+        return ia != ib && ja != jb; };
+      for (size_t x = 0; x < sup.size(); x++)
+        for (size_t yv = x + 1; yv < sup.size(); yv++) {
+          int a = sup[x], b = sup[yv];
+          if (!compatible(a, b)) continue;
+          for (size_t z = yv + 1; z < sup.size(); z++) {
+            int c = sup[z];
+            if (!compatible(a, c) || !compatible(b, c)) continue;
+            Cut cand[4] = {{1, a, b, c, -1, 0}, {1, b, a, c, -1, 0}, {1, c, a, b, -1, 0},
+                           {2, a, b, c, -1, 0}};
+            for (const Cut &t : cand) {
+              double v = violation(t, Y, n1);
+              if (v > 1e-4) { found.push_back({v, t}); nviol++; }
+            }
+            bound_memory();
+          }
+        }
+    }
+    std::sort(found.begin(), found.end(), by_violation);
+    std::sort(found5.begin(), found5.end(), by_violation);
+    auto add_from = [&](std::vector<std::pair<double, Cut>> &v, int k) {
+      int added = 0;
+      for (auto &f : v) {
+        if (added >= k) break;
+        const Cut &c = f.second;
+        std::vector<int> key = {c.type, c.a, c.b, c.c, c.s, c.d, c.e, c.mask, c.alpha};
+        if (index.count(key)) continue;
+        index[key] = (int)cuts.size();
+        f.second.mu = cp.mu0;
+        cuts.push_back(f.second);
+        added++;
+      }
+      return added;
+    };
+    const bool adding = cp.add_until <= 0 || r <= cp.add_until;
+    const int added = add_from(found, adding ? cp.kcuts : 0), added5 = add_from(found5, adding ? cp.kcuts5 : 0);
+    // local-7 cuts: one per (region, 7-subset) in the pool; the candidate's data moves into l7
+    std::sort(found7.begin(), found7.end(), by_violation);
+    int added7 = 0;
+    for (auto &f : found7) {
+      if (added7 >= (adding ? cp.kcuts7 : 0)) break;
+      const L7Cut &c = cand7[f.second.a];
+      std::vector<int> key = {6, f.second.s, c.f[0], c.f[1], c.f[2], c.f[3], c.f[4], c.f[5], c.f[6]};
+      if (index.count(key)) continue;
+      index[key] = (int)cuts.size();
+      l7.push_back(c);
+      Cut ct = f.second; ct.a = (int)l7.size() - 1; ct.mu = cp.mu0;
+      cuts.push_back(ct);
+      added7++;
+    }
+    const double maxv = found.empty() ? 0 : found[0].first;
+    const double maxv5 = found5.empty() ? 0 : found5[0].first;
+    const double maxv7 = found7.empty() ? 0 : found7[0].first;
+    if (cp.verbose && solved)
+      printf("round %2d  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f"
+             "  active %d  violated %zu (max %.4f)  added %d", r, res.lb, res.lb - first_lb,
+             out.best_lb - first_lb, res.primal, dnn_status_name(res.status), res.iterations,
+             res.cpu, out.active, nviol, maxv, added);
+    else if (cp.verbose)
+      printf("round  0  lb %.4f (the node's bound)  violated %zu (max %.4f)  added %d",
+             first_lb, nviol, maxv, added);
+    if (cp.verbose) {
+      if (cp.kcuts5 > 0) printf("  five %zu (max %.4f) added5 %d", nviol5, maxv5, added5);
+      if (cp.kcuts7 > 0) printf("  seven %zu (max %.4f) added7 %d", nviol7, maxv7, added7);
+      printf("\n");
+    }
+    if (solved && res.status == DNN_FATHOMED) break;
+    if (r == last_round) break;
+    if (cuts.empty()) break;
+    best_hist.push_back(out.best_lb);
+    if (cp.stall_rounds > 0 && r >= cp.stall_rounds && std::isfinite(cutoff)) {
+      const double gain = out.best_lb - best_hist[r - cp.stall_rounds];
+      if (cutoff - out.best_lb > cp.stall_factor * std::max(gain, 0.0)) {
+        out.stalled = 1;
+        if (cp.verbose) printf("stalled: gap %.4f, gain of the last %d rounds %.4f\n",
+                               cutoff - out.best_lb, cp.stall_rounds, gain);
+        break;
+      }
+    }
+    if (cp.pgate_rounds > 0 && r >= cp.pgate_rounds && std::isfinite(cutoff) &&
+        best_primal < cutoff - cp.pgate_margin) {
+      out.gated = 1;
+      if (cp.verbose) printf("primal gate: best primal %.4f is %.4f below the cutoff after %d rounds\n",
+                             best_primal, cutoff - best_primal, r);
+      break;
+    }
+    // Polyak subgradient step on all cuts toward the target; the step factor
+    // halves whenever a round lowers the bound (an overshoot)
+    if (cp.theta <= 0) continue;
+    const double lb_now = solved ? res.lb : first_lb;
+    if (solved && r > 0 && lb_now < prev_lb - 1e-9) theta_cur *= 0.5;
+    prev_lb = lb_now;
+    double s2 = 0;
+    std::vector<double> sg(cuts.size());
+    for (size_t t = 0; t < cuts.size(); t++) {
+      sg[t] = cuts[t].s < 0 ? violation(cuts[t], Y, n1)
+                            : rviolation(cuts[t], P[cuts[t].s], WW[cuts[t].s], m);
+      if (cuts[t].mu > 0 || sg[t] > 0) s2 += sg[t] * sg[t];
+    }
+    if (s2 <= 0) break;
+    const double target = cp.cap_at_cutoff ? std::min(cutoff, out.best_lb + cp.delta)
+                                           : out.best_lb + cp.delta;
+    const double alpha = theta_cur * std::max(target - lb_now, 1e-6) / s2;
+    for (size_t t = 0; t < cuts.size(); t++)
+      cuts[t].mu = std::max(0.0, cuts[t].mu + alpha * sg[t]);
+  }
+  // the quiet round: the multipliers frozen, no new cuts, so that the
+  // certificate catches up with the Lagrangian value of the final multipliers
+  if (cp.freeze_iters > 0 && out.best_lb <= cutoff && !cuts.empty() && !out.gated &&
+      (!cp.freeze_if_primal_above || last_primal > cutoff)) {
+    if (cp.freeze_best && !best_mu.empty() && best_mu_lb > -HUGE_VAL) {
+      // back to the best round's multipliers and iterate (cuts added later keep mu 0)
+      for (size_t t = 0; t < cuts.size(); t++) cuts[t].mu = t < best_mu.size() ? best_mu[t] : 0.0;
+      *warm = best_save;
+    }
+    DNNResult res = solve(1, cp.freeze_iters);
+    if (cp.verbose)
+      printf("quiet round  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  active %d\n",
+             res.lb, res.lb - first_lb, out.best_lb - first_lb, res.primal,
+             dnn_status_name(res.status), res.iterations, res.cpu, out.active);
+  }
+  if (out.best_lb > cutoff) out.status = DNN_FATHOMED;
+  return out;
+}

@@ -1,0 +1,1442 @@
+        Box-Inequalities for Quadratic Assignment Polytopes 
+                  Michael Junger                        Volker Kaibel
+              Institut fur Informatik              Institut fur Informatik
+               Universitat zu Koln                 Universitat zu Koln
+                    Pohligstr. 1                          Pohligstr. 1
+                    50969 Koln                           50969 Koln
+                     Germany                               Germany
+         mjuenger@informatik.uni-koeln.de       kaibel@informatik.uni-koeln.de
+                                   November 10, 1997
+
+
+                                               Abstract
+     Linear Programming based lower bounds have been considered both for the general as well as
+     for the symmetric quadratic assignment problem several times in the recent years. They have
+     turned out to be quite good in practice. Investigations of the polytopes underlying the cor-
+     responding integer linear programming formulations (the non-symmetric and the symmetric
+     quadratic assignment polytope) have been started by Rijal (1995), Padberg and Rijal (1996),
+     and Junger and Kaibel (1996, 1997). They have lead to basic knowledge on these polytopes
+     concerning questions like their dimensions, ane hulls, and trivial facets. However, no large
+     class of (facet-de ning) inequalities that could be used in cutting plane procedures had been
+     found. We present in this paper the rst such class of inequalities, the box inequalities, which
+     have an interesting origin in some well-known hypermetric inequalities for the cut polytope.
+     Computational experiments with a cutting plane algorithm based on these inequalities show
+     that they are very useful with respect to the goal of solving quadratic assignment problems
+     to optimality or to compute tight lower bounds. The most e ective ones among the new
+     inequalities turn out to be indeed facet-de ning for both the non-symmetric as well as for
+     the symmetric quadratic assignment polytope.
+     Keywords: Quadratic Assignment Problem, Polyhedral Combinatorics, QAP-Polytope,
+     Facets, Cutting Plane Procedure
+     MSC Classi cation: 90C09, 90C10, 90C27
+1 Introduction
+The quadratic assignment problem shares (at least) one property with many interesting ques-
+tions in mathematics: It can be stated very easily, but its solution is extremely hard. Koopmans
+and Beckmann (1957) introduced this problem in order to model the situation where n objects,
+having ows fik between each other, have to be assignedPto n locations (with  P
+                                                                                  distances djl be-
+tween each other) by a permutation  such that the sum i;k aik b(i)(k) + i ci(i) is minimized,
+where cij is the linear cost for assigning object i to location j . The problem we will deal with
+is a generalization due to Lawler (1963), who formulated the quadratic assignment problem as
+   partially supported by DFG Ju 204/4-2 and EU ESPRIT Long Term Reseach Project Nr 20244 (ALCOM-IT)
+
+
+
+
+                                                   1
+the task to minimize a polynomial of degree two in the entries of the permutation matrices:
+                         X n
+                         n X                             n X
+                                                         X n
+           (n)
+    (QAP)g;h min                       hijkl xij xkl +              gij xij
+                         i;k=1 j;l=1                     i=1 j =1
+                          i<k j 6=l
+                                                                n
+                                                                X
+                 s.t.                                                  xij = 1          (i 2 f1; : : : ; ng)
+                                                                j =1
+                                                                X n
+                                                                       xij = 1          (j 2 f1; : : : ; ng)
+                                                                i=1
+                                                                       xij 2 f0; 1g   (i; j 2 f1; : : : ; ng)
+The symmetric quadratic assignment problem is restricted to those instances where the coef-
+  cients in the Lawler formulation satisfy the equations hijkl = hilkj . For example, a Koop-
+mans/Beckmann instance with a symmetric ow or a symmetric distance matrix leads to a
+symmetric quadratic assignment problem (since in this case, we have hijkl = fik djl + fki dlj ).
+     The most successful algorithms that have emerged from the attempts to nd practical solu-
+tion procedures for this NP -hard combinatorial optimization problem during the past 40 years
+are branch-and-bound algorithms that use the lower bound proposed by Gilmore (1962) and
+Lawler (1963) (for the history and bibliographic information we refer, e.g., to Pardalos, Rendl,
+and Wolkowicz, 1994; Burkard and Cela, 1996). By appropriate implementations for high per-
+formance parallel computers, the \world record" sizes for exactly solved instances are currently
+slightly beyond n = 20 (Clausen and Perregaard, 1994; Brungger, Clausen, Marzetta, and Per-
+regaard, 1996; Clausen, Espersen, Karisch, Perregaard, Sensen, and Tschoke, 1996). However,
+the branch-and-bound trees of these instances usually have several billion nodes, indicating the
+need for better lower bounding procedures than the classical Gilmore/Lawler bound. There have
+been proposed lots of such procedures in the literature, but most of them turned out to be not
+competetive with the Gilmore/Lawler bound, since they needed too much time compared with
+the strengthening of the lower bounds that they achieved.
+     One of the tightest bounding procedures that have been developed arises from an integer
+linear programming formulation of the quadratic assignment problem that was introduced by
+Johnson (1992). The linear programming relaxation coming from that formulation yields a
+bound that was proved to be always at least as good as the Gilmore/Lawler bound (Johnson,
+1992; Adams and Johnson, 1994). In fact, when Resende, Ramakrishnan, and Drezner (1995)
+computed these bounds for all instances in the QAPLIB (the commonly used set of test instances
+compiled by Burkard, Karisch, and Rendl, 1991, 1996) they turned out to be the best known
+bounds in many cases. However, compared with the e ort that it takes to solve the linear
+programs, they are still too weak. A way to improve the strength of these linear programming
+based bounds is to investigate the polyhedral structure of the quadratic assignment problem,
+as it was done successfully for many other combinatorial optimization problems, like, e.g., the
+traveling salesman problem.
+     The polyhedral knowledge on the quadratic assignment problem is at an early stage. Rijal
+(1995) and Padberg and Rijal (1996) found answers to some very rst questions concerned with
+an associated polytope, such as its dimension, ane hull, and trivial facets. These results have
+partially already appeared in a paper of Barvinok (1992), where the connection between the
+theory of representations of nite groups and combinatorial optimization polyhedra are consid-
+ered. However, it seems that the approach of Barvinok is dicult to apply to deeper polyhedral
+studies, and the work of Padberg and Rijal showed that a simple \classical" polyhedral treat-
+ment of the problem yields enormous technical diculties even for, e.g., the dimension proof.
+This might be the most important reason that kept the development of the polyhedral approach
+                                                         2
+to the quadratic assignment problem from taking a major step until now.
+    In this paper, we present the rst large class of facet de ning inequalities (the box inequalities )
+for both the polytope that is naturally associated with the quadratic assignment problem, as
+well as for a polytope, which is especially associated with the symmetric quadratic assignment
+problem. The consideration of this latter polytope was already suggested by Rijal (1995) and
+Padberg and Rijal (1996), since it corresponds to an integer linear programming formulation
+(for symmetric instances) with roughly half as many variables as the non-symmetric one has.
+    The paper is organized as follows. Section 2 brie y presents the necessary background on
+the polyhedral approach to the quadratic assignment problem. In particular, a technique (the
+\star-transformation") that we have developed in order to overcome the technical diculties
+mentioned above is pointed out. We introduce the box inequalities in Section 3 and show their
+origin in some well-known hypermetric inequalities for the cut polytope. In Section 4 the box
+inequalities are investigated with respect to their meaning for the face lattices of the quadratic
+assignment polytopes. In particular, we prove that a large subclass of these inqualities are facet-
+de ning for these polytopes. The computational experiments about which we report in Section 5
+show that the box inequalities open up for the rst time the possibility of attacking quadratic
+assignment problems successfully with cutting plane procedures. Our preliminary pure cutting
+plane algorithm is able to solve several instances from the QAPLIB to optimality and produces
+signi cantly increased lower bounds for many others. We conclude with a brief discussion of
+the promising directions of the further polyhedral investigations of the quadratic assignment
+problem in Section 6.
+
+2 Quadratic Assignment Polytopes
+This section is intended to give a short introduction into some polyhedral constructions for the
+quadratic assignment problem. It provides the basic background that will be needed in the
+subsequent sections. For a detailed treatment (including the proofs of the statements in this
+section) we refer to Junger and Kaibel (1996) and Junger and Kaibel (1997).
+De nitions of the Polytopes QAP n and SQAP n. In order to pro t from the convenient
+notions of graph theory, we formulate the quadratic assignment   problem as a (hyper)graph
+problem. For a set M and a cardinality  2 N we denote by M the set of all subsets N  M
+with jN j = . Let Gn = (Vn ; En ) be the graph de ned on n2 nodes Vn = f1; : : : ; ng  f1; : : : ; ng
+with edges                                                      
+                                                   V
+                         En = f(i; j ); (k; l)g 2 2 i 6= k; j 6= l :
+                                                     n
+
+
+We denote the edges of Gn by [i; j; k; l] = f(i; j ); (k; l)g. The sets rowi = f(i; j ) j 1  j  ng
+and colj = f(i; j ) j 1  i  ng are called the i-th row and the j -th column of Vn, respectively.
+Weighting the nodes of this graph by the linear terms coecients gij of the Lawler formulation
+(QAP)(c;dn) and putting the weights hijkl on the edges [i; j; k; l], the quadratic assignment problem
+becomes equivalent to nding a minimally node- and edge-weighted n-clique in Gn .
+    In the symmetric case (i.e., the equations hijkl = hilkj hold), we consider a hypergraph
+G^n = (Vn; E^n ) de ned on the same node set Vn, but having hyperedges
+                                                                                
+                      E^n = f(i; j ); (k; l); (i; l); (k; j )g 2 V4n i 6= k; j 6= l :
+A hyperedge is denoted by hi; j; k; li = f(i; j ); (k; l); (i; l); (k; j )g. We call the edge [i; j; k; l] the
+mate of the edge [i; l; k; j ]. Hence, the hyperedges of G^n are the unions of pairs of mates of edges
+of Gn . In particular, the number of edges of Gn is twice the number of hyperedges of G^n .
+                                                      3
+     We call a subset C  Vn a clique of G^n if it is a clique of Gn , and we consider a hyperedge
+hi; j; k; li belonging to a clique C  Vn of G^n if (i; j ); (k; l) 2 C or (i; l); (k; j ) 2 C holds.
+Weighting the nodes as in the non-symmetric case and the hyperedges hi; j; k; li by hijkl (or,
+equivalently, by hilkj ), the quadratic assignment problem in the symmetric case is to nd a
+minimally node- and hyperedge-weighted n-clique in G^n .
+     We x a few notations concerned with these (hyper)graphs. For a subset W  Vn of nodes
+the set of all edges of Gn with both endnodes in W is denoted by En(W ), and E^n (C ) is the set of
+all hyperedges of G^n belonging to C . For two disjoint subsets S; T  Vn , the set of all edges of
+Gn with one end-node in S and the other one in T is (S : T ). We often, also in other contexts,
+omit the brackets for singleton sets and write, e.g., (v : T ) in case of S = fvg. If x 2 R n is               V
+
+
+a vector
+       P
+             indexed by the nodes Vn , and W  Vn is a subset of nodes, then x(W ) denotes the
+sum v W xv of all components of x that are associated with nodes in the subset W . Similarly,
+        2
+
+y(F ) and z(F^ ) are de ned for vectors y 2 R n , z 2 R ^n , and subsets F  En, F^  E^n. For a
+                                                   E               E
+
+
+subset W  Vn the characteristic vector xW 2 R n of W in Vn is de ned via xW
+                                                               V
+                                                                                    v = 1 for v 2 W
+and xv = 0 for v 62 W . Analogously, characteristic vectors y 2 R and z 2 R ^n are de ned
+        W                                                         F     n       F^ E                   E
+
+
+for subsets F  En and F^  E^n of (hyper)edges.
+     With these de nitions, we can now easily introduce the two objects that are at the center of
+interest in this paper. The (non-symmetric) quadratic assignment polytope is the convex hull of
+all characteristic vectors of n-cliques of Gn
+                                       n                                                   o
+                       QAP n = conv (xC ; y n C ) C is an n-clique of Gn :
+                                               E   (       )
+
+
+
+The symmetric quadratic assignment polytope is the convex hull of the characteristic vectors of
+the n-cliques in the hypergraph G^n :
+                                        n                                                  o
+                      SQAP n = conv (xC ; z n C ) C is an n-clique of G^n
+                                                   ^
+                                                   E   (       )
+
+
+
+    There is an important relation between these two polytopes: The symmetric quadratic as-
+signment polytope SQAP n is the image of the non-symmetric one QAP n under a certain linear
+map. Let us call an inequality (u; v)T (x; y)  ! (with (u; v) 2 R n  R n ) symmetric if the
+                                                                                   V           E
+
+
+equations v[i;j;k;l] = v[i;l;k;j ] hold for all pairs of mates. Obviously, a symmetric valid inequality
+(u; v)T (x; y)  ! for QAP n immediately gives rise to a valid inequality (u; v^)T (x; z )  ! for
+SQAP n by de ning v^ i;j;k;l = v[i;j;k;l] (or, equivalently, v^ i;j;k;l = v[i;l;k;j]). Furthermore, if the
+                        h     i                                        h   i
+
+inequality (u; v)T (x; y)  ! is facet-de ning for QAP n then so is the inequality (u; v^)T (x; z )  !
+for SQAP n (see Junger and Kaibel, 1996). Therefore, we are especially interested in symmetric
+(facet-de ning) inequalities for the polytope QAP n , because they can immediately also be used
+for the symmetric case.
+The Star-Transformation. The vertices of the polytopes QAP n and SQAP n have a coor-
+dinate structure that makes investigations with respect to questions like the dimension of the
+polytopes or the dimension of certain faces of them quite dicult. However, after a suitable
+isomorphic transformation of the polytopes the situation becomes much more convenient. For
+a detailed treatment see Junger and Kaibel (1997). Here, we only review the transformation
+for the non-symmetric case, since we can reduce all questions arising in this paper that con-
+cern the symmetric quadratic assignment polytope to the non-symmetric case by exploiting the
+connection between these two polytopes described in the previous paragraph.
+    The basic observation is that the orthogonal projection of R n  R n onto R n 1  R n 1 that
+                                                                           V           E           V       E
+
+
+simply \forgets" all components belonging to any nodes in the n-th row or in the n-th column
+or to any edges that share a node with the n-th row or with the n-th column, maps the polytope
+QAP n isomorphically into the lower-dimensional vectorspace R n 1  R n 1 . With n? = n 1
+                                                                               V           E
+
+
+
+
+                                                       4
+we call the image of SQAP n  R n  R n under this projection QAP ?n?  R n?  R n? . The
+                                      V      E                                                       V         E
+
+
+polytope QAP ?n? is the convex hull of all characteristic vectors of n? - and (n? 1)-cliques of
+Gn? . Furthermore, if an inequality de ning a face F of SQAP n has only zero-coecients on
+components that belong to nodes in the n-th row or in the n-th column or to edges that share
+a node with the n-th row or with the n-th column then the \projected inequality" de nes the
+face F ? of QAP ?n? that is isomorphic to F via the isomorphism between QAP n and QAP ?n? .
+This implies that an inequality with zeroes on all coecients belonging to variables that are
+\projected out" de nes a facet of QAP n if and only if its \projection" de nes a facet of QAP ?n? .
+    In Junger and Kaibel (1997) it is proved that the following equation system describes the
+ane hull of the polytope QAP ?n? :
+(1)         x(rowi [ rowk ) y(rowi : rowk ) = 1                            (i; k 2 f1; : : : ; n? g; i < k)
+(2)             x(colj [ coll ) y(colj : coll ) = 1                         (j; l 2 f1; : : : ; n? g; j < l)
+Theorem 1. The set
+                      B = f[1; j; 2; l] 2 En? j j < lg [ f[i; 1; k; 2] 2 En? j i < kg
+is the index set of a basis of the equation system (1), (2), i.e., the submatrix of the left-hand-side
+coecient matrix of this equation system which consists of the columns corresponding to B has
+full column rank, and this column rank equals the rank of the whole matrix. In particular, since
+(1) and (2) form a complete equation system for QAP ?n? , the dimension of QAP ?n? is
+                                                                             
+                             dim (QAP ?n? ) = dim R n?  R n?
+                                                           V           E
+                                                                                  jB j:
+Basic Results on the QAP-Polytopes. A very simple (but nevertheless extremely useful)
+property of all three polytopes QAP n , SQAP n , and QAP ?n? is that they are each invariant
+under permuting the rows or the columns of the (hyper)graph.
+    Another issue that will be important within this paper is the connection between the (non-
+symmetric) quadratic assignment polytope and the boolean quadric polytope. The latter was
+introduced by Padberg (1989) as follows. Let KN = (VN ; EN ) denote the complete graph on
+N nodes. We use notations like EN (W ) (for W  VN ) or xW and x(W ) analogously to their
+de nitions in the context of Gn . The boolean quadric polytope (on the complete graph with N
+nodes) is de ned as                       n                       o
+                            BQP N = conv (xC ; yEN (C ) ) C  VN :
+   It turns out that the canonical embedding of the polytope QAP n into the vectorspace RVn2 
+REn2 not only is contained in   BQP n2 , but is in fact even a face of this polytope. Moreover,
+De Simone (1989) has shown that BQP N is isomorphic to the extensively studied cut polytope
+CUT N +1, which is the convex hull
+                                                 n                                     o
+                             CUT N = conv y S VN +1 S S  VN
+                                    +1
+                                                     ( :       n   )
+                                                                                  +1
+
+
+of all characteristic vectors of cuts in the complete graph KN +1 on N + 1 nodes. Thus, QAP n
+is also isomorphic to some face of the cut polytope CUT n2 +1 .
+    The following summarizes the basic results on the facial structures of QAP n and SQAP n .
+We denote by ((k;ji;j )
+                        )
+                          the set of all hyperedges containing both nodes (i; j ) and (k; j ). All proofs
+can be found in Junger and Kaibel (1996) and Junger and Kaibel (1997). The results on QAP n
+have independently been also discovered by Rijal (1995) and Padberg and Rijal (1996).
+
+
+                                                     5
+    The ane hull of QAP n is described by
+      (3)                                                   x(rowi ) = 1        (i 2 f1; : : : ; ng)
+      (4)                                                   x(colj ) = 1        (j 2 f1; : : : ; ng)
+      (5)           x i;j + y((i; j ) : rowk ) = 0
+                        (       )                                               (i; j; k 2 f1; : : : ; ng; i 6= k)
+      (6)            x i;j + y((i; j ) : coll ) = 0
+                            (       )                                           (i; j; l 2 f1; : : : ; ng; j 6= l):
+    The ane hull of SQAP n is described by
+      (7)                                                    x(rowi ) = 1        (i 2 f1; : : : ; ng)
+      (8)                                                    x(colj ) = 1        (j 2 f1; : : : ; ng)
+      (9)          x i;j x k;j + z( k;j
+                    (       )
+                                     i;j
+                                            ()=0    )
+                                                                (
+                                                                (
+                                                                    )
+                                                                     )
+                                                                                 (i; j; k 2 f1; : : : ; ng; i 6= k)
+      (10)          x i;j x i;l + z( i;li;j ) = 0
+                        (       )               (   )
+                                                                (
+                                                                (
+                                                                    )
+                                                                    )
+                                                                                 (i; j; l 2 f1; : : : ; ng; j 6= l):
+    The \trivial inequalities" y  0 de ne facets of QAP n.
+    The \trivial inequalities" x  0 and z  0 de ne facets of SQAP n.
+   Consider the relaxation polytopes
+               
+      EQP n = (x; y) 2 R n  R n j (x; y) satis es (3), (4), (5), (6), (x; y)  0  QAP n
+                                        V               E
+
+
+
+
+and
+              n                                                                                             o
+   SEQP n = (x; z) 2 R n  R n j (x; z) satis es (7), (8), (9), (10), (x; z)  0  SQAP n:
+                                    V                   ^
+                                                        E
+
+
+
+
+The integer points of these relaxation polytopes are precisely the vertices of the polytopes QAP n
+and SQAP n , respectively. Moreover, the lower bounds one can compute by solving the linear
+programs corresponding to these two relaxation polytopes (called the (non-symmetric) equation
+bound and the symmetric equation bound, respectively) have turned out to be of good quality
+in practice. Corresponding experiments were done for the non-symmetric equation bound by
+Resende, Ramakrishnan, and Drezner (1995). For symmetric instances, the symmetric equation
+bound cannot be better than the non-symmetric equation bound, but experiments reported in
+Junger and Kaibel (1996) have shown that the symmetric bound is not much worse than the
+non-symmetric one, in practice. The aim of this paper is to present and to investigate a class of
+inequalities that signi cantly tightens these relaxations.
+
+3 The Box-Inequalities
+Since the quadratic assignment polytope is a face of a boolean quadric polytope (see Section 2)
+the rst candidates for valid inequalities for the quadratic assignment polytope are the valid
+inequalities that are known for the boolean quadric polytope. In this section, we follow that
+line by introducing the ST-inequalities for boolean quadric polytopes, a class of inequalities
+that slightly generalizes the three classes of inequalities proposed by Padberg (1989). Before
+we investigate them with respect to the quadratic assignment polytopes, we also show that the
+ST-inequalities correspond to some special hypermetric inequalities for the cut poytope. The box
+inequalities for the quadratic assignment polytope are nally de ned to be those ST-inequalities
+that are symmetric, and hence are of special interest, since they de ne also faces of the symmetric
+quadratic assignment polytope.
+
+                                                                            6
+    The starting point for deriving the ST-inequalities is the observation that ( 1)  0 holds
+for any choice of an integer number 2 Z. Suppose, S ; T  VN are disjoint subsets of nodes,
+and 2 Z is any integer number. Let (x; y) 2 BQP N be any vertex of BQP N , i.e., (x; y) is an
+characteristic vector of some C  VN . Note that we have x(R)2 = x(R)+2y(R) for any R  VN
+and x(S )x(T ) = y(S : T ) (here we need that S and T are disjoint). The above observation
+yields
+           0  (x(T ) x(S ) ) (x(T ) x(S ) ( 1))
+             = x(T )2 2x(S )x(T ) + x(S )2
+               + ( ( 1) )x(T ) + ( 1 + )x(S ) + ( 1)
+             = 2y(T ) 2y(S : T ) + 2y(S ) (2 2)x(T ) + 2 x(S ) + (                 1)
+                                                                                     
+             = 2       y(T ) + y(S : T ) y(S ) + (            1)x(T )   x(S )   ( 1) :
+                                                                                 2
+Hence, we have shown that the ST-inequality
+(11)                 x(S ) + (    1)x(T ) y(S ) y(T ) + y(S : T )  ( 2 1)
+is valid for BQP N . The vertices of the face of BQP N de ned by this inequality are precisely
+the characteristic vectors of subsets C  VN of nodes satisfying
+                                     jC \ T j jC \ Sj 2 f ; 1g:
+    It turns out that the faces of BQP N that are de ned by ST -inequalities correspond (via
+the isomorphism between the boolean quadric polytope BQP N and the cut polytope CUT N            +1
+mentioned in Section 2) to some well-known faces of CUT N , namely to some special hyperme-
+                                                                   +1
+tric faces. A hypermetric inequality for the cut polytope CUT N (on the complete graph with
+                                                                        +1
+nodes f0; 1; : : : ; N g) is an inequality
+                                     N X
+                                     X N
+                                                 v w z v;w  0
+                                                          f    g
+
+                                     v=0 w=v+1
+                                                                        P
+for some set of integer numbers 0 ; 1 ; : : : ; N 2 Z satisfying Nv=0 v = 1. The hypermetric
+inequalities were introduced independently by Deza (1960) and Kelly (1975). The subclass of
+these inequalities to which the ST-inequalities correspond are those with
+                                                  = 1 p + q:
+                                                      0
+
+                                      =    = p = +1
+                                         1
+
+                                  p =    = p q = 1
+                                    +1             +
+
+                                 p q =    = N = 0:
+                                   + +1
+
+
+for some p; q 2 N .
+    Hypermetric inequalities of this type are either so-called linear or quasilinear hypermetric in-
+equalities. Deza (1973) found a complete characterization of the facet de ning ones among these
+inequalities (see Deza and Laurent, 1997). Clearly, one can obtain from this characterization a
+complete characterization of the ST-inequalies de ning facets of the boolean quadric polytope.
+Rather than doing this, we will return to the quadratic assignment polytopes and investigate
+the meaning the ST-inequalities have there. The considerations of the boolean quadric polytope
+and of the cut polytope were just intended to clarify the origin of the ST-inequalities.
+
+                                                  7
+     Since the canonical embedding of QAP n into RVn2  REn2 is a face of BQP n2 (see Sec-
+tion 2) for any two disjoint subsets S ; T  Vn of nodes and any integer number 2 Z the
+ST-inequality (11) is also valid for QAP n . Of course, we have QAP ?n?  BQP n? 2 (in fact,
+QAP ?n? is also a face of BQP n?2 ), and hence, the ST-inequality (11) is valid for QAP ?n? , too.
+     With respect to the investigations of the symmetric quadratic assignment polytope SQAP n
+it is of special interest to know which ST-inequalities are symmetric (see Section 2). Let us call
+an ST-inequality a 4-box inequality (or simply a box inequality ) if there are two disjoint subsets
+P1 ; P2  f1; : : : ; ng of row indices and two disjoint subsets Q1; Q2  f1; : : : ; ng of column indices
+of Vn such that
+(12)                       S = (P  Q ) [ (P  Q ) and T = (P  Q ) [ (P  Q )
+                                1       1       2       2                1       2        2      1
+
+
+hold (see Figure 1). A face that is de ned by a 4-box inequality is a 4-box face. We call any
+subset R  Vn that can be written as P = P  Q for some P; Q  f1; : : : ; ng a box. Its size is
+jP j  jQj.
+
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+                                                                                                     0000
+                                                                                                     1111
+
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+                                                                                     000000000
+                                                                                     111111111
+
+
+
+
+Figure 1: The node sets of ST-inequalities in general, of 4-box inequalities and of 4-box inequal-
+ities after suitable permutations of rows and columns. The set S is always indicated by the gray
+parts, the set T by the black ones.
+
+Theorem 2. An ST-inequality is symmetric if and only if it is a 4-box inequality.
+Proof. Clearly, any 4-box inequality is symmetric. To prove the opposite direction, let (S ; T ; )
+determine a symmetric ST-inequality. We call a subset F  En of edges symmetric if for all
+pairs of mates e; e 2 En either both e and e or none of them belong to F .
+                            0                               0
+
+
+     First, we show that for any subset W  Vn the set of edges En (W ) induced by W is symmetric
+if and only if W is a box. To see the non-trivial direction of this claim, let P consist of all numbers
+i with rowi \ W 6= ;, and let Q contain all j with colj \ W 6= ;. Clearly, we have W  P  Q.
+Assume that there is a node (i; j ) 2 (P  Q) n W . By construction of P and Q there must be
+nodes (i; l) 2 W (with l 6= j ) and (k; j ) 2 W (with k 6= i), yielding that the edge [i; l; k; j ] is
+contained in En (W ), and hence, since En (W ) was supposed to be symmetric, [i; j; k; l] 2 En (W )
+holds, contradicting (i; j ) 62 W .
+     From this, since En (S [ T ) is precisely the set of edges having non-zero coecients in the
+inequality under inspection, we deduce that S [ T must be a box, say S [ T = f1; : : : ; pg 
+f1; : : : ; qg. By permutations of rows and columns, we can assume (1; 1); : : : ; (1; q ) 2 S , (1; q + 0         0
+
+
+1); : : : ; (1; q) 2 T , (1; 1); : : : ; (p ; 1) 2 S , and (p + 1; 1); : : : ; (p; 1) 2 T . Let i 2 f2; : : : ; p g and
+                                            0                   0                                              0
+
+
+j 2 f2; : : : ; q g. Since we have (1; j ); (i; 1) 2 S , the edge [1; j; i; 1] must have coecient 1 in the
+               0
+
+
+inequality, hence so does the edge [1; 1; i; j ]. By (1; 1) 2 S this implies also (i; j ) 2 S . Thus, we
+have f1; : : : ; p g  f1; : : : ; q g  S . Analoguesly, one shows fp + 1; : : : ; pg  fq + 1; : : : ; qg  S ,
+                   0                0                                        0                       0
+
+
+f1; : : : ; p gfq +1; : : : ; qg  T and fp +1; : : : ; pgf1; : : : ; q g  T . This proves the theorem.
+          0            0                            0                    0
+
+
+
+
+                                                                8
+    In particular, the 4-box inequalities are precisely those ST-inequalities that yield also in-
+equalities for SQAP n . We call a 4-box inequality de ned by P1 , P2 , Q1 , and Q2 as above a
+2-box inequality if (at least) one of the sets P1 , P2 , Q1 , or Q2 is empty. If one of P1 or P2 and
+one of Q1 or Q2 is empty then we call the inequality a 1-box inequality. Analogously to the
+4-box case, 2-box faces as well as 1-box faces are de ned.
+
+4 Box-Facets
+There are two main reasons to investigate a given valid inequality for a combinatorial optimiza-
+tion problem with respect to the question if it de nes a facet of the corresponding polytope
+or not. The rst one is that restricting ourselves to adding facet de ning inequalities to the
+linear programs in a cutting plane procedure gives a guarantee that one does not create any
+redundancies during the process. The other reason is that once one knows that an inequality
+is facet de ning for the underlying polytope one can stop all attempts to strengthen it by, e.g.,
+\playing" with its coecients.
+     These two reasons seemed to us to be very important in particular for the quadratic as-
+signment problem, where the linear programs are quite hard to solve, and hence, to avoid
+irredundancies and using only cutting planes that are as strong as possible is a crucial issue.
+Therefore, we started to investigate the faces that are de ned by box inequalities (which we
+call box faces ). We did this extensively for the 1-box and the 2-box inequalities, and ended up
+with the following characterization, which is in a certain sense complete (where we call a face
+non-proper if it is either empty or the whole polytope).
+Theorem 3. Let n  7 hold.
+   (i) For every 1-box face F of QAP n or SQAP n one of the following statements is true:
+        (a) F is non-proper.
+        (b) F is contained in a trivial facet of QAP n or SQAP n , respectively.
+        (c) F is a facet of of QAP n or SQAP n , respectively.
+  (ii) For every 2-box face F of QAP n or SQAP n one of the following statements is true:
+        (a) F is non-proper.
+        (b) F is contained in a trivial facet of QAP n or SQAP n , respectively.
+        (c) F is contained in a 1-box facet of QAP n or SQAP n , respectively.
+        (d) F is contained in a curtain facet (see Junger and Kaibel, 1996) of SQAP n .
+        (e) F is an \inconvenient" face of QAP n (see below).
+        (f) F is a facet of QAP n or SQAP n , respectively.
+     This means that for every 1-box face and for every 2-box face we know if it is a facet of
+QAP n or SQAP n, respectively, and in case it is not a facet, we even know why, since we know
+a facet of the respective polytope where the face is contained in. This holds in all cases but for
+a few non-symmetric ones, which we called inconvenient in the statement of the theorem. For
+these 2-box faces we can prove that they do not de ne facets of QAP n , but we do not know any
+facets where they are contained in.
+     Extending the results of Theorem 3 to the class of 4-box inequalities has failed up to now.
+The proof of Theorem 3 as well as more details on the characterization (e.g., the exact conditions
+on the triples (S ; T ; ) that guarantee to de ne a facet) can be found in Kaibel (1997). This
+proof is extremely technical. Rather than giving it here, we prove a simpler result that describes
+                                                 9
+some sucient conditions on a 1-box face for being a facet of QAP n or SQAP n , respectively.
+This seems to us to be a satisfactory compromise, since on the one hand, the proof of this simpler
+theorem already shows the basic principles of the proof of Theorem 3, and on the other hand,
+the 1-box inequalities are of particular interest, since they seem to be of special importance
+within a cutting plane pocedure (see Section 5).
+Theorem 4. Let n  7, let P; Q  f1; : : : ; ng generate T = P  Q  Vn, and let 2 Z be an
+integer number such that
+      2,
+     jP j; jQj  + 2,
+     jP j; jQj  n 3, and
+     jP j + jQj  n + 5
+hold. Then the 1-box inequality de ned by the triple (;; T ; ) de nes a facet of both QAP n and
+SQAP n.
+    Before we prove Theorem 4 let us discuss brie y how restrictive the conditions posed there
+on the set T are. A simple observation is that for < 2 the box inequality de ned by (;; T ; )
+can neither de ne a facet of QAP n nor of SQAP n . The reason is that if < 2 holds then the
+n-cliques C  Vn of Gn or G^n, respectively, that correspond to vertices of the de ned face satisfy
+jC \ T j 2 f0; 1g, and hence, the 1-box face de ned by (;; T ; ) is strictly contained in a trivial
+facet of QAP n or SQAP n , respectively (provided that T contains at least two (hyper)edges).
+    Furthermore, for both QAP n and SQAP n the following equations hold, where we denote
+T = P  (f1; : : : ; ng n Q) and T~ = (f1; : : : ; ng n P )  Q (with P and Q as in Theorem 4):
+(13)                                      x(T ) + x(T ) = jP j
+(14)                                      x(T ) + x(T~ ) = jQj
+From these equations it follows that the triples (;; T ; jP j ( 1)) and (;; T~ ; jQj ( 1))
+de ne the same face as (;; T ; ) does. Thus, it suces to investigate those 1-box faces that are
+de ned by a triple (;; T ; ) with T = P  Q for some sets P; Q  Vn with jP j; jQj  bn=2c.
+    Moreover, if jP j < + 1 or jQj < + 1 holds, we can deduce from the equations (13)
+and (14) that every vertex of the face de ned by the corresponding 1-box inequality must
+satisfy x(T ) 2 f0; 1g or x(T~ ) 2 f0; 1g, respectively. Thus, that 1-box face is, again, properly
+contained in a trivial facet of QAP n or SQAP n , respectively (note that due to jP j; jQj  bn=2c
+and n  7 we can assume that both T and T~ contain at least two (hyper)edges).
+    Figure 2 shows the values of jP j and jQj that satisfy the conditions of Theorem 4.
+Proof of Theorem 4. It follows from the connections between QAP n and SQAP n (see Section 2)
+that it suces to prove the theorem in the non-symmetric case. Furthermore, from the isomor-
+phism between QAP n and QAP ?n? (with n? = n 1, see also Section 2) we only have to prove
+the following:
+      Let n?  6, let P; Q  f1; : : : ; n? g generate T = P  Q  Vn? , and let 2 Z
+      be an integer number such that  2, jP j; jQj  + 2, jP j; jQj  n? 2, and
+      jP j + jQj  n? + 4 hold. Then the 1-box inequality de ned by the triple (;; T ; )
+      de nes a facet of QAP ?n? .
+
+
+
+                                                10
+          jQj                                                              j   Qj
+                        11111111111111111
+                        00000000000000000
+                        00000000000000000
+                        11111111111111111                                                 111111111111
+                                                                                          000000000000
+              10
+                        00000000000000000
+                        11111111111111111
+                                                                               10
+                                                                                          000000000000
+                                                                                          111111111111
+                        00000000000000000
+                        11111111111111111                                                 000000000000
+                                                                                          111111111111
+                        00000000000000000
+                        11111111111111111                                                 000000000000
+                                                                                          111111111111
+                                                                                          000000000000
+                                                                                          111111111111
+                        00000000000000000
+                        11111111111111111
+                        00000000000000000
+                        11111111111111111
+                                                                               6          000000000000
+                                                                                          111111111111
+                        00000000000000000
+                        11111111111111111                                      5
+                                                                                          000000000000
+                                                                                          111111111111
+              4
+                        00000000000000000
+                        11111111111111111
+              3
+
+
+
+
+                       3 4                10   jPj                                      5 6          10   jPj
+
+
+Figure 2: The subsets of parameter pairs (jP j; jQj) with jP j; jQj  bn=2c and jP j; jQj  + 1
+that satisfy the conditions of Theorem 4 (for n = 20 and = 2; 4).
+
+   Let F be a face of QAP ?n? which is de ned by a triple (;; T ; ) as above. We denote p = jP j
+and q = jQj. Since QAP ?n? is invariant under permutations of the rows and columns of Vn? , we
+can assume P = fn? p + 1; : : : ; n? g and Q = fn? q + 1; : : : ; n? g. We denote the set of n? -
+and (n? 1)-cliques of Gn? that correspond to the vertices of F by
+                   n                                                                                      o
+          L = C  Vn jC \ T j 2 f               1; g; C is an n? - or an (n? 1)-clique of Gn? :
+Let                              n                                                            o
+                           L = (xC1 ; y n? (C1 ) ) (xC2 ; y n? (C2 ) ) j C1 ; C2 2 L
+                                           E                           E
+
+
+
+
+be the set of all di erence vectors of the characteristic vectors of these cliques, i.e., the set of all
+di erences of vertices of the face F . Hence, L spans the linear subspace belonging to the ane
+subspace a (F ). Denoting the rank of the equation system (1), (2) by , we have to show that
+the linear dimension of L equals dim(R n?  R n? )  1. Let B be the set of edges belonging
+                                                   V           E
+
+
+to the basis of the equation system (1), (2) that we have introduced in Theorem 1. In particular,
+we have jB j = . Denote by B = f ye j e 2 B g the set of all canonical unit vectors belonging to
+B . With e0 = [n? p + 1; n? q + 1; n? p + 2; n? q + 2] (recall that p; q  + 2  4 holds),
+it suces to show lin(L [B [fye0 g) = R n?  R n? . We will do this by successively combining
+                                                       V           E
+
+
+all canonical unit vectors fxv j v 2 Vn? g and fye j e 2 En? g of the vector space R n?  R n? by     V         E
+
+
+using just the vectors in L and B [ fye0 g. In order to abbreviate the notations, we say that
+an edge or a node is combined once the corresponding unit vector is linearly combined.
+     We introduce four types of vectors that will be used to combine the nodes and edges. Let
+i; k; a 2 f1; : : : ; n?g be three pairwise distinct numbers of rows of Vn? , and let j; l; b 2 f1; : : : ; n?g
+be three pairwise distinct numbers of columns of Vn? . We will use the following vectors, where
+w1 = (i; b), w2 = (a; j ), w3 = (k; b), w4 = (a; l), v0 = (a; b), v1 = (i; j ), v2 = (k; j ), v3 = (k; l),
+v4 = (i; l), and C  Vn? is an n?-clique of Gn? containing the node w 2 C . They are illustrated
+in Figure 3.
+                                                              X
+                                  (C; w) = xw +                       y w;w0
+                                                                           f        g
+
+
+                                                            w0 2C nw
+                        (v1 ; v2 ; v3 ; v4 ) = y    [i;j;k;l]
+                                                                y  [i;l;k;j ]
+
+
+                       (v0 ; v1 ; v2 ; v3 ; v4 ) = y [a;b;i;j ]
+                                                                y[a;b;k;j] + y[a;b;k;l] y[a;b;i;l]
+                       (w1 ; w2 ; w3 ; w4 ) = y[i;b;a;j ] y[a;j;k;b] + y[k;b;a;l] y[a;l;i;b]:
+
+                                                             11
+                                                                                                                j                                                          l
+                                                                                                                 v                                                 v
+                                                                                                        i            1                                                 4
+
+
+
+                                             111
+                                             000
+
+
+                                                 w
+                                             000
+                                             111
+                                             000
+                                             111
+                                             000
+                                             111
+                                             000
+                                             111
+
+
+
+
+                                                                                                        k v             2                                      v   3
+
+
+
+
+                                     (a) (        C; w   )                                                                 (b) ( 1 2 3 4 )
+                                                                                                                                      v ;v ;v ;v
+
+
+
+
+                         j                         b                              l                                 j                          b                                l
+                             v                                            v                                                                    w
+                     i                                                                                      i
+                                 1                                            4                                                                    1
+
+
+
+
+                     a                                                                                      a w                                                    w
+                                                 v                                                                           2                                          4
+                                                     0
+
+
+
+                                                                                                                                           w
+                     k v                                              v                                     k
+                                                                                                                                               3
+                                 2                                        3
+
+
+                              (c) ( 0 1 2 3 4 )
+                                         v ;v ;v ;v ;v                                                                       (d) ( 1 2 3 4 )
+                                                                                                                                      w ;w ;w ;w
+
+
+
+
+                    Figure 3: The four types of vectors provided by Lemmas 5, 6, 7, and 8
+
+    The following four lemmas give sucient conditions for these vectors to be members in
+lin(L ). We make one more notational convention. Let W  Vn? be a subset of nodes. We
+denote by Gn? =W the subgraph of Gn? that is induced by all rows and columns that do not
+intersect W . In order to simplify the notations, we write yW instead of y n? (W ) .                                                                       E
+
+
+
+
+Lemma 5. If for an n?-clique C of Gn? and a node w 2 C we have both C 2 L and C n w 2 L,
+                                                              0                                                          0                                     0                             0
+
+
+then (C ; w) 2 lin(L ) holds.
+            0
+
+
+
+
+Proof. The equation (C ; w) = (xC 0 ; yC 0 ) (xC 0 w ; yC 0 w ) shows this.
+                                             0                                                  n               n
+
+
+
+
+Lemma 6. Let v1 ; v2 ; v3 ; v4 2 Vn? be any nodes such that (v1 ; v2; v3 ; v4 ) is de ned. If there
+is an (n? 2)-clique C in Gn? =fv1 ; v2 ; v3 ; v4 g such that C [ fv1 ; v3 g 2 L, C [ fv2 ; v4 g 2 L,
+                                         0                                                                                   0                                              0
+
+
+C [ fv1 g 2 L, C [ fv2 g 2 L, C [ fv3 g 2 L, and C [ fv4 g 2 L, then (v1 ; v2 ; v3 ; v4) 2 lin(L)
+  0                       0                               0                                         0
+
+
+holds.
+                                   v                         C 0 v1 ;v3 ; y C 0 v1 ;v3 )    C 0 v 1 ; y C 0 v1 )
+Proof.0 This holds  because   of (  1 ; v2 ; v3 ; v4 ) = (x                             ( x                [f                   g        [f           g                            [f   g           [f   g
+
+
+   (xC v3 ; yC 0 v3 ) (xC 0 v2 ;v4 ; yC 0 v2 ;v4 ) + (xC 0 v2 ; yC 0 v2 ) + (xC 0 v4 ; yC 0 v4 ).
+       [f       g        [f      g                   [f           g               [f   g                    [f          g            [f    g                       [f           g        [f      g
+
+
+
+
+Lemma 7. Let w1 ; w2 ; w3; w4 2 Vn? be any nodes such that (w1 ; w2 ; w3 ; w4 ) is de ned. If there
+is an (n? 3)-clique C in Gn? =fw1 ; w2 ; w3 ; w4 g such that C [ fw1 ; w2 g 2 L, C [ fw2 ; w3 g 2 L,
+                                     0                                                                                       0                                             0
+
+
+C [ fw3 ; w4 g 2 L, and C [ fw4 ; w1 g 2 L, then (w1; w2 ; w3 ; w4 ) 2 lin(L ) holds.
+  0                                          0
+
+
+
+
+                                                                                           12
+                                      w                        C 0 w1 ;w2 ; y C 0 w1 ;w2 )                                                                                                                                                                                            (xC 0 w2 ;w3 ;
+Proof. This   is obtained   from    (  1 ; w2 ; w3 ; w4 ) = (x
+                                                                                                                                                                                                                [f                          g           [f               g                             [f               g
+
+
+yC 0 w2 ;w3 ) + (xC 0 w3 ;w4 ; yC 0 w3;w4 ) (xC 0 w4;w1 ; yC 0 w4 ;w1 ).
+          [f              g                                   [f                  g                [f                    g                              [f                                  g                       [f                          g
+
+
+
+
+Lemma 8. Let v0 ; v1 ; v2 ; v3 ; v4 2 Vn? be any nodes such that (v0 ; v1 ; v2 ; v3 ; v4 ) is de ned. If
+there is an (n? 3)-clique C in Gn? =fv0 ; v1 ; v2 ; v3 ; v4 g such that C [ fv0 ; v1 ; v3 g 2 L, C [
+                                                                                               0                                                                                                                                                    0                                                               0
+
+
+fv1 ; v3 g 2 L, C [ fv0 ; v2 ; v4 g 2 L, and C [ fv2 ; v4 g 2 L, then (v0 ; v1 ; v2 ; v3 ; v4 ) 2 lin(L)
+                                                    0                                                                                          0
+
+
+holds.
+Proof. The claim follows from (C [ fv0 ; v1 ; v3 g; v0 ); (C [ fv0 ; v2 ; v4 g; v0 ) 2 L (by Lem-             0                                                                                                      0
+
+
+ma 5), and (v0 ; v1 ; v2 ; v3 ; v4 ) = (C [ fv0 ; v1 ; v3 g; v0 ) (C [ fv0 ; v2 ; v4 g; v0 ).                      0                                                                                                              0
+
+
+
+
+     Due to the combinatorial properties of the vertices of 1-box faces we need the following
+characterization.
+Proposition 9. Let n  0, P ; Q  f1; : : : ; n g, T = P Q , and let  0 be any nonnegative
+                                                                          0                    0            0                                           0                       0                       0                   0                                0
+
+
+integer number. An n -clique C  Vn0 of Gn0 with jC \T j = exists if and only if jP j; jQ j 
+                                                                      0                            0                                                                                0               0                           0                                                             0             0               0
+
+
+and jP j + jQ j  n + hold.
+                    0                   0                     0               0
+
+
+
+
+Proof. With p = jP j and q = jQ j we can assume T = fn p +1; : : : ; n gfn q +1; : : : ; n g.
+                                            0                     0                   0                 0                                                                           0                           0               0                                0           0        0                             0
+
+
+Let n = n      00
+                  . A clique with the desired properties exists if and only if p ; q  holds and
+                              0                     0                                                                                                                                                                                                                0           0            0
+
+
+there exists an n -clique C  Vn00 in the graph Gn00 such that we have C \ T = ; for
+                                                         00                               00                                                                                                                                                                                     00               00
+
+
+T = fn (p
+     00
+                       ); : : : ; n g  fn (q
+                         00                     0
+                                                        )g. Thus, it suces to prove that there is an
+                                                                  0                       00                     00                        0                    0
+
+
+n -clique C  Vn00 in Gn00 with C \ T = ; if and only if p + q  n + 2 holds.
+ 00                               00                                                                        00                   00                                                                                         0               0           00           0
+
+
+     To prove this claim, let p = p         and q = q          , and observe that it is equivalent to the
+                                                                                          00            0                    0                     00                       0                   0
+
+
+claim that in the bipartite graph Gbip on n +n nodes fv1 ; : : : ; vn00 g and fw1 ; : : : ; wn00 g having all                         00            00
+
+
+edges but the ones connecting nodes fv1 ; : : : ; vp00 g with fw1 ; : : : ; wq00 g, a perfect matching exists if
+and only if p + q  n holds. For any subset A  fv1 ; : : : ; vn00 g denote by (A)  fw1 ; : : : ; wn00 g
+                                   00               00                00
+
+
+the set of all nodes being adjacent to any node in A. Then, the Konig/Hall-Theorem (see any
+book about graph theory, e.g., Berge (1991)) says that a perfect matching in Gbip exists if and
+only if there is no subset A  fv1 ; : : : ; vn00 g of nodes with jAj > j (A)j, what is equivalent to
+p  n q , i.e., equivalent to p + q  n + 2 .
+ 00                 00            00                                                                    0                0                 00                           0
+
+
+
+
+     Using Lemmas 5, 6, 7, and 8, we now exhibit those vectors that we will need for combining
+the nodes and edges. Let us recall that , p = jP j, and q = jQj satisfy the conditions  2,
+p; q  + 2, p; q  n? 2, and p + q  n? + 4, implying in particular p; q  4.
+Lemma 10. Let w1; w2 ; w3 ; w4 2 Vn? nT such that (w1 ; w2 ; w3; w4 ) exists. Then (w1; w2 ; w3 ;
+w4 ) 2 lin(L) holds.
+Proof. Let Gn0 be the graph that is isomorphic to the subgraph Gn? =fw1 ; w2 ; w3 ; w4 g of Gn?
+arising from the removal of all rows and columns of Vn? that share any node with w1 ; : : : ; w4 .
+The box T in Gn? of size p  q induces a box T in Gn0 of size p  q . By Lemma 6 it suces                                                                          0                                                                       0       0
+
+
+to show that for = the graph Gn0 contains an n -clique C  Vn0 with jC \ T j = . We
+                                                          0                                                                                                                                 0                                       0                                        0            0                     0
+
+
+have n = n? 2, p 2  p  p, and q 2  q  q. Thus the inequalities p  p 2  = ,
+                    0                                                                 0                                                                     0                                                                                                        0                                                  0
+
+
+q  q 2  = , and p + q  p + q  n? + 4 = n +
+ 0                                                            0
+                                                                                 2  n + hold, and hence,
+                                                                                      0            0                                                                                                                0                   0                        0       0
+
+
+Proposition 9 guarantees the existence of a clique C with the desired property.                                                                                                         0
+
+
+
+
+     The following proofs proceed in the same way as the proof of Lemma 10. Without explicit
+de nitions, we will always use the parameters n , p , and q as the parameters specifying the sizes                                                          0               0                               0
+
+
+of the graph and the box after the removal of the rows and columns sharing any of the nodes
+which appear in the statement of the respective lemma. Thus, any of the proofs is completed
+by chosing an appropriate value of that admits to apply the right one among Lemmas 5, 6,                             0
+
+
+7, or 8, and showing the three inequalities required for the application of Proposition 9.
+
+                                                                                                                                                        13
+Lemma 11. Let w ; w ; w ; w 2 T such that (w ; w ; w ; w ) exists. Then (w ; w ; w ; w )
+                                   1       2       3           4                                                            1       2           3           4                                                   1           2               3       4
+2 lin(L) holds.
+Proof. Again, we have n = n? 2, but this time p = p 2 and q = q 2 hold. With = 2 we
+                                           0                                                                        0                                           0                                                   0
+
+
+can apply Proposition 9 and Lemma 6: p = p 2  = +2  , q = q 2  = +2  ,                         0                                        0                           0           0                                       0                       0
+
+
+p + q = p + q 4  n? + 8 = n +
+ 0    0
+                                           4n + .                                 0                   0                0           0
+
+
+
+
+Lemma 12. Let v ; v ; v ; v 2 Vn? n T such that (v ; v ; v ; v ) exists. Then (v ; v ; v ; v )
+                               1       2       3           4                                                                    1           2           3           4                                               1               2       3       4
+2 lin(L) holds.
+Proof. Here, n = n? 3, p 3  p  p, and q 3  q  q hold. Choosing =
+                   0                                                                       0
+                                                                                              1,                                                    0                                                                   0
+
+
+Proposition 9 allows to apply Lemma 7: p  p 3         1= ,q q 3               1 = , and                0                                                        0           0                                                       0
+
+
+p + q  p + q  n? + 4 = n + .
+ 0    0                                                                0               0
+
+
+
+
+Lemma 13. Let v ; v ; v ; v 2 T such that (v ; v ; v ; v ) exists. Then (v ; v ; v ; v ) 2
+                                   1   2       3           4                                                                1   2           3       4                                                       1       2               3           4
+lin(L ) holds.
+Proof. This lemma will be proved together with Lemma 14.
+Lemma 14. Let v1; v2 ; v3 2 T and v4 2 Vn? n T such that (v1 ; v2; v3 ; v4 ) exists. Then
+(v1 ; v2 ; v3 ; v4 ) 2 lin(L ) holds.
+Proof. We prove both Lemma 13 and 14. In any case we have n = n? 3, p 3  p  p 2,                                                                                  0                                                       0
+
+
+and q 3  q  q 2. If we choose =
+               0
+                                                    2, we obtain both lemmas using Proposition 9   0
+
+
+and Lemma 7: p  p 3  0
+                                        1= ,q q 3                 1 = , and p + q  p + q 4     0           0                                                            0               0           0
+
+
+n + 8=n +
+  ?                0
+                             3n + .
+                                   0                       0               0
+
+
+
+
+Lemma 15. Let w0 ; w1 ; w2; w3 2 Vn? n T and w4 2 T such that (w0; w1 ; w2 ; w3 ; w4 ) exists.
+Then (w0 ; w1 ; w2 ; w3 ; w4 ) 2 lin(L ) holds.
+Proof. We have n = n? 3, p 2  p  p 1, and q 2  q  q 1. If we choose =
+                           0                                                               0
+                                                                                                       1                                                    0                                                                   0
+
+
+then Proposition 9 together with Lemma 8 yields the claim: p  p 2  = + 1  ,                                                                                      0                                               0                               0
+
+
+q  q 2  = + 1  , and p + q  p + q 2  n? + 6 = n +
+ 0                             0                       0                       0
+                                                                                         2n + .   0                                                                                    0       0                   0                   0
+
+
+
+
+Lemma 16. Let w 2 Vn? . Then there exists an n?-clique C  Vn? such that (C; w) 2 lin(L)
+holds.
+Proof. We have in any case n = n? 1, p 1  p  p, and q 1  q  q. Chosing
+                                                                   0                                                                    0                                                           0
+
+ 0
+    =        1, Proposition 9 and Lemma 5 can be applied: p  p 1  + 1 = + 2  ,                                                                       0                                                           0                               0
+
+
+q  q 1  + 1 = + 2  , and p + q  p + q  n? + 4 = n +
+ 0                                     0                           0
+                                                                                         2n + .
+                                                                                               0               0                                                                        0       0                   0                   0
+
+
+
+
+    Now we are prepared to combine all nodes and edges of Gn? . As explained at the beginning
+of this proof, we start with just the edges in the set B (that constitutes a basis of the equation
+system (1), (2)) and the edge e0 (see Figure 4).
+    We partition the node set Vn? into ve parts as indicated in Figure 5. The rst observation
+is that by using the fact that the edges in B can be already considered combined and exploiting
+Lemma 10, we can combine all edges in En? (W1 [ W2 ) as well as the ones in En? (W1 [ W3 ).
+Our next goal is to combine all edges in (W2 : W3 ). By suitable permutations of the rows
+and columns, it suces to show how to combine an edge [2; j; k; 2] for any j; k 2 f3; : : : ; n? g.
+Choosing w1 = (1; 2), w2 = (2; 1), w3 = (k; 2), and w4 = (2; j ), we can combine this edge by
+applying Lemma 12, since the edges in En? (W1 [ W2 ) and in En? (W1 [ W3 ) are already done. But
+once we have combined the edges in (W2 : W3 ), it is easy to combine also all edges in (W1 : W4 )
+by applying Lemma 10. We come to the edges in (W2 : W4 ). We can assume that the edge
+that we want to combine is [2; j; k; l] with j; k; l 2 f3; : : : ; n? g and (k; l) 62 T . Then, we apply
+
+                                                                                                                   14
+                                                                        1
+                                                                        2
+
+
+
+                                                         e 0
+
+                                                                   T n?
+                                         1 2                       n?
+ Figure 4: The edges that are \combined" initially (where the set B is drawn just partially).
+
+                                         W                              1
+                                            1          W 2              2
+
+                                                   W 4
+                                         W  3
+
+
+
+                                                               T
+                                        1 2
+                                 Figure 5: Partition of the nodes Vn? .
+
+Lemma 12 with w1 = (1; l), w2 = (2; 1), w3 = (k; l), and w4 = (2; j ), and obtain the desired
+combination. Analogously, we can combine the edges in (W3 : W4 ). In order to see, how one can
+now combine the edges in En? (W4 ), let i; j; k; l 2 f3; : : : ; n? g with (i; j ); (k; l) 62 T . This time,
+we choose w1 = (1; j ), w2 = (k; 1), w3 = (i; j ), and w4 = (k; l), and exploit, again, Lemma 12,
+using the fact that we have already combined all edges in (W1 [ W2 [ W3 : W4 ).
+    Now we have combined all edges in En? n T . The next step is to combine the edges in
+(Vn? n T : T ), what can be done by applying Lemma 15. Thus, it remains to combine the edges
+in En? (T ) (and all nodes). For notational convenience, let us partition the box T into four parts
+T1 = fn? p+1; n? p+2gfn? q +1; n? q +2g, T2 = fn? p+1; n? p+2gfn? q +3; : : : ; n? g,
+T3 = fn? p+3; : : : ; n?gfn? q+1; n? q+2g, and T4 = fn? p+3; : : : ; n? gfn? q+3; : : : ; n? g.
+Recall that we have the edge e0 = [n? p + 1; n? q + 1; n? p + 2; n? q + 2] in our set of
+\initially combined edges". By application of Lemma 14 we can use this to combine all edges
+in (f(n? p + 1; n? q + 1); (n? p + 2; n? q + 2)g : T2 [ T3 ). After this, applying Lemma 14
+also enables us to combine all edges in En? (T1 [ T2 ) and the ones in En? (T1 [ T3 ). But then,
+we can proceed analogously to the combination of the edges in En? (Vn? n T ) from the edges in
+En? (W1 [ W2) and En? (W1 [ W3); we just have to apply Lemma 11 instead of Lemma 10 and
+Lemma 13 instead of Lemma 12.
+    Now we have combined all edges, and thus, exploiting Lemma 16, we can immediately
+complete the proof of Theorem 4 by combining also all nodes.
+
+5 Computational Results
+We implemented a simple cutting plane procedure using a straightforward separation heuristic
+for the box inequalities. This heuristic algorithm for a xed simply consists of guessing initial
+
+                                                    15
+sets S and T and applying a 2-opt procedure in order to nd a violated inequality. Nevertheless,
+it usually detects many (i.e., hundreds) of violated inequalities if it is run several hundred times.
+This leads to another point where our implementation is quite preliminary. The criterion by
+which we select among the many detected violated inequalities a suitably small subset that
+should be added to the current linear program, is yet very primitive. We simply take those
+inequalities that are violated the most (regardless of any scaling or similar normalization).
+     Anyway this is not yet intended to be a sound computational study on the box inequalities.
+Such a study will need to involve extensive experiments with all kinds of parameters like the
+maximal number of violated inequalities that are added to the linear programs at one iteration,
+the number of runs of the separation procedure, the values of for which one searches violated
+inequalities, the criteria for selecting among the detected violated inequalities, di erent versions
+of the separation heuristic itself, and so on.
+     Initial computational experiments showed that restricting the search in our separation heuris-
+tic to 2-box inequalities mostly yielded better results than searching among all 4-box inequalities,
+and, restricting the search to the 1-box inequalities improved the results even more. Thus, we
+decided to do the preliminary computational experiments with restricting to 1-box inequalities.
+Furthermore, we just considered 2 f2; 3g. Finding good strategies for mixing 1-box, 2-box,
+and 4-box inequalities and for the choice of the values to be considered is one of the tasks for
+a thorough experimental study.
+     In our tests, the (maximal) number of added inequalities per cutting plane iteration was
+chosen to be 0:4 or 0:2 times the number of equations in the system yielding the symmetric
+equation bound, where we took the factor 0:4 for the smaller instances (n  16) and the factor
+0:2 for the larger ones (n  17). The linear programs become harder to solve as soon as that
+many inequalities are added. For example, for instances with n = 20 yielding 7640 equations we
+added up to 1518 inequalities per iteration that are also denser than the equations. Although
+we removed after each iteration the inequalities that were not satis ed with equality by the
+optimum solution to the last linear program, this led to very dicult linear programs. We could
+not succeed in solving the linear programs by the CPLEX simplex method. Hence, we solved at
+every iteration the linear program from the scratch using the CPLEX barrier optimizer.
+     The number of iterations that we run the cutting plane code varies from about 15 for the
+small instances (n = 12) to just two or three iterations for the large instances (n = 20). Our
+runs were usually stopped (unless the bounding procedure had yielded the optimum solution
+value) by the queuing system of the machine due to reaching some time limit, which was, due
+to problems with the queuing system, not always the same.
+     We have used as test set the instances of the QAPLIB of sizes n  20. They are all symmetric.
+The experiments were carried out on a Silicon Graphics Power Challenge machine. All linear
+programs were solved by the CPLEX 4.0 parallel barrier solver using four processors.
+     Tables 1, 2, and 3 show the results. SEQB stands for the symmetric equation bound, while
+the columns titled 1-box contain the statistics for using 1-box inequalities as cutting planes. The
+absolute value of the respective bound is denoted by bound, qual is the ratio of that bound and
+the optimal solution value (which is available from the literature for all instances of the QAPLIB
+of sizes up to n = 20), iter gives the number of linear programs solved, and time is the time
+our cutting plane procedure has run (in seconds). The nal column, titled gap reduced reports
+the part of the gap between the symmetric equation bound and the optimal solution value that
+could be closed by cutting planes. Figure 6 illustrates this.
+     The results show that the 1-box inequalities have the potential to improve the symmetric
+equation bound a lot towards the optimum solution value. For the smaller instances, where the
+time limits allowed several iterations, the 1-box inequalities often even yield the optimum solu-
+tion value. The most impressive gain of the bound quality is reached for the esc16 instances.
+While they are the instances with by far the worst (symmetric) equation bounds, even a few iter-
+
+                                                 16
+             name          SEQB                   1-box                     gap
+                       bound    qual    bound    qual iter           time reduced
+            chr12a       9552.0 1.000     9552.0 1.000   1             16.3 1.000
+            chr12b       9742.0 1.000     9742.0 1.000   1             16.1 1.000
+            chr12c      11156.0 1.000    11156.0 1.000   1             21.9 1.000
+            had12        1618.2 0.980     1652.0 1.000   3            435.2 1.000
+            nug12         520.6 0.901      576.3 0.997 13           23981.3 0.971
+            rou12      222212.0 0.943   235277.1 0.999 18           26541.8 0.981
+            scr12       29557.2 0.941    31410.0 1.000   5           1326.5 1.000
+            tai12a     220018.7 0.980   224416.0 1.000   3            371.9 1.000
+            tai12b   30581824.5 0.775 39464925.0 1.000   4            761.6 1.000
+            had14        2659.9 0.976     2724.0 1.000   4           2781.5 1.000
+            chr15a       9370.3 0.947     9896.0 1.000   7          25036.9 1.000
+            chr15b       7894.1 0.988     7990.0 1.000   3           2838.1 1.000
+            chr15c       9504.0 1.000     9504.0 1.000   1            105.5 1.000
+            nug15        1030.6 0.896     1129.4 0.982   6          19906.0 0.827
+            rou15      322944.5 0.912   340469.3 0.961   7          25315.5 0.561
+            scr15       48816.5 0.955    51140.0 1.000   4           5083.3 1.000
+            tai15a     351289.6 0.905   366465.9 0.944   7          25449.3 0.411
+            tai15b   51528935.0 0.995 51765268.0 1.000   7          17909.5 1.000
+    Table 1: Bounds for the instances with 12  n  15 obtained using 1-box inequalities.
+
+ations with 1-box cutting planes suced to obtain the optimum solution value (for all instances
+except esc16a). The running times of our preliminary implementation for these instances are
+mostly within the same order of magnitude of those needed by Clausen and Perregaard (1994),
+when they solved these instances for the rst time using a parallel system with 16 Intel i860
+processors.
+    The decrease of the quality of the cutting plane bound for the large instances is to some
+extent due to the fact that our time limits allowed only two or three cutting plane iterations for
+these instances. The running times of the cutting plane algorithm are rather large. However,
+by performing both the separation as well as the choice of the added inequalities more carefully,
+it should be possible to obtain the same or even better bounds by adding less inequalities, and
+hence, within much smaller computation times.
+    These results show that the 1-box inequalities have a quite strong potential as cutting planes.
+There are, as indicated, many points at which our preliminary cutting plane algorithm has to
+be modi ed in order to yield a more ecient way to exploit these inequalities. In any case,
+recalling, e.g., the fact that the esc16 instances remained unsolved until 1994 (and hence can be
+considered as hard instances for conventional branch-and-bound algorithms), the computational
+results show that spending e ort into this direction might yield new chances to solve quadratic
+assignment problems to optimality.
+
+6 Conclusion
+The most important conclusion one can draw from the results in this paper is, in our opinion, that
+cutting plane algorithms, based on polyhedral investigations, indeed can signi cantly contribute
+to the capability of solving quadratic assignment problems to optimality. From the theoretical
+point of view, the present investigation of the box inequalities shows that the techniques provided
+by the star-transformation give the possibility of doing deeper investigations of the quadratic
+assignment polytopes in a similar way as it was very successful for other NP -hard combinatorial
+optimization problems, like, e.g., the traveling salesman problem.
+
+                                                17
+               name         SEQB                        1-box              gap
+                        bound qual bound              qual iter     time reduced
+              esc16a       48.0 0.706     66.0       0.971 14      32797.2  0.900
+              esc16b      278.0 0.952    292.0       1.000    2      762.7  1.000
+              esc16c      118.0 0.738    160.0       1.000    4     4929.7  1.000
+              esc16d        4.0 0.250     16.0       1.000    6     3832.3  1.000
+              esc16e       14.0 0.500     28.0       1.000    5     4674.1  1.000
+              esc16g       14.0 0.538     26.0       1.000    2      847.8  1.000
+              esc16h      704.0 0.707    996.0       1.000    4     4886.0  1.000
+              esc16i        0.0 0.000     14.0       1.000    4     2987.5  1.000
+              esc16j        2.0 0.250      8.0       1.000    2      824.2  1.000
+              had16      3548.1 0.954   3716.8       0.999    8    23381.4  0.982
+              nug16a     1413.5 0.878   1567.0       0.973    8    19296.5  0.781
+              nug16b     1080.0 0.871   1208.2       0.974    5    16512.0  0.801
+              nug17      1490.8 0.861   1643.5       0.949    4    16007.2  0.633
+              tai17a   440094.4 0.895 454625.1       0.924    5    25606.4  0.281
+    Table 2: Bounds for the instances with 16  n  17 obtained using 1-box inequalities.
+
+    Elaborating the practical use of the box inequalities thoroughly (this was adressed in more
+detail in Section 5) and employing the cutting plane procedures into a branch-and-cut framework
+will probably improve the promising results that we reported on in Section 5 signi cantly.
+    Besides this and the search for other classes of (facet-de ning) inequalities, a large potential
+of the polyhedral approach lies in the exploitation of the sparsity of objective functions. We are
+currently working on extensions of the methods and results presented in this paper to certain
+projections of the quadratic assignment polytopes that are especially associated with instances
+that have many \dummy-objects" (like, e.g., the esc instances in the QAPLIB) or many pairs of
+objects that do not have any ow between each other (in the Koopmans/Beckmann formulation).
+Since many instances (at least in the QAPLIB) are very sparse in such a sense, the sizes of the
+linear programs will be signi cantly decreased by using the respective projections. Some rst
+results on the projected polytopes can be found in Kaibel (1997). This way there might be a
+great chance to push the limits for the exact solution of (sparse) quadratic assignment problems
+far beyond the current ones.
+
+References
+Adams, W. P. and Johnson, T. A. (1994). Improved linear programming-based lower bounds for
+  the quadratic assignment problem. In P. M. Pardalos and H. Wolkowicz, editors, Quadratic
+  Assignment and Related Problems , DIMACS Series in Discrete Mathematics and Theoretical
+  Computer Science, pages 43{75.
+Barvinok, A. I. (1992). Combinatorial complexity of orbits in representations of the symmetric
+  group. Advances in Soviet Mathematics , 9, 161{182.
+Berge, C. (1991). Graphs . Elsevier Science Publishers.
+Brungger, A., Clausen, J., Marzetta, A., and Perregaard, M. (1996). Joining forces in solving
+  large-scale quadratic assignment problems in parallel. Technical Report DIKU TR-23/96,
+  University of Copenhagen, Copenhagen.
+
+
+
+                                                18
+            name          SEQB                         1-box               gap
+                      bound    qual     bound         qual iter     time reduced
+          chr18a       10738.5 0.968     10947.1      0.986   5    22335.8  0.580
+          chr18b        1534.0 1.000      1534.0      1.000   1      507.5  1.000
+          had18         5071.1 0.946      5299.1      0.989   5    23367.8  0.795
+          nug18         1649.7 0.855      1809.3      0.937   5    19390.1  0.569
+          els19     16502856.8 0.959 17074680.9       0.992   3    17440.9  0.806
+          chr20a        2169.7 0.990      2172.4      0.991   2    22488.7  0.121
+          chr20b        2287.0 0.995      2294.8      0.999   2    13645.8  0.710
+          chr20c       14006.7 0.990     14033.2      0.992   2    14794.3  0.196
+          had20         6559.4 0.948      6731.6      0.972   2    22783.2  0.475
+          lipa20a       3683.0 1.000      3683.0      1.000   1     1145.0  1.000
+          lipa20b      27076.0 1.000     27076.0      1.000   1      935.5  1.000
+          nug20         2165.0 0.842      2313.5      0.900   3    17845.8  0.367
+          rou20       639678.3 0.882    649747.8      0.896   3    13143.1  0.117
+          scr20        94557.1 0.859     96561.8      0.878   3    15122.7  0.130
+          tai20a      614849.2 0.874    625941.4      0.890   3    34135.2  0.125
+          tai20b    84501939.9 0.690 104534175.0      0.854   2    10143.7  0.528
+    Table 3: Bounds for the instances with 18  n  20 obtained using 1-box inequalities.
+
+Burkard, R. E. and Cela, E. (1996). Quadratic and three-dimensional assignments: An annotated
+   bibliography. Technical report, Technische Universitat Graz. To appear in: M. Dell'Amico,
+   F. Maoli and S. Martello, \Annotated Bibliographies in Combinatorial Optimization".
+Burkard, R. E., Karisch, S. E., and Rendl, F. (1991). QAPLIB|a quadratic assignment problem
+   library. European Journal of Operations Research , 55, 115{119.
+Burkard, R. E., Karisch, S. E., and Rendl, F. (1996). QAPLIB|a quadratic assignment problem
+   library. Technical report, Technische Universitat Graz.
+Clausen, J. and Perregaard, M. (1994). Solving large scale quadratic assignment problems in
+   parallel. Technical Report DIKU TR-22/94, University of Copenhagen.
+Clausen, J., Espersen, T., Karisch, S. E., Perregaard, M., Sensen, N., and Tschoke, S. (1996).
+   Work in Progress.
+De Simone, C. (1989). The cut polytope and the boolean quadric polytope. Discrete Mathe-
+   matics , 79, 71{75.
+Deza, M. (1960). On the hamming geometry of unitary cubes. Doklady Akademii Nauk SSR ,
+   pages 1037{1040. English translation in: Soviet Physics Doklady 5 (1961) 940{943.
+Deza, M. (1973). Matrices de formes quadratique non negative pour des arguments binaires.
+   Comptes Rendus de l`Academie des Sciences de Paris , 277, 873{875.
+Deza, M. M. and Laurent, M. (1997). Geometry of Cuts and Metrics . Springer Verlag.
+Gilmore, P. C. (1962). Optimal and suboptimal algorithms for the quadratic assignment problem.
+   SIAM Journal on Applied Mathematics , 10, 305{313.
+Johnson, T. A. (1992). New Linear-Programming Based Solution Procedures for the Quadratic
+   Assignment Problem . Ph.D. thesis, Graduate School of Clemson University.
+Junger, M. and Kaibel, V. (1996). On the SQAP-polytope. Technical Report 96.241, Ange-
+   wandte Mathematik und Informatik, Universitat zu Koln.
+                                              19
+Junger, M. and Kaibel, V. (1997). The QAP-polytope and the star-transformation. Technical
+   Report 97.284, Universitat zu Koln.
+Kaibel, V. (1997). Polyhedral Combinatorics of the Quadratic Assignment Problem . Ph.D.
+   thesis, Universitat zu Koln.
+Kelly, J. B. (1975). Hypermetric Spaces . Springer, Berlin.
+Koopmans, T. C. and Beckmann, M. J. (1957). Assignment problems and the location of
+   economic activities. Econometrica , 25, 53{76.
+Lawler, E. L. (1963). The quadratic assignment problem. Management Science , 9, 586{599.
+Padberg, M. (1989). The boolean quadric polytope: Some characteristics and facets. Mathe-
+   matical Programming , 45{1, 139{172.
+Padberg, M. and Rijal, M. P. (1996). Location, Scheduling, Design and Integer Programming .
+   Kluwer Academic Publishers.
+Pardalos, P. M., Rendl, F., and Wolkowicz, H. (1994). The quadratic assignment problem: A
+   survey and recent developments. In P. M. Pardalos and H. Wolkowicz, editors, Quadratic
+   Assignment and Related Problems , DIMACS Series in Discrete Mathematics and Theoretical
+   Computer Science, pages 1{42.
+Resende, M. G. C., Ramakrishnan, K. G., and Drezner, Z. (1995). Computing lower bounds
+   for the quadratic assignment problem with an interior point solver for linear programming.
+   Operations Research , 43, 781{791.
+Rijal, M. P. (1995). Scheduling, Design and Assignment Problems with Quadratic Costs . Ph.D.
+   thesis, New York University.
+
+
+
+
+                                             20
+                                             21
+
+
+boxes) adding some 1-box inequalities.
+Figure 6: The qualities of the symmetric equation bounds with (black boxes) and without (gray
+            0.1
+
+
+                    0.2
+
+
+                            0.3
+
+
+                                    0.4
+
+
+                                            0.5
+
+
+                                                    0.6
+
+
+                                                            0.7
+
+
+                                                                    0.8
+
+
+                                                                            0.9
+
+
+                                                                                    1
+      chr12a
+      chr12b
+      chr12c
+      had12
+      nug12
+      rou12
+      scr12
+      tai12a
+      tai12b
+      had14
+      chr15a
+      chr15b
+      chr15c
+      nug15
+      rou15
+      scr15
+      tai15a
+      tai15b
+      esc16a
+      esc16b
+      esc16c
+      esc16d
+      esc16e
+      esc16g
+      esc16h
+      esc16i
+      esc16j
+      had16
+      nug16a
+      nug16b
+      nug17
+      tai17a
+      chr18a
+      chr18b
+      had18
+      nug18
+      els19
+      chr20a
+      chr20b
+      chr20c
+      had20
+      lipa20a
+      lipa20b
+      nug20
+      rou20
+      scr20
+      tai20a
+      tai20b
+

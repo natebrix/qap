@@ -1,0 +1,1082 @@
+                                           Mathematical Programming manuscript No.
+                                           (will be inserted by the editor)
+
+
+
+
+                                           The quadratic assignment problem: the linearization
+                                           of Xia and Yuan is weaker than the linearization of
+                                           Adams and Johnson
+                                           and a family of cuts to narrow the gap
+
+                                           Christine Huber · Wolfgang F. Riedl
+arXiv:1710.02472v2 [math.OC] 21 Dec 2017
+
+
+
+
+                                           Received: date / Accepted: date
+
+
+
+                                           Abstract The quadratic assignment problem is a well-known optimization
+                                           problem with numerous applications. A common strategy to solve it is to use
+                                           one of its linearizations and then apply the toolbox of mixed integer linear
+                                           programming methods. One measure of quality of a mixed integer formulation
+                                           is the quality of its linear relaxation.
+                                               In this paper, we compare two linearizations of the quadratic assignment
+                                           problem and prove that the linear relaxation of the linearization of Adams and
+                                           Johnson is contained in the linear relaxation of the linearization of Xia and
+                                           Yuan. We furthermore develop a Branch and Cut approach using the insights
+                                           obtained in the proof that enhances the linearization of Xia and Yuan via a
+                                           new family of cuts.
+                                           Keywords quadratic assignment problem · linearization · lift and project ·
+                                           linear relaxation
+                                           Mathematics Subject Classification (2010) MSC 52-B05 · MSC 05-C38
+
+
+                                           1 The quadratic assignment problem
+
+                                           The quadratic assignment problem is a well-known optimization problem which
+                                           has a long history, numerous applications and has obtained broad coverage
+                                           in the literature (see, e. g., [4,6,9,7,8,1]). Its aim is to find an optimal as-
+                                           signment P Φ : {1, . . . , n} → {1,P
+                                                                              . . . , n} with respect to a quadratic objective
+                                                       n                         n
+                                           function i,k=1 pik dΦ(i)Φ(k) + i=1 pi dΦ(i) , where pik ∈ R, dik ∈ R ∀i, k =
+
+                                           Wolfgang F. Riedl
+                                           Technische Universität München
+                                           Zentrum Mathematik
+                                           Boltzmannstraße 3
+                                           D - 85748 Garching b. München
+                                           Germany
+                                           E-mail: riedl@ma.tum.de
+2                                                               Christine Huber, Wolfgang F. Riedl
+
+
+1, . . . , n and di ∈ R ∀i = 1, . . . , n. A straightforward ILP formulation with
+non-linear objective function is presented in (1) – (4) using binary variables
+xij ∈ {0, 1} ∀i, j = 1, . . . , n with xij = 1 ⇔ Φ(i) = j ∀i, j = 1, . . . , n.
+
+                      n
+                      X                             n
+                                                    X
+              min               pik djl xij xkl +           pi dj xij                         (1)
+                    i,j,k,l=1                       i,j=1
+                                      n
+                                      X
+                         s.t.               xij = 1          ∀j = 1, . . . , n                (2)
+                                      i=1
+                                      Xn
+                                            xij = 1          ∀i = 1, . . . , n                (3)
+                                      j=1
+
+                                            xij ∈ {0, 1}           ∀i, j = 1, . . . , n       (4)
+
+    For convenience, the underlying set of all permutations of the set {1, . . . , n}
+will be summarized in the permutation matrix Xn :
+                   (                n
+                                   X
+             Xn = xij ∈ {0, 1} :       xij = 1     ∀j = 1, . . . , n
+                                             i=1
+                                             n
+                                                                                       )
+                                             X
+                                                   xij = 1         ∀i = 1, . . . , n
+                                             j=1
+
+If we relax the integrality requirement, we denote this by
+                     (              n
+                                   X
+             LXn = xij ∈ R≥0 :        xij = 1     ∀j = 1, . . . , n
+                                            i=1
+                                            n
+                                                                                   )
+                                            X
+                                                   xij = 1         ∀i = 1, . . . , n .
+                                            j=1
+
+The objective function’s coefficients will be denoted by matrices
+
+                    D = (di,k )i,k=1,...,n and P = (pi,k )i,k=1,...,n .
+
+    To solve the Quadratic Assignment Problem, a variety of methods can be
+used. One common approach is to use an equivalent linear formulation of the
+problem and then apply the vast toolbox of Mixed Integer Linear Programming
+methods. Many linearizations of the QAP have been proposed [2,10,5,11,8,1].
+Two which are frequently used will be presented in more detail in Sec. 2. In
+Sec. 3 we will compare the quality of both linearizations, using their respective
+linear relaxation. We will use a Lift-And-Project approach to prove that one
+of them is superior to the other. Using the theoretical insights obtained in
+the proof, we will present a new family of valid inequalities for the quadratic
+assignment problem in Sec. 4.
+Title Suppressed Due to Excessive Length                                                       3
+
+
+2 Linearizations of the QAP
+
+In the following section, two linearizations of the quadratic assignment problem
+are presented: the linearization of Adams and Johnson and the linearization
+of Xia and Yuan.
+
+
+2.1 The linearization of Adams and Johnson
+
+The linearization of Adams and Johnson was introduced by [2]. It replaces the
+objective function’s nonlinear term xij xkl by a new variable yijkl and can be
+regarded as the result of a Lift-And-Project procedure.
+   To ensure the relationship
+                                          yijkl = xij xkl ,                                  (5)
+three families of linear constraints are introduced. The resulting MILP has
+O(n4 ) linear variables, O(n2 ) binary variables and O(n4 ) constraints.
+
+                      n
+                      X                           n
+                                                  X
+              min               pik djl yijkl +           pi dj xij                          (6)
+                    i,j,k,l=1                     i,j=1
+                                  n
+                                  X
+                     s.t.               yijkl = xkl           ∀j, k, l = 1, . . . , n        (7)
+                                  i=1
+                                  Xn
+                                        yijkl = xkl           ∀i, k, l = 1, . . . , n        (8)
+                                  j=1
+
+                                        yijkl = yklij          ∀i, j, k, l = 1, . . . , n    (9)
+                                           x ∈ Xn                                           (10)
+                                        yijkl ≥ 0          ∀i, j, k, l = 1, . . . , n       (11)
+For coefficient matrices D, P ∈ Rn×n , we will denote (6) – (11) by AJ(D, P ),
+and its linear relaxation where x ∈ LXn by LAJ(D, P ).
+   Albeit its increase in variable and constraint size, the linearization is often
+used due to its good bounds.
+Remark 1 Note that the introduction of yijkl is only meaningful if i 6= k
+and j 6= l. The index sets of yijkl and constraints (7), (8), (9), (11) are to be
+adjusted accordingly. For the sake of readability, we will omit these restrictions
+in the following.
+
+
+2.2 The linearization of Xia and Yuan
+
+A different kind of linearization was introduced by [10], based on the previous
+work of [5].
+          PBy  factorizing the nonlinear objective function, they substitute   the
+             n                                                          Pn
+term xij · k,l=1 pik djl xkl = zij , which yields the objective function i,j=1 zij .
+4                                                                      Christine Huber, Wolfgang F. Riedl
+
+
+    To ensure the equation
+                                                 n
+                                                 X
+                                       xij ·           pik djl xkl = zij                             (12)
+                                               k,l=1
+
+one uses two “Big-M” constraints with constants
+                                           n
+                                           X
+                        uij = max                 pik djl xkl      ∀i, j = 1, . . . , n              (13)
+                                 x∈Xn
+                                          k,l=1
+
+and
+                                          n
+                                          X
+                        lij = min                 pik djl xkl     ∀i, j = 1, . . . , n.              (14)
+                                x∈Xn
+                                         k,l=1
+Then                                             n
+                                                 X
+               zij ≥ uij (xij − 1) +                     pik djl xkl      ∀i, j = 1, . . . , n
+                                                 k,l=1
+
+ensures the validity of (12) if xij = 1. To strengthen the linearization’s linear
+relaxation, [10] additionally introduced
+                                zij ≥ lij xij              ∀i, j = 1, . . . , n.
+The resulting linearization only uses O(n2 ) linear and binary variables as well
+as O(n2 ) constraints. It is therefore smaller than the linearization of Adams
+and Johnson, however its linear relaxation usually is also worse.
+               n
+               X             n
+                             X
+       min           zij +           pi dj xij                                                       (15)
+             i,j=1           i,j=1
+
+        s.t.         zij ≥ lij xij    ∀i, j = 1, . . . , n                                           (16)
+                                            Xn
+                     zij ≥ uij (xij − 1) +       pik djl xkl                  ∀i, j = 1, . . . , n   (17)
+                                                   k,l=1
+
+                      x ∈ Xn                                                                         (18)
+We denote (15) – (18) for given coefficients D, P ∈ Rn×n by XY (D, P ), and
+the corresponding linear relaxation where x ∈ LXn by LXY (D, P ).
+
+
+3 A comparison of both linearizations
+
+In the following section, we will compare the two aforementioned lineariza-
+tions with regard to the quality of their linear relaxations. To do so, we will
+use a Lift-And-Project approach as presented by [3]. After a short recap of
+the process (for the corresponding proofs we refer to [3]), we will apply it
+to the linearizations. Subsequently, we will prove this section’s main result:
+the linear relaxation of the linearization of Adams and Johnson LAJ(D, P )
+will be proven to be better than the one of the linearization of Xia and Yuan
+LXY (D, P ).
+Title Suppressed Due to Excessive Length                                             5
+
+
+3.1 Theory on Lift-And-Project to compare linear formulations
+
+Assume two linear formulations P and Q to the same problem, P being defined
+on variables z, x and Q on variables y, x. If there is an affine relationship
+between variables z and y of the form z = T y + e with suitable matrix T and
+vector e, we can compare both formulations. To compare both polyhedra, we
+can lift one of them (e. g. Q) in a common variable space (z, x, y) and then
+project it to the space of the second (P ).
+   Assume x ∈ Rp , y ∈ Rq and z ∈ Rm and let X ⊂ Rp . Let furthermore
+
+                  P = (x, z) ∈ Rp+m : Ax + Bz ≤ a, x ∈ X
+                     
+
+
+where A ∈ Rl1 ×p , B ∈ Rl1 ×m , a ∈ Rl1 for some l1 ∈ N and
+
+          Q = (x, y) ∈ Rp+q : Cx + Dy = b, Ey = c, F y ≤ d, x ∈ X
+             
+
+
+where C ∈ Rl2 ×p , D ∈ Rl2 ×q , b ∈ Rl2 , E ∈ Rl3 ×q , c ∈ Rl3 , F ∈ Rl4 ×q , d ∈ Rl4
+for l2 , l3 , l4 ∈ N and assume that there exist T ∈ Rm×q , e ∈ Rm such that
+
+                                    z = T y + e.
+
+   Then an extended formulation Q+ of Q in variables space (x, y, z) is
+
+                           Q+ = {(x, y, z) ∈ Rp+q+m :
+                                  −T y + z = e
+                                  Cx + Dy = b
+                                           Ey = c
+                                           Fy ≤ d
+                                            x ∈ X} .
+
+   To project Q+ down into variable space (x, z), we need the corresponding
+projection cone
+
+                  W = (v, w1 , w2 , w3 ) ∈ Rm+l2 +l3 +l4 :
+                     
+
+                                       vT = w1 D + w2 E + w3 F
+                                       w3 ≥ 0} .
+
+   Then the projection of Q+ into (x, z) is
+
+  Projx,z (Q+ ) = {(x, z) ∈ Rp+m :
+                vz + w1 C ≤ ve + w1 b + w2 c + w3 d        ∀(v, w1 , w2 , w3 ) ∈ W
+                        x ∈ X} .
+6                                                            Christine Huber, Wolfgang F. Riedl
+
+
+3.2 Comparison of LAJ(D, P ) and LXY (D, P )
+
+We can now apply the above theory to the two linearizations of the quadratic
+assignment problem. Recall that variables yijkl and the respective constraints
+of LAJ(D, P ) are only defined for i 6= k, j 6= l which is not explicitly stated
+to preserve readability. Consider
+                                                             2
+                   LXY (D, P ) = {(x, z) ∈ R2n :
+                            −zij + lij xij ≤ 0                   ∀i, j = 1, . . . , n
+                            n
+                            X
+           −zij + uij xij +    pik djl xkl ≤ uij                   ∀i, j = 1, . . . , n
+                               k,l=1
+
+                                                   x ∈ LXn }
+
+the linearization of Xia and Yuan and
+                                                    2    4
+              LAJ(D, P ) = {(x, y) ∈ Rn +n :
+                   Xn
+                        yijkl − xkl = 0   ∀j, k, l = 1, . . . , n
+                        i=1
+                        n
+                        X
+                              yijkl − xkl = 0            ∀i, k, l = 1, . . . , n
+                        j=1
+
+                           yijkl − yklij = 0             ∀i, j, k, l = 1, . . . , n
+                                 −yijkl ≤ 0              ∀i, j, k, l = 1, . . . , n
+                                         x ∈ LXn }
+
+the linearization of Adams and Johnson. From (12) and (5) we can derive the
+linear relationship
+                              n
+                              X
+                   zij =           pik djl yijkl        ∀i, j = 1, . . . , n
+                           k,l=1
+
+and thus obtain an extended formulation of the linearization of Adams and
+Johnson
+                                              2     4
+      LAJ(D, P )+ = {(x, y, z) ∈ R2n +n :
+               Xn
+         zij −     pik djl yijkl = 0  ∀i, j = 1, . . . , n                                (αij )
+                k,l=1
+                 X n
+                                                                                          1
+                        yijkl − xkl = 0            ∀j, k, l = 1, . . . , n              (βjkl )
+                  i=1
+                 n
+                 X
+                                                                                          2
+                        yijkl − xkl = 0            ∀i, k, l = 1, . . . , n              (βikl )
+                 j=1
+
+                    yijkl − yklij = 0              ∀i, j, k, l = 1, . . . , n           (γijkl )
+Title Suppressed Due to Excessive Length                                                           7
+
+
+                             −yijkl ≤ 0        ∀i, j, k, l = 1, . . . , n
+                                   x ∈ LXn }
+
+                                                      1                                 2
+   Using multipliers αij ∈ R ∀i, j = 1, . . . , n, βjkl   ∈ R ∀j, k, l = 1, . . . , n, βikl ∈
+R ∀i, k, l = 1, . . . , n and γijkl ∈ R ∀i, j, k, l = 1, . . . , n as denoted in the pro-
+gram, we yield the projection cone
+                             4   3  2
+  W = (α, β 1 , β 2 , γ) ∈ Rn +2n +n :
+     
+
+                              1      2
+               pik djl αij ≤ βjkl + βikl + γijkl − γklij            ∀i, j, k, l = 1, . . . , n .
+
+One can simplify this to
+                                4   3  2
+     W = (α, β 1 , β 2 , γ) ∈ Rn +2n +n :
+        
+
+                                 1      2
+                  pik djl αij ≤ βjkl + βikl + γijkl         ∀i, j, k, l = 1, . . . , n       (19)
+                        γijkl = −γklij       ∀i, j, k, l = 1, . . . , n}                     (20)
+
+with corresponding projection of the extended formulation to variable space
+(x, z)
+                                                                2
+              Projx,z (LAJ(D, P )+ ) = {(x, z) ∈ R2n :
+    n            n      n        n
+                                         !
+    X           X      X         X
+                           1          2
+      αij zij −           βlij +     βkij xij ≤ 0     ∀(α, β 1 , β 2 , γ) ∈ W
+    i,j=1           i,j=1   l=1        k=1
+
+                                                       x ∈ LXn }
+
+    One imminent question is now whether one can conclude that one of both
+linearizations has a tighter linear relaxation. And in fact, one can:
+
+Theorem 1 Let D, P ∈ Rn×n coefficient matrices, and denote by LXY (D, P )
+the linear relaxation of the Xia-Yuan linearization, and by LAJ(D, P ) the
+linear relaxation of the Adams-Johnson linearization. Then
+
+                              LAJ(D, P ) ⊆ LXY (D, P ).
+
+
+
+    To prove Thm. 1 we will show that both defining inequalities of the Xia-
+Yuan linearization can be derived from the projected Adams-Johnson lin-
+earization. Therefore we conclude that the latter is tighter.
+
+Lemma 1 Let a, b ∈ {1, . . . , n}. Inequality
+
+                                       zab ≥ lab xab
+
+is contained in Projx,z (LAJ(D, P )+ ).
+8                                                              Christine Huber, Wolfgang F. Riedl
+
+
+Proof The statement to prove is equivalent to the proposition that there exist
+(α, β 1 , β 2 , γ) ∈ W such that
+                      n           n n         n
+                                                    !
+                     X            X X        X
+                                        1         2
+                        αij zij −     βlij +    βkij xij ≤ 0
+                   i,j=1             i,j=1    l=1            k=1
+
+is equivalent to
+                                          zab ≥ lab xab .
+   The multipliers in question are
+           (
+             −1 if (i, j) = (a, b)
+ – αij =                                        ∀i, j = 1, . . . , n
+             0      otherwise
+    1
+ – βlij  =0       ∀l, i, j = 1, . . . , n, (i, j) 6= (a, b)
+    2
+ – βkij = 0        ∀k, i, j = 1, . . . , n, (i, j) 6= (a, b)
+             
+             
+              0            if (i, j) 6= (a, b), (k, l) 6= (a, b)
+ – γijkl = −pak dbl if (i, j) = (a, b)                                         ∀i, j, k, l = 1, . . . , n
+             
+               pai dbj      if (k, l) = (a, b)
+             
+    1      2
+ – βlab , βkab where
+                                       1        2
+                           −pak dbl ≤ βlab + βkab    ∀k, l = 1, . . . , n
+                                       n          n
+                                      X
+                                            1
+                                                  X
+                                                     2                                               (21)
+                             −lab =        βlab +   βkab
+                                        l=1            k=1
+                  1      2
+The existence of βlab , βkab such that (21) is valid will be shown in Lemma 2.
+    1   2
+(α, β , β , γ) as defined are contained in the projection cone, as shown by
+verifying (19) for all cases (equation (20) is valid by inspection):
+ – (i, j) = (a, b), (k, l) 6= (a, b) :
+                                                          1      2
+              pak dbl αab = −pak dbl ≤ 0 + 0 − pak dbl = βbkl + βakl + γabkl
+ – (i, j) 6= (a, b), (k, l) = (a, b) :
+                                                         1      2
+                 pia djb αij = 0 = −pai dbj + pai dbj ≤ βjab + βiab + γijab
+ – (i, j) 6= (a, b), (k, l) 6= (a, b) :
+                                                      1      2
+                       pik djl αij = 0 ≤ 0 + 0 + 0 = βjkl + βikl + γijkl
+Furthermore the resulting inequality is equivalent to the desired constraint of
+the linearization of Xia and Yuan:
+                  n            n    n          n
+                                                      !
+                 X             X   X          X
+                                         1         2
+                     αij zij −         βlij +    βkij xij =
+                   i,j=1             i,j=1    l=1            k=1
+                                              n              n
+                                                                          !
+                                              X              X
+                                                     1              2
+                                −zab −              βlab +         βkab       xab =
+                                              l=1            k=1
+                                                             −zab + lab xab ≤ 0
+Title Suppressed Due to Excessive Length                                                     9
+
+
+   The existence of coefficients as required in (21) can be verified as follows.
+                                                            1      2
+Lemma 2 Let a, b ∈ {1, . . . , n}. There exist multipliers βlab , βkab ∈ R such
+that
+                                 1        2
+                     −pak dbl ≤ βlab + βkab    ∀k, l = 1, . . . , n
+                                Xn          n
+                                            X
+                                      1        2
+                       −lab =        βlab +   βkab ,
+                                        l=1          k=1
+
+where lab is as defined in (14).
+Proof Let a, b ∈ {1, . . . , n} and consider the following linear program with
+associated dual variables:
+               Xn
+          min      pak dbl xkl
+               k,l=1
+                           n
+                           X
+                                                                                     1
+              s.t.               xkl = 1         ∀l = 1, . . . , n                 (βlab )
+                           k=1
+                           Xn
+                                                                                    2
+                                 xkl = 1         ∀k = 1, . . . , n                (βkab )
+                           l=1
+                                 xkl ≥ 0         ∀k, l = 1, . . . , n
+Its dual has the form
+                     n              n
+                                                 !
+                     X              X
+                            1              2
+            max            βlab +         βkab
+                     l=1            k=1
+                                    1      2
+                        s.t.       βlab + βkab ≤ pak dbl             ∀k, l = 1, . . . , n
+The primal problem is a linear assignment problem with total unimodular
+matrix, thus there exists an optimal integral solution with value (by definition)
+lab . The corresponding optimal dual solution therefore satisfies
+                 n          n
+                                  !
+                 X         X
+                     1          2
+                    βlab +    βkab = lab
+                  l=1             k=1
+                                  1      2
+                                 βlab + βkab ≤ pak dbl            ∀k, l = 1, . . . , n
+An inversion of the dual solution yields the required result.
+   The first inequality of the linearization of Xia and Yuan has been shown
+to be deducable from the projection of Adams and Johnson. For the second
+inequality the same result can be shown.
+Lemma 3 Let a, b ∈ {1, . . . , n}. Inequality
+                                                           n
+                                                           X
+                           zab ≥ uab (xab − 1) +                pak dbl xkl
+                                                        k,l=1
+
+is contained in Projx,z (LAJ(D, P )+ ).
+10                                                           Christine Huber, Wolfgang F. Riedl
+
+
+Proof As in the proof of Lemma 1 the statement to prove is equivalent to the
+proposition that there exist (α, β 1 , β 2 , γ) ∈ W such that
+                 n             n        n           n
+                                                          !
+                X             X        X            X
+                                              1        2
+                    αij zij −                βlij +   βkij xij ≤ 0
+                   i,j=1            i,j=1    l=1         k=1
+
+is equivalent to
+                                                      n
+                                                      X
+                           zab ≥ uab (xab − 1) +             pak dbl xkl .
+                                                     k,l=1
+   The multipliers are
+          (
+            −1 if (i, j) = (a, b)
+ – αij =                                     ∀i, j = 1, . . . , n
+            0      otherwise
+          
+          
+            0              if (i, j) = (a, b)
+               pai dbj
+          
+          − 2              if i 6= a, j 6= b, l = b
+          
+          
+          
+    1
+ – βlij = 0                 if i 6= a, j 6= b, l 6= b       ∀l, i, j = 1, . . . , n
+          
+             see below i = a, j 6= b
+          
+          
+          
+          
+          
+          see below i 6= a, j = b
+           
+           
+            0               if (i, j) = (a, b)
+                pai dbj
+           
+           − 2              if i 6= a, j 6= b, k = a
+           
+           
+           
+    2
+ – βkij = 0                  if i 6= a, j 6= b, k 6= a        ∀k, i, j = 1, . . . , n
+           
+           see below i = a, j 6= b
+           
+           
+           
+           
+           see below i 6= a, j = b
+                       1     2
+ – Let d 6= b and βlad   , βkad    where
+                           pak dbl    1       2
+                                   ≤ βlad + βkad    ∀k, l = 1, . . . , n
+                             2
+                              uab X 1
+                                      n         Xn                                        (22)
+                                                    2
+                                   =     βlad +    βkad
+                               2
+                                      l=1          k=1
+                   1      2
+ – Let c 6= a and βlcb , βkcb where
+                           pak dbl    1        2
+                                   ≤ βlcb + βkcb    ∀k, l = 1, . . . , n
+                             2
+                              uab X 1
+                                      n          n
+                                                 X                                        (23)
+                                                    2
+                                   =      βlcb +   βkcb
+                               2
+                                       l=1         k=1
+             
+             
+              0             if (i, j) = (a, b)
+             
+             
+             
+              0             if (k, l) = (a, b)
+              pai dbj
+             
+             − 2            if k = a, l 6= b
+             
+             
+                pak dbl
+ – γijkl =       2           if i = a, j 6= b
+                p d
+               − ai2 bj      if k 6= a, l = b
+             
+             
+             
+             
+              pak dbl
+             
+                            if i 6= a, j = b
+              2
+             
+             
+               0             otherwise
+Title Suppressed Due to Excessive Length                                                                      11
+
+
+   For the existence of multipliers for which (22) and (23) hold we refer to
+Lemma 4. (α, β 1 , β 2 , γ) as defined above are contained in the projection cone,
+as proven by checking constraints (19) of the projection cone (requirement
+(20) is valid by inspection):
+ – (i, j) = (a, b), (k, l) 6= (a, b) :
+                                            pak dbl   pak dbl        1      2
+         pak dbl αab = −pak dbl ≤ −                 −         + 0 = βbkl + βakl + γabkl
+                                              2         2
+ – Let d 6= b and (i, j) = (a, d), (k, l) 6= (a, b) :
+                                            pak dbl   pak dbl    1      2
+             pak ddl αad = 0 ≤ 0 −                  +         = βdkl + βakl + γadkl
+                                              2         2
+ – Let c 6= a and (i, j) = (c, b), (k, l) 6= (a, b) :
+                                      pak dbl     pak dbl    1      2
+             pck dbl αcb = 0 ≤ −              +0+         = βbkl + βckl + γcbkl
+                                        2           2
+ – (i, j) 6= (a, b), (k, l) = (a, b) :
+                                                    1      2
+                     pia djb αij = 0 ≤ 0 + 0 + 0 = βjab + βiab + γijab
+ – Let d 6= b and (i, j) 6= (a, b), (k, l) = (a, d) :
+                                          pai dbj   pai dbj    1      2
+                pia djd αij = 0 =                 −         ≤ βjad + βiad + γijad
+                                            2         2
+ – Let c 6= a and (i, j) 6= (a, b), (k, l) = (c, b) :
+                                          pai dbj   pai dbj    1      2
+                 pic djb αij = 0 =                −         ≤ βjcb + βicb + γijcb
+                                            2         2
+ – i 6= a, j 6= b, k 6= a, l 6= b :
+                                                    1      2
+                     pik djl αij = 0 ≤ 0 + 0 + 0 = βjkl + βikl + γijkl
+    Furthermore
+                                               n                    n       n              n
+                                                                                                        !
+                                               X                    X       X              X
+                                                                                   1              2
+                                                     αij zij −                    βlij +         βkij       xij =
+                                             i,j=1                 i,j=1    l=1            k=1
+                    n                      n
+                                                        !             n                    n
+                                                                                                        !
+                  X X                      X                        X X                    X
+                                1                 2                                1              2
+−zab − 0xab −                  βlad +            βkad       xad −                 βlcb +         βkcb       xcb
+                  d6=b   l=1               k=1                      c6=a    l=1            k=1
+                                                                            n              n
+                                                                                                        !
+                                                                  X         X              X
+                                                                                   1              2
+                                                            −                     βlij +         βkij       xij =
+                                                                i6=a,j6=b   l=1            k=1
+                                u               uab        X  uab        X  uab 
+                                      ab
+           −zab + uab xab −                +           xab −           xad −              xcb
+                                      2           2               2                  2
+                                                             d6=b            c6=a
+                                                              X  pai dbj       pai dbj
+                                                                                        
+                                                          −         −        −            xij =
+                                                                         2        2
+                                                                i6=a,j6=b
+12                                                                    Christine Huber, Wolfgang F. Riedl
+
+                                                                  n                         n 
+                                                                  X   uab                   X   uab 
+                                        −zab + uab xab −                             xad −                  xcb
+                                                                            2                c=1
+                                                                                                       2
+                                                                  d=1
+                                                                                       X
+                                                                                 −               (−pai dbj ) xij =
+                                                                                     i6=a,j6=b
+                                                                       u 
+                                                                            ab
+                                                                                         X
+                                          −zab + uab xab − 2                     +                 (pai dbj ) xij ≤ 0
+                                                                            2
+                                                                                       i6=a,j6=b
+
+
+     Again, coefficients as required in (22) and (23) exist.
+
+Lemma 4 Let a, b ∈ {1, . . . , n} and consided uab as defined in (13). For d 6= b
+             1      2
+there exist βlad , βkad ∈ R such that
+
+                         pak dbl    1       2
+                                 ≤ βlad + βkad    ∀k, l = 1, . . . , n
+                           2
+                                    n          n
+                            uab X 1           X
+                                                  2
+                                 =     βlad +    βkad .
+                             2
+                                        l=1              k=1
+
+                        1      2
+For c 6= a there exist βlcb , βkcb ∈ R such that
+
+                         pak dbl    1        2
+                                 ≤ βlcb + βkcb    ∀k, l = 1, . . . , n
+                           2
+                                    n          n
+                            uab X 1            X
+                                                  2
+                                 =      βlcb +   βkcb .
+                             2
+                                        l=1              k=1
+
+
+Proof Let a, b ∈ {1, . . . , n} and consider the following linear program with
+associated dual variables:
+                  n
+                  X pak dbl
+           max              xkl
+                      2
+                 k,l=1
+                                n
+                                X
+                                                                                               1
+                 s.t.                 xkl = 1           ∀l = 1, . . . , n                    (βlab )
+                                k=1
+                                Xn
+                                                                                               2
+                                      xkl = 1           ∀k = 1, . . . , n                    (βkab )
+                                l=1
+                                      xkl ≥ 0           ∀k, l = 1, . . . , n
+
+Its dual has the form
+                        n              n
+                                                    !
+                        X              X
+                               1              2
+             min              βlab +         βkab
+                        l=1            k=1
+
+                                       1      2             pak dbl
+                         s.t.         βlab + βkab ≥                         ∀k, l = 1, . . . , n
+                                                              2
+Title Suppressed Due to Excessive Length                                         13
+
+
+The primal problem is a linear assignment problem with total unimodular
+matrix, thus there exists an optimal integral solution with value (by definition)
+uab
+ 2 . The corresponding optimal dual solution therefore satisfies
+
+                n           n
+                                  !
+               X
+                     1
+                           X
+                                2       uab
+                   βlab +     βkab =
+                                         2
+                l=1         k=1
+
+                            1      2        pak dbl
+                           βlab + βkab ≥                  ∀k, l = 1, . . . , n
+                                              2
+For d 6= b
+                                       (
+                                            1
+                               1           βlab   if l 6= b
+                              βlad =        1
+                                           βdab   if l = b
+                               2      2
+                              βkad = βkab
+
+yields the required coefficients, for c 6= a
+                                1     1
+                              βlcb = βlab
+                                     (
+                                        2
+                               2       βkab       if k 6= a
+                              βkcb =    2
+                                       βcab       if k = a
+
+is a valid choice.
+
+Proof (Thm. 1) As both defining inequalities of the linearization of Xia and
+Yuan are contained in the projection of the linearization of Adams and Johnson
+by Lemma 1 and 3, the latter is contained in the former.
+
+Remark 2 Remark that we have indeed proven a slightly stronger result: The
+linear relaxation of Adams and Johnson is not only better than the one of
+Xia and Yuan, the polytope LAJ(D, P ) is in fact contained in the polytope
+of LXY (D, P ).
+
+
+4 New valid inequalities for the linearization of Xia and Yuan
+
+One main questions arising from Thm. 1 is whether one can use the result
+to improve the solution performance of the linearization of Xia and Yuan. In
+practical experiments using a Branch and Bound approach, this linearization
+tends to provide a small formulation with fast solution times of each linear
+program; however its weak linear relaxation yields many nodes to search. It
+is therefore not superior to the linearization of Adams and Johnson, which
+exhibits a bigger formulation and resulting slower solution of the linear pro-
+grams; however this effect is countermanded by the reduced number of nodes
+to solve which originates in its better linear bound.
+    In the following, we will therefore investigate whether the projected in-
+equalities of the linearization of Adams and Johnson can be used to strengthen
+14                                                                    Christine Huber, Wolfgang F. Riedl
+
+
+the linear relaxation of the linearization of Xia and Yuan. Let in the following
+x⋆ , z ⋆ ∈ LXY (D, P ) denote an optimal solution of the linear relaxation of Xia
+and Yuan. The separation problem for given x⋆ , z ⋆ ∈ LXY (D, P )
+
+                                 n                   n          n              n
+                                                                                            !
+                                 X                   X          X              X
+                                              ⋆                        1              2
+                max                      αij zij −                    βlij +         βkij       x⋆ij
+           (α,β 1 ,β 2 ,γ)∈W
+                                 i,j=1               i,j=1      l=1            k=1
+
+                                                                                     4
+is equivalent to verifying whether there exist yijkl ∈ Rn such that the ex-
+tended formulation of Adams and Johnson LAJ(D, P )+ |x=x⋆ ,z=z⋆ with fixed
+variables x, z is non-empty. If there exist yijkl , the separation problem’s ob-
+jective value is not greater than 0. If on the other hand there are no such
+variables yijkl , the separation problem is unbounded (i. e. there is a violated
+inequality, and as W is a cone the inequality can be scaled arbitrarily).
+    As the separation therefore is equivalent to computing the solution of the
+linearization of Adams and Johnson, we turn to the investigation of subclasses
+of inequalities defined by the projection. A suitable class of inequalities with a
+corresponding efficient separation method might provide a means to strengthen
+the linear relaxation without incorporating the complete complexity of the
+linearization of Adams and Johnson. One class of inequalities reveals itself as
+a generalization of (16), derived from the idea used in the proof of Lemma 1.
+
+Theorem 2 Let a, b ∈ {1, . . . , n}, (x⋆ , z ⋆ ) ∈ LXY (D, P ) a solution of the
+relaxed linearization of Xia and Yuan and consider the optimal dual solution
+                            2
+   1     2
+(βlab , βkab , δkl ) ∈ R2n+n to
+
+                     n
+                     X
+      sep = min              pak dbl xkl
+                     k,l=1
+                                 n
+                                 X
+                                                                                                     1
+              s.t.           −         xkl = −x⋆ab              ∀l = 1, . . . , n                  (βlab )
+                                 k=1
+                                 Xn
+                                                                                                     2
+                             −         xkl = −x⋆ab              ∀k = 1, . . . , n                  (βkab )
+                                 l=1
+                                    xkl ≥ 0    ∀k, l = 1, . . . , n
+                                            ⋆
+                                   −xkl ≥ −xkl     ∀k, l = 1, . . . , n                                (δkl )
+
+Then the inequality
+
+                              n               n
+                                                            !
+                              X               X                            X
+                                     1                2
+             zab ≥ −                βlab +           βkab       xab −                    δkl xkl                (24)
+                              l=1             k=1                       (k,l)6=(a,b)
+
+
+is valid for the QAP. Furthermore, it is violated by (x⋆ , z ⋆ ) if and only if
+        ⋆
+sep > zab .
+Title Suppressed Due to Excessive Length                                                                      15
+
+
+Proof Let a, b ∈ {1, . . . , n}, (x⋆ , z ⋆ ) ∈ LXY (D, P ) a valid point to the lin-
+                                                                                    2
+                                                            1    2
+earization and consider the optimal dual solution (βlab       , βkab , δkl ) ∈ R2n+n
+to
+                        n
+                        X
+        sep = min               pak dbl xkl
+                        k,l=1
+                                    n
+                                    X
+                                                                                                1
+                 s.t.           −         xkl = −x⋆ab        ∀l = 1, . . . , n                (βlab )
+                                    k=1
+                                    Xn
+                                                                                               2
+                                −         xkl = −x⋆ab        ∀k = 1, . . . , n               (βkab )
+                                    l=1
+                                          xkl ≥ 0       ∀k, l = 1, . . . , n
+                                     −xkl ≥ −x⋆kl           ∀k, l = 1, . . . , n               (δkl )
+
+For the dual solution we can state that
+                      n         n
+                                        !
+                     X         X                                X
+                          1         2
+  sep = max −x⋆ab       βlab +     βkab   −                                 x⋆kl δkl
+                            l=1               k=1            (k,l)6=(a,b)
+                                             1      2
+                          s.t.            − βlab − βkab ≤ pak dbl + δkl                ∀k, l = 1, . . . , n
+                                                    δkl ≥ 0          ∀k, l = 1, . . . , n
+                                             1      2
+By combining the dual solution βlab              , βkab , δkl as defined with the following
+multipliers
+           (
+             −1 if (i, j) = (a, b)
+ – αij =                                        ∀i, j = 1, . . . , n
+             0      otherwise
+    1
+ – βlij  =0       ∀l, i, j = 1, . . . , n, (i, j) 6= (a, b), l 6= b
+    2
+ – βkij  =0        ∀k, i, j = 1, . . . , n, (i, j) 6= (a, b), k 6= a
+    1        2
+ – βlij + βkij = δij        ∀i, j = 1, . . . , n, (i, j) 6= (a, b), (k, l) = (a, b)
+             
+             0
+                                  if (i, j) 6= (a, b), (k, l) 6= (a, b)
+ – γijkl = −pak dbl − δkl if (i, j) = (a, b)                                  ∀i, j, k, l = 1, . . . , n
+             
+               pai dbj + δij       if (k, l) = (a, b)
+             
+    1      2
+ – βlab , βkab as above
+we obtain a collection (α, β 1 , β 2 , γ) that is contained in the projection cone W
+as shown by verification of (19):
+ – (i, j) = (a, b), (k, l) 6= (a, b) :
+                                                            1      2
+            pak dbl αab = −pak dbl = δkl − pak dbl − δkl = βbkl + βakl + γabkl
+
+ – (i, j) 6= (a, b), (k, l) = (a, b) :
+                                                              1      2
+          pia djb αij = 0 = −pai dbj − δij + pai dbj + δij ≤ βjab + βiab + γijab
+16                                                                  Christine Huber, Wolfgang F. Riedl
+
+
+ – (i, j) 6= (a, b), (k, l) 6= (a, b) :
+
+                                                    1      2
+                     pik djl αij = 0 ≤ 0 + 0 + 0 = βjkl + βikl + γijkl
+
+Equation (20) of the projection is trivially valid. The resulting projected in-
+equality is
+
+                              n                     n           n              n
+                                                                                            !
+                              X                     X           X              X
+                                                                       1              2
+                                        αij zij −                     βlij +         βkij       xij =
+                              i,j=1                 i,j=1       l=1            k=1
+                   n              n
+                                               !
+                   X              X                             X
+                          1              2                                   1      2
+                                                                                        
+       −zab −            βlab +         βkab       xab −                    βbij + βaij   xij =
+                   l=1            k=1                       (i,j)6=(a,b)
+                                  n                n
+                                                                !
+                                  X                X                           X
+                                         1                2
+                    −zab −              βlab +           βkab       xab −                  δij xij ≤ 0
+                                  l=1              k=1                      (i,j)6=(a,b)
+
+
+                                                    ⋆
+                                                        Pn      1
+                                                                      Pn       2
+                                                                                   
+Last,  as  for the  dual optimal  solution sep = −x ab    l=1 β lab +    k=1 β kab   −
+                ⋆
+P
+               x  δ
+  (k,l)6=(a,b) kl kl  by duality, the obtained inequality is violated if  and only   if
+         ⋆
+sep > zab   .
+
+Remark 3 (24) can be viewed as a generalization of (16), as restricting the
+dual variable δkl = 0 ∀k, l = 1, . . . , n in the proof would result in (16). In
+general, the multipliers collected in the proof are similar to the ones used in
+Lemma 1, but allow for some variation by means of the δkl without searching
+the complete projection cone W .
+
+    The separation of (24) can be done by means of the given linear program.
+When used repeatedly in a Branch and Bound approach, one can make use
+of advanced techniques such as a warmstart of the linear program as the dual
+polytope remains unchanged, only the dual objective function changes.
+
+
+
+5 Outlook
+
+Using a Lift-And-Project approach, we proved that the linearization of Adams
+and Johnson provides a tighter linear bound than the linearization of Xia and
+Yuan. To be precise, its polytope is contained in the one of Xia and Yuan.
+Subsequently, we used the theoretical insights obtained from the proof to derive
+a new family of cuts that can be used in a Branch and Bound technique to
+strengthen the linearization of Xia and Yuan.
+    Future work includes practical tests of the Branch and Cut approach, as
+well as the development of further cut families. Preliminary results show that
+the cuts presented in Sec. 4 reduce the gap between linear relaxation and
+optimal solution by approximately 10%.
+Title Suppressed Due to Excessive Length                                               17
+
+
+References
+
+ 1. Adams, W.P., Guignard, M., Hahn, P.M., Hightower, W.L.: A level-2 reformulation-
+    linearization technique bound for the quadratic assignment problem. European
+    J. Oper. Res. 180(3), 983–996 (2007).         DOI 10.1016/j.ejor.2006.03.051.    URL
+    http://dx.doi.org/10.1016/j.ejor.2006.03.051
+ 2. Adams, W.P., Johnson, T.A.: Improved linear programming-based lower bounds for the
+    quadratic assignment problem. In: Quadratic assignment and related problems (New
+    Brunswick, NJ, 1993), DIMACS Ser. Discrete Math. Theoret. Comput. Sci., vol. 16,
+    pp. 43–75. Amer. Math. Soc., Providence, RI (1994)
+ 3. Balas, E.: Projection, lifting and extended formulation in integer and combinatorial
+    optimization. Ann. Oper. Res. 140, 125–161 (2005). DOI 10.1007/s10479-005-3969-1.
+    URL http://dx.doi.org/10.1007/s10479-005-3969-1
+ 4. Fischetti, M., Monaci, M., Salvagnin, D.: Three ideas for the quadratic assignment
+    problem. Oper. Res. 60(4), 954–964 (2012). DOI 10.1287/opre.1120.1073. URL
+    http://dx.doi.org/10.1287/opre.1120.1073
+ 5. Kaufman, L., Broeckx, F.: An algorithm for the quadratic assignment problem
+    using bender’s decomposition. European Journal of Operational Research 2(3),
+    207 – 211 (1978).        DOI https://doi.org/10.1016/0377-2217(78)90095-4.       URL
+    http://www.sciencedirect.com/science/article/pii/0377221778900954
+ 6. Loiola, E.M., de Abreu, N.M.M., Boaventura-Netto, P.O., Hahn, P., Querido, T.: A
+    survey for the quadratic assignment problem. European Journal of Operational Re-
+    search 176(2), 657 – 690 (2007). DOI https://doi.org/10.1016/j.ejor.2005.09.032. URL
+    http://www.sciencedirect.com/science/article/pii/S0377221705008337
+ 7. Nyberg, A., et al.: Some reformulations for the quadratic assignment problem (2014)
+ 8. Wright, S.E.: New linearizations of quadratic assignment problems.           Comput.
+    Oper. Res. 39(11), 2858–2866 (2012).          DOI 10.1016/j.cor.2012.02.017.     URL
+    http://dx.doi.org/10.1016/j.cor.2012.02.017
+ 9. Xia, Y.: Gilmore-Lawler bound of quadratic assignment problem.                  Front.
+    Math. China 3(1), 109–118 (2008).           DOI 10.1007/s11464-008-0010-4.       URL
+    http://dx.doi.org/10.1007/s11464-008-0010-4
+10. Xia, Y., Yuan, Y.X.: A new linearization method for quadratic assignment problems.
+    Optim. Methods Softw. 21(5), 805–818 (2006). DOI 10.1080/10556780500273077. URL
+    http://dx.doi.org/10.1080/10556780500273077
+11. Zhang, H., Beltran-Royo, C., Ma, L.: Solving the quadratic assignment prob-
+    lem by means of general purpose mixed integer linear programming solvers.
+    Ann. Oper. Res. 207, 261–278 (2013).         DOI 10.1007/s10479-012-1079-4.      URL
+    http://dx.doi.org/10.1007/s10479-012-1079-4
+
