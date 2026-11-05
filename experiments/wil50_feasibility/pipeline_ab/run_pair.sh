@@ -5,6 +5,7 @@
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh base zone
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh warmy certx
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh zone2 base2   (replicates)
+#   experiments/wil50_feasibility/pipeline_ab/run_pair.sh full ship2    (all levers; ship replicate)
 #
 # Arms (each on top of base unless stated):
 #   base   the production configuration of coord_search/run_coord_search.sh:
@@ -18,7 +19,8 @@
 #   ship   zone + the parent's DNN state carried across units in the state
 #          files (QAP_DNN_SHIP=$SHIP_BITS, default 32), so no node starts cold
 #          because its parent was bounded in another unit
-#   zone2, base2  replicates of zone and base: the run-to-run noise of one
+#   full   zone + warmy's phase settings + ship: every lever that passed
+#   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
 # Each arm gets SLOTS solver processes (default: half the performance cores,
@@ -38,7 +40,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n 2,30p "$0"; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|zone2|base2) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, zone2, base2)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -73,7 +75,9 @@ arm_env() {
     zone|zone2) export QAP_DNN_CUT_ZONE=0.005 ;;
     warmy) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 ;;
-    ship)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_SHIP=${SHIP_BITS:-32} ;;
+    full)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} ;;
+    ship|ship2) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_SHIP=${SHIP_BITS:-32} ;;
     certx) export QAP_DNN_CUT_ZONE=0.005 DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1 DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=10 ;;
   esac
 }
@@ -89,10 +93,10 @@ run_arm() {
   arm_env "$arm"
   if [ ! -x "$A/bin/bnbdrv" ]; then
     # a private copy, so that a rebuild during the run does not change it
-    if [ "$arm" = warmy ] && ! grep -aq QAP_DNN_CUT_DAMP1 latest/bnbdrv; then
+    if { [ "$arm" = warmy ] || [ "$arm" = full ]; } && ! grep -aq QAP_DNN_CUT_DAMP1 latest/bnbdrv; then
       echo "warmy: this bnbdrv has no first-step damping yet: git pull, make solver, run again"; return 1
     fi
-    if [ "$arm" = ship ] && ! grep -aq QAP_DNN_SHIP latest/bnbdrv; then
+    if { [ "$arm" = ship ] || [ "$arm" = ship2 ] || [ "$arm" = full ]; } && ! grep -aq QAP_DNN_SHIP latest/bnbdrv; then
       echo "ship: this bnbdrv cannot carry the DNN state yet: git pull, make solver, run again"; return 1
     fi
     mkdir -p "$A/bin" && cp latest/bnbdrv "$A/bin/bnbdrv"

@@ -13,15 +13,17 @@ import os
 import re
 import sys
 
-ARMS = ["base", "zone", "warmy", "certx", "ship", "zone2", "base2"]
+ARMS = ["base", "zone", "warmy", "certx", "ship", "full", "zone2", "base2", "ship2"]
 # kill lines (README.md): the ratio of DNN iterations an arm must reach. For
 # warmy and certx the end-to-end ratio is below the run-to-run noise of one
 # configuration (README, base vs zone), so they are judged on the matched
 # nodes (shared, same parent-Y warm start and pool status) and, for warmy, on
 # the phases both arms ran
-GATES = {("zone", "base"): 1.15, ("warmy", "zone"): 1.05, ("certx", "zone"): 1.03, ("ship", "zone"): 1.1}
+GATES = {("zone", "base"): 1.15, ("warmy", "zone"): 1.05, ("certx", "zone"): 1.03, ("ship", "zone"): 1.1,
+         ("full", "ship"): 1.1, ("full", "warmy"): 1.1}
 # the pairs compared, (arm, reference); the first reference that finished is used
-PAIRS = [("zone", ["base"]), ("warmy", ["zone"]), ("certx", ["zone", "base"]), ("ship", ["zone"]), ("zone2", ["zone"]),
+PAIRS = [("zone", ["base"]), ("warmy", ["zone"]), ("certx", ["zone", "base"]), ("ship", ["zone"]), ("full", ["ship"]), ("full", ["warmy"]),
+         ("full", ["zone"]), ("full", ["base"]), ("zone2", ["zone"]), ("ship2", ["ship"]),
          ("base2", ["base"])]
 
 
@@ -131,7 +133,7 @@ def compare(x, y):
     gate = GATES.get((x["arm"], y["arm"]))
     if gate:
         r = y["dnn_it"] / x["dnn_it"] if x["dnn_it"] else 0
-        if x["arm"] in ("zone", "ship"):
+        if x["arm"] in ("zone", "ship", "full"):
             print(f"- kill line: {gate:.2f}x in DNN iterations end to end -> {'PASS' if r >= gate else 'FAIL'} ({r:.3f}x)")
         elif rm is not None:
             print(f"- kill line: {gate:.2f}x in DNN iterations on the matched nodes -> "

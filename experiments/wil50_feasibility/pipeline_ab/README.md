@@ -137,13 +137,14 @@ because of chance; an earlier bullet here said otherwise.
   first-step overshoot the warmy arm's damping targets (49:45: −102 -> +16,
   above).
 - **Noise.** One configuration gives 322 or 454 nodes, depending on which
-  marginal nodes fathom and which nodes start cold. The end-to-end factor
-  of a single pair is therefore uncertain by about 1.4x. Zone passes its
-  kill line even against the luckier base (1.15x). The 1.05x and 1.03x
-  lines of warmy and certx are below that noise, so `summarize.py` judges
-  them on the matched nodes (shared, same start) and, for warmy, on the
-  phases both arms ran. The replicates `zone2` and `base2` measure the noise
-  on one machine.
+  marginal nodes fathom and which nodes start cold. ~~The end-to-end factor
+  of a single pair is therefore uncertain by about 1.4x.~~ (Corrected after
+  the replicates, below: the 1.4x was between machines and slot counts, the
+  cloud's 4 AMX slots against the laptop's 3 Accelerate slots. On one
+  machine a configuration repeats within 1%.) Zone passes its kill line
+  even against the cloud base (1.15x). `summarize.py` also judges warmy and
+  certx on the matched nodes (shared, same start) and, for warmy, on the
+  phases both arms ran.
 - **Adopted:** `QAP_DNN_CUT_ZONE=0.005` is the new reference. `certx` now
   runs on top of zone and is judged against it.
 
@@ -213,6 +214,18 @@ the 447 matched nodes. CPU repeats within 1-2%. The 1.635x of zone over
 base is therefore not noise, and differences of a few percent between arms
 on this subtree are real.
 
+(Cloud box, Nov 5:) One caution on "real". The replicates show that one
+configuration repeats. Any change to the configuration also moves the
+handful of marginal nodes of the 49:45 subtree, which fathom or branch
+into 44-134 nodes. certx is the example: a change that does nothing on
+the 321 matched nodes (0.983x) flipped one node and came out 1.041x end
+to end. So an arm's end-to-end factor is its effect plus how its
+perturbation lands on those few nodes. The per-depth figures carry the
+mechanism: depth 4 (node 10's children) is 1.65x for zone and 1.92x more
+for ship, with no marginal flips involved. A second subtree would put an
+error bar on the end-to-end numbers (`../roadmap/README.md`, the sampling
+plan).
+
 ship (zone + the parent's DNN state carried across coordinator units,
 `QAP_DNN_SHIP=32`), against zone:
 - DNN iterations 51,150 -> 30,810: **1.660x**; DNN CPU 7,985 -> 3,769 s:
@@ -221,9 +234,15 @@ ship (zone + the parent's DNN state carried across coordinator units,
   started cold at unit boundaries in zone are the whole first-solve
   difference (40,650 -> 22,710). Cut phases 8 -> 7, phase iterations
   10,500 -> 8,100.
-- The CPU ratio exceeds the iteration ratio because the cold nodes were
-  the dear ones: a cold first solve runs to the 300-iteration give-up or
-  beyond where a warm child fathoms in 100-200.
+- The CPU ratio (2.12x) exceeds the iteration ratio (1.66x) because ship's
+  iterations were cheaper at every depth: 139 against 173 ms at depth 4,
+  124 against 157 at depth 5, 102 against 136 at depth 6 (first solves; zone
+  and zone2 agree within 2 ms). That is the machine, not the mix of
+  depths: ship ran alone (3 solver processes, not 6). Warm iterates might
+  also make each iteration cheaper, but a run alone cannot tell. The
+  `full ship2` pair, with ship2 beside full, settles it. An earlier version
+  of this bullet put the CPU gap down to cold first solves running longer;
+  that is in the iteration ratio, not on top of it.
 - The tree shrinks by 44 nodes, the same depth-7 subtree certx removed:
   warm first solves certify a node zone's cold first solve only branched.
   No node is only in ship.
@@ -241,3 +260,14 @@ starts at unit boundaries) and both were measured against zone; their
 combination has not been run. Against base on this subtree, zone + warmy
 is 2.76x in iterations and zone + ship 2.71x; if they multiply, the pair
 is near 4.5x, which is the next and last pair to run.
+
+Next (cloud box, Nov 5): `run_pair.sh full ship2`.
+- `full` is zone + warmy's phase settings + ship. It is judged against ship
+  and against warmy (kill line 1.1x end to end against each, so the second
+  lever must add something on top of the first), and reported against zone
+  and base.
+- `ship2`, beside it, repeats ship under the same load. That gives the CPU
+  per iteration with the parent state carried, which the ship run alone
+  could not.
+- Both arms were smoke-tested on nug20 (every node warm in both). Each arm
+  needs about 1-2 GB of disk for its store.
