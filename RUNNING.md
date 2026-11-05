@@ -87,6 +87,15 @@ iterations and per-level tables equal an uninterrupted run
 (`tests/resume_test.py`). A SIGUSR1 to a run started with `-o` also saves the
 state and stops it at the next node.
 
+With the DNN bound (`-x`), a branched node's final ADMM state (Z and Y), from
+which its children start, is held in memory only. It goes into the state file
+(version 6) only with `QAP_DNN_SHIP=16|32|64` (bf16, fp32 or the exact
+doubles). With 64, a stopped and resumed DNN search is the uninterrupted
+search node for node (`make shipcheck`). Without it, nodes restored from a
+file start their ADMM cold, which costs iterations but nothing else. This
+matters for `bench/parallel.py`, whose tasks are state files: on nug30,
+`QAP_DNN_SHIP=32` took 15% off the CPU on an identical tree.
+
 ### Several cores: bench/parallel.py
 
 ```sh
@@ -193,6 +202,19 @@ uses it at depths 3-4 with `use_best` 3. Measured against rule 4 there
 about 0.84 (esc16a 0.69, chr15a 1.13 slower). It keeps lookahead's payoff
 on sparse-flow instances, which rule 6 loses.
 
+Rules 8 and 9 need the DNN bound (`-x`) and fall back to lookahead where it
+did not run.
+- **Rule 8** branches on the line (row or column) of the DNN solution's
+  marginals x̄ with the largest sum of squares: the line where the relaxation
+  is most decided. On nug30 it took 16% off the CPU (4,904 to 4,133 s, depth-3
+  misses 85 to 59). `PARAM/nug_deep_xbar_all.par` uses it at every node
+  through depth 6; with the DNN bound from depth 1 it is the nug30 record
+  setting.
+- **On nug28 rule 8 lost 37%.** Rule 9 is a hedge: lookahead between the two
+  marginal lines (rule 8's row and its column), chosen by the children's QPB
+  bounds. It gives nug30 -13% and nug28 +8%
+  (`experiments/wil50_feasibility/tuning`).
+
 ### The DNN bound (-x)
 
 `latest/dnn.C` computes a certified lower bound from the doubly nonnegative
@@ -216,6 +238,8 @@ the known optimum as incumbent, 2.8 GHz:
 | nug30 nug_deep.par -x 2:6:1:300 (clean run) | 6,532,419 (DNN: 5,764, 5,551 fathomed, 17,192 s) | 18,614 | ~1.3 h (experiments/nug30_solve) |
 | nug30 nug_deep.par -x 2:6:1:300 (A/B, ff1f044, 2.8 GHz container) | 6,532,419 (DNN: 5,764, 5,551 fathomed, 26,726 s) | 28,428 | ~2.1 h |
 | nug30 nug_deep.par -x 2:7:1:300:1 (same machine) | 5,817 (DNN: 5,807, 5,595 fathomed, 23,537 s) | 23,618 | 1.7 h (experiments/nug30_solve) |
+| nug30 nug_deep.par -x 2:7:1:300:1 + Peaceman-Rachford, degree 4 (Nov 1, 2.1 GHz) | 4,528 (DNN: 4,518, 4,355 fathomed, 11,677 s) | 11,748 | 50.5 min (experiments/wil50_feasibility/stronger_bounds/search) |
+| **nug30 record setting (Nov 5, 2.1 GHz, below)** | **3,820 (DNN: 3,819, 3,678 fathomed, 3,248 s)** | **3,270** | **14.2 min** (experiments/nug30_solve/nov5_cloud) |
 | nug25 nug_deep.par -x 2:5:1:300 (at 0a179fc, 2.8 GHz) | 761 (DNN: 754, 720 fathomed, 1,086 s) | 1,100 | 4.7 min |
 | nug25 nug_deep.par -x 2:5:1:300:1 (warm start) | 717 (DNN: 710, 678 fathomed, 1,039 s) | 1,055 | 4.5 min |
 
@@ -229,6 +253,7 @@ The same runs on an Apple M2 Pro laptop (6 P + 4 E cores, Accelerate,
 | nug28 nug_deep.par -x 2:5 | 1,736 (DNN: 1,727, 1,664 fathomed, 3,994 s) | 4,003 | 9.2 min |
 | nug30 nug_deep.par -x 2:7:1:300:1 | 585,550 (DNN: 5,834, 5,619 fathomed, 8,240 s) | 8,355 | 19.7 min (experiments/nug30_solve) |
 | nug30 nug_deep.par -x 2:7:1:300:1 (Apple M1, 4 P + 4 E cores, 8 workers) | 536,075 (DNN: 5,858, 5,643 fathomed, 18,231 s) | 18,383 | 42.9 min (experiments/nug30_solve) |
+| **nug30 record setting (Nov 4, below)** | **3,844 (DNN: 3,843, 3,701 fathomed, 1,826 s)** | **1,838** | **5.4 min** (experiments/nug30_solve) |
 
 With plain `-x 2:5` the trees match the Xeon runs exactly (nug27, nug28).
 With the give-up threshold and warm starts (`-x ...:300:1`) a few decisions
@@ -237,6 +262,23 @@ nug30 two depth-7 nodes missed where the Xeon fathomed all 96, so 580,000
 QPB-only nodes followed below depth 7 (84 CPU s, 1% of the run). Per DNN
 node the laptop is about 3x faster than the 2.8 GHz Xeon (depth 3: 1.9 s
 against 5.8; depth 4: 1.2 against 3.5).
+
+**The nug30 record setting** (Nov 4: 1,838 CPU s and 5 min 22 s on the
+M2 Pro with 8 workers; Nov 5: 3,270 CPU s and 14 min 9 s on 4 cores of a
+2.1 GHz Xeon; how each switch got there is in
+`experiments/nug30_solve/README.md`):
+
+```sh
+export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 \
+       QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1 \
+       QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32
+python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
+    --params PARAM/nug_deep_xbar_all.par --extra "-x 1:7:1:200:1" \
+    --checkpoint nug30.ckpt --checkpoint-every 300
+```
+
+It is tuned on nug30. Rule 8 lost 37% on nug28, so for other sizes
+compare against `nug_deep.par` or rule 9 first.
 
 It needs LAPACK. On macOS the makefile links Apple's Accelerate framework
 (on the M2 Pro, 30 ms per ADMM iteration on a nug30 m=28 node against 40 ms
@@ -273,16 +315,40 @@ regions (wil50 `5:10`; nug30 `5:6` with `QAP_DNN_CUT_SIDE=1`, the second
 matrix), `QAP_DNN_CUT_ROUNDS` (12), `_ITERS` (300), `_K` (1000), `_DELTA`
 (50), `_K5` (0: also this many of the regional 5-point count inequalities a
 round, latest/dnncut.h); every value stays certified
-(experiments/wil50_feasibility/stronger_bounds).
+(experiments/wil50_feasibility/stronger_bounds). On nug30 the cut phase
+costs more than it saves (+34% CPU on the laptop, +42% on the cloud), so the
+record setting leaves it off.
 
-Branching at the DNN depths is not a lever. The gap thresholds in
-`nug_deep.par` send nearly every depth-3 and depth-4 node (QPB relative gap
-about 0.02) to the last block, rule 2, so changing the depth 3-4 block does
-nothing. `PARAM/nug_la4.par` ignores the gap and uses rule 4 lookahead (30
+Later switches, all used in the nug30 record setting except the last two
+items (defaults in parentheses; experiment reports in
+`experiments/wil50_feasibility/`):
+- `QAP_DNN_BETA=F`: the ADMM penalty is F·m/3 (0.3).
+- `QAP_DNN_REFRESH=N`: a full eigendecomposition every N iterations (20).
+  Goux's 0.21 and 120 together took 20% off nug30 (`tuning/goux`); on wil50
+  they do not pay.
+- `QAP_DNN_WARM_Y=2`: a child starts from its parent's final Y, conditioned
+  on its new assignment, as well as its Z (0: Z only; `warm_y/`). With it, a
+  child's `-x ...:W` warm start carries the primal too.
+- `DNN_CHOLQR_PASSES=1`: one CholQR pass in the subspace step (2;
+  `roadmap/node_speed.md`).
+- `QAP_DNN_SHIP=32`: carry the parent's ADMM state in state files, as
+  above (0).
+- `DNN_AMX=1`: Intel AMX bf16 kernels for the subspace products, on CPUs
+  with AMX-BF16 only (`amx/`).
+- The wil50 cut-phase switches `QAP_DNN_POOL`, `QAP_DNN_CUT_WARMY` and
+  `QAP_DNN_CUT_DAMP1` (`pool_search/`, `pipeline_ab/`). Unused on nug30.
+
+Which branching rules the gap thresholds actually reach matters at the DNN
+depths. The gap thresholds in `nug_deep.par` send nearly every depth-3 and
+depth-4 node (QPB relative gap about 0.02) to the last block, rule 2, so
+changing the depth 3-4 block does nothing there. `PARAM/nug_la4.par` ignores the gap and uses rule 4 lookahead (30
 candidates) on every node through depth 4, rule 6 to depth 6: on nug28 with
 `-x 2:5` it changed the DNN misses by one node at depth 4 (5 to 4) and one
 at depth 5 (0 to 1), DNN CPU -2%, within run-to-run variation. A miss at
 depth d always has n-d children, so only the number of misses can change.
+More QPB lookahead is not a lever. Branching on the DNN marginals is: rule 8
+in every block (`nug_deep_xbar_all.par`) cut nug30's depth-3 misses from 85
+to 59 and its CPU by 16% (above), though it lost on nug28.
 
 ## Correctness checks
 

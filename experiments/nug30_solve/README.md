@@ -1,10 +1,105 @@
-# nug30, proven optimal again (October 2026)
+# nug30, proven optimal again (October-November 2026)
 
 nug30's optimum, 6124, was proven again with this solver: QPB branch and
 bound plus the certified DNN bound (latest/dnn.C) near the top of the tree.
-Anstreicher, Brixius, Goux and Linderoth proved it first in 2000.
+Anstreicher, Brixius, Goux and Linderoth proved it first in 2000, with
+1.19e10 nodes on an average of 653 machines over 6.9 days.
+`SUMMARY.md` summarizes the whole effort (Oct 25 – Nov 5): the key
+requests, the findings by theme, what was closed, and where the files are.
 
-## Result: clean run (one setting throughout)
+## Record: 5 min 22 s on a laptop (November 4)
+
+| | |
+|---|---|
+| machine | Apple M2 Pro laptop (6 performance + 4 efficiency cores), Accelerate, 8 workers |
+| nodes | 3,844 (3,701 fathomed) |
+| DNN bound | 3,843 nodes, 3,701 fathomed, 1,826 s of the CPU |
+| CPU | 1,838 s, summed over the 8 workers |
+| wall | 322 s (5 min 22 s); 306 tasks, 14 steals, 5.72x CPU over wall |
+| root QPB | 5336.58 (Apple's rounding; 5332.33 on a Xeon) |
+| log | `../wil50_feasibility/tuning/refine/nug30_best_nov4_ship32_j8_m2pro.log` (binary at fe8dc83) |
+
+```sh
+export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 \
+       QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1 \
+       QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32
+python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
+    --params PARAM/nug_deep_xbar_all.par --extra "-x 1:7:1:200:1" \
+    --checkpoint nug30.ckpt --checkpoint-every 300
+```
+
+Against the 2000 solve (about 7 HP9000 C3000 CPU-years, 2.2e8 s), that is
+about 120,000 times less CPU. Every node the DNN bound sees at depths 1-7
+is bounded by it, and no node survives depth 7. The switches are described in
+RUNNING.md ("The DNN bound"):
+- `nug_deep_xbar_all.par`: branching rule 8 (the DNN marginals) at every
+  node through depth 6.
+- `-x 1:7:1:200:1`: the DNN bound at depths 1-7, giving up after 200
+  iterations on hopeless nodes, warm-started from the parent.
+- The Peaceman-Rachford step, a degree-3 filter with a tight lambda bound,
+  beta 0.21 m/3, a full eigendecomposition every 120 iterations, and one-pass
+  CholQR.
+- The parent's Y as well as Z, carried across processes in the task files.
+- J.-P. Goux's two safeguards (`QAP_DNN_EXT`, `QAP_DNN_GU_ZONE`).
+
+### The same setting on the cloud box (November 5, `nov5_cloud/`)
+
+The record setting on 4 cores of a 2.1 GHz Xeon (OpenBLAS, no AMX; solver at
+f763734):
+
+| | |
+|---|---|
+| nodes | 3,820 (3,678 fathomed, every one by the DNN bound) |
+| DNN bound | 3,819 nodes, 3,678 fathomed, 3,248 s of the CPU |
+| CPU | 3,270 s |
+| wall | 849 s (14 min 9 s); 276 tasks, 8 steals, 3.85x CPU over wall |
+| root QPB | 5332.33 |
+| per level (nodes / fathomed) | 1 / 0, 9 / 0, 225 / 157, 1,880 / 1,834, 1,242 / 1,229, 338 / 333, 125 / 125: nothing survives depth 6 |
+
+`run.sh` reruns it. `nug30_final.state` holds the final totals and per-level
+statistics; an earlier commit of it was a 25 MB mid-run checkpoint.
+
+- **Against the Nov 1 cloud run** (PRSM and degree 4 on `nug_deep.par -x
+  2:7:1:300:1`, same kind of machine; 4,528 nodes, 11,748 s, 50.5 min) the
+  final setting is 3.6x less CPU and wall.
+- **Against the Oct 29 run** on a 2.8 GHz Xeon (23,618 s) it is 7.2x less
+  CPU.
+- **Against the laptop record** (1,838 s), the laptop needs 1.8x less CPU.
+- **The two trees differ by 24 nodes** (3,820 against 3,844): the root QPB
+  rounds differently on Apple silicon, and a few give-up decisions move with
+  it.
+
+### How it got there (laptop, M2 Pro, 8 workers)
+
+Each row adds one change to the row above. Logs are in
+`../wil50_feasibility/tuning/` unless noted, with details in that README.
+
+| date | change | DNN nodes / fathomed | CPU | wall | log |
+|---|---|---|---|---|---|
+| Oct 29 | `nug_deep.par -x 2:7:1:300:1` (585,550 nodes in all; below) | 5,834 / 5,619 | 8,355 s | 19 min 42 s | `laptop_run1.log` (here) |
+| Oct 30 | Peaceman-Rachford step, degree-4 filter | 4,545 / 4,381 | 5,334 s | 13 min 21 s | `../eigensolver/nug30_prsm_j8_m2pro.log` |
+| Oct 31 | give up after 200 iterations, not 300 | 4,519 / 4,356 | 4,904 s | 11 min 17 s | `giveup/nug30_ab/` |
+| Oct 31 | rule 8: branch on the DNN marginals | 3,935 / 3,796 | 4,133 s | 9 min 56 s | `lines/nug30_xbar_H200_j8_m2pro.log` |
+| Nov 1 | rule 8 at every node through depth 6 | 3,936 / 3,797 | 4,008 s | 9 min 27 s | `refine/nug30_xall_c4*` |
+| Nov 1 | degree 3 with a tight lambda bound | 3,964 / 3,824 | 3,653 s | 8 min 46 s | `refine/nug30_xall_c3t2*` |
+| Nov 1 | the DNN bound from depth 1 | 3,842 / 3,700 | 3,632 s | 8 min 43 s | `refine/nug30_xall_c3t2_d1*` |
+| Nov 1 | beta 0.21 m/3, refresh every 120 (Goux's setting) | 3,820 / 3,679 | 2,895 s | 6 min 59 s | `refine/nug30_xall_c3t2_d1_b021r120*` |
+| Nov 3 | the parent's Y, one-pass CholQR, Goux's safeguards | 3,843 / 3,701 | 2,156 s | 5 min 46 s | `refine/nug30_best_nov3_warmy_cq1_ext*` |
+| Nov 4 | the parent's state carried in the task files | 3,843 / 3,701 | **1,838 s** | **5 min 22 s** | `refine/nug30_best_nov4_ship32*` |
+
+Notes:
+- Changes measured together were not separated: beta and refresh, and on
+  Nov 3 the three levers.
+- Each row is a single run. Reruns of one setting vary by about 2% in CPU
+  (2,870, 2,895 and 2,943 s for the Nov 1 setting).
+- Rule 8 lost 37% on nug28 (rule 9, the hedge, is +8% there), so the setting
+  above is tuned for nug30 and has not been rerun on nug28.
+- Tried and rejected on nug30:
+  - cut phases: +34% on the laptop, +42% on the cloud;
+  - give-up after 150 iterations: extra misses;
+  - the gap-ratio give-up rule: false give-ups.
+
+## Clean run (October 29; one setting throughout)
 
 | | |
 |---|---|
