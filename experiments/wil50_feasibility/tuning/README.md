@@ -558,3 +558,24 @@ Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
 `QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
 QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1
 QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003`. Not yet re-run on nug28.
+
+### Nov 4: + shipped DNN state (`refine/nug30_best_nov4_ship32_j8_m2pro.log`)
+
+The Nov 3 setting plus `QAP_DNN_SHIP=32` (binary at fe8dc83): the parent's
+DNN state travels in the task files, so the ~300 parallel tasks start warm
+instead of cold.
+
+| run | nodes / DNN fathomed | tasks | CPU | wall |
+|---|---|---|---|---|
+| Nov 3, warm Y + CholQR 1 + D6/D8 | 3,844 / 3,701 | 345 | 2,156 s | 346 s |
+| + `QAP_DNN_SHIP=32` | 3,844 / 3,701 | 306 | **1,838 s** | **322 s** (x5.72) |
+
+Identical tree, 15% less CPU; the wall gains less because the parallel
+efficiency fell (5.72x against 6.22x, 14 steals). nug30 is now 1,838 CPU s
+against 8,355 s on Oct 29 (4.5x).
+
+Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
+`QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
+QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1
+QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32`. Cut phases stay off
+on nug30 (+34%); the certificate polish is untested. Not re-run on nug28.
