@@ -9,6 +9,10 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
   kill9ckpt  the same with 4-second units, so the killed units resume from
              their uploaded checkpoints
   coordkill  the coordinator is killed mid-run and restarted
+  crash_marked, crash_applied, crash_saving
+             the coordinator stops (QAP_COORD_CRASH) in its 20th merge right
+             after marking a unit merged, after applying it, or between
+             writing the totals and totals.json; a new one replays and finishes
   drain      the worker gets SIGTERM mid-run (spot notice): running units
              return their open nodes; a new worker finishes
   noub       no incumbent given: the run finds the optimum and publishes it
@@ -61,10 +65,11 @@ class Run:
         self.procs = []
         self.tmp = tempfile.mkdtemp(prefix="coordtest-")
 
-    def ctl(self, *a, wait=True, log=None):
+    def ctl(self, *a, wait=True, log=None, env=None):
         cmd = [self.py, "-m", "coord.qapctl"] + list(a)
         out = open(log, "a") if log else subprocess.DEVNULL
-        p = subprocess.Popen(cmd, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+        e = dict(os.environ, **(env or {}))
+        p = subprocess.Popen(cmd, cwd=ROOT, stdout=out, stderr=subprocess.STDOUT, start_new_session=True, env=e)
         if wait:
             p.wait()
             return p
@@ -75,9 +80,9 @@ class Run:
         return self.ctl("worker", self.run_id, *self.args, "--slots", "3", "--workdir",
                         os.path.join(self.tmp, tag), wait=False, log=os.path.join(self.tmp, tag + ".log"))
 
-    def coordinator(self, tag="coord"):
+    def coordinator(self, tag="coord", env=None):
         return self.ctl("coordinator", self.run_id, *self.args, "--poll", "0.3", wait=False,
-                        log=os.path.join(self.tmp, tag + ".log"))
+                        log=os.path.join(self.tmp, tag + ".log"), env=env)
 
     def results(self):
         from coord.backend import open_backend
@@ -107,7 +112,9 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra)
     try:
         r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
-        c = r.coordinator()
+        crash = name.startswith("crash_")
+        # crash_*: the coordinator exits at a chosen point of its 20th merge
+        c = r.coordinator(env={"QAP_COORD_CRASH": name[6:] + ":20"} if crash else None)
         w = r.worker("w1")
         if name == "kill9ckpt":
             # kill once a running unit has uploaded a checkpoint
@@ -132,6 +139,11 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
             c.wait()
             time.sleep(2)
             c = r.coordinator("coord2")
+        elif crash:
+            if c.wait(timeout=120) != 9:
+                raise RuntimeError(f"{name}: the coordinator did not stop at its crash point")
+            time.sleep(1)
+            c = r.coordinator("coord2")
         elif name == "drain":
             time.sleep(3)
             os.killpg(w.pid, signal.SIGTERM)       # the supervisor drains; solvers get SIGUSR1
@@ -152,7 +164,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
-    ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,drain,noub,aws")
+    ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,crash_marked,crash_applied,crash_saving,"
+                                      "drain,noub,aws")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args()
     ref = serial(a.instance, int(a.opt))

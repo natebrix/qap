@@ -44,8 +44,6 @@ class Coordinator:
         inst_text = self.b.get_bytes(run_key(run_id, "instance.dat")).decode()
         self.inst = read_instance(inst_text)
         self._load_totals()
-        self.template = State(self._path("totals.state"))
-        self.template.zero_stats()
         self.last_status = 0
         self.t0 = self.run.get("started_at") or time.time()
 
@@ -54,11 +52,19 @@ class Coordinator:
 
     # ------------------------------------------------------------ totals
     def _load_totals(self):
-        p = self._path("totals.state")
-        if not self.b.get_file(run_key(self.run_id, "totals.state"), p):
-            raise SystemExit("run has no totals.state")
-        self.totals = State(p)
+        # totals.json names the totals file that matches its last_seq (written
+        # last, in one put, so the pair is always consistent; runs created
+        # before Nov 5 have no totals_key and use totals.state)
         meta = json.loads(self.b.get_bytes(run_key(self.run_id, "totals.json")) or b"{}")
+        self.totals_key = meta.get("totals_key", run_key(self.run_id, "totals.state"))
+        p = self._path("totals.state")
+        if not self.b.get_file(self.totals_key, p):
+            raise SystemExit(f"run has no {self.totals_key}")
+        self.totals = State(p)
+        # the header new units are written with; before the replay, which may
+        # create units (a restart once crashed here and left the workers idle)
+        self.template = State(p)
+        self.template.zero_stats()
         self.last_seq = meta.get("last_seq", 0)
         self.busy_wall = meta.get("busy_wall", 0.0)
         self.units_merged = meta.get("units_merged", 0)
@@ -71,14 +77,40 @@ class Coordinator:
             self._apply(u)
 
     def _save_totals(self):
+        """the totals go to a new file named by the last merge they include, then
+        totals.json points at it: one put switches both, so a coordinator killed
+        in between restarts from the old pair and replays the merges after it
+        (two separate puts once let a kill double-count three units)"""
         if not self.dirty:
             return
         p = self._path("totals.state.out")
         self.totals.write(p, [])
-        self.b.put_file(run_key(self.run_id, "totals.state"), p)
+        key = run_key(self.run_id, f"totals-{self.last_seq}.state")
+        self.b.put_file(key, p)
+        self._crash_point("saving")
         self.b.put_bytes(run_key(self.run_id, "totals.json"), json.dumps(
-            {"last_seq": self.last_seq, "busy_wall": self.busy_wall, "units_merged": self.units_merged}).encode())
+            {"last_seq": self.last_seq, "totals_key": key, "busy_wall": self.busy_wall,
+             "units_merged": self.units_merged}).encode())
+        if self.totals_key != key:
+            try:
+                self.b.delete(self.totals_key)
+            except Exception:
+                pass                      # an orphan file is harmless
+            self.totals_key = key
         self.dirty = False
+
+    def _crash_point(self, where):
+        """tests only (tests/coord_test.py, crash_*): QAP_COORD_CRASH=WHERE:N exits
+        the coordinator at once the Nth time it reaches WHERE: marked (a unit
+        marked merged, nothing applied), applied (applied, totals not saved),
+        saving (the totals file written, totals.json not)"""
+        spec = os.environ.get("QAP_COORD_CRASH")
+        if not spec or spec.split(":")[0] != where:
+            return
+        self._crash_hits = getattr(self, "_crash_hits", 0) + 1
+        if self._crash_hits >= int(spec.split(":")[1]):
+            self.log(f"coordinator: QAP_COORD_CRASH at {where}")
+            os._exit(9)
 
     # ------------------------------------------------------------ merging
     def merge_ready(self):
@@ -91,7 +123,9 @@ class Coordinator:
                                          expect={"status": status, "attempt": u["attempt"]})
                 if doc is None:
                     continue           # changed under us; next tick
+                self._crash_point("marked")
                 self._apply(doc)
+                self._crash_point("applied")
                 n += 1
         if n:
             self._save_totals()

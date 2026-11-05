@@ -146,6 +146,8 @@ for p in "${pids[@]}"; do
   while kill -0 "$p" 2>/dev/null; do wait "$p"; done   # wait again after a trapped signal
 done
 rm -f "$RUNS/pair.pid"
-$PY "$D/summarize.py" "$RUNS" | tee "$D/summary.txt"
+# the summary goes next to the runs it describes (summary.txt for runs/)
+SUMMARY=$D/summary.txt; [ "$RUNS" != "$D/runs" ] && SUMMARY=$RUNS/summary.txt
+$PY "$D/summarize.py" "$RUNS" | tee "$SUMMARY"
 echo
 echo "To share the results: git add experiments/wil50_feasibility/pipeline_ab && git commit -m 'pipeline A/B: $*' && git push"

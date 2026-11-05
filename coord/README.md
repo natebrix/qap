@@ -44,8 +44,10 @@ local `moto` server for tests). Both implement the same small interface
   unit merged with the next sequence number, adds its statistics to the run
   totals, and splits the open nodes it returned into child units (the split is
   recorded first and child ids derive from the parent's, so a replay creates
-  the same units). The totals are saved with the last sequence they include;
-  a restarted coordinator replays everything merged after that. It keeps
+  the same units). The totals are saved to a new file named by the last
+  sequence they include, and then `totals.json` points at it, so one write
+  switches both. A restarted coordinator replays everything merged after
+  that sequence. It keeps
   about `--reserve` x slots units queued, asks the longest-running unit to
   return when slots sit idle with nothing queued (the steal, without a
   barrier), re-queues failed units, verifies an incumbent a unit found (the
@@ -69,6 +71,7 @@ about 90 units a run):
 | kill9 | the worker and its solvers SIGKILLed mid-run, a new worker | = serial |
 | kill9ckpt | the same with longer units: the killed units resume from their uploaded checkpoints | = serial |
 | coordkill | the coordinator SIGKILLed mid-run and restarted | = serial |
+| crash_marked, crash_applied, crash_saving | the coordinator stops (`QAP_COORD_CRASH`) in its 20th merge: after marking a unit merged, after applying it, between writing the totals and `totals.json`; a new one replays | = serial |
 | drain | SIGTERM to the worker's process group mid-run | = serial |
 | noub | no incumbent: the run finds the optimum and publishes it verified | optimum |
 | aws | normal, on S3/SQS/DynamoDB (a local moto server) | = serial |
