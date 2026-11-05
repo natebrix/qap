@@ -1,0 +1,14 @@
+dnncheck off: exit 0
+dnn_test ACDE DNN_BETA_SCHED=two,f=1.6667,t=60: exit 0
+brute_force -x 0:20 DNN_BETA_SCHED=two,f=1.6667,t=60: exit 0
+dnn_test ACDE DNN_BETA_SCHED=two,f=1.6667,t=5,force=1: exit 0
+brute_force -x 0:20 DNN_BETA_SCHED=two,f=1.6667,t=5,force=1: exit 0
+dnn_test ACDE DNN_BETA_SCHED=two,f=0.6667,t=5,force=1: exit 0
+brute_force -x 0:20 DNN_BETA_SCHED=two,f=0.6667,t=5,force=1: exit 0
+dnn_test ACDE DNN_BETA_SCHED=rb,c=8,every=10: exit 0
+brute_force -x 0:20 DNN_BETA_SCHED=rb,c=8,every=10: exit 0
+brute_force -x 0:20:1:200:1 WARM_Y=2 switch unset: exit 0
+brute_force -x 0:20:1:200:1 WARM_Y=2 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7: exit 0
+brute_force -x 0:20:1:200:1 WARM_Y=2 DNN_BETA_SCHED=two,f=1.6667,t=5,force=1,w=0.7: exit 0
+brute_force -x 0:20:1:200:1 WARM_Y=2 DNN_BETA_SCHED=w=1.6667: exit 0
+dnncheck off (final build): exit 0
