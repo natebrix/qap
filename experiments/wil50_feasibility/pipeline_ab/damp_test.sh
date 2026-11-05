@@ -15,7 +15,7 @@ export DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_
 for f in ${DAMPS:-1.0 0.3}; do
   "$CUTS" -grid 5:10 -u 48816 -T 1 -k 1000 -v -I 4000 -H 300 -r 12 -i 200 -stall 3 -nocap -delta 50 \
     -freeze 0:1000 -warmY -damp1 "$f" -loadpool "$POOL" -x 39:27,30:48,25:49,49:45 "$W" \
-    > "$D/damp/c49_damp$f.log" 2>&1 &
+    > "$D/damp/c49_damp${f/:/_}.log" 2>&1 &
 done
 wait
 grep -h -E "^  round|FINAL|stalled|^quiet|fathom" "$D"/damp/c49_damp*.log

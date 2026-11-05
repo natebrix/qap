@@ -34,12 +34,38 @@ experiments/wil50_feasibility/pipeline_ab/run_pair.sh base zone
 - At the end it writes `summary.txt` and prints the `git add/commit/push`
   line for the results: `runs/ARM/` trace, results, logs and hosts. The
   stores, work directories and binaries stay out of git.
-- The second pair, `run_pair.sh warmy certx`, needs the first-step damping,
-  which comes in a later commit (`git pull` and `make solver` first; the
-  script refuses `warmy` on a binary without it).
+- The second pair, `run_pair.sh warmy certx`, runs from the same build: the
+  first-step damping it uses has been in since fdb845d. The script refuses
+  `warmy` on a binary without it.
 
 `summarize.py runs/` can be run at any time; unfinished arms are listed as
 such.
+
+## The damping setting (Nov 5, cloud box, `damp_test.sh`, logs in `damp/`)
+
+Child 49:45 of node 10 with node 10's equip-phase pool
+(`../roadmap/convergence2/runs/E_n10.pool`), the warmy arm's phase: Y kept
+between rounds, rounds of 200 iterations, stall rule 3, uncapped target,
+quiet round of 1,000 run regardless (in the search it runs only when the best
+round's primal is above the cutoff, which none of these is).
+
+| damping (first step : later steps) | rounds 1-4 | best round | after the quiet round |
+|---|---|---|---|
+| none | −102.4, −14.3, +13.3 (stall) | 48,744.8 | 48,760.9 (+29.5) |
+| 0.3 : 1 | +16.2, +31.8, −227.6, −68.9 | **48,763.3** | **48,776.2 (+44.8)** |
+| 0.3 : 0.5 | +16.2, +30.8, −72.2, −10.9 | 48,762.2 | 48,775.1 (+43.7) |
+| 0.3 : 0.3 | +16.2, +30.0, +2.8, +30.2 | 48,761.7 | 48,771.3 (+39.8) |
+
+- The first step is what matters: damped, the inherited multipliers improve
+  at once instead of losing 102 units. The phase ends 18 units higher with
+  one more round (800 iterations against 600), and the multipliers it hands
+  to 49:45's children are those of a better round.
+- Damping the later steps removes the round-3 overshoot but does not improve
+  the best round. The warmy arm uses `QAP_DNN_CUT_DAMP1=0.3` (first step
+  only).
+- 49:45 stays about 50 units short either way, so it branches in every
+  variant. Whether the better pool helps its children is for the search A/B
+  to show.
 
 ## Results
 
