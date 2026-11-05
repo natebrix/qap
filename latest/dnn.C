@@ -802,7 +802,7 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
  approximation; only the ADMM step is inexact.
 */
 bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int refresh,
-                       int degree, int guard, int tight_lam)
+                       int degree, int guard, int tight_lam, bool cert_step = true)
 {
   const lapack_int K = w.K;
   const size_t kk = (size_t)K * K;
@@ -987,10 +987,15 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   // R = W - sum_{theta<0} theta x x'. DNN_R32=1 (node_speed.md trim b): the
   // rank-nneg term in fp32 (ssyrk on the fp32 eigenvectors, which is their
   // precision anyway), added to W in fp64; the default keeps dsyrk.
+  // DNN_R32_NONCERT=1: fp32 only when !cert_step. The certificate multiplier
+  // Zc = Z + beta (Y - VRV') reads its own iteration's R and no earlier one
+  // (V'ZcV = beta (W - R)), so only certificate iterations need W - R =
+  // -fl64(FF') negative semidefinite; elsewhere R is just the ADMM step.
   static const int r32 = getenv("DNN_R32") ? atoi(getenv("DNN_R32")) : 0;
+  static const int r32_noncert = getenv("DNN_R32_NONCERT") ? atoi(getenv("DNN_R32_NONCERT")) : 0;
   double tr0 = thread_cpu();
   lapack_int k = nneg;
-  if (r32 && k > 0) {
+  if ((r32 || (r32_noncert && !cert_step)) && k > 0) {
     float *Ff = w.Hs.data(), *Rf = w.Ts.data();   // free after the filter step (K x K each)
     for (int i = 0; i < nneg; i++) {
       const float sq = (float)sqrt(-(double)theta[i]);
@@ -1833,7 +1838,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     bool rstep_cert = check && !par.prototype_cert;
     bool okp = par.eig_mode == DNN_EIG_SUBSPACE
                    ? proj_psd_subspace(w, w.W.data(), w.R.data(), &npos, par.refresh,
-                                       par.cheb_degree, std::max(8, w.K / guard_div), par.tight_lam)
+                                       par.cheb_degree, std::max(8, w.K / guard_div), par.tight_lam,
+                                       rstep_cert)
                    : proj_psd(w, w.W.data(), w.R.data(), &npos,
                               par.eig_mode == DNN_EIG_SINGLE, rstep_cert);
     if (!okp) {
