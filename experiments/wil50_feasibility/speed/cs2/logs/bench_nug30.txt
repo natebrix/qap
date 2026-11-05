@@ -1,0 +1,192 @@
+dump/nug_16.bin: K 730 kb 91 degree 3 guard 36 lam_hi 1.542 theta_top 0.01545 theta_min -0.1845 (prev nneg 59)
+  exact: nneg 148 of K, lambda_min -0.2193, lambda_max 1.401, 12 eigenvalues within 1e-3 of 0
+  step (ms): filter 2.8  cholqr 0.4  rr product 0.8  G=Y'T+sym 0.1
+  today (ms): ssyevd 0.5  X=YG 0.1  F 0.0  = 0.6   (rank nneg 64)
+  CS2   (ms): ssyevr+ 0.6 (m 27)  S 0.0  spstrf 0.0  F=Y(:,p)L 0.1  F64 0.0  = 0.7   (rank 64)  saved -0.1
+  shift (ms): S 0.0  spstrf 0.0  F=Y(:,p)L 0.1  F64 0.0  = 0.1   (rank 91, sigma 0.0154)  saved 0.5 before the rank-91 dsyrk's extra columns
+  full ssyevr (all pairs) 0.6 ms against ssyevd 0.5; ssytrd alone 0.1
+  positive pairs only: ssyevr 0.6  ssyevx 0.6 (m 27)  ssytrd+sstedc+sormtr(m) 0.5
+  SUMMARY kb 91 nneg 64 m 27 today 0.6 cs2 0.7 saved -0.1
+  ||R - R_exact||_F / ||P_-(W)||_F: today 3.510e-01  CS2 3.510e-01  shift 3.998e-01
+  uniform 3                cols 3.00 kb (filter 2.3 ms)  d1 0 d2 0 d3 91 d4 0  err 3.510e-01
+  uniform 2                cols 2.00 kb (filter 1.6 ms)  d1 0 d2 91 d3 0 d4 0  err 4.052e-01
+  uniform 4                cols 4.00 kb (filter 3.2 ms)  d1 0 d2 0 d3 0 d4 91  err 3.087e-01
+  memo (edge damping)      cols 2.60 kb (filter 2.1 ms)  d1 2 d2 32 d3 57 d4 0  err 3.949e-01
+  floor rho=1.5 top 3      cols 2.91 kb (filter 2.4 ms)  d1 0 d2 8 d3 83 d4 0  err 3.612e-01
+  floor rho=2 top 3        cols 2.98 kb (filter 2.4 ms)  d1 0 d2 2 d3 89 d4 0  err 3.529e-01
+  floor rho=3 top 3        cols 3.00 kb (filter 2.5 ms)  d1 0 d2 0 d3 91 d4 0  err 3.510e-01
+  floor rho=5 top 3        cols 3.00 kb (filter 2.5 ms)  d1 0 d2 0 d3 91 d4 0  err 3.510e-01
+  floor rho=10 top 3       cols 3.00 kb (filter 2.5 ms)  d1 0 d2 0 d3 91 d4 0  err 3.510e-01
+  floor rho=1.5 top 4      cols 3.57 kb (filter 3.0 ms)  d1 0 d2 8 d3 23 d4 60  err 3.414e-01
+  floor rho=2 top 4        cols 3.85 kb (filter 2.8 ms)  d1 0 d2 2 d3 10 d4 79  err 3.178e-01
+  floor rho=3 top 4        cols 3.97 kb (filter 3.0 ms)  d1 0 d2 0 d3 3 d4 88  err 3.096e-01
+  floor rho=5 top 4        cols 4.00 kb (filter 3.2 ms)  d1 0 d2 0 d3 0 d4 91  err 3.087e-01
+  floor rho=10 top 4       cols 4.00 kb (filter 3.3 ms)  d1 0 d2 0 d3 0 d4 91  err 3.087e-01
+dump/nug_25.bin: K 730 kb 153 degree 3 guard 36 lam_hi 1.65 theta_top 0.02749 theta_min -0.5644 (prev nneg 117)
+  exact: nneg 195 of K, lambda_min -0.6104, lambda_max 1.499, 11 eigenvalues within 1e-3 of 0
+  step (ms): filter 4.0  cholqr 0.7  rr product 1.2  G=Y'T+sym 0.3
+  today (ms): ssyevd 1.0  X=YG 0.2  F 0.0  = 1.3   (rank nneg 120)
+  CS2   (ms): ssyevr+ 1.1 (m 33)  S 0.0  spstrf 0.1  F=Y(:,p)L 0.2  F64 0.0  = 1.4   (rank 120)  saved -0.1
+  shift (ms): S 0.0  spstrf 0.1  F=Y(:,p)L 0.1  F64 0.0  = 0.2   (rank 153, sigma 0.0275)  saved 1.0 before the rank-153 dsyrk's extra columns
+  full ssyevr (all pairs) 1.5 ms against ssyevd 1.0; ssytrd alone 0.3
+  positive pairs only: ssyevr 1.1  ssyevx 1.1 (m 33)  ssytrd+sstedc+sormtr(m) 0.9
+  SUMMARY kb 153 nneg 120 m 33 today 1.3 cs2 1.4 saved -0.1
+  ||R - R_exact||_F / ||P_-(W)||_F: today 1.161e-01  CS2 1.161e-01  shift 2.252e-01
+  uniform 3                cols 3.00 kb (filter 4.0 ms)  d1 0 d2 0 d3 153 d4 0  err 1.161e-01
+  uniform 2                cols 2.00 kb (filter 2.7 ms)  d1 0 d2 153 d3 0 d4 0  err 1.361e-01
+  uniform 4                cols 4.00 kb (filter 5.2 ms)  d1 0 d2 0 d3 0 d4 153  err 1.014e-01
+  memo (edge damping)      cols 2.52 kb (filter 3.3 ms)  d1 12 d2 50 d3 91 d4 0  err 1.335e-01
+  floor rho=1.5 top 3      cols 2.75 kb (filter 3.6 ms)  d1 3 d2 33 d3 117 d4 0  err 1.239e-01
+  floor rho=2 top 3        cols 2.90 kb (filter 3.6 ms)  d1 0 d2 15 d3 138 d4 0  err 1.177e-01
+  floor rho=3 top 3        cols 2.95 kb (filter 3.6 ms)  d1 0 d2 8 d3 145 d4 0  err 1.167e-01
+  floor rho=5 top 3        cols 3.00 kb (filter 3.6 ms)  d1 0 d2 0 d3 153 d4 0  err 1.161e-01
+  floor rho=10 top 3       cols 3.00 kb (filter 3.7 ms)  d1 0 d2 0 d3 153 d4 0  err 1.161e-01
+  floor rho=1.5 top 4      cols 3.14 kb (filter 3.9 ms)  d1 3 d2 33 d3 57 d4 60  err 1.198e-01
+  floor rho=2 top 4        cols 3.59 kb (filter 4.3 ms)  d1 0 d2 15 d3 32 d4 106  err 1.077e-01
+  floor rho=3 top 4        cols 3.82 kb (filter 4.7 ms)  d1 0 d2 8 d3 12 d4 133  err 1.028e-01
+  floor rho=5 top 4        cols 3.92 kb (filter 4.9 ms)  d1 0 d2 0 d3 12 d4 141  err 1.016e-01
+  floor rho=10 top 4       cols 3.98 kb (filter 5.0 ms)  d1 0 d2 0 d3 3 d4 150  err 1.014e-01
+dump/nug_108.bin: K 730 kb 266 degree 3 guard 36 lam_hi 2.865 theta_top 0.007119 theta_min -4.687 (prev nneg 238)
+  exact: nneg 253 of K, lambda_min -4.711, lambda_max 2.602, 15 eigenvalues within 1e-3 of 0
+  step (ms): filter 6.4  cholqr 1.7  rr product 1.9  G=Y'T+sym 0.8
+  today (ms): ssyevd 3.4  X=YG 0.8  F 0.1  = 4.3   (rank nneg 238)
+  CS2   (ms): ssyevr+ 2.4 (m 28)  S 0.0  spstrf 0.2  F=Y(:,p)L 0.5  F64 0.1  = 3.2   (rank 238)  saved 1.0
+  shift (ms): S 0.0  spstrf 0.2  F=Y(:,p)L 0.4  F64 0.1  = 0.8   (rank 266, sigma 0.00712)  saved 3.4 before the rank-266 dsyrk's extra columns
+  full ssyevr (all pairs) 5.3 ms against ssyevd 3.4; ssytrd alone 1.0
+  positive pairs only: ssyevr 2.4  ssyevx 2.4 (m 28)  ssytrd+sstedc+sormtr(m) 2.8
+  SUMMARY kb 266 nneg 238 m 28 today 4.3 cs2 3.2 saved 1.0
+  ||R - R_exact||_F / ||P_-(W)||_F: today 2.934e-03  CS2 2.934e-03  shift 8.977e-03
+  uniform 3                cols 3.00 kb (filter 10.2 ms)  d1 0 d2 0 d3 266 d4 0  err 2.934e-03
+  uniform 2                cols 2.00 kb (filter 6.7 ms)  d1 0 d2 266 d3 0 d4 0  err 3.592e-03
+  uniform 4                cols 4.00 kb (filter 13.2 ms)  d1 0 d2 0 d3 0 d4 266  err 2.446e-03
+  memo (edge damping)      cols 1.57 kb (filter 3.5 ms)  d1 157 d2 67 d3 42 d4 0  err 4.376e-03
+  floor rho=1.5 top 3      cols 2.53 kb (filter 5.2 ms)  d1 34 d2 57 d3 175 d4 0  err 3.358e-03
+  floor rho=2 top 3        cols 2.71 kb (filter 5.6 ms)  d1 18 d2 41 d3 207 d4 0  err 3.131e-03
+  floor rho=3 top 3        cols 2.83 kb (filter 10.0 ms)  d1 7 d2 32 d3 227 d4 0  err 2.997e-03
+  floor rho=5 top 3        cols 2.91 kb (filter 9.8 ms)  d1 0 d2 24 d3 242 d4 0  err 2.942e-03
+  floor rho=10 top 3       cols 2.95 kb (filter 8.8 ms)  d1 0 d2 13 d3 253 d4 0  err 2.936e-03
+  floor rho=1.5 top 4      cols 2.97 kb (filter 9.5 ms)  d1 34 d2 57 d3 59 d4 116  err 3.131e-03
+  floor rho=2 top 4        cols 3.32 kb (filter 9.6 ms)  d1 18 d2 41 d3 44 d4 163  err 2.760e-03
+  floor rho=3 top 4        cols 3.56 kb (filter 7.6 ms)  d1 7 d2 32 d3 31 d4 196  err 2.550e-03
+  floor rho=5 top 4        cols 3.73 kb (filter 7.9 ms)  d1 0 d2 24 d3 23 d4 219  err 2.463e-03
+  floor rho=10 top 4       cols 3.83 kb (filter 7.9 ms)  d1 0 d2 13 d3 18 d4 235  err 2.450e-03
+dump/nug_132.bin: K 730 kb 276 degree 3 guard 36 lam_hi 3.174 theta_top 0.003097 theta_min -5.185 (prev nneg 240)
+  exact: nneg 247 of K, lambda_min -5.201, lambda_max 2.883, 23 eigenvalues within 1e-3 of 0
+  step (ms): filter 6.1  cholqr 1.8  rr product 1.9  G=Y'T+sym 0.8
+  today (ms): ssyevd 3.3  X=YG 0.8  F 0.1  = 4.2   (rank nneg 240)
+  CS2   (ms): ssyevr+ 2.6 (m 36)  S 0.1  spstrf 0.2  F=Y(:,p)L 0.5  F64 0.1  = 3.5   (rank 239)  saved 0.7
+  shift (ms): S 0.0  spstrf 0.2  F=Y(:,p)L 0.5  F64 0.1  = 0.8   (rank 274, sigma 0.0031)  saved 3.4 before the rank-274 dsyrk's extra columns
+  full ssyevr (all pairs) 5.4 ms against ssyevd 3.3; ssytrd alone 1.0
+  positive pairs only: ssyevr 2.6  ssyevx 2.6 (m 36)  ssytrd+sstedc+sormtr(m) 2.8
+  SUMMARY kb 276 nneg 240 m 36 today 4.2 cs2 3.5 saved 0.7
+  ||R - R_exact||_F / ||P_-(W)||_F: today 1.580e-03  CS2 1.581e-03  shift 3.687e-03
+  uniform 3                cols 3.00 kb (filter 6.5 ms)  d1 0 d2 0 d3 276 d4 0  err 1.580e-03
+  uniform 2                cols 2.00 kb (filter 4.2 ms)  d1 0 d2 276 d3 0 d4 0  err 1.982e-03
+  uniform 4                cols 4.00 kb (filter 7.9 ms)  d1 0 d2 0 d3 0 d4 276  err 1.271e-03
+  memo (edge damping)      cols 1.45 kb (filter 3.2 ms)  d1 197 d2 35 d3 44 d4 0  err 2.510e-03
+  floor rho=1.5 top 3      cols 2.57 kb (filter 5.4 ms)  d1 33 d2 54 d3 189 d4 0  err 1.837e-03
+  floor rho=2 top 3        cols 2.73 kb (filter 5.7 ms)  d1 18 d2 39 d3 219 d4 0  err 1.699e-03
+  floor rho=3 top 3        cols 2.83 kb (filter 5.4 ms)  d1 7 d2 33 d3 236 d4 0  err 1.622e-03
+  floor rho=5 top 3        cols 2.91 kb (filter 6.2 ms)  d1 0 d2 24 d3 252 d4 0  err 1.586e-03
+  floor rho=10 top 3       cols 2.95 kb (filter 5.7 ms)  d1 0 d2 13 d3 263 d4 0  err 1.582e-03
+  floor rho=1.5 top 4      cols 3.05 kb (filter 6.5 ms)  d1 33 d2 54 d3 56 d4 133  err 1.692e-03
+  floor rho=2 top 4        cols 3.37 kb (filter 7.5 ms)  d1 18 d2 39 d3 41 d4 178  err 1.464e-03
+  floor rho=3 top 4        cols 3.58 kb (filter 7.9 ms)  d1 7 d2 33 d3 28 d4 208  err 1.340e-03
+  floor rho=5 top 4        cols 3.75 kb (filter 8.0 ms)  d1 0 d2 24 d3 22 d4 230  err 1.282e-03
+  floor rho=10 top 4       cols 3.84 kb (filter 8.3 ms)  d1 0 d2 13 d3 18 d4 245  err 1.274e-03
+dump/nug_149.bin: K 730 kb 270 degree 3 guard 36 lam_hi 3.35 theta_top 0.003329 theta_min -5.417 (prev nneg 234)
+  exact: nneg 245 of K, lambda_min -5.428, lambda_max 3.043, 33 eigenvalues within 1e-3 of 0
+  step (ms): filter 6.6  cholqr 1.8  rr product 2.0  G=Y'T+sym 0.9
+  today (ms): ssyevd 3.4  X=YG 0.8  F 0.1  = 4.3   (rank nneg 234)
+  CS2   (ms): ssyevr+ 2.6 (m 36)  S 0.1  spstrf 0.2  F=Y(:,p)L 0.5  F64 0.1  = 3.5   (rank 234)  saved 0.8
+  shift (ms): S 0.0  spstrf 0.2  F=Y(:,p)L 0.4  F64 0.1  = 0.8   (rank 270, sigma 0.00333)  saved 3.4 before the rank-270 dsyrk's extra columns
+  full ssyevr (all pairs) 5.4 ms against ssyevd 3.4; ssytrd alone 1.0
+  positive pairs only: ssyevr 2.6  ssyevx 2.6 (m 36)  ssytrd+sstedc+sormtr(m) 2.8
+  SUMMARY kb 270 nneg 234 m 36 today 4.3 cs2 3.5 saved 0.8
+  ||R - R_exact||_F / ||P_-(W)||_F: today 1.273e-03  CS2 1.273e-03  shift 3.648e-03
+  uniform 3                cols 3.00 kb (filter 6.5 ms)  d1 0 d2 0 d3 270 d4 0  err 1.273e-03
+  uniform 2                cols 2.00 kb (filter 4.2 ms)  d1 0 d2 270 d3 0 d4 0  err 1.551e-03
+  uniform 4                cols 4.00 kb (filter 8.2 ms)  d1 0 d2 0 d3 0 d4 270  err 1.055e-03
+  memo (edge damping)      cols 1.47 kb (filter 3.3 ms)  d1 187 d2 39 d3 44 d4 0  err 1.904e-03
+  floor rho=1.5 top 3      cols 2.56 kb (filter 5.3 ms)  d1 33 d2 52 d3 185 d4 0  err 1.444e-03
+  floor rho=2 top 3        cols 2.73 kb (filter 5.7 ms)  d1 18 d2 37 d3 215 d4 0  err 1.351e-03
+  floor rho=3 top 3        cols 2.83 kb (filter 6.0 ms)  d1 7 d2 33 d3 230 d4 0  err 1.301e-03
+  floor rho=5 top 3        cols 2.91 kb (filter 5.8 ms)  d1 0 d2 24 d3 246 d4 0  err 1.276e-03
+  floor rho=10 top 3       cols 2.95 kb (filter 6.3 ms)  d1 0 d2 13 d3 257 d4 0  err 1.274e-03
+  floor rho=1.5 top 4      cols 3.04 kb (filter 6.4 ms)  d1 33 d2 52 d3 56 d4 129  err 1.334e-03
+  floor rho=2 top 4        cols 3.37 kb (filter 6.5 ms)  d1 18 d2 37 d3 43 d4 172  err 1.181e-03
+  floor rho=3 top 4        cols 3.58 kb (filter 7.0 ms)  d1 7 d2 33 d3 27 d4 203  err 1.100e-03
+  floor rho=5 top 4        cols 3.75 kb (filter 7.0 ms)  d1 0 d2 24 d3 20 d4 226  err 1.061e-03
+  floor rho=10 top 4       cols 3.84 kb (filter 7.4 ms)  d1 0 d2 13 d3 18 d4 239  err 1.056e-03
+dump/nug_193.bin: K 730 kb 262 degree 3 guard 36 lam_hi 3.687 theta_top 0.002105 theta_min -5.804 (prev nneg 226)
+  exact: nneg 236 of K, lambda_min -5.811, lambda_max 3.349, 47 eigenvalues within 1e-3 of 0
+  step (ms): filter 5.7  cholqr 1.6  rr product 1.7  G=Y'T+sym 0.8
+  today (ms): ssyevd 3.0  X=YG 0.7  F 0.1  = 3.8   (rank nneg 226)
+  CS2   (ms): ssyevr+ 2.3 (m 36)  S 0.0  spstrf 0.2  F=Y(:,p)L 0.4  F64 0.1  = 3.1   (rank 226)  saved 0.7
+  shift (ms): S 0.0  spstrf 0.2  F=Y(:,p)L 0.4  F64 0.1  = 0.7   (rank 261, sigma 0.00211)  saved 3.1 before the rank-261 dsyrk's extra columns
+  full ssyevr (all pairs) 4.8 ms against ssyevd 3.0; ssytrd alone 0.9
+  positive pairs only: ssyevr 2.3  ssyevx 2.4 (m 36)  ssytrd+sstedc+sormtr(m) 2.5
+  SUMMARY kb 262 nneg 226 m 36 today 3.8 cs2 3.1 saved 0.7
+  ||R - R_exact||_F / ||P_-(W)||_F: today 7.555e-04  CS2 7.555e-04  shift 2.121e-03
+  uniform 3                cols 3.00 kb (filter 6.6 ms)  d1 0 d2 0 d3 262 d4 0  err 7.555e-04
+  uniform 2                cols 2.00 kb (filter 4.3 ms)  d1 0 d2 262 d3 0 d4 0  err 8.974e-04
+  uniform 4                cols 4.00 kb (filter 8.3 ms)  d1 0 d2 0 d3 0 d4 262  err 6.400e-04
+  memo (edge damping)      cols 1.48 kb (filter 3.4 ms)  d1 181 d2 36 d3 45 d4 0  err 1.071e-03
+  floor rho=1.5 top 3      cols 2.56 kb (filter 5.2 ms)  d1 33 d2 49 d3 180 d4 0  err 8.407e-04
+  floor rho=2 top 3        cols 2.73 kb (filter 5.7 ms)  d1 18 d2 35 d3 209 d4 0  err 7.937e-04
+  floor rho=3 top 3        cols 2.83 kb (filter 5.9 ms)  d1 7 d2 31 d3 224 d4 0  err 7.699e-04
+  floor rho=5 top 3        cols 2.90 kb (filter 5.7 ms)  d1 0 d2 25 d3 237 d4 0  err 7.578e-04
+  floor rho=10 top 3       cols 2.95 kb (filter 6.1 ms)  d1 0 d2 13 d3 249 d4 0  err 7.560e-04
+  floor rho=1.5 top 4      cols 3.05 kb (filter 6.6 ms)  d1 33 d2 49 d3 53 d4 127  err 7.774e-04
+  floor rho=2 top 4        cols 3.38 kb (filter 7.1 ms)  d1 18 d2 35 d3 39 d4 170  err 7.001e-04
+  floor rho=3 top 4        cols 3.58 kb (filter 7.6 ms)  d1 7 d2 31 d3 26 d4 198  err 6.623e-04
+  floor rho=5 top 4        cols 3.74 kb (filter 7.9 ms)  d1 0 d2 25 d3 19 d4 218  err 6.441e-04
+  floor rho=10 top 4       cols 3.83 kb (filter 8.0 ms)  d1 0 d2 13 d3 19 d4 230  err 6.410e-04
+dump/nug_204.bin: K 730 kb 262 degree 3 guard 36 lam_hi 3.754 theta_top 0.002107 theta_min -5.872 (prev nneg 226)
+  exact: nneg 236 of K, lambda_min -5.878, lambda_max 3.409, 49 eigenvalues within 1e-3 of 0
+  step (ms): filter 6.6  cholqr 1.7  rr product 1.9  G=Y'T+sym 0.8
+  today (ms): ssyevd 3.2  X=YG 0.7  F 0.2  = 4.0   (rank nneg 225)
+  CS2   (ms): ssyevr+ 2.5 (m 37)  S 0.1  spstrf 0.2  F=Y(:,p)L 0.4  F64 0.1  = 3.3   (rank 225)  saved 0.7
+  shift (ms): S 0.0  spstrf 0.2  F=Y(:,p)L 0.4  F64 0.1  = 0.8   (rank 261, sigma 0.00211)  saved 3.2 before the rank-261 dsyrk's extra columns
+  full ssyevr (all pairs) 4.9 ms against ssyevd 3.2; ssytrd alone 0.9
+  positive pairs only: ssyevr 2.5  ssyevx 2.5 (m 37)  ssytrd+sstedc+sormtr(m) 2.6
+  SUMMARY kb 262 nneg 225 m 37 today 4.0 cs2 3.3 saved 0.7
+  ||R - R_exact||_F / ||P_-(W)||_F: today 6.749e-04  CS2 6.749e-04  shift 2.072e-03
+  uniform 3                cols 3.00 kb (filter 6.3 ms)  d1 0 d2 0 d3 262 d4 0  err 6.749e-04
+  uniform 2                cols 2.00 kb (filter 4.1 ms)  d1 0 d2 262 d3 0 d4 0  err 7.996e-04
+  uniform 4                cols 4.00 kb (filter 7.3 ms)  d1 0 d2 0 d3 0 d4 262  err 5.725e-04
+  memo (edge damping)      cols 1.36 kb (filter 3.3 ms)  d1 206 d2 17 d3 39 d4 0  err 9.605e-04
+  floor rho=1.5 top 3      cols 2.56 kb (filter 5.0 ms)  d1 34 d2 47 d3 181 d4 0  err 7.494e-04
+  floor rho=2 top 3        cols 2.73 kb (filter 5.5 ms)  d1 18 d2 34 d3 210 d4 0  err 7.079e-04
+  floor rho=3 top 3        cols 2.83 kb (filter 5.9 ms)  d1 7 d2 30 d3 225 d4 0  err 6.873e-04
+  floor rho=5 top 3        cols 2.90 kb (filter 6.0 ms)  d1 0 d2 25 d3 237 d4 0  err 6.769e-04
+  floor rho=10 top 3       cols 2.95 kb (filter 6.2 ms)  d1 0 d2 13 d3 249 d4 0  err 6.753e-04
+  floor rho=1.5 top 4      cols 3.05 kb (filter 6.5 ms)  d1 34 d2 47 d3 53 d4 128  err 6.925e-04
+  floor rho=2 top 4        cols 3.38 kb (filter 7.1 ms)  d1 18 d2 34 d3 40 d4 170  err 6.248e-04
+  floor rho=3 top 4        cols 3.59 kb (filter 7.2 ms)  d1 7 d2 30 d3 26 d4 199  err 5.916e-04
+  floor rho=5 top 4        cols 3.74 kb (filter 7.9 ms)  d1 0 d2 25 d3 19 d4 218  err 5.761e-04
+  floor rho=10 top 4       cols 3.83 kb (filter 8.0 ms)  d1 0 d2 13 d3 19 d4 230  err 5.734e-04
+dump/nug_277.bin: K 730 kb 257 degree 3 guard 36 lam_hi 4.074 theta_top 0.000828 theta_min -6.188 (prev nneg 221)
+  exact: nneg 225 of K, lambda_min -6.191, lambda_max 3.7, 66 eigenvalues within 1e-3 of 0
+  step (ms): filter 6.5  cholqr 1.7  rr product 2.0  G=Y'T+sym 0.8
+  today (ms): ssyevd 3.0  X=YG 0.7  F 0.1  = 3.8   (rank nneg 221)
+  CS2   (ms): ssyevr+ 2.3 (m 36)  S 0.1  spstrf 0.2  F=Y(:,p)L 0.4  F64 0.1  = 3.1   (rank 221)  saved 0.7
+  shift (ms): S 0.0  spstrf 0.2  F=Y(:,p)L 0.4  F64 0.1  = 0.8   (rank 256, sigma 0.000828)  saved 3.0 before the rank-256 dsyrk's extra columns
+  full ssyevr (all pairs) 4.6 ms against ssyevd 3.0; ssytrd alone 0.9
+  positive pairs only: ssyevr 2.3  ssyevx 2.3 (m 36)  ssytrd+sstedc+sormtr(m) 2.4
+  SUMMARY kb 257 nneg 221 m 36 today 3.8 cs2 3.1 saved 0.7
+  ||R - R_exact||_F / ||P_-(W)||_F: today 3.383e-04  CS2 3.383e-04  shift 8.012e-04
+  uniform 3                cols 3.00 kb (filter 6.4 ms)  d1 0 d2 0 d3 257 d4 0  err 3.383e-04
+  uniform 2                cols 2.00 kb (filter 4.2 ms)  d1 0 d2 257 d3 0 d4 0  err 4.017e-04
+  uniform 4                cols 4.00 kb (filter 7.8 ms)  d1 0 d2 0 d3 0 d4 257  err 2.857e-04
+  memo (edge damping)      cols 1.35 kb (filter 3.1 ms)  d1 205 d2 13 d3 39 d4 0  err 4.851e-04
+  floor rho=1.5 top 3      cols 2.57 kb (filter 5.1 ms)  d1 33 d2 45 d3 179 d4 0  err 3.789e-04
+  floor rho=2 top 3        cols 2.74 kb (filter 5.5 ms)  d1 18 d2 32 d3 207 d4 0  err 3.575e-04
+  floor rho=3 top 3        cols 2.84 kb (filter 5.8 ms)  d1 6 d2 30 d3 221 d4 0  err 3.451e-04
+  floor rho=5 top 3        cols 2.91 kb (filter 5.9 ms)  d1 0 d2 24 d3 233 d4 0  err 3.394e-04
+  floor rho=10 top 3       cols 2.95 kb (filter 6.1 ms)  d1 0 d2 12 d3 245 d4 0  err 3.385e-04
+  floor rho=1.5 top 4      cols 3.07 kb (filter 6.5 ms)  d1 33 d2 45 d3 50 d4 129  err 3.498e-04
+  floor rho=2 top 4        cols 3.39 kb (filter 7.1 ms)  d1 18 d2 32 d3 38 d4 169  err 3.153e-04
+  floor rho=3 top 4        cols 3.61 kb (filter 7.5 ms)  d1 6 d2 30 d3 23 d4 198  err 2.958e-04
+  floor rho=5 top 4        cols 3.74 kb (filter 7.7 ms)  d1 0 d2 24 d3 19 d4 214  err 2.877e-04
+  floor rho=10 top 4       cols 3.83 kb (filter 7.9 ms)  d1 0 d2 12 d3 19 d4 226  err 2.862e-04
