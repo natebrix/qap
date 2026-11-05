@@ -227,11 +227,13 @@ ship (zone + the parent's DNN state carried across coordinator units,
 - The tree shrinks by 44 nodes, the same depth-7 subtree certx removed:
   warm first solves certify a node zone's cold first solve only branched.
   No node is only in ship.
+- On the 205 matched nodes (same warm status in both) ship is 0.978x:
+  carrying the state costs nothing and gains nothing there; the whole
+  effect is the cold starts. The 7 shared phases are identical (8,100
+  iterations in both). Kill line 1.10x end to end: PASS (1.660x).
 - The CPU figure is the one caveat: ship ran alone after the pair, not
   beside zone, so its slots had the machine's full memory bandwidth;
   the iteration ratio is machine-independent and is the one to quote.
-  (summarize.py has no ship-against-zone section yet; the numbers above
-  are from the table.)
 
 Production candidate after all seven arms: zone + warmy + ship. The two
 are independent levers (warmy strengthens the pool, ship removes cold
