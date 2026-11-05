@@ -1928,8 +1928,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       }
     }
   }
-  // DNN_RPRSM (see rprsm_env above dnn's projections)
-  const int rp = rprsm_env();
+  // DNN_RPRSM (see rprsm_env above dnn's projections). Not in prototype mode,
+  // which reproduces dnn.py's iteration (and whose box certificate does not see
+  // the doubly stochastic structure that bits 2 and 8 build into Z)
+  const int rp = par.prototype_cert ? 0 : rprsm_env();
   if (rp & 1) w.rp_target = m + 1;
   const bool rp_ds = (rp & 2) != 0, rp_arrow = (rp & 10) == 10, rp_restr = (rp & 4) != 0;
   if (rp_ds) { w.ds_t.assign((size_t)m * m, 0); w.ds_x.assign((size_t)m * m, 0); }
