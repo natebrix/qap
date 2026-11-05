@@ -149,3 +149,45 @@ because of chance; an earlier bullet here said otherwise.
 
 Next: `run_pair.sh warmy certx`, both judged against `runs/zone`. Then, if
 the laptop is free, `run_pair.sh zone2 base2` for the noise.
+
+### warmy and certx vs zone (laptop, Nov 4 evening; `runs/warmy`, `runs/certx`)
+
+Both arms at ff7d517 (the base/zone pair was at f6d448e; the arms differ
+only in the Nov 4 coordinator and damping commits), 3 slots each, run at
+the same time (21:47-22:35 PST). **warmy passes, certx fails.**
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU | wall (3 slots) |
+|---|---|---|---|---|---|
+| zone (Nov 4 afternoon) | 366 / 358 | 8 (0) | 51,150 (40,650 + 10,500) | 7,985 s | 3,192 s |
+| warmy | 232 / 227 | 6 (1) | 30,260 (24,910 + 5,350) | 4,811 s | 2,036 s |
+| certx | 322 / 315 | 10 (3) | 49,150 (34,900 + 14,250) | 6,871 s | 2,833 s |
+
+warmy (Y kept between cut rounds, 12 rounds of 200, quiet at most 1,000,
+first step damped 0.3 on inherited pools):
+- Kill line 1.05x on the matched nodes: **1.159x** (186 matched nodes,
+  27,510 -> 23,730 iterations); end to end **1.690x**, tree 366 -> 232.
+- The root's phase reaches 48,725.6 in its 1,200 iterations against
+  48,685.1 for zone's cold rounds: +40 more from the same budget, and the
+  children inherit the stronger pool. First solves 40,650 -> 24,910.
+- Two depth-5 nodes flip to fathoming (one in its phase at 48,814.4, one
+  in the first solve at 48,814.2); the 134 nodes under them are the whole
+  tree difference. No node is only in warmy. The 6 shared phases gain +40.1
+  over the first solve against +17.1.
+- Stacked on zone over base: 83,640 -> 30,260 DNN iterations, 2.76x end to
+  end, 454 -> 232 nodes.
+
+certx (the certificate polish within 10 units of the cutoff):
+- Kill line 1.03x on the matched nodes: **0.983x** (321 matched, 48,190 ->
+  49,030), FAIL. End to end 1.041x and 1.16x DNN CPU, all from one depth-6
+  node whose phase reaches 48,814.1 at 1,780 iterations where zone's
+  stopped at 48,808.5 after 2,400; the 44 nodes under it are the tree
+  difference. Per node the polish costs slightly more than it saves.
+- The one flip is a near-miss closed by the polish, which is the effect it
+  was built for, but it does not pay on the matched nodes. Retired from the
+  production candidates; the near-miss mechanism, if wanted, belongs in the
+  cut phase's quiet round rather than a separate pass.
+
+Production candidate after this pair: zone + warmy
+(`QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12
+QAP_DNN_CUT_ITERS=200 QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3`).
+Replicates (`zone2 base2`) and the `ship` arm are the remaining pairs.

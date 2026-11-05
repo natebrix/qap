@@ -4,8 +4,12 @@
 |---|---|---|---|---|---|---|---|---|---|---|
 | base | 454 / 444 | 454 / 444 | 15 (6) | 222 / 406 | 83,640 (59,600 + 24,040) | 11,318 | 11,456 | 4,431 | 92.4% | 48816 |
 | zone | 366 / 358 | 366 / 358 | 8 (0) | 248 / 365 | 51,150 (40,650 + 10,500) | 7,985 | 8,083 | 3,192 | 93.0% | 48816 |
+| warmy | 232 / 227 | 232 / 227 | 6 (1) | 163 / 231 | 30,260 (24,910 + 5,350) | 4,811 | 4,877 | 2,036 | 88.9% | 48816 |
+| certx | 322 / 315 | 322 / 315 | 10 (3) | 205 / 321 | 49,150 (34,900 + 14,250) | 6,871 | 6,953 | 2,833 | 88.3% | 48816 |
   base: 2026-11-05T00:07:40Z Apple M2 Pro P-cores 6 slots 3 f6d448e
   zone: 2026-11-05T00:07:40Z Apple M2 Pro P-cores 6 slots 3 f6d448e
+  warmy: 2026-11-05T05:47:11Z Apple M2 Pro P-cores 6 slots 3 ff7d517
+  certx: 2026-11-05T05:47:11Z Apple M2 Pro P-cores 6 slots 3 ff7d517
 
 ## zone against base
 - tree: 366 DNN nodes against 454; cut phases 8 (0 fathomed) against 15 (6)
@@ -20,6 +24,35 @@
 - by depth (nodes, DNN iterations), base -> zone: d3 1/300 -> 1/1,500; d4 47/22,940 -> 47/13,910; d5 184/31,440 -> 184/20,990; d6 135/15,550 -> 90/12,320; d7 44/6,260 -> 44/2,430; d8 43/7,150 -> 0/0
 - kill line: 1.15x in DNN iterations end to end -> PASS (1.635x)
 
+## warmy against zone
+- tree: 232 DNN nodes against 366; cut phases 6 (1 fathomed) against 8 (0)
+- DNN iterations 51,150 -> 30,260: **1.690x** (first solves 40,650 -> 24,910, cut phases 10,500 -> 5,350)
+- DNN CPU 7,985 -> 4,811 s: 1.660x; coordinator CPU 8,083 -> 4,877 s: 1.657x; wall 3,192 -> 2,036 s: 1.568x
+- the 232 shared nodes: 36,400 -> 30,260 DNN iterations, 1.203x; 0 nodes only in warmy, 134 only in zone
+- outcome changed on 2 shared nodes:
+  - depth 5 [0:25 25:49 30:48 39:27 49:45]: zone branched (first 310 it, lb 48777.2; phase 900 it, best 48777.2), warmy fathomed (first 330 it, lb 48790.0; phase 1150 it, best 48814.4)
+  - depth 5 [0:26 25:49 30:48 39:27 49:45]: zone branched (first 370 it, lb 48787.3; phase 2400 it, best 48804.9), warmy fathomed (first 960 it, lb 48814.2)
+- the 186 matched nodes (shared, same warm start and pool status): 27,510 -> 23,730 DNN iterations, 1.159x
+- the 6 nodes with a phase in both: phase iterations 5,700 -> 5,350 (1.065x), fathomed by the phase 0 -> 1, mean gain over the first solve +17.1 -> +40.1
+- by depth (nodes, DNN iterations), zone -> warmy: d3 1/1,500 -> 1/1,500; d4 47/13,910 -> 47/12,870; d5 184/20,990 -> 184/15,890; d6 90/12,320 -> 0/0; d7 44/2,430 -> 0/0
+- kill line: 1.05x in DNN iterations on the matched nodes -> PASS (1.159x; end to end 1.690x)
+
+## certx against zone
+- tree: 322 DNN nodes against 366; cut phases 10 (3 fathomed) against 8 (0)
+- DNN iterations 51,150 -> 49,150: **1.041x** (first solves 40,650 -> 34,900, cut phases 10,500 -> 14,250)
+- DNN CPU 7,985 -> 6,871 s: 1.162x; coordinator CPU 8,083 -> 6,953 s: 1.163x; wall 3,192 -> 2,833 s: 1.127x
+- the 322 shared nodes: 48,720 -> 49,150 DNN iterations, 0.991x; 0 nodes only in certx, 44 only in zone
+- outcome changed on 1 shared nodes:
+  - depth 6 [0:25 25:49 30:48 39:27 49:45 9:21]: zone branched (first 570 it, lb 48772.0; phase 2400 it, best 48808.5), certx fathomed (first 570 it, lb 48772.0; phase 1780 it, best 48814.1)
+- the 321 matched nodes (shared, same warm start and pool status): 48,190 -> 49,030 DNN iterations, 0.983x
+- the 8 nodes with a phase in both: phase iterations 10,500 -> 9,880 (1.063x), fathomed by the phase 0 -> 1, mean gain over the first solve +19.6 -> +21.1
+- by depth (nodes, DNN iterations), zone -> certx: d3 1/1,500 -> 1/1,500; d4 47/13,910 -> 47/13,660; d5 184/20,990 -> 184/21,430; d6 90/12,320 -> 90/12,560; d7 44/2,430 -> 0/0
+- kill line: 1.03x in DNN iterations on the matched nodes -> FAIL (0.983x; end to end 1.041x)
+
 base: the subtree's root (depth 3): first lb 48582.47 after 300 it, no phase
 
 zone: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48685.06 in 1200 it (iter_limit)
+
+warmy: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48725.59 in 1200 it (iter_limit)
+
+certx: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48690.64 in 1200 it (iter_limit)
