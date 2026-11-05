@@ -1,0 +1,16 @@
+3 nodes done in every configuration; 2 fathomed by all
+cfg    fath   ms/it   med_it   sum_it  cpu_fath  cpu_miss   cpu_all margin_med margin_max
+base2     2   349.0      135      270      82.6     116.3     198.9   3.94e-06   4.95e-06
+ncb       2   332.7      135      270      79.6     110.1     189.6   3.94e-06   4.95e-06
+ncb/base2 ms per iteration, per node: median 0.9552  min 0.9464  max 0.9724
+iterations to fathom, ncb - base2: same on 2 of 2; differences []
+certificate margins, ncb vs base2, paired by iteration: 57 pairs, max |ratio - 1| 0.000, 0 differ by more than 1%; ncb max 4.95e-06
+misses' lb at 200, ncb - base2: median +0.051  min +0.051  max +0.051  (1 nodes)
+misses' lb at 300, ncb - base2: median +0.025  min +0.025  max +0.025  (1 nodes)
+form R, ms per iteration (F, syrk, symmetrize), mean over nodes:
+  base2 F 6.3  syrk 25.4  symmetrize 11.2  total 43.0
+  ncb   F 1.1  syrk 14.9  symmetrize 16.4  total 32.5
+per node (id: outcome iters ms/it, per configuration):
+   2 base2 -  300  387.7  ncb -  300  366.9
+  19 base2 F  130  299.8  ncb F  130  291.5
+  23 base2 F  140  311.6  ncb F  140  297.6
