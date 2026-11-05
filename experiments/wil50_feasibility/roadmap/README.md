@@ -71,7 +71,7 @@ since (`[m]`) and what is still an estimate (`[e]`):
 | **all four in the search** | **3.21x [m]** | **against the baseline configuration's 76,755 CPU-s on the same subtree (5.8x against the plain search's 139,149)** |
 | coordinator (fleet busy 70-85% -> 93-97%) | 1.15-1.35x [e] of wall clock; 1.09x [m] in iterations on the 4-slot subtree | built (`coord/`); the fleet factor is measured at plan.md phase 2 |
 | shorter cut phase (Y12s), phase trims | 1.1-1.2x each [m on the phase] | not pursued; Y12s is now the switch `QAP_DNN_CUT_WARMY=1` with 200-iteration rounds |
-| Nov 4-5 levers (`convergence2/`, `pipeline_ab/`): equip phase, warm-Y rounds with damping, parent state across units | in DNN iterations on the node-10 subtree, laptop: zone 1.64x over the Nov 4 production configuration; on top of zone, warm-Y 1.69x and ship 1.66x. **zone + warm-Y 2.76x, zone + ship 2.71x** over the same-hour base; **1.95x and 1.91x** over the cloud's run of the Nov 4 configuration (another machine, 4 slots) | the three together (`full`) is the next laptop pair; certificate polish closed |
+| Nov 4-5 levers (`convergence2/`, `pipeline_ab/`): equip phase, warm-Y rounds with damping, parent state across units | in DNN iterations on the node-10 subtree, laptop: zone 1.64x over the Nov 4 production configuration; on top of zone, warm-Y 1.69x and ship 1.66x. **All three together (`full`): 4.26x in iterations and 3.49x in DNN CPU over the same-hour base** (83,640 -> 19,640 iterations; 11,318 -> 3,239 s); 3.0x in iterations over the cloud's run of the Nov 4 configuration. The levers multiply to within 8% (1.69 x 1.66 = 2.81x predicted over zone, 2.60x measured). Per depth against base: depth 4 3.5x, depth 5 2.7x | production: `QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=32` on top of the Nov 4 setting; certificate polish closed |
 
 Against the baseline of section 1 (120-700 days on 1,000 Xeon cores, center
 290; a week needs about 41x at the center):
@@ -88,8 +88,14 @@ Against the baseline of section 1 (120-700 days on 1,000 Xeon cores, center
 - **Plus warm-Y rounds or the shipped parent state (Nov 5, each about 1.9x
   over the cloud base and 2.7x over the laptop base together with zone):**
   center about **33-48 days** on the measured levers, about 26-38 with the
-  coordinator. These rest on one subtree, and the `full` arm (all three)
-  is still to run. The factor is measured in iterations;
+  coordinator.
+- **Plus all three together (`full`, Nov 5: 3.0-4.3x in iterations, 3.5x in
+  CPU over the Nov 4 configuration):** center about **21-30 days** on the
+  measured levers, about **17-24 with the coordinator**.
+- **The caveat now dominates.** Every Nov 4-5 lever was measured on one
+  subtree. Node 10 is in the 233-244-short class of depth-3 nodes. The
+  329-405-short class, which `tree_size.md` puts at 85-91% of the total, has
+  not been run with any of them. The factor is measured in iterations;
   its CPU ratio on the laptop was 1.42x against 1.64x, and part of that gap
   may be the laptop's mixed cores.
 - **Per core, an M2 Pro is 2.0x the cloud's AMX Xeon** on identical DNN
