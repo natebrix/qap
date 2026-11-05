@@ -61,12 +61,17 @@ if [ "$LOCAL" != 1 ]; then
   dnf install -y -q gcc-c++ make python3.11 python3.11-pip tar gzip util-linux > "$OUT/dnf.log" 2>&1 || { step "dnf failed"; exit 1; }
   PY=python3.11
   $PY -m pip install -q numpy scipy-openblas32 > "$OUT/pip.log" 2>&1 || { step "pip failed"; exit 1; }
+  # src/MESCHACH/makefile says CC = clang; without clang, Meschach is built with gcc
+  # (checked with gcc 11 on the cloud box: brute force, regression and dnncheck pass)
+  dnf install -y -q clang >> "$OUT/dnf.log" 2>&1 || MESCHACH_CC=gcc
 fi
-{ g++ --version | head -1; $PY --version; $PY -c "import scipy_openblas32 as o; print('scipy-openblas32', o.get_lib_dir())"; } > "$OUT/toolchain.txt" 2>&1
+MESCHACH_CC=${MESCHACH_CC:-clang}
+{ g++ --version | head -1; echo "meschach CC $MESCHACH_CC"; $PY --version
+  $PY -c "import scipy_openblas32 as o; print('scipy-openblas32', o.get_lib_dir())"; } > "$OUT/toolchain.txt" 2>&1
 step "toolchain: $(tr '\n' ' ' < "$OUT/toolchain.txt")"
 
 # --- the build
-if ! { make solver PYTHON=$PY && make dnntest PYTHON=$PY; } > "$OUT/build.log" 2>&1; then
+if ! { make -C src/MESCHACH basic CC=$MESCHACH_CC && make solver PYTHON=$PY && make dnntest PYTHON=$PY; } > "$OUT/build.log" 2>&1; then
   step "build FAILED (out/build.log)"
   exit 1
 fi
