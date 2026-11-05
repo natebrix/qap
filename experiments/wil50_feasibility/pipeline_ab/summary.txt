@@ -1,0 +1,15 @@
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| base | 409 / 379 | 408 / 379 | 10 (0) | 362 / 0 | 23,780 (21,080 + 2,700) | 118 | 122 | 77 | 79.4% | 2570 |
+| zone | 409 / 379 | 408 / 379 | 17 (0) | 360 / 0 | 24,750 (21,150 + 3,600) | 121 | 125 | 77 | 81.7% | 2570 |
+  base: 2026-11-04T23:59:49Z Intel(R) Xeon(R) Processor @ 2.80GHz amx_cpus 0 slots 2 0f753cb (latest/ modified)
+  base: 2026-11-05T00:00:07Z Intel(R) Xeon(R) Processor @ 2.80GHz amx_cpus 0 slots 2 0f753cb (latest/ modified)
+  zone: 2026-11-04T23:59:49Z Intel(R) Xeon(R) Processor @ 2.80GHz amx_cpus 0 slots 2 0f753cb (latest/ modified)
+  zone: 2026-11-05T00:00:07Z Intel(R) Xeon(R) Processor @ 2.80GHz amx_cpus 0 slots 2 0f753cb (latest/ modified)
+
+## zone against base
+- tree: 408 DNN nodes against 408; cut phases 17 (0 fathomed) against 10 (0)
+- DNN iterations 23,780 -> 24,750: **0.961x** (first solves 21,080 -> 21,150, cut phases 2,700 -> 3,600)
+- DNN CPU 118 -> 121 s: 0.972x; coordinator CPU 122 -> 125 s: 0.972x; wall 77 -> 77 s: 1.001x

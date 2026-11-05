@@ -811,6 +811,10 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // round restarts from Y = e0 e0', and the certificate spends the first
 	    // part of every round rebuilding it
 	    if (const char *e = getenv("QAP_DNN_CUT_WARMY")) cp.warm_primal = atoi(e) ? 1 : 0;
+	    // QAP_DNN_CUT_DAMP1=F: the first Polyak step of a phase that starts
+	    // from an inherited pool is F times the usual one (1 = off; the
+	    // pipeline A/B's warmy arm uses 0.3)
+	    if (const char *e = getenv("QAP_DNN_CUT_DAMP1")) cp.damp1 = atof(e);
 	    if (cp.grid_rows == 0) cp.prefix = true;
 	    DNNPool pool_out;
 	    if (dnn_pool && cp.side == cut_side) {

@@ -117,6 +117,10 @@ struct DNNCutParams {
                       // stronger_bounds/dualtest). 0 = every round (default)
   double delta;       // Polyak target = min(cutoff, best + delta) (50)
   double theta;       // Polyak step factor (1.0); 0: multipliers stay at mu0
+  double damp1;       // factor on the first Polyak step of a phase that starts from an
+                      // inherited pool (1.0: none). That step starts from near-optimal
+                      // multipliers and overshoots (-88 to -116 at 49:45,
+                      // roadmap/convergence2 E2); QAP_DNN_CUT_DAMP1 in bnb.C
   double mu0;         // multiplier of a newly added cut (0)
   int grid_rows, grid_cols;  // regions: the prefixes of this grid over the
                       // original indices of `side`; 0: none

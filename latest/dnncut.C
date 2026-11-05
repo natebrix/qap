@@ -18,7 +18,7 @@ DNNCutParams::DNNCutParams()
   rounds = 12; iters = 300; first_iters = 0; kcuts = 1000; kcuts5 = 0; add_until = 0;
   kcuts7 = 0; sub7 = 1000;
   kbox = 0; box_qmax = 24; box_starts = 40; box_bmax = 7;
-  delta = 50; theta = 1.0; mu0 = 0;
+  delta = 50; theta = 1.0; damp1 = 1.0; mu0 = 0;
   grid_rows = grid_cols = 0; side = 0; prefix = false; atomic = false; verbose = 0;
   stall_rounds = 0; stall_factor = 3.0;
   pgate_rounds = 0; pgate_margin = 20;
@@ -654,6 +654,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   std::vector<std::vector<double>> P, WW;         // regional aggregates of the last Y
   DNNWarm save;
   double prev_lb = -HUGE_VAL, theta_cur = cp.theta;
+  bool first_step = true;   // for cp.damp1
 
   double last_primal = HUGE_VAL, best_primal = -HUGE_VAL;   // best_primal: over the cut rounds
   std::vector<double> best_mu;   // the multipliers of the best round's solve (freeze_best)
@@ -998,7 +999,11 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     if (s2 <= 0) break;
     const double target = cp.cap_at_cutoff ? std::min(cutoff, out.best_lb + cp.delta)
                                            : out.best_lb + cp.delta;
-    const double alpha = theta_cur * std::max(target - lb_now, 1e-6) / s2;
+    // the first step of an inherited phase moves multipliers that are already
+    // near-optimal for this node: optionally damped (cp.damp1)
+    const double theta_step = (inherited && first_step) ? theta_cur * cp.damp1 : theta_cur;
+    first_step = false;
+    const double alpha = theta_step * std::max(target - lb_now, 1e-6) / s2;
     for (size_t t = 0; t < cuts.size(); t++)
       cuts[t].mu = std::max(0.0, cuts[t].mu + alpha * sg[t]);
   }
