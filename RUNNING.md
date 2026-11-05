@@ -458,7 +458,10 @@ geometric mean B/A over 9 instances solved in both:  nodes 1.000   solver time 0
    on the same, otherwise idle machine and with the same build flags. Use
    `--repeats 3` to take the median wall time. `compare` warns when hostname,
    CPU, params, params-file contents or upper-bound mode differ between the two
-   runs.
+   runs. The solver runs with one BLAS thread (`OPENBLAS_NUM_THREADS`,
+   `OMP_NUM_THREADS` and `VECLIB_MAXIMUM_THREADS` set to 1 unless already set):
+   until Nov 5 an idle OpenBLAS pool added about 0.36 s of CPU to every run,
+   so CPU times of sub-second instances in older results are inflated by that.
 5. **Correctness is checked.** Each instance's status is `ok`, `timeout`,
    `error(...)`, or `wrong(...)`. `wrong(below-opt)` means a solution better
    than the known optimum was reported, and `wrong(not-opt)` (with `--ub none`)
