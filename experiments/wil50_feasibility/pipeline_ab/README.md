@@ -34,9 +34,9 @@ experiments/wil50_feasibility/pipeline_ab/run_pair.sh base zone
 - At the end it writes `summary.txt` and prints the `git add/commit/push`
   line for the results: `runs/ARM/` trace, results, logs and hosts. The
   stores, work directories and binaries stay out of git.
-- The second pair, `run_pair.sh warmy certx`, needs the first-step damping,
-  which comes in a later commit (`git pull` and `make solver` first; the
-  script refuses `warmy` on a binary without it).
+- The second pair, `run_pair.sh warmy certx`, runs from the same build: the
+  first-step damping it uses has been in since fdb845d. The script refuses
+  `warmy` on a binary without it.
 
 `summarize.py runs/` can be run at any time; unfinished arms are listed as
 such.
