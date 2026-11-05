@@ -135,7 +135,11 @@ int main(int argc, char **argv)
     }
     else if (o == "-t" && more) cp.theta = atof(argv[++a]);
     else if (o == "-delta" && more) cp.delta = atof(argv[++a]);
-    else if (o == "-damp1" && more) cp.damp1 = atof(argv[++a]);   // first step of an inherited phase
+    else if (o == "-damp1" && more) {   // F[:G]: first and later steps of an inherited phase
+      const char *e = argv[++a];
+      cp.damp1 = atof(e);
+      if (const char *c = strchr(e, ':')) cp.damp_rest = atof(c + 1);
+    }
     else if (o == "-mu0" && more) cp.mu0 = atof(argv[++a]);
     else if (o == "-grid" && more) {
       if (sscanf(argv[++a], "%d:%d", &cp.grid_rows, &cp.grid_cols) != 2 || cp.grid_rows < 1 || cp.grid_cols < 1) {
@@ -220,7 +224,7 @@ int main(int argc, char **argv)
          cp.atomic ? "atomic" : (cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
   if (cp.grid_rows > 0) printf(" side %d", cp.side);
   if (cp.warm_primal) printf(" warmY 1");
-  if (cp.damp1 != 1.0) printf(" damp1 %g", cp.damp1);
+  if (cp.damp1 != 1.0 || cp.damp_rest != 1.0) printf(" damp1 %g:%g", cp.damp1, cp.damp_rest);
   if (cp.kbox > 0) printf(" box %d qmax %d starts %d", cp.kbox, cp.box_qmax, cp.box_starts);
   DNNParams base;
   base.eig_mode = eig_mode;

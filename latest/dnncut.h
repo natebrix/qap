@@ -121,6 +121,8 @@ struct DNNCutParams {
                       // inherited pool (1.0: none). That step starts from near-optimal
                       // multipliers and overshoots (-88 to -116 at 49:45,
                       // roadmap/convergence2 E2); QAP_DNN_CUT_DAMP1 in bnb.C
+  double damp_rest;   // the same factor on the later steps of such a phase (1.0: none;
+                      // QAP_DNN_CUT_DAMP1=F:G sets damp1 F and damp_rest G)
   double mu0;         // multiplier of a newly added cut (0)
   int grid_rows, grid_cols;  // regions: the prefixes of this grid over the
                       // original indices of `side`; 0: none
