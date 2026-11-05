@@ -271,3 +271,46 @@ Next (cloud box, Nov 5): `run_pair.sh full ship2`.
   could not.
 - Both arms were smoke-tested on nug20 (every node warm in both). Each arm
   needs about 1-2 GB of disk for its store.
+
+### full and ship2 (laptop, Nov 5; `runs/full`, `runs/ship2`)
+
+Both at f763734, 3 slots each, run together (06:35-07:06 PST). **full
+passes both gates: the levers stack.** ship2 repeats ship to the iteration
+and gives ship a fair CPU figure.
+
+| arm | nodes / fathomed | cut phases (fathomed) | warm nodes | DNN iterations (first + phase) | DNN CPU | wall (3 slots) |
+|---|---|---|---|---|---|---|
+| zone | 366 / 358 | 8 (0) | 248 / 365 | 51,150 (40,650 + 10,500) | 7,985 s | 3,192 s |
+| warmy | 232 / 227 | 6 (1) | 163 / 231 | 30,260 (24,910 + 5,350) | 4,811 s | 2,036 s |
+| ship | 322 / 315 | 7 (0) | 321 / 321 | 30,810 (22,710 + 8,100) | 3,769 s | 1,473 s |
+| ship2 (beside full) | 322 / 315 | 7 (0) | 321 / 321 | 30,820 (22,720 + 8,100) | 4,562 s | 1,847 s |
+| **full** = zone + warmy + ship | 232 / 227 | 6 (1) | 231 / 231 | **19,640** (14,840 + 4,800) | 3,239 s | 1,405 s |
+
+full:
+- Against warmy 1.541x in iterations (gate 1.10x), against ship 1.569x
+  (gate 1.10x): PASS on both. Against zone 2.604x, against base **4.259x**
+  (83,640 -> 19,640; DNN CPU 11,318 -> 3,239 s, 3.49x; wall 3.15x).
+- The tree is warmy's (232 nodes, the same two depth-5 flips, every node
+  warm). Against warmy the gain is per node: 1.130x on the 164 matched
+  nodes and the 68 cold nodes made warm; depth 4 goes 12,870 -> 6,560
+  iterations, depth 5 15,890 -> 11,580. Against ship the gain is the
+  pool: the two depth-5 flips remove 90 nodes, and the 6 shared phases
+  gain +36.9 over the first solve against +17.1.
+- Levers multiply to within noise: warmy 1.690x times ship 1.660x
+  predicts 2.81x over zone, measured 2.60x; the overlap is the depth-4
+  first solves, which both levers shorten.
+
+ship2: 30,820 iterations against ship's 30,810, same 322 nodes, same 7
+phases. Run beside full rather than alone its CPU is 4,562 s, so ship's
+fair figure against zone is 1.75x in CPU (7,985 -> 4,562) for 1.66x in
+iterations, not the 2.1x of the solo run; the 0.826x between ship and
+ship2 is the machine's load, as the cloud's check said.
+
+Production configuration after the eight arms: `QAP_DNN_CUT_ZONE=0.005
+QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200
+QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=32` on top of
+base. On this subtree it is 4.26x fewer DNN iterations than the Nov 4
+production configuration; the caveat that it is one subtree and that the
+49:45 flips carry 44-134 nodes each stands, so the per-depth figures
+(depth 4 3.5x, depth 5 2.7x against base) are the ones to carry to the
+wil50 estimate.
