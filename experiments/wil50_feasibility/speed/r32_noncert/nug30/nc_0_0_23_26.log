@@ -1,0 +1,19 @@
+objective values are even integers: fathoming tolerance 1.95
+instance /home/user/qap/qaplib/nug30.dat n=30 lapack=OpenBLAS (prefix 'scipy_')
+node 0 fixed=2 m=28 shift=120.000000 cutoff=6122.050000
+it    10 lb 3043.5117 (cert 3043.5117, margin 1.56e-07) primal 674.4337 pres 7.50e-01 dY 5.97e-01 npos 712 cpu 0.17
+it    20 lb 3716.2520 (cert 3716.2520, margin 1.44e-07) primal 1158.0467 pres 6.20e-01 dY 4.25e-01 npos 647 cpu 0.29
+it    30 lb 4429.4894 (cert 4429.4894, margin 1.39e-07) primal 1810.8366 pres 5.19e-01 dY 3.43e-01 npos 593 cpu 0.45
+it    40 lb 5004.8940 (cert 5004.8940, margin 1.39e-07) primal 2580.7556 pres 4.32e-01 dY 3.04e-01 npos 548 cpu 0.64
+it    50 lb 5459.6633 (cert 5459.6633, margin 1.41e-07) primal 3478.9076 pres 3.41e-01 dY 2.59e-01 npos 522 cpu 0.85
+it    60 lb 5742.7880 (cert 5742.7880, margin 1.46e-07) primal 4180.4011 pres 2.68e-01 dY 2.13e-01 npos 510 cpu 1.08
+it    70 lb 5919.9630 (cert 5919.9630, margin 1.50e-07) primal 4710.9299 pres 2.13e-01 dY 1.83e-01 npos 502 cpu 1.37
+it    80 lb 6026.6245 (cert 6026.6245, margin 1.55e-07) primal 5115.3491 pres 1.72e-01 dY 1.66e-01 npos 498 cpu 1.64
+it    90 lb 6088.9529 (cert 6088.9529, margin 1.58e-07) primal 5417.5164 pres 1.41e-01 dY 1.55e-01 npos 497 cpu 1.88
+it   100 lb 6127.7498 (cert 6127.7498, margin 1.61e-07) primal 5635.2721 pres 1.18e-01 dY 1.46e-01 npos 499 cpu 2.16
+profile (s): forward 0.281  eig 1.283  expand 0.202  Y/Z-step 0.270  certify 0.091
+eig split (s): full ssyevd 0.023 (1 refreshes, K=730)  filter+RR 1.014 (99 steps, mean kb 194, mean nneg 169)  form R 0.109
+step split (ms per subspace step): weyl 0.0  convert 0.3  pack 0.0  W*Y 5.9  cheb 0.2  cholqr 1.2  rr-gemm 0.5  rr-eig 2.0  x-upd 0.5
+form R (ms per iteration): F 0.1  syrk 0.9  symmetrize 1.1
+refresh reasons: scheduled 1  weyl bound 0  block too small 0  factorization failed 0  (block grown 8 times)
+RESULT node=0 m=28 lb=6127.7497660077252 primal=5635.2720850485921 status=fathomed iters=100 cpu=2.163 ms_per_iter=21.63 certs=10 cert_fail=0 refine=0 margin=1.61e-07 fathomed=1 restarts=0

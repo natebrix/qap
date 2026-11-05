@@ -1,0 +1,45 @@
+32 nodes done in every configuration; 18 fathomed by all
+cfg    fath   ms/it   med_it   sum_it  cpu_fath  cpu_miss   cpu_all margin_med margin_max
+base     18   376.2      220     4230    1468.0    1887.8    3355.7   4.03e-06   5.10e-06
+nc       18   360.5      220     4220    1403.5    1808.2    3211.7   4.03e-06   5.10e-06
+nc/base ms per iteration, per node: median 0.9565  min 0.9292  max 0.9981
+iterations to fathom, nc - base: same on 17 of 18; differences [-10]
+certificate margins, nc vs base, paired by iteration: 891 pairs, max |ratio - 1| 0.000, 0 differ by more than 1%; nc max 5.10e-06
+misses' lb at 200, nc - base: median +0.005  min -0.053  max +0.081  (14 nodes)
+misses' lb at 300, nc - base: median -0.011  min -0.056  max +0.069  (14 nodes)
+form R, ms per iteration (F, syrk, symmetrize), mean over nodes:
+  base  F 6.6  syrk 29.6  symmetrize 12.0  total 48.2
+  nc    F 1.2  syrk 17.3  symmetrize 14.3  total 32.8
+per node (id: outcome iters ms/it, per configuration):
+   1 base -  300  411.1  nc -  300  400.1
+   2 base -  300  408.0  nc -  300  385.8
+   3 base -  300  406.4  nc -  300  377.6
+   4 base -  300  411.6  nc -  300  400.5
+   5 base -  300  412.9  nc -  300  391.3
+   6 base -  370  397.1  nc -  370  388.0
+   7 base -  300  391.1  nc -  300  378.7
+   8 base -  300  398.9  nc -  300  381.4
+   9 base -  430  407.8  nc -  430  396.1
+  10 base -  300  398.6  nc -  300  378.8
+  11 base F  290  404.8  nc F  290  386.0
+  12 base F  280  409.6  nc F  280  391.9
+  13 base -  300  402.8  nc -  300  385.1
+  14 base -  350  398.0  nc -  350  379.0
+  15 base -  370  397.5  nc -  370  378.7
+  16 base -  470  397.2  nc -  470  378.3
+  17 base F  210  337.8  nc F  210  324.6
+  18 base F  270  343.3  nc F  270  330.1
+  19 base F  130  313.0  nc F  130  304.2
+  20 base F  170  335.9  nc F  170  320.4
+  21 base F  180  330.8  nc F  180  319.6
+  22 base F  400  362.0  nc F  390  343.3
+  23 base F  140  321.9  nc F  140  321.3
+  24 base F  340  351.7  nc F  340  340.1
+  25 base F  150  327.9  nc F  150  316.3
+  26 base F  170  331.3  nc F  170  319.0
+  27 base F  350  343.6  nc F  350  323.6
+  28 base F  160  333.7  nc F  160  314.8
+  29 base F  340  337.1  nc F  340  327.0
+  30 base F  180  316.9  nc F  180  301.7
+  31 base F  240  325.3  nc F  240  312.1
+  32 base F  230  333.1  nc F  230  316.3
