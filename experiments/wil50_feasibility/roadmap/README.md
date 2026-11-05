@@ -92,11 +92,22 @@ Against the baseline of section 1 (120-700 days on 1,000 Xeon cores, center
 - **Plus all three together (`full`, Nov 5: 3.0-4.3x in iterations, 3.5x in
   CPU over the Nov 4 configuration):** center about **21-30 days** on the
   measured levers, about **17-24 with the coordinator**.
-- **The caveat now dominates.** Every Nov 4-5 lever was measured on one
-  subtree. Node 10 is in the 233-244-short class of depth-3 nodes. The
-  329-405-short class, which `tree_size.md` puts at 85-91% of the total, has
-  not been run with any of them. The factor is measured in iterations;
-  its CPU ratio on the laptop was 1.42x against 1.64x, and part of that gap
+- **The tail class, measured Nov 5 (`../tail_probe/`, matched probe of node
+  1, 405 short, on the laptop): the levers hold there.** The production
+  candidate (`full`) against the Nov 4 setting: 4.9x in estimated DNN
+  iterations and 3.1x in CPU on node 1's subtree (node 10: 4.26x and
+  3.49x), 2.68x per node on 87 matched level-5 nodes (83 fathomed against
+  79). Node 1's subtree is about 27,000 DNN nodes under the Nov 4 setting
+  and 14,000 under `full` (SE about 70%; level 7, 84% of the estimate,
+  rests on 6 bounded nodes). In Xeon CPU (2.0x the laptop per core) that is
+  within 1.3-1.8x of what this section's centers assume for a tail node,
+  well inside the probe's own error: **the 21-30-day center stands**, now
+  with the tail class measured on one node instead of assumed. The 329-short
+  node of the class is not probed.
+- **The caveat that remains.** Every lever was measured on two subtrees,
+  node 10 and node 1. The total still rests on the tree model's count of
+  tail nodes per orbit, which only the sampling plan measures. The zone
+  factor is measured in iterations; its CPU ratio on the laptop was 1.42x against 1.64x, and part of that gap
   may be the laptop's mixed cores.
 - **Per core, an M2 Pro is 2.0x the cloud's AMX Xeon** on identical DNN
   nodes (`pipeline_ab/README.md`). This is not in the estimates, which are

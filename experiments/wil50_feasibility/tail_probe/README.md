@@ -164,6 +164,11 @@ totals mean anything.
 
 ### How big is node 1's subtree? (Nov 5, a second reading)
 
+**Superseded by the matched results below:** with three times the level-5
+sample and level 6 branching 2 of 24 (not 0 of 20), base's estimate is
+27,000 nodes, not 12,000, and sits at the center of the roadmap's implied
+range, not its low end.
+
 The arms cannot be compared below level 4, but each arm's own estimate is
 still an estimate of the tail class's size. base, the Nov 4 production
 setting with every node started cold, puts node 1's subtree at about
