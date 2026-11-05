@@ -1674,6 +1674,76 @@ static double cert_lambda(Work &w, const double *Zm)
   return HUGE_VAL;
 }
 
+/*
+ DNN_BETA_SCHED (experiments/wil50_feasibility/speed/beta_sched): opt-in
+ schedules of the ADMM penalty. Unset, beta is par.beta * m/3 for the whole
+ call and nothing below runs. beta changes only at the top of an iteration
+ whose R-step runs a scheduled full eigendecomposition (subspace mode; every
+ iteration in the exact modes), and never after iteration `freeze`: the
+ tracker restarts from a full ssyevd of the jumped W, and the give-up rule
+ sees a stationary iteration. Z is the unscaled multiplier (Y-step
+ Pi_P(VRV' - (L/scale + Z)/beta), R-step P_psd(V'(Y + Z/beta)V), Z-step
+ Z += gamma beta (Y - VRV')), so nothing is rescaled when beta changes: the
+ fixed points do not depend on beta, a child's mapped Z is beta-free, and the
+ certificate multiplier Z' = Z + beta (Y - VRV') satisfies V'Z'V =
+ beta (W - R) <= 0 for the beta of its own iteration (W, the steps and Z' all
+ use it). Comma-separated, kind first:
+   two,f=F,t=T[,f2=F2][,force=1]  beta = F * base until the first scheduled
+       refresh at or after iteration T, then F2 * base (F2 = 1); with
+       force=1 the change is at iteration T itself, which then refreshes
+   rb,c=C[,every=40][,max=4][,lo=0.25][,hi=4]  residual balancing: at each
+       check S += log(rhat/shat) - log C, rhat = |Y - VRV'| / max(|Y|, |VRV'|),
+       shat = beta |dY| / max(|L/scale|, |Z|) (Frobenius norms of the lifted
+       matrices); at a scheduled refresh at least `every` iterations after
+       the last change, with fewer than `max` changes made,
+       f = clip(exp(S / 2n), 0.5, 2), and beta *= f if f is outside
+       [1/1.5, 1.5] (beta kept in [lo, hi] * base), S = n = 0
+   freeze=N   no change after iteration N (200)
+   nodes=all|cold|warm  the calls it applies to (warm: start given; all)
+   w=FW       warm-started calls instead run at FW * base throughout (no
+              change), cold ones as the kind says; `w=FW` alone leaves cold
+              calls at base. Measured: two,f=1.6667,t=60,w=0.7 (cold
+              0.5 -> 0.3 m/3, warm 0.21 m/3; experiments/wil50_feasibility/
+              speed/beta_sched)
+ Not with the accelerations (Anderson keeps Z/beta; Halpern, momentum): off
+ there. Read at every call (tests set and unset it within a process).
+*/
+struct BetaSched {
+  int kind = 0;          // 0 off, 1 two-phase, 2 residual balancing, 3 fixed (set per call: w)
+  double f = 1, f2 = 1, c = 1, lo = 0.25, hi = 4, w = 0;
+  int t = 60, force = 0, every = 40, maxchg = 4, freeze = 200, nodes = 0;   // nodes: 0 all, 1 cold, 2 warm
+  BetaSched()
+  {
+    const char *e = getenv("DNN_BETA_SCHED");
+    if (!e || !*e) return;
+    std::string s = e;
+    for (size_t pos = 0; pos <= s.size();) {
+      size_t end = s.find(',', pos);
+      if (end == std::string::npos) end = s.size();
+      const std::string tok = s.substr(pos, end - pos);
+      pos = end + 1;
+      if (tok == "two") kind = 1;
+      else if (tok == "rb") kind = 2;
+      else if (tok.size() > 2 && tok.find('=') != std::string::npos) {
+        const std::string k = tok.substr(0, tok.find('=')), v = tok.substr(tok.find('=') + 1);
+        if (k == "f") f = atof(v.c_str());
+        else if (k == "f2") f2 = atof(v.c_str());
+        else if (k == "t") t = atoi(v.c_str());
+        else if (k == "force") force = atoi(v.c_str());
+        else if (k == "c") c = atof(v.c_str());
+        else if (k == "every") every = atoi(v.c_str());
+        else if (k == "max") maxchg = atoi(v.c_str());
+        else if (k == "lo") lo = atof(v.c_str());
+        else if (k == "hi") hi = atof(v.c_str());
+        else if (k == "freeze") freeze = atoi(v.c_str());
+        else if (k == "nodes") nodes = v == "cold" ? 1 : v == "warm" ? 2 : 0;
+        else if (k == "w") w = atof(v.c_str());
+      }
+    }
+    if (!(f > 0) || !(f2 > 0) || !(c > 0) || !(lo > 0) || !(hi >= lo) || !(w >= 0)) kind = 0, w = 0;
+  }
+};
+
 static std::atomic<int> dnn_call_counter(0);   // DNN_CERTX_CALLS: index of this dnn_bound call in the process
 
 DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
@@ -1744,7 +1814,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     maxabs = std::max(maxabs, fabs(L[t]));
   // as dnn.py: scale the objective to max |L| = 1, beta = m/3
   const double scale = std::max(1.0, maxabs), iscale = 1.0 / scale;
-  const double beta = (par.beta > 0 ? par.beta : 1.0) * m / 3.0, ibeta = 1.0 / beta;
+  // beta changes only under DNN_BETA_SCHED (bs below)
+  const double beta0 = (par.beta > 0 ? par.beta : 1.0) * m / 3.0;
+  double beta = beta0, ibeta = 1.0 / beta;
   const double gamma = par.gamma, gamma1 = par.gamma1;
   const int check_every = std::max(1, par.check_every);
 
@@ -1827,7 +1899,48 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   const bool fuse_ok = fuse_env > 0 && par.anderson == 0 && par.halpern == 0 && !m_on;
   // subspace block guard = K / DNN_GUARD_DIV (20; node_speed.md trim c tries 40)
   static const int guard_div = getenv("DNN_GUARD_DIV") ? std::max(1, atoi(getenv("DNN_GUARD_DIV"))) : 20;
+  // DNN_BETA_SCHED (see BetaSched): off unless set
+  BetaSched bs;
+  {
+    const bool warm = start && start->Z.size() == (size_t)n1 * n1;
+    if (par.anderson > 0 || par.halpern > 0 || par.momentum > 0 ||
+        (bs.nodes == 1 && warm) || (bs.nodes == 2 && !warm))
+      bs.kind = 0, bs.w = 0;
+    if (warm && bs.w > 0) bs.kind = 3;   // w: a fixed beta on warm-started calls
+  }
+  int bs_phase = 0, bs_last = 0, bs_changes = 0, bs_n = 0;
+  double bs_S = 0, bs_Lnorm = 0;
+  if (bs.kind == 1) { beta = bs.f * beta0; ibeta = 1.0 / beta; bs_phase = 1; }
+  if (bs.kind == 3) { beta = bs.w * beta0; ibeta = 1.0 / beta; }
+  if (bs.kind) bs_Lnorm = sqrt(dot4(L, L, (size_t)n1 * n1)) * iscale;
+  if (bs.kind && par.verbose)
+    printf("bsched kind %d beta %.6g (base %.6g) f %g t %d f2 %g force %d c %g every %d max %d freeze %d nodes %d w %g\n",
+           bs.kind, beta, beta0, bs.f, bs.t, bs.f2, bs.force, bs.c, bs.every, bs.maxchg, bs.freeze,
+           bs.nodes, bs.w);
   for (int it = 1; it <= par.max_iter; it++) {
+    if (bs.kind && it > 1 && it <= bs.freeze) {
+      // a change of beta, only where the R-step will run a scheduled full
+      // eigendecomposition (force: make this iteration one)
+      const bool sub = par.eig_mode == DNN_EIG_SUBSPACE;
+      bool at_refresh = !sub || !w.have_basis || w.since_refresh >= par.refresh;
+      double nb = beta;
+      if (bs.kind == 1 && bs_phase == 1 && it >= bs.t && (at_refresh || bs.force)) {
+        nb = bs.f2 * beta0; bs_phase = 2;
+        if (sub && !at_refresh) { w.since_refresh = par.refresh; at_refresh = true; }
+      } else if (bs.kind == 2 && at_refresh && bs_n > 0 && it - bs_last >= bs.every &&
+                 bs_changes < bs.maxchg) {
+        const double fr = std::min(2.0, std::max(0.5, exp(bs_S / (2.0 * bs_n))));
+        if (fr > 1.5 || fr < 1 / 1.5) {
+          nb = std::min(bs.hi * beta0, std::max(bs.lo * beta0, fr * beta));
+          bs_S = 0; bs_n = 0; bs_last = it; bs_changes++;
+        }
+      }
+      if (nb != beta) {
+        if (par.verbose) printf("bsched it %d beta %.6g -> %.6g (factor %.4g of base)\n", it, beta, nb, nb / beta0);
+        beta = nb; ibeta = 1.0 / beta;
+        w.t_rows_ready = false;   // DNN_FUSE's rows were formed with the old 1/beta
+      }
+    }
     // R-step: W = V'(Y + Z/beta)V, R = P_psd(W), VRV = V R V'
     double tp = thread_cpu(), tq;
     if (par.anderson > 0) aa.begin(Y, Z, ibeta);
@@ -1908,6 +2021,21 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       }
     }
     if (fuse_ok) w.t_rows_ready = true;
+    if (bs.kind && check) {
+      // residual balance at this check (VRV is intact until the certificate's refinement)
+      const size_t nn = (size_t)n1 * n1;
+      const double ny = sqrt(dot4(Y, Y, nn)), nv = sqrt(dot4(VRV, VRV, nn)), nz = sqrt(dot4(Z, Z, nn));
+      const double pres = sqrt((double)pres2), dy = sqrt((double)dy2);
+      const double rhat = pres / std::max(1e-300, std::max(ny, nv));
+      const double shat = beta * dy / std::max(1e-300, std::max(bs_Lnorm > 0 ? bs_Lnorm : 1.0, nz));
+      if (bs.kind == 2 && rhat > 0 && shat > 0 && it <= bs.freeze) {
+        bs_S += log(rhat / shat) - log(bs.c);
+        bs_n++;
+      }
+      if (par.verbose)
+        printf("bsched it %d beta %.6g pres/(beta dY) %.4g rhat %.4g shat %.4g rhat/shat %.4g |Y| %.4g |VRV| %.4g |Z| %.4g\n",
+               it, beta, dy > 0 ? pres / (beta * dy) : 0.0, rhat, shat, shat > 0 ? rhat / shat : 0.0, ny, nv, nz);
+    }
     if (par.anderson > 0) {
       aa.step(Y, Z, beta);   // timed with the Y/Z-step
       res.halpern_restarts = aa.resets;
