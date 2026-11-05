@@ -42,6 +42,33 @@ RUNNING.md ("The DNN bound"):
 - The parent's Y as well as Z, carried across processes in the task files.
 - J.-P. Goux's two safeguards (`QAP_DNN_EXT`, `QAP_DNN_GU_ZONE`).
 
+### The same setting on the cloud box (November 5, `nov5_cloud/`)
+
+The record setting on 4 cores of a 2.1 GHz Xeon (OpenBLAS, no AMX; solver at
+f763734):
+
+| | |
+|---|---|
+| nodes | 3,820 (3,678 fathomed, every one by the DNN bound) |
+| DNN bound | 3,819 nodes, 3,678 fathomed, 3,248 s of the CPU |
+| CPU | 3,270 s |
+| wall | 849 s (14 min 9 s); 276 tasks, 8 steals, 3.85x CPU over wall |
+| root QPB | 5332.33 |
+| per level (nodes / fathomed) | 1 / 0, 9 / 0, 225 / 157, 1,880 / 1,834, 1,242 / 1,229, 338 / 333, 125 / 125: nothing survives depth 6 |
+
+`run.sh` reruns it. `nug30_final.state` holds the final totals and per-level
+statistics; an earlier commit of it was a 25 MB mid-run checkpoint.
+
+- **Against the Nov 1 cloud run** (PRSM and degree 4 on `nug_deep.par -x
+  2:7:1:300:1`, same kind of machine; 4,528 nodes, 11,748 s, 50.5 min) the
+  final setting is 3.6x less CPU and wall.
+- **Against the Oct 29 run** on a 2.8 GHz Xeon (23,618 s) it is 7.2x less
+  CPU.
+- **Against the laptop record** (1,838 s), the laptop needs 1.8x less CPU.
+- **The two trees differ by 24 nodes** (3,820 against 3,844): the root QPB
+  rounds differently on Apple silicon, and a few give-up decisions move with
+  it.
+
 ### How it got there (laptop, M2 Pro, 8 workers)
 
 Each row adds one change to the row above. Logs are in

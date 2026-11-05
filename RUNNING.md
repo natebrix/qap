@@ -239,6 +239,7 @@ the known optimum as incumbent, 2.8 GHz:
 | nug30 nug_deep.par -x 2:6:1:300 (A/B, ff1f044, 2.8 GHz container) | 6,532,419 (DNN: 5,764, 5,551 fathomed, 26,726 s) | 28,428 | ~2.1 h |
 | nug30 nug_deep.par -x 2:7:1:300:1 (same machine) | 5,817 (DNN: 5,807, 5,595 fathomed, 23,537 s) | 23,618 | 1.7 h (experiments/nug30_solve) |
 | nug30 nug_deep.par -x 2:7:1:300:1 + Peaceman-Rachford, degree 4 (Nov 1, 2.1 GHz) | 4,528 (DNN: 4,518, 4,355 fathomed, 11,677 s) | 11,748 | 50.5 min (experiments/wil50_feasibility/stronger_bounds/search) |
+| **nug30 record setting (Nov 5, 2.1 GHz, below)** | **3,820 (DNN: 3,819, 3,678 fathomed, 3,248 s)** | **3,270** | **14.2 min** (experiments/nug30_solve/nov5_cloud) |
 | nug25 nug_deep.par -x 2:5:1:300 (at 0a179fc, 2.8 GHz) | 761 (DNN: 754, 720 fathomed, 1,086 s) | 1,100 | 4.7 min |
 | nug25 nug_deep.par -x 2:5:1:300:1 (warm start) | 717 (DNN: 710, 678 fathomed, 1,039 s) | 1,055 | 4.5 min |
 
@@ -263,7 +264,8 @@ node the laptop is about 3x faster than the 2.8 GHz Xeon (depth 3: 1.9 s
 against 5.8; depth 4: 1.2 against 3.5).
 
 **The nug30 record setting** (Nov 4: 1,838 CPU s and 5 min 22 s on the
-M2 Pro with 8 workers; how each switch got there is in
+M2 Pro with 8 workers; Nov 5: 3,270 CPU s and 14 min 9 s on 4 cores of a
+2.1 GHz Xeon; how each switch got there is in
 `experiments/nug30_solve/README.md`):
 
 ```sh

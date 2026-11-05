@@ -9,6 +9,7 @@
 \usepackage{mathptmx}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage[labelfont=bf,labelsep=period,font=small]{caption}
 \usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
@@ -59,7 +60,7 @@
 
 \begin{document}
 \thispagestyle{plain}
-\noindent\fbox{\parbox{0.62\textwidth}{\small\textbf{Technical report}\\(draft, October 2026)}}
+\noindent\fbox{\parbox{0.62\textwidth}{\small\textbf{Technical report}\\(draft, November 2026)}}
 
 \vspace{30pt}
 \noindent Nathan W. Brixius $\cdot$ Jean-Pierre Goux $\cdot$ Claude $\cdot$ and friends\footnote{Claude is
@@ -72,7 +73,7 @@ did what.}
 branch and bound on the quadratic\\[2pt] assignment problem, and nug30 revisited}
 
 \vspace{12pt}
-\noindent{\footnotesize October 29, 2026}
+\noindent{\footnotesize November 5, 2026}
 
 \vspace{14pt}
 {\small\noindent\textbf{Abstract.}\enspace We describe a certified lower bound for the quadratic assignment problem (QAP)
@@ -85,9 +86,11 @@ a valid bound after any number of iterations. In the branch-and-bound algorithm
 the new bound is computed only near the top of the tree, at nodes that the
 quadratic programming bound QPB does not fathom, and is used only to fathom; QPB
 continues to supply branching information and to eliminate children. Together with
-a new branching rule based on the geometry of grid instances, this solves nug30
-in 5,817 nodes and under two hours on a four-core cloud computer, and in 20 minutes
-on a laptop, a problem whose
+branching rules based on the geometry of grid instances and on the marginals of the
+DNN solution, a faster ADMM, and warm starts that hand each node's ADMM state to its
+children, this solves nug30 in 3,844 nodes and 5 minutes 22 seconds on a laptop
+(1,838 CPU seconds over eight solver processes), and in 14 minutes on a four-core
+cloud computer, a problem whose
 solution in 2000 required $1.19\times10^{10}$ nodes and a week on a computational
 grid of hundreds of workstations.
 
@@ -162,17 +165,23 @@ In this paper we revisit nug30 with the branch-and-bound algorithm of
   ADMM, with a lower bound that is valid at every iteration. It is within 3\% of the
   optimum at the root of nug30, against 13\% for QPB, but each evaluation takes
   seconds rather than milliseconds;
-\item[(C2)] a new branching rule (Section~\ref{sec:branch}) that branches on the
+\item[(C2)] new branching rules (Section~\ref{sec:branch}): one that branches on the
   \emph{most eccentric free location}, the free location farthest from the others,
-  at no cost per node, and a cheaper lookahead rule built on it;
+  at no cost per node, a cheaper lookahead rule built on it, and one that branches
+  on the line where the marginals of the DNN solution are most decided;
 \item[(C3)] a division of labor (Section~\ref{sec:fathom}): the DNN bound is computed
   only at the top of the tree, at nodes that QPB does not fathom, and is used only to
   fathom. QPB continues to supply the bound used for branching and the reduced costs
-  used to eliminate children, and does all the work below.
+  used to eliminate children, and does all the work below;
+\item[(C4)] a faster ADMM and warm starts (Section~\ref{sec:impl}): the
+  Peaceman--Rachford form of the method, a cheaper eigensolver, and children that
+  start from their parent's final ADMM state, primal and dual, in whichever
+  process they are bounded.
 \end{itemize}
-With these, nug30 is solved in 5,817 nodes and 1.7 hours on four cores of a cloud
-computer, and in 20 minutes on a laptop with eight solver processes
-(Section~\ref{sec:results}). In Section~\ref{sec:dnn}
+With these, nug30 is solved in 3,844 nodes and 5 minutes 22 seconds on a laptop with
+eight solver processes, and in 14 minutes on four cores of a cloud computer
+(Section~\ref{sec:results}). The first versions of the method, without (C4) and the
+marginal rule, took 1.7 hours on the cloud computer and 20 minutes on the laptop. In Section~\ref{sec:dnn}
 we describe the DNN relaxation, the certificate and its implementation. In
 Section~\ref{sec:bnb} we review the branch-and-bound algorithm of \cite{abgl} and
 describe the new branching rules and the use of the DNN bound. In
@@ -376,8 +385,14 @@ symmetric matrix ($K = 730$ at $m=28$) with hundreds of eigenvalues of each sign
 so a partial spectrum does not help directly. Between iterations the matrix changes
 little. We track its negative eigenspace by a Chebyshev-filtered subspace iteration
 in single precision (BLAS level 3), with a full single-precision eigendecomposition
-every 20 iterations. Because $R$ is formed as $W$ minus the computed negative part,
-the certificate is unaffected. When a check fails the Cholesky test, or the
+every 20 iterations by default. Because $R$ is formed as $W$ minus the computed
+negative part, the certificate is unaffected. The filter's degree trades strength for
+cost: the default degree 2 leaves a noise floor in the bound at larger $m$, degree 4
+removes it for about 11\% more per iteration, and degree 3, with a tighter estimate
+of the interval of unwanted eigenvalues, keeps degree 4's strength for less (on the
+nug30 search, 9\% less CPU). In the final nug30 setting the subspace is
+orthonormalized with one pass of Cholesky QR instead of two, and the full
+eigendecomposition is done every 120 iterations instead of 20. When a check fails the Cholesky test, or the
 semidefinite penalty alone decides whether the node is fathomed, the multiplier is
 re-projected in double precision before certifying.
 
@@ -389,12 +404,40 @@ cutoff. An optional give-up rule stops a node early when its certified value,
 extrapolated generously from its recent gains, stays below the cutoff. This only
 affects cost: the node is then branched on as usual.
 
+The final nug30 setting changes three of these. It uses the Peaceman--Rachford form
+of the method, with a second dual update ($\gamma_1 = \gamma = 1$) between the
+$R$-step and the $Y$-step. On nug30 nodes this cuts the iterations to fathom by
+about 1.5$\times$ (310--320 instead of 500 on one depth-2 node), and the missed nodes
+converge to the same values. The certificate is read from the $R$-step multiplier
+before that update, so it is unchanged. It uses $\beta = 0.21\cdot m/3$, J.-P.
+Goux's setting, which together with the less frequent eigendecomposition took 20\%
+off the nug30 search. And it gives up after 200 iterations instead of 300. Under the
+Peaceman--Rachford step no node that the longer threshold fathoms is lost at 200,
+while at 150 some are.
+
 \paragraph{Warm starts.} When the DNN bound at a node misses, its children can start
 their ADMM from its final multiplier, with the row and column of the new assignment
-removed from the lifted indices. Only $Z$ is carried over; starting $Y$ from the
-parent made children slower. This cuts the iterations to fathom a child by about
+removed from the lifted indices. This cuts the iterations to fathom a child by about
 40\%, but less of the time, because a warm-started ADMM pays for many negative
-eigenvalues from its first iteration where a cold one starts cheap.
+eigenvalues from its first iteration where a cold one starts cheap. Starting from the
+multiplier alone, the child's first iterations rebuild the primal iterate $Y$ that
+the parent already had.
+
+The final setting therefore also carries the parent's final $Y$, conditioned on the
+child's assignment $x_{ij} = 1$: the parent's row $(ij)$, divided by its diagonal
+entry, becomes the child's row~0, and the remaining entries are rescaled so that
+$\mathrm{diag}(Y)$ equals that row. (A first test on one nug30 child had suggested
+that a primal start made children slower; on 16 children of wil50 nodes it is
+1.3$\times$ faster on fathoms, with no decision changed.) The
+certificate does not depend on the start.
+
+A node's final state is held with the node, not in the process that computed it.
+When the parallel driver moves nodes between processes, it writes each parent's $Y$
+and $Z$ (their upper triangles, in single precision) into the task files with the
+children, so that the children start warm wherever they are bounded. With the exact
+values, a search stopped and resumed many times is the uninterrupted search node for
+node. On nug30, carrying the state took 15\% off the CPU on an identical tree, by
+warm-starting the children of the about 300 tasks that used to start cold.
 
 \paragraph{Speed.} Table~\ref{tab:speed} compares the C++ bound with the prototype
 on the same nodes. Measured back to back on a loaded 4-core Xeon, an ADMM iteration
@@ -492,6 +535,12 @@ $\max\{b_{jl} : l \ne j \text{ free}\}$.
   Rule 2. If all free locations are equally eccentric, use Rule 2.
 \item[] \textbf{Rule 7.} Rule 4 restricted to a smaller candidate set: the
   NBEST most eccentric columns and the NBEST$-1$ rows with the largest $U$ sums.
+\item[] \textbf{Rule 8.} At a node the DNN bound missed, branch on the row or column
+  with the largest sum of squared marginals $\sum_j \bar x_{ij}^2$ (or
+  $\sum_i \bar x_{ij}^2$), where $\bar x_{ij}$ are the entries $Y_{0,(ij)}$ of the
+  last ADMM iterate; elsewhere, Rule 4.
+\item[] \textbf{Rule 9.} Rule 4 on two candidates only: Rule 8's best row and best
+  column.
 \end{itemize}
 
 Rule 6 costs nothing per node, unlike lookahead, which bounds every child of every
@@ -608,6 +657,21 @@ the choice matters QPB-based branching picks good lines for the DNN bound, and
 Rule 6 does as well at no cost; but most DNN misses are near misses, where it does
 not matter, which is why more lookahead at these depths changes little.
 
+The DNN bound offers its own guide, at no cost, where it has run: the marginals
+$\bar x$ of its last iterate. A line whose marginals are concentrated is one on which
+the relaxation has nearly decided, and its children are the ones the relaxation
+already rates poorly. At one nug30 depth-2 miss with 11 candidate lines, the
+concentration of $\bar x$ ranked the lines by their children's gaps as well as the
+children's own QPB values did (rank correlations of 0.745 and 0.750 in magnitude),
+and the eccentric and lookahead lines cost 1.8--2.2$\times$ as much as the best
+line's children. In the search, Rule 8 at the DNN depths cut nug30's depth-3 misses
+from 85 to 59 and its CPU by 16\%; used at every node through depth 6, as in the
+final setting (\texttt{PARAM/nug\_deep\_xbar\_all.par}: the first three levels of
+Table~\ref{tab:strategy} with Rule 8, and the third level's gap threshold lowered to
+0 so that it applies at every node through depth 6), it saved a little more. It is not
+uniformly better: on nug28 it took 37\% more time. Rule 9, a hedge between the two
+marginal lines, gives $-13\%$ on nug30 and $+8\%$ on nug28.
+
 \begin{table}[t]\centering
 \caption{Root bounds and DNN fathoming at the top of the tree (prototype studies;
 QPB from the solver; incumbent = optimum).}\label{tab:fathom}
@@ -648,7 +712,9 @@ driver (\texttt{bench/parallel.py}) does the same on one machine: the root is
 solved serially, its children go into a pool, and one solver process per core each
 take a chunk of nodes, returning their unfinished nodes when idle workers need work.
 Search statistics, including DNN counts, are kept in checkpoint files, so a run can
-be stopped, resumed and split across processes with identical totals. The DNN
+be stopped, resumed and split across processes with identical totals. Each parent's
+final ADMM state can travel in those files too (Section~\ref{sec:impl}), so that a
+node handed to another process still starts warm. The DNN
 bound's floating-point results depend on the BLAS kernels selected for the CPU, so
 node counts can differ between machines if a certified value lands within about
 $10^{-6}$ of a cutoff. Validity is not affected.
@@ -768,7 +834,7 @@ QPB only: default strategy unless noted. DNN: \texttt{-x d1:d2}, giving up on
 hopeless nodes after 300 iterations where shown (:300); warm: children start from
 the parent's multiplier.}\label{tab:bnb}
 \small\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lp{4.3cm}rrr}
+\begin{tabular}{l>{\raggedright\arraybackslash}p{4.6cm}rrr}
 \toprule
 instance & bounds & nodes & CPU s & wall\\
 \midrule
@@ -784,6 +850,8 @@ nug27 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 675 & 4,428 & 20 min\\
 nug28 & QPB (\texttt{nug\_deep}) + DNN 2--5 & 1,736 & 12,976 & 62 min\\
 nug30 & QPB (\texttt{nug\_deep}) + DNN 2--5:300, then 2--6:300 & 45,486,332 & 40,555 & $\approx$3.0 h\\
 nug30 & QPB (\texttt{nug\_deep}) + DNN 2--6:300 & \CleanNodes & \CleanCPU & \CleanWall\\
+nug30 & QPB (\texttt{nug\_deep}) + DNN 2--7:300, warm, Peaceman--Rachford & 4,528 & 11,748 & 50.5 min\\
+nug30 & final setting (Rule 8, DNN 1--7:200, Section~\ref{sec:record}) & 3,820 & 3,270 & 14.2 min\\
 \midrule
 \multicolumn{5}{l}{\emph{on a second machine, about 1.45$\times$ slower per DNN iteration:}}\\
 nug30 & QPB (\texttt{nug\_deep}) + DNN 2--6:300 & 6,532,419 & 28,428 & $\approx$2.1 h\\
@@ -791,13 +859,15 @@ nug30 & QPB (\texttt{nug\_deep}) + DNN 2--7:300, warm & 5,817 & 23,618 & 1.7 h\\
 \midrule
 \multicolumn{5}{l}{\emph{on an Apple M2 Pro laptop, 8 workers, Accelerate BLAS:}}\\
 nug30 & QPB (\texttt{nug\_deep}) + DNN 2--7:300, warm & 585,550 & 8,355 & 19.7 min\\
+nug30 & final setting (Section~\ref{sec:record}) & 3,844 & 1,838 & 5.4 min\\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{The solution of nug30}
 
-nug30 was solved three times. The first solve applied the DNN bound at depths 2--5.
+With the first versions of the method, nug30 was solved three times. The first
+solve applied the DNN bound at depths 2--5.
 QPB search below the depth-5 nodes the bound missed grew to about 12,000 CPU
 seconds, so for the remaining work (506 open nodes, including a whole depth-1
 subtree) the bound was extended to depth 6, which finished in 21 minutes. In total,
@@ -835,19 +905,18 @@ Table~\ref{tab:levels} compares the trees level by level. In 2000 no node was fa
 the largest number of nodes were at levels 10 and 11, the most time was spent at
 level 7, and the bulk of the computation was performed on nodes at levels 6--11;
 levels 2--7 took 48\% of the time on 0.3\% of the nodes. In 2026 the same 225 nodes
-appear at level 2, but the DNN bound fathoms 165 of them, then 94\% of the nodes at
-level 3 and 99\% at level 4, and none survive level 7. The 2026 tree has 5,819
-nodes; the 2000 tree had more than 6,000 at level 3 alone. This run took 5,819 nodes
-and 24,768 CPU seconds, against 5,817 and 23,618 for the first run with the same
-settings: a node that one worker hands to another loses its parent's multiplier,
-so which nodes are warm-started depends on the scheduling.
+appear at level 2, but the DNN bound fathoms 157 of them, then 98\% of the nodes at
+level 3 and 99\% at level 4, and none survive level 6. The 2026 tree has 3,820
+nodes; the 2000 tree had more than 6,000 at level 3 alone. (With the earlier
+settings, \texttt{-x 2:7:1:300:1} and \texttt{nug\_deep}, the tree had 5,819 nodes and
+reached level 7.)
 
 \begin{table}[p]\centering
-\caption{Nodes per level, nug30 in 2000 and in 2026 (\texttt{-x 2:7:1:300:1}, a second run with the
-settings of the last row of Table~\ref{tab:bnb}). Fathom: the fraction of the level's
-nodes that were fathomed (in 2026 almost all by the DNN bound). Time: CPU seconds
-at the level; in 2000 summed over the grid's machines, on average 56\% as fast as an
-HP9000 C3000 \cite{thesis}; in 2026 on 2.8\,GHz Xeon cores.}\label{tab:levels}
+\caption{Nodes per level, nug30 in 2000 and in 2026 (the final setting of
+Section~\ref{sec:record} on four cores of the cloud computer). Fathom: the fraction of
+the level's nodes that were fathomed (in 2026 all by the DNN bound). Time: CPU
+seconds at the level; in 2000 summed over the grid's machines, on average 56\% as fast
+as an HP9000 C3000 \cite{thesis}; in 2026 on 2.1\,GHz Xeon cores.}\label{tab:levels}
 \small\setlength{\tabcolsep}{4pt}
 \begin{tabular}{rrrrrrr}
 \toprule
@@ -856,13 +925,13 @@ HP9000 C3000 \cite{thesis}; in 2026 on 2.8\,GHz Xeon cores.}\label{tab:levels}
 Level & Nodes & Fathom & Time & Nodes & Fathom & Time\\
 \midrule
 0 & 1 & 0.0000 & 25 & 1 & 0.0000 & 0\\
-1 & 9 & 0.0000 & 609 & 9 & 0.0000 & 5\\
-2 & 225 & 0.0000 & 17,612 & 225 & 0.7333 & 2,688\\
-3 & 6,120 & 0.0000 & 398,354 & 1,608 & 0.9372 & 9,258\\
-4 & 157,947 & 0.0173 & 2,934,065 & 2,679 & 0.9858 & 9,495\\
-5 & 3,300,091 & 0.1575 & 19,752,635 & 976 & 0.9908 & 2,608\\
-6 & 42,497,088 & 0.3952 & 59,055,117 & 225 & 0.9822 & 536\\
-7 & 286,494,566 & 0.6135 & 82,612,511 & 96 & 1.0000 & 177\\
+1 & 9 & 0.0000 & 609 & 9 & 0.0000 & 61\\
+2 & 225 & 0.0000 & 17,612 & 225 & 0.6978 & 871\\
+3 & 6,120 & 0.0000 & 398,354 & 1,880 & 0.9755 & 1,490\\
+4 & 157,947 & 0.0173 & 2,934,065 & 1,242 & 0.9895 & 638\\
+5 & 3,300,091 & 0.1575 & 19,752,635 & 338 & 0.9852 & 143\\
+6 & 42,497,088 & 0.3952 & 59,055,117 & 125 & 1.0000 & 66\\
+7 & 286,494,566 & 0.6135 & 82,612,511 & & &\\
 8 & 956,340,170 & 0.7428 & 31,244,385 & & &\\
 9 & 1,937,015,498 & 0.8212 & 41,471,872 & & &\\
 10 & 2,660,681,036 & 0.8540 & 45,069,685 & & &\\
@@ -884,7 +953,7 @@ Level & Nodes & Fathom & Time & Nodes & Fathom & Time\\
 26 & 2 & 0.0000 & 0 & & &\\
 27 & 2 & 0.0000 & 0 & & &\\
 \midrule
-Total & 11,892,208,412 & & $3.46\times10^8$ & 5,819 & & 24,768\\
+Total & 11,892,208,412 & & $3.46\times10^8$ & 3,820 & & 3,270\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -895,7 +964,65 @@ solver commits \texttt{f8107dd} (depths 2--6) and \texttt{ff1f044} (depths 2--7)
 with OpenBLAS (\texttt{scipy-openblas32}) and GCC, and \texttt{2d7579c} with the
 Accelerate build of \texttt{7b05270} on the laptop; the fixes between them change no
 computation on nug data, whose products and sums are exact, and the regression
-instances' node counts are unchanged.
+instances' node counts are unchanged. The final setting ran at \texttt{fe8dc83} on
+the laptop (Accelerate) and at \texttt{f763734} on the cloud computer (OpenBLAS); the
+laptop's root QPB value is 5336.58 against 5332.33 on the Xeons, since the QPB code
+rounds differently on Apple silicon.
+
+\subsection{The final setting}\label{sec:record}
+
+After these runs, nug30 was used to tune the method on the laptop, one change at a
+time (Table~\ref{tab:record}). The changes are those described above: the
+Peaceman--Rachford step and the filter degree, the give-up threshold, Rule 8, the
+penalty and refresh interval, the primal warm start, and the parent's state carried
+between processes. Two safeguards from J.-P. Goux's own nug30 solver are included.
+One keeps the DNN bound below a node missed at the last DNN depth, instead of
+handing its subtree to QPB alone; on nug28 it turned a 3.5-million-node QPB tail
+into 23 DNN nodes. The other makes a give-up near the cutoff wait for confirmation.
+On nug30 neither changed the tree.
+
+Together the changes take the laptop run from 8,355 to 1,838 CPU seconds (4.5$\times$),
+and from 19.7 to 5.4 minutes. The tree shrinks from 5,834 DNN nodes to 3,843, of
+which 3,701 are fathomed, and no node survives depth 7. The final run spends 1,826
+of its 1,838 seconds in the DNN bound. Changes measured together were not separated.
+Each row is one run; repeated runs of one setting vary by about 2\% in CPU.
+
+Three things did not pay on nug30:
+\begin{itemize}
+\item a cut phase of regional triangle inequalities after a missed DNN bound
+  (34\% more CPU on the laptop, 42\% on the cloud computer): a depth-2 miss saves
+  about 20 seconds when fathomed, and a phase costs about 17;
+\item a give-up after 150 iterations, and a give-up rule based on the gap ratio: both
+  give up on nodes that the bound would fathom;
+\item momentum on top of the Peaceman--Rachford step.
+\end{itemize}
+On four cores of a cloud computer (2.1\,GHz Xeon, OpenBLAS, no AMX), the final
+setting took 3,820 nodes, 3,270 CPU seconds and 14 minutes, against 4,528 nodes,
+11,748 seconds and 50.5 minutes for the Peaceman--Rachford setting of Table~\ref{tab:bnb}
+on the same kind of machine.
+
+\begin{table}[t]\centering
+\caption{nug30 on the laptop (Apple M2 Pro, 8 solver processes), each row adding one
+change to the row above. Logs in \texttt{experiments/wil50\_feasibility/tuning} and
+\texttt{experiments/nug30\_solve}.}\label{tab:record}
+\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l>{\raggedright\arraybackslash}p{5.4cm}rrr}
+\toprule
+date & change & DNN nodes / fathomed & CPU s & wall\\
+\midrule
+Oct 29 & \texttt{nug\_deep}, DNN 2--7:300, warm (Z) & 5,834 / 5,619 & 8,355 & 19:42\\
+Oct 30 & Peaceman--Rachford step, degree-4 filter & 4,545 / 4,381 & 5,334 & 13:21\\
+Oct 31 & give up after 200 iterations & 4,519 / 4,356 & 4,904 & 11:17\\
+Oct 31 & Rule 8 at the DNN depths & 3,935 / 3,796 & 4,133 & 9:56\\
+Nov 1 & Rule 8 at every node to depth 6 & 3,936 / 3,797 & 4,008 & 9:27\\
+Nov 1 & degree 3, tight eigenvalue interval & 3,964 / 3,824 & 3,653 & 8:46\\
+Nov 1 & DNN bound from depth 1 & 3,842 / 3,700 & 3,632 & 8:43\\
+Nov 1 & $\beta = 0.21\,m/3$, eigendecomposition every 120 & 3,820 / 3,679 & 2,895 & 6:59\\
+Nov 3 & primal warm start, one CholQR pass, safeguards & 3,843 / 3,701 & 2,156 & 5:46\\
+Nov 4 & parent's state carried between processes & 3,843 / 3,701 & 1,838 & 5:22\\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \subsection{Open problems}
 
@@ -926,26 +1053,32 @@ with the estimates of Fujii et al.\ \cite{fujii}.
 
 Three advances made it possible to solve nug30 on a single small computer: a
 certified DNN bound, valid after any number of iterations and cheap enough to stop
-as soon as it fathoms; a branching rule that uses the geometry of grid instances at
-no cost; and a division of labor in which the strong bound is spent only where a
-single fathom removes a large subtree, and QPB, with its branching information and
-its eliminations, does the rest. Twenty-six years ago nug30 needed QPB's cheapness:
+as soon as it fathoms; branching rules that use the geometry of grid instances and
+the marginals of the DNN solution at no cost; and a division of labor in which the
+strong bound is spent only where a single fathom removes a large subtree, and QPB,
+with its branching information and its eliminations, does the rest. A faster ADMM,
+started at every node from its parent's final state, then made it quick. Twenty-six years ago nug30 needed QPB's cheapness:
 $1.19\times10^{10}$ nodes, each bounded in milliseconds, on hundreds of machines.
-Today the same search needs fewer than six thousand much stronger bounds, and
-finishes in 20 minutes on a laptop. In 2000 the computation took 6.9 years of
-HP9000 C3000 CPU time; on a cloud Xeon it now takes about $2.4\times10^4$ seconds,
-roughly 9,000 times less, and on the laptop about 8,400. A rough breakdown: per-node times of QPB deep in the tree, where
-little else has changed, suggest that a current core is about 20 times faster than
-a C3000 on this code; the QPB branch and bound itself is about 3 times faster (on
-nug25 with QPB alone, 12,400 seconds against 720,000 C3000-seconds in 2000 \cite{thesis}),
-from fewer nodes and cheaper Frank--Wolfe iterations; and the DNN bound accounts for
-the remaining factor of about 150. Hardware accounts for part of the gain, but most
-of it comes from the bound and from where it is spent.
+Today the same search needs fewer than four thousand much stronger bounds, and
+finishes in under six minutes on a laptop. In 2000 the computation took 6.9 years of
+HP9000 C3000 CPU time, about $2.2\times10^8$ seconds. On a cloud Xeon it now takes
+3,270 seconds, roughly 67,000 times less, and on the laptop 1,838,
+roughly 120,000 times less. A rough breakdown for the cloud Xeon: per-node times of
+QPB deep in the tree, where little else has changed, suggest that a current core is
+about 20 times faster than a C3000 on this code; the QPB branch and bound itself is
+about 3 times faster (on nug25 with QPB alone, 12,400 seconds against 720,000
+C3000-seconds in 2000 \cite{thesis}), from fewer nodes and cheaper Frank--Wolfe
+iterations; and the DNN bound, with the changes of Section~\ref{sec:record}, accounts
+for the remaining factor of about 1,100 (about 150 before those changes).
+Hardware accounts for part of the gain, but most of it comes from the bound and from
+where it is spent.
 
 Several directions remain. The give-up rule and the depths of application were
 tuned by hand. A QPB threshold predicts the DNN outcome almost perfectly in the
-samples, which suggests skipping nodes the bound will miss. The restricted
-Peaceman--Rachford method of \cite{graham} may converge faster than ADMM, and a
+samples, which suggests skipping nodes the bound will miss. The
+Peaceman--Rachford step used here is the plain symmetric variant; the restricted
+method of \cite{graham} may converge faster still. Rule 8 was tuned on nug30 and lost
+on nug28, so a rule that is good on both is still to be found. A
 separate verified check of each fathoming certificate would separate fast search
 from rigorous verification. For the larger open grid instances speed is not
 enough: the DNN relaxation is too weak at the depths where their trees are wide,
@@ -1044,7 +1177,9 @@ bound, the QPB part of the search is trusted floating point, as it was in 2000.
 
 \section*{Acknowledgments}
 Nathan Brixius directed the work. Jean-Pierre Goux contributed the ``nug30
-Laboratory'' study whose ideas started it. Claude, an AI system by Anthropic, wrote
+Laboratory'' study whose ideas started it, and, from his own nug30 solver, the
+penalty and refresh settings and the two safeguards of Section~\ref{sec:record}.
+Nathan Brixius made the laptop runs. Claude, an AI system by Anthropic, wrote
 the software changes, ran the experiments in Nathan Brixius's repository and
 drafted this report, using independent AI agents for the prototype studies, the C++
 port and the reviews. Astra (an OpenAI Codex agent) reviewed an earlier draft and

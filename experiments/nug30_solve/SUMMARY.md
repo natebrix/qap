@@ -29,7 +29,7 @@
   - Log: `experiments/wil50_feasibility/tuning/refine/nug30_best_nov4_ship32_j8_m2pro.log`, commit `ff7d517`.
   - Parameter file and range: `latest/PARAM/nug_deep_xbar_all.par`, `-x 1:7:1:200:1`.
   - Switches: `QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1 QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32`.
-- **Best cloud result (Nov 1).** A 4-core 2.1 GHz Xeon: 4,528 nodes, 11,748 CPU s, 50.5 min wall (`experiments/wil50_feasibility/stronger_bounds/search/nug30_base.log`). As far as the record shows, no cloud run used the later laptop settings.
+- **Best cloud result (Nov 5).** The record setting on a 4-core 2.1 GHz Xeon: 3,820 nodes, 3,270 CPU s, 14 min 9 s wall (`experiments/nug30_solve/nov5_cloud/`). Before it, the best cloud run was Nov 1's 4,528 nodes, 11,748 CPU s and 50.5 min (`experiments/wil50_feasibility/stronger_bounds/search/nug30_base.log`).
 - **Laptop progress.** From Oct 29 to Nov 4, CPU went from 8,355 s to 1,838 s (4.5×) and wall time from 19 min 42 s to 5 min 22 s.
 
 ## Timeline of key prompts
