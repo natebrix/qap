@@ -13,8 +13,9 @@ Meschach when its makefile changes). Checked on the cloud box: the quick
 suite matches `bench/reference/` exactly when built with gcc 13, gcc 11, clang
 18, and clang or gcc with `-march=native` (FMA hardware). Every gate passes.
 The control, clang with FMA contraction on, reproduces the M2 Pro's numbers
-(nug12 264, nug14 2,317, nug15 1,935 nodes) and fails the check. Confirmation
-on an M2 itself is pending.
+(nug12 264, nug14 2,317, nug15 1,935 nodes) and fails the check. **On the M2
+Pro, after `git pull && make`, `bench.py check` now matches the reference
+exactly** (nug12 246, nug14 2,179, nug15 1,964, nug16b 3,187; Nathan, Nov 5).
 
 Every number is marked **[M]** (measured, with the log or command) or
 **[E]** (estimated). Measurements were taken on the 4-vCPU container

@@ -388,15 +388,13 @@ exactly.
 - When a change is *meant* to alter the search, regenerate the reference
   with `bench.py check --update` (runs the standard suite), commit
   `bench/reference/` with the change, and say why the counts moved.
-- The reference was made on an x86 Xeon. Until Nov 5 an Apple M2 Pro did
-  not match it: nug15's root QPB bound was 984.79 against 986.55 and the
-  quick suite's node counts differed by up to 8% (nug14 +6%, nug15 -1.5%,
-  nug16b -1.5%). The cause was Meschach compiled with fused multiply-adds,
-  which ARM always has: an x86 build with them reproduces the M2's numbers
-  (`docs/meschach_removal.md`). Meschach is now built with
-  `-ffp-contract=off`, which should make the M2 match the reference; until
-  `bench.py check` on an M2 confirms it, use `--tolerance` there, or compare
-  two builds on the same machine with `bench.py compare`.
+- The reference was made on an x86 Xeon, and an Apple M2 Pro matches it
+  exactly (checked Nov 5). Before Nov 5 the M2 did not: Meschach was
+  compiled with fused multiply-adds, which ARM always has, and nug15's root
+  QPB bound came out 984.79 against 986.55. Meschach is now built with
+  `-ffp-contract=off` (`docs/meschach_removal.md`, stage 0). Laptop node
+  counts from before Nov 5 (the nug30 record's 3,844, for one) came from
+  the old build and will not reproduce exactly.
 
 The two checks catch different things. We planted two bugs: lower bounds
 raised by 3, and an elimination test that was off by one. The brute-force
