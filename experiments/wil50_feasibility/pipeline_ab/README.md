@@ -191,3 +191,51 @@ Production candidate after this pair: zone + warmy
 (`QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12
 QAP_DNN_CUT_ITERS=200 QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3`).
 Replicates (`zone2 base2`) and the `ship` arm are the remaining pairs.
+
+### Replicates and ship (laptop, Nov 5 early morning; `runs/zone2`, `runs/base2`, `runs/ship`)
+
+All at 08ff251. `zone2 base2` ran together (03:44-04:57 PST, 3 slots
+each); `ship` ran alone afterwards at the same 3 slots (04:57-05:22).
+
+| arm | nodes / fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU | wall (3 slots) |
+|---|---|---|---|---|---|---|
+| base | 454 / 444 | 15 (6) | 222 / 406 | 83,640 | 11,318 s | 4,431 s |
+| base2 | 454 / 444 | 15 (6) | 229 / 406 | 83,030 | 11,102 s | 4,373 s |
+| zone | 366 / 358 | 8 (0) | 248 / 365 | 51,150 | 7,985 s | 3,192 s |
+| zone2 | 366 / 358 | 8 (0) | 248 / 365 | 51,150 | 7,895 s | 3,111 s |
+| ship | 322 / 315 | 7 (0) | 321 / 321 | 30,810 (22,710 + 8,100) | 3,769 s | 1,473 s |
+
+Replicates: the search is reproducible through the coordinator. zone2 is
+zone to the iteration (366 nodes, 51,150 iterations, every per-depth count
+equal); base2 is base to within 0.7% in iterations (the 7 nodes whose warm
+status depends on unit boundaries: 229 warm against 222) and identical on
+the 447 matched nodes. CPU repeats within 1-2%. The 1.635x of zone over
+base is therefore not noise, and differences of a few percent between arms
+on this subtree are real.
+
+ship (zone + the parent's DNN state carried across coordinator units,
+`QAP_DNN_SHIP=32`), against zone:
+- DNN iterations 51,150 -> 30,810: **1.660x**; DNN CPU 7,985 -> 3,769 s:
+  2.12x; wall 3,192 -> 1,473 s: 2.17x. Tree 366 -> 322.
+- Every node is warm (321 of 321 against 248 of 365): the 118 nodes that
+  started cold at unit boundaries in zone are the whole first-solve
+  difference (40,650 -> 22,710). Cut phases 8 -> 7, phase iterations
+  10,500 -> 8,100.
+- The CPU ratio exceeds the iteration ratio because the cold nodes were
+  the dear ones: a cold first solve runs to the 300-iteration give-up or
+  beyond where a warm child fathoms in 100-200.
+- The tree shrinks by 44 nodes, the same depth-7 subtree certx removed:
+  warm first solves certify a node zone's cold first solve only branched.
+  No node is only in ship.
+- The CPU figure is the one caveat: ship ran alone after the pair, not
+  beside zone, so its slots had the machine's full memory bandwidth;
+  the iteration ratio is machine-independent and is the one to quote.
+  (summarize.py has no ship-against-zone section yet; the numbers above
+  are from the table.)
+
+Production candidate after all seven arms: zone + warmy + ship. The two
+are independent levers (warmy strengthens the pool, ship removes cold
+starts at unit boundaries) and both were measured against zone; their
+combination has not been run. Against base on this subtree, zone + warmy
+is 2.76x in iterations and zone + ship 2.71x; if they multiply, the pair
+is near 4.5x, which is the next and last pair to run.

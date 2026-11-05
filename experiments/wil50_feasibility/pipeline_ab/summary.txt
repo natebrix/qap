@@ -6,10 +6,16 @@
 | zone | 366 / 358 | 366 / 358 | 8 (0) | 248 / 365 | 51,150 (40,650 + 10,500) | 7,985 | 8,083 | 3,192 | 93.0% | 48816 |
 | warmy | 232 / 227 | 232 / 227 | 6 (1) | 163 / 231 | 30,260 (24,910 + 5,350) | 4,811 | 4,877 | 2,036 | 88.9% | 48816 |
 | certx | 322 / 315 | 322 / 315 | 10 (3) | 205 / 321 | 49,150 (34,900 + 14,250) | 6,871 | 6,953 | 2,833 | 88.3% | 48816 |
+| ship | 322 / 315 | 322 / 315 | 7 (0) | 321 / 321 | 30,810 (22,710 + 8,100) | 3,769 | 3,825 | 1,473 | 87.1% | 48816 |
+| zone2 | 366 / 358 | 366 / 358 | 8 (0) | 248 / 365 | 51,150 (40,650 + 10,500) | 7,895 | 7,990 | 3,111 | 93.5% | 48816 |
+| base2 | 454 / 444 | 454 / 444 | 15 (6) | 229 / 406 | 83,030 (58,990 + 24,040) | 11,102 | 11,233 | 4,373 | 91.3% | 48816 |
   base: 2026-11-05T00:07:40Z Apple M2 Pro P-cores 6 slots 3 f6d448e
   zone: 2026-11-05T00:07:40Z Apple M2 Pro P-cores 6 slots 3 f6d448e
   warmy: 2026-11-05T05:47:11Z Apple M2 Pro P-cores 6 slots 3 ff7d517
   certx: 2026-11-05T05:47:11Z Apple M2 Pro P-cores 6 slots 3 ff7d517
+  ship: 2026-11-05T12:57:09Z Apple M2 Pro P-cores 6 slots 3 08ff251
+  zone2: 2026-11-05T11:44:05Z Apple M2 Pro P-cores 6 slots 3 08ff251
+  base2: 2026-11-05T11:44:05Z Apple M2 Pro P-cores 6 slots 3 08ff251
 
 ## zone against base
 - tree: 366 DNN nodes against 454; cut phases 8 (0 fathomed) against 15 (6)
@@ -49,6 +55,36 @@
 - by depth (nodes, DNN iterations), zone -> certx: d3 1/1,500 -> 1/1,500; d4 47/13,910 -> 47/13,660; d5 184/20,990 -> 184/21,430; d6 90/12,320 -> 90/12,560; d7 44/2,430 -> 0/0
 - kill line: 1.03x in DNN iterations on the matched nodes -> FAIL (0.983x; end to end 1.041x)
 
+## ship against zone
+- tree: 322 DNN nodes against 366; cut phases 7 (0 fathomed) against 8 (0)
+- DNN iterations 51,150 -> 30,810: **1.660x** (first solves 40,650 -> 22,710, cut phases 10,500 -> 8,100)
+- DNN CPU 7,985 -> 3,769 s: 2.118x; coordinator CPU 8,083 -> 3,825 s: 2.113x; wall 3,192 -> 1,473 s: 2.166x
+- the 322 shared nodes: 48,720 -> 30,810 DNN iterations, 1.581x; 0 nodes only in ship, 44 only in zone
+- outcome changed on 1 shared nodes:
+  - depth 6 [0:25 25:49 30:48 39:27 49:45 9:21]: zone branched (first 570 it, lb 48772.0; phase 2400 it, best 48808.5), ship fathomed (first 570 it, lb 48814.1)
+- the 205 matched nodes (shared, same warm start and pool status): 17,460 -> 17,860 DNN iterations, 0.978x
+- the 7 nodes with a phase in both: phase iterations 8,100 -> 8,100 (1.000x), fathomed by the phase 0 -> 0, mean gain over the first solve +17.2 -> +15.2
+- by depth (nodes, DNN iterations), zone -> ship: d3 1/1,500 -> 1/1,500; d4 47/13,910 -> 47/7,250; d5 184/20,990 -> 184/17,190; d6 90/12,320 -> 90/4,870; d7 44/2,430 -> 0/0
+- kill line: 1.10x in DNN iterations end to end -> PASS (1.660x)
+
+## zone2 against zone
+- tree: 366 DNN nodes against 366; cut phases 8 (0 fathomed) against 8 (0)
+- DNN iterations 51,150 -> 51,150: **1.000x** (first solves 40,650 -> 40,650, cut phases 10,500 -> 10,500)
+- DNN CPU 7,985 -> 7,895 s: 1.011x; coordinator CPU 8,083 -> 7,990 s: 1.012x; wall 3,192 -> 3,111 s: 1.026x
+- the 366 shared nodes: 51,150 -> 51,150 DNN iterations, 1.000x; 0 nodes only in zone2, 0 only in zone
+- the 366 matched nodes (shared, same warm start and pool status): 51,150 -> 51,150 DNN iterations, 1.000x
+- the 8 nodes with a phase in both: phase iterations 10,500 -> 10,500 (1.000x), fathomed by the phase 0 -> 0, mean gain over the first solve +19.6 -> +19.6
+- by depth (nodes, DNN iterations), zone -> zone2: d3 1/1,500 -> 1/1,500; d4 47/13,910 -> 47/13,910; d5 184/20,990 -> 184/20,990; d6 90/12,320 -> 90/12,320; d7 44/2,430 -> 44/2,430
+
+## base2 against base
+- tree: 454 DNN nodes against 454; cut phases 15 (6 fathomed) against 15 (6)
+- DNN iterations 83,640 -> 83,030: **1.007x** (first solves 59,600 -> 58,990, cut phases 24,040 -> 24,040)
+- DNN CPU 11,318 -> 11,102 s: 1.019x; coordinator CPU 11,456 -> 11,233 s: 1.020x; wall 4,431 -> 4,373 s: 1.013x
+- the 454 shared nodes: 83,640 -> 83,030 DNN iterations, 1.007x; 0 nodes only in base2, 0 only in base
+- the 447 matched nodes (shared, same warm start and pool status): 82,540 -> 82,540 DNN iterations, 1.000x
+- the 15 nodes with a phase in both: phase iterations 24,040 -> 24,040 (1.000x), fathomed by the phase 6 -> 6, mean gain over the first solve +33.2 -> +33.2
+- by depth (nodes, DNN iterations), base -> base2: d3 1/300 -> 1/300; d4 47/22,940 -> 47/22,940; d5 184/31,440 -> 184/30,890; d6 135/15,550 -> 135/15,550; d7 44/6,260 -> 44/6,200; d8 43/7,150 -> 43/7,150
+
 base: the subtree's root (depth 3): first lb 48582.47 after 300 it, no phase
 
 zone: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48685.06 in 1200 it (iter_limit)
@@ -56,3 +92,9 @@ zone: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 4
 warmy: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48725.59 in 1200 it (iter_limit)
 
 certx: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48690.64 in 1200 it (iter_limit)
+
+ship: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48685.06 in 1200 it (iter_limit)
+
+zone2: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48685.06 in 1200 it (iter_limit)
+
+base2: the subtree's root (depth 3): first lb 48582.47 after 300 it, no phase
