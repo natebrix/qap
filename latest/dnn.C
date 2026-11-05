@@ -1695,12 +1695,17 @@ static double cert_lambda(Work &w, const double *Zm)
        [1/1.5, 1.5] (beta kept in [lo, hi] * base), S = n = 0
    freeze=N   no change after iteration N (200)
    nodes=all|cold|warm  the calls it applies to (warm: start given; all)
+   w=FW       warm-started calls instead run at FW * base throughout (no
+              change), cold ones as the kind says; `w=FW` alone leaves cold
+              calls at base. Measured: two,f=1.6667,t=60,w=0.7 (cold
+              0.5 -> 0.3 m/3, warm 0.21 m/3; experiments/wil50_feasibility/
+              speed/beta_sched)
  Not with the accelerations (Anderson keeps Z/beta; Halpern, momentum): off
  there. Read at every call (tests set and unset it within a process).
 */
 struct BetaSched {
-  int kind = 0;          // 0 off, 1 two-phase, 2 residual balancing
-  double f = 1, f2 = 1, c = 1, lo = 0.25, hi = 4;
+  int kind = 0;          // 0 off, 1 two-phase, 2 residual balancing, 3 fixed (set per call: w)
+  double f = 1, f2 = 1, c = 1, lo = 0.25, hi = 4, w = 0;
   int t = 60, force = 0, every = 40, maxchg = 4, freeze = 200, nodes = 0;   // nodes: 0 all, 1 cold, 2 warm
   BetaSched()
   {
@@ -1727,9 +1732,10 @@ struct BetaSched {
         else if (k == "hi") hi = atof(v.c_str());
         else if (k == "freeze") freeze = atoi(v.c_str());
         else if (k == "nodes") nodes = v == "cold" ? 1 : v == "warm" ? 2 : 0;
+        else if (k == "w") w = atof(v.c_str());
       }
     }
-    if (!(f > 0) || !(f2 > 0) || !(c > 0) || !(lo > 0) || !(hi >= lo)) kind = 0;
+    if (!(f > 0) || !(f2 > 0) || !(c > 0) || !(lo > 0) || !(hi >= lo) || !(w >= 0)) kind = 0, w = 0;
   }
 };
 
@@ -1894,16 +1900,18 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     const bool warm = start && start->Z.size() == (size_t)n1 * n1;
     if (par.anderson > 0 || par.halpern > 0 || par.momentum > 0 ||
         (bs.nodes == 1 && warm) || (bs.nodes == 2 && !warm))
-      bs.kind = 0;
+      bs.kind = 0, bs.w = 0;
+    if (warm && bs.w > 0) bs.kind = 3;   // w: a fixed beta on warm-started calls
   }
   int bs_phase = 0, bs_last = 0, bs_changes = 0, bs_n = 0;
   double bs_S = 0, bs_Lnorm = 0;
   if (bs.kind == 1) { beta = bs.f * beta0; ibeta = 1.0 / beta; bs_phase = 1; }
+  if (bs.kind == 3) { beta = bs.w * beta0; ibeta = 1.0 / beta; }
   if (bs.kind) bs_Lnorm = sqrt(dot4(L, L, (size_t)n1 * n1)) * iscale;
   if (bs.kind && par.verbose)
-    printf("bsched kind %d beta %.6g (base %.6g) f %g t %d f2 %g force %d c %g every %d max %d freeze %d nodes %d\n",
+    printf("bsched kind %d beta %.6g (base %.6g) f %g t %d f2 %g force %d c %g every %d max %d freeze %d nodes %d w %g\n",
            bs.kind, beta, beta0, bs.f, bs.t, bs.f2, bs.force, bs.c, bs.every, bs.maxchg, bs.freeze,
-           bs.nodes);
+           bs.nodes, bs.w);
   for (int it = 1; it <= par.max_iter; it++) {
     if (bs.kind && it > 1 && it <= bs.freeze) {
       // a change of beta, only where the R-step will run a scheduled full
