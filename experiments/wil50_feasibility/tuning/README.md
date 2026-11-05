@@ -579,3 +579,39 @@ Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
 QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1
 QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32`. Cut phases stay off
 on nug30 (+34%); the certificate polish is untested. Not re-run on nug28.
+
+### Nov 5: nug24, nug25, nug27 with the Nov 4 recipe (`refine/nug2{4,5,7}_{full,ctl}_nov5_j8_m2pro.log`)
+
+Binary at f763734, 8 workers, known optimum as `--ub`, the Nov 4 nug30
+environment in both arms (`QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0
+QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120
+QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1 QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003
+QAP_DNN_SHIP=32`). `full` is the nug30 recipe (`nug_deep_xbar_all.par`,
+`-x 1:7:1:200:1`); `ctl` keeps the default rules and the old DNN range
+(`nug_deep.par -x 2:5:1:200:1`), to check the rule 8 caveat from nug28
+(+37%) on the smaller instances.
+
+| instance | arm | nodes / fathomed | DNN nodes / fathomed | CPU | wall | reference |
+|---|---|---|---|---|---|---|
+| nug24 | full | 312 / 297 | 311 / 297 | **57 s** | 12.6 s | — |
+| nug24 | ctl | 299 / 285 | 291 / 284 | 62 s | 11.5 s | |
+| nug25 | full | 516 / 488 | 515 / 488 | **92 s** | 22.7 s | cloud Xeon, 4 workers, PRSM + degree 4: 696 nodes, 485 s |
+| nug25 | ctl | 729 / 689 | 722 / 689 | 150 s | 24.4 s | |
+| nug27 | full | 331 / 314 | 330 / 314 | **133 s** | 31.8 s | laptop Oct 30, PRSM + degree 4, `nug_deep.par -x 2:5`: 627 nodes, 1,045 s |
+| nug27 | ctl | 627 / 596 | 614 / 594 | 272 s | 49.5 s | |
+
+- The full recipe wins on all three: 1.1x (nug24), 1.6x (nug25), 2.0x
+  (nug27) over the control with the same per-node environment. Rule 8
+  with DNN from depth 1 halves the nug27 tree (627 -> 331 nodes) and cuts
+  nug25's by 30%; the nug28 caveat does not carry to these instances
+  (nug28 itself is still unrun).
+- The control reproduces the Oct 30 nug27 tree exactly (627 nodes, 614
+  DNN) at 272 s against 1,045 s: 3.8x per node from the Nov 1-4 levers
+  alone. With the tree change nug27 is 7.9x faster than Oct 30 and nug25
+  about 5x faster than the cloud's reference (different machine).
+- Parallel efficiency is low (4-5.5x on 8 workers) because the runs are
+  12-50 s of wall: the frontier split and the final tail dominate. The
+  CPU figures are the comparable ones.
+- All three finish at the known optimum. Nothing in these runs argues for
+  a different setting on the smaller instances; the nug30 recipe is the
+  recommended one from nug24 up.
