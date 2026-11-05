@@ -7,6 +7,15 @@ takes, and a staged plan. Research only: nothing in `latest/` or `src/` was
 changed. Prototypes and measurement logs are in
 [`docs/meschach_removal/`](meschach_removal/).
 
+**Status (Nov 5, late): stage 0 is done** (`src/MESCHACH/makefile`: `CC ?= cc`,
+`-std=gnu17 -ffp-contract=off`; `bench.py` honors `MESCHACH_CC`; `make` rebuilds
+Meschach when its makefile changes). Checked on the cloud box: the quick
+suite matches `bench/reference/` exactly when built with gcc 13, gcc 11, clang
+18, and clang or gcc with `-march=native` (FMA hardware). Every gate passes.
+The control, clang with FMA contraction on, reproduces the M2 Pro's numbers
+(nug12 264, nug14 2,317, nug15 1,935 nodes) and fails the check. Confirmation
+on an M2 itself is pending.
+
 Every number is marked **[M]** (measured, with the log or command) or
 **[E]** (estimated). Measurements were taken on the 4-vCPU container
 (Intel Xeon @ 2.10 GHz, g++ 13.3, clang 18.1, scipy-openblas32), at most two

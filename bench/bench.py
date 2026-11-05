@@ -146,7 +146,12 @@ def build():
     print(f"building Meschach and bnbdrv in {os.path.relpath(os.path.dirname(SOLVER_DIR), ROOT) or '.'} ...",
           flush=True)
     for d, target in ((MESCHACH_DIR, "basic"), (SOLVER_DIR, "all")):
-        r = subprocess.run(["make", target], cwd=d, capture_output=True, text=True)
+        cmd = ["make", target]
+        # MESCHACH_CC: Meschach's compiler, also for older commits whose makefile
+        # hard-codes CC = clang (a command-line CC overrides it; the environment does not)
+        if d == MESCHACH_DIR and os.environ.get("MESCHACH_CC"):
+            cmd.append("CC=" + os.environ["MESCHACH_CC"])
+        r = subprocess.run(cmd, cwd=d, capture_output=True, text=True)
         if r.returncode != 0:
             sys.stderr.write(r.stdout + r.stderr)
             sys.exit(f"build failed in {d}\n(commits before the Meschach isatty fix, "
@@ -427,6 +432,11 @@ def cmd_check(args):
             problems.append(f"{name}: root bound {r['root_bound']} (reference {e['root_bound']})")
 
     print()
+    if not rows:
+        # every instance skipped (no qaplib/ file or no QAPSOLN/ solution): nothing was checked
+        print("REGRESSION CHECK FAILED: no instance was run (see the skipped lines above; "
+              "QAPSOLN/ and qaplib/ must be present)")
+        return 1
     if problems:
         print(f"REGRESSION CHECK FAILED against {os.path.relpath(args.reference, ROOT)}/ "
               f"(tolerance {args.tolerance:.1%}):")

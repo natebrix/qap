@@ -5,8 +5,8 @@ instances, and compare performance between code or parameter changes.
 
 ## Build
 
-Requires `make`, `g++`, and `clang` (the Meschach makefile uses clang; pass
-`CC=gcc` to use gcc instead).
+Requires `make`, `g++` and a C compiler (`cc`: gcc or clang; `CC=clang make`
+picks one). For the DNN bound (`-x`), LAPACK too (see `latest/makefile`).
 
 ```sh
 make          # from the repo root: builds src/MESCHACH/meschach.a, then latest/bnbdrv
@@ -388,13 +388,15 @@ exactly.
 - When a change is *meant* to alter the search, regenerate the reference
   with `bench.py check --update` (runs the standard suite), commit
   `bench/reference/` with the change, and say why the counts moved.
-- The reference was made on an x86 Xeon. On an Apple M2 Pro the same code
-  does not match it: nug15's root QPB bound is 984.79 against 986.55 and the
-  quick suite's node counts differ by up to 8% (nug14 +6%, nug15 -1.5%,
-  nug16b -1.5%), with or without `-x`, so the QPB path itself rounds
-  differently there. Brute force, resume, parallel and `dnncheck` all pass
-  on that machine. Use `--tolerance` there, or compare two builds on the
-  same machine with `bench.py compare`.
+- The reference was made on an x86 Xeon. Until Nov 5 an Apple M2 Pro did
+  not match it: nug15's root QPB bound was 984.79 against 986.55 and the
+  quick suite's node counts differed by up to 8% (nug14 +6%, nug15 -1.5%,
+  nug16b -1.5%). The cause was Meschach compiled with fused multiply-adds,
+  which ARM always has: an x86 build with them reproduces the M2's numbers
+  (`docs/meschach_removal.md`). Meschach is now built with
+  `-ffp-contract=off`, which should make the M2 match the reference; until
+  `bench.py check` on an M2 confirms it, use `--tolerance` there, or compare
+  two builds on the same machine with `bench.py compare`.
 
 The two checks catch different things. We planted two bugs: lower bounds
 raised by 3, and an elimination test that was off by one. The brute-force

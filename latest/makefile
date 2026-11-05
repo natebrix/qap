@@ -86,7 +86,7 @@ dnncut.o: dnncut.C dnncut.h dnn.h
 dnntest.o: dnntest.C dnn.h
 	$(CPP) $(CFLAGS) $(INCLUDES) -c dnntest.C
 
-dnntest: $(OBJS) dnn.o dnncut.o amx_gemm.o dnntest.o
+dnntest: $(OBJS) dnn.o dnncut.o amx_gemm.o dnntest.o $(MESCHACHLIB)
 	$(CPP) $(CFLAGS) $(OBJS) dnn.o dnncut.o amx_gemm.o dnntest.o -o dnntest $(LDLIBS) $(DNN_LAPACK)
 
 # prototype: the DNN bound strengthened by triangle inequalities (experiments/dnn_cuts)

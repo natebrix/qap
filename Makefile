@@ -20,7 +20,9 @@ all: solver
 solver: src/MESCHACH/meschach.a
 	$(MAKE) -C latest
 
-src/MESCHACH/meschach.a:
+# rebuilt from scratch when its makefile changes (its .o files depend only on the .c files)
+src/MESCHACH/meschach.a: src/MESCHACH/makefile
+	$(MAKE) -C src/MESCHACH cleanup
 	$(MAKE) -C src/MESCHACH basic
 
 test: bruteforce resume parallel coord regression

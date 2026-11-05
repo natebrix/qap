@@ -10,15 +10,20 @@
 srcdir = .
 VPATH = .
 
-#CC = gcc
-CC = clang
+# The system C compiler (gcc or clang): CC=... on the command line or in the
+# environment overrides it; bench.py passes MESCHACH_CC (docs/meschach_removal.md).
+CC ?= cc
 
 DEFS = -DHAVE_CONFIG_H
 LIBS =  -lm
 RANLIB = /usr/bin/ranlib
 
 
-CFLAGS = -O
+# -std=gnu17: Meschach is 1994 C and does not compile as C23, the default of
+# newer compilers. -ffp-contract=off: no fused multiply-adds, so ARM (where FMA
+# is always available) rounds as x86 does and the QP bound matches
+# bench/reference/ on every machine (docs/meschach_removal.md, stage 0).
+CFLAGS = -O -std=gnu17 -ffp-contract=off
 
 
 .c.o:

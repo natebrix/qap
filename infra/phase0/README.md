@@ -18,8 +18,7 @@ to a private S3 bucket and terminates itself.
 
 1. It records the machine: the instance type and the CPU model, its
    physical cores, whether it has AMX, and memory.
-2. It builds on Amazon Linux 2023: gcc, clang (Meschach's makefile asks
-   for it; gcc if clang is unavailable), Python 3.11, numpy and the
+2. It builds on Amazon Linux 2023: gcc, Python 3.11, numpy and the
    scipy-openblas32 wheel (the BLAS the solver links on Linux), then
    `make solver dnntest`.
 3. It runs the gates: `make bruteforce resume parallel regression dnncheck`
@@ -107,14 +106,20 @@ There is no AWS access from the cloud session, so:
   arm64 image.
 - `bench.sh` ran in its local mode (`QAP_LOCAL=1`) on the cloud box's Ubuntu,
   from a clean `git archive` of exactly what the instances download: the
-  build, the five gates (all pass), one node alone, four nodes on two cores
-  with the queue and fillers, and the summary (4 of 4 fathomed, as in the
-  reference). `summarize.py table` was run on that output plus a family
-  whose build failed (reported, not dropped).
-- The solver, `dnntest` and Meschach build with gcc 11 (Amazon Linux 2023's
-  compiler). On that build, brute force (4,536 of 4,536), the regression
-  check and `dnncheck` pass. Meschach's makefile asks for clang, so the
-  instance installs clang, and builds Meschach with gcc if it cannot.
+  build, the gates, one node alone, four nodes on two cores with the queue
+  and fillers, and the summary (4 of 4 fathomed, as in the reference).
+  `summarize.py table` was run on that output plus a family whose build
+  failed (reported, not dropped).
+- **Correction (Nov 5, late):** in that run and in the first gcc 11 check,
+  the regression gate passed without checking anything. The tarball had no
+  `QAPSOLN/`, so `bench.py check` skipped every instance, and it reported
+  success when nothing ran. Both are fixed: the tarball carries `QAPSOLN/`,
+  and `bench.py check` now fails when no instance runs. The gcc 11 build
+  (stage 0 makefile) then passes the regression check on all 7 instances,
+  as do brute force (4,536 of 4,536) and `dnncheck`.
+- Meschach now builds with the system compiler and `-ffp-contract=off`
+  (stage 0 of `docs/meschach_removal.md`), so the instances need no clang,
+  and their x86 and ARM builds round alike.
 - Not tested: the Amazon Linux packages, the ARM Linux build, the IAM
   role's S3 access from an instance, and the Spot launch itself. Those are
   what the first run tests. Each failure shows in `steps.txt`, which every
