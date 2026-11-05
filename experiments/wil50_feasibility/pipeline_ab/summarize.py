@@ -13,9 +13,16 @@ import os
 import re
 import sys
 
-ARMS = ["base", "zone", "warmy", "certx"]
-# kill lines (README.md): the ratio of total DNN iterations an arm must reach
-GATES = {("zone", "base"): 1.15, ("warmy", "zone"): 1.05, ("certx", "base"): 1.03}
+ARMS = ["base", "zone", "warmy", "certx", "zone2", "base2"]
+# kill lines (README.md): the ratio of DNN iterations an arm must reach. For
+# warmy and certx the end-to-end ratio is below the run-to-run noise of one
+# configuration (README, base vs zone), so they are judged on the matched
+# nodes (shared, same parent-Y warm start and pool status) and, for warmy, on
+# the phases both arms ran
+GATES = {("zone", "base"): 1.15, ("warmy", "zone"): 1.05, ("certx", "zone"): 1.03}
+# the pairs compared, (arm, reference); the first reference that finished is used
+PAIRS = [("zone", ["base"]), ("warmy", ["zone"]), ("certx", ["zone", "base"]), ("zone2", ["zone"]),
+         ("base2", ["base"])]
 
 
 def num(pat, line, conv=float):
@@ -99,10 +106,36 @@ def compare(x, y):
                 desc = lambda r: (f"{'fathomed' if r['fathomed'] else 'branched'} (first {r['iters']} it, lb {r['lb']:.1f}"
                                   + (f"; phase {r['cut_iters']} it, best {r['cut_best']:.1f}" if r["cut"] else "") + ")")
                 print(f"  - depth {rx['depth']} [{' '.join(sorted(k))}]: {y['arm']} {desc(ry)}, {x['arm']} {desc(rx)}")
+    it = lambda r: r["iters"] + r["cut_iters"]
+    matched = [k for k in shared if x["rows"][k]["warm"] == y["rows"][k]["warm"]
+               and x["rows"][k]["pool"] == y["rows"][k]["pool"]]
+    rm = None
+    if matched:
+        mx, my = sum(it(x["rows"][k]) for k in matched), sum(it(y["rows"][k]) for k in matched)
+        rm = my / mx if mx else 0
+        print(f"- the {len(matched)} matched nodes (shared, same warm start and pool status): {my:,} -> {mx:,} "
+              f"DNN iterations, {ratio(my, mx)}")
+    both = [k for k in shared if x["rows"][k]["cut"] and y["rows"][k]["cut"]]
+    if both:
+        px, py = sum(x["rows"][k]["cut_iters"] for k in both), sum(y["rows"][k]["cut_iters"] for k in both)
+        fx = sum(x["rows"][k]["fathomed"] == 1 for k in both); fy = sum(y["rows"][k]["fathomed"] == 1 for k in both)
+        gx = sum(x["rows"][k]["cut_best"] - x["rows"][k]["lb"] for k in both) / len(both)
+        gy = sum(y["rows"][k]["cut_best"] - y["rows"][k]["lb"] for k in both) / len(both)
+        print(f"- the {len(both)} nodes with a phase in both: phase iterations {py:,} -> {px:,} ({ratio(py, px)}), "
+              f"fathomed by the phase {fy} -> {fx}, mean gain over the first solve {gy:+.1f} -> {gx:+.1f}")
+    depths = sorted({r["depth"] for r in list(x["rows"].values()) + list(y["rows"].values())})
+    print(f"- by depth (nodes, DNN iterations), {y['arm']} -> {x['arm']}: " + "; ".join(
+        f"d{d} {sum(r['depth'] == d for r in y['rows'].values())}/{sum(it(r) for r in y['rows'].values() if r['depth'] == d):,}"
+        f" -> {sum(r['depth'] == d for r in x['rows'].values())}/{sum(it(r) for r in x['rows'].values() if r['depth'] == d):,}"
+        for d in depths))
     gate = GATES.get((x["arm"], y["arm"]))
     if gate:
         r = y["dnn_it"] / x["dnn_it"] if x["dnn_it"] else 0
-        print(f"- kill line: {gate:.2f}x in DNN iterations -> {'PASS' if r >= gate else 'FAIL'} ({r:.3f}x)")
+        if x["arm"] == "zone":
+            print(f"- kill line: {gate:.2f}x in DNN iterations end to end -> {'PASS' if r >= gate else 'FAIL'} ({r:.3f}x)")
+        elif rm is not None:
+            print(f"- kill line: {gate:.2f}x in DNN iterations on the matched nodes -> "
+                  f"{'PASS' if rm >= gate else 'FAIL'} ({rm:.3f}x; end to end {r:.3f}x)")
 
 
 def main():
@@ -129,11 +162,10 @@ def main():
             for h in x["hosts"]:
                 print(f"  {a}: {h}")
     done = {a: x for a, x in arms.items() if x["done"]}
-    for a in ("zone", "warmy", "certx"):
-        if a in done and "base" in done:
-            compare(done[a], done["base"])
-    if "warmy" in done and "zone" in done:
-        compare(done["warmy"], done["zone"])
+    for a, refs in PAIRS:
+        ref = next((r for r in refs if r in done), None)
+        if a in done and ref:
+            compare(done[a], done[ref])
     # the -F node itself: did it run a phase (the equip phase), and what did it hand on
     for a, x in done.items():
         top = min(x["rows"].values(), key=lambda r: r["depth"]) if x["rows"] else None

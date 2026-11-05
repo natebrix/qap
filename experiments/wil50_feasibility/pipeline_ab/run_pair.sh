@@ -4,6 +4,7 @@
 #
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh base zone
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh warmy certx
+#   experiments/wil50_feasibility/pipeline_ab/run_pair.sh zone2 base2   (replicates)
 #
 # Arms (each on top of base unless stated):
 #   base   the production configuration of coord_search/run_coord_search.sh:
@@ -13,7 +14,9 @@
 #   warmy  zone + Y kept between cut rounds (QAP_DNN_CUT_WARMY=1), 12 rounds
 #          of 200 iterations, quiet round at most 1,000, first Polyak step
 #          damped for phases that start from an inherited pool
-#   certx  base + the certificate polish within 10 units of the cutoff
+#   certx  zone + the certificate polish within 10 units of the cutoff
+#   zone2, base2  replicates of zone and base: the run-to-run noise of one
+#          configuration on one machine (unit splits, steals, marginal nodes)
 #
 # Each arm gets SLOTS solver processes (default: half the performance cores,
 # at least 2). An arm that has finished is skipped, and an interrupted arm
@@ -32,7 +35,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n 2,30p "$0"; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|zone2|base2) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, zone2, base2)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -64,10 +67,10 @@ arm_env() {
   export QAP_DNN_WARM_Y=2 QAP_DNN_POOL=1 QAP_DNN_POOL_CHECK=20
   export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1
   case $1 in
-    zone)  export QAP_DNN_CUT_ZONE=0.005 ;;
+    zone|zone2) export QAP_DNN_CUT_ZONE=0.005 ;;
     warmy) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 ;;
-    certx) export DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1 DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=10 ;;
+    certx) export QAP_DNN_CUT_ZONE=0.005 DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1 DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=10 ;;
   esac
 }
 

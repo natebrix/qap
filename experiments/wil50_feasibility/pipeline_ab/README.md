@@ -9,8 +9,9 @@ production configuration on the same machine at the same time.
 |---|---|---|---|
 | `base` | production: rule 9, bundle D, parent-Y warm start, pool inheritance (`../coord_search/run_coord_search.sh`) | - | - |
 | `zone` | `QAP_DNN_CUT_ZONE=0.005` (from 0.003): misses up to 244 short run a cut phase, node 10 (232 short) among them, so their children inherit a pool (the "equip phase") | base | 1.15x |
-| `warmy` | zone + Y kept between cut rounds (`QAP_DNN_CUT_WARMY=1`), 12 rounds of 200 iterations, quiet round at most 1,000 (Astra's Y12s), first Polyak step damped (0.3) for phases that start from an inherited pool | zone | 1.05x, and the tree no larger |
-| `certx` | the certificate polish within 10 units of the cutoff (`DNN_CERTX=32 DNN_CERTX_USE=1 ...`) | base | 1.03x |
+| `warmy` | zone + Y kept between cut rounds (`QAP_DNN_CUT_WARMY=1`), 12 rounds of 200 iterations, quiet round at most 1,000 (Astra's Y12s), first Polyak step damped (0.3) for phases that start from an inherited pool | zone | 1.05x on the matched nodes and the phases both ran |
+| `certx` | zone + the certificate polish within 10 units of the cutoff (`DNN_CERTX=32 DNN_CERTX_USE=1 ...`); on top of base until Nov 5 | zone | 1.03x on the matched nodes |
+| `zone2`, `base2` | replicates: the run-to-run noise of one configuration on one machine | zone, base | - |
 
 Iterations are the deciding measure: they do not depend on the machine.
 Running two arms at once on one machine also makes their CPU seconds
@@ -93,11 +94,58 @@ kill line of 1.15x.
   in the first solve (48,814.1 at 1,570 iterations); a depth-7 node
   likewise (base phase best 48,813.4; zone first solve 48,814.8 at 190
   iterations). Those two account for the 88 extra base nodes.
-- Against the cloud's Nov 3 runs of the same subtree (rule-9 arm 322 nodes,
-  54,621 CPU-s on 4 Xeon workers), base here is 454 nodes at 11,456 CPU-s:
-  the tree differs because the production configuration now carries the
-  parent-Y warm start and pool inheritance, and the laptop is about 2.4x
-  the Xeon per core without the AMX kernel.
+### Checks of the base/zone result (cloud box, Nov 5)
 
-Next: `run_pair.sh warmy certx` (warmy is judged against zone, kill line
-1.05x and the tree no larger).
+**The base arm is the same configuration as the cloud's Nov 4 coordinator
+run** (`../coord_search/`, 322 nodes, 58,870 DNN iterations, 18,496 CPU-s on
+4 AMX Xeon slots). The tree differs not because of the configuration but
+because of chance; an earlier bullet here said otherwise.
+- On the 212 nodes the two base runs share with the same start (parent-Y warm
+  start and pool status alike), the laptop needs 3% more iterations
+  (35,520 against 34,310). The numerics (Accelerate against OpenBLAS and
+  AMX) matter little.
+- The difference comes from two places.
+  - **Marginal nodes:** two nodes of the 49:45 subtree fathom in the cloud
+    run and branch here: [0:8 49:45] misses by 6.3 after its phase, [0:25
+    9:21 49:45] by 9.6, and its child [0:25 19:0 9:21 49:45] by 0.65. That
+    adds depths 7-8: 132 nodes not in the cloud tree.
+  - **Cold starts:** the laptop base split into 33 units (zone 14, the
+    cloud 23), and 232 of its 454 nodes started without the parent's Y and
+    Z (cloud 94 of 322).
+- **Per iteration** on identical first solves (same node, same start, same
+  iteration count; 168 nodes), the M2 Pro takes 2,235 CPU-s against 4,460
+  for the AMX Xeon: **2.0x per core**.
+
+**Zone, measured three ways:**
+
+| comparison | DNN iterations | factor |
+|---|---|---|
+| zone against the laptop base, end to end (the same machine and hour) | 83,640 -> 51,150 | **1.64x** |
+| the same, on the 366 nodes both trees have | 74,390 -> 51,150 | 1.45x |
+| zone against the cloud base run, end to end (a luckier base: 322 nodes) | 58,870 -> 51,150 | 1.15x |
+| node 10's 47 children alone (depth 4), against either base | 22,940 (laptop), 22,100 (cloud) -> 13,910 | **1.65x** |
+
+- **The mechanism is the one test E predicted** (`../roadmap/convergence2/`).
+  Node 10's phase (1,200 iterations, 48,582 -> 48,685) hands its 47
+  children a pool. 43 of them fathom on the first solve against 38, and 4
+  run a phase of their own against 9. The 184 depth-5 nodes fall from
+  31,440 to 20,990 iterations.
+- **What zone still wastes:** its phases from inherited pools gain little.
+  On the 7 nodes with a phase in both arms the mean gain over the first
+  solve is +7.7 against +30.8 in base; five zone phases of 900 iterations
+  gain nothing at all (4,500 iterations, 9% of the arm). That is the
+  first-step overshoot the warmy arm's damping targets (49:45: −102 -> +16,
+  above).
+- **Noise.** One configuration gives 322 or 454 nodes, depending on which
+  marginal nodes fathom and which nodes start cold. The end-to-end factor
+  of a single pair is therefore uncertain by about 1.4x. Zone passes its
+  kill line even against the luckier base (1.15x). The 1.05x and 1.03x
+  lines of warmy and certx are below that noise, so `summarize.py` judges
+  them on the matched nodes (shared, same start) and, for warmy, on the
+  phases both arms ran. The replicates `zone2` and `base2` measure the noise
+  on one machine.
+- **Adopted:** `QAP_DNN_CUT_ZONE=0.005` is the new reference. `certx` now
+  runs on top of zone and is judged against it.
+
+Next: `run_pair.sh warmy certx`, both judged against `runs/zone`. Then, if
+the laptop is free, `run_pair.sh zone2 base2` for the noise.

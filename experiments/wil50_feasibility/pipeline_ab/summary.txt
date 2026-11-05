@@ -15,7 +15,10 @@
 - outcome changed on 2 shared nodes:
   - depth 5 [0:8 25:49 30:48 39:27 49:45]: base branched (first 1150 it, lb 48799.4; phase 2400 it, best 48807.8), zone fathomed (first 1570 it, lb 48814.1)
   - depth 7 [0:25 19:0 25:49 30:48 39:27 49:45 9:21]: base branched (first 540 it, lb 48774.2; phase 2400 it, best 48813.4), zone fathomed (first 190 it, lb 48814.8)
-- kill line: 1.15x in DNN iterations -> PASS (1.635x)
+- the 247 matched nodes (shared, same warm start and pool status): 31,870 -> 28,970 DNN iterations, 1.100x
+- the 7 nodes with a phase in both: phase iterations 10,200 -> 9,300 (1.097x), fathomed by the phase 0 -> 0, mean gain over the first solve +30.8 -> +7.7
+- by depth (nodes, DNN iterations), base -> zone: d3 1/300 -> 1/1,500; d4 47/22,940 -> 47/13,910; d5 184/31,440 -> 184/20,990; d6 135/15,550 -> 90/12,320; d7 44/6,260 -> 44/2,430; d8 43/7,150 -> 0/0
+- kill line: 1.15x in DNN iterations end to end -> PASS (1.635x)
 
 base: the subtree's root (depth 3): first lb 48582.47 after 300 it, no phase
 
