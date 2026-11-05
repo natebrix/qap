@@ -615,3 +615,24 @@ QAP_DNN_SHIP=32`). `full` is the nug30 recipe (`nug_deep_xbar_all.par`,
 - All three finish at the known optimum. Nothing in these runs argues for
   a different setting on the smaller instances; the nug30 recipe is the
   recommended one from nug24 up.
+
+### Nov 5: nug28 with the Nov 4 recipe (`refine/nug28_{full,ctl}_nov5_j8_m2pro.log`)
+
+Same two arms as nug24/25/27 above, binary at f763734, 8 workers, `--ub 5166`.
+
+| arm | nodes / fathomed | DNN nodes / fathomed | CPU | wall | reference |
+|---|---|---|---|---|---|
+| full (`nug_deep_xbar_all.par -x 1:7:1:200:1`) | 1,846 / 1,771 | 1,845 / 1,771 | **547 s** | 99 s | Oct 31 best, default rules H = 200 + D6/D8: 1,683 nodes, 1,105 s |
+| ctl (`nug_deep.par -x 2:5:1:200:1`) | 1,708 / 1,637 | 1,699 / 1,637 | 651 s | 115 s | |
+
+- The recipe wins 1.19x in CPU although its tree is 8% larger (1,846
+  against 1,708 nodes): with DNN from depth 1 and give-up at 200, rule 8's
+  extra nodes are cheap ones. The Oct 31 caveat (rule 8 +37% on nug28,
+  2,937 nodes with `nug_deep_xbar.par -x 2:7`) is reduced to +8% in nodes
+  and reversed in CPU, so the nug30 recipe is now the recommended setting
+  on every nug instance from 24 to 30.
+- nug28 is 2.0x faster than the Oct 31 best and 7.2x faster than the Oct
+  29 laptop run (4,003 s); the control alone (same tree family as Oct 31,
+  1,708 against 1,683 nodes) is 1.7x faster per node.
+- nug26 and nug29 do not exist in QAPLIB; the Nugent family is 24, 25,
+  27, 28, 30.
