@@ -147,9 +147,9 @@ a GPU than PRSM).
 | OWX 2018 | cutting planes added to the Y-subproblem ("trivial with FR") | not done; we dualize cuts in rounds. Item 2 |
 | OWX 2018 | high-accuracy runs (1e-5, up to 40k iterations) | deliberately not |
 | Graham 2022 | PRSM double dual step | done (1.0/1.0; 0.9/0.9 tested) |
-| Graham 2022 | trace constraint in the R-step | **not done**. Item 1 |
-| Graham 2022 | DS projection in the Y-step | **not done** in the step (done in the certificate). Item 1 |
-| Graham 2022 | "restricted" dual update | unverified detail; check against the paper with item 1 |
+| Graham 2022 | trace constraint in the R-step | built and measured Nov 5 (`../../speed/rprsm`): -1% iterations on wil50; its multiplier is a flat direction of our GL certificate |
+| Graham 2022 | DS projection in the Y-step | not in their Algorithm 3.1, only their Remark 2.9; built Nov 5 (x-row and arrow): -10% iterations cold, -6.5% warm, -4 to -6% CPU (`../../speed/rprsm`) |
+| Graham 2022 | "restricted" dual update | checked against the arXiv PDF: both dual steps projected onto Z_0 (diagonal and arrow fixed at -L); built Nov 5, neutral on nug20 (`../../speed/rprsm`) |
 | Graham 2022 | ceiling of the bound for integer data | done (even objective, cutoff 48,814.05) |
 | Hu-Sotirov-Wolkowicz 2023 | symmetry reduction after FR | n/a below the root: wil50's order-4 grid group fixes almost no location, so a depth-3 node's stabilizer is trivial or order 2 [e] |
 | Kim-Kojima-Toh / Fujii 2021 | warm-started brackets in B&B, valid bound at any iterate | equivalent (warm Z, any-Z certificate) |

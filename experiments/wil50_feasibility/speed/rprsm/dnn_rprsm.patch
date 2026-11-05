@@ -1,0 +1,443 @@
+diff --git a/latest/dnn.C b/latest/dnn.C
+index 5d18791..07326bc 100644
+--- a/latest/dnn.C
++++ b/latest/dnn.C
+@@ -487,6 +487,13 @@ struct Work {
+   // transform fusion (DNN_FUSE=1): the Y/Z step leaves the next forward's row phase
+   // in T (t_rows_ready) and forward writes Wf alongside W (wf_ready)
+   bool t_rows_ready = false, wf_ready = false;
++  // DNN_RPRSM (rprsm_env): trace target m+1 of the R-step (0: off), its last
++  // shift tau, how often tau was capped at the block's top Ritz value; the
++  // x-row projection's duals (warm across iterations) and scratch
++  double rp_target = 0, rp_tau = 0;
++  int rp_capped = 0, rp_ds_sweeps = 0, rp_ds_calls = 0;
++  double rp_tau_min = HUGE_VAL, rp_tau_max = -HUGE_VAL;
++  std::vector<double> ds_u, ds_v, ds_t, ds_x, ds_s;
+   ~Work() { if (use_amx) amx_ctx_free(&amx); }
+ 
+   void alloc(int m_)
+@@ -714,6 +721,113 @@ void expand(Work &w, const double *R, double *Mout)
+   symmetrize(Mout, n1);
+ }
+ 
++/*
++ DNN_RPRSM: the pieces of Graham, Hu, Im, Li and Wolkowicz's restricted PRSM
++ (INFORMS J. Comput. 2022, arXiv 2006.01529, Algorithm 3.1 and Remark 2.9)
++ that the default iteration does not have; bits, off by default:
++   1  trace-constrained R-step: R = P_{R}(W) over R = {R psd, tr R = m+1},
++      i.e. the eigenvalues projected onto the simplex, R = (W - tau I)_+.
++      Formed as W - tau I minus the computed part below tau, so
++      W - R - tau I = sum_{theta<tau} (theta - tau) x x' is negative
++      semidefinite by construction and V'Z'V = beta (W - R) <= beta tau I;
++      the certificate starts Rump's test at that shift (certify, lam0).
++   2  doubly stochastic projection in the Y-step: the x-row Y_0,(ij) =
++      Y_(ij),0 is projected onto {x >= 0, row and column sums 1} (with
++      eliminated assignments at 0) instead of clipped to [0, 1].
++   4  restricted dual update (Algorithm 3.1): Z starts in Z_A (arrow and
++      diagonal entries equal to -L) and both dual updates are projected onto
++      Z_0, so those entries never move.
++   8  with 2: the arrow too, Y_(ij),(ij) = x_ij (Lemma 2.7: diag Y equals
++      the first column), x = P_DS of the average (2 t_0 + t_diag) / 3.
++ None of them touches the certificate's assumptions: it holds for every
++ symmetric multiplier and every lambda >= lambda_max(V'Z'V) of either sign
++ (trace R = m+1 exactly for every lifted permutation). experiments/
++ wil50_feasibility/speed/rprsm/README.md has the measurements.
++*/
++int rprsm_env()
++{
++  static const int v = getenv("DNN_RPRSM") ? atoi(getenv("DNN_RPRSM")) : 0;
++  return v;
++}
++
++// tau with sum_i max(lambda_i - tau, 0) = target, from the n lowest eigenvalues
++// th[0..n) (ascending) of a K x K matrix with trace trW. When n < K the others
++// are assumed to be >= th[n-1]; if tau would lie above th[n-1] it is capped
++// there (*capped), since the block does not know those eigenvalues.
++template <class T>
++double trace_tau(const T *th, int n, int K, double trW, double target, bool *capped)
++{
++  *capped = false;
++  double S = 0;
++  for (int k = 0; k < n; k++) {
++    // tau in (th[k-1], th[k]]: f(tau) = trW - S_k - (K - k) tau
++    const double t = (trW - S - target) / (K - k);
++    if (t <= (double)th[k]) return t;
++    S += (double)th[k];
++  }
++  *capped = n < K;
++  return n > 0 ? (double)th[n - 1] : (trW - target) / K;
++}
++
++// threshold s with sum_j max(a_j - s, 0) = 1 over the n values a (simplex
++// projection of a row); scratch b (n)
++static double simplex_shift(const double *a, int n, double *b)
++{
++  for (int j = 0; j < n; j++) b[j] = a[j];
++  std::sort(b, b + n, [](double p, double q) { return p > q; });
++  double cs = 0, s = b[0] - 1;
++  for (int j = 0; j < n; j++) {
++    cs += b[j];
++    const double t = (cs - 1) / (j + 1);
++    if (j + 1 == n || b[j + 1] <= t) { s = t; break; }
++  }
++  return s;
++}
++
++/*
++ x = argmin |x - t| over {x >= 0, x e = e, x'e = e, x_ij = 0 for eliminated
++ (i,j)} (m x m, row-major). Block-coordinate ascent on the dual,
++ x_ij = max(t_ij - u_i - v_j, 0): each half-sweep is m simplex projections.
++ u, v are warm from the last call. Stops when every row and column sum is
++ within tol of 1, or after maxsweep sweeps (an inexact projection only moves
++ the ADMM iterate, never the certificate).
++*/
++static int ds_project(Work &w, const double *t, double *x, double tol, int maxsweep)
++{
++  const int m = w.m;
++  if ((int)w.ds_u.size() != m) { w.ds_u.assign(m, 0); w.ds_v.assign(m, 0); }
++  w.ds_s.resize(2 * (size_t)m);
++  double *a = w.ds_s.data(), *b = a + m;
++  double *u = w.ds_u.data(), *v = w.ds_v.data();
++  const unsigned char *el = w.elim;
++  int sw = 0;
++  for (; sw < maxsweep; sw++) {
++    for (int i = 0; i < m; i++) {
++      int n = 0;
++      for (int j = 0; j < m; j++) if (!el || !el[i * m + j]) a[n++] = t[i * m + j] - v[j];
++      u[i] = simplex_shift(a, n, b);
++    }
++    for (int j = 0; j < m; j++) {
++      int n = 0;
++      for (int i = 0; i < m; i++) if (!el || !el[i * m + j]) a[n++] = t[i * m + j] - u[i];
++      v[j] = simplex_shift(a, n, b);
++    }
++    // columns now sum to 1 exactly (up to rounding); check the rows
++    double err = 0;
++    for (int i = 0; i < m; i++) {
++      double s = 0;
++      for (int j = 0; j < m; j++)
++        if (!el || !el[i * m + j]) s += std::max(t[i * m + j] - u[i] - v[j], 0.0);
++      err = std::max(err, fabs(s - 1));
++    }
++    if (err < tol) { sw++; break; }
++  }
++  for (int i = 0; i < m; i++)
++    for (int j = 0; j < m; j++)
++      x[i * m + j] = (el && el[i * m + j]) ? 0.0 : std::max(t[i * m + j] - u[i] - v[j], 0.0);
++  return sw;
++}
++
+ /*
+  R = P_psd(W) for symmetric K x K W (row-major = column-major). Uses
+  the eigendecomposition (dsyevd) and sums the smaller of the positive
+@@ -725,7 +839,7 @@ void expand(Work &w, const double *R, double *Mout)
+  positive count.
+ */
+ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single = false,
+-              bool neg_form = false)
++              bool neg_form = false, double target = 0)
+ {
+   const lapack_int K = w.K;
+   const size_t kk = (size_t)K * K;
+@@ -749,8 +863,19 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
+   }
+   if (info != 0) return false;
+   const double *ev = w.evals.data();
++  // DNN_RPRSM bit 1 (see rprsm_env): R = (W - tau I)_+ with trace m+1
++  // (target > 0 only for the R-step; the certificate's re-projections pass 0)
++  double tau = 0;
++  if (target > 0) {
++    double trW = 0;
++    for (int c = 0; c < K; c++) trW += Win[(size_t)c * K + c];
++    bool cap;
++    tau = trace_tau(ev, K, K, trW, target, &cap);
++    w.rp_tau = tau;
++    w.rp_tau_min = std::min(w.rp_tau_min, tau); w.rp_tau_max = std::max(w.rp_tau_max, tau);
++  }
+   int np = 0;
+-  for (int i = 0; i < K; i++) if (ev[i] > 0) np++;
++  for (int i = 0; i < K; i++) if (ev[i] > tau) np++;
+   *npos = np;
+   const int nneg = K - np;   // eigenvalues ascending: negatives first
+   double *F = w.F.data();
+@@ -759,7 +884,7 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
+     // R = sum_{w>0} w v v'
+     for (int c = 0; c < np; c++) {
+       int i = nneg + c;
+-      double s = sqrt(ev[i]);
++      double s = sqrt(ev[i] - tau);
+       const double *v = A + (size_t)i * K;
+       double *f = F + (size_t)c * K;
+       for (int r = 0; r < K; r++) f[r] = s * v[r];
+@@ -770,12 +895,13 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
+   } else {
+     // R = W - sum_{w<=0} w v v' = W + sum |w| v v'
+     for (int c = 0; c < nneg; c++) {
+-      double s = sqrt(-ev[c]);
++      double s = sqrt(tau - ev[c]);
+       const double *v = A + (size_t)c * K;
+       double *f = F + (size_t)c * K;
+       for (int r = 0; r < K; r++) f[r] = s * v[r];
+     }
+     memcpy(Rout, Win, (size_t)K * K * sizeof(double));
++    if (target > 0) for (int c = 0; c < K; c++) Rout[(size_t)c * K + c] -= tau;
+     lapack_int k = nneg;
+     if (k > 0) F77(dsyrk)("L", "N", &K, &k, &one, F, &K, &one, Rout, &K, 1, 1);
+   }
+@@ -808,6 +934,14 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int
+   const size_t kk = (size_t)K * K;
+   float *Wf = w.Wf.data();
+   const float one = 1, zero = 0;
++  // DNN_RPRSM bit 1: R = (W - tau I)_+ with trace m+1; the block holds the
++  // eigenvalues below thr = tau (plus the guard) instead of the negative ones
++  const bool trc = w.rp_target > 0;
++  double trW = 0, tau = 0;
++  bool tcap = false;
++  float thr = 0;
++  int nform = 0;   // the count below tau, for forming R (set where tau is)
++  if (trc) for (int c = 0; c < K; c++) trW += Win[(size_t)c * K + c];
+ 
+   // Weyl: lambda_max(W) <= lambda_max(Wprev) + ||W - Wprev||_F. With tight_lam
+   // the estimate below replaces it, so the difference and the Wprev copy (two
+@@ -877,8 +1011,14 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int
+                   w.eiwork.data(), &liwork, &info, 1, 1);
+       w.prof[5] += thread_cpu() - tf0; w.n_refresh++;
+       if (info != 0) return false;
++      if (trc) {
++        tau = trace_tau(theta.data(), K, K, trW, w.rp_target, &tcap);
++        thr = (float)tau;
++        nform = 0;
++        while (nform < K && (double)theta[nform] < tau) nform++;
++      }
+       nneg = 0;
+-      while (nneg < K && theta[nneg] < 0) nneg++;
++      while (nneg < K && theta[nneg] < thr) nneg++;
+       kb = std::min<lapack_int>(K, nneg + guard);
+       w.lam_hi = theta[K - 1] + 1e-6 * (fabs(theta[K - 1]) + fabs(theta[0]));
+       if (tight_lam > 0) memcpy(w.vtop.data(), X + (size_t)(K - 1) * K, K * sizeof(float));
+@@ -954,8 +1094,15 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int
+     else F77(sgemm)("N", "N", &K, &kb, &kb, &one, Y, &K, G, &kb, &zero, Xn, &K, 1, 1);
+     if (Xn != X) memcpy(X, Xn, nb * sizeof(float));
+     w.sp[8] += (thread_cpu() - tc0) * 1e3;
++    if (trc) {
++      tau = trace_tau(theta.data(), kb, K, trW, w.rp_target, &tcap);
++      if (tcap) w.rp_capped++;
++      thr = (float)tau;
++      nform = 0;
++      while (nform < kb && (double)theta[nform] < tau) nform++;
++    }
+     nneg = 0;
+-    while (nneg < kb && theta[nneg] < 0) nneg++;
++    while (nneg < kb && theta[nneg] < thr) nneg++;
+     w.prof[6] += thread_cpu() - ts0;
+     w.since_refresh++; w.n_sub++; w.sum_kb += kb; w.sum_nneg += nneg;
+     w.theta_top = theta[kb - 1];
+@@ -982,6 +1129,13 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int
+   }
+   w.kb = kb;
+   if (full) w.theta_top = theta[kb - 1];
++  if (trc) {
++    // the part below tau: R = W - tau I - sum_{theta<tau} (theta - tau) x x'
++    // (counted before any block growth: the appended vectors have no Ritz values)
++    nneg = nform;
++    w.rp_tau = tau;
++    w.rp_tau_min = std::min(w.rp_tau_min, tau); w.rp_tau_max = std::max(w.rp_tau_max, tau);
++  }
+   *npos = K - nneg;
+ 
+   // R = W - sum_{theta<0} theta x x'. DNN_R32=1 (node_speed.md trim b): the
+@@ -993,7 +1147,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int
+   if (r32 && k > 0) {
+     float *Ff = w.Hs.data(), *Rf = w.Ts.data();   // free after the filter step (K x K each)
+     for (int i = 0; i < nneg; i++) {
+-      const float sq = (float)sqrt(-(double)theta[i]);
++      const float sq = (float)sqrt(tau - (double)theta[i]);
+       const float *x = X + (size_t)i * K;
+       float *f = Ff + (size_t)i * K;
+       for (int r = 0; r < K; r++) f[r] = sq * x[r];
+@@ -1004,7 +1158,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int
+     // lower triangle (column-major) of Rf holds F F'; R = W + it, both triangles
+     for (int c = 0; c < K; c++) {
+       const float *rc = Rf + (size_t)c * K;
+-      Rout[(size_t)c * K + c] = Win[(size_t)c * K + c] + rc[c];
++      Rout[(size_t)c * K + c] = (Win[(size_t)c * K + c] - tau) + rc[c];
+       for (int r = c + 1; r < K; r++) {
+         const double v = Win[(size_t)c * K + r] + rc[r];
+         Rout[(size_t)c * K + r] = v; Rout[(size_t)r * K + c] = v;
+@@ -1016,12 +1170,13 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int
+   }
+   double *F = w.F.data();
+   for (int i = 0; i < nneg; i++) {
+-    double sq = sqrt(-(double)theta[i]);
++    double sq = sqrt(tau - (double)theta[i]);
+     const float *x = X + (size_t)i * K;
+     double *f = F + (size_t)i * K;
+     for (int r = 0; r < K; r++) f[r] = sq * x[r];
+   }
+   memcpy(Rout, Win, kk * sizeof(double));
++  if (trc) for (int c = 0; c < K; c++) Rout[(size_t)c * K + c] -= tau;
+   w.sp[9] += (thread_cpu() - tr0) * 1e3; tr0 = thread_cpu();
+   const double done = 1;
+   if (k > 0) F77(dsyrk)("L", "N", &K, &k, &done, F, &K, &done, Rout, &K, 1, 1);
+@@ -1047,8 +1202,12 @@ struct CertInfo {
+   double lam = HUGE_VAL;     // the rigorous lambda_max bound used (scaled units; DNN_CERTX)
+ };
+ 
++// lam0 (scaled units): a known upper bound target for lambda_max(V'ZmV), where
++// the shifts of Rump's test start (DNN_RPRSM bit 1: beta tau, of either sign;
++// the test itself makes the bound rigorous, so any lam0 is safe)
+ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly,
+-               int inner_lap, double exact_above, double exact_below, CertInfo &ci)
++               int inner_lap, double exact_above, double exact_below, CertInfo &ci,
++               double lam0 = 0)
+ {
+   const int m = w.m, n1 = w.n1;
+   const lapack_int K = w.K;
+@@ -1073,6 +1232,7 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
+   for (e = std::max(e, -14); e <= -3 && lam == HUGE_VAL; e++) {
+     const double rel = pow(10.0, e);
+     double delta = rel * snorm + 1e-14 * znorm + 1e-300;
++    if (lam0 != 0) delta += lam0;
+     long double tr = 0;
+     double maxdiag = 0;
+     for (size_t i = 0; i < (size_t)K * K; i++) A[i] = -S[i];
+@@ -1768,6 +1928,20 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+       }
+     }
+   }
++  // DNN_RPRSM (see rprsm_env above dnn's projections). Not in prototype mode,
++  // which reproduces dnn.py's iteration (and whose box certificate does not see
++  // the doubly stochastic structure that bits 2 and 8 build into Z)
++  const int rp = par.prototype_cert ? 0 : rprsm_env();
++  if (rp & 1) w.rp_target = m + 1;
++  const bool rp_ds = (rp & 2) != 0, rp_arrow = (rp & 10) == 10, rp_restr = (rp & 4) != 0;
++  if (rp_ds) { w.ds_t.assign((size_t)m * m, 0); w.ds_x.assign((size_t)m * m, 0); }
++  if (rp_restr) {
++    // Z in Z_A (Theorem 2.11): L + Z vanishes on the arrow and the diagonal
++    for (int c = 1; c < n1; c++) {
++      Z[c] = Z[(size_t)c * n1] = -L[c] * iscale;
++      Z[(size_t)c * n1 + c] = -L[(size_t)c * n1 + c] * iscale;
++    }
++  }
+   double best = -HUGE_VAL;
+   std::vector<double> red_cur, red_best;   // child bounds (par.child_bounds)
+   double lbs_best = -HUGE_VAL;
+@@ -1835,7 +2009,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+                    ? proj_psd_subspace(w, w.W.data(), w.R.data(), &npos, par.refresh,
+                                        par.cheb_degree, std::max(8, w.K / guard_div), par.tight_lam)
+                    : proj_psd(w, w.W.data(), w.R.data(), &npos,
+-                              par.eig_mode == DNN_EIG_SINGLE, rstep_cert);
++                              par.eig_mode == DNN_EIG_SINGLE, rstep_cert,
++                              w.rp_target);
+     if (!okp) {
+       status = DNN_ERROR;
+       break;
+@@ -1848,6 +2023,26 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     // a row at a time: clip, then the fixed entries, then the updates
+     long double pres2 = 0, dy2 = 0, dz2 = 0;
+     double *yn = w.tmp.data();
++    if (rp_ds) {
++      // DNN_RPRSM bit 2: the x-row of the Y-step's target T (after the first
++      // dual step, as the row loop computes it), projected onto the doubly
++      // stochastic matrices; bit 8 averages in the diagonal (the arrow)
++      double *t = w.ds_t.data();
++      for (int c = 1; c < n1; c++) {
++        double z = Z[c];
++        if (gamma1 > 0 && !rp_restr) z += gamma1 * beta * (Y[c] - VRV[c]);
++        double t0 = VRV[c] - (L[c] * iscale + z) * ibeta;
++        if (rp_arrow) {
++          const size_t d = (size_t)c * n1 + c;
++          double zd = Z[d];
++          if (gamma1 > 0 && !rp_restr) zd += gamma1 * beta * (Y[d] - VRV[d]);
++          t0 = (2 * t0 + (VRV[d] - (L[d] * iscale + zd) * ibeta)) / 3;
++        }
++        t[c - 1] = t0;
++      }
++      w.rp_ds_sweeps += ds_project(w, t, w.ds_x.data(), 1e-10, 200);
++      w.rp_ds_calls++;
++    }
+     for (int r = 0; r < n1; r++) {
+       const double *lr = L + (size_t)r * n1, *vr = VRV + (size_t)r * n1;
+       double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1, *cr = Zc + (size_t)r * n1;
+@@ -1855,10 +2050,20 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+         for (int c = 0; c < n1; c++) cr[c] = zr[c] + beta * (yr[c] - vr[c]);
+       if (gamma1 > 0)
+         for (int c = 0; c < n1; c++) zr[c] += gamma1 * beta * (yr[c] - vr[c]);
++      if (rp_restr) {
++        // DNN_RPRSM bit 4: the dual updates are projected onto Z_0
++        if (r == 0) { for (int c = 1; c < n1; c++) zr[c] = -lr[c] * iscale; }
++        else { zr[0] = -lr[0] * iscale; zr[r] = -lr[r] * iscale; }
++      }
+       for (int c = 0; c < n1; c++) {
+         double y = vr[c] - (lr[c] * iscale + zr[c]) * ibeta;
+         yn[c] = std::min(1.0, std::max(0.0, y));
+       }
++      if (rp_ds) {
++        const double *x = w.ds_x.data();
++        if (r == 0) { for (int c = 1; c < n1; c++) yn[c] = x[c - 1]; }
++        else { yn[0] = x[r - 1]; if (rp_arrow) yn[r] = x[r - 1]; }
++      }
+       if (r == 0) {
+         yn[0] = 1;
+       } else {
+@@ -1883,6 +2088,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+         ds[c] = y - yr[c];
+         yr[c] = y;
+       }
++      if (rp_restr) {
++        if (r == 0) { for (int c = 1; c < n1; c++) zr[c] = -lr[c] * iscale; }
++        else { zr[0] = -lr[0] * iscale; zr[r] = -lr[r] * iscale; }
++      }
+       pres2 += dot4(rs, rs, n1);
+       dy2 += dot4(ds, ds, n1);
+       if (fuse_ok) {
+@@ -1957,13 +2166,17 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     }
+     const double exact_below = cutoff - shift + 1e-6 * (1 + fabs(cutoff));
+     w.want_red = par.child_bounds && par.poly != DNN_POLY_BOX;
++    // DNN_RPRSM bit 1: V'Z'V <= beta tau I by construction
++    const double lam0 = (w.rp_target > 0 && !par.prototype_cert) ? beta * w.rp_tau : 0;
+     lbs = certify(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap, exact_above,
+-                  exact_below, ci);
++                  exact_below, ci, lam0);
+     if (w.want_red) red_cur = w.red;
+     res.certificates++;
+     if (!ci.chol_ok) res.cert_failures++;
++    // (with lam0, only the penalty beyond (m+1) scale lam0 is the eigensolver's)
++    const double pen_excess = lam0 != 0 ? ci.sdp_penalty - (m + 1) * scale * lam0 : ci.sdp_penalty;
+     if (!par.prototype_cert && par.eig_mode != DNN_EIG_DOUBLE &&
+-        (!ci.chol_ok || (lbs + shift <= cutoff && lbs + shift + ci.sdp_penalty > cutoff))) {
++        (!ci.chol_ok || (lbs + shift <= cutoff && lbs + shift + pen_excess > cutoff))) {
+       // single-precision R-steps leave V'Z'V slightly indefinite; when that
+       // costs the fathom, project it in double: Z' <- Z' - V P_psd(V'Z'V) V'
+       forward(w, Zc, w.W.data());
+@@ -2003,7 +2216,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+         // certificate's lambda bound (the same Zc), so they cost only their LAP passes
+         const bool lean = (cxe.mode & ~(2 | 32 | 64)) == 0;
+         if (lean) cx = ci;
+-        else u_[1] = certify(w, Zc, scale, (double)sumabsL, par.poly, DNN_LAP_EXACT, exact_above, exact_below, cx);
++        else u_[1] = certify(w, Zc, scale, (double)sumabsL, par.poly, DNN_LAP_EXACT, exact_above, exact_below, cx, lam0);
+         tm[0] = thread_cpu() - tq;
+         if ((cxe.mode & 64) && cx.chol_ok) {
+           tq = thread_cpu();
+@@ -2210,6 +2423,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+       printf("it %5d lb %.4f (cert %.4f, margin %.2e%s) primal %.4f pres %.2e dY %.2e npos %d cpu %.2f\n",
+              it, best, lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL, ci.margin,
+              ci.chol_ok ? "" : ", chol FAILED", obj, pres, dy, npos, thread_cpu() - t0);
++    if (par.verbose >= 2 && rp)
++      printf("rprsm it %5d tau %.6e sdp_penalty %.4f ds_sweeps %d\n", it, w.rp_tau, ci.sdp_penalty,
++             w.rp_ds_calls ? w.rp_ds_sweeps / w.rp_ds_calls : 0);
+     lbhist.push_back(lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL);
+ 
+     if (best > cutoff) { status = DNN_FATHOMED; break; }
+@@ -2266,6 +2482,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     }
+   }
+   if (status < 0) status = DNN_ITER_LIMIT;
++  if (par.verbose && rp)
++    printf("rprsm bits %d: tau last %.4e range [%.4e, %.4e], capped %d; ds projections %d, %.1f sweeps each\n",
++           rp, w.rp_tau, w.rp_tau_min, w.rp_tau_max, w.rp_capped, w.rp_ds_calls,
++           w.rp_ds_calls ? (double)w.rp_ds_sweeps / w.rp_ds_calls : 0.0);
+   if (cx_on && !cxe.quiet) {
+     printf("certx-summary call %d status %s iters %d cutoff %.4f first std %d exact %d hg %d ls %d avg %d hgr %d"
+            " hgw %d proj %d best std %.4f exact %.4f hg %.4f ls %.4f avg %.4f hgr %.4f hgw %.4f proj %.4f"
