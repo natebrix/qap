@@ -1,0 +1,17 @@
+# tail probe, arm fullwide: node 34:40,28:22,14:29 (depth 3), qaplib/wil50.dat, ub 48816
+# nathan-brixiuss-MacBook-Pro.local arm64, 3 slots, wall 4911 s (this session)
+
+| level | nodes (est.) | bounded | fathomed | branched | DNN iterations per node (first + phase) | CPU s per node | est. iterations at the level | est. CPU s at the level | warm | pooled | phases |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 3 | 1 | 1 | 0 | 1 | 1,100 (300 + 800) | 191.5 | 1,100 | 192 | 0 | 0 | 1 |
+| 4 | 47 | 47 | 18 | 29 | 1,059 (341 + 718) | 200.4 | 49,790 | 9,420 | 47 | 47 | 38 |
+| 5 | 1,334 | 30 | 29 | 1 | 166 (129 + 37) | 30.4 | 221,444 | 40,610 | 30 | 30 | 3 |
+| 6 | 2,001 | 20 | 17 | 3 | 494 (314 + 181) | 60.5 | 989,494 | 121,010 | 20 | 20 | 6 |
+
+Estimated through level 6: 1,261,828 DNN iterations, 171,232 CPU s. Open below level 6 (estimated): 13,207 nodes at level 7, not bounded.
+
+Shortfalls of the branched nodes (cutoff minus the best certified value):
+  level 3: [321.2]
+  level 4: [0.5, 18.4, 22.4, 26.5, 28.2, 30.2, 35.1, 35.8, 40.4, 58.7, 65.2, 65.4, 65.7, 69.3, 69.6, 74.0, 83.4, 97.4, 101.0, 103.7, 119.3, 124.3, 126.0, 157.0, 157.7, 160.0, 165.3, 183.8, 199.0]
+  level 5: [134.9]
+  level 6: [55.9, 81.6, 118.4]

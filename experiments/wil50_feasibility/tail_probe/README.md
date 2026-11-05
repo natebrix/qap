@@ -67,4 +67,97 @@ no wil50 trace has such a phase (0 of 87).
 
 ## Results
 
-(pending)
+(laptop, Nov 5, 08:35-11:20 PST; binary at 8632a46, 3 slots per arm, `base
+full` then `baseship fullwide`; `runs/<arm>/summary.txt`, `runs/compare.txt`,
+one `.trace` per bounded node)
+
+### Level 4: all 47 children of node 1, the same nodes in every arm
+
+| arm | fathomed | cut phases | DNN iterations | CPU | iterations per child (first + phase) |
+|---|---|---|---|---|---|
+| base | 16 / 47 | 17 | 33,780 | 6,600 s | 719 (340 + 379) |
+| baseship | 17 / 47 | 25 | 47,590 | 9,197 s | 1,013 (307 + 706) |
+| full | 18 / 47 | 41 | 53,900 | 10,515 s | 1,147 (307 + 840) |
+| fullwide | 18 / 47 | 38 | 49,790 | 9,420 s | 1,059 (341 + 718) |
+
+This is the exact part of the probe. On the tail class the children of a
+455-short node are 150-250 short themselves, so the levers that paid on
+node 10 behave differently here:
+
+- **Warm starts cost at level 4.** baseship's children start warm and
+  their first solves land higher (48,680 against 48,641 on the flipped
+  nodes), which puts 25 of them inside the 0.003 zone instead of 17; each
+  phase is 2,000-3,900 iterations and fathoms almost nothing (1 of 25).
+  Warm first solves are the same 300 iterations (the 300 are a floor, not
+  a convergence test here). Net +41% iterations for one more fathom.
+- **The cut levers cost more still.** full runs 41 phases (every child
+  within 244 short), 18 fathom; fullwide's root phase (800 iterations,
+  48,582 -> about 48,650) gives the children a pool and they run 38
+  phases at 1,059 each. Phase iterations dominate level 4 in every arm
+  but base: 70-75% of the level's cost.
+- **Four marginal children flip** between arms, none consistently: the
+  phases end at 48,742-48,814 on them, and which arm's phase crosses the
+  cutoff is not predictable from the setting (fullwide fathoms 13:45 and
+  5:45 that full does not, full fathoms 43:45 and 6:45 that fullwide does
+  not). These are the 49:45-style marginal nodes of `../pipeline_ab/`, now
+  at level 4.
+
+### Level 5: 30 sampled grandchildren per arm, mostly different nodes
+
+The sample is stratified over the level-4 nodes that branched, which
+differ by arm, so only 5 of the 30 are shared by all four arms. Per-node
+means across each arm's own sample:
+
+| arm | fathomed | iterations per node (first + phase) | CPU per node | phases | pooled |
+|---|---|---|---|---|---|
+| base | 25 / 30 | 537 (267 + 270) | 94.9 s | 6 | 1 |
+| baseship | 29 / 30 | 295 (105 + 190) | 52.4 s | 5 | 8 |
+| full | 29 / 30 | 186 (88 + 99) | 23.7 s | 4 | 23 |
+| fullwide | 29 / 30 | 166 (129 + 37) | 30.4 s | 3 | 30 |
+
+On the 5 shared nodes: base 4 of 5 fathomed in 5,660 iterations, baseship
+4 of 5 in 5,040, full 5 of 5 in 2,660, fullwide 5 of 5 in 1,790. The one
+flip (`1:45 21:21`) is the warm-Y lever doing exactly what it did on node
+10: the same warm first solve (48,728.2 in baseship and full), then the
+cold-Y phase reaches 48,773 and the warm-Y damped phase 48,814.1.
+
+Level 5 is where the levers pay on the tail class: warm starts about 1.8x
+per node (the first solve 267 -> 105 iterations), the cut levers another
+1.6x on top (phases 190 -> 99, and 23 of 30 nodes arrive with a pool),
+with the fathom rate 25 -> 29 of 30. The per-node means are on different
+node sets, so the ratios are indicative, not matched.
+
+### Level 6 and the totals: not comparable across arms
+
+Each arm's level-6 sample is the children of its own branched level-5
+nodes. base branched 5 of 30; the other three arms branched 1 of 30 each,
+and not the same one: baseship's is `1:45 21:21` (children `49:x`), full's
+and fullwide's is `0:45 10:21` (children `40:x`), a harder node whose
+children run 300 iterations to a hopeless 48,705-48,776 before their
+phases. So baseship's 20 of 20 at 38 iterations and full's 17 of 20 at 570
+are different parents, not the pool hurting at depth 6, and the compare.py
+totals (baseship 4.17x over base, full 0.37x of baseship, the 13,207 open
+at level 7) are driven by this: they should not be quoted. The probe needs
+a matched design below level 4 (sample the level-5 and level-6 nodes once,
+from base's branching, and bound the same nodes in every arm) before its
+totals mean anything.
+
+### Reading
+
+1. On the tail class the production candidate's gains are at level 5 and
+   presumably below, where nodes arrive 50-100 short with a pool and a
+   warm start and fathom in 100-200 iterations. They are not at level 4,
+   where the children are still 150-250 short: every lever adds cut
+   phases there that cost 2,000-4,000 iterations each and fathom one or
+   two more of 47. Level 4 is 2-4% of the subtree's estimated cost in any
+   arm, so this does not change the verdict, but the zone should not be
+   widened further for the tail class (fullwide against full: same
+   fathoms, root phase +800 iterations, level-4 phases cheaper by 11%,
+   level 5 by 11%; a wash within the sampling noise).
+2. The node-10 ratios do not transfer as a single factor. Level 4 is
+   0.63x (full against base), level 5 about 2.9x on unmatched samples,
+   and the subtree total depends on the level-6 and deeper nodes that
+   this probe did not measure comparably.
+3. Next: the matched version of the probe (same sampled nodes in every
+   arm), and a larger level-5 sample (the 30 of 1,334-1,426 gives one
+   flip of 5 shared nodes to argue from).
