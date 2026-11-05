@@ -1,0 +1,15 @@
+clang 18: make basic CC=clang CFLAGS='-O -std=c23'
+20
+copy.c:32:14: error: unknown type name 'in'
+copy.c:32:17: error: unknown type name 'out'
+copy.c:32:21: error: unknown type name 'i0'
+copy.c:32:24: error: unknown type name 'j0'
+copy.c:32:27: error: expected ';' after top level declarator
+
+gcc 13: make basic CC=gcc CFLAGS='-O -std=c2x'
+18
+matrixio.c:79:18: error: too many arguments to function 'im_finput'
+matrixio.c:81:18: error: too many arguments to function 'bm_finput'
+matrixio.c:88:1: error: number of arguments doesn't match prototype
+matrixio.c:76:18: error: prototype declaration
+matrixio.c:150:1: error: number of arguments doesn't match prototype

@@ -1,0 +1,89 @@
+## types
+  MAT                      574   latest/qpbnd.C 96, latest/branch.C 78, latest/fw.C 65, latest/qpbnd.h 57, latest/linalg.C 44, latest/linalg.h 34, latest/fw.h 29, latest/qpbnd2.C 24, latest/svd.C 23, latest/console.C 19, latest/qpbnd2.h 18, latest/assign.C 14, latest/assign.h 13, latest/branch.h 9, latest/dnn.C 6, latest/dnncut.C 6, latest/dnncut.h 6, latest/qap.h 6, latest/bnb.C 5, experiments/wil50_feasibility/speed/beta_sched/beta_change_check.C 4, tests/dnn_continuation.C 4, experiments/wil50_feasibility/new_cuts/facility/src/dnncut_f.C 3, experiments/wil50_feasibility/new_cuts/facility/src/fdrv.h 3, latest/dnn.h 3, latest/qap.C 3, latest/bnb.h 1, latest/state.C 1
+  VEC                       99   latest/qpbnd.C 25, latest/svd.C 17, latest/qpbnd.h 16, latest/branch.C 10, latest/qpbnd2.C 8, latest/console.C 7, latest/linalg.C 6, latest/qpbnd2.h 6, latest/linalg.h 4
+  PERM                       4   latest/qpbnd.h 2, latest/qpbnd.C 1, latest/qpbnd2.C 1
+
+## alloc/free
+  m_get                     73   latest/console.C 17, latest/qpbnd.C 17, latest/branch.C 12, latest/linalg.C 7, latest/bnb.C 6, latest/fw.C 5, latest/qpbnd2.C 4, latest/qap.C 3, latest/assign.C 1, latest/state.C 1
+  v_get                     28   latest/qpbnd.C 12, latest/branch.C 8, latest/console.C 4, latest/linalg.C 4
+  px_get                     3   latest/qpbnd.C 2, latest/qpbnd2.C 1
+  M_FREE                   111   latest/qpbnd.C 31, latest/branch.C 27, latest/fw.C 12, latest/assign.C 11, latest/qpbnd2.C 9, latest/console.C 7, latest/linalg.C 5, latest/bnb.C 4, latest/qap.C 3, latest/state.C 1, latest/svd.C 1
+  V_FREE                    38   latest/qpbnd.C 18, latest/branch.C 10, latest/linalg.C 4, latest/qpbnd2.C 4, latest/console.C 2
+  PX_FREE                    3   latest/qpbnd.C 2, latest/qpbnd2.C 1
+  m_resize                  34   latest/console.C 14, latest/branch.C 12, latest/bnb.C 4, latest/linalg.C 2, latest/assign.C 1, latest/qpbnd.C 1
+  v_resize                   8   latest/svd.C 7, latest/linalg.C 1
+  MEM_STAT_REG               5   latest/svd.C 5
+
+## copy/init
+  m_copy                    25   latest/assign.C 7, latest/fw.C 7, latest/qpbnd.C 4, latest/qap.C 3, latest/linalg.C 2, latest/console.C 1, latest/svd.C 1
+  v_copy                     2   latest/qpbnd.C 2
+  m_zero                     5   latest/linalg.C 3, latest/console.C 2
+  v_zero                     1   latest/svd.C 1
+  m_ident                    4   latest/svd.C 4
+  get_col                    2   latest/svd.C 2
+  get_row                    2   latest/svd.C 2
+
+## arith (BLAS-1/2/3-like)
+  in_prod                   10   latest/qpbnd.C 9, latest/console.C 1
+  _in_prod                   1   latest/svd.C 1
+  v_mltadd                   1   latest/svd.C 1
+  m_mlt                      1   latest/linalg.C 1
+  mtrm_mlt                   1   latest/linalg.C 1
+  m_transp                   1   latest/linalg.C 1
+  v_norm_inf                 2   latest/svd.C 2
+  px_rows                    5   latest/qpbnd2.C 3, latest/qpbnd.C 2
+
+## decompositions/eigen
+  Hfactor                    1   latest/linalg.C 1
+  makeHQ                     1   latest/linalg.C 1
+  trieig                     1   latest/linalg.C 1
+  symmeig                    2   latest/linalg.C 2
+  svd                        9   latest/svd.C 6, experiments/wil50_feasibility/speed/beta_sched/beta_change_check.C 1, latest/linalg.C 1, latest/linalg.h 1
+  bisvd                     15   latest/svd.C 15
+  hhvec                     10   latest/svd.C 10
+
+## I/O and errors
+  m_output                   5   latest/qap.C 3, latest/console.C 2
+  v_output                   2   latest/svd.C 2
+  error                     18   latest/svd.C 18
+  E_SIZES                    5   latest/svd.C 5
+  E_NULL                     6   latest/svd.C 6
+  E_SQUARE                   3   latest/svd.C 3
+  E_RANGE                    2   latest/svd.C 2
+  MACHEPS                    4   latest/svd.C 4
+
+## field accesses
+  ->me / .me (MAT rows)        502   latest/branch.C 95, latest/fw.C 92, latest/qpbnd.C 85, latest/linalg.C 65, latest/svd.C 49, latest/qap.C 33, latest/assign.C 29, latest/console.C 21, latest/dnn.C 9, experiments/wil50_feasibility/speed/beta_sched/beta_change_check.C 8, tests/dnn_continuation.C 8, latest/linalg.h 4, latest/state.C 2, latest/bnb.C 1, latest/qap.h 1
+  ->ve / .ve (VEC data)        151   latest/qpbnd.C 83, latest/svd.C 40, latest/linalg.C 13, latest/console.C 11, latest/qpbnd2.C 4
+  ->pe / .pe (PERM data)         4   latest/qpbnd.C 2, latest/qpbnd2.C 2
+  ->base (MAT storage)           0   
+  ->max_m/max_n/max_size         0   
+
+## total Meschach identifiers per file
+    392  latest/qpbnd.C
+    252  latest/branch.C
+    227  latest/svd.C
+    181  latest/fw.C
+    165  latest/linalg.C
+    108  latest/console.C
+     75  latest/qpbnd.h
+     63  latest/assign.C
+     61  latest/qpbnd2.C
+     48  latest/qap.C
+     43  latest/linalg.h
+     29  latest/fw.h
+     24  latest/qpbnd2.h
+     20  latest/bnb.C
+     15  latest/dnn.C
+     13  experiments/wil50_feasibility/speed/beta_sched/beta_change_check.C
+     13  latest/assign.h
+     12  tests/dnn_continuation.C
+      9  latest/branch.h
+      7  latest/qap.h
+      6  latest/dnncut.C
+      6  latest/dnncut.h
+      5  latest/state.C
+      3  experiments/wil50_feasibility/new_cuts/facility/src/dnncut_f.C
+      3  experiments/wil50_feasibility/new_cuts/facility/src/fdrv.h
+      3  latest/dnn.h
+      1  latest/bnb.h

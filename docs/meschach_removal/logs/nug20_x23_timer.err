@@ -1,0 +1,27 @@
+
+==== Meschach timing (TSC 2.100 GHz, run 48.74 s wall) ====
+symbol              calls      seconds    ns/call
+m_get               32326        0.008      235.4
+m_free              42481        0.004       91.0
+m_resize             6225        0.001      171.5
+_m_copy             11659        0.002      184.7
+m_zero              13390        0.001       99.3
+m_transp              592        0.000      317.4
+v_get               10266        0.001      113.3
+v_free              11036        0.001       56.2
+v_resize              592        0.000       34.9
+_v_copy               770        0.000      126.8
+_in_prod             3541        0.000       35.4
+px_get                592        0.000      196.7
+px_free               592        0.000       66.3
+px_rows               592        0.000      539.9
+Hfactor               592        0.004     7591.2
+makeHQ                592        0.005     9284.1
+trieig                592        0.006     9965.6
+TOTAL                            0.035
+my_svd (eigendecomposition incl. its Meschach calls and copies): 592 calls, 0.017 s
+   n        calls    seconds    us/call
+  16          144      0.004      25.70
+  17          408      0.012      29.66
+  18           38      0.001      33.18
+  19            2      0.000      48.46

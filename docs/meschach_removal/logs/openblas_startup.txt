@@ -1,0 +1,8 @@
+./bnbdrv -p PARAM/default.par -u 578 ../qaplib/nug12.dat
+    Total Time: 0.537426 seconds 
+         Nodes: 246 / 133 / 0
+OPENBLAS_NUM_THREADS=1 ./bnbdrv -p PARAM/default.par -u 578 ../qaplib/nug12.dat
+    Total Time: 0.140453 seconds 
+         Nodes: 246 / 133 / 0
+ldd latest/bnbdrv | grep -i blas
+	libscipy_openblas.so => /usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib/libscipy_openblas.so (0x00007f3a5b600000)

@@ -1,0 +1,34 @@
+     nug12: ok       nodes=       255  time=    0.339s  wall=0.20s
+     nug14: ok       nodes=      2278  time=    1.649s  wall=1.48s
+     nug15: ok       nodes=      1976  time=    1.175s  wall=1.03s
+    nug16b: ok       nodes=      3204  time=    1.648s  wall=1.51s
+     had12: ok       nodes=       114  time=    0.265s  wall=0.18s
+     had14: ok       nodes=       367  time=    0.483s  wall=0.33s
+     had16: ok       nodes=      3212  time=    2.769s  wall=2.54s
+
+wrote bench/results/check-20261105-225429/  (7 instances, 0 not ok)
+
+REGRESSION CHECK FAILED against bench/reference/ (tolerance 0.0%):
+  nug12: nodes 255 (reference 246, +3.66%)
+  nug12: fathomed 136 (reference 133, +2.26%)
+  nug12: fw_iterations 63794 (reference 64127, -0.52%)
+  nug12: root bound 478.096 (reference 478.468)
+  nug14: nodes 2278 (reference 2179, +4.54%)
+  nug14: fathomed 1419 (reference 1347, +5.35%)
+  nug14: fw_iterations 442361 (reference 431296, +2.57%)
+  nug14: root bound 885.051 (reference 880.907)
+  nug15: nodes 1976 (reference 1964, +0.61%)
+  nug15: fathomed 1285 (reference 1278, +0.55%)
+  nug15: fw_iterations 273870 (reference 271227, +0.97%)
+  nug16b: nodes 3204 (reference 3187, +0.53%)
+  nug16b: fathomed 2176 (reference 2168, +0.37%)
+  nug16b: fw_iterations 352879 (reference 351700, +0.34%)
+  had12: fw_iterations 38778 (reference 38631, +0.38%)
+  had12: root bound 1588.9 (reference 1589.27)
+  had14: nodes 367 (reference 370, -0.81%)
+  had14: fathomed 210 (reference 211, -0.47%)
+  had14: fw_iterations 75367 (reference 77250, -2.44%)
+  had16: nodes 3212 (reference 3251, -1.20%)
+  had16: fathomed 2002 (reference 2021, -0.94%)
+  had16: fw_iterations 535105 (reference 536400, -0.24%)
+If the change is meant to alter the search, update the reference with `bench.py check --update` and explain it in the commit.

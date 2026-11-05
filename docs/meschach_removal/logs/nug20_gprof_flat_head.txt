@@ -1,0 +1,60 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 53.80     59.53    59.53 19167276     0.00     0.00  dlap(int, double**, int*, int*, double*, double*, double, bool)
+ 18.08     79.54    20.01  1836710     0.00     0.00  fw(MAT*, MAT*, MAT*, MAT*, MAT*, MAT*, MAT*, MAT*, int*, double&, double&, int, int&, int, int, int, double, double, bool&, int&, double&, double&, double, bool, bool, int&, bool)
+  5.02     85.09     5.55   526205     0.00     0.00  reduceQAP(QAP*, QAP*, QAPAssignment const&)
+  3.95     89.46     4.37  5501750     0.00     0.00  my_m_mlt(MAT*, MAT*, MAT*)
+  3.08     92.87     3.41  2901582     0.00     0.00  mtvm_mlt(MAT*, VEC*, MAT*)
+  2.20     95.30     2.43   623176     0.00     0.00  reduceC(QAP*, QAP*, QAPAssignment const&)
+  1.70     97.18     1.88 195823442     0.00     0.00  rot_cols
+  1.53     98.87     1.69 580579296     0.00     0.00  __mltadd__
+  1.23    100.23     1.36  1311622     0.00     0.00  trieig
+  1.16    101.51     1.28                             _init
+  0.94    102.55     1.04 404032911     0.00     0.00  __ip__
+  0.83    103.47     0.92  2901582     0.00     0.00  vavt(MAT*, MAT*)
+  0.68    104.22     0.75 208733312     0.00     0.00  get_col
+  0.61    104.89     0.67  1613032     0.00     0.00  vtav(MAT*, MAT*)
+  0.42    105.36     0.47 193547888     0.00     0.00  hhtrvec
+  0.35    105.75     0.39 195823442     0.00     0.00  givens
+  0.35    106.14     0.39   621090     0.00     0.00  row_col_sums(QAPAssignment const&, int*, int, MAT*, double*, double*)
+  0.28    106.45     0.31  1149380     0.00     0.00  init_X_from_parent(MAT*, MAT*, int, int)
+  0.27    106.75     0.30 210485513     0.00     0.00  _in_prod
+  0.22    106.99     0.24   102662     0.00     0.00  select_ind_max_fathoms(QAP*, QAPAssignment const&, int*, int, MAT*, MAT*, double, QPBParameters*, int&, int&, bool&)
+  0.21    107.22     0.23 199481073     0.00     0.00  _m_copy
+  0.19    107.43     0.21 15185424     0.00     0.00  hhtrcols
+  0.19    107.64     0.21  1311622     0.00     0.00  makeHQ
+  0.19    107.85     0.21  1149380     0.00     0.00  gradient(MAT*, MAT*, MAT*, MAT*, MAT*, MAT*, MAT*, int)
+  0.19    108.06     0.21   301410     0.00     0.00  update_STG(VEC*, VEC*, MAT*, MAT*, VEC*, VEC*, MAT*, MAT*, MAT*, MAT*, double)
+  0.18    108.26     0.20   623176     0.00     0.00  qpbnd2(MAT*, MAT*, MAT*, MAT*, MAT*, VEC*, VEC*, MAT*, MAT*, QPBParameters*)
+  0.17    108.45     0.19 15185424     0.00     0.00  hhtrrows
+  0.16    108.63     0.18   526205     0.00     0.00  _qpbnd_parametric(MAT*, MAT*, MAT*, MAT*, MAT*, int*, QPBParameters*)
+  0.15    108.80     0.17 209336132     0.00     0.00  _v_copy
+  0.14    108.95     0.15 24338917     0.00     0.00  m_get
+  0.13    109.09     0.14  1311622     0.00     0.00  px_rows
+  0.11    109.21     0.12 24338917     0.00     0.00  m_free
+  0.10    109.32     0.11 182503895     0.00     0.00  mem_info_is_on
+  0.09    109.42     0.10   301410     0.00     0.00  my_mtrm_mlt(MAT*, MAT*, MAT*)
+  0.08    109.51     0.09 107940698     0.00     0.00  __zero__
+  0.06    109.58     0.07 16497046     0.00     0.00  _set_col
+  0.06    109.65     0.07  7089894     0.00     0.00  m_resize
+  0.06    109.72     0.07  2104818     0.00     0.00  QAPAssignment::operator=(QAPAssignment const&)
+  0.06    109.79     0.07   671822     0.00     0.00  ins_sort_descending(double*, int*, int)
+  0.06    109.86     0.07   655823     0.00     0.00  ins_sort_ascending(double*, int*, int)
+  0.05    109.92     0.06 15185424     0.00     0.00  hhvec
+  0.05    109.98     0.06  1311622     0.00     0.00  Hfactor
+  0.05    110.04     0.06  1311622     0.00     0.00  m_transp
+  0.05    110.10     0.06   526204     0.00     0.00  warm_child_offsets(QAPAssignment const&, int&, int&)
+  0.05    110.15     0.05   129594     0.00     0.00  reduceA(MAT*, MAT*&, int*, int, int)
+  0.05    110.20     0.05     7998     0.00     0.01  select_ind_lookahead(QAP*, QAPAssignment&, int*, int, MAT*, MAT*, double, QPBParameters*, int, bool, int, int&, int&, bool&, bool, bool)
+  0.04    110.24     0.04 10845177     0.00     0.00  v_get
+  0.04    110.28     0.04  1311622     0.00     0.00  px_get
+  0.04    110.32     0.04  1149381     0.00     0.00  find_basis(VEC*, VEC*, VEC*, VEC*)
+  0.04    110.36     0.04   301410     0.00     0.00  update_basis(VEC*, VEC*, VEC*, VEC*, VEC*, VEC*)
+  0.04    110.40     0.04   129618     0.00     0.00  reduceB(MAT*, MAT*&, int*, int, int)
+  0.03    110.43     0.03 21034682     0.00     0.00  v_resize
+  0.03    110.46     0.03 10845173     0.00     0.00  v_free
+  0.03    110.49     0.03  1149381     0.00     0.00  init_ST(MAT*, MAT*, MAT*, VEC*&, VEC*&, MAT*&, MAT*&, VEC*&, VEC*&, MAT*&, MAT*&, bool)
+  0.03    110.52     0.03   110688     0.00     0.00  branch(QAP*, QAPAssignment&, MAT*, MAT*, QAPAssignment*, int&, double, QPBParameters*, BranchParameters*, int&, int&)
