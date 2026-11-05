@@ -4,6 +4,8 @@ nug30's optimum, 6124, was proven again with this solver: QPB branch and
 bound plus the certified DNN bound (latest/dnn.C) near the top of the tree.
 Anstreicher, Brixius, Goux and Linderoth proved it first in 2000, with
 1.19e10 nodes on an average of 653 machines over 6.9 days.
+`SUMMARY.md` summarizes the whole effort (Oct 25 – Nov 5): the key
+requests, the findings by theme, what was closed, and where the files are.
 
 ## Record: 5 min 22 s on a laptop (November 4)
 
