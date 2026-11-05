@@ -13,7 +13,7 @@
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel coord regression clean dnntest dnncheck
+.PHONY: all solver test bruteforce resume parallel coord regression clean dnntest dnncheck shipcheck
 
 all: solver
 
@@ -48,6 +48,10 @@ dnntest: src/MESCHACH/meschach.a
 
 dnncheck: dnntest
 	$(PYTHON) tests/dnn_test.py
+
+# the parent's DNN state through a stop and resume (state v6, QAP_DNN_SHIP), about 4 minutes
+shipcheck: solver
+	$(PYTHON) tests/ship_test.py
 
 clean:
 	$(MAKE) -C latest clean

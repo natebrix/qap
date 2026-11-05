@@ -89,8 +89,9 @@ struct WarmStart
   Index *p;       // the parent's assignment
   MAT *X;         // the parent's X: its free rows x free columns, in order
   // The parent's final DNN state (a DNNWarm, see dnn.h) when its DNN bound
-  // ran and missed, else NULL; owned, freed by dnn_free. Not kept in state
-  // files: it only changes where a child's ADMM starts.
+  // ran and missed, else NULL; owned, freed by dnn_free. Kept in state files
+  // (version 6) only with QAP_DNN_SHIP=16|32|64: it only changes where a
+  // child's ADMM starts.
   void *dnn;
   void (*dnn_free)(void *);
   // > 0: the children may take the DNN bound below the last DNN depth, this
@@ -99,8 +100,9 @@ struct WarmStart
   int dnn_ext;
   // The parent's cut pool for its children (bnb.C QAP_DNN_POOL; DNNPool in
   // dnncut.h, dnn_pool_encode: one whitespace-free token), empty if none.
-  // Kept in state files (version 5), unlike the DNN state: a child restored
-  // from a file starts its DNN cold but still with the inherited pool.
+  // Kept in state files (version 5); the DNN state only with QAP_DNN_SHIP
+  // (version 6), so by default a child restored from a file starts its DNN
+  // cold but still with the inherited pool.
   std::string dnn_pool;
 };
 

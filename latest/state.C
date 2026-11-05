@@ -10,7 +10,152 @@
 #include <vector>
 
 static const char *STATE_MAGIC = "QAP-STATE";
-static const int STATE_VERSION = 5;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools (all still read)
+static const int STATE_VERSION = 6;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state (all still read)
+
+#ifdef HAVE_DNN
+#include "dnn.h"
+#include <cstdint>
+#include <cstdlib>
+
+/*
+ Version 6: a warm start may carry the parent's final DNN state (DNNWarm:
+ Z and Y, symmetric, (m^2+1)^2 each), so that its children start their ADMM
+ from it when they are bounded in another process (a resumed run, a
+ coordinator unit; roadmap/convergence2 F2). Written only with
+ QAP_DNN_SHIP=16 (bf16), 32 (fp32) or 64 (the exact doubles, for tests:
+ a resumed run is then the same run); otherwise, and when the parent has
+ none, the token is "-". Token:
+   dnn<bits>:<m>:<scale>:<hasY>:<base64 of the upper triangles, Z then Y>
+ It only moves where a child's ADMM starts: every bound stays certified.
+*/
+static int dnn_ship_bits()
+{
+  static const int b = getenv("QAP_DNN_SHIP") ? atoi(getenv("QAP_DNN_SHIP")) : 0;
+  return (b == 16 || b == 32 || b == 64) ? b : 0;
+}
+
+static void free_dnn_state(void *p) { delete (DNNWarm *)p; }
+
+static const char B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static std::string b64_encode(const std::vector<unsigned char> &in)
+{
+  std::string out;
+  out.reserve((in.size() + 2) / 3 * 4);
+  size_t i = 0;
+  for (; i + 2 < in.size(); i += 3) {
+    const uint32_t v = (uint32_t)in[i] << 16 | (uint32_t)in[i + 1] << 8 | in[i + 2];
+    out += B64[v >> 18]; out += B64[(v >> 12) & 63]; out += B64[(v >> 6) & 63]; out += B64[v & 63];
+  }
+  if (i < in.size()) {
+    uint32_t v = (uint32_t)in[i] << 16 | (i + 1 < in.size() ? (uint32_t)in[i + 1] << 8 : 0);
+    out += B64[v >> 18]; out += B64[(v >> 12) & 63];
+    out += i + 1 < in.size() ? B64[(v >> 6) & 63] : '=';
+    out += '=';
+  }
+  return out;
+}
+
+static bool b64_decode(const char *s, size_t len, std::vector<unsigned char> &out)
+{
+  static int8_t dec[256];
+  static bool init = false;
+  if (!init) {
+    for (int k = 0; k < 256; k++) dec[k] = -1;
+    for (int k = 0; k < 64; k++) dec[(unsigned char)B64[k]] = (int8_t)k;
+    init = true;
+  }
+  if (len % 4) return false;
+  out.clear();
+  out.reserve(len / 4 * 3);
+  for (size_t i = 0; i < len; i += 4) {
+    int c[4];
+    for (int k = 0; k < 4; k++) c[k] = s[i + k] == '=' ? 0 : dec[(unsigned char)s[i + k]];
+    if (c[0] < 0 || c[1] < 0 || c[2] < 0 || c[3] < 0) return false;
+    const uint32_t v = (uint32_t)c[0] << 18 | (uint32_t)c[1] << 12 | (uint32_t)c[2] << 6 | (uint32_t)c[3];
+    out.push_back((unsigned char)(v >> 16));
+    if (s[i + 2] != '=') out.push_back((unsigned char)(v >> 8));
+    if (s[i + 3] != '=') out.push_back((unsigned char)v);
+  }
+  return true;
+}
+
+static void put_value(std::vector<unsigned char> &b, double x, int bits)
+{
+  unsigned char tmp[8];
+  if (bits == 64) {
+    memcpy(tmp, &x, 8);
+    b.insert(b.end(), tmp, tmp + 8);
+    return;
+  }
+  const float f = (float)x;
+  uint32_t u;
+  memcpy(&u, &f, 4);
+  if (bits == 32) {
+    memcpy(tmp, &u, 4);
+    b.insert(b.end(), tmp, tmp + 4);
+    return;
+  }
+  const uint16_t h = (uint16_t)((u + 0x7FFFu + ((u >> 16) & 1u)) >> 16);   // bf16, round to nearest even
+  memcpy(tmp, &h, 2);
+  b.insert(b.end(), tmp, tmp + 2);
+}
+
+static double get_value(const unsigned char *p, int bits)
+{
+  if (bits == 64) { double x; memcpy(&x, p, 8); return x; }
+  uint32_t u;
+  if (bits == 32) memcpy(&u, p, 4);
+  else { uint16_t h; memcpy(&h, p, 2); u = (uint32_t)h << 16; }
+  float f;
+  memcpy(&f, &u, 4);
+  return f;
+}
+
+static std::string dnn_token(const WarmStart *w)
+{
+  const int bits = dnn_ship_bits();
+  if (!bits || !w->dnn) return "-";
+  const DNNWarm &d = *(const DNNWarm *)w->dnn;
+  const size_t n1 = (size_t)d.m * d.m + 1;
+  if (d.m < 1 || d.Z.size() != n1 * n1 || !(d.scale > 0)) return "-";
+  const bool hasY = d.Y.size() == n1 * n1;
+  std::vector<unsigned char> b;
+  b.reserve(n1 * (n1 + 1) / 2 * (hasY ? 2 : 1) * (bits / 8));
+  for (int pass = 0; pass < (hasY ? 2 : 1); pass++) {
+    const std::vector<double> &M = pass == 0 ? d.Z : d.Y;
+    for (size_t i = 0; i < n1; i++)
+      for (size_t j = i; j < n1; j++) put_value(b, M[i * n1 + j], bits);
+  }
+  char head[96];
+  snprintf(head, sizeof head, "dnn%d:%d:%.17g:%d:", bits, d.m, d.scale, hasY ? 1 : 0);
+  return head + b64_encode(b);
+}
+
+static DNNWarm *dnn_from_token(const std::string &t)
+{
+  int bits, m, hasY, used = 0;
+  double scale;
+  if (sscanf(t.c_str(), "dnn%d:%d:%lg:%d:%n", &bits, &m, &scale, &hasY, &used) != 4 || used <= 0 ||
+      (bits != 16 && bits != 32 && bits != 64) || m < 1 || m > 1000 || !(scale > 0))
+    return NULL;
+  std::vector<unsigned char> b;
+  if (!b64_decode(t.c_str() + used, t.size() - used, b)) return NULL;
+  const size_t n1 = (size_t)m * m + 1, tri = n1 * (n1 + 1) / 2, bytes = (size_t)bits / 8;
+  if (b.size() != tri * (hasY ? 2 : 1) * bytes) return NULL;
+  DNNWarm *d = new DNNWarm;
+  d->m = m;
+  d->scale = scale;
+  const unsigned char *p = b.data();
+  for (int pass = 0; pass < (hasY ? 2 : 1); pass++) {
+    std::vector<double> &M = pass == 0 ? d->Z : d->Y;
+    M.assign(n1 * n1, 0.0);
+    for (size_t i = 0; i < n1; i++)
+      for (size_t j = i; j < n1; j++, p += bytes) M[i * n1 + j] = M[j * n1 + i] = get_value(p, bits);
+  }
+  return d;
+}
+#endif
 
 template <class T>
 static void write_array(std::ostream &f, const char *tag, const T *a, int len)
@@ -87,6 +232,11 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
       for (unsigned int j = 0; j < w->X->n; j++) f << ' ' << w->X->me[i][j];
     f << ' ' << w->dnn_ext;   // version 4: QAP_DNN_EXT levels left below a last-level miss
     f << ' ' << (w->dnn_pool.empty() ? std::string("-") : w->dnn_pool);   // version 5: the cut pool
+#ifdef HAVE_DNN
+    f << ' ' << dnn_token(w);   // version 6: the parent's DNN state (QAP_DNN_SHIP)
+#else
+    f << " -";
+#endif
     f << '\n';
   }
 
@@ -190,10 +340,19 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
       std::string pool;
       if (ok && version >= 4) ok = (bool)(f >> ext);
       if (ok && version >= 5) ok = (bool)(f >> pool);
+      std::string dnn = "-";
+      if (ok && version >= 6) ok = (bool)(f >> dnn);
+#ifdef HAVE_DNN
+      DNNWarm *dw = NULL;
+      if (ok && dnn != "-") ok = (dw = dnn_from_token(dnn)) != NULL;
+#endif
       if (ok) {
 	warms.push_back(new_warm_start(wp, n, X));
 	warms.back()->dnn_ext = ext;
 	if (pool != "-") warms.back()->dnn_pool = pool;
+#ifdef HAVE_DNN
+	if (dw) { warms.back()->dnn = dw; warms.back()->dnn_free = free_dnn_state; }
+#endif
       }
       delete [] wp;
       M_FREE(X);
