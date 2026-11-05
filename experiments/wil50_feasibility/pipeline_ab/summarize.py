@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-ARMS = ["base", "zone", "warmy", "certx", "ship", "full", "zone2", "base2", "ship2"]
+ARMS = ["base", "zone", "warmy", "certx", "ship", "full", "zone2", "base2", "ship2", "fast"]
 # kill lines (README.md): the ratio of DNN iterations an arm must reach. For
 # warmy and certx the end-to-end ratio is below the run-to-run noise of one
 # configuration (README, base vs zone), so they are judged on the matched
@@ -24,7 +24,7 @@ GATES = {("zone", "base"): 1.15, ("warmy", "zone"): 1.05, ("certx", "zone"): 1.0
 # the pairs compared, (arm, reference); the first reference that finished is used
 PAIRS = [("zone", ["base"]), ("warmy", ["zone"]), ("certx", ["zone", "base"]), ("ship", ["zone"]), ("full", ["ship"]), ("full", ["warmy"]),
          ("full", ["zone"]), ("full", ["base"]), ("zone2", ["zone"]), ("ship2", ["ship"]),
-         ("base2", ["base"])]
+         ("base2", ["base"]), ("fast", ["full"])]
 
 
 def num(pat, line, conv=float):

@@ -161,3 +161,72 @@ totals mean anything.
 3. Next: the matched version of the probe (same sampled nodes in every
    arm), and a larger level-5 sample (the 30 of 1,334-1,426 gives one
    flip of 5 shared nodes to argue from).
+
+### How big is node 1's subtree? (Nov 5, a second reading)
+
+The arms cannot be compared below level 4, but each arm's own estimate is
+still an estimate of the tail class's size. base, the Nov 4 production
+setting with every node started cold, puts node 1's subtree at about
+**12,000 DNN nodes and 2.2e6 DNN iterations** (1 + 47 + 1,426 + 10,695),
+337,530 laptop CPU s, or about 6-9e5 Xeon s (the Xeon is 1.8x the laptop
+on nug30's record run and about 2.7x per wil50 iteration without AMX) [e].
+
+- **The roadmap's tail assumption.** `../roadmap/tree_size.md` built 7e4-4e5
+  DNN nodes per 329-405-short node with the Oct 29 settings and anchors
+  (node 10 = 2,193 nodes). The roadmap then applies node-10 factors to the
+  whole tree; under the Nov 4 setting node 10's subtree is 322-454 nodes
+  (`../pipeline_ab/`), 4.8-6.8x fewer, so the roadmap implicitly puts the
+  tail at about 1e4-8e4 nodes today.
+- **The probe's point estimate sits at the low end of that range.** The tail
+  class shrank under the Nov 4 levers at least as much as node 10 did, not
+  less.
+- **Its uncertainty is wide.** Level 6 rests on the children of the 5 of 30
+  level-5 nodes that branched (95% upper bound 35%), and level 7 on 0 of 20
+  level-6 nodes branching (95% upper bound 17%). At those bounds the subtree
+  would be about 1e5-2e5 nodes, 8-16x the point estimate.
+
+So the first run moves nothing in the roadmap by itself; the matched run
+below, with three times the level-5 sample and every level sampled until
+nothing is open, measures it.
+
+## The matched probe (`matched.py`, `run_matched.sh`)
+
+**Design.** Levels 3 and 4 are as before, and are reused: `matched.py` runs
+in the same `runs/ARM/` directories, so the first run's `L3_0` and `L4_*`
+tasks are skipped. Below level 4, of each branched sampled node's children
+it bounds the k = 3 with the smallest hash of their assignment, level after
+level, until nothing is open or level 9. The arms branch the same level-4
+parents on the same line in nearly every case, so a hash pick bounds the
+same nodes in every arm where the parent branched. A first-run level-5 or
+level-6 task that is the very node picked is reused (hard link).
+
+**Estimates** are Horvitz-Thompson (a sampled node stands for its parent's
+weight times the parent's open children over the number picked), with an
+ultimate-cluster standard error stratified by level-4 parent. The
+comparison prints each arm's totals with their SE and, for every pair of
+arms and level, the nodes bounded in both: fathoms and iterations side by
+side.
+
+**Running it (laptop).**
+
+```
+git pull origin cognac && make solver
+experiments/wil50_feasibility/tail_probe/run_matched.sh base full
+experiments/wil50_feasibility/tail_probe/run_matched.sh baseship fullwide   (optional)
+```
+
+- **Time:** about 90 level-5 nodes per arm, then about 3 per branched node
+  below. base's level 5 is about 9,000 CPU s on 3 slots (about 50 minutes),
+  full's about a quarter of that [e]. The first pair should take about an
+  hour, the second (optional: fullwide was a wash against full) less.
+- **Disk:** a parent's state file (the shipped DNN state, about 13 MB per
+  file) is cut down to its open count once its picked children are done.
+  The first run's level-5 and level-6 state files are no longer needed
+  except where reused; `rm runs/*/L5_* runs/*/L6_*` after the first pair
+  frees them (the traces are in git).
+- **Output:** `runs/ARM/matched.txt` (per level and total),
+  `runs/matched_compare.txt` (all arms, matched nodes), and the git line.
+
+Smoke-tested on nug20 from a depth-1 node at a loose cutoff (4 levels, 38
+matched nodes at level 3 and 16 at level 4 in both arms), including resuming,
+the reuse of an earlier task, and the run script.
