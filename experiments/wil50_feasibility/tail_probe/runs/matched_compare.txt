@@ -1,0 +1,48 @@
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) | open below | per level: nodes, fathomed/bounded |
+|---|---|---|---|---|---|
+| base | 27,234 | 12,572,760 (± 9,292,023) | 1,094,282 (± 742,452) | 0 | L3: 1, 0/1; L4: 47, 16/47; L5: 1,426, 85/93; L6: 5,520, 22/24; L7: 20,240, 6/6 |
+| baseship | 27,878 | 9,009,763 (± 7,306,724) | 883,997 (± 665,636) | 0 | L3: 1, 0/1; L4: 47, 17/47; L5: 1,380, 81/90; L6: 6,210, 25/27; L7: 20,240, 6/6 |
+| full | 14,262 | 2,552,000 (± 1,778,097) | 353,678 (± 238,944) | 0 | L3: 1, 0/1; L4: 47, 18/47; L5: 1,334, 83/87; L6: 2,760, 11/12; L7: 10,120, 3/3 |
+| fullwide | 13,572 | 2,320,683 (± 1,631,517) | 360,723 (± 251,233) | 0 | L3: 1, 0/1; L4: 47, 18/47; L5: 1,334, 84/87; L6: 2,070, 8/9; L7: 10,120, 3/3 |
+
+Matched nodes (the same assignment bounded in both arms), by level: fathomed in each, DNN iterations in each and their ratio
+
+| arms | level | shared | fathomed (first / second) | iterations (first / second) | ratio |
+|---|---|---|---|---|---|
+| base / baseship | 3 | 1 | 0 / 0 | 300 / 300 | 1.00 |
+| base / baseship | 4 | 47 | 16 / 17 | 33,780 / 47,590 | 0.71 |
+| base / baseship | 5 | 90 | 82 / 81 | 42,810 / 35,970 | 1.19 |
+| base / baseship | 6 | 24 | 22 / 22 | 5,580 / 3,780 | 1.48 |
+| base / baseship | 7 | 6 | 6 / 6 | 3,140 / 2,230 | 1.41 |
+| base / full | 3 | 1 | 0 / 0 | 300 / 300 | 1.00 |
+| base / full | 4 | 47 | 16 / 18 | 33,780 / 53,900 | 0.63 |
+| base / full | 5 | 87 | 79 / 83 | 41,360 / 15,450 | 2.68 |
+| base / full | 6 | 12 | 10 / 11 | 3,340 / 3,230 | 1.03 |
+| base / full | 7 | 3 | 3 / 3 | 2,750 / 450 | 6.11 |
+| base / fullwide | 3 | 1 | 0 / 0 | 300 / 1,100 | 0.27 |
+| base / fullwide | 4 | 47 | 16 / 18 | 33,780 / 49,790 | 0.68 |
+| base / fullwide | 5 | 87 | 79 / 84 | 42,230 / 15,980 | 2.64 |
+| base / fullwide | 6 | 9 | 7 / 8 | 2,110 / 2,790 | 0.76 |
+| base / fullwide | 7 | 3 | 3 / 3 | 2,750 / 410 | 6.71 |
+| baseship / full | 3 | 1 | 0 / 0 | 300 / 300 | 1.00 |
+| baseship / full | 4 | 47 | 17 / 18 | 47,590 / 53,900 | 0.88 |
+| baseship / full | 5 | 87 | 78 / 83 | 35,780 / 15,450 | 2.32 |
+| baseship / full | 6 | 12 | 10 / 11 | 3,070 / 3,230 | 0.95 |
+| baseship / full | 7 | 3 | 3 / 3 | 2,130 / 450 | 4.73 |
+| baseship / fullwide | 3 | 1 | 0 / 0 | 300 / 1,100 | 0.27 |
+| baseship / fullwide | 4 | 47 | 17 / 18 | 47,590 / 49,790 | 0.96 |
+| baseship / fullwide | 5 | 84 | 75 / 81 | 35,750 / 15,900 | 2.25 |
+| baseship / fullwide | 6 | 9 | 7 / 8 | 2,920 / 2,790 | 1.05 |
+| baseship / fullwide | 7 | 3 | 3 / 3 | 2,130 / 410 | 5.20 |
+| full / fullwide | 3 | 1 | 0 / 0 | 300 / 1,100 | 0.27 |
+| full / fullwide | 4 | 47 | 18 / 18 | 53,900 / 49,790 | 1.08 |
+| full / fullwide | 5 | 81 | 77 / 78 | 15,220 / 15,710 | 0.97 |
+| full / fullwide | 6 | 9 | 8 / 8 | 3,080 / 2,790 | 1.10 |
+| full / fullwide | 7 | 3 | 3 / 3 | 450 / 410 | 1.10 |
+
+- baseship against base: 1.40x fewer estimated iterations, 1.24x less estimated CPU
+- full against base: 4.93x fewer estimated iterations, 3.09x less estimated CPU
+- fullwide against base: 5.42x fewer estimated iterations, 3.03x less estimated CPU
+- base against baseship: 0.72x fewer estimated iterations, 0.81x less estimated CPU
+- full against baseship: 3.53x fewer estimated iterations, 2.50x less estimated CPU
+- fullwide against baseship: 3.88x fewer estimated iterations, 2.45x less estimated CPU

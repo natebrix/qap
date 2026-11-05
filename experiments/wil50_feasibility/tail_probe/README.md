@@ -230,3 +230,69 @@ experiments/wil50_feasibility/tail_probe/run_matched.sh baseship fullwide   (opt
 Smoke-tested on nug20 from a depth-1 node at a loose cutoff (4 levels, 38
 matched nodes at level 3 and 16 at level 4 in both arms), including resuming,
 the reuse of an earlier task, and the run script.
+
+### Matched results (laptop, Nov 5, 12:06-14:00 PST; binary at 8a9033c + the fp32-R commit, default off)
+
+`base full` then `baseship fullwide`, 3 slots per arm, levels 3-4 reused
+from the morning run; `runs/<arm>/matched.txt`, `runs/matched_compare.txt`,
+one `M<level>_<hash>.trace` per bounded node.
+
+Horvitz-Thompson estimates of node 1's subtree:
+
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) | per level: nodes, fathomed/bounded |
+|---|---|---|---|---|
+| base | 27,234 | 12,572,760 (± 9,292,023) | 1,094,282 (± 742,452) | L4: 47, 16/47; L5: 1,426, 85/93; L6: 5,520, 22/24; L7: 20,240, 6/6 |
+| baseship | 27,878 | 9,009,763 (± 7,306,724) | 883,997 (± 665,636) | L4: 47, 17/47; L5: 1,380, 81/90; L6: 6,210, 25/27; L7: 20,240, 6/6 |
+| full | 14,262 | 2,552,000 (± 1,778,097) | 353,678 (± 238,944) | L4: 47, 18/47; L5: 1,334, 83/87; L6: 2,760, 11/12; L7: 10,120, 3/3 |
+| fullwide | 13,572 | 2,320,683 (± 1,631,517) | 360,723 (± 251,233) | L4: 47, 18/47; L5: 1,334, 84/87; L6: 2,070, 8/9; L7: 10,120, 3/3 |
+
+Matched nodes (the same assignment bounded in both arms), fathomed and
+DNN iterations, first arm / second arm:
+
+| arms | L4 (47 shared) | L5 (shared) | L6 (shared) | L7 (shared) |
+|---|---|---|---|---|
+| base / baseship | 16 / 17, 33,780 / 47,590 (0.71x) | 90: 82 / 81, 42,810 / 35,970 (1.19x) | 24: 22 / 22, 5,580 / 3,780 (1.48x) | 6: 6 / 6, 3,140 / 2,230 (1.41x) |
+| base / full | 16 / 18, 33,780 / 53,900 (0.63x) | 87: 79 / 83, 41,360 / 15,450 (**2.68x**) | 12: 10 / 11, 3,340 / 3,230 (1.03x) | 3: 3 / 3, 2,750 / 450 (6.1x) |
+| baseship / full | 17 / 18, 47,590 / 53,900 (0.88x) | 87: 78 / 83, 35,780 / 15,450 (**2.32x**) | 12: 10 / 11, 3,070 / 3,230 (0.95x) | 3: 3 / 3, 2,130 / 450 (4.7x) |
+| full / fullwide | 18 / 18, 53,900 / 49,790 (1.08x) | 81: 77 / 78, 15,220 / 15,710 (0.97x) | 9: 8 / 8, 3,080 / 2,790 (1.10x) | 3: 3 / 3, 450 / 410 (1.10x) |
+
+Reading, in the README's three questions:
+
+- **full against baseship (the cut-phase levers on the tail class): 2.3x
+  per node at level 5 on 87 matched nodes, 83 fathomed against 78.**
+  Level 4 costs 12% more (41 phases against 25, one more fathom). Level 6
+  is even on 12 nodes and level 7 4.7x on 3; too few to weigh. End to end
+  3.5x in estimated iterations and 2.5x in CPU, driven by level 5 and by
+  the level-5 branching rate (4 of 87 against 9 of 90), which halves the
+  estimated nodes below (14,262 against 27,878).
+- **baseship against base (warm starts): 1.2x at level 5, 1.4-1.5x at
+  levels 6-7, 0.71x at level 4** (the warm first solves put 25 children in
+  the zone instead of 17). The fathom counts are the same at every level.
+  End to end 1.4x in iterations, 1.24x in CPU: on the tail class the warm
+  start alone is worth less than on node 10 (1.66x), because the children
+  are far from the cutoff and the warm start saves iterations only where
+  the node fathoms in its first solve.
+- **fullwide against full (equipping the tail node): a wash.** The root
+  phase costs 800 iterations, level 4 is 8% cheaper, level 5 3% dearer,
+  the same fathoms everywhere (18, 78 against 77, 8, 3). The zone stays at
+  0.005.
+
+Against base, the production candidate is 4.9x in estimated iterations
+and 3.1x in CPU on this tail-class subtree, with the level-5 matched
+figure (2.68x on 87 nodes, 83 against 79 fathomed) the solid part. That
+is in line with node 10 (4.26x on the whole subtree), so the Nov 4-5 levers
+hold on the tail class.
+
+Size of the tail class: base's estimate is 27,000 DNN nodes (SE 74% in
+iterations). Level 7 is 20,240 estimated nodes from 6 bounded, none
+branching, and carries 84% of base's estimated iterations at 523 per node
+(one of the 6 ran a cut phase); level 6 is 5,500 from 24 bounded, 2
+branching. The point estimate is 2.3x this morning's 12,000 because the
+larger level-5 sample found 8 of 93 branching against 5 of 30, and the
+level-6 branching is now 2 of 24 against 0 of 20. Under full the subtree
+is about 14,000 nodes and 2.5e6 iterations, 3.5e5 laptop CPU s. The
+uncertainty is still the level-6 and level-7 branching rates: with 2 of
+24 and 0 of 6, the 95% upper bounds (about 25% and 40%) would put the
+subtree several times higher. A deeper sample under full (k = 3 is too
+few at levels 6-7) is the next step if the tail class's size matters for
+the roadmap; the lever ratios do not need it.
