@@ -43,4 +43,35 @@ such.
 
 ## Results
 
-(pending)
+### base vs zone (laptop, Nov 4; `runs/base`, `runs/zone`, `summary.txt`)
+
+Both arms at f6d448e, Apple M2 Pro, 3 slots each, run at the same time
+(16:07-17:21 PST). **zone passes**: 1.635x fewer DNN iterations against a
+kill line of 1.15x.
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU | wall (3 slots) |
+|---|---|---|---|---|---|
+| base | 454 / 444 | 15 (6) | 83,640 (59,600 + 24,040) | 11,318 s | 4,431 s |
+| zone | 366 / 358 | 8 (0) | 51,150 (40,650 + 10,500) | 7,985 s | 3,192 s |
+
+- Iterations 1.635x, DNN CPU 1.417x, wall 1.388x. The CPU ratio is below
+  the iteration ratio because the pooled iterations are dearer per step.
+- The root's cut phase (zone only: 48,582 -> 48,685 in 1,200 iterations,
+  still 129 short) fathoms nothing itself; the gain is in the children.
+  Every zone node is a base node (0 nodes only in zone, 88 only in base).
+  On the 366 shared nodes the iterations fall 74,390 -> 51,150 (1.454x):
+  first solves are shorter from the inherited pool, and only 8 nodes need
+  a phase of their own against 15.
+- Two shared nodes change outcome, both to the good: a depth-5 node base
+  branched after a 2,400-iteration phase (best 48,807.8) and zone fathomed
+  in the first solve (48,814.1 at 1,570 iterations); a depth-7 node
+  likewise (base phase best 48,813.4; zone first solve 48,814.8 at 190
+  iterations). Those two account for the 88 extra base nodes.
+- Against the cloud's Nov 3 runs of the same subtree (rule-9 arm 322 nodes,
+  54,621 CPU-s on 4 Xeon workers), base here is 454 nodes at 11,456 CPU-s:
+  the tree differs because the production configuration now carries the
+  parent-Y warm start and pool inheritance, and the laptop is about 2.4x
+  the Xeon per core without the AMX kernel.
+
+Next: `run_pair.sh warmy certx` (warmy is judged against zone, kill line
+1.05x and the tree no larger).

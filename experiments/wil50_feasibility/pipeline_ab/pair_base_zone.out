@@ -1,0 +1,27 @@
+2026-11-04 16:07:40 arms: base zone | Apple M2 Pro P-cores 6 | 3 slots per arm | logs in /Users/nathan_brixius/dev/qap/experiments/wil50_feasibility/pipeline_ab/runs/ARM/ | stop with: kill 192
+zone: done, coordinator: 3 slots, 14 units, wall 3192.10 s, CPU 8082.85 s (x2.53), slots busy 93.0%, best objective 48816
+base: done, coordinator: 3 slots, 33 units, wall 4430.59 s, CPU 11456.31 s (x2.59), slots busy 92.4%, best objective 48816
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| base | 454 / 444 | 454 / 444 | 15 (6) | 222 / 406 | 83,640 (59,600 + 24,040) | 11,318 | 11,456 | 4,431 | 92.4% | 48816 |
+| zone | 366 / 358 | 366 / 358 | 8 (0) | 248 / 365 | 51,150 (40,650 + 10,500) | 7,985 | 8,083 | 3,192 | 93.0% | 48816 |
+  base: 2026-11-05T00:07:40Z Apple M2 Pro P-cores 6 slots 3 f6d448e
+  zone: 2026-11-05T00:07:40Z Apple M2 Pro P-cores 6 slots 3 f6d448e
+
+## zone against base
+- tree: 366 DNN nodes against 454; cut phases 8 (0 fathomed) against 15 (6)
+- DNN iterations 83,640 -> 51,150: **1.635x** (first solves 59,600 -> 40,650, cut phases 24,040 -> 10,500)
+- DNN CPU 11,318 -> 7,985 s: 1.417x; coordinator CPU 11,456 -> 8,083 s: 1.417x; wall 4,431 -> 3,192 s: 1.388x
+- the 366 shared nodes: 74,390 -> 51,150 DNN iterations, 1.454x; 0 nodes only in zone, 88 only in base
+- outcome changed on 2 shared nodes:
+  - depth 5 [0:8 25:49 30:48 39:27 49:45]: base branched (first 1150 it, lb 48799.4; phase 2400 it, best 48807.8), zone fathomed (first 1570 it, lb 48814.1)
+  - depth 7 [0:25 19:0 25:49 30:48 39:27 49:45 9:21]: base branched (first 540 it, lb 48774.2; phase 2400 it, best 48813.4), zone fathomed (first 190 it, lb 48814.8)
+- kill line: 1.15x in DNN iterations -> PASS (1.635x)
+
+base: the subtree's root (depth 3): first lb 48582.47 after 300 it, no phase
+
+zone: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48685.06 in 1200 it (iter_limit)
+
+To share the results: git add experiments/wil50_feasibility/pipeline_ab && git commit -m 'pipeline A/B: base zone' && git push
