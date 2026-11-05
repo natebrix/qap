@@ -465,6 +465,8 @@ struct Work {
   std::vector<float> vtop, vtmp;   // top eigenvector estimate (tight_lam)
   std::vector<double> Wprev;
   int kb, since_refresh;
+  int kb_ritz = 0;            // leading block columns with Ritz values in evalsf (DNN_CHEB_COL)
+  std::vector<int> coldeg;    // per-column filter degrees (DNN_CHEB_COL)
   bool have_basis;
   double lam_hi, theta_top;
   std::vector<lapack_int> eiwork;
@@ -801,6 +803,38 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
  semidefinite by construction, so certificates are unaffected by the
  approximation; only the ADMM step is inexact.
 */
+// DNN_DUMP_RR=prefix (diagnostic, off by default; reads nothing back): at the
+// subspace steps listed in DNN_DUMP_RR_AT (comma-separated step counts), write
+// the step's inputs to prefix_<step>.bin: K, kb, degree, guard (int32), lam_hi,
+// theta_top (double), theta[kb], the block X (K x kb) and W (K x K), fp32.
+// Used by experiments/wil50_feasibility/speed/cs2/rr_bench.C.
+static void dump_subspace_step(const char *prefix, int step, int K, int kb, int degree,
+                               int guard, double lam_hi, double theta_top,
+                               const float *theta, const float *X, const float *Wf)
+{
+  static const char *at = getenv("DNN_DUMP_RR_AT");
+  if (!at) return;
+  bool hit = false;
+  for (const char *p = at; *p;) {
+    if (atoi(p) == step) hit = true;
+    while (*p && *p != ',') p++;
+    if (*p) p++;
+  }
+  if (!hit) return;
+  char fn[1024];
+  snprintf(fn, sizeof fn, "%s_%d.bin", prefix, step);
+  FILE *f = fopen(fn, "wb");
+  if (!f) return;
+  const int hdr[4] = {K, kb, degree, guard};
+  const double lh[2] = {lam_hi, theta_top};
+  fwrite(hdr, sizeof hdr, 1, f);
+  fwrite(lh, sizeof lh, 1, f);
+  fwrite(theta, sizeof(float), kb, f);
+  fwrite(X, sizeof(float), (size_t)K * kb, f);
+  fwrite(Wf, sizeof(float), (size_t)K * K, f);
+  fclose(f);
+}
+
 bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int refresh,
                        int degree, int guard, int tight_lam)
 {
@@ -867,6 +901,16 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Yin, &K, &zero, Tout, &K, 1, 1);
     w.sp[3] += (thread_cpu() - tg0) * 1e3;
   };
+  // the same on the n trailing columns Yin, Tout (DNN_CHEB_COL)
+  auto WYn = [&](const float *Yin, float *Tout, lapack_int n) {
+    double tg0 = thread_cpu();
+    if (w.use_amx) {
+      if (!w.amx_packed) { amx_pack_W(&w.amx, Wf); w.amx_packed = true; w.sp[2] += (thread_cpu() - tg0) * 1e3; tg0 = thread_cpu(); }
+      amx_gemm(&w.amx, Yin, (int)n, Tout);
+    } else
+      F77(sgemm)("N", "N", &K, &n, &K, &one, Wf, &K, Yin, &K, &zero, Tout, &K, 1, 1);
+    w.sp[3] += (thread_cpu() - tg0) * 1e3;
+  };
   while (true) {
     if (full) {
       lapack_int lwork = (lapack_int)w.eworkf.size(), liwork = (lapack_int)w.eiwork.size(),
@@ -884,16 +928,82 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       if (tight_lam > 0) memcpy(w.vtop.data(), X + (size_t)(K - 1) * K, K * sizeof(float));
       w.since_refresh = 0;
       w.have_basis = true;
+      w.kb_ritz = kb;
       break;
     }
+    static const char *dump_rr = getenv("DNN_DUMP_RR");
+    if (dump_rr) dump_subspace_step(dump_rr, w.n_sub, K, kb, degree, guard, w.lam_hi, w.theta_top,
+                                    theta.data(), X, Wf);
     // Chebyshev filter: Y_{j+1} = 2 (W - c) Y_j / h - Y_{j-1}, Y_0 = X
     double ts0 = thread_cpu();
     float *Y = w.Ys.data(), *T = w.Ts.data(), *Yp = X;
     const float c = (float)(0.5 * (w.lam_hi + w.theta_top)),
                 h = (float)(0.5 * (w.lam_hi - w.theta_top));
     const size_t nb = (size_t)K * kb;
+    double tc0;
+    // DNN_CHEB_COL=1 (opt-in, experiments/wil50_feasibility/speed/cs2): per-column degree
+    // (projection.md idea 3). Column i of X (ascending Ritz order, value theta_i from the
+    // last Rayleigh-Ritz) stops at d_i = min{d : |C_d(t_i)| >= target}, t_i = (theta_i - c)/h;
+    // target = |C_degree(t_e)| at the largest negative Ritz value (the memo's rule) or
+    // DNN_CHEB_COL_RHO; guard, positive and appended columns keep `degree`. d_i is made
+    // non-decreasing, so step d runs on a trailing range. Columns are scaled to unit
+    // norm before CholQR. Only the ADMM step changes; the certificate never sees it.
+    static const int cheb_col = getenv("DNN_CHEB_COL") ? atoi(getenv("DNN_CHEB_COL")) : 0;
+    static const double col_rho = getenv("DNN_CHEB_COL_RHO") ? atof(getenv("DNN_CHEB_COL_RHO")) : 0;
+    if (cheb_col > 0 && degree >= 2) {
+      std::vector<int> &dg = w.coldeg;
+      dg.assign(kb, degree);
+      int np = 0;
+      while (np < w.kb_ritz && np < kb && theta[np] < 0) np++;
+      if (np > 0) {
+        auto cabs = [](int dd, double t) { return cosh(dd * acosh(std::max(1.0, fabs(t)))); };
+        const double target = col_rho > 0 ? col_rho : cabs(degree, (theta[np - 1] - c) / h);
+        for (int i = 0; i < np; i++) {
+          const double ti = (theta[i] - c) / h;
+          int di = 1;
+          while (di < degree && cabs(di, ti) < target) di++;
+          dg[i] = di;
+        }
+        for (int i = 1; i < kb; i++) dg[i] = std::max(dg[i], dg[i - 1]);
+      }
+      std::vector<lapack_int> jd(degree + 2, kb);   // jd[d] = first column with degree >= d
+      for (int d = 1; d <= degree; d++) {
+        lapack_int q = 0;
+        while (q < kb && dg[q] < d) q++;
+        jd[d] = q;
+      }
+      float *A = Yp, *B = Y;   // A = Y_{d-1}, B = Y_d on the active range
+      WY(A, T);
+      tc0 = thread_cpu();
+      for (size_t t = 0; t < nb; t++) B[t] = (T[t] - c * A[t]) / h;
+      w.sp[4] += (thread_cpu() - tc0) * 1e3;
+      for (int d = 2; d <= degree; d++) {
+        const lapack_int j0 = jd[d], n = kb - j0;
+        const size_t o = (size_t)j0 * K, no = (size_t)n * K;
+        WYn(B + o, T + o, n);
+        tc0 = thread_cpu();
+        for (size_t t = 0; t < no; t++) A[o + t] = 2 * (T[o + t] - c * B[o + t]) / h - A[o + t];
+        w.sp[4] += (thread_cpu() - tc0) * 1e3;
+        std::swap(A, B);
+      }
+      // columns that stopped at degree d were last written to the buffer B held after
+      // step d; those of the other parity than `degree` move into the final B
+      tc0 = thread_cpu();
+      for (int d = 1; d < degree; d++)
+        if ((degree - d) % 2 == 1 && jd[d + 1] > jd[d])
+          memcpy(B + (size_t)jd[d] * K, A + (size_t)jd[d] * K, (size_t)(jd[d + 1] - jd[d]) * K * sizeof(float));
+      for (lapack_int i = 0; i < kb; i++) {
+        float *y = B + (size_t)i * K;
+        double ss = 0;
+        for (int t = 0; t < K; t++) ss += (double)y[t] * y[t];
+        const float f = (float)(1 / sqrt(ss + 1e-300));
+        for (int t = 0; t < K; t++) y[t] *= f;
+      }
+      w.sp[4] += (thread_cpu() - tc0) * 1e3;
+      Y = B; Yp = A;
+    } else {   // the uniform filter, as before
     WY(Yp, T);
-    double tc0 = thread_cpu();
+    tc0 = thread_cpu();
     for (size_t t = 0; t < nb; t++) Y[t] = (T[t] - c * Yp[t]) / h;
     w.sp[4] += (thread_cpu() - tc0) * 1e3;
     for (int d = 2; d <= degree; d++) {
@@ -902,6 +1012,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       for (size_t t = 0; t < nb; t++) Yp[t] = 2 * (T[t] - c * Y[t]) / h - Yp[t];
       w.sp[4] += (thread_cpu() - tc0) * 1e3;
       std::swap(Y, Yp);
+    }
     }
     // Y now holds the filtered block (in Ys or Xs); orthonormalize by CholQR2
     // (DNN_CHOLQR_PASSES: 1 saves a pass, node_speed.md trim d; default 2)
@@ -973,10 +1084,12 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
         w.grow_seed = w.grow_seed * 1664525u + 1013904223u;
         xn[t] = (float)((w.grow_seed >> 8) & 0xffffu) / 65536.0f - 0.5f;
       }
+      w.kb_ritz = kb;
       kb += add;
       w.n_grow++;
     } else {
       kb = std::min<lapack_int>(kb, nneg + guard);   // keep the lowest Ritz vectors
+      w.kb_ritz = kb;
     }
     break;
   }
