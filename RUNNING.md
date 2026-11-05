@@ -337,6 +337,17 @@ items (defaults in parentheses; experiment reports in
   with AMX-BF16 only (`amx/`).
 - The wil50 cut-phase switches `QAP_DNN_POOL`, `QAP_DNN_CUT_WARMY` and
   `QAP_DNN_CUT_DAMP1` (`pool_search/`, `pipeline_ab/`). Unused on nug30.
+- `DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7` (unset): a schedule for the ADMM
+  penalty. Cold calls start at 1.6667 x the base penalty and drop to the base
+  at the first full eigendecomposition at or after iteration 60. Warm-started
+  calls run at 0.7 x the base throughout (`speed/beta_sched/`). On wil50: 13%
+  less CPU on 32 cold nodes, and on the node-10 subtree with the production
+  candidate 1.14x fewer DNN iterations on 232 matched nodes, 1.25x end to end
+  (`pipeline_ab/`, arm `fast`). Not yet tried in a nug30 search, whose base
+  penalty is 0.21.
+- `DNN_R32_NONCERT=1` (unset): R's rank term in fp32 except on certificate
+  iterations (`speed/r32_noncert/`). 4.2% less per wil50 iteration without
+  AMX, 2.5% on nug30; about 1% with `DNN_AMX=1` (the `fast` arm above).
 
 Which branching rules the gap thresholds actually reach matters at the DNN
 depths. The gap thresholds in `nug_deep.par` send nearly every depth-3 and

@@ -72,6 +72,7 @@ since (`[m]`) and what is still an estimate (`[e]`):
 | coordinator (fleet busy 70-85% -> 93-97%) | 1.15-1.35x [e] of wall clock; 1.09x [m] in iterations on the 4-slot subtree | built (`coord/`); the fleet factor is measured at plan.md phase 2 |
 | shorter cut phase (Y12s), phase trims | 1.1-1.2x each [m on the phase] | not pursued; Y12s is now the switch `QAP_DNN_CUT_WARMY=1` with 200-iteration rounds |
 | Nov 4-5 levers (`convergence2/`, `pipeline_ab/`): equip phase, warm-Y rounds with damping, parent state across units | in DNN iterations on the node-10 subtree, laptop: zone 1.64x over the Nov 4 production configuration; on top of zone, warm-Y 1.69x and ship 1.66x. **All three together (`full`): 4.26x in iterations and 3.49x in DNN CPU over the same-hour base** (83,640 -> 19,640 iterations; 11,318 -> 3,239 s); 3.0x in iterations over the cloud's run of the Nov 4 configuration. The levers multiply to within 8% (1.69 x 1.66 = 2.81x predicted over zone, 2.60x measured). Per depth against base: depth 4 3.5x, depth 5 2.7x | production: `QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=32` on top of the Nov 4 setting; certificate polish closed |
+| Nov 5 speed agents (`speed/`): two-phase β, fp32 rank term off certificate iterations, restricted PRSM pieces, complementary-subspace Rayleigh-Ritz | **β schedule: 1.14x fewer DNN iterations on 232 matched nodes of the node-10 subtree on top of `full`** (1.25x end to end, the rest one marginal node; `pipeline_ab/` arm `fast`, cloud box); the gain is the warm-call key `w=0.7`. fp32 rank term: 4.2% per iteration without AMX, about 1% with it. The restricted PRSM pieces (-4% CPU) and complementary-subspace Rayleigh-Ritz (7 ms of 356 per iteration) were killed | production candidate: `full` + `DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7` (+ `DNN_R32_NONCERT=1` on CPUs without AMX) |
 
 Against the baseline of section 1 (120-700 days on 1,000 Xeon cores, center
 290; a week needs about 41x at the center):
@@ -92,6 +93,10 @@ Against the baseline of section 1 (120-700 days on 1,000 Xeon cores, center
 - **Plus all three together (`full`, Nov 5: 3.0-4.3x in iterations, 3.5x in
   CPU over the Nov 4 configuration):** center about **21-30 days** on the
   measured levers, about **17-24 with the coordinator**.
+- **Plus the β schedule (Nov 5, 1.14x on matched nodes in the search):**
+  center about **18-26 days** on 1,000 Xeon cores, about **15-21 with the
+  coordinator**. Measured on node 10 only; most of the search's nodes start
+  warm, as there.
 - **The tail class, measured Nov 5 (`../tail_probe/`, matched probe of node
   1, 405 short, on the laptop): the levers hold there.** The production
   candidate (`full`) against the Nov 4 setting: 4.9x in estimated DNN

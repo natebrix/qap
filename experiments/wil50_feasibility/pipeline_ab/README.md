@@ -314,3 +314,47 @@ production configuration; the caveat that it is one subtree and that the
 49:45 flips carry 44-134 nodes each stands, so the per-depth figures
 (depth 4 3.5x, depth 5 2.7x against base) are the ones to carry to the
 wil50 estimate.
+
+### fast vs full (cloud box, Nov 5 evening; `runs_cloud/full`, `runs_cloud/fast`, `runs_cloud/summary.txt`)
+
+`fast` is `full` plus the two Nov 5 speed switches that passed their tests
+(`../speed/`): `DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7` and
+`DNN_R32_NONCERT=1`. Both arms ran at the same time on the cloud box,
+with 2 slots each, `DNN_AMX=1`, and binary 1ebffcb. The pair was killed at
+19:57 UTC (a detached launch did not survive the end of a session turn) and
+resumed at 20:45 from its ledger. The iterations and CPU are unaffected;
+the wall and busy columns include the gap.
+
+| | full | fast | full / fast |
+|---|---|---|---|
+| DNN nodes (fathomed) | 277 (271) | 232 (227) | 1.19x |
+| DNN iterations (first solves + phases) | 23,530 (17,530 + 6,000) | 18,820 (13,390 + 5,430) | **1.250x** |
+| DNN CPU s | 6,340 | 5,088 | 1.246x |
+| the 232 shared nodes: iterations | 21,490 | 18,820 | **1.142x** |
+| the 232 shared nodes: CPU s | 5,881 | 5,088 | 1.156x |
+| ms per first-solve iteration (shared) | 268.5 | 268.7 | 1.00x |
+| ms per phase iteration (shared) | 287.1 | 274.4 | 1.05x |
+
+- **The β schedule is the gain: 1.14x fewer iterations on the matched
+  nodes.** 231 of 232 nodes start warm, so this is almost all the `w=0.7`
+  key (β 0.21·m/3 on warm calls). The 8-child test in
+  `../speed/beta_sched/` gave 1.18x (450 -> 380 iterations); this is the
+  same effect across a whole subtree.
+- **The rest of the end-to-end 1.25x is one marginal node.**
+  `[0:25 25:49 30:48 39:27 49:45]` at depth 5: full's phase ended at 48,813.5
+  and branched into 45 depth-6 nodes (2,040 iterations); fast's ended at
+  48,814.4, 0.35 above the cutoff, and fathomed. Such flips go either way
+  (`base vs zone` above). Count on the matched 1.14x, not the 1.25x.
+- **The fp32 rank term buys about nothing with AMX.** First-solve
+  iterations cost the same in both arms (268.5 against 268.7 ms); phase
+  iterations 5% less. The 4.2% of `../speed/r32_noncert/` was measured
+  without AMX, where the R-step's dsyrk is a larger share of the iteration.
+  It stays useful on CPUs without AMX (c7a, Graviton), which is what the
+  fleet may run.
+- No outcome changed on the shared nodes except that one flip; both arms
+  found 48,816 and proved nothing better.
+
+**Verdict:** `DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7` joins the production
+candidate (about 1.14x in iterations and CPU on this subtree). `DNN_R32_NONCERT=1`
+is neutral with AMX and 4% without; it is safe to include, since it changes no
+outcome and no certificate.

@@ -1,0 +1,25 @@
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| full | 277 / 271 | 277 / 271 | 6 (0) | 276 / 276 | 23,530 (17,530 + 6,000) | 6,340 | 6,381 | 8,343 | 38.6% | 48816 |
+| fast | 232 / 227 | 232 / 227 | 6 (1) | 231 / 231 | 18,820 (13,390 + 5,430) | 5,088 | 5,123 | 7,708 | 33.5% | 48816 |
+  full: 2026-11-05T19:50:35Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 1ebffcb
+  full: 2026-11-05T20:45:06Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 1ebffcb
+  fast: 2026-11-05T19:50:35Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 1ebffcb
+  fast: 2026-11-05T20:45:06Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 1ebffcb
+
+## fast against full
+- tree: 232 DNN nodes against 277; cut phases 6 (1 fathomed) against 6 (0)
+- DNN iterations 23,530 -> 18,820: **1.250x** (first solves 17,530 -> 13,390, cut phases 6,000 -> 5,430)
+- DNN CPU 6,340 -> 5,088 s: 1.246x; coordinator CPU 6,381 -> 5,123 s: 1.246x; wall 8,343 -> 7,708 s: 1.082x
+- the 232 shared nodes: 21,490 -> 18,820 DNN iterations, 1.142x; 0 nodes only in fast, 45 only in full
+- outcome changed on 1 shared nodes:
+  - depth 5 [0:25 25:49 30:48 39:27 49:45]: full branched (first 330 it, lb 48796.9; phase 1800 it, best 48813.5), fast fathomed (first 330 it, lb 48795.9; phase 1430 it, best 48814.4)
+- the 232 matched nodes (shared, same warm start and pool status): 21,490 -> 18,820 DNN iterations, 1.142x
+- the 6 nodes with a phase in both: phase iterations 6,000 -> 5,430 (1.105x), fathomed by the phase 0 -> 1, mean gain over the first solve +35.9 -> +25.5
+- by depth (nodes, DNN iterations), full -> fast: d3 1/1,500 -> 1/1,500; d4 47/6,450 -> 47/5,820; d5 184/13,540 -> 184/11,500; d6 45/2,040 -> 0/0
+
+full: the subtree's root (depth 3): first lb 48582.47 after 300 it, phase best 48723.24 in 1200 it (iter_limit)
+
+fast: the subtree's root (depth 3): first lb 48600.34 after 300 it, phase best 48725.51 in 1200 it (iter_limit)
