@@ -11,8 +11,10 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
   coordkill  the coordinator is killed mid-run and restarted
   crash_marked, crash_applied, crash_saving
              the coordinator stops (QAP_COORD_CRASH) in its 20th merge right
-             after marking a unit merged, after applying it, or between
-             writing the totals and totals.json; a new one replays and finishes
+             after marking a unit merged or after applying it, or in its 3rd
+             save between writing the totals and totals.json (saves are once
+             per cycle, so a short run has far fewer saves than merges); a new
+             one replays and finishes
   drain      the worker gets SIGTERM mid-run (spot notice): running units
              return their open nodes; a new worker finishes
   noub       no incumbent given: the run finds the optimum and publishes it
@@ -114,7 +116,9 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
         crash = name.startswith("crash_")
         # crash_*: the coordinator exits at a chosen point of its 20th merge
-        c = r.coordinator(env={"QAP_COORD_CRASH": name[6:] + ":20"} if crash else None)
+        # (its 3rd save for crash_saving: one save per cycle, after several merges)
+        n_crash = 3 if name == "crash_saving" else 20
+        c = r.coordinator(env={"QAP_COORD_CRASH": f"{name[6:]}:{n_crash}"} if crash else None)
         w = r.worker("w1")
         if name == "kill9ckpt":
             # kill once a running unit has uploaded a checkpoint

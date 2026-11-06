@@ -1,5 +1,6 @@
 #include <iostream>
 #include "linalg.h"
+#include "symeig.h"
 
 /*
 ============================================================
@@ -467,24 +468,9 @@ void my_svd(MAT *A, VEC *d)
     return;
   }
 
-  // This is Meschach's symmeig(), inlined with fresh work space: symmeig()
-  // keeps its work matrix in a static that m_copy() never shrinks, so a call
-  // after a larger one fails.
-  MAT *H = m_copy(A, MNULL);
-  MAT *Q = m_get(n, n);
-  VEC *diag = v_get(n), *beta = v_get(n), *b = v_get(n - 1);
-
-  Hfactor(H, diag, beta);          // tridiagonalize: A = Q*H*Q'
-  makeHQ(H, diag, beta, Q);
-  for (unsigned int i = 0; i < n - 1; i++) {
-    d->ve[i] = H->me[i][i];
-    b->ve[i] = H->me[i][i+1];
-  }
-  d->ve[n-1] = H->me[n-1][n-1];
-  trieig(d, b, Q);                 // A = Q*diag(d)*Q', eigenvectors in the columns of Q
-
-  m_transp(Q, A);                  // callers expect eigenvectors as rows
-
-  V_FREE(diag); V_FREE(beta); V_FREE(b);
-  M_FREE(H); M_FREE(Q);
+  // Meschach's symmetric eigendecomposition (Hfactor, makeHQ, trieig, then
+  // the transpose), ported to plain arrays with the same floating-point
+  // operations in the same order (symeig.C): bit for bit Meschach's results,
+  // eigenvectors returned as the rows of A. Stage 1 of docs/meschach_removal.md.
+  sym_eig((int)n, A->me, d->ve);
 }

@@ -48,6 +48,15 @@ CSV_FIELDS = [
 ]
 
 
+# The solver runs with one BLAS thread unless the caller says otherwise: it is
+# single-threaded, and an idle OpenBLAS pool spinning at startup added about
+# 0.36 s of CPU to every run (nug12: 0.537 s against 0.140 s; docs/meschach_removal.md),
+# which skewed CPU ratios on sub-second instances. Set the variables to override.
+SOLVER_ENV = dict(os.environ)
+for _v in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    SOLVER_ENV.setdefault(_v, "1")
+
+
 # ---------------------------------------------------------------- helpers
 
 def sh(cmd, cwd=ROOT):
@@ -236,7 +245,7 @@ def run_one(name, params, ub, timeout, log_path, jobs=1):
     t0 = time.perf_counter()
     try:
         r = subprocess.run(cmd, cwd=SOLVER_DIR, capture_output=True, text=True,
-                           timeout=timeout)
+                           timeout=timeout, env=SOLVER_ENV)
         text, rc, timed_out = r.stdout + r.stderr, r.returncode, False
     except subprocess.TimeoutExpired as e:
         out = e.stdout or ""
