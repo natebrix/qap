@@ -158,6 +158,10 @@ struct DNNParams {
                        // constants. NULL: none (default)
   double L_add_abs;    // sum of the magnitudes of the terms in L_add, for the
                        // rounding margin (0)
+  int cut_round;       // 1: this call is a round of a cut phase (dnncut.C's
+                       // dnn_cut_rounds), not a node's own solve; it selects
+                       // DNN_BETA_SCHED's wc factor. A pooled child also passes
+                       // L_add, so L_add alone cannot tell the two apart (0)
   const unsigned char *elim;  // optional m x m (row-major, local indices): 1 where
                        // x_ij = 0 in every solution of the node (eliminated
                        // assignments). The Y-step keeps their lifted rows and

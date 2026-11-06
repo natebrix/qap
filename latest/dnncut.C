@@ -688,6 +688,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     par.hopeless_gap_ratio = 0;
     par.L_add = (active || cp.L_ext) ? Ladd.data() : NULL;
     par.L_add_abs = abs_add;
+    par.cut_round = 1;   // DNN_BETA_SCHED's wc (dnn.C); a pooled child (dnn_pool_bound) leaves it 0
     DNNResult res = dnn_bound(A, B, C, shift - hsum, cutoff, par, (r > 0 && warm) ? warm : NULL, &save);
     if (warm) *warm = save; else warm = &save;
     out.cpu += res.cpu;
