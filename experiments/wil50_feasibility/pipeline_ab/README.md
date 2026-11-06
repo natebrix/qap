@@ -521,3 +521,45 @@ DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1`).
   cutoff (0.7 under a given-up parent, 0.25 under a fathomed-or-nearly one)
   would take the depth-4 loss out; the trace has the parent's status, so it
   can be read off before a solver change.
+
+## Results, Nov 6 (laptop, 10:13-10:37): `fast wlowc` with the `wc` fix, the warm-call beta passes
+
+`PAB_RUNS=runs_wfix run_pair.sh fast wlowc`, binary 7ccffdf (26c88fe's
+`DNNParams::cut_round`: `wc` on cut rounds only, pooled children at `w`),
+3 slots each, fresh directories for both arms (`runs_wfix/`).
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|
+| fast | 232 / 227 | 6 (1) | 18,790 (13,330 + 5,460) | 3,227 | 172 ms | 1,463 |
+| wlowc (w=0.25 children, wc=0.7 rounds) | 277 / 271 | 6 (0) | 16,270 (10,070 + 6,200) | 3,052 | 190 ms | 1,403 |
+
+- **Kill line 1.15x in DNN iterations on the matched nodes: PASS, 1.236x**
+  (18,790 to 15,200 on the 232 shared nodes); 1.120x in their DNN CPU.
+  End to end 1.155x in iterations and 1.057x in CPU, the difference being
+  one lost fathom: the depth-5 node `0:25 ...` that `fast`'s phase closes at
+  48,814.4 ends at 48,813.9 under `wlowc` (0.15 under the cutoff), and its
+  45 children (1,070 iterations, all fathomed at once) are the 277 against
+  232. The same node was the one lost under `wlow`; its phase sits on the
+  cutoff and goes either way with the start it is given.
+- **By depth, first solves and phases apart (`runs_wfix/*/trace.txt`):**
+
+  | depth | nodes | first solves, fast -> wlowc | phases, fast -> wlowc |
+  |---|---|---|---|
+  | 4 | 47 | 3,020 -> 2,450 (1.23x) | 2,800 -> 3,400 (0.82x) |
+  | 5 | 184 | 10,010 -> 6,250 (**1.60x**) | 1,460 -> 1,600 (0.91x) |
+
+  The children gain at both depths now (under `wlow` depth 4 lost 0.84x,
+  because node 10's own phase also ran at 0.25 there and handed its
+  children a different pool); the rounds, back at 0.7, cost 10-20% more
+  than `fast`'s because they start from a different first-solve state, not
+  because of their beta. Net on the arm: 1.155x in iterations for 1.057x in
+  CPU, the phases and the deeper children being dearer per iteration
+  (190 against 172 ms).
+- **Reading.** The lever is worth 1.24x on the matched nodes, above the
+  memo's kill line and in line with its warm-set 1.35x less the phases. The
+  CPU gain is smaller (1.06-1.12x) and one marginal phase went the other
+  way; a run on the node-1 or node-5 tail (`tail_probe/run_matched.sh`
+  with this environment, the memo's step 3) would say whether the lost
+  fathom is noise or a pattern at the deeper levels, where the levers act.
+  Then `best bestcore` again on this binary, since the earlier pair ran its
+  children at 0.7.

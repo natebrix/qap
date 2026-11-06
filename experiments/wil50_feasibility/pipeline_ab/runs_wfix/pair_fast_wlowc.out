@@ -1,0 +1,30 @@
+2026-11-06 10:13:09 arms: fast wlowc | Apple M2 Pro P-cores 6 | 3 slots per arm | logs in /Users/nathan_brixius/dev/qap/experiments/wil50_feasibility/pipeline_ab/runs_wfix/ARM/ | stop with: kill 27976
+wlowc: done, coordinator: 3 slots, 19 units, wall 1403.22 s, CPU 3115.17 s (x2.22), slots busy 87.9%, best objective 48816
+fast: done, coordinator: 3 slots, 19 units, wall 1463.24 s, CPU 3293.54 s (x2.25), slots busy 88.5%, best objective 48816
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| fast | 232 / 227 | 232 / 227 | 6 (1) | 231 / 231 | 18,790 (13,330 + 5,460) | 3,227 | 3,294 | 1,463 | 88.5% | 48816 |
+| wlowc | 277 / 271 | 277 / 271 | 6 (0) | 276 / 276 | 16,270 (10,070 + 6,200) | 3,052 | 3,115 | 1,403 | 87.9% | 48816 |
+  fast: 2026-11-06T18:13:09Z Apple M2 Pro P-cores 6 slots 3 7ccffdf
+  wlowc: 2026-11-06T18:13:09Z Apple M2 Pro P-cores 6 slots 3 7ccffdf
+
+## wlowc against fast
+- tree: 277 DNN nodes against 232; cut phases 6 (0 fathomed) against 6 (1)
+- DNN iterations 18,790 -> 16,270: **1.155x** (first solves 13,330 -> 10,070, cut phases 5,460 -> 6,200)
+- DNN CPU 3,227 -> 3,052 s: 1.057x; coordinator CPU 3,294 -> 3,115 s: 1.057x; wall 1,463 -> 1,403 s: 1.043x
+- the 232 shared nodes: 18,790 -> 15,200 DNN iterations, 1.236x; 45 nodes only in wlowc, 0 only in fast
+- outcome changed on 1 shared nodes:
+  - depth 5 [0:25 25:49 30:48 39:27 49:45]: fast fathomed (first 330 it, lb 48795.9; phase 1460 it, best 48814.4), wlowc branched (first 300 it, lb 48799.1; phase 1600 it, best 48813.9)
+- the 232 matched nodes (shared, same warm start and pool status): 18,790 -> 15,200 DNN iterations, 1.236x
+- the same matched nodes' DNN CPU: 3,227 -> 2,881 s, 1.120x; per DNN iteration 172 -> 190 ms
+- the 6 nodes with a phase in both: phase iterations 5,460 -> 6,200 (0.881x), fathomed by the phase 1 -> 0, mean gain over the first solve +25.9 -> +23.9
+- by depth (nodes, DNN iterations), fast -> wlowc: d3 1/1,500 -> 1/1,500; d4 47/5,820 -> 47/5,850; d5 184/11,470 -> 184/7,850; d6 0/0 -> 45/1,070
+- kill line: 1.15x in DNN iterations on the matched nodes -> PASS (1.236x; end to end 1.155x)
+
+fast: the subtree's root (depth 3): first lb 48600.31 after 300 it, phase best 48725.75 in 1200 it (iter_limit)
+
+wlowc: the subtree's root (depth 3): first lb 48600.31 after 300 it, phase best 48725.75 in 1200 it (iter_limit)
+
+To share the results: git add experiments/wil50_feasibility/pipeline_ab && git commit -m 'pipeline A/B: fast wlowc' && git push
