@@ -1,0 +1,66 @@
+# n13_uncut1500 spec 21:28,8:41,28:19 m 47 file /home/user/qap/experiments/wil50_feasibility/new_cuts/grid/runs/n13_uncut.Y.bin
+## 1. residuals
+  min entry                         0.000e+00
+  max |diag - row0|                 8.119e-05
+  max |row sums of x - 1|           6.496e-07
+  max |lifted row sums - x|         9.975e-05
+  max |lifted col sums - x|         8.119e-05
+  max gangster (same cell)          0.000e+00
+  max gangster (same facility)      0.000e+00
+## 2. spectrum of Y
+  top8             [4.707575642544322, 1.1592406846168497, 1.0376748382905072, 0.7841046496993377, 0.7362255513909699, 0.6550870712384089, 0.5575579889446675, 0.5444495710960169]
+  n_above_1e_2     591
+  n_above_1e_3     996
+  min              -0.00010414726552561966
+  trace            48.01815109016892
+## 3. majorization (implied; excess <= 0 up to residuals)
+  E[XBX] vs B      {'max_top_excess': -3.161915174132446e-13, 'max_bottom_excess': 3.979039320256561e-13, 'trace_diff': -4.156675004196586e-13, 'frob_M': 222.73577334158793, 'frob_ref': 251.67439281738618}
+  E[XAX] vs A      {'max_top_excess': 0.0, 'max_bottom_excess': 2.842170943040401e-14, 'trace_diff': 0.0, 'frob_M': 244.7125239815166, 'frob_ref': 259.83071411978995}
+  objective <L,Y>+shift 48628.37945467387
+## 5. k-partition clique (pigeonhole) inequalities: slack = min same-part pairs - f(t)
+  rows (5 parts, caps [9, 10, 8, 10, 10]):
+    t=6: f=1 min=1.134 slack=+0.134
+    t=7: f=2 min=1.924 slack=-0.076
+    t=8: f=3 min=2.966 slack=-0.034
+    t=9: f=4 min=4.132 slack=+0.132
+    t=10: f=5 min=5.553 slack=+0.553
+    t=11: f=7 min=7.115 slack=+0.115
+  cols (10 parts, caps [5, 4, 5, 5, 5, 5, 5, 5, 3, 5]):
+    t=11: f=1 min=1.718 slack=+0.718
+    t=12: f=2 min=2.395 slack=+0.395
+    t=13: f=3 min=3.205 slack=+0.205
+    t=14: f=4 min=4.135 slack=+0.135
+    t=15: f=5 min=5.117 slack=+0.117
+    t=16: f=6 min=6.190 slack=+0.190
+  mid5 super-cells (12 parts, caps [8, 2, 2, 7, 3, 1, 1, 3, 8, 2, 2, 8]):
+    t=13: f=1 min=3.391 slack=+2.391
+    t=14: f=2 min=4.206 slack=+2.206
+    t=15: f=3 min=5.113 slack=+2.113
+    t=16: f=4 min=6.123 slack=+2.123
+    t=17: f=5 min=7.244 slack=+2.244
+    t=18: f=6 min=8.557 slack=+2.557
+## 6. spread inequalities: slack = Dmax(k) - max over k-sets of sum E d_ij
+  Manhattan  k=3: Dmax=26 max E sum=25.240 slack=+0.760 set=[np.int64(24), 30, 42]
+  Manhattan  k=4: Dmax=52 max E sum=46.545 slack=+5.455 set=[14, 24, np.int64(25), 42]
+  Manhattan  k=5: Dmax=78 max E sum=74.306 slack=+3.694 set=[np.int64(6), 14, np.int64(20), 25, 42]
+  rows only  k=3: Dmax=8 max E sum=7.678 slack=+0.322 set=[24, np.int64(42), 43]
+  rows only  k=4: Dmax=16 max E sum=14.387 slack=+1.613 set=[24, 31, 37, 42]
+  rows only  k=5: Dmax=24 max E sum=22.619 slack=+1.381 set=[24, 30, 31, 37, np.int64(42)]
+  cols only  k=3: Dmax=18 max E sum=18.157 slack=-0.157 set=[24, np.int64(31), 42]
+  cols only  k=4: Dmax=36 max E sum=32.908 slack=+3.092 set=[np.int64(6), 20, 25, 42]
+  cols only  k=5: Dmax=54 max E sum=52.380 slack=+1.620 set=[np.int64(6), 14, 20, 25, 42]
+## 7. regional triangle max violation per threshold
+  row<1   cap  9 max +0.0336
+  row<2   cap 19 max +0.0730
+  row<3   cap 27 max +0.0756
+  row<4   cap 37 max +0.0364
+  col<1   cap  5 max +0.0338
+  col<2   cap  9 max +0.0545
+  col<3   cap 14 max +0.0576
+  col<4   cap 19 max +0.0762
+  col<5   cap 24 max +0.0801
+  col<6   cap 29 max +0.0698
+  col<7   cap 34 max +0.0612
+  col<8   cap 39 max +0.0463
+  col<9   cap 42 max +0.0384
+# done in 4.1 s
