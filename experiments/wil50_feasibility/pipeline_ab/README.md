@@ -418,6 +418,14 @@ What follows:
 - For the solver: a flag on the external term saying whether it is a pool
   or a cut round (or `wc` applied only when `DNNCutParams` is in play), so
   that `w` reaches pooled children; then `wlowc` means what it says.
+  **Fixed Nov 6 (cloud):** `DNNParams::cut_round`, set only by the rounds of
+  a cut phase (`dnn_cut_rounds` in `dnncut.C`), now selects `wc`; a pooled
+  child takes `w`. Checked with a harness of warm calls carrying a cut term:
+  without the flag the run is bit-identical to `w` alone, with it to `wc`
+  alone. `run_pair.sh` refuses `wlowc`, `best` and `bestcore` on a tree
+  without the fix or a `bnbdrv` older than the DNN sources. The `best` and
+  `bestcore` results above are unaffected as comparisons (both arms ran the
+  children at 0.7), but they are not yet the low warm beta.
 
 ## Results, Nov 6 (laptop): `best bestcore`, both pass
 
@@ -462,6 +470,20 @@ DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1`).
   (154 to 139 ms per iteration), 0.994x in iterations. Kill line 1.05x:
   PASS**, the second point for the core switches after `bestcore` against
   `best` (1.082x). Same tree.
+- **The core switches' small iteration loss (0.991-0.994x) is rounding, not
+  bias (cloud check, Nov 6).** Under `core`, 6 of 232 first solves fathom
+  10-30 iterations later and none earlier, and five warm give-ups end 0.12-0.22
+  lower. But the late fathoms are near-cutoff children of three depth-4
+  nodes, and the five give-ups are node 10's descendants, whose own final
+  state moved (+0.098). So this is a few inherited events, not twelve
+  independent ones. On two warm families of `../speed/nov6_admm/` (p10, p2:
+  10 solves each, AMX, OpenBLAS), each switch alone against the `fast`
+  settings: `DNN_CORE_LAZYCERT=1` is **bit-identical** in every lb and
+  iteration count (1.02-1.03x less CPU); `DNN_CORE_NOSYMV=1 DNN_NOSYMW=1`
+  moves the lbs by -0.084 to +0.023 in both directions, with the same
+  outcomes and iterations; all three together give the NOSYMV lbs at 1.09x
+  less CPU. The laptop's larger moves are that rounding-level change
+  amplified through node 10's cut phase and Accelerate's arithmetic.
 - **`wlow` against `fast`: 0.971x in iterations and 0.925x in DNN CPU on
   the 232 matched nodes, and a larger tree (322 nodes against 232).** Two
   depth-5 nodes that `fast` fathoms (one by its phase at 1,460 iterations,

@@ -148,8 +148,12 @@ run_arm() {
     if { [ "$arm" = core ] || [ "$arm" = bestcore ]; } && ! grep -aq DNN_CORE_LAZYCERT latest/bnbdrv; then
       echo "$arm: this bnbdrv has no DNN_CORE_* switches yet: git pull, make solver, run again"; return 1
     fi
-    if { [ "$arm" = wlowc ] || [ "$arm" = best ] || [ "$arm" = bestcore ]; } && ! grep -aq "a cut term" latest/dnn.C; then
-      echo "$arm: this tree has no wc key in DNN_BETA_SCHED yet: git pull, make solver, run again"; return 1
+    if { [ "$arm" = wlowc ] || [ "$arm" = best ] || [ "$arm" = bestcore ]; } && ! grep -q "cut_round = 1" latest/dnncut.C; then
+      # before the Nov 6 fix, wc also caught pooled children (they pass L_add), so wlowc was fast
+      echo "$arm: this tree's wc key also applies to pooled children (fixed Nov 6): git pull, make solver, run again"; return 1
+    fi
+    if [ latest/bnbdrv -ot latest/dnn.C ] || [ latest/bnbdrv -ot latest/dnncut.C ] || [ latest/bnbdrv -ot latest/dnn.h ]; then
+      echo "$arm: latest/bnbdrv is older than the DNN sources: make solver, run again"; return 1
     fi
     if { [ "$arm" = ship ] || [ "$arm" = ship2 ] || [ "$arm" = full ]; } && ! grep -aq QAP_DNN_SHIP latest/bnbdrv; then
       echo "ship: this bnbdrv cannot carry the DNN state yet: git pull, make solver, run again"; return 1

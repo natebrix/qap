@@ -227,6 +227,7 @@ DNNParams::DNNParams()
   L_add = NULL;
   elim = NULL;
   L_add_abs = 0;
+  cut_round = 0;
   warm_primal = 0;
   child_bounds = 0;
   verbose = 0;
@@ -1794,9 +1795,12 @@ static double cert_lambda(Work &w, const double *Zm)
               0.5 -> 0.3 m/3, warm 0.21 m/3; experiments/wil50_feasibility/
               speed/beta_sched); on 24 warm children w=0.25 needs 40% fewer
               iterations than 0.7 (speed/nov6_admm)
-   wc=FC      warm-started calls that carry a cut term (par.L_add: the rounds
-              of a cut phase) run at FC * base instead of w's factor, so that
-              children and cut rounds can differ (unset: w for both)
+   wc=FC      warm-started rounds of a cut phase (par.cut_round, set by
+              dnncut.C's rounds) run at FC * base instead of w's factor, so
+              that children and cut rounds can differ (unset: w for both). A
+              pooled child carries a cut term too (par.L_add) but is a child:
+              it takes w (until Nov 6 it took wc, which made the laptop's
+              wlowc arm identical to fast; pipeline_ab/README.md)
  Not with the accelerations (Anderson keeps Z/beta; Halpern, momentum): off
  there. Read at every call (tests set and unset it within a process).
 */
@@ -2016,10 +2020,11 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     if (accel || (bs.nodes == 1 && warm_call) || (bs.nodes == 2 && !warm_call))
       bs.kind = 0, bs.w = 0;
     if (warm_call && bs.w > 0) bs.kind = 3;   // w: a fixed beta on warm-started calls
-    // wc: the factor for warm calls that carry a cut term (the rounds of a cut
-    // phase, dnncut.C), so that children and cut rounds can run at different
-    // betas (experiments/wil50_feasibility/speed/nov6_admm); unset: w for both
-    if (warm_call && par.L_add && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
+    // wc: the factor for the warm rounds of a cut phase (par.cut_round, dnncut.C),
+    // so that children and cut rounds can run at different betas
+    // (experiments/wil50_feasibility/speed/nov6_admm); unset: w for both. Not
+    // par.L_add: a pooled child carries a cut term as well, and is a child
+    if (warm_call && par.cut_round && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
   }
   // DNN_ADMM_WARM_BETA=F1:T:F2[:force] (off unless set): a warm-started call runs at
   // F1 x base until the first scheduled refresh at or after iteration T, then at
