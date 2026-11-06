@@ -7,7 +7,16 @@ takes, and a staged plan. Research only: nothing in `latest/` or `src/` was
 changed. Prototypes and measurement logs are in
 [`docs/meschach_removal/`](meschach_removal/).
 
-**Status (Nov 5, late): stage 0 is done** (`src/MESCHACH/makefile`: `CC ?= cc`,
+**Status (Nov 6): stages 0 and 1 are done.** Stage 1: `my_svd` calls
+`sym_eig` (`latest/symeig.C`, this report's `eig_port.C` with thread-local work
+space) instead of Meschach's `Hfactor`, `makeHQ`, `trieig` and `m_transp`.
+Checked so far: every gate passes (quick-suite regression exact, brute force
+with seeds 1-3, resume, parallel, coord, dnncheck, shipcheck); the standard
+suite against `bench/reference/` and the timing are running. The coordinator test's `crash_saving` scenario now crashes on
+the 3rd totals save, not the 20th: the faster solve finished nug17 in fewer
+saves than that. The timing is in `bench/LOG.csv`.
+
+**Stage 0 (Nov 5, late)** (`src/MESCHACH/makefile`: `CC ?= cc`,
 `-std=gnu17 -ffp-contract=off`; `bench.py` honors `MESCHACH_CC`; `make` rebuilds
 Meschach when its makefile changes). Checked on the cloud box: the quick
 suite matches `bench/reference/` exactly when built with gcc 13, gcc 11, clang
