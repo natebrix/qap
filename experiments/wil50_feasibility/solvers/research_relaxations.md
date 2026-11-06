@@ -27,7 +27,9 @@ in the QAPLIB mirror), so nothing published is stronger at n = 50 either.
   bundle R3 (SDP, no nonnegativity) 5,803 (u), DNN 5,944-5,950, OPT 6,124.
 - Our wil50 nodes: root DNN about 48,130; depth-3 near misses converge to
   48,731-48,771 (43-84 short of 48,814); QPB at the same nodes 46,928-47,081
-  (about 1,870 short, tuning/README.md section 1).
+  (about 1,870 short, tuning/README.md section 1). Down the tree QPB closes
+  100-300 units per level and is still 718 short at depth 10, where the DNN
+  fathoms in 60 iterations (`qpb_depth/README.md`, Nov 6).
 
 The scale to keep in mind: removing only the nonnegativity from the DNN
 (SDP R3) already loses 2% on wil50. Every cheaper relaxation below is weaker
