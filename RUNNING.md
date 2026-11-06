@@ -350,15 +350,26 @@ items (defaults in parentheses; experiment reports in
   (`speed/nov6_admm/`): the response is monotone from 0.85 down to 0.15, and
   `w=0.25` fathoms the same children in 43% fewer iterations than 0.7 with
   every miss higher; the key `wc=F` gives the rounds of a cut phase their own
-  factor (unset: `w` for both). Search A/B pending (`pipeline_ab/` arms
-  `wlow`, `wlowc`, `best`).
+  factor (unset: `w` for both; before the Nov 6 fix, pooled children took `wc`
+  too). In the search (`pipeline_ab/`, laptop, Nov 6): `w=0.25,wc=0.7` gives
+  1.24x fewer DNN iterations and 1.12x less DNN CPU on the node-10 subtree's
+  232 matched nodes, so the wil50 production candidate is now
+  `DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.25,wc=0.7`. `w=0.25` for the cut
+  rounds as well (`wlow`) loses: the rounds take 1.5-1.9x the iterations.
 - `DNN_ADMM_CROSS=2` (unset): between two regular certificates (every 10
   iterations), certify once more at the iteration where the running best is
   predicted to cross the cutoff (`speed/nov6_admm/`): fathoms come 0-9
   iterations earlier (4.2 per fathom on 24 warm children, 1.05x their CPU),
-  nothing else changes. `DNN_ADMM_CROSS_FIRST`, `DNN_ADMM_WARM_DAMP` and
-  `DNN_ADMM_WARM_BETA` are the same study's other probes (measured not worth
-  it, or not run); all off by default.
+  nothing else changes. In the search: 1.035x in DNN iterations and 1.04x in
+  DNN CPU (`pipeline_ab/`, Nov 6). `DNN_ADMM_CROSS_FIRST` and
+  `DNN_ADMM_WARM_DAMP` are the same study's other probes (measured not worth
+  it); all off by default.
+- `DNN_ADMM_WARM_BETA=F1:T:F2` (unset): a node's own warm solve runs at F1 x
+  the base penalty until the first full eigendecomposition at or after
+  iteration T, then at F2 x it, in place of `DNN_BETA_SCHED`'s `w`; cut rounds
+  keep `w` or `wc`. Under test Nov 6 as `0.25:60:0.7` (`pipeline_ab/` arm
+  `wtwo`): children fathom as at 0.25, and a miss hands its cut phase a state
+  closer to 0.7's.
 - `DNN_R32_NONCERT=1` (unset): R's rank term in fp32 except on certificate
   iterations (`speed/r32_noncert/`). 4.2% less per wil50 iteration without
   AMX, 2.5% on nug30; about 1% with `DNN_AMX=1` (the `fast` arm above).

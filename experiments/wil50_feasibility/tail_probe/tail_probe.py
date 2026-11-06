@@ -59,7 +59,12 @@ ARMS = {"base": {}, "baseship": {"QAP_DNN_SHIP": "16"}, "full": FULL,
         "equip3": dict(FULL, QAP_DNN_CUT_EQUIP="120:3"),
         # the two level-4 fathoms equip3 lost started 127-128 short: cap at 150
         "equip150": dict(FULL, QAP_DNN_CUT_EQUIP="150:3"),
-        "equip150r2": dict(FULL, QAP_DNN_CUT_EQUIP="150:2")}
+        "equip150r2": dict(FULL, QAP_DNN_CUT_EQUIP="150:2"),
+        # the Nov 5-6 production settings (../pipeline_ab/run_pair.sh's fast and wlowc):
+        # fp32 rank term off certificate iterations, the two-phase cold beta, and the
+        # warm-call beta at 0.7 (fast) or 0.25 for children with cut rounds at 0.7 (wlowc)
+        "fast": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.7"),
+        "wlowc": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.25,wc=0.7")}
 
 
 def run_task(args, env, path_in, level, tag, wd, spec=None):

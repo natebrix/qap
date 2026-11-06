@@ -40,6 +40,11 @@
 #          DNN_CORE_REFRESH_PARTIAL=1): the same decisions at about 1.1x less
 #          CPU per iteration, so it is judged in DNN CPU, not iterations
 #   bestcore  best + the same three core switches: every Nov 6 lever at once
+#   wtwo   wlowc with a two-phase beta for a node's own warm solve
+#          (DNN_ADMM_WARM_BETA=$PAB_WARM_TWO, default 0.25:60:0.7): 0.25 until the
+#          first refresh at or after iteration 60 (80 at refresh 40), then 0.7, so
+#          that fast children keep 0.25's gain and a miss hands its cut phase a
+#          state like fast's; cut rounds stay at 0.7
 #   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
@@ -60,7 +65,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n '2,/^set -u$/p' "$0" | sed '$d'; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -121,6 +126,9 @@ arm_env() {
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 \
                   DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1 ;;
+    wtwo)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
+                  DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7 DNN_ADMM_WARM_BETA=${PAB_WARM_TWO:-0.25:60:0.7} ;;
     certx) export QAP_DNN_CUT_ZONE=0.005 DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1 DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=10 ;;
   esac
 }
@@ -151,6 +159,9 @@ run_arm() {
     if { [ "$arm" = wlowc ] || [ "$arm" = best ] || [ "$arm" = bestcore ]; } && ! grep -q "cut_round = 1" latest/dnncut.C; then
       # before the Nov 6 fix, wc also caught pooled children (they pass L_add), so wlowc was fast
       echo "$arm: this tree's wc key also applies to pooled children (fixed Nov 6): git pull, make solver, run again"; return 1
+    fi
+    if [ "$arm" = wtwo ] && ! grep -q "accel && !par.cut_round" latest/dnn.C; then
+      echo "wtwo: this tree's DNN_ADMM_WARM_BETA also changes the cut rounds (fixed Nov 6): git pull, make solver, run again"; return 1
     fi
     if [ latest/bnbdrv -ot latest/dnn.C ] || [ latest/bnbdrv -ot latest/dnncut.C ] || [ latest/bnbdrv -ot latest/dnn.h ]; then
       echo "$arm: latest/bnbdrv is older than the DNN sources: make solver, run again"; return 1

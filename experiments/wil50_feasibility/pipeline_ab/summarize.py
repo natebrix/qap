@@ -14,7 +14,7 @@ import re
 import sys
 
 ARMS = ["base", "zone", "warmy", "certx", "ship", "full", "zone2", "base2", "ship2", "fast",
-        "cross", "wlow", "wlowc", "best", "core", "bestcore"]
+        "cross", "wlow", "wlowc", "best", "core", "bestcore", "wtwo"]
 # kill lines (README.md): the ratio of DNN iterations an arm must reach. For
 # warmy and certx the end-to-end ratio is below the run-to-run noise of one
 # configuration (README, base vs zone), so they are judged on the matched
@@ -26,13 +26,17 @@ GATES = {("zone", "base"): 1.15, ("warmy", "zone"): 1.05, ("certx", "zone"): 1.0
 # kill lines in DNN CPU on the matched nodes, for levers that save CPU rather than
 # iterations (same machine, same hour): the crossing certificate (../speed/nov6_admm,
 # about 1.03x expected) and the core switches (../speed/nov6_core, about 1.10x expected)
-CPU_GATES = {("cross", "fast"): 1.02, ("best", "wlowc"): 1.02, ("core", "fast"): 1.05, ("bestcore", "best"): 1.05}
+CPU_GATES = {("cross", "fast"): 1.02, ("best", "wlowc"): 1.02, ("core", "fast"): 1.05, ("bestcore", "best"): 1.05,
+             # the two-phase warm beta against the flat 0.25 (Nov 6): it must win back
+             # some of the cut phases' extra cost without giving up the children's gain
+             ("wtwo", "wlowc"): 1.02}
 # the pairs compared, (arm, reference); the first reference that finished is used
 PAIRS = [("zone", ["base"]), ("warmy", ["zone"]), ("certx", ["zone", "base"]), ("ship", ["zone"]), ("full", ["ship"]), ("full", ["warmy"]),
          ("full", ["zone"]), ("full", ["base"]), ("zone2", ["zone"]), ("ship2", ["ship"]),
          ("base2", ["base"]), ("fast", ["full"]),
          ("cross", ["fast"]), ("wlowc", ["fast"]), ("wlow", ["fast"]), ("wlow", ["wlowc"]), ("best", ["wlowc"]),
-         ("core", ["fast"]), ("bestcore", ["best"]), ("bestcore", ["fast"])]
+         ("core", ["fast"]), ("bestcore", ["best"]), ("bestcore", ["fast"]),
+         ("wtwo", ["wlowc"]), ("wtwo", ["fast"])]
 
 
 def num(pat, line, conv=float):

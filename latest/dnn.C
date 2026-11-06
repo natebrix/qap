@@ -2031,8 +2031,11 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // F2 x base (force=1: at T itself, with a full refresh there), whatever
   // DNN_BETA_SCHED says for warm calls; cold calls are untouched. Same mechanism as
   // BetaSched kind 1 (a change only where the R-step runs a full eigendecomposition;
-  // Z is the unscaled multiplier, so nothing is rescaled).
-  if (warm_call && !accel) {
+  // Z is the unscaled multiplier, so nothing is rescaled). Not on the rounds of a
+  // cut phase (par.cut_round), which keep DNN_BETA_SCHED's w or wc: the schedule is
+  // for a node's own solve, low early so that warm children fathom fast, higher
+  // after T so that a miss hands its cut phase a state like today's (Nov 6).
+  if (warm_call && !accel && !par.cut_round) {
     const char *e = getenv("DNN_ADMM_WARM_BETA");
     double f1 = 0, f2 = 0; int t = 0, force = 0;
     if (e && *e && sscanf(e, "%lf:%d:%lf:%d", &f1, &t, &f2, &force) >= 3 && f1 > 0 && f2 > 0 && t > 0) {

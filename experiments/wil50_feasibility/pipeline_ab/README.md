@@ -563,3 +563,36 @@ DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1`).
   fathom is noise or a pattern at the deeper levels, where the levers act.
   Then `best bestcore` again on this binary, since the earlier pair ran its
   children at 0.7.
+
+## Next (Nov 6 evening): the stacked levers, a two-phase warm beta, the node-5 tail
+
+Three runs for the laptop on a tree with `cut_round` in `DNN_ADMM_WARM_BETA`
+(the cloud's Nov 6 evening commit). The production candidate is now `wlowc`
+(`roadmap/README.md`).
+
+1. `PAB_RUNS=$PWD/experiments/wil50_feasibility/pipeline_ab/runs_wfix run_pair.sh best bestcore`:
+   every Nov 6 lever stacked (`best` = `wlowc` + the crossing certificate;
+   `bestcore` = `best` + the three core switches), in the same directory as
+   `fast wlowc` so that `summarize.py runs_wfix` compares all four. The
+   earlier `best bestcore` (`runs/`) ran its children at 0.7.
+2. `PAB_RUNS=... run_pair.sh wtwo` in `runs_wfix` (one arm; or `wtwo wlowc` in
+   a fresh directory for a same-hour CPU pair): the two-phase warm beta
+   `DNN_ADMM_WARM_BETA=0.25:60:0.7`. A node's own warm solve runs at 0.25
+   until the first refresh at or after iteration 60 (80 at refresh 40), then
+   at 0.7; cut rounds stay at 0.7. The idea: children keep 0.25's gain, and
+   a miss hands its cut phase a state closer to `fast`'s, which may recover
+   the phases' 10-20% extra iterations under `wlowc` and its lost marginal
+   fathom. Kill line: 1.02x in DNN CPU against `wlowc` on the matched nodes.
+   On the cloud's warm set (`../speed/nov6_admm/`, four families, AMX):
+   every child that fathoms does so at the same iteration as at a flat
+   0.25 (f9: 30, 40, 20, 20 against 0.7's 50, 60, 30, 30; f6, p10, p2 the
+   same pattern); the misses end between the two flat settings (p10: 7-9
+   below 0.25, 8-10 above 0.7); one near-cutoff miss of p2 runs 580
+   iterations against 0.25's 330 and 0.7's 740 (its deferred give-up keeps
+   climbing at 0.7). So the switch does what it says on the children; its
+   value is in the phases, which only the subtree measures.
+3. The node-5 tail probe with the new settings:
+   `PROBE_RUNS=$PWD/experiments/wil50_feasibility/tail_probe/runs_node5_w PROBE_ARGS="--node 23:49,37:15,6:5" experiments/wil50_feasibility/tail_probe/run_matched.sh fast wlowc`
+   (the arms `fast` and `wlowc` are in `tail_probe.py` since Nov 6): whether
+   the warm beta's lost marginal fathom is a pattern at levels 5-6, where the
+   levers act.

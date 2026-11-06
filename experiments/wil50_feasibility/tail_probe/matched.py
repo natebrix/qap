@@ -301,7 +301,7 @@ def compare(runs, arms):
                 out.append(f"| {a} / {b} | {lvl} | {len(sh)} | {fa} / {fb} | {ia:,} / {ib:,} | "
                            f"{ia / ib if ib else float('nan'):.2f} |")
     out.append("")
-    for ref in ("base", "baseship"):
+    for ref in ("base", "baseship", "fast"):
         if ref in tot:
             for a in arms:
                 if a != ref:
