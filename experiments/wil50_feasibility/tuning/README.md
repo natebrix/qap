@@ -668,3 +668,34 @@ Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
 `QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
 QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1
 QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32 DNN_R32_NONCERT=1`.
+
+### Nov 6: the Nov 6 levers on nug30, provisional (`refine/nug30_nov6_*_j8_m2pro.log`)
+
+Binary at 3530720 (all Nov 6 switches), 8 workers, the Nov 5 recipe plus
+the wil50 levers of the day: the crossing certificate and the core
+switches (`DNN_ADMM_CROSS=2 DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1
+DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1`, "xcore"), then a warm-child beta
+on top (`DNN_BETA_SCHED=w=F`). nug30 already runs base beta 0.21 m/3 at
+every node, which is wil50's old warm beta, so w=0.36 puts nug30's warm
+children at wil50's wlowc beta (0.075 m/3) and w=0.25 goes below it.
+
+**The laptop was loaded during all four runs** (1Password helper at 100%
+of a core, Zoom, load average 15): the control reproduces the Nov 5 tree
+exactly (3,820 nodes) but takes 1,950 CPU s instead of 1,593. The runs are
+comparable with each other, not with the record. Rerun on a quiet machine
+before any number here is called a record.
+
+| run | nodes / DNN fathomed | tasks | CPU | per node | wall |
+|---|---|---|---|---|---|
+| control (Nov 5 recipe) | 3,820 / 3,678 | 327 | 1,950 s | 0.511 s | 335 s |
+| + cross + core | 3,844 / 3,701 | 334 | 1,691 s (0.87x) | 0.440 s (0.86x) | 284 s |
+| + cross + core + w=0.36 | 3,934 / 3,788 | 352 | 1,567 s (0.80x) | 0.398 s (0.78x) | 267 s |
+| + cross + core + w=0.25 | 3,989 / 3,841 | 314 | 1,662 s (0.85x) | 0.417 s (0.82x) | 297 s |
+
+- The warm beta grows the tree: +3% nodes at w=0.36, +4.4% at w=0.25 (a
+  few give-up decisions move, as on every per-node change so far). The
+  per-node saving outweighs it at 0.36 and only just at 0.25.
+- Read against the record: if the ratios hold on a quiet machine, the
+  stacked levers put nug30 near 1,250-1,400 CPU s (0.80-0.87x of 1,593).
+  Noise in this set is larger than the usual 2%, because the background
+  load varied between runs.
