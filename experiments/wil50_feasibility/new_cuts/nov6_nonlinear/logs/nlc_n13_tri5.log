@@ -1,0 +1,78 @@
+# n13_tri5 spec 21:28,8:41,28:19 m 47 file /home/user/qap/experiments/wil50_feasibility/new_cuts/grid/runs/n13_tri5.Y.bin
+## 1. residuals
+  min entry                         0.000e+00
+  max |diag - row0|                 2.669e-05
+  max |row sums of x - 1|           7.856e-04
+  max |lifted row sums - x|         3.465e-05
+  max |lifted col sums - x|         2.669e-05
+  max gangster (same cell)          0.000e+00
+  max gangster (same facility)      0.000e+00
+## 2. spectrum of Y
+  top8             [5.2445229523327725, 1.2578704778493577, 1.1228709380442246, 0.83005434846968, 0.7029324183392729, 0.6534321530652963, 0.6070777017987111, 0.5886072829164032]
+  n_above_1e_2     567
+  n_above_1e_3     966
+  min              -0.00015576393363345584
+  trace            47.99425135485864
+## 3. majorization (implied; excess <= 0 up to residuals)
+  E[XBX] vs B      {'max_top_excess': -2.877698079828406e-13, 'max_bottom_excess': 3.694822225952521e-13, 'trace_diff': -4.156675004196586e-13, 'frob_M': 222.42572963454444, 'frob_ref': 251.67439281738618}
+  E[XAX] vs A      {'max_top_excess': 1.4210854715202004e-13, 'max_bottom_excess': -8.526512829121202e-14, 'trace_diff': 8.526512829121202e-14, 'frob_M': 244.5662012240904, 'frob_ref': 259.83071411978995}
+  objective <L,Y>+shift 48715.88877825386
+## 4. partial transpose Y_xx^{T_B} (valid: -1 <= lambda <= 1) and realignment
+  lam_max            1.0000092756673684
+  lam_min            -0.8339927946021829
+  trace              46.99425135485863
+  asym               0.0
+  n_above_1          1
+  n_below_m1         0
+  top5               [1.0000092756673684, 0.8339879071932609, 0.7056892279538114, 0.6201652440427223, 0.5687267795006573]
+  bottom5            [-0.8339927946021829, -0.6201688403455626, -0.5438266866770466, -0.5308799719131083, -0.46660109578874454]
+  eig_seconds        0.9512255191802979
+  realign_sigma_max  1.0000121365361418
+  realign_sigma_2    0.9998776934296536
+## 5. k-partition clique (pigeonhole) inequalities: slack = min same-part pairs - f(t)
+  rows (5 parts, caps [9, 10, 8, 10, 10]):
+    t=6: f=1 min=1.100 slack=+0.100
+    t=7: f=2 min=1.894 slack=-0.106
+    t=8: f=3 min=2.973 slack=-0.027
+    t=9: f=4 min=4.150 slack=+0.150
+    t=10: f=5 min=5.534 slack=+0.534
+    t=11: f=7 min=7.103 slack=+0.103
+  cols (10 parts, caps [5, 4, 5, 5, 5, 5, 5, 5, 3, 5]):
+    t=11: f=1 min=1.787 slack=+0.787
+    t=12: f=2 min=2.410 slack=+0.410
+    t=13: f=3 min=3.232 slack=+0.232
+    t=14: f=4 min=4.157 slack=+0.157
+    t=15: f=5 min=5.122 slack=+0.122
+    t=16: f=6 min=6.263 slack=+0.263
+  mid5 super-cells (12 parts, caps [8, 2, 2, 7, 3, 1, 1, 3, 8, 2, 2, 8]):
+    t=13: f=1 min=3.579 slack=+2.579
+    t=14: f=2 min=4.351 slack=+2.351
+    t=15: f=3 min=5.335 slack=+2.335
+    t=16: f=4 min=6.338 slack=+2.338
+    t=17: f=5 min=7.385 slack=+2.385
+    t=18: f=6 min=8.744 slack=+2.744
+## 6. spread inequalities: slack = Dmax(k) - max over k-sets of sum E d_ij
+  Manhattan  k=3: Dmax=26 max E sum=24.861 slack=+1.139 set=[np.int64(24), np.int64(30), 42]
+  Manhattan  k=4: Dmax=52 max E sum=46.718 slack=+5.282 set=[6, np.int64(8), 20, np.int64(42)]
+  Manhattan  k=5: Dmax=78 max E sum=74.030 slack=+3.970 set=[6, np.int64(14), np.int64(20), 25, 42]
+  rows only  k=3: Dmax=8 max E sum=7.626 slack=+0.374 set=[np.int64(24), np.int64(42), 43]
+  rows only  k=4: Dmax=16 max E sum=14.410 slack=+1.590 set=[np.int64(24), 31, 37, 42]
+  rows only  k=5: Dmax=24 max E sum=22.461 slack=+1.539 set=[17, np.int64(24), 30, 37, np.int64(42)]
+  cols only  k=3: Dmax=18 max E sum=17.640 slack=+0.360 set=[24, np.int64(31), 42]
+  cols only  k=4: Dmax=36 max E sum=33.371 slack=+2.629 set=[np.int64(6), 20, 25, 42]
+  cols only  k=5: Dmax=54 max E sum=52.322 slack=+1.678 set=[np.int64(6), 14, np.int64(20), 25, 42]
+## 7. regional triangle max violation per threshold
+  row<1   cap  9 max +0.0305
+  row<2   cap 19 max +0.0305
+  row<3   cap 27 max +0.0628
+  row<4   cap 37 max +0.0262
+  col<1   cap  5 max +0.0316
+  col<2   cap  9 max +0.0241
+  col<3   cap 14 max +0.0282
+  col<4   cap 19 max +0.0370
+  col<5   cap 24 max +0.0449
+  col<6   cap 29 max +0.0325
+  col<7   cap 34 max +0.0311
+  col<8   cap 39 max +0.0249
+  col<9   cap 42 max +0.0267
+# done in 8.9 s
