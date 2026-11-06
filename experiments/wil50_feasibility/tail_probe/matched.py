@@ -50,7 +50,7 @@ D = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, D)
 import tail_probe as tp  # noqa: E402
 
-ARM_ORDER = ("base", "baseship", "full", "fullwide", "equip3", "equip150", "equip150r2")
+ARM_ORDER = ("base", "baseship", "full", "fullwide", "equip3", "equip150", "equip150r2", "fast", "wlowc", "wtwo")
 
 
 def node_keys(path):

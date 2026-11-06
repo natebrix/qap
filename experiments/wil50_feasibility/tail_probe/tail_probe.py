@@ -64,7 +64,9 @@ ARMS = {"base": {}, "baseship": {"QAP_DNN_SHIP": "16"}, "full": FULL,
         # fp32 rank term off certificate iterations, the two-phase cold beta, and the
         # warm-call beta at 0.7 (fast) or 0.25 for children with cut rounds at 0.7 (wlowc)
         "fast": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.7"),
-        "wlowc": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.25,wc=0.7")}
+        "wlowc": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.25,wc=0.7"),
+        # wtwo: fast's children on the two-phase warm beta (pipeline_ab run_pair.sh wtwo, Nov 6)
+        "wtwo": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.7", DNN_ADMM_WARM_BETA="0.25:60:0.7")}
 
 
 def run_task(args, env, path_in, level, tag, wd, spec=None):

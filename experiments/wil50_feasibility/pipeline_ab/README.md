@@ -596,3 +596,63 @@ Three runs for the laptop on a tree with `cut_round` in `DNN_ADMM_WARM_BETA`
    (the arms `fast` and `wlowc` are in `tail_probe.py` since Nov 6): whether
    the warm beta's lost marginal fathom is a pattern at levels 5-6, where the
    levers act.
+
+### Run 1 (laptop, Nov 6, 11:18-11:41): `best bestcore` on the fixed binary, all three pass
+
+`PAB_RUNS=runs_wfix run_pair.sh best bestcore`, binary 4f4198c, 3 slots
+each, in the directory of the fixed `fast wlowc` (`summarize.py runs_wfix`
+compares all four).
+
+| arm | nodes / fathomed | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|
+| fast | 232 / 227 | 18,790 (13,330 + 5,460) | 3,227 | 172 ms | 1,463 |
+| wlowc | 277 / 271 | 16,270 (10,070 + 6,200) | 3,052 | 188 ms | 1,403 |
+| best (wlowc + `DNN_ADMM_CROSS=2`) | 277 / 271 | 15,943 (9,743 + 6,200) | 2,983 | 187 ms | 1,351 |
+| bestcore (best + the core switches) | 277 / 271 | 15,963 (9,763 + 6,200) | 2,777 | 174 ms | 1,251 |
+
+- **Crossing certificate, `best` against `wlowc`: 1.021x in iterations and
+  1.023x in DNN CPU on the 277 matched nodes. Kill line 1.02x: PASS, just.**
+  Smaller than the 1.035x / 1.040x it gave on top of the 0.7 children
+  (above): with the children already fathoming in 1.6x fewer iterations
+  there are fewer checks to save. Same tree, phases identical.
+- **Core switches, `bestcore` against `best`: 1.074x in DNN CPU (187 to
+  174 ms per iteration), 0.999x in iterations. Kill line 1.05x: PASS**,
+  the third measurement after 1.082x and 1.102x.
+- **Stacked, `bestcore` against `fast`: 1.257x in iterations and 1.231x in
+  DNN CPU on the 232 matched nodes; end to end 1.177x and 1.162x** (the
+  marginal fathom lost by the 0.25 children, 45 extra nodes, is still the
+  gap between the two). This is the Nov 6 production candidate's measured
+  gain over the Nov 5 one on this subtree.
+
+### Run 2 (laptop, Nov 6, 11:42-12:08): `wtwo wlowc`, the two-phase warm beta keeps the fathom
+
+`PAB_RUNS=runs_wtwo run_pair.sh wtwo wlowc`, binary 4f4198c, 3 slots each,
+fresh directory (`runs_wtwo/`): `wtwo` is `fast`'s environment plus
+`DNN_ADMM_WARM_BETA=0.25:60:0.7` (a child's own warm solve at 0.25 until the
+first refresh at or after iteration 60, then 0.7; cut rounds at 0.7).
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|
+| wlowc | 277 / 271 | 6 (0) | 16,270 (10,070 + 6,200) | 2,999 | 185 ms | 1,492 |
+| wtwo | 232 / 227 | 6 (1) | 15,040 (9,400 + 5,640) | 2,813 | 187 ms | 1,446 |
+
+- **Kill line 1.02x in DNN CPU on the matched nodes: FAIL as written,
+  1.002x** (1.011x in iterations on the 232 matched nodes). **End to end
+  1.082x in iterations and 1.066x in CPU**, all of it the marginal fathom:
+  the depth-5 node `0:25 ...` that `wlowc`'s phase left at 48,813.9 is
+  closed by `wtwo`'s at 48,814.2 (phase 1,440 iterations against 1,600, as
+  under `fast`), and its 45 children are gone. The tree is `fast`'s, node
+  for node (232, 6 phases, 1 fathomed by a phase).
+- **Against `fast`: 1.249x in iterations on the same 232 nodes
+  (18,790 to 15,040), 1.147x in DNN CPU.** So on this subtree `wtwo` gives
+  the children `wlowc`'s gain (first solves 13,330 to 9,400, 1.42x) and
+  hands the phases a state like `fast`'s (phases 5,460 to 5,640, against
+  `wlowc`'s 6,200), which is what the switch was designed to do.
+- **Reading.** Per node the two warm betas are the same (1.002x); the
+  difference is one phase on the cutoff and the 45 nodes behind it. One
+  node cannot carry a production decision, so the node-5 tail probe (run 3)
+  runs all three arms, `fast`, `wlowc` and `wtwo`, with `wtwo` added to
+  `tail_probe.py` for it: at levels 5-6, where the children are many and
+  the phases rare, the matched comparison says whether `wtwo`'s children
+  keep up with `wlowc`'s and whether marginal phases go one way or the
+  other.
