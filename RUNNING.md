@@ -15,8 +15,9 @@ make          # from the repo root: builds latest/bnbdrv (same as cd latest && m
 make test     # brute-force tests + regression check (see "Correctness checks")
 ```
 
-To build with clang instead: `make CPP=clang++ CC=clang` (`latest/makefile`
-calls the C++ compiler `CPP`). gcc and clang builds give the same results.
+To compile the solver with clang instead: `make CPP=clang++` (`latest/makefile`
+calls the C++ compiler `CPP`). clang 18 crashes on `latest/amx_gemm.c` (an
+LLVM bug with the AMX/bf16 flags), so `CC=clang` works only with `DNN=0`.
 The solver no longer needs the Meschach library that used to be in
 `src/MESCHACH/` (`docs/meschach_removal.md`): its matrix storage is
 `latest/mat.h` and its eigensolver `latest/symeig.C`.

@@ -10,7 +10,10 @@ CF = -O3 -march=native -ffp-contract=off
 
 # -MMD -MP: each .o gets a .d file listing the headers it includes, so make
 # rebuilds it when one changes (a stale object after a header change crashes)
-CFLAGS = $(CF) -DBNB_STANDALONE -MMD -MP
+# -Wno-register: some loops still declare `register` variables, which C++17
+# dropped; g++ only warns, clang++ (make CPP=clang++) stops without this.
+# It changes no generated code.
+CFLAGS = $(CF) -Wno-register -DBNB_STANDALONE -MMD -MP
 
 # The DNN bound (dnn.C; bnbdrv -x) needs LAPACK, found as described at
 # the dnntest target below. Build without it: make DNN=0.
