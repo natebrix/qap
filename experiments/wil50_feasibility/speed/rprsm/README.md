@@ -72,7 +72,8 @@ were checked against Algorithm 3.1:
 
 Not merged into the branch's `latest/dnn.C`: the idea is killed, so the
 solver change is kept as `dnn_rprsm.patch` (the diff against a955e95; `git
-apply` it there to rebuild the switch).
+apply` it there to rebuild the switch). The full commits are also on the branch
+`research/rprsm` (the switch `c609631`, the study `f23a3c1`).
 
 | bit | piece | how |
 |---|---|---|

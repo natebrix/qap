@@ -164,7 +164,8 @@ criterion, it fathoms later and needs more iterations. Error-neutral rules
 These are not in the branch's `latest/dnn.C`. Both ideas are dead, so the
 solver change is kept as `dnn_cheb_col.patch`, the diff against a955e95
 (`git apply` it to a955e95's `latest/dnn.C` to rebuild the dump or the
-per-column filter).
+per-column filter). The full commits are also on the branch
+`research/cs2` (the switches `ad03468`, the study `73188a7`).
 
 | switch | what |
 |---|---|
