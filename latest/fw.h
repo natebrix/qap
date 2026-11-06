@@ -80,8 +80,7 @@ const int NO_FATHOM =  0;
 const int CONTINUE  =  1;
 const int MAX_ITER  =  2;
 
-#include "meschach.h"
-#undef catch
+#include "mat.h"
 #include "lap.h"
 #include "dlap.h"
 

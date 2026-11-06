@@ -2,10 +2,9 @@
 ============================================================
   Linear-algebra-type stuff goes here.
 
-  Basically, lower-level functions that operate on Meschach
-  data structures like MAT and VEC go here.  Exception:
-  the singular value decomposition routine and dependencies
-  are in svd.C.
+  Basically, lower-level functions that operate on the MAT
+  and VEC data structures (mat.h) go here.  The symmetric
+  eigendecomposition behind my_svd is in symeig.C.
 
 ============================================================
 */
@@ -13,8 +12,7 @@
 #ifndef LINALG_H
 #define LINALG_H
 
-#include "meschach.h"
-#undef catch
+#include "mat.h"
 
 // trace a*b'
 inline double mm_trace(MAT *a,MAT *b)

@@ -12,10 +12,10 @@ Standard form for QAP:
 
 The QAP structure simply holds matrices A, B, C, which 
 are of type MAT *.  MAT is a matrix data structure defined
-in the Meschach library -- see the Meschach library for
-details.  If A is of type MAT *, then A->m and A->n give
-the dimensions of the matrix, and A->me[i][j] is the (i,j)
-component of A.
+in mat.h (it keeps the Meschach library's MAT, which the
+solver used to link).  If A is of type MAT *, then A->m and
+A->n give the dimensions of the matrix, and A->me[i][j] is
+the (i,j) component of A.
 
 ============================================================
 */
@@ -23,8 +23,7 @@ component of A.
 #ifndef QAP_H
 #define QAP_H
 
-#include "meschach.h"
-#undef catch
+#include "mat.h"
 #include <string>
 
 class QAP

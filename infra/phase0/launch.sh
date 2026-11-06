@@ -109,9 +109,9 @@ SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values="$VPC" Name=defa
 
 # --- the source: the committed tree, the parts the build, the gates and the benchmark use
 COMMIT=$(git -C "$R" rev-parse --short HEAD)
-git -C "$R" diff --quiet HEAD -- latest src infra/phase0 || say "warning: uncommitted changes in latest/, src/ or infra/phase0/ are not uploaded; the instances build $COMMIT"
+git -C "$R" diff --quiet HEAD -- latest infra/phase0 || say "warning: uncommitted changes in latest/ or infra/phase0/ are not uploaded; the instances build $COMMIT"
 TAR=$L/qap-$COMMIT.tar.gz
-git -C "$R" archive --format=tar.gz -o "$TAR" HEAD Makefile src latest qaplib QAPSOLN tests bench coord experiments/dnn_bound \
+git -C "$R" archive --format=tar.gz -o "$TAR" HEAD Makefile latest qaplib QAPSOLN tests bench coord experiments/dnn_bound \
   experiments/wil50_feasibility/tuning/giveup/all32.txt experiments/wil50_feasibility/speed/r32_noncert/runs infra/phase0
 SRC=src/qap-$COMMIT.tar.gz
 say "uploading $(du -h "$TAR" | cut -f1) to s3://$B/$SRC"

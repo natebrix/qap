@@ -3,11 +3,60 @@
 What it would take to remove the Meschach matrix library (`src/MESCHACH/`)
 from the branch-and-bound solver in `latest/`: what the solver uses, what
 replaces each piece, what that does to node counts, how much time Meschach
-takes, and a staged plan. Research only: nothing in `latest/` or `src/` was
-changed. Prototypes and measurement logs are in
+takes, and a staged plan. The report (sections 1 to 5) was written before
+any of it was done, as research that changed nothing in `latest/` or `src/`.
+Prototypes and measurement logs are in
 [`docs/meschach_removal/`](meschach_removal/).
 
-**Status (Nov 6): stages 0 and 1 are done.** Stage 1: `my_svd` calls
+**Status (Nov 6): stages 0 to 3 are done, and Meschach is gone.** Stages 2
+and 3: `latest/mat.h` and `latest/mat.C` keep Meschach's `MAT` and `VEC`
+(same fields and row layout) and the ten functions the solver called
+(`m_get`, `m_resize`, `m_free`, `m_zero`, `_m_copy`, `v_get`, `v_resize`,
+`v_free`, `_v_copy`, `_in_prod`, plus the `m_copy`, `v_copy`, `in_prod`,
+`M_FREE` and `V_FREE` macros), with Meschach's semantics. Its `error()`
+cases now abort with a message. `PERM` in `init_ST` and `init_w0` became an
+`int` array and `permrows`. `latest/svd.C` (dead code), `latest/meschach.h`
+and `src/MESCHACH/` (107 files) are deleted. No makefile builds or links
+Meschach any more. `bench.py` still builds it for `--rev` of an older commit.
+`mat.h`, `mat.C`, `symeig.C` and `linalg.C` (`my_m_mlt` and `my_mtrm_mlt`
+are modified copies of Meschach's) carry Meschach's copyright notice, as it
+requires. Measured [M, logs in [`meschach_removal/stage23/`](meschach_removal/stage23/)]:
+
+- Machine code: with g++ 13 and with clang 18, every object except `qpbnd.o`
+  and `qpbnd2.o` disassembles exactly as at afe99db. In those two files only
+  `init_ST` and `init_w0` (the `PERM` change) differ, with the same
+  floating-point instructions as before (`objcompare_gcc.txt`,
+  `objcompare_clang.txt`).
+- `mat.C` against Meschach: identical state (sizes, `max_*` fields, row
+  layout, every entry) after each of 3.2M random operations
+  (`mat_difftest.txt`). One Meschach bug is not reproduced. Resizing a
+  matrix that never had a row to 0 rows and more columns wrote past its
+  storage (valgrind). `mat.C` skips that write, which changes no entry.
+- Results: the standard suite matches `bench/reference/` exactly on all 19
+  instances, built with g++ and with clang++. On every `tests/brute_force.py`
+  case, 4,536 runs per seed, the solver's whole output is byte for byte
+  afe99db's, CPU times aside: the g++ build with seeds 1 to 3 and with
+  seed 1 and `-x 0:20`, the clang++ build with seed 1, with and without
+  `-x 0:20` (`bf_compare*.txt`). `make test`, `dnncheck`, `shipcheck` and
+  `continuationcheck` pass (`continuationcheck` prints exactly afe99db's
+  line), and brute force with seeds 2 and 3 passes 4,536 of 4,536. These
+  gates and the timing ran at 00912a6; the `-Wno-register` commit after it
+  leaves every object identical.
+- ASan and UBSan, with both commits instrumented (Meschach included): no
+  report on the quick suite or on brute force at sizes 4 to 6, on either
+  side (`sanitize.txt`).
+- Clean builds from `git archive` succeed with g++, with clang++
+  (`make CPP=clang++`), and with a PATH that holds only `make` and `g++`
+  (`DNN=0`; the default DNN build also needs `cc` for `amx_gemm.c`)
+  (`clean_build.txt`). clang++ needed `-Wno-register`, now in
+  `latest/makefile`; this was already so before the removal, and the flag
+  changes no object. clang 18 itself crashes on `amx_gemm.c`, also at afe99db,
+  so `CC=clang` works only with `DNN=0`.
+- Time on the standard suite: geometric mean 1.000, nodes 1.000
+  (`bench/LOG.csv`, `timing_compare.txt`). `bench.py run --rev afe99db`
+  still builds Meschach and runs (`oldrev_quick.txt`).
+
+**Stage 1 (Nov 6).** `my_svd` calls
 `sym_eig` (`latest/symeig.C`, this report's `eig_port.C` with thread-local work
 space) instead of Meschach's `Hfactor`, `makeHQ`, `trieig` and `m_transp`.
 No results change: all 19 standard-suite instances match `bench/reference/`
@@ -464,7 +513,14 @@ node count, and ties QPB results to the BLAS build.
   [`my_svd_lapack.C`](meschach_removal/my_svd_lapack.C)) and
   [`build_port.sh`](meschach_removal/build_port.sh): the scratch builds.
   Each copies `latest/` and `src/MESCHACH/` to a destination directory and
-  leaves the checkout alone.
+  leaves the checkout alone, so since stage 3 they need a checkout of an
+  older commit (afe99db or before).
 - [`ratio.py`](meschach_removal/ratio.py): node ratios against
   `bench/reference`.
 - [`logs/`](meschach_removal/logs/): every run quoted above.
+- [`stage23/`](meschach_removal/stage23/): the stage 2 and 3 checks and
+  their logs. `objcompare.sh` (with `objdiff.sh`, `fndiff.py` and
+  `fpops.py`) compares the machine code of two builds.
+  `mat_difftest.C`/`.sh` runs `mat.C` against Meschach. `bf_compare.py`
+  compares two solvers' outputs on the brute-force cases. `clean_build.sh`
+  and `sanitize.sh` do the clean builds and the sanitizer runs.

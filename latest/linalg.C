@@ -183,14 +183,46 @@ void my_nice_m_output(MAT *X,char *title,int m,int n)
 
 (basically the meschach m_mlt routine, with the call to __mltadd__
 replaced with its definition, and some of the error-check code
-removed)
+removed; my_mtrm_mlt below is Meschach's mtrm_mlt, likewise)
+
+These two are modified copies of routines of the Meschach Library
+(David E. Stewart and Zbigniew Leyk; matop.c and machine.c), whose
+copyright notice follows. As it requires, this is a notice of the
+last modification: copied into this solver (Nathan Brixius's QAP
+branch and bound, github.com/natebrix/qap) and modified as above
+by Nathan Brixius; this notice was added on 6 November 2026, when
+the library itself was removed from the repository.
+
+**************************************************************************
+**
+** Copyright (C) 1993 David E. Steward & Zbigniew Leyk, all rights reserved.
+**
+**			     Meschach Library
+**
+** This Meschach Library is provided "as is" without any express
+** or implied warranty of any kind with respect to this software.
+** In particular the authors shall not be liable for any direct,
+** indirect, special, incidental or consequential damages arising
+** in any way from use of the software.
+**
+** Everyone is granted permission to copy, modify and redistribute this
+** Meschach Library, provided:
+**  1.  All copies contain this copyright notice.
+**  2.  All modified copies shall carry a notice stating who
+**      made the last modification and the date of such modification.
+**  3.  No charge is made for this software or works derived from it.
+**      This clause shall not be construed as constraining other software
+**      distributed on the same medium as this software, nor is a
+**      distribution fee considered a charge.
+**
+***************************************************************************
 
 ========================================================================
 */
 MAT	*my_m_mlt(MAT *A,MAT *B,MAT *OUT)
 {
-	u_int	i, k, m, n, p;
-	Real	**A_v, **B_v /*, *B_row, *OUT_row, sum, tmp */;
+	unsigned int	i, k, m, n, p;
+	double	**A_v, **B_v /*, *B_row, *OUT_row, sum, tmp */;
 
 	m = A->m;	n = A->n;	p = B->n;
 	A_v = A->me;		B_v = B->me;
@@ -366,7 +398,7 @@ MAT *mtvm_mlt(MAT *A, VEC *b, MAT *R)
 // permute rows of A, storing them in OUT.
 void permrows0(MAT *A,int *p,MAT *OUT)
 {
-  u_int i,j;
+  unsigned int i,j;
 
   for(i=0;i<A->m;i++)
     for(j=0;j<A->n;j++)
@@ -390,7 +422,7 @@ void permrows(MAT *A,int *p,MAT *OUT)
 // permute cols of A, storing them in OUT.
 void permcols_old(MAT *A,int *p,MAT *OUT)
 {
-  u_int i,j;
+  unsigned int i,j;
 
   for(i=0;i<A->m;i++)
     for(j=0;j<A->n;j++)
@@ -401,7 +433,7 @@ void permcols_old(MAT *A,int *p,MAT *OUT)
 void permcols(MAT *A,int *p,MAT *OUT)
 {
   register double *op,*op2;
-  register u_int i,j;
+  register unsigned int i,j;
   
   op2 = A->me[0];
   for(i=0;i<A->m;i++) {

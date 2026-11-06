@@ -1,0 +1,58 @@
+make -C latest
+make[1]: Entering directory 'latest'
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make[1]: Leaving directory 'latest'
+python3 tests/brute_force.py
+168 instances x 9 params x 3 upper-bound modes = 4536 solver runs (seed 1, files in /tmp/qap-bf-fs2erjvu)
+
+4536/4536 passed
+python3 tests/resume_test.py
+ok   nug15: 10 slices, nodes 1964 / 1278 / 2, objective 1150
+ok   had14: 3 slices, nodes 370 / 211 / 0, objective 2724
+ok   tai12b: 8 slices, nodes 1884 / 1089 / 23, objective 39464925
+ok   chr12a: 3 slices, nodes 1129 / 691 / 2, objective 9552
+ok   nug14: 18 slices, nodes 5720 / 3628 / 94, objective 1014
+
+5/5 resume cases identical
+python3 tests/parallel_test.py
+ok   nug15 --ub opt: serial 1964 / 1278 / 2, fw 271227; parallel 1964 / 1278 / 2, fw 271227
+ok   tai12b --ub opt: serial 1884 / 1089 / 23, fw 299892; parallel 1884 / 1089 / 23, fw 299892
+ok   had14 --ub opt: serial 370 / 211 / 0, fw 77250; parallel 370 / 211 / 0, fw 77250
+ok   nug14 no upper bound: found 1014.0, optimum 1014
+ok   tai12b no upper bound: found 39464925.0, optimum 39464925
+ok   nug16a interrupted and resumed: serial 9867 / 6969 / 0, fw 999183; resumed 9867 / 6969 / 0, fw 999183
+
+all parallel checks passed
+python3 tests/coord_test.py
+serial: nodes (47528, 35161, 0), fw 3176173
+normal     ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 62, retried 0 (0 from a checkpoint), returned 33
+kill9      ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (14 s)  units 59, retried 3 (0 from a checkpoint), returned 35
+kill9ckpt  ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (12 s)  units 17, retried 3 (3 from a checkpoint), returned 0
+coordkill  ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (11 s)  units 73, retried 0 (0 from a checkpoint), returned 37
+crash_marked ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 68, retried 0 (0 from a checkpoint), returned 35
+crash_applied ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 65, retried 0 (0 from a checkpoint), returned 35
+crash_saving ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 70, retried 0 (0 from a checkpoint), returned 38
+drain      ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (14 s)  units 70, retried 0 (0 from a checkpoint), returned 38
+noub       ok  nodes (114310, 84697, 493) fw 5334667 best 1732.0  (21 s)  units 78, retried 0 (0 from a checkpoint), returned 55
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import boto3, moto
+ModuleNotFoundError: No module named 'boto3'
+aws: skipped (Command '['/usr/bin/python3', '-c', 'import boto3, moto']' returned non-zero exit status 1.)
+all coordinator scenarios passed
+python3 bench/bench.py check
+     nug12: ok       nodes=       246  time=    0.132s  wall=0.14s
+     nug14: ok       nodes=      2179  time=    1.183s  wall=1.19s
+     nug15: ok       nodes=      1964  time=    0.934s  wall=0.95s
+    nug16b: ok       nodes=      3187  time=    1.190s  wall=1.20s
+     had12: ok       nodes=       114  time=    0.093s  wall=0.10s
+     had14: ok       nodes=       370  time=    0.241s  wall=0.25s
+     had16: ok       nodes=      3251  time=    2.619s  wall=2.66s
+
+wrote bench/results/check-20261106-004600/  (7 instances, 0 not ok)
+
+regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
+
+real	3m8.842s
+user	4m4.338s
+sys	0m7.281s

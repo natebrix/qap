@@ -1,0 +1,22 @@
+mat.C: g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, -O3 -march=native -ffp-contract=off; Meschach: g++ -O2 test driver, meschach.a from <afe99db tree, built with make>/src/MESCHACH
+seed 1: 400000 operations (239 skipped), outputs identical, 44732625 bytes, md5 c6d639f97cff / c6d639f97cff
+seed 2: 400000 operations (217 skipped), outputs identical, 44608802 bytes, md5 81cf831599f5 / 81cf831599f5
+seed 3: 400000 operations (225 skipped), outputs identical, 44973464 bytes, md5 69795de6784a / 69795de6784a
+seed 4: 400000 operations (209 skipped), outputs identical, 44891109 bytes, md5 25842dddcc85 / 25842dddcc85
+seed 5: 400000 operations (222 skipped), outputs identical, 44734682 bytes, md5 cf6d617718e7 / cf6d617718e7
+seed 6: 400000 operations (196 skipped), outputs identical, 44656792 bytes, md5 e5d0f7040538 / e5d0f7040538
+seed 7: 400000 operations (199 skipped), outputs identical, 44853655 bytes, md5 ad884745f841 / ad884745f841
+seed 8: 400000 operations (240 skipped), outputs identical, 44714782 bytes, md5 40c441cc5b07 / 40c441cc5b07
+mat.C built by clang++ -O3 -march=native -ffp-contract=off (Ubuntu clang version 18.1.3 (1ubuntu1)):
+  seed 1: identical
+  seed 2: identical
+  seed 3: identical
+valgrind --leak-check=full t_mes 1 20000:
+     definitely lost: 480 bytes in 30 blocks
+     indirectly lost: 0 bytes in 30 blocks
+  ERROR SUMMARY: 4 errors from 4 contexts (suppressed: 0 from 0)
+valgrind --leak-check=full t_mat_vg 1 20000:
+     definitely lost: 480 bytes in 30 blocks
+     indirectly lost: 0 bytes in 30 blocks
+  ERROR SUMMARY: 4 errors from 4 contexts (suppressed: 0 from 0)
+  (outputs identical; the lost blocks are VECs made by v_get(0), which v_resize and v_copy replace rather than resize, in both)

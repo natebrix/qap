@@ -3,8 +3,7 @@
 
 #include <iostream>
 #include <string>
-#include "meschach.h"
-#undef catch
+#include "mat.h"
 #include "qap.h"
 #include "util.h"
 

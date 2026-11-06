@@ -1,0 +1,23 @@
+# sh docs/meschach_removal/stage23/sanitize.sh <afe99db archive> <HEAD archive> WORKDIR, under taskset -c 0,1
+old: built with CF="-O1 -march=native -ffp-contract=off -fsanitize=address,undefined -fno-omit-frame-pointer -g", Meschach with the same sanitizers
+new: built with CF="-O1 -march=native -ffp-contract=off -fsanitize=address,undefined -fno-omit-frame-pointer -g"
+== old: quick suite (bench.py check --tree)
+   regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
+   ASan report files: 0
+   solver logs with a UBSan/ASan message (7 logs in bench/results/check-...): 0
+== old: brute force --sizes 4-6 --count 2 --jobs 2, UBSan fatal
+   648/648 passed
+   ASan report files: 0
+== new: quick suite (bench.py check --tree)
+   regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
+   ASan report files: 0
+   solver logs with a UBSan/ASan message (7 logs in bench/results/check-...): 0
+== new: brute force --sizes 4-6 --count 2 --jobs 2, UBSan fatal
+   648/648 passed
+   ASan report files: 0
+== positive control, same flags and options (leakctl.C, linked with mat.C: a leaked m_get, a signed overflow, and with an argument a write past an m_get matrix):
+   report file: SUMMARY: AddressSanitizer: 136 byte(s) leaked in 3 allocation(s).
+   report file: SUMMARY: AddressSanitizer: heap-buffer-overflow leakctl.C:12 in main
+   stderr: leakctl.C:10:29: runtime error: signed integer overflow: 1 + 2147483647 cannot be represented in type 'int'
+   exit status: 1 (leak), 1 (heap overflow), 1 (UB with halt_on_error=1)
+== instrumented: __asan/__ubsan symbols in old bnbdrv 16, new bnbdrv 16; __asan references in the old Meschach memory.o: 10

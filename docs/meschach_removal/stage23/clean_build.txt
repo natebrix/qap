@@ -1,0 +1,37 @@
+# git archive -o head.tar HEAD (cf4a6ca); sh docs/meschach_removal/stage23/clean_build.sh head.tar clean
+== gcc: make , then make -C latest  dnntest dnncontinuation dnncuts
+   src/ present: no
+   build ok
+   warnings: 7, errors: 0
+   compiler invocations:  1 cc , 29 g++ ,
+   lines mentioning meschach in the build log: 0
+   built: latest/bnbdrv
+   built: latest/dnntest
+   built: latest/dnncontinuation
+   built: experiments/dnn_cuts/dnncuts
+   bnbdrv links: linux-vdso.so.1 libscipy_openblas.so libstdc++.so.6 libm.so.6 libgcc_s.so.1 libc.so.6 libpthread.so.0 /lib64/ld-linux-x86-64.so.2 
+== clang: make CPP=clang++, then make -C latest CPP=clang++ dnntest dnncontinuation dnncuts
+   src/ present: no
+   build ok
+   warnings: 13, errors: 0
+   compiler invocations:  1 cc , 29 clang++ ,
+   lines mentioning meschach in the build log: 0
+   built: latest/bnbdrv
+   built: latest/dnntest
+   built: latest/dnncontinuation
+   built: experiments/dnn_cuts/dnncuts
+   bnbdrv links: linux-vdso.so.1 libm.so.6 libscipy_openblas.so libstdc++.so.6 libgcc_s.so.1 libc.so.6 /lib64/ld-linux-x86-64.so.2 libpthread.so.0 
+== clang_cc_dnn0: make CPP=clang++ CC=clang DNN=0
+   src/ present: no
+   build ok
+   warnings: 13, errors: 0
+   compiler invocations:  23 clang++ ,
+   lines mentioning meschach in the build log: 0
+   built: latest/bnbdrv
+   bnbdrv links: linux-vdso.so.1 libm.so.6 libstdc++.so.6 libgcc_s.so.1 libc.so.6 /lib64/ld-linux-x86-64.so.2 
+== expected failure, as at afe99db: make CPP=clang++ CC=clang (DNN=1)
+   fails: fatal error: error in backend: Cannot select compiling amx_gemm.c
+== PATH with only: as g++ ld make rm sh uname 
+   make DNN=0: build ok, bnbdrv links libstdc++.so.6 libm.so.6 libgcc_s.so.1 libc.so.6 
+   make (DNN=1): stops at amx_gemm.c, which needs a C compiler: make[1]: cc: No such file or directory
+   make (DNN=1) with cc added: build ok, bnbdrv links liblapack.so.3 liblapack.so.3 libblas.so.3 libblas.so.3 

@@ -5,20 +5,22 @@ instances, and compare performance between code or parameter changes.
 
 ## Build
 
-Requires `make`, `g++` and a C compiler (`cc`: gcc or clang; `CC=clang make`
-picks one). For the DNN bound (`-x`), LAPACK too (see `latest/makefile`).
+Requires `make` and `g++`. The DNN bound (`-x`), which is built by default,
+also needs LAPACK (see `latest/makefile`) and a C compiler for
+`latest/amx_gemm.c` (`cc`, which comes with g++ on the usual distributions).
+`make DNN=0` builds without the DNN bound and needs neither.
 
 ```sh
-make          # from the repo root: builds src/MESCHACH/meschach.a, then latest/bnbdrv
+make          # from the repo root: builds latest/bnbdrv (same as cd latest && make)
 make test     # brute-force tests + regression check (see "Correctness checks")
 ```
 
-Or build the two parts by hand:
-
-```sh
-cd src/MESCHACH && make basic     # builds meschach.a (old-style C warnings are expected)
-cd ../../latest && make           # builds latest/bnbdrv
-```
+To compile the solver with clang instead: `make CPP=clang++` (`latest/makefile`
+calls the C++ compiler `CPP`). clang 18 crashes on `latest/amx_gemm.c` (an
+LLVM bug with the AMX/bf16 flags), so `CC=clang` works only with `DNN=0`.
+The solver no longer needs the Meschach library that used to be in
+`src/MESCHACH/` (`docs/meschach_removal.md`): its matrix storage is
+`latest/mat.h` and its eigensolver `latest/symeig.C`.
 
 After changing solver code, run `make` again. It rebuilds whatever depends on
 the files you changed, headers included (the objects' `.d` files list them).
@@ -391,8 +393,10 @@ exactly.
 - The reference was made on an x86 Xeon, and an Apple M2 Pro matches it
   exactly (checked Nov 5). Before Nov 5 the M2 did not: Meschach was
   compiled with fused multiply-adds, which ARM always has, and nug15's root
-  QPB bound came out 984.79 against 986.55. Meschach is now built with
-  `-ffp-contract=off` (`docs/meschach_removal.md`, stage 0). Laptop node
+  QPB bound came out 984.79 against 986.55. The fix was to build Meschach
+  with `-ffp-contract=off` (`docs/meschach_removal.md`, stage 0); since
+  Nov 6 Meschach is gone and its replacements are compiled with the
+  solver's flags, `-ffp-contract=off` included. Laptop node
   counts from before Nov 5 (the nug30 record's 3,844, for one) came from
   the old build and will not reproduce exactly.
 
@@ -421,7 +425,9 @@ python3 bench/bench.py compare base mine --log --note "rule 4 uses 30 FW iterati
 
 `--rev` checks out any commit or branch under `bench/.worktrees/` (gitignored),
 builds it once, and reuses that binary on later runs. That way the baseline is
-always built and run on the same machine as the candidate. Commits from before
+always built and run on the same machine as the candidate. For a commit from
+before Meschach's removal (Nov 6), it builds `src/MESCHACH` first, with
+`MESCHACH_CC` as the C compiler if that is set. Commits from before
 the Meschach `isatty` fix (for example `master` at `16a72e8`) don't build with
 modern g++. Commits before `0aa6ed8` build, but they have the bound bugs fixed
 there, and their node counts include subtrees pruned wrongly. Use `0aa6ed8`

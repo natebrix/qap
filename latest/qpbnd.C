@@ -227,12 +227,13 @@ double init_ST(MAT *A,MAT *B,MAT *C,
 
   if (need_WU) {
     MAT *A1=MNULL, *B1=MNULL;
-    PERM *order_w,*order_u;
+    int *order_w,*order_u;
 
     /* allocate memory */
 
     w = v_get(n-1);           u = v_get(n-1);
-    order_w = px_get(n-1);    order_u = px_get(n-1);
+    order_w = new int[n-1];   order_u = new int[n-1];
+    for (int k = 0; k < n-1; k++) order_w[k] = order_u[k] = k;
 
     /* compute a1 = v'av and b1 = v'bv */
     A1 = m_get(n-1,n-1);
@@ -245,15 +246,15 @@ double init_ST(MAT *A,MAT *B,MAT *C,
     my_svd(B1,u);
     
     /* now oldA1 = A1'*diag(u)*A1, oldB1 = B1'*diag(v)*B1 */
-    ins_sort_descending(w->ve, (int *)order_w->pe, n-1);
-    ins_sort_ascending(u->ve, (int *)order_u->pe, n-1);
+    ins_sort_descending(w->ve, order_w, n-1);
+    ins_sort_ascending(u->ve, order_u, n-1);
     
-    /* adjust rows of W and U appropriately */
-    W  = px_rows(order_w,A1,MNULL);
-    U  = px_rows(order_u,B1,MNULL);
+    /* adjust rows of W and U appropriately: W[k] = A1[order_w[k]] */
+    W  = m_get(n-1,n-1);  permrows(A1,order_w,W);
+    U  = m_get(n-1,n-1);  permrows(B1,order_u,U);
 
     M_FREE(A1);  M_FREE(B1); 
-    PX_FREE(order_w);  PX_FREE(order_u);
+    delete [] order_w;  delete [] order_u;
   }
 
   s = v_get(n-1);  t = v_get(n-1);
