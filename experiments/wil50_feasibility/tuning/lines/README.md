@@ -73,3 +73,26 @@ x_ij^2) is the best line at all three parents; eccentric is 2 to 4.7x worse,
 lookahead 1.0 to 1.6x worse. Full tables and the line-score correlations are
 in ../README.md ("Branching lines at wil50 clear misses"); log
 `wil50_lines_m2pro.log`, child cache `work/`.
+
+## Deep in the tail (Nov 6-7): does rule 9 still pick the best line at levels 4-5?
+
+The study above scored lines at depth-3 parents only; the 329-405-short tail class
+carries most of the estimated work, and its cost sits at levels 4-7. `parents_tail.txt`
+(cloud) and `parents_tail2.txt` (laptop) list eight branched level-4 and level-5 nodes
+of the node-1 and node-5 subtrees, each with the line the search itself branched on
+(rule 9, third column, scored as `prod`). `--rules M,D` adds Fujii et al.'s rules
+(arXiv 2101.09629 section 5): the line whose children have the largest mean score,
+the score being the child's objective at its barycentre (M) or the child's certified
+lower bound from the parent's own certificate (D, our analogue of their dual rule).
+Production settings for the DNN runs (laptop, no AMX):
+
+    DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60 DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 \
+    DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1 OMP_NUM_THREADS=1 \
+    python3 experiments/wil50_feasibility/tuning/lines/lines.py qaplib/wil50.dat --ub 48816 \
+        --parents experiments/wil50_feasibility/tuning/lines/parents_tail2.txt \
+        --work experiments/wil50_feasibility/tuning/lines/work_tail2 --jobs 8 --random 1 \
+        --rules M,D --dnn-flags "-T 1 -d 3 -L 2 -g 1.0 -G 1.0 -r 40" \
+        > experiments/wil50_feasibility/tuning/lines/wil50_tail2_lines.log 2>&1
+
+(the cloud adds `DNN_AMX=1 DNN_CHOLQR_PASSES=1` and runs `parents_tail.txt` into
+`work_tail`). Results to follow.
