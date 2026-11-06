@@ -4,7 +4,8 @@
 
     eigport_test DUMPFILE [REPS]
 
-  Build from the repo root:
+  Build from the root of a checkout of 7b49d09 (it needs Meschach, removed
+  from the branch on Nov 6; run make there first):
     g++ -O3 -march=native -ffp-contract=off -Isrc/MESCHACH \
       docs/meschach_removal/eigport_test.C docs/meschach_removal/eig_port.C \
       -o eigport_test src/MESCHACH/meschach.a -lm

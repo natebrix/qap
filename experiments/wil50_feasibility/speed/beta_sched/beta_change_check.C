@@ -11,12 +11,11 @@
 // Exact eigensolvers (dsyevd, ssyevd): scheduled and split must agree to
 // 1e-12 in Y and Z and in the best certified bound. Subspace tracking with
 // force=1 (refresh at the change): reported. Every bound must be <= the optimum.
-// Build from latest/ (after make dnntest):
-//   g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -DHAVE_DNN -I. -I../src/MESCHACH \
-//     ../experiments/wil50_feasibility/speed/beta_sched/beta_change_check.C qpbnd.o qpbnd2.o lap.o \
-//     dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o \
-//     sa_qap.o stats.o console.o lgb_train.o state.o dnn.o dnncut.o amx_gemm.o -o beta_change_check \
-//     -lm ../src/MESCHACH/meschach.a <the DNN_LAPACK flags of latest/makefile>
+// Build from latest/ (after make dnntest), with latest/makefile's own objects,
+// flags and libraries, so the command fits any commit, with Meschach or without:
+//   echo 'beta_change_check: $(OBJS) $(DNN_OBJ) ; $(CPP) $(CFLAGS) -I. $(INCLUDES) ../experiments/wil50_feasibility/speed/beta_sched/beta_change_check.C $(OBJS) $(DNN_OBJ) -o $@ $(LDLIBS) $(DNN_LAPACK)' \
+//     | make -f makefile -f - beta_change_check
+//   ./beta_change_check     (Nov 6, after Meschach's removal: output identical to beta_change_check.out)
 #include "dnn.h"
 #include <algorithm>
 #include <cmath>

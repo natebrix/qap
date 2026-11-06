@@ -496,6 +496,12 @@ node count, and ties QPB results to the BLAS build.
 
 ## Files
 
+The tools that build or link Meschach (the shell scripts, `mes_wrap.C`,
+`eigbench.C`, `eigport_test.C`) need a tree that still has it: a checkout of
+7b49d09, the last commit before the eigen port (`git worktree add
+../qap-7b49d09 7b49d09`). The scripts are the same there, and since Nov 6
+they stop with that advice when run elsewhere.
+
 - [`symbols_by_object.sh`](meschach_removal/symbols_by_object.sh) and
   [`inventory.py`](meschach_removal/inventory.py): the inventory.
 - [`build_timer.sh`](meschach_removal/build_timer.sh) and

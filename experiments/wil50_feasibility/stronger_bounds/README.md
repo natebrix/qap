@@ -1,7 +1,15 @@
 # Stronger DNN bounds for wil50: regional triangle cuts
 
 Evaluation of Astra's research memo `research_memo_astra.md` (Oct 31 2026) and
-its experiment bundle `astra/` (as received; see `astra/README.md`). The memo
+its experiment bundle `astra/` (as received; see `astra/README.md`; its files
+are checksummed in `astra/MANIFEST_SHA256.json`, so they are left unedited).
+**Building the bundle (Nov 6):** use a checkout of its pinned commit,
+`git worktree add ../qap-cd43c76 cd43c76`, then `make && make dnntest` there.
+That commit still has Meschach (`src/MESCHACH`, removed from the branch on
+Nov 6), and `region_probe` builds against it with `astra/probe.mk` as the
+bundle's README says. Against the current tree, `probe.mk` no longer links:
+it links `dnn.o` alone, and the solver's objects now also need `dnncut.o`
+and `amx_gemm.o` (`$(DNN_OBJ)` in `latest/makefile`). The memo
 proposes strengthening the facially reduced DNN bound with constraints on
 *regions*: for a set S of locations, the membership variables
 z_i = Σ_{a∈S} x_{ai} ∈ {0,1} have first and second moments

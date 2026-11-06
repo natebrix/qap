@@ -7,7 +7,11 @@ the QPB changes. d comes from a few supergradient steps on the projected
 eigenvalue bound (PB), which is concave in d. Not merged: it trades about 10%
 fewer nodes for 12-20% more time at nug20.
 
-Apply with `git apply experiments/diag_shift/diag_shift.patch`, then
+Apply it to a checkout of 437ccae, where it applies cleanly (checked Nov 6).
+It does not apply to later trees. That commit still has the Meschach library,
+which the solver linked until Nov 6, so it builds as it did then:
+`git worktree add ../qap-437ccae 437ccae`, then in `../qap-437ccae`
+`git apply <this checkout>/experiments/diag_shift/diag_shift.patch`, then
 `make clean && make`, and run with e.g.
 `QAP_SHIFT_DEPTH=99 QAP_SHIFT_STEPS=2 ./bnbdrv -p PARAM/default.par -u 2570 ../qaplib/nug20.dat`.
 The switches are listed at the top of `latest/shiftexp.C`. The default is

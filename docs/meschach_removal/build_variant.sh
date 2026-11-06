@@ -7,6 +7,12 @@
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
+# It needs a tree that still has Meschach (src/MESCHACH, removed from the branch
+# on Nov 6): a checkout of 7b49d09, the last commit before the eigen port.
+[ -f "$ROOT/src/MESCHACH/makefile" ] || {
+  echo "$(basename "$0") needs a tree with Meschach: run it from a checkout of 7b49d09" >&2
+  echo "  git worktree add ../qap-7b49d09 7b49d09; ../qap-7b49d09/docs/meschach_removal/$(basename "$0") ..." >&2
+  exit 1; }
 D=$1; MCC=$2; MCFLAGS=$3
 [ -n "$D" ] && [ -n "$MCC" ] || { echo "usage: $0 DEST CC CFLAGS" >&2; exit 1; }
 mkdir -p "$D/src"

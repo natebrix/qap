@@ -11,7 +11,8 @@
   the largest eigenvalue difference from Meschach's relative to max|lambda|,
   and the largest eigen-residual ||A v - lambda v|| / ||A||_max.
 
-  Build (from the repo root, after make):
+  Build (from the root of a checkout of 7b49d09, the last commit before the
+  eigen port, which still has Meschach, removed from the branch on Nov 6; after make):
     g++ -O3 -march=native -ffp-contract=off -Isrc/MESCHACH \
       docs/meschach_removal/eigbench.C -o eigbench src/MESCHACH/meschach.a \
       -L$OB -lscipy_openblas -Wl,-rpath,$OB -lm

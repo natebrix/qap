@@ -5,8 +5,8 @@ Sapphire Rapids core: AVX-512, AMX-bf16; OpenBLAS 0.3.34 via scipy_openblas32,
 SkylakeX kernels, one thread), wil50 depth-3 node `34:40,28:22,14:29`, m = 47,
 K = 2117, n1 = 2210, `dnntest -T 1 -d 4 -g 1.0 -G 1.0 -H 0 -i 200 -u 48816 -v -v`.
 Logs are in the session scratchpad; the experimental tracker changes used below are
-in `research_iteration_tracker.patch` (against `latest/dnn.C`, env-switched, not
-meant to be applied as is).
+in `research_iteration_tracker.patch` (against `latest/dnn.C` at 32a3381, where it
+applies, checked Nov 6; env-switched, not meant to be applied as is).
 
 ## 1. Where the 530 ms go (degree 4, refresh 20, 200 iterations)
 
