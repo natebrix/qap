@@ -10,9 +10,11 @@ changed. Prototypes and measurement logs are in
 **Status (Nov 6): stages 0 and 1 are done.** Stage 1: `my_svd` calls
 `sym_eig` (`latest/symeig.C`, this report's `eig_port.C` with thread-local work
 space) instead of Meschach's `Hfactor`, `makeHQ`, `trieig` and `m_transp`.
-Checked so far: every gate passes (quick-suite regression exact, brute force
-with seeds 1-3, resume, parallel, coord, dnncheck, shipcheck); the standard
-suite against `bench/reference/` and the timing are running. The coordinator test's `crash_saving` scenario now crashes on
+No results change: all 19 standard-suite instances match `bench/reference/`
+exactly (nodes, fathomed, enumerated, Frank-Wolfe iterations, objective,
+root bound). Every gate passes (brute force with seeds 1-3, resume, parallel,
+coord, dnncheck, shipcheck). Solver time on the standard suite: geometric
+mean 0.960 of the previous build's on the cloud box (`bench/LOG.csv`). The coordinator test's `crash_saving` scenario now crashes on
 the 3rd totals save, not the 20th: the faster solve finished nug17 in fewer
 saves than that. The timing is in `bench/LOG.csv`.
 
