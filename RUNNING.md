@@ -350,6 +350,21 @@ items (defaults in parentheses; experiment reports in
 - `DNN_R32_NONCERT=1` (unset): R's rank term in fp32 except on certificate
   iterations (`speed/r32_noncert/`). 4.2% less per wil50 iteration without
   AMX, 2.5% on nug30; about 1% with `DNN_AMX=1` (the `fast` arm above).
+- `DNN_CORE_LAZYCERT=1` (unset): Rump's Cholesky test of the certificate only
+  at checks that can decide something (the first, any whose polyhedral value
+  could clear the cutoff, the last iteration, and the stopping check and the
+  stored best at the exit); the same fathom decisions and returned lb by
+  construction (`speed/nov6_core/`).
+- `DNN_CORE_REFRESH_PARTIAL=1` (unset): the subspace tracker's full
+  eigendecomposition back-transforms only the columns it reads (bit-identical
+  eigenvectors, about a third of the refresh saved; `speed/nov6_core/`).
+- `DNN_CORE_NOSYMV=1` (unset; with `DNN_NOSYMW=1`): no symmetrisation pass
+  after the expand transform; the iterate is symmetric to rounding only and
+  the certificate evaluates the symmetric part exactly (`speed/nov6_core/`).
+  Changes the trajectory at the rounding level.
+- `DNN_CORE_AMX_IB/KB/NT/ORDER` (unset): the AMX kernel's blocking, W load
+  hint and product order, for microbenchmarks; every setting gives the same
+  product bit for bit (`speed/nov6_core/`).
 
 Which branching rules the gap thresholds actually reach matters at the DNN
 depths. The gap thresholds in `nug_deep.par` send nearly every depth-3 and

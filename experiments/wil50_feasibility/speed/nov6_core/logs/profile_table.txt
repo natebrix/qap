@@ -1,0 +1,27 @@
+| piece | cold, sgemm (no AMX) | cold, AMX | cold, production (AMX, R32_NONCERT, beta schedule) | warm child of 39:27,30:48 (Z + conditioned Y), production | depth-4 fathom (all32 node 19, m = 46), production |
+|---|---|---|---|---|---|
+| W*Y products (+ pack) | 155.3 | 74.8 | 76.4 | 83.8 | 52.4 |
+| CholQR (one pass) | 20.2 | 20.6 | 20.7 | 23.9 | 11.6 |
+| Rayleigh-Ritz: Y'T, ssyevd(kb), X = YG | 48.9 | 49.9 | 49.1 | 57.7 | 25.6 |
+| convert W to fp32 + Chebyshev updates | 6.2 | 6.3 | 6.3 | 6.8 | 4.9 |
+| full ssyevd refresh | 19.7 | 20.6 | 20.2 | 19.2 | 19.1 |
+| form R (F, syrk, add-and-mirror) | 50.3 | 51.2 | 33.0 | 35.6 | 24.1 |
+| forward V'(Y + Z/beta)V | 39.5 | 39.5 | 39.8 | 40.7 | 36.0 |
+| expand V R V' | 28.8 | 28.7 | 27.2 | 27.1 | 23.9 |
+| Y/Z-step | 23.2 | 23.3 | 24.6 | 23.6 | 22.4 |
+| certificate (every 10) | 13.5 | 13.7 | 14.1 | 13.1 | 12.2 |
+| **total, ms per iteration** | **416.3** | **332.1** | **318.7** | **335.1** | **237.2** |
+| iterations, K, mean kb / nneg | 300, 2117, 610 / 510 | 300, 2117, 610 / 510 | 300, 2117, 613 / 511 | 300, 2117, 692 / 586 | 100, 2026, 434 / 349 |
+
+achieved rates, production cold run (ms are per call; peaks at the nominal 2.1 GHz: fp32 134 GF/s, fp64 67 GF/s, AMX bf16 2150 GF/s):
+- one W*Y product on AMX: 18.4 ms for 5.5 GF fp32-equivalent = 299 GF/s-equivalent = 896 GF/s bf16 over the three tile products (42% of the tile peak)
+- one W*Y product with OpenBLAS sgemm: 39.9 ms = 138 GF/s (102% of the fp32 peak at 2.1 GHz)
+- CholQR (ssyrk + spotrf + strsm, 1.6 GF): 21.3 ms = 75 GF/s
+- Rayleigh-Ritz Y'T and X = YG (sgemm, 1.6 GF each): 13.2 and 12.5 ms = 121 GF/s
+- ssyevd(kb = 613) (about 0.77 GF): 24.7 ms = 31 GF/s
+- full ssyevd(K = 2117) (about 41 GF): 758 ms per refresh = 54 GF/s; 8 refreshes in 300 iterations
+- form R rank term, fp32 ssyrk (2.3 GF): 20.4 ms = 112 GF/s; fp64 dsyrk (cold AMX run): 36.0 ms = 64 GF/s (fp64 peak 67)
+- forward: about 357 MB of traffic (Y, Z read; T written and rewritten by rows_D; the gather into W and Wf; the symmetrisation) in 39.8 ms = 9.0 GB/s
+- expand: about 195 MB (write, rows_D, symmetrisation) in 27.2 ms = 7.2 GB/s
+- Y/Z-step: about 238 MB (L, VRV, Y, Z read; Y, Z written; Zc on certificate iterations) in 24.6 ms = 9.7 GB/s
+- certificate: 141 ms each (30 in 300 iterations): forward 40 + dpotrf(K) 3.2 GF fp64 + Gilmore-Lawler LAPs
