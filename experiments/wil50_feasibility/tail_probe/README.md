@@ -456,3 +456,19 @@ Matched nodes (iterations, first arm / second):
   (where it kept the one marginal phase). Neither effect is large in CPU;
   `wlowc` as the candidate stands, and `wtwo` is the fallback if the
   sampling plan shows phases flipping against `wlowc` at any rate.
+
+**Why the CPU gain is smaller than the iteration gain (cloud check, Nov 6
+evening).** Not a fixed cost per node: a fit of CPU against iterations over
+the 34 level-5 first solves without a phase gives a fixed part of 1-6% of a
+solve (`fast` 0.38 s + 127 ms per iteration, `wlowc` 0.04 s + 161 ms,
+`wtwo` 0.44 s + 148 ms). Each iteration is dearer at 0.25. Profiled with
+`dnntest -v -v` on eight warm children of `../speed/nov6_admm/` (families
+f9, f6; AMX): at 0.25 a child tracks about 45 more negative eigenvalues
+(nneg 573-590 against 524-551; the tracked block kb 684-707 against
+630-657), so the filter and Rayleigh-Ritz step, the largest piece of an
+iteration, costs 176-191 ms against 155-168; forward, expand, the Y/Z-step
+and form R are unchanged. The one fixed piece is the full eigendecomposition
+at the start of each warm solve (about 0.7 s here), 6-9% of a 20-30-iteration
+child: the parent's eigenbasis shipped with the state would remove it, an
+idea `../speed/nov6_core/` set aside at 2.3% of a 33-s warm solve that is
+worth 2-4 times more now that the children are that short.
