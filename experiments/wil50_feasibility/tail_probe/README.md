@@ -301,3 +301,60 @@ uncertainty is still the level-6 and level-7 branching rates: with 2 of
 subtree several times higher. A deeper sample under full (k = 3 is too
 few at levels 6-7) is the next step if the tail class's size matters for
 the roadmap; the lever ratios do not need it.
+
+## Equip phases: shorter cut phases where they cannot fathom (`QAP_DNN_CUT_EQUIP`, Nov 5 afternoon)
+
+**Hypothesis.** In the matched probe's full arm, phases that started 100 or
+more short consumed 42% of node 1's iterations (38,350 of 90,310) and
+fathomed 2 of 30; no phase in 101 traces has gained more than 143. Such a
+phase only equips the children with a pool, so capping it at a few Polyak
+rounds should save most of its cost at no loss. Switch
+`QAP_DNN_CUT_EQUIP=G:R` (`latest/bnb.C`, default off): a phase whose uncut
+value is more than G below the cutoff runs at most R rounds. Arms
+(`tail_probe.py`): `equip3` = full + `120:3`, `equip150` = full + `150:3`,
+`equip150r2` = full + `150:2`. Levels 3-4 exact, level 5 the 87 hash-picked
+nodes of full's parents, so the children of capped and uncapped parents can
+be compared node for node (`runs/<arm>/`, `runs/matched_compare.txt`).
+
+**Result: the hypothesis fails. The extra rounds are paid back by the
+children.**
+
+| arm | L4 fathomed / 47 | L4 iterations | L5 matched (87): fathomed, iterations | L5 children of capped parents: iterations vs full | est. subtree iterations |
+|---|---|---|---|---|---|
+| full | 18 | 53,900 | 83, 15,450 | — | 2,552,000 |
+| equip3 (120:3) | 16 | 35,550 | 83, 15,920 | 84 nodes: 15,370 -> 15,840 (+3%) | 2,834,337 |
+| equip150 (150:3) | 18 | 44,900 | 83, 16,670 | 63 nodes: 14,640 -> 15,860 (**+8%**) | 2,662,907 |
+| equip150r2 (150:2) | 18 | 41,900 | 84, 19,010 | 63 nodes: 14,640 -> 18,200 (**+24%**) | 2,471,153 |
+
+- The children of uncapped parents are identical to full's to the
+  iteration (24 of 24 nodes in both 150 arms, 3 of 3 in equip3), so the
+  runs are deterministic and the differences on the capped parents'
+  children are the effect, not noise.
+- **Level 4 saves what was predicted**: 9,000 iterations (17%) at 150:3,
+  12,000 (22%) at 150:2, 18,350 (34%) at 120:3. At 150 no fathom is lost.
+  At 120 two are: children 43:45 and 6:45 started 127 and 128 short and
+  full's phases closed them in 7 and 8 rounds (48,814.1 and 48,814.2); the
+  fathoming band reaches about 130-145 with the warm-Y rounds.
+- **Level 5 pays it back.** A child of a 3-round phase costs 8% more than
+  a child of the full phase, a child of a 2-round phase 24% more. The
+  first solves are unchanged (7,170 -> 6,990 and 7,240 on the 63): the
+  weaker pool shows in the children's own phases (per node 86 -> 102 and
+  126), which is where a child that does not fathom in the first solve
+  spends its iterations. With 1,334 level-5 nodes against 47 at level 4,
+  +8% on 70% of level 5 is about +13,000 estimated iterations against
+  the 9,000 saved: a wash at 3 rounds and a clear loss at 2. The subtree
+  estimates agree in direction (equip150 +4%, SE 70%, so not significant
+  on their own; the matched node figures are the evidence).
+- The one case that would pay is a parent whose children all fathom in
+  their first solves regardless of pool strength; the probe cannot tell
+  those parents apart in advance, and the children of the two near-miss
+  parents (43:45, 6:45) show the opposite shape: trivial children (48
+  iterations each) under a parent that the full phase would have fathomed.
+
+**Reading.** The phases at 100-250 short are not wasted; they are the
+cheapest place to buy the pool that the 28x more numerous children spend.
+The switch stays in the code, default off, for a later test on a class
+where level 5 is cheap. The two remaining items from the Nov 5 list stand:
+an earlier give-up for warm nodes that are still far short at 150
+iterations (25% of the arm in 300-iteration first solves), and pruning
+inactive pool cuts (pooled iterations about 15% dearer).

@@ -54,7 +54,12 @@ FULL = {"QAP_DNN_CUT_ZONE": "0.005", "QAP_DNN_CUT_WARMY": "1", "QAP_DNN_CUT_ROUN
 # parent's state, about 13 MB at m = 46 instead of 26, and on 8 children of
 # node 10 bf16, fp32 and exact gave the same iterations (../ship/README.md)
 ARMS = {"base": {}, "baseship": {"QAP_DNN_SHIP": "16"}, "full": FULL,
-        "fullwide": dict(FULL, QAP_DNN_CUT_ZONE="0.010")}
+        "fullwide": dict(FULL, QAP_DNN_CUT_ZONE="0.010"),
+        # equip3: a phase starting more than 120 short runs at most 3 rounds (README, "Equip phases")
+        "equip3": dict(FULL, QAP_DNN_CUT_EQUIP="120:3"),
+        # the two level-4 fathoms equip3 lost started 127-128 short: cap at 150
+        "equip150": dict(FULL, QAP_DNN_CUT_EQUIP="150:3"),
+        "equip150r2": dict(FULL, QAP_DNN_CUT_EQUIP="150:2")}
 
 
 def run_task(args, env, path_in, level, tag, wd, spec=None):

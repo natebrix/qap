@@ -818,6 +818,15 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      cp.damp1 = atof(e);
 	      if (const char *c = strchr(e, ':')) cp.damp_rest = atof(c + 1);
 	    }
+	    // QAP_DNN_CUT_EQUIP=G:R (tail_probe/README.md, "equip phases"): a phase
+	    // whose uncut value is more than G below the cutoff cannot fathom (no
+	    // phase has gained more than 143) and runs only to equip the children
+	    // with a pool: at most R Polyak rounds (default 3). Off by default.
+	    if (const char *e = getenv("QAP_DNN_CUT_EQUIP")) {
+	      double gap_min = atof(e); int eq_rounds = 3;
+	      if (const char *c = strchr(e, ':')) eq_rounds = atoi(c + 1);
+	      if (gap_min > 0 && eq_rounds > 0 && (inc - DELTA) - r.lb > gap_min && eq_rounds < cp.rounds) cp.rounds = eq_rounds;
+	    }
 	    if (cp.grid_rows == 0) cp.prefix = true;
 	    DNNPool pool_out;
 	    if (dnn_pool && cp.side == cut_side) {
