@@ -112,6 +112,8 @@ def main():
     p.add_argument("--seed", type=int, default=20261031)
     p.add_argument("--dnn-flags", default="-T 1 -d 4 -g 1.0 -G 1.0")
     p.add_argument("--dry-run", action="store_true", help="list the candidate lines and stop")
+    p.add_argument("--rules", default="", help="also Fujii et al.'s rules: M (barycentre objective), "
+                   "D (the parent certificate's child bounds), e.g. M,D")
     args = p.parse_args()
     args.instance = os.path.abspath(args.instance)
     args.cutoff = args.ub - args.delta
@@ -122,7 +124,12 @@ def main():
 
     report = []
     pooled = []   # (xbar, child qpb, gap)
-    for pid, spec in parents:
+    for row in parents:
+        # "id spec [line]": line, optional, is the line the search itself branched on
+        # (r<facility> or c<location>, original indices, read off the search's trace),
+        # scored with the others and marked "prod"
+        pid, spec = row[0], row[1]
+        prod = row[2] if len(row) > 2 else None
         fixed = parse_fixes(spec)
         fr = [i for i in range(n) if i not in fixed]
         fc = [j for j in range(n) if j not in fixed.values()]
@@ -149,6 +156,50 @@ def main():
         xc = max(fc, key=lambda j: sum(xbar[(i, j)] ** 2 for i in fr))
         lines.setdefault(("row", xr), []).append("xbar")
         lines.setdefault(("col", xc), []).append("xbar")
+        if prod:
+            kind, x = ("row" if prod[0] == "r" else "col"), int(prod[1:])
+            if x not in (fr if kind == "row" else fc):
+                raise SystemExit(f"parent {pid}: {prod} is not a free line of {spec}")
+            lines.setdefault((kind, x), []).append("prod")
+        # Fujii et al.'s rules (arXiv 2101.09629 section 5): a score phi(f, l) per child,
+        # and the line whose children have the largest mean phi (a row on ties)
+        def fujii_pick(phi):
+            rmean = {i: sum(phi[(i, j)] for j in fc) / len(fc) for i in fr}
+            cmean = {j: sum(phi[(i, j)] for i in fr) / len(fr) for j in fc}
+            bi = max(fr, key=lambda i: (rmean[i], -i)); bj = max(fc, key=lambda j: (cmean[j], -j))
+            return ("row", bi) if rmean[bi] >= cmean[bj] else ("col", bj)
+        if "M" in args.rules:
+            # rule M: phi = the child's objective at its barycentre (fixed entries 0/1,
+            # the free block 1/(free count)), section 5.1; data only
+            import numpy as np
+            An, Bn = np.array(A), np.array(B)
+            phi = {}
+            for i in fr:
+                for j in fc:
+                    X = np.zeros((n, n))
+                    for a, b in fixed.items(): X[a, b] = 1.0
+                    X[i, j] = 1.0
+                    rr = [a for a in fr if a != i]; cc = [b for b in fc if b != j]
+                    X[np.ix_(rr, cc)] = 1.0 / len(rr)
+                    phi[(i, j)] = float(np.trace(An @ X @ Bn @ X.T))
+            lines.setdefault(fujii_pick(phi), []).append("M")
+        if "D" in args.rules:
+            # rule D (our version): phi = the child's certified lower bound from the
+            # parent's own certificate (dnntest -C 2, the reduced costs of the outer LAP),
+            # the analogue of section 5.3's dual-based child bound
+            pdf = os.path.join(args.work, f"parentD_{pid}.json")
+            if os.path.exists(pdf):
+                cb = {(i, j): v for i, j, v in json.load(open(pdf))}
+            else:
+                out = subprocess.run([DNNTEST] + args.dnn_flags.split() + ["-H", "0", "-i", str(args.parent_iters),
+                                      "-c", repr(args.cutoff), "-C", "2", "-x", spec, args.instance],
+                                     capture_output=True, text=True, env=ENV, cwd=ROOT).stdout
+                cb = {(int(a), int(b)): float(c) for _, a, b, c in
+                      (l.split() for l in out.splitlines() if l.startswith("CHILD "))}
+                if len(cb) != len(fr) * len(fc):
+                    raise RuntimeError(f"dnntest -C 2 on {spec}: {len(cb)} child bounds:\n{out[-2000:]}")
+                json.dump([[i, j, v] for (i, j), v in cb.items()], open(pdf, "w"))
+            lines.setdefault(fujii_pick(cb), []).append("D")
         for i in rng.sample([i for i in fr if ("row", i) not in lines], args.random):
             lines.setdefault(("row", i), []).append("random")
         for j in rng.sample([j for j in fc if ("col", j) not in lines], args.random):
