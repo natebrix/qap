@@ -1,0 +1,14 @@
+eigenvalues: max |ssyevd - ssytrd/sstedc| = 0.00e+00; wanted vectors: max |all-column sormtr - partial sormtr| = 0.00e+00
+K 2117 nwant 700 (min of 3 reps)
+ssyevd                   880.6 ms
+ssytrd                   378.2 ms
+sstedc (T eigvecs)       124.4 ms
+sormtr, all K columns    228.6 ms   -> ssytrd+sstedc+sormtr(all) = 731.3 ms
+sormtr, 700 + 1 columns   74.9 ms   -> ssytrd+sstedc+sormtr(part) = 577.6 ms (66% of ssyevd)
+eigenvalues: max |ssyevd - ssytrd/sstedc| = 0.00e+00; wanted vectors: max |all-column sormtr - partial sormtr| = 0.00e+00
+K 2117 nwant 700 (min of 3 reps)
+ssyevd                   795.0 ms
+ssytrd                   353.8 ms
+sstedc (T eigvecs)       121.8 ms
+sormtr, all K columns    224.3 ms   -> ssytrd+sstedc+sormtr(all) = 699.9 ms
+sormtr, 700 + 1 columns   71.4 ms   -> ssytrd+sstedc+sormtr(part) = 547.1 ms (69% of ssyevd)

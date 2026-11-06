@@ -118,6 +118,18 @@ void F77(ssyevd)(const char *jobz, const char *uplo, const lapack_int *n, float 
                  const lapack_int *lda, float *w, float *work, const lapack_int *lwork,
                  lapack_int *iwork, const lapack_int *liwork, lapack_int *info,
                  size_t, size_t);
+// the pieces of ssyevd, for a refresh that back-transforms only the columns the
+// tracker reads (DNN_CORE_REFRESH_PARTIAL)
+void F77(ssytrd)(const char *uplo, const lapack_int *n, float *a, const lapack_int *lda,
+                 float *d, float *e, float *tau, float *work, const lapack_int *lwork,
+                 lapack_int *info, size_t);
+void F77(sstedc)(const char *compz, const lapack_int *n, float *d, float *e, float *z,
+                 const lapack_int *ldz, float *work, const lapack_int *lwork, lapack_int *iwork,
+                 const lapack_int *liwork, lapack_int *info, size_t);
+void F77(sormtr)(const char *side, const char *uplo, const char *trans, const lapack_int *m,
+                 const lapack_int *n, const float *a, const lapack_int *lda, const float *tau,
+                 float *c, const lapack_int *ldc, float *work, const lapack_int *lwork,
+                 lapack_int *info, size_t, size_t, size_t);
 void F77(dsyrk)(const char *uplo, const char *trans, const lapack_int *n, const lapack_int *k,
                 const double *alpha, const double *a, const lapack_int *lda,
                 const double *beta, double *c, const lapack_int *ldc, size_t, size_t);
@@ -463,6 +475,7 @@ struct Work {
   // subspace tracking of the negative eigenspace of W (DNN_EIG_SUBSPACE)
   std::vector<float> Xs, Ys, Ts, Hs;
   std::vector<float> vtop, vtmp;   // top eigenvector estimate (tight_lam)
+  std::vector<float> trd_e, trd_tau;   // ssytrd's off-diagonal and reflector scalars (DNN_CORE_REFRESH_PARTIAL)
   std::vector<double> Wprev;
   int kb, since_refresh;
   bool have_basis;
@@ -538,6 +551,7 @@ struct Work {
     alloc_single();
     Xs.assign(kk, 0); Ys.assign(kk, 0); Ts.assign(kk, 0); Hs.assign(kk, 0);
     vtop.assign(K, 0); vtmp.assign(K, 0);
+    trd_e.assign(K, 0); trd_tau.assign(K, 0);
     Wprev.assign(kk, 0);
     kb = since_refresh = 0;
     have_basis = false;
@@ -654,10 +668,13 @@ void symmetrize(double *X, int n)
 // final symmetrisation of W (W is symmetric to rounding by construction; the
 // eigensolver reads one triangle or multiplies by the full matrix, and R is
 // symmetrised again in expand).
+// force_sym: symmetrise whatever DNN_NOSYMW says (the certificate's transform under
+// DNN_CORE_NOSYMV, whose multiplier is symmetric only to rounding).
 void forward(Work &w, const double *A, double *Wout, const double *B = NULL,
-             double coef = 0, bool rows_done = false, float *Wf_out = NULL)
+             double coef = 0, bool rows_done = false, float *Wf_out = NULL, bool force_sym = false)
 {
-  static const int nosym = getenv("DNN_NOSYMW") ? atoi(getenv("DNN_NOSYMW")) : 0;
+  static const int nosym_env = getenv("DNN_NOSYMW") ? atoi(getenv("DNN_NOSYMW")) : 0;
+  const int nosym = force_sym ? 0 : nosym_env;
   const int n1 = w.n1, K = w.K, ll = w.ll;
   double *T = w.T.data();
   if (!rows_done)
@@ -711,8 +728,17 @@ void expand(Work &w, const double *R, double *Mout)
   }
   rows_rot(w, Mout);
   rows_D(w, Mout);
-  symmetrize(Mout, n1);
+  // DNN_CORE_NOSYMV=1 (experiments/wil50_feasibility/speed/nov6_core): skip the
+  // symmetrisation (a read and write of the n1 x n1 matrix). The transform of a
+  // symmetric R is symmetric to rounding, so Y, Z and the certificate multiplier
+  // become symmetric to rounding only; the certificate then reads both arrow
+  // entries of M (cert_poly) and symmetrises its own transform (cert_lam), which
+  // keeps it a bound for sym(Zc), and <Zc, Y> = <sym(Zc), Y> for every symmetric Y.
+  static const int nosymv = getenv("DNN_CORE_NOSYMV") ? atoi(getenv("DNN_CORE_NOSYMV")) : 0;
+  if (!nosymv) symmetrize(Mout, n1);
 }
+
+static bool nosymv_on() { static const int v = getenv("DNN_CORE_NOSYMV") ? atoi(getenv("DNN_CORE_NOSYMV")) : 0; return v > 0; }
 
 /*
  R = P_psd(W) for symmetric K x K W (row-major = column-major). Uses
@@ -873,15 +899,44 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
                  info = 0;
       double tf0 = thread_cpu();
       memcpy(X, Wf, kk * sizeof(float));
-      F77(ssyevd)("V", "L", &K, X, &K, theta.data(), w.eworkf.data(), &lwork,
-                  w.eiwork.data(), &liwork, &info, 1, 1);
+      // DNN_CORE_REFRESH_PARTIAL=1 (experiments/wil50_feasibility/speed/nov6_core):
+      // ssyevd's three steps called one by one (ssytrd, sstedc, sormtr: the same
+      // eigenvalues and vectors bit for bit), with the back-transformation applied
+      // to the nneg + guard lowest eigenvectors and the top one only, which is all
+      // the tracker reads; the other K - kb columns of ssyevd's 2 K^3 flops are
+      // never formed (about a third of the refresh at K = 2117).
+      static const int refpart = getenv("DNN_CORE_REFRESH_PARTIAL") ? atoi(getenv("DNN_CORE_REFRESH_PARTIAL")) : 0;
+      if (refpart) {
+        float *Zt = w.Ts.data(), *e = w.trd_e.data(), *tau = w.trd_tau.data();   // Ts is free until form R
+        F77(ssytrd)("L", &K, X, &K, theta.data(), e, tau, w.eworkf.data(), &lwork, &info, 1);
+        if (info == 0) F77(sstedc)("I", &K, theta.data(), e, Zt, &K, w.eworkf.data(), &lwork,
+                                   w.eiwork.data(), &liwork, &info, 1);
+        if (info == 0) {
+          nneg = 0;
+          while (nneg < K && theta[nneg] < 0) nneg++;
+          kb = std::min<lapack_int>(K, nneg + guard);
+          F77(sormtr)("L", "L", "N", &K, &kb, X, &K, tau, Zt, &K, w.eworkf.data(), &lwork, &info, 1, 1, 1);
+          if (info == 0 && tight_lam > 0 && kb < K) {
+            const lapack_int one = 1;
+            F77(sormtr)("L", "L", "N", &K, &one, X, &K, tau, Zt + (size_t)(K - 1) * K, &K,
+                        w.eworkf.data(), &lwork, &info, 1, 1, 1);
+          }
+          if (info == 0) {
+            if (tight_lam > 0) memcpy(w.vtop.data(), Zt + (size_t)(K - 1) * K, K * sizeof(float));
+            memcpy(X, Zt, (size_t)kb * K * sizeof(float));
+          }
+        }
+      } else {
+        F77(ssyevd)("V", "L", &K, X, &K, theta.data(), w.eworkf.data(), &lwork,
+                    w.eiwork.data(), &liwork, &info, 1, 1);
+      }
       w.prof[5] += thread_cpu() - tf0; w.n_refresh++;
       if (info != 0) return false;
       nneg = 0;
       while (nneg < K && theta[nneg] < 0) nneg++;
       kb = std::min<lapack_int>(K, nneg + guard);
       w.lam_hi = theta[K - 1] + 1e-6 * (fabs(theta[K - 1]) + fabs(theta[0]));
-      if (tight_lam > 0) memcpy(w.vtop.data(), X + (size_t)(K - 1) * K, K * sizeof(float));
+      if (tight_lam > 0 && !refpart) memcpy(w.vtop.data(), X + (size_t)(K - 1) * K, K * sizeof(float));
       w.since_refresh = 0;
       w.have_basis = true;
       break;
@@ -1050,21 +1105,27 @@ struct CertInfo {
   bool chol_ok;
   double poly_reduce, poly;  // diagnostics (unscaled)
   double lam = HUGE_VAL;     // the rigorous lambda_max bound used (scaled units; DNN_CERTX)
+  double margin_poly = 0;    // the margin's rounding terms (polyhedral part and L), without sdp_penalty
 };
 
-double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly,
-               int inner_lap, double exact_above, double exact_below, CertInfo &ci)
+/*
+ The certificate's two parts, so that the polyhedral value can be evaluated
+ alone (DNN_CORE_LAZYCERT: it is an upper bound on the certified value, since
+ the semidefinite penalty is never negative). certify() below calls both in
+ the order it always did, so its result is unchanged bit for bit.
+*/
+// lambda_max(V'ZmV) <= lam, by Cholesky of delta I - S (Rump 2006: if
+// floating-point Cholesky of A - cI succeeds, A is positive definite).
+// Sets ci.lam, ci.sdp_penalty and ci.chol_ok; false when no shift up to 1e-3
+// relative passes. Uses w.T, w.W, w.W2.
+static bool cert_lam(Work &w, const double *Zm, double scale, CertInfo &ci)
 {
   const int m = w.m, n1 = w.n1;
   const lapack_int K = w.K;
   ci.chol_ok = false;
-  ci.margin = ci.sdp_penalty = 0;
-  ci.poly_reduce = ci.poly = -HUGE_VAL;
-
-  // lambda_max(V'ZmV) <= lam, by Cholesky of delta I - S (Rump 2006: if
-  // floating-point Cholesky of A - cI succeeds, A is positive definite)
+  ci.sdp_penalty = 0;
   double *S = w.W.data();
-  forward(w, Zm, S);
+  forward(w, Zm, S, NULL, 0, false, NULL, nosymv_on());
   // (1 + 1e-8): rounding of the sums of squares, with room for any m that fits in memory
   double znorm = sqrt(dot4(Zm, Zm, (size_t)n1 * n1)) * (1 + 1e-8);
   double snorm = sqrt(dot4(S, S, (size_t)K * K)) * (1 + 1e-8);
@@ -1098,13 +1159,25 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
     lam = delta + c + U_ROUND * maxdiag;
     w.delta_rel = rel;
   }
-  if (lam == HUGE_VAL) return -HUGE_VAL;
+  if (lam == HUGE_VAL) return false;
   ci.chol_ok = true;
   // error of the computed transform against an exact orthonormal V
   lam += 64.0 * m * U_ROUND * znorm;
   ci.lam = lam;
+  ci.sdp_penalty = (m + 1) * scale * lam;
+  return true;
+}
 
-  // polyhedral part on M = L + scale * Zm (unscaled)
+// The polyhedral part on M = L + scale * Zm (unscaled): the minimum over P
+// (box or Gilmore-Lawler) and, in ci.margin_poly, the rounding terms of the
+// margin that do not depend on the semidefinite part. Returns the value val
+// (not yet reduced by any margin); -HUGE_VAL only on a non-finite value.
+static double cert_poly(Work &w, const double *Zm, double scale, double sumabsL, int poly,
+                        int inner_lap, double exact_above, double exact_below, CertInfo &ci)
+{
+  const int m = w.m, n1 = w.n1;
+  ci.poly_reduce = ci.poly = -HUGE_VAL;
+  ci.margin_poly = 0;
   const double *L = w.L.data();
   long double absM = 0;
   long double m00 = L[0] + scale * Zm[0];
@@ -1167,9 +1240,13 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
           if (m > 1)
             inner = exact ? w.hung.solve(m - 1, sub, m - 1)
                           : lap_reduce(m - 1, sub, m - 1, w.colmin.data());
-          double d0 = lr[0] + scale * zr[0], dd = lr[r] + scale * zr[r];
-          absM += 2 * fabs(d0) + fabs(dd) + fabsl(inner);
-          cm[i * m + j] = (double)(2.0L * d0 + dd + inner);
+          // the two arrow entries M_(ij),0 and M_0,(ij) separately: equal (and the
+          // sums below exactly those of 2 M_(ij),0) when M is symmetric, and a valid
+          // row-by-row evaluation of <M, yy'> when it is symmetric to rounding only
+          // (DNN_CORE_NOSYMV)
+          const double d0 = lr[0] + scale * zr[0], d0t = L[r] + scale * Zm[r], dd = lr[r] + scale * zr[r];
+          absM += fabs(d0) + fabs(d0t) + fabs(dd) + fabsl(inner);
+          cm[i * m + j] = (double)((long double)d0 + d0t + dd + inner);
           if (w.elim && w.elim[i * m + j]) {
             cm[i * m + j] += pen;
             absM += pen;
@@ -1203,17 +1280,28 @@ double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly
     }
   }
   absM += fabsl(m00);
-  // summation and rounding errors of the polyhedral part, objective rounding,
-  // and the semidefinite term
-  ci.sdp_penalty = (m + 1) * scale * lam;
+  // summation and rounding errors of the polyhedral part and objective rounding;
   // (m + 2) u sum|L|: rounding of L itself and of cancellations in a row
-  double margin = 8.0 * (m + 2) * U_ROUND * (double)absM + (m + 2) * U_ROUND * sumabsL
-                  + ci.sdp_penalty;
+  ci.margin_poly = 8.0 * (m + 2) * U_ROUND * (double)absM + (m + 2) * U_ROUND * sumabsL;
+  if (!std::isfinite((double)val) || !std::isfinite(ci.margin_poly)) return -HUGE_VAL;
+  return (double)val;
+}
+
+double certify(Work &w, const double *Zm, double scale, double sumabsL, int poly,
+               int inner_lap, double exact_above, double exact_below, CertInfo &ci)
+{
+  ci.chol_ok = false;
+  ci.margin = ci.sdp_penalty = 0;
+  ci.poly_reduce = ci.poly = -HUGE_VAL;
+  if (!cert_lam(w, Zm, scale, ci)) return -HUGE_VAL;
+  const double val = cert_poly(w, Zm, scale, sumabsL, poly, inner_lap, exact_above, exact_below, ci);
+  // the semidefinite term is added last, as before the split: the same sum, bit for bit
+  double margin = ci.margin_poly + ci.sdp_penalty;
   ci.margin = margin;
   // a NaN or infinity anywhere (OpenBLAS's Cholesky accepts NaN) certifies nothing
-  if (!std::isfinite(lam) || !std::isfinite((double)val) || !std::isfinite(margin))
+  if (!std::isfinite(ci.lam) || !std::isfinite(val) || !std::isfinite(margin))
     return -HUGE_VAL;
-  return (double)val - margin;
+  return val - margin;
 }
 
 // whether some permutation avoids every eliminated assignment (elim is m x m,
@@ -1910,6 +1998,19 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   }
   int bs_phase = 0, bs_last = 0, bs_changes = 0, bs_n = 0;
   double bs_S = 0, bs_Lnorm = 0;
+  // DNN_CORE_LAZYCERT=1 (experiments/wil50_feasibility/speed/nov6_core): Rump's test
+  // only at checks that can decide something (see the check below). Off by default;
+  // not with the prototype certificate, the certificate variants, the stall rule or
+  // the child bounds, which read every check's certified value.
+  static const int lazy_env = getenv("DNN_CORE_LAZYCERT") ? atoi(getenv("DNN_CORE_LAZYCERT")) : 0;
+  const bool lazy_ok = lazy_env > 0 && !par.prototype_cert && !cx_on && par.stall_window == 0 &&
+                       !par.child_bounds;
+  std::vector<double> lz_Z;                 // the stored multiplier with the best polyhedral estimate
+  bool lz_have = false, lz_exit = false;    // stored; the run stopped on a check that skipped the test
+  double lz_pen = 0;                        // the semidefinite penalty of the last full certificate
+  double lz_est = -HUGE_VAL;                // this check's estimate (unshifted)
+  double lz_best_proxy = -HUGE_VAL, lz_best_est = -HUGE_VAL;   // running maxima (shifted)
+  int lz_skipped = 0;
   if (bs.kind == 1) { beta = bs.f * beta0; ibeta = 1.0 / beta; bs_phase = 1; }
   if (bs.kind == 3) { beta = bs.w * beta0; ibeta = 1.0 / beta; }
   if (bs.kind) bs_Lnorm = sqrt(dot4(L, L, (size_t)n1 * n1)) * iscale;
@@ -2091,12 +2192,51 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     }
     const double exact_below = cutoff - shift + 1e-6 * (1 + fabs(cutoff));
     w.want_red = par.child_bounds && par.poly != DNN_POLY_BOX;
-    lbs = certify(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap, exact_above,
-                  exact_below, ci);
+    bool lazy_this = false;   // DNN_CORE_LAZYCERT: this check skipped Rump's test
+    if (lazy_ok) {
+      // The polyhedral value first: it is an upper bound on the certified value
+      // (the semidefinite penalty is never negative), so when even it cannot clear
+      // the cutoff the node cannot fathom at this check and Rump's test (forward +
+      // dpotrf, about 130 of the certificate's 143 ms at K = 2117) is skipped. The
+      // test runs at the first check, whenever the polyhedral value could fathom,
+      // at the last iteration, and (below) at the exit on the check that stopped the
+      // run and on the stored multiplier with the best polyhedral value, so the
+      // fathom decisions and the returned lb are those of certifying every check.
+      ci.chol_ok = false; ci.margin = ci.sdp_penalty = 0;
+      const double val = cert_poly(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap,
+                                   exact_above, exact_below, ci);
+      const double proxy = val > -HUGE_VAL ? val - ci.margin_poly : -HUGE_VAL;
+      const bool could_fathom = proxy > -HUGE_VAL && nextafter(proxy + shift, -HUGE_VAL) > cutoff;
+      if (res.certificates == 0 || it == par.max_iter || could_fathom || proxy == -HUGE_VAL) {
+        // decisive: the full certificate, as without the switch
+        if (!cert_lam(w, Zc, scale, ci)) lbs = -HUGE_VAL;
+        else {
+          ci.margin = ci.margin_poly + ci.sdp_penalty;
+          lbs = (std::isfinite(ci.lam) && std::isfinite(val) && std::isfinite(ci.margin)) ? val - ci.margin : -HUGE_VAL;
+        }
+        lz_pen = ci.chol_ok ? ci.sdp_penalty : lz_pen;
+      } else {
+        lazy_this = true;
+        lz_skipped++;
+        lbs = -HUGE_VAL;   // no certified value at this check
+        // the estimate for the stopping rules, and the stored multiplier with the best
+        // polyhedral value so far (verified at the exit if it can raise the result)
+        lz_est = proxy - lz_pen;
+        if (lz_est + shift > lz_best_proxy) {
+          lz_best_proxy = lz_est + shift;
+          if (lz_Z.empty()) lz_Z.resize((size_t)n1 * n1);
+          memcpy(lz_Z.data(), Zc, (size_t)n1 * n1 * sizeof(double));
+          lz_have = true;
+        }
+      }
+    } else {
+      lbs = certify(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap, exact_above,
+                    exact_below, ci);
+    }
     if (w.want_red) red_cur = w.red;
-    res.certificates++;
-    if (!ci.chol_ok) res.cert_failures++;
-    if (!par.prototype_cert && par.eig_mode != DNN_EIG_DOUBLE &&
+    if (!lazy_this) res.certificates++;
+    if (!lazy_this && !ci.chol_ok) res.cert_failures++;
+    if (!lazy_this && !par.prototype_cert && par.eig_mode != DNN_EIG_DOUBLE &&
         (!ci.chol_ok || (lbs + shift <= cutoff && lbs + shift + ci.sdp_penalty > cutoff))) {
       // single-precision R-steps leave V'Z'V slightly indefinite; when that
       // costs the fathom, project it in double: Z' <- Z' - V P_psd(V'Z'V) V'
@@ -2337,20 +2477,27 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       }
       res.margin = std::max(res.margin, ci.margin);
     }
+    // the running best the stopping rules see: the certified best, or under
+    // DNN_CORE_LAZYCERT the polyhedral estimate of the checks that skipped Rump's test
+    double best_rule = best;
+    if (lazy_ok) {
+      lz_best_est = std::max(lz_best_est, lazy_this ? (lz_est > -HUGE_VAL ? nextafter(lz_est + shift, -HUGE_VAL) : -HUGE_VAL) : best);
+      best_rule = lz_best_est;
+    }
     tq = thread_cpu(); w.prof[4] += tq - tp; tp = tq;
     obj = dot4(L, Y, (size_t)n1 * n1) + shift;
     double pres = sqrt((double)pres2), dy = sqrt((double)dy2);
     if (par.verbose)
       printf("it %5d lb %.4f (cert %.4f, margin %.2e%s) primal %.4f pres %.2e dY %.2e npos %d cpu %.2f\n",
-             it, best, lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL, ci.margin,
-             ci.chol_ok ? "" : ", chol FAILED", obj, pres, dy, npos, thread_cpu() - t0);
-    lbhist.push_back(lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL);
+             it, best_rule, lazy_this ? lz_est + shift : (lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL), ci.margin,
+             lazy_this ? ", lazy" : (ci.chol_ok ? "" : ", chol FAILED"), obj, pres, dy, npos, thread_cpu() - t0);
+    lbhist.push_back(lazy_this ? lz_est + shift : (lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL));
 
     if (best > cutoff) { status = DNN_FATHOMED; break; }
-    if (pres < par.tol && dy < par.tol) { status = DNN_CONVERGED; break; }
-    if (par.time_limit > 0 && thread_cpu() - t0 > par.time_limit) { status = DNN_TIME_LIMIT; break; }
-    besthist.push_back(best);
-    if (par.hopeless_after > 0 && it >= par.hopeless_after && best > -HUGE_VAL &&
+    if (pres < par.tol && dy < par.tol) { status = DNN_CONVERGED; lz_exit = lazy_this; break; }
+    if (par.time_limit > 0 && thread_cpu() - t0 > par.time_limit) { status = DNN_TIME_LIMIT; lz_exit = lazy_this; break; }
+    besthist.push_back(best_rule);
+    if (par.hopeless_after > 0 && it >= par.hopeless_after && best_rule > -HUGE_VAL &&
         it >= confirm_at) {
       // extrapolate the running best certified value: with d1, d2 its gains
       // over the last two windows of ~50 iterations and r = d1/d2, a
@@ -2368,19 +2515,20 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         double d1 = besthist[h - 1] - besthist[h - 1 - w];
         double d2 = besthist[h - 1 - w] - besthist[h - 1 - 2 * w];
         double r = d2 > 0 ? std::min(d1 / d2, 0.95) : (d1 > 0 ? 0.95 : 0.0);
-        if (best + 5 * d1 * r / (1 - r) < cutoff) fire = true;
+        if (best_rule + 5 * d1 * r / (1 - r) < cutoff) fire = true;   // best_rule == best unless DNN_CORE_LAZYCERT
       }
       if (fire) {
         // near the cutoff a give-up must be confirmed: run hopeless_delay more
         // iterations and give up only if the rule fires again after them
         // (once per node; the rule is not consulted during the deferral)
         if (par.hopeless_zone > 0 && confirm_at < 0 &&
-            cutoff - best <= par.hopeless_zone * std::max(1.0, fabs(cutoff))) {
+            cutoff - best_rule <= par.hopeless_zone * std::max(1.0, fabs(cutoff))) {
           confirm_at = it + par.hopeless_delay;
           if (par.verbose) printf("it %5d give-up deferred to %d: %.4f within %.2g of %.4f\n",
-                                  it, confirm_at, best, par.hopeless_zone, cutoff);
+                                  it, confirm_at, best_rule, par.hopeless_zone, cutoff);
         } else {
           status = DNN_HOPELESS;
+          lz_exit = lazy_this;
           break;
         }
       }
@@ -2400,6 +2548,32 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     }
   }
   if (status < 0) status = DNN_ITER_LIMIT;
+  if (lazy_ok && status != DNN_FATHOMED && status != DNN_ERROR && (lz_exit || lz_have)) {
+    // DNN_CORE_LAZYCERT: the checks that skipped Rump's test left no certified value.
+    // Certify the multiplier of the check that stopped the run (still in Zc) and the
+    // stored one with the best polyhedral estimate, if either can raise the result.
+    const double exact_below = cutoff - shift + 1e-6 * (1 + fabs(cutoff));
+    for (int pass = 0; pass < 2; pass++) {
+      const double *Zx = pass == 0 ? Zc : lz_Z.data();
+      if (pass == 0 && !lz_exit) continue;
+      if (pass == 1 && (!lz_have || lz_best_proxy <= best)) continue;
+      CertInfo ci;
+      w.want_red = par.child_bounds && par.poly != DNN_POLY_BOX;
+      const double lbs = certify(w, Zx, scale, (double)sumabsL, par.poly, par.inner_lap,
+                                 exact_above, exact_below, ci);
+      res.certificates++;
+      if (!ci.chol_ok) res.cert_failures++;
+      if (lbs > -HUGE_VAL) {
+        const double lb = nextafter(lbs + shift, -HUGE_VAL);
+        if (lb > best) { best = lb; if (w.want_red) { red_best = w.red; lbs_best = lbs; } }
+        res.margin = std::max(res.margin, ci.margin);
+      }
+      if (par.verbose)
+        printf("lazycert exit %s: cert %.4f (margin %.2e%s), best %.4f, %d checks skipped Rump's test\n",
+               pass == 0 ? "last check" : "stored best", lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL,
+               ci.margin, ci.chol_ok ? "" : ", chol FAILED", best, lz_skipped);
+    }
+  }
   if (cx_on && !cxe.quiet) {
     printf("certx-summary call %d status %s iters %d cutoff %.4f first std %d exact %d hg %d ls %d avg %d hgr %d"
            " hgw %d proj %d best std %.4f exact %.4f hg %.4f ls %.4f avg %.4f hgr %.4f hgw %.4f proj %.4f"

@@ -25,6 +25,7 @@
 #ifndef AMX_KB
 #define AMX_KB 8     // k-block: KB x 32 k per C partial sum
 #endif
+#define AMX_IB_MAX 512   // the widest i-slab the runtime knob may select (scratch is sized for it)
 #if defined(__x86_64__) && defined(__linux__) && defined(__AMX_BF16__) && defined(__AVX512BF16__)
 #include <immintrin.h>
 double amx_split_ms = 0, amx_kernel_ms = 0;   // of the last amx_gemm call
@@ -66,7 +67,7 @@ int amx_ctx_init(amx_ctx *c, int K, int kbmax)
   c->Wh = al64(nw * 2); c->Wl = al64(nw * 2); c->Yh = al64(ny * 2); c->Yl = al64(ny * 2);
   c->Ah = al64(ny * 2); c->Al = al64(ny * 2); c->Bh = al64(ny * 2); c->Bl = al64(ny * 2);
   c->Gh = al64((size_t)c->kbp * c->kbp * 2); c->Gl = al64((size_t)c->kbp * c->kbp * 2);
-  size_t scr = (size_t)(AMX_IB / 16) * 512 * 4;             // edge-tile scratch for one i-slab
+  size_t scr = (size_t)(AMX_IB_MAX / 16) * 512 * 4;         // edge-tile scratch for one i-slab (up to the widest runtime slab)
   if ((size_t)4 * c->Kp * 2 > scr) scr = (size_t)4 * c->Kp * 2;  // and four bf16 rows for the pack
   c->Cp = al64(scr);
   return (c->Wh && c->Wl && c->Yh && c->Yl && c->Ah && c->Al && c->Bh && c->Bl && c->Gh && c->Gl && c->Cp) ? 0 : -1;
@@ -341,8 +342,21 @@ void amx_gemm(amx_ctx *c, const float *Y, int kb, float *T)
   _tile_loadconfig(&cfg);
   const long sT = (long)K * 4;
   float *cs = c->Cp;   // scratch C block: 32 j x IB i, column-major with ld IB... we use per-tile 16x16 blocks
-  const int IB = AMX_IB;          // i-slab: W tiles Kp x IB x 2 x 2 bytes (1.1 MB at IB 128) in L2
-  const int KB = AMX_KB;          // k-block of KB x 32: the two j-tiles' Y data KB x 32 x 4 x 32 bytes (32 KB at KB 8) in L1
+  // Runtime knobs (experiments/wil50_feasibility/speed/nov6_core): the blocking, the W
+  // load hint and the order of the six tile products. Unset, each is today's value, and
+  // every setting gives the same T bit for bit (the same k order per accumulator tile).
+  static int knob_ib = 0, knob_kb = 0, knob_nt = 1, knob_order = 0;
+  if (knob_ib == 0) {
+    const char *e;
+    knob_ib = (e = getenv("DNN_CORE_AMX_IB")) && atoi(e) >= 16 ? atoi(e) / 16 * 16 : AMX_IB;
+    if (knob_ib > AMX_IB_MAX) knob_ib = AMX_IB_MAX;
+    knob_kb = (e = getenv("DNN_CORE_AMX_KB")) && atoi(e) >= 1 ? atoi(e) : AMX_KB;
+    knob_nt = (e = getenv("DNN_CORE_AMX_NT")) ? atoi(e) : 1;          // 1: W tiles with the non-temporal hint (today)
+    knob_order = (e = getenv("DNN_CORE_AMX_ORDER")) ? atoi(e) : 0;    // 1: the two accumulators' products interleaved
+  }
+  const int IB = knob_ib;         // i-slab: W tiles Kp x IB x 2 x 2 bytes (1.1 MB at IB 128) in L2
+  const int KB = knob_kb;         // k-block of KB x 32: the two j-tiles' Y data KB x 32 x 4 x 32 bytes (32 KB at KB 8) in L1
+  const int nt = knob_nt, ord = knob_order;
   for (int i0 = 0; i0 < Kp; i0 += IB) {
     const int i1 = i0 + IB < Kp ? i0 + IB : Kp;
     for (int j0 = 0; j0 < kbp; j0 += 32) {
@@ -362,18 +376,35 @@ void amx_gemm(amx_ctx *c, const float *Y, int kb, float *T)
           else { _tile_loadd(0, c0, s0); _tile_loadd(1, c1, s1); }
           for (int k32 = kb0; k32 < kb1; k32++) {
             const size_t toff = ((size_t)i16 * nK32 + k32) * 512;
-            _tile_stream_loadd(6, c->Wh + toff, 64);   // W streams: the non-temporal hint keeps Y's k-block in L1
-            _tile_stream_loadd(7, c->Wl + toff, 64);
+            if (nt) {
+              _tile_stream_loadd(6, c->Wh + toff, 64);   // W streams: the non-temporal hint keeps Y's k-block in L1
+              _tile_stream_loadd(7, c->Wl + toff, 64);
+            } else {
+              _tile_loadd(6, c->Wh + toff, 64);
+              _tile_loadd(7, c->Wl + toff, 64);
+            }
             _tile_loadd(2, yh1 + (size_t)k32 * 512, 64);
             _tile_loadd(3, yl1 + (size_t)k32 * 512, 64);
-            _tile_dpbf16ps(0, 2, 6);
-            _tile_dpbf16ps(0, 2, 7);
-            _tile_dpbf16ps(0, 3, 6);
-            _tile_loadd(4, yh2 + (size_t)k32 * 512, 64);
-            _tile_loadd(5, yl2 + (size_t)k32 * 512, 64);
-            _tile_dpbf16ps(1, 4, 6);
-            _tile_dpbf16ps(1, 4, 7);
-            _tile_dpbf16ps(1, 5, 6);
+            if (ord) {
+              // the two accumulator chains interleaved (the same order within each)
+              _tile_loadd(4, yh2 + (size_t)k32 * 512, 64);
+              _tile_loadd(5, yl2 + (size_t)k32 * 512, 64);
+              _tile_dpbf16ps(0, 2, 6);
+              _tile_dpbf16ps(1, 4, 6);
+              _tile_dpbf16ps(0, 2, 7);
+              _tile_dpbf16ps(1, 4, 7);
+              _tile_dpbf16ps(0, 3, 6);
+              _tile_dpbf16ps(1, 5, 6);
+            } else {
+              _tile_dpbf16ps(0, 2, 6);
+              _tile_dpbf16ps(0, 2, 7);
+              _tile_dpbf16ps(0, 3, 6);
+              _tile_loadd(4, yh2 + (size_t)k32 * 512, 64);
+              _tile_loadd(5, yl2 + (size_t)k32 * 512, 64);
+              _tile_dpbf16ps(1, 4, 6);
+              _tile_dpbf16ps(1, 4, 7);
+              _tile_dpbf16ps(1, 5, 6);
+            }
           }
           _tile_stored(0, c0, s0);
           _tile_stored(1, c1, s1);
