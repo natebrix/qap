@@ -13,18 +13,26 @@ import os
 import re
 import sys
 
-ARMS = ["base", "zone", "warmy", "certx", "ship", "full", "zone2", "base2", "ship2", "fast"]
+ARMS = ["base", "zone", "warmy", "certx", "ship", "full", "zone2", "base2", "ship2", "fast",
+        "cross", "wlow", "wlowc", "best", "core", "bestcore"]
 # kill lines (README.md): the ratio of DNN iterations an arm must reach. For
 # warmy and certx the end-to-end ratio is below the run-to-run noise of one
 # configuration (README, base vs zone), so they are judged on the matched
 # nodes (shared, same parent-Y warm start and pool status) and, for warmy, on
 # the phases both arms ran
 GATES = {("zone", "base"): 1.15, ("warmy", "zone"): 1.05, ("certx", "zone"): 1.03, ("ship", "zone"): 1.1,
-         ("full", "ship"): 1.1, ("full", "warmy"): 1.1}
+         ("full", "ship"): 1.1, ("full", "warmy"): 1.1,
+         ("wlowc", "fast"): 1.15}   # ../speed/nov6_admm: about 1.35x expected on the warm set's evidence
+# kill lines in DNN CPU on the matched nodes, for levers that save CPU rather than
+# iterations (same machine, same hour): the crossing certificate (../speed/nov6_admm,
+# about 1.03x expected) and the core switches (../speed/nov6_core, about 1.10x expected)
+CPU_GATES = {("cross", "fast"): 1.02, ("best", "wlowc"): 1.02, ("core", "fast"): 1.05, ("bestcore", "best"): 1.05}
 # the pairs compared, (arm, reference); the first reference that finished is used
 PAIRS = [("zone", ["base"]), ("warmy", ["zone"]), ("certx", ["zone", "base"]), ("ship", ["zone"]), ("full", ["ship"]), ("full", ["warmy"]),
          ("full", ["zone"]), ("full", ["base"]), ("zone2", ["zone"]), ("ship2", ["ship"]),
-         ("base2", ["base"]), ("fast", ["full"])]
+         ("base2", ["base"]), ("fast", ["full"]),
+         ("cross", ["fast"]), ("wlowc", ["fast"]), ("wlow", ["fast"]), ("wlow", ["wlowc"]), ("best", ["wlowc"]),
+         ("core", ["fast"]), ("bestcore", ["best"]), ("bestcore", ["fast"])]
 
 
 def num(pat, line, conv=float):
@@ -111,12 +119,17 @@ def compare(x, y):
     it = lambda r: r["iters"] + r["cut_iters"]
     matched = [k for k in shared if x["rows"][k]["warm"] == y["rows"][k]["warm"]
                and x["rows"][k]["pool"] == y["rows"][k]["pool"]]
-    rm = None
+    rm = rc = None
     if matched:
         mx, my = sum(it(x["rows"][k]) for k in matched), sum(it(y["rows"][k]) for k in matched)
         rm = my / mx if mx else 0
         print(f"- the {len(matched)} matched nodes (shared, same warm start and pool status): {my:,} -> {mx:,} "
               f"DNN iterations, {ratio(my, mx)}")
+        cpu = lambda r: r["cpu"] + r["cut_cpu"]
+        cx, cy = sum(cpu(x["rows"][k]) for k in matched), sum(cpu(y["rows"][k]) for k in matched)
+        rc = cy / cx if cx else 0
+        print(f"- the same matched nodes' DNN CPU: {cy:,.0f} -> {cx:,.0f} s, {ratio(cy, cx)}"
+              + (f"; per DNN iteration {1000 * cy / my:.0f} -> {1000 * cx / mx:.0f} ms" if mx and my else ""))
     both = [k for k in shared if x["rows"][k]["cut"] and y["rows"][k]["cut"]]
     if both:
         px, py = sum(x["rows"][k]["cut_iters"] for k in both), sum(y["rows"][k]["cut_iters"] for k in both)
@@ -138,6 +151,11 @@ def compare(x, y):
         elif rm is not None:
             print(f"- kill line: {gate:.2f}x in DNN iterations on the matched nodes -> "
                   f"{'PASS' if rm >= gate else 'FAIL'} ({rm:.3f}x; end to end {r:.3f}x)")
+    cgate = CPU_GATES.get((x["arm"], y["arm"]))
+    if cgate and rc is not None:
+        rcpu = y["dnn_cpu"] / x["dnn_cpu"] if x["dnn_cpu"] else 0
+        print(f"- kill line: {cgate:.2f}x in DNN CPU on the matched nodes -> "
+              f"{'PASS' if rc >= cgate else 'FAIL'} ({rc:.3f}x; end to end {rcpu:.3f}x)")
 
 
 def main():

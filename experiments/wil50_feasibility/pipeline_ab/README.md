@@ -42,6 +42,25 @@ experiments/wil50_feasibility/pipeline_ab/run_pair.sh base zone
 `summarize.py runs/` can be run at any time; unfinished arms are listed as
 such.
 
+**The Nov 6 levers** (`../speed/nov6_admm/`, `../speed/nov6_core/`), two
+sessions of about 25 minutes each on the M2 Pro, each pair at the same time
+so that its CPU ratio means something:
+
+```
+experiments/wil50_feasibility/pipeline_ab/run_pair.sh fast wlowc     # warm-call beta 0.25: kill line 1.15x in DNN iterations, matched nodes
+experiments/wil50_feasibility/pipeline_ab/run_pair.sh best bestcore  # the three core switches on top: kill line 1.05x in DNN CPU, matched nodes
+```
+
+`best` against `wlowc` (the crossing certificate, kill line 1.02x in DNN
+CPU) spans the two sessions, so its CPU ratio is weaker than the in-session
+ones; its iterations are not. `core` (`fast` + the core switches) and `wlow`
+(0.25 for the cut rounds too) are there for a third session if a result
+needs splitting. `summarize.py` prints every pair and its kill line. The
+gates for a binary with these switches are `make test`, `make dnncheck`,
+`make shipcheck` and `make continuationcheck` with the switches unset; with
+any `DNN_BETA_SCHED` exported, `tests/dnn_test.py --parts ACDE`, since part
+B compares against the fixed-beta Python prototype and fails by design.
+
 ## The damping setting (Nov 5, cloud box, `damp_test.sh`, logs in `damp/`)
 
 Child 49:45 of node 10 with node 10's equip-phase pool

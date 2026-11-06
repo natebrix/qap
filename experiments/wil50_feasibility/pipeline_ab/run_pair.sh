@@ -6,6 +6,8 @@
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh warmy certx
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh zone2 base2   (replicates)
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh full ship2    (all levers; ship replicate)
+#   experiments/wil50_feasibility/pipeline_ab/run_pair.sh fast wlowc    (Nov 6: the warm-call beta)
+#   experiments/wil50_feasibility/pipeline_ab/run_pair.sh best bestcore (Nov 6: the core switches on top)
 #
 # Arms (each on top of base unless stated):
 #   base   the production configuration of coord_search/run_coord_search.sh:
@@ -32,6 +34,12 @@
 #   wlowc  wlow for the children, the cut rounds kept at 0.7 (the `wc` key):
 #          the warm set measured children only
 #   best   wlowc + DNN_ADMM_CROSS=2
+#   core   fast + the three core switches of ../speed/nov6_core/ (the lazy
+#          certificate DNN_CORE_LAZYCERT=1, no symmetrisation passes
+#          DNN_CORE_NOSYMV=1 DNN_NOSYMW=1, the partial refresh
+#          DNN_CORE_REFRESH_PARTIAL=1): the same decisions at about 1.1x less
+#          CPU per iteration, so it is judged in DNN CPU, not iterations
+#   bestcore  best + the same three core switches: every Nov 6 lever at once
 #   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
@@ -50,9 +58,9 @@ D=$(cd "$(dirname "$0")" && pwd)
 R=$(cd "$D/../../.." && pwd)
 RUNS=${PAB_RUNS:-$D/runs}
 
-[ $# -ge 1 ] || { sed -n 2,30p "$0"; exit 2; }
+[ $# -ge 1 ] || { sed -n '2,/^set -u$/p' "$0" | sed '$d'; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -105,6 +113,14 @@ arm_env() {
     best)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 ;;
+    core)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
+                  DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7 \
+                  DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1 ;;
+    bestcore) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
+                  DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 \
+                  DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1 ;;
     certx) export QAP_DNN_CUT_ZONE=0.005 DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1 DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=10 ;;
   esac
 }
@@ -126,10 +142,13 @@ run_arm() {
     if [ "$arm" = fast ] && ! grep -aq DNN_BETA_SCHED latest/bnbdrv; then
       echo "fast: this bnbdrv has no DNN_BETA_SCHED or DNN_R32_NONCERT yet: git pull, make solver, run again"; return 1
     fi
-    if { [ "$arm" = cross ] || [ "$arm" = best ]; } && ! grep -aq DNN_ADMM_CROSS latest/bnbdrv; then
+    if { [ "$arm" = cross ] || [ "$arm" = best ] || [ "$arm" = bestcore ]; } && ! grep -aq DNN_ADMM_CROSS latest/bnbdrv; then
       echo "$arm: this bnbdrv has no DNN_ADMM_CROSS yet: git pull, make solver, run again"; return 1
     fi
-    if { [ "$arm" = wlowc ] || [ "$arm" = best ]; } && ! grep -aq "a cut term" latest/dnn.C; then
+    if { [ "$arm" = core ] || [ "$arm" = bestcore ]; } && ! grep -aq DNN_CORE_LAZYCERT latest/bnbdrv; then
+      echo "$arm: this bnbdrv has no DNN_CORE_* switches yet: git pull, make solver, run again"; return 1
+    fi
+    if { [ "$arm" = wlowc ] || [ "$arm" = best ] || [ "$arm" = bestcore ]; } && ! grep -aq "a cut term" latest/dnn.C; then
       echo "$arm: this tree has no wc key in DNN_BETA_SCHED yet: git pull, make solver, run again"; return 1
     fi
     if { [ "$arm" = ship ] || [ "$arm" = ship2 ] || [ "$arm" = full ]; } && ! grep -aq QAP_DNN_SHIP latest/bnbdrv; then
