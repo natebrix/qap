@@ -197,3 +197,9 @@ The two measurements that decide between these outcomes are cheap:
      quadruple costs 10+ minutes on the laptop; a cloud job if picked up.
      By-product: node 10's first triple sample (30 triples, median 0.0175,
      max 0.049), the same order as nodes 13 and d2.
+   - **sko49 or wil50, settled Nov 6** (`../../sko49_feasibility/vs_wil50.md`):
+     matched probes on two sko49 tail nodes; sko49 nodes cost 2-4x a wil50
+     node at equal shortfall, cancelling its narrower tree: about 15 against
+     18 days on 1,000 cores, sko49's range four times tighter. Stay on
+     wil50; switch only if the sampling plan puts wil50 above about 1.5e9
+     laptop CPU s.

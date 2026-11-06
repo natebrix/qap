@@ -1,0 +1,14 @@
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) | open below | per level: nodes, fathomed/bounded |
+|---|---|---|---|---|---|
+| base | 11,112 | 1,931,920 (± 1,600,354) | 192,981 (± 144,919) | 0 | L3: 1, 0/1; L4: 46, 25/46; L5: 945, 62/63; L6: 660, 2/3; L7: 9,460, 3/3 |
+| full | 1,247 | 325,650 (± 225,615) | 46,327 (± 30,137) | 0 | L3: 1, 0/1; L4: 46, 34/46; L5: 540, 35/36; L6: 660, 3/3 |
+
+Matched nodes (the same assignment bounded in both arms), by level: fathomed in each, DNN iterations in each and their ratio
+
+| arms | level | shared | fathomed (first / second) | iterations (first / second) | ratio |
+|---|---|---|---|---|---|
+| base / full | 3 | 1 | 0 / 0 | 300 / 300 | 1.00 |
+| base / full | 4 | 46 | 25 / 34 | 16,620 / 26,000 | 0.64 |
+| base / full | 5 | 36 | 35 / 35 | 12,610 / 4,410 | 2.86 |
+
+- full against base: 5.93x fewer estimated iterations, 4.17x less estimated CPU
