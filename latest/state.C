@@ -11,6 +11,7 @@
 
 static const char *STATE_MAGIC = "QAP-STATE";
 static const int STATE_VERSION = 6;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state (all still read)
+static const int STATE_VERSION_BASIS = 7;   // 6 + the parent's tracked basis per warm start (DNN_SHIP_BASIS=1 with QAP_DNN_SHIP)
 
 #ifdef HAVE_DNN
 #include "dnn.h"
@@ -132,6 +133,71 @@ static std::string dnn_token(const WarmStart *w)
   return head + b64_encode(b);
 }
 
+/*
+ Version 7 (DNN_SHIP_BASIS=1 with QAP_DNN_SHIP; otherwise version 6 is written,
+ byte for byte as before): each warm line has one more field after the DNN
+ state, the parent's tracked basis (DNNWarm::basis, dnn.C's seed_block), so that
+ a child bounded in another process skips its first full eigendecomposition as
+ one bounded in the parent's process does. Token, or "-" for none:
+   bas<bits>:<K>:<kb>:<hastop>:<base64 of the K x kb block (column-major), then the top vector>
+ bits: QAP_DNN_SHIP_BASIS_BITS=32 (fp32, the tracker's own precision, so exact;
+ the default) or 16 (bf16). Versions 1-6 are still read (no basis: the children
+ refresh as before); a reader older than version 7 refuses a version 7 file
+ rather than misreading it. Like the DNN state, the basis only moves where a
+ child's ADMM starts.
+*/
+static int basis_ship_bits()
+{
+  const char *e = getenv("QAP_DNN_SHIP_BASIS_BITS");
+  return e && atoi(e) == 16 ? 16 : 32;
+}
+
+static bool basis_on() { return dnn_ship_bits() && dnn_ship_basis() > 0; }
+
+static std::string basis_token(const WarmStart *w)
+{
+  if (!w->dnn) return "-";
+  const DNNWarm &d = *(const DNNWarm *)w->dnn;
+  const size_t n1 = (size_t)d.m * d.m + 1, K = d.basis_K, kb = d.basis_kb;
+  if (d.m < 3 || d.Z.size() != n1 * n1 || !(d.scale > 0) || K != (size_t)(d.m - 1) * (d.m - 1) + 1 ||
+      kb < 1 || kb >= K || d.basis.size() != K * kb)
+    return "-";
+  const int bits = basis_ship_bits();
+  const bool top = d.basis_top.size() == K;
+  std::vector<unsigned char> b;
+  b.reserve((K * kb + (top ? K : 0)) * (bits / 8));
+  for (float v : d.basis) put_value(b, v, bits);
+  if (top) for (float v : d.basis_top) put_value(b, v, bits);
+  char head[96];
+  snprintf(head, sizeof head, "bas%d:%zu:%zu:%d:", bits, K, kb, top ? 1 : 0);
+  return head + b64_encode(b);
+}
+
+// "-" or a well-formed token for d (whose m is known): false on a malformed token
+static bool basis_from_token(const std::string &t, DNNWarm *d)
+{
+  if (t == "-") return true;
+  int bits, K, kb, top, used = 0;
+  if (sscanf(t.c_str(), "bas%d:%d:%d:%d:%n", &bits, &K, &kb, &top, &used) != 4 || used <= 0 ||
+      (bits != 16 && bits != 32) || K < 2 || kb < 1 || kb >= K || (top != 0 && top != 1))
+    return false;
+  std::vector<unsigned char> b;
+  if (!b64_decode(t.c_str() + used, t.size() - used, b)) return false;
+  const size_t bytes = (size_t)bits / 8, nv = (size_t)K * kb + (top ? K : 0);
+  if (b.size() != nv * bytes) return false;
+  if (!d) return true;   // no DNN state to attach it to: dropped
+  const unsigned char *p = b.data();
+  d->basis.resize((size_t)K * kb);
+  for (size_t t2 = 0; t2 < (size_t)K * kb; t2++, p += bytes) d->basis[t2] = (float)get_value(p, bits);
+  d->basis_top.clear();
+  if (top) {
+    d->basis_top.resize(K);
+    for (int t2 = 0; t2 < K; t2++, p += bytes) d->basis_top[t2] = (float)get_value(p, bits);
+  }
+  d->basis_K = K; d->basis_kb = kb;
+  return true;
+}
+
 static DNNWarm *dnn_from_token(const std::string &t)
 {
   int bits, m, hasY, used = 0;
@@ -187,7 +253,12 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
   f << std::setprecision(17);
 
   const int n = s->n, L = stats->n + 1, m = stats->m;
-  f << STATE_MAGIC << ' ' << STATE_VERSION << '\n';
+#ifdef HAVE_DNN
+  const bool basis = basis_on();   // version 7: the parents' tracked bases (DNN_SHIP_BASIS)
+#else
+  const bool basis = false;
+#endif
+  f << STATE_MAGIC << ' ' << (basis ? STATE_VERSION_BASIS : STATE_VERSION) << '\n';
   f << "n " << n << " levels " << stats->n << " strategies " << m << '\n';
   f << "incumbent " << s->obj << ' ' << s->ifs_found;
   for (int i = 0; i < n; i++) f << ' ' << s->perm[i];
@@ -234,6 +305,7 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
     f << ' ' << (w->dnn_pool.empty() ? std::string("-") : w->dnn_pool);   // version 5: the cut pool
 #ifdef HAVE_DNN
     f << ' ' << dnn_token(w);   // version 6: the parent's DNN state (QAP_DNN_SHIP)
+    if (basis) f << ' ' << basis_token(w);   // version 7: its tracked basis (DNN_SHIP_BASIS)
 #else
     f << " -";
 #endif
@@ -278,8 +350,8 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
   std::string tag;
   int version, fn, fL, fm;
   if (!(f >> tag >> version) || tag != STATE_MAGIC || version < 1 ||
-      version > STATE_VERSION)
-    return fail(file, "not a version 1-3 state file");
+      version > STATE_VERSION_BASIS)
+    return fail(file, "not a version 1-7 state file");
   std::string t1, t2, t3;
   if (!(f >> t1 >> fn >> t2 >> fL >> t3 >> fm) || t1 != "n")
     return fail(file, "bad header");
@@ -340,11 +412,14 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
       std::string pool;
       if (ok && version >= 4) ok = (bool)(f >> ext);
       if (ok && version >= 5) ok = (bool)(f >> pool);
-      std::string dnn = "-";
+      std::string dnn = "-", bas = "-";
       if (ok && version >= 6) ok = (bool)(f >> dnn);
+      if (ok && version >= 7) ok = (bool)(f >> bas);
 #ifdef HAVE_DNN
       DNNWarm *dw = NULL;
       if (ok && dnn != "-") ok = (dw = dnn_from_token(dnn)) != NULL;
+      if (ok) ok = basis_from_token(bas, dw);
+      if (!ok) { delete dw; dw = NULL; }
 #endif
       if (ok) {
 	warms.push_back(new_warm_start(wp, n, X));

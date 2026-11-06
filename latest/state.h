@@ -13,7 +13,9 @@
  state into tasks and merge the statistics of finished ones.
 
  Format (version 6; versions 1-5, which lack the warm starts, the DNN
- counts, dnn_ext, the cut pools or the DNN state, are still read):
+ counts, dnn_ext, the cut pools or the DNN state, are still read; version 7
+ is version 6 with one more field per warm line, below, written only with
+ DNN_SHIP_BASIS=1 and QAP_DNN_SHIP):
    QAP-STATE 6
    n <n> levels <stats.n> strategies <stats.m>
    incumbent <obj> <found> <perm[0..n-1]>
@@ -34,6 +36,9 @@
                                 dnn: the node's final DNN state for its
                                 children, written with QAP_DNN_SHIP=16|32|64,
                                 "-" otherwise; format in state.C)
+   (version 7: ... <dnn> <basis>: the node's tracked eigenbasis for its
+                                children's first R-step, DNN_SHIP_BASIS=1,
+                                QAP_DNN_SHIP_BASIS_BITS=32|16; "-" for none)
    nodes <count>
    node <depth> <bound> <predicted_bound> <nfix> <p[0..n-1]> <history[0..n-1]> <warm>
                                (warm: index into the warm starts, or -1)

@@ -192,6 +192,10 @@ struct DNNResult {
   int halpern_restarts;   // anchor restarts (par.halpern), memory resets (par.anderson)
                           // or momentum restarts (par.momentum)
   double margin;       // largest safety margin subtracted from a certified value
+  int basis_seed;      // DNN_SHIP_BASIS (see DNNWarm): 1 the first R-step started from
+                       // the start's basis, -1 the basis was there but rejected (full
+                       // refresh instead), 0 no basis offered or the switch is off
+  double basis_res;    // the seed's block residual (seed_block's test; -1 if not computed)
   // With par.child_bounds, unless fathomed: child_lb[i * m + j] is a certified
   // lower bound (shift included) on the node with its facility i at location j
   // (local indices, as reduceQAP numbers them), from the certificate that gave
@@ -208,8 +212,22 @@ struct DNNWarm {
   std::vector<double> Z;        // lifted (m^2+1)^2, row-major, scaled units
   std::vector<double> Y;        // the final primal iterate (not a solution; for
                                 // separating cuts), (m^2+1)^2 row-major
-  DNNWarm() : m(0), scale(0) {}
+  // DNN_SHIP_BASIS=1 (opt-in; experiments/wil50_feasibility/speed/nov6_basis): the
+  // subspace tracker's final block, so that a child's first R-step starts from it
+  // instead of a full eigendecomposition. basis_kb vectors of length basis_K, column-
+  // major fp32, in facial coordinates (basis_K = K of the node that saved them, or of
+  // the child after dnn_warm_child mapped them, which leaves them not orthonormal);
+  // basis_top the tracked top eigenvector (length basis_K; empty without tight_lam).
+  // Only where the ADMM starts: the certificate never reads the tracker. Empty: none.
+  int basis_K, basis_kb;
+  std::vector<float> basis, basis_top;
+  DNNWarm() : m(0), scale(0), basis_K(0), basis_kb(0) {}
 };
+
+// DNN_SHIP_BASIS from the environment (read at each call): 1 = dnn_bound saves the
+// tracker's block in DNNWarm, dnn_warm_child maps it to the child and a warm-started
+// call outside a cut phase seeds its tracker from it; 0 (unset) = off, as before.
+int dnn_ship_basis();
 
 // start: a warm start for this node (from dnn_warm_child), or NULL.
 // save: if not NULL, receives this node's final ADMM state.
@@ -226,7 +244,17 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
 // parent's row (ij) over x_ij, off-diagonals rescaled so diag(Y) = row 0).
 // With ymode > 0 the child must be run with DNNParams::warm_primal = 1 so that
 // dnn_bound starts from that Y; ymode > 0 needs the parent's Y (save->Y).
+// With DNN_SHIP_BASIS=1 and a basis in the parent, the child also gets it, mapped
+// into the child's facial coordinates (V_c' P' V_p x for each vector x, P the
+// child's embedding in the parent's lifted space, the map under which Z is mapped).
 bool dnn_warm_child(const DNNWarm &parent, int i, int j, DNNWarm &child, int ymode = 0);
+
+// Test of the basis map (DNN_SHIP_BASIS): for a random symmetric lifted Z at size m
+// and the child (i, j), the largest |V_c' Z_c V_c - G' (V_p' Z V_p) G| entry relative
+// to max |V_p' Z V_p|, G' the map dnn_warm_child applies to basis vectors and Z_c the
+// child's Z from dnn_warm_child. About 1e-7 when the map is right (the mapped
+// vectors are fp32), O(1) when it is not. m <= 16 (it forms the matrices densely).
+double dnn_basis_map_check(int m, int i, int j, unsigned seed);
 
 // Set the number of BLAS threads if the linked BLAS supports it (OpenBLAS);
 // returns false otherwise. The bound is meant to run on one core per node.

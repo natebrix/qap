@@ -490,6 +490,18 @@ struct Work {
   int ref_sched, ref_weyl, ref_small, ref_fail;   // why a full refresh ran
   int n_grow;                 // block extended with fresh vectors instead of a refresh
   unsigned grow_seed;
+  // DNN_SHIP_BASIS (see seed_block): the first R-step starts from a shipped block that
+  // dnn_bound put in Xs (kb columns, not orthonormal) and vtop (when seed_top).
+  // kb_ritz: the leading columns of Xs that are Ritz vectors of the last R-step (the
+  // rest, if any, fresh vectors appended by a block growth), saved for the children.
+  bool seeded = false, seed_top = false, seed_t_ready = false;
+  int seed_steps = 1, seed_pow = 6, seed_result = 0, seed_nneg = 0, seed_kb = 0, kb_ritz = 0;
+  double seed_tau = 0.25, seed_res = -1, seed_res_neg = -1, seed_ms = 0, first_ms = -1;
+  // DNN_SHIP_BASIS_DEBUG=1 (study only): the seed's negative pairs' residual, and the
+  // same block residual as the seed's test at every filter step (sum, max, count, and
+  // the first step's), printed with verbose >= 2
+  int dbg = 0, dbg_n = 0;
+  double dbg_sum = 0, dbg_max = 0, dbg_first = -1;
   double delta_rel;           // last relative Cholesky shift that worked (certify)
   // Chebyshev filter and Rayleigh-Ritz products W Y on Intel AMX (amx_gemm.h):
   // opt-in with DNN_AMX=1 when the CPU has AMX-BF16; W is split into bf16 hi
@@ -828,6 +840,176 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
  semidefinite by construction, so certificates are unaffected by the
  approximation; only the ADMM step is inexact.
 */
+
+/*
+ DNN_SHIP_BASIS=1 (experiments/wil50_feasibility/speed/nov6_basis): the first
+ R-step of a warm-started call starts the tracker from a shipped block instead
+ of the full ssyevd. Xs holds kb vectors (DNNWarm::basis: the parent's last
+ tracked block, mapped by dnn_warm_child into this node's facial coordinates,
+ so not orthonormal), vtop the mapped top eigenvector when seed_top. Steps:
+ CholQR (DNN_CHOLQR_PASSES passes, as the filter step), then Rayleigh-Ritz on
+ this W, H = Y'WY, with the test before the eigensolve: the block's residual
+ |WY - YH|_F, which is (|WY|_F^2 - |H|_F^2)^(1/2) for orthonormal Y and equals
+ the Ritz pairs' |WX - X Theta|_F, must be at most seed_tau
+ (DNN_SHIP_BASIS_TAU, 0.25) times |H|_F; a failed factorization or no negative
+ Ritz value also rejects the block. Then, with seed_steps (DNN_SHIP_BASIS_STEPS)
+ k = 1, the default: the Ritz values only (the filter's window theta_top, the
+ power steps' shift), seed_pow (DNN_SHIP_BASIS_POW, 6) shifted power steps on
+ the top eigenvector (the shipped one, else a fixed pseudo-random start) for
+ lam_hi, and the R-step goes on with a filter step from Y itself, whose first
+ product W Y is T already (seed_t_ready); that step's Rayleigh-Ritz trims or
+ grows the block as usual. k > 1: k filter steps. k = 0: the Ritz pairs of the
+ shipped block are this R-step's (the vectors formed, the block trimmed or
+ grown here; power steps only for the Weyl bound, tight_lam = 0, whose drift
+ starts from this lam_hi). since_refresh is set so that it reads 0 after this
+ R-step, as after the refresh it replaces: the refresh schedule is unchanged.
+ Returns false on a rejection; the caller then runs the full refresh, as
+ without the switch. Only where the ADMM starts: R is formed in the negative
+ form in every case, so W - R stays negative semidefinite and the certificate
+ is unaffected.
+*/
+template <class WYF>
+bool seed_block(Work &w, lapack_int &kb, int &nneg, int guard, int tight_lam, int cholqr_passes,
+                const WYF &WY)
+{
+  const double t0 = thread_cpu();
+  const lapack_int K = w.K;
+  const float one = 1, zero = 0;
+  float *X = w.Xs.data(), *Y = w.Ys.data(), *T = w.Ts.data(), *G = w.Hs.data();
+  std::vector<float> &theta = w.evalsf;
+  w.seed_result = -1; w.seed_res = -1; w.seed_nneg = 0; w.seed_kb = (int)kb;
+  bool ok = kb >= 1 && kb < K;
+  const size_t nb = (size_t)K * kb;
+  if (ok) memcpy(Y, X, nb * sizeof(float));
+  // CholQR: the mapped vectors are not orthonormal (their Gram matrix is near I:
+  // G'G = I + V_c'e0 e0'V_c for the map G' = V_c'P'V_p of dnn_warm_child)
+  for (int pass = 0; pass < cholqr_passes && ok; pass++) {
+    lapack_int info = 0;
+    F77(ssyrk)("U", "T", &kb, &K, &one, Y, &K, &zero, G, &kb, 1, 1);
+    F77(spotrf)("U", &kb, G, &kb, &info, 1);
+    if (info != 0) { ok = false; break; }
+    F77(strsm)("R", "U", "N", "N", &K, &kb, &one, G, &kb, Y, &K, 1, 1, 1, 1);
+  }
+  // Rayleigh-Ritz: H = Y' W Y; the test; then H = Q Theta Q'
+  if (ok) {
+    WY(Y, T);
+    F77(sgemm)("T", "N", &kb, &kb, &K, &one, Y, &K, T, &K, &zero, G, &kb, 1, 1);
+    for (int i = 0; i < kb; i++)
+      for (int j = i + 1; j < kb; j++)
+        G[(size_t)i * kb + j] = G[(size_t)j * kb + i] = 0.5f * (G[(size_t)i * kb + j] + G[(size_t)j * kb + i]);
+    double tt = 0, hh = 0;
+    for (size_t t = 0; t < nb; t++) tt += (double)T[t] * T[t];
+    for (size_t t = 0; t < (size_t)kb * kb; t++) hh += (double)G[t] * G[t];
+    w.seed_res = hh > 0 ? sqrt(std::max(0.0, tt - hh) / hh) : HUGE_VAL;
+    ok = std::isfinite(w.seed_res) && w.seed_res <= w.seed_tau;
+  }
+  // with filter steps to follow (seed_steps > 0) only the Ritz values are needed (the
+  // filter's window, the power steps' shift): the filter starts from Y itself, whose
+  // first product W Y is T already (seed_t_ready); the filter step's own Rayleigh-Ritz
+  // then gives the Ritz vectors, as after any filter step
+  const bool lite = w.seed_steps > 0;
+  if (ok) {
+    lapack_int lwork = (lapack_int)w.eworkf.size(), liwork = (lapack_int)w.eiwork.size(), info = 0;
+    F77(ssyevd)(lite ? "N" : "V", "L", &kb, G, &kb, theta.data(), w.eworkf.data(), &lwork,
+                w.eiwork.data(), &liwork, &info, 1, 1);
+    ok = info == 0;
+  }
+  int ns = 0;
+  if (ok) {
+    while (ns < kb && theta[ns] < 0) ns++;
+    w.seed_nneg = ns;
+    ok = ns > 0;
+  }
+  if (ok && !lite) {
+    F77(sgemm)("N", "N", &K, &kb, &kb, &one, Y, &K, G, &kb, &zero, X, &K, 1, 1);   // X = Y Q
+    if (w.dbg) {
+      // DNN_SHIP_BASIS_DEBUG: the negative Ritz pairs' own residual, |W X - X Theta|_F
+      // over |Theta_neg|_F (W X = T Q into Ys: Y is no longer needed)
+      F77(sgemm)("N", "N", &K, &kb, &kb, &one, T, &K, G, &kb, &zero, Y, &K, 1, 1);
+      double rn = 0, tn = 0;
+      for (int i = 0; i < ns; i++) {
+        const float *x = X + (size_t)i * K, *y = Y + (size_t)i * K;
+        const double th = theta[i];
+        for (int t = 0; t < K; t++) { const double d = (double)y[t] - th * x[t]; rn += d * d; }
+        tn += th * th;
+      }
+      w.seed_res_neg = sqrt(rn / tn);
+    }
+  }
+  if (!ok) { w.seed_ms += (thread_cpu() - t0) * 1e3; return false; }
+  nneg = ns;
+  if (lite) {
+    memcpy(X, Y, (size_t)K * kb * sizeof(float));   // the filter's start; T = W X
+    w.theta_top = theta[kb - 1];
+    if (ns > kb - (guard + 1) / 2) {
+      // too small for this W's negative count: fresh vectors (and their products)
+      const lapack_int add = std::min<lapack_int>(guard, K - kb);
+      float *xn = X + (size_t)kb * K;
+      for (size_t t = 0; t < (size_t)std::max<lapack_int>(add, 0) * K; t++) {
+        w.grow_seed = w.grow_seed * 1664525u + 1013904223u;
+        xn[t] = (float)((w.grow_seed >> 8) & 0xffffu) / 65536.0f - 0.5f;
+      }
+      if (add > 0) {
+        F77(sgemm)("N", "N", &K, &add, &K, &one, w.Wf.data(), &K, xn, &K, &zero, T + (size_t)kb * K, &K, 1, 1);
+        kb += add; w.n_grow++;
+      }
+    }
+    w.seed_t_ready = true;
+  } else if (ns > kb - (guard + 1) / 2) {
+    // too small for this W's negative count: fresh vectors, as after a filter step
+    w.kb_ritz = (int)kb;
+    w.theta_top = theta[kb - 1];
+    const lapack_int add = std::min<lapack_int>(guard, K - kb);
+    float *xn = X + (size_t)kb * K;
+    for (size_t t = 0; t < (size_t)std::max<lapack_int>(add, 0) * K; t++) {
+      w.grow_seed = w.grow_seed * 1664525u + 1013904223u;
+      xn[t] = (float)((w.grow_seed >> 8) & 0xffffu) / 65536.0f - 0.5f;
+    }
+    if (add > 0) { kb += add; w.n_grow++; }
+  } else {
+    kb = std::min<lapack_int>(kb, ns + guard);   // keep the lowest Ritz vectors
+    w.kb_ritz = (int)kb;
+    w.theta_top = theta[kb - 1];
+  }
+  // the top eigenvector (for tight_lam's power steps from the next R-step on) and,
+  // when this R-step filters or the Weyl bound drifts from it, lam_hi now
+  float *v = w.vtop.data(), *tv = w.vtmp.data();
+  double vv = 0;
+  if (w.seed_top) for (int i = 0; i < K; i++) vv += (double)v[i] * v[i];
+  if (!(vv > 1e-6)) {
+    unsigned s = 2463534242u;
+    vv = 0;
+    for (int i = 0; i < K; i++) {
+      s = s * 1664525u + 1013904223u;
+      v[i] = (float)((s >> 8) & 0xffffu) / 65536.0f - 0.5f;
+      vv += (double)v[i] * v[i];
+    }
+  }
+  for (int i = 0; i < K; i++) v[i] = (float)(v[i] / sqrt(vv));
+  const int npow = (w.seed_steps > 0 || !(tight_lam > 0)) ? w.seed_pow : 0;
+  const lapack_int inc = 1;
+  const float sh = (float)(1.05 * std::max(0.0, -(double)theta[0]));
+  double rho = 0;
+  for (int it = 0; it < npow; it++) {
+    F77(sgemv)("N", &K, &K, &one, w.Wf.data(), &K, v, &inc, &zero, tv, &inc, 1);
+    double vt = 0, tt = 0;
+    for (int i = 0; i < K; i++) {
+      tv[i] += sh * v[i];
+      vt += (double)v[i] * tv[i]; tt += (double)tv[i] * tv[i];
+    }
+    rho = vt - sh;
+    const double nrm = sqrt(tt) + 1e-30;
+    for (int i = 0; i < K; i++) v[i] = (float)(tv[i] / nrm);
+  }
+  const double est = npow > 0 ? rho * 1.1 + 1e-3 * fabs(rho) + 1e-6 : -HUGE_VAL;
+  w.lam_hi = std::max(est, w.theta_top + 1e-3 * (fabs(w.theta_top) + 1e-6));
+  w.have_basis = true;
+  w.since_refresh = -w.seed_steps;   // 0 after this R-step's filter steps, as after a refresh
+  w.seed_result = 1;
+  w.seed_ms += (thread_cpu() - t0) * 1e3;
+  return true;
+}
+
 bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int refresh,
                        int degree, int guard, int tight_lam, bool cert_step = true)
 {
@@ -878,8 +1060,6 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
     w.lam_hi = std::max(est, w.theta_top + 1e-3 * (fabs(w.theta_top) + 1e-6));
   }
 
-  bool full = !w.have_basis || w.since_refresh >= refresh || w.theta_top >= w.lam_hi;
-  if (full) { if (!w.have_basis || w.since_refresh >= refresh) w.ref_sched++; else w.ref_weyl++; }
   int nneg = 0;
   lapack_int kb = w.kb;
   float *X = w.Xs.data();
@@ -894,6 +1074,18 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       F77(sgemm)("N", "N", &K, &kb, &K, &one, Wf, &K, Yin, &K, &zero, Tout, &K, 1, 1);
     w.sp[3] += (thread_cpu() - tg0) * 1e3;
   };
+  // DNN_SHIP_BASIS: a shipped block in place of the first refresh (seed_block); on a
+  // rejection have_basis stays false and the refresh below runs as without it
+  int reps = 1;              // filter steps in this R-step (seed_steps after a seed)
+  bool seed_final = false;   // seed_steps = 0: the seed's Ritz pairs are this R-step's
+  if (w.seeded) {
+    w.seeded = false;
+    static const int cholqr_passes = getenv("DNN_CHOLQR_PASSES") ? std::max(1, atoi(getenv("DNN_CHOLQR_PASSES"))) : 2;
+    if (seed_block(w, kb, nneg, guard, tight_lam, cholqr_passes, WY)) { reps = w.seed_steps; seed_final = reps <= 0; }
+  }
+
+  bool full = !w.have_basis || w.since_refresh >= refresh || w.theta_top >= w.lam_hi;
+  if (full) { if (!w.have_basis || w.since_refresh >= refresh) w.ref_sched++; else w.ref_weyl++; }
   while (true) {
     if (full) {
       lapack_int lwork = (lapack_int)w.eworkf.size(), liwork = (lapack_int)w.eiwork.size(),
@@ -940,15 +1132,18 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       if (tight_lam > 0 && !refpart) memcpy(w.vtop.data(), X + (size_t)(K - 1) * K, K * sizeof(float));
       w.since_refresh = 0;
       w.have_basis = true;
+      w.kb_ritz = (int)kb;
       break;
     }
+    if (seed_final) break;
     // Chebyshev filter: Y_{j+1} = 2 (W - c) Y_j / h - Y_{j-1}, Y_0 = X
     double ts0 = thread_cpu();
     float *Y = w.Ys.data(), *T = w.Ts.data(), *Yp = X;
     const float c = (float)(0.5 * (w.lam_hi + w.theta_top)),
                 h = (float)(0.5 * (w.lam_hi - w.theta_top));
     const size_t nb = (size_t)K * kb;
-    WY(Yp, T);
+    if (w.seed_t_ready) w.seed_t_ready = false;   // seed_block left T = W X (DNN_SHIP_BASIS)
+    else WY(Yp, T);
     double tc0 = thread_cpu();
     for (size_t t = 0; t < nb; t++) Y[t] = (T[t] - c * Yp[t]) / h;
     w.sp[4] += (thread_cpu() - tc0) * 1e3;
@@ -996,6 +1191,15 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       for (int j = i + 1; j < kb; j++)
         G[(size_t)i * kb + j] = G[(size_t)j * kb + i] =
             0.5f * (G[(size_t)i * kb + j] + G[(size_t)j * kb + i]);
+    if (w.dbg) {
+      // DNN_SHIP_BASIS_DEBUG: this filter step's block residual, as seed_block's test
+      double tt = 0, hh = 0;
+      for (size_t t = 0; t < (size_t)K * kb; t++) tt += (double)T[t] * T[t];
+      for (size_t t = 0; t < (size_t)kb * kb; t++) hh += (double)G[t] * G[t];
+      const double r = hh > 0 ? sqrt(std::max(0.0, tt - hh) / hh) : 0;
+      if (w.dbg_first < 0) w.dbg_first = r;
+      w.dbg_sum += r; w.dbg_max = std::max(w.dbg_max, r); w.dbg_n++;
+    }
     w.sp[6] += (thread_cpu() - tc0) * 1e3; tc0 = thread_cpu();
     {
       lapack_int lwork = (lapack_int)w.eworkf.size(), liwork = (lapack_int)w.eiwork.size(),
@@ -1029,14 +1233,18 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
         w.grow_seed = w.grow_seed * 1664525u + 1013904223u;
         xn[t] = (float)((w.grow_seed >> 8) & 0xffffu) / 65536.0f - 0.5f;
       }
+      w.kb_ritz = (int)kb;
       kb += add;
       w.n_grow++;
     } else {
       kb = std::min<lapack_int>(kb, nneg + guard);   // keep the lowest Ritz vectors
+      w.kb_ritz = (int)kb;
     }
+    if (--reps > 0) continue;   // more filter steps (DNN_SHIP_BASIS_STEPS > 1 after a seed)
     break;
   }
   w.kb = kb;
+  w.seed_t_ready = false;   // consumed, or dropped by a refresh after the seed
   if (full) w.theta_top = theta[kb - 1];
   *npos = K - nneg;
 
@@ -1352,7 +1560,90 @@ double trivial_value(const MAT *A, const MAT *B, const MAT *C, int m, double shi
   return (double)s.sum;
 }
 
+/*
+ Facial coordinates of one vector (DNN_SHIP_BASIS): V x and V' u for the basis
+ V = G' [:, kept] of Work (the same Householder vector, rotation and kept
+ indices), in double, O(m^2) per vector. Used to map a tracked block into a
+ child's coordinates: x_c = V_c' P' V_p x_p, P the child's embedding in the
+ parent's lifted space (child index 0 -> parent 0 and (ij), a -> map[a]).
+*/
+struct Facial {
+  int m, n1, K, ll;
+  double tau;
+  std::vector<double> hu, s;
+  std::vector<int> kept;
+  explicit Facial(int m_) : m(m_), n1(m_ * m_ + 1), K((m_ - 1) * (m_ - 1) + 1), ll(1 + (m_ - 1) * m_ + (m_ - 1))
+  {
+    hu.assign(m, 1.0 / sqrt((double)m));
+    hu[m - 1] -= 1.0;
+    double uu = 0;
+    for (int i = 0; i < m; i++) uu += hu[i] * hu[i];
+    tau = 2.0 / uu;
+    s.assign(m, 0);
+    kept.push_back(0);
+    for (int a = 0; a < m - 1; a++)
+      for (int b = 0; b < m - 1; b++) kept.push_back(1 + a * m + b);
+  }
+  // X <- H X H, m x m row-major (as hh_block)
+  void hh(double *X)
+  {
+    const double *u = hu.data();
+    for (int k = 0; k < m; k++) {
+      double *row = X + k * m, d = tau * dot4(row, u, m);
+      for (int l = 0; l < m; l++) row[l] -= d * u[l];
+    }
+    for (int l = 0; l < m; l++) s[l] = 0;
+    for (int k = 0; k < m; k++)
+      for (int l = 0; l < m; l++) s[l] += u[k] * X[k * m + l];
+    for (int k = 0; k < m; k++) {
+      double *row = X + k * m, f = tau * u[k];
+      for (int l = 0; l < m; l++) row[l] -= f * s[l];
+    }
+  }
+  void rot(double *u)
+  {
+    const double h = sqrt(0.5), a = u[0], b = u[ll];
+    u[0] = h * (a + b); u[ll] = h * (a - b);
+  }
+  // u = V x = diag(1, H kron H) Rot pad(x)
+  void to_lifted(const float *x, double *u)
+  {
+    for (int t = 0; t < n1; t++) u[t] = 0;
+    for (int t = 0; t < K; t++) u[kept[t]] = x[t];
+    rot(u);
+    hh(u + 1);
+  }
+  // x = V' u = (Rot diag(1, H kron H) u)[kept]; u is overwritten
+  void to_facial(double *u, double *x)
+  {
+    hh(u + 1);
+    rot(u);
+    for (int t = 0; t < K; t++) x[t] = u[kept[t]];
+  }
+};
+
+// x_c = V_c' P' V_p x_p for each of the kb vectors of xp (column-major, length fp.K)
+void map_block(Facial &fp, Facial &fc, const std::vector<int> &map, int r, const float *xp, int kb,
+               float *xc)
+{
+  std::vector<double> u(fp.n1), v(fc.n1), x(fc.K);
+  for (int c = 0; c < kb; c++) {
+    fp.to_lifted(xp + (size_t)c * fp.K, u.data());
+    v[0] = u[0] + u[r];
+    for (int a = 1; a < fc.n1; a++) v[a] = u[map[a]];
+    fc.to_facial(v.data(), x.data());
+    float *o = xc + (size_t)c * fc.K;
+    for (int t = 0; t < fc.K; t++) o[t] = (float)x[t];
+  }
+}
+
 } // namespace
+
+int dnn_ship_basis()
+{
+  const char *e = getenv("DNN_SHIP_BASIS");
+  return e ? atoi(e) : 0;
+}
 
 /*
  Warm start of a child from its parent's multiplier Z: the child fixes the
@@ -1430,7 +1721,99 @@ bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child, int ymode)
       }
     }
   }
+  // DNN_SHIP_BASIS: the parent's tracked block into the child's facial coordinates,
+  // x_c = V_c' P' V_p x_p with the embedding P that maps Z above (Z_c = P' Z P), so
+  // that V_c' Z_c V_c = G' (V_p' Z V_p) G for G' = V_c' P' V_p (P V_c = V_p G: the
+  // embedding keeps the row and column sums). The vectors are then not orthonormal;
+  // the child's first R-step orthonormalizes and tests them (seed_block).
+  child.basis_K = child.basis_kb = 0;
+  child.basis.clear(); child.basis_top.clear();
+  const int Kp = (m - 1) * (m - 1) + 1, Kc = (mc - 1) * (mc - 1) + 1;
+  if (dnn_ship_basis() > 0 && par.basis_K == Kp && par.basis_kb > 0 &&
+      par.basis.size() == (size_t)Kp * par.basis_kb) {
+    Facial fp(m), fc(mc);
+    const int kb = std::min(par.basis_kb, Kc - 1);
+    child.basis.resize((size_t)Kc * kb);
+    map_block(fp, fc, map, r, par.basis.data(), kb, child.basis.data());
+    if (par.basis_top.size() == (size_t)Kp) {
+      child.basis_top.resize(Kc);
+      map_block(fp, fc, map, r, par.basis_top.data(), 1, child.basis_top.data());
+    }
+    child.basis_K = Kc; child.basis_kb = kb;
+  }
   return true;
+}
+
+/*
+ dnn_basis_map_check (dnn.h): V_c' Z_c V_c against G' W_p G for a random
+ symmetric lifted Z, with W_p = V_p' Z V_p formed column by column through the
+ same Facial transforms and G' applied by dnn_warm_child (as a basis of unit
+ vectors). Small m only: O(K n1^2).
+*/
+double dnn_basis_map_check(int m, int i, int j, unsigned seed)
+{
+  if (m < 3 || m > 16 || i < 0 || i >= m || j < 0 || j >= m) return HUGE_VAL;
+  const int n1 = m * m + 1, mc = m - 1, nc = mc * mc + 1;
+  Facial fp(m), fc(mc);
+  const int Kp = fp.K, Kc = fc.K;
+  DNNWarm par, child;
+  par.m = m; par.scale = 1;
+  par.Z.assign((size_t)n1 * n1, 0);
+  for (int a = 0; a < n1; a++)
+    for (int b = a; b < n1; b++) {
+      seed = seed * 1664525u + 1013904223u;
+      par.Z[(size_t)a * n1 + b] = par.Z[(size_t)b * n1 + a] = (double)((seed >> 8) & 0xffffu) / 32768.0 - 1.0;
+    }
+  // W_p = V_p' Z V_p, in fp32 as a "basis" of its columns for the map, and in double
+  std::vector<double> Wp((size_t)Kp * Kp), u(n1), zu(n1), x(Kp);
+  std::vector<float> e(Kp);
+  for (int t = 0; t < Kp; t++) {
+    std::fill(e.begin(), e.end(), 0.0f); e[t] = 1;
+    fp.to_lifted(e.data(), u.data());
+    for (int a = 0; a < n1; a++) zu[a] = dot4(par.Z.data() + (size_t)a * n1, u.data(), n1);
+    fp.to_facial(zu.data(), x.data());
+    for (int s = 0; s < Kp; s++) Wp[(size_t)t * Kp + s] = x[s];
+  }
+  // G' through dnn_warm_child, one unit vector at a time (it caps a block at Kc - 1)
+  std::vector<double> Gt((size_t)Kc * Kp);   // G' column t = G' e_t
+  const char *old = getenv("DNN_SHIP_BASIS");
+  std::string keep = old ? old : "";
+  setenv("DNN_SHIP_BASIS", "1", 1);
+  for (int t = 0; t < Kp; t++) {
+    par.basis_K = Kp; par.basis_kb = 1;
+    par.basis.assign(Kp, 0.0f); par.basis[t] = 1;
+    if (!dnn_warm_child(par, i, j, child, 0) || child.basis_K != Kc) { Gt.clear(); break; }
+    for (int s = 0; s < Kc; s++) Gt[(size_t)s * Kp + t] = child.basis[s];
+  }
+  if (old) setenv("DNN_SHIP_BASIS", keep.c_str(), 1); else unsetenv("DNN_SHIP_BASIS");
+  if (Gt.empty() || child.Z.size() != (size_t)nc * nc) return HUGE_VAL;
+  // W_c = V_c' Z_c V_c
+  std::vector<double> Wc((size_t)Kc * Kc), uc(nc), zc(nc), xc(Kc);
+  std::vector<float> ec(Kc);
+  for (int t = 0; t < Kc; t++) {
+    std::fill(ec.begin(), ec.end(), 0.0f); ec[t] = 1;
+    fc.to_lifted(ec.data(), uc.data());
+    for (int a = 0; a < nc; a++) zc[a] = dot4(child.Z.data() + (size_t)a * nc, uc.data(), nc);
+    fc.to_facial(zc.data(), xc.data());
+    for (int s = 0; s < Kc; s++) Wc[(size_t)t * Kc + s] = xc[s];
+  }
+  // G' W_p G against W_c
+  double err = 0, mx = 0;
+  std::vector<double> GW((size_t)Kc * Kp, 0.0);   // G' W_p
+  for (int s = 0; s < Kc; s++)
+    for (int t = 0; t < Kp; t++) {
+      double acc = 0;
+      for (int q = 0; q < Kp; q++) acc += Gt[(size_t)s * Kp + q] * Wp[(size_t)q * Kp + t];
+      GW[(size_t)s * Kp + t] = acc;
+    }
+  for (int s = 0; s < Kc; s++)
+    for (int t = 0; t < Kc; t++) {
+      double acc = 0;
+      for (int q = 0; q < Kp; q++) acc += GW[(size_t)s * Kp + q] * Gt[(size_t)t * Kp + q];
+      err = std::max(err, fabs(acc - Wc[(size_t)s * Kc + t]));
+    }
+  for (double v : Wp) mx = std::max(mx, fabs(v));
+  return err / std::max(mx, 1e-300);
 }
 
 /*
@@ -1854,6 +2237,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   res.refinements = 0;
   res.halpern_restarts = 0;
   res.margin = 0;
+  res.basis_seed = 0;
+  res.basis_res = -1;
   double t0 = thread_cpu();
 
   if (!A || !B || !C || A->m != A->n || B->m != A->m || B->n != A->m ||
@@ -2056,6 +2441,46 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   }
   if (par.verbose && (cross_max > 0 || wd_k > 0))
     printf("admm cross %d warm_damp %g:%d\n", cross_max, wd_fac, wd_k);
+  // DNN_SHIP_BASIS=1 (off unless set; see seed_block): a warm-started call outside a
+  // cut phase whose start carries a tracked block of this K seeds its first R-step
+  // from it; a block of the wrong size or with a non-finite entry is not used (the
+  // first R-step refreshes, as without the switch). The call's final block is saved
+  // with its state (below), for its own children.
+  const int ship_basis = dnn_ship_basis();
+  if (const char *e = getenv("DNN_SHIP_BASIS_DEBUG")) w.dbg = atoi(e);   // study only (Work::dbg)
+  if (ship_basis > 0 && par.eig_mode == DNN_EIG_SUBSPACE && warm_call && !par.cut_round &&
+      start->basis_kb > 0) {
+    const size_t len = (size_t)w.K * start->basis_kb;
+    bool good = start->basis_K == w.K && start->basis_kb < w.K && start->basis.size() == len;
+    for (size_t t = 0; good && t < len; t++) good = std::isfinite(start->basis[t]);
+    if (good) {
+      memcpy(w.Xs.data(), start->basis.data(), len * sizeof(float));
+      w.kb = start->basis_kb;
+      w.seeded = true;
+      w.seed_top = start->basis_top.size() == (size_t)w.K;
+      for (int t = 0; w.seed_top && t < w.K; t++) w.seed_top = std::isfinite(start->basis_top[t]);
+      if (w.seed_top) memcpy(w.vtop.data(), start->basis_top.data(), w.K * sizeof(float));
+      if (const char *e = getenv("DNN_SHIP_BASIS_STEPS")) w.seed_steps = std::max(0, atoi(e));
+      if (const char *e = getenv("DNN_SHIP_BASIS_TAU")) w.seed_tau = atof(e);
+      if (const char *e = getenv("DNN_SHIP_BASIS_POW")) w.seed_pow = std::max(0, atoi(e));
+      if (const char *e = getenv("DNN_SHIP_BASIS_FAULT")) {
+        // study only (the fallback's test): 1 replaces the block by pseudo-random
+        // vectors, 2 reverses its coordinates (a block mapped into the wrong basis)
+        const int fault = atoi(e);
+        float *xs = w.Xs.data();
+        unsigned sd = 777u;
+        for (int c = 0; c < w.kb && fault > 0; c++) {
+          float *col = xs + (size_t)c * w.K;
+          if (fault == 1)
+            for (int t = 0; t < w.K; t++) { sd = sd * 1664525u + 1013904223u; col[t] = (float)((sd >> 8) & 0xffffu) / 65536.0f - 0.5f; }
+          else
+            std::reverse(col, col + w.K);
+        }
+      }
+    } else {
+      w.seed_result = -1;
+    }
+  }
   int bs_phase = 0, bs_last = 0, bs_changes = 0, bs_n = 0;
   double bs_S = 0, bs_Lnorm = 0;
   // DNN_CORE_LAZYCERT=1 (experiments/wil50_feasibility/speed/nov6_core): Rump's test
@@ -2126,7 +2551,13 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       status = DNN_ERROR;
       break;
     }
-    tq = thread_cpu(); w.prof[1] += tq - tp; tp = tq;
+    tq = thread_cpu(); w.prof[1] += tq - tp;
+    if (it == 1) w.first_ms = (tq - tp) * 1e3;   // the first R-step's CPU (DNN_SHIP_BASIS profile)
+    tp = tq;
+    if (it == 1 && par.verbose && ship_basis > 0 && (w.seed_result != 0 || w.seed_kb > 0))
+      printf("basis seed %s: kb %d nneg %d res %.3g (tau %g) top %d, %.1f ms; first R-step %.1f ms\n",
+             w.seed_result > 0 ? "used" : "rejected", w.seed_kb, w.seed_nneg, w.seed_res, w.seed_tau,
+             w.seed_top ? 1 : 0, w.seed_ms, w.first_ms);
     expand(w, w.R.data(), VRV);
     tq = thread_cpu(); w.prof[2] += tq - tp; tp = tq;
 
@@ -2710,6 +3141,13 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE)
     printf("refresh reasons: scheduled %d  weyl bound %d  block too small %d  factorization failed %d  (block grown %d times)\n",
            w.ref_sched, w.ref_weyl, w.ref_small, w.ref_fail, w.n_grow);
+  if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE && getenv("DNN_SHIP_BASIS"))
+    printf("basis profile: first R-step %.1f ms (%s), seed %.1f ms, res %.3g, kb %d, nneg %d, final kb %d\n",
+           w.first_ms, w.seed_result > 0 ? "seeded" : w.seed_result < 0 ? "seed rejected, refresh" : "refresh",
+           w.seed_ms, w.seed_res, w.seed_kb, w.seed_nneg, w.kb_ritz);
+  if (par.verbose >= 2 && w.dbg)
+    printf("basis debug: seed negative-pair residual %.3g; filter-step block residual first %.3g mean %.3g max %.3g (%d steps)\n",
+           w.seed_res_neg, w.dbg_first, w.dbg_n ? w.dbg_sum / w.dbg_n : 0.0, w.dbg_max, w.dbg_n);
   res.status = status;
   res.lb = best;
   res.primal = obj;
@@ -2723,11 +3161,22 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       res.child_lb[t] = c.lower();
     }
   }
+  res.basis_seed = w.seed_result;
+  res.basis_res = w.seed_res;
   if (save) {
     save->m = m;
     save->scale = scale;
     save->Z.assign(Z, Z + (size_t)n1 * n1);
     save->Y.assign(Y, Y + (size_t)n1 * n1);
+    // DNN_SHIP_BASIS: the tracker's last block (its Ritz vectors) and top vector
+    save->basis_K = save->basis_kb = 0;
+    save->basis.clear(); save->basis_top.clear();
+    if (ship_basis > 0 && par.eig_mode == DNN_EIG_SUBSPACE && status != DNN_ERROR && w.have_basis &&
+        w.kb_ritz > 0 && w.kb_ritz < w.K) {
+      save->basis_K = w.K; save->basis_kb = w.kb_ritz;
+      save->basis.assign(w.Xs.begin(), w.Xs.begin() + (size_t)w.K * w.kb_ritz);
+      if (par.tight_lam > 0) save->basis_top.assign(w.vtop.begin(), w.vtop.begin() + w.K);
+    }
   }
   res.cpu = thread_cpu() - t0;
   return res;

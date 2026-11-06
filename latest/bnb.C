@@ -871,7 +871,11 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	              have_pool ? 1 : 0, pool_kept, pool_dropped, cut_ran ? 1 : 0);
 	      if (cut_ran) fprintf(tf, " best %.4f rounds %d iters %d cpu %.2f status %s", cr_trace.best_lb,
 	                           cr_trace.rounds, cr_trace.iterations, cr_trace.cpu, dnn_status_name(cr_trace.status));
-	      fprintf(tf, " | cutoff %.4f fathomed %d pool_out %zu\n", inc - DELTA, dnn_fathomed ? 1 : 0, dnn_pool_out.size());
+	      fprintf(tf, " | cutoff %.4f fathomed %d pool_out %zu", inc - DELTA, dnn_fathomed ? 1 : 0, dnn_pool_out.size());
+	      // DNN_SHIP_BASIS: 1 the first solve's tracker started from the parent's basis,
+	      // -1 it was offered and rejected (full refresh), 0 none offered; the seed's residual
+	      if (dnn_ship_basis() > 0) fprintf(tf, " seed %d res %.3g", r.basis_seed, r.basis_res);
+	      fprintf(tf, "\n");
 	      fclose(tf);
 	    }
 	  }

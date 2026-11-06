@@ -18,6 +18,10 @@
                    the parent runs as the children)
    -Wr 16|32       with -K: round the parent's saved Y and Z to bf16 (16) or fp32
                    (32) before the children start from them
+   -Wb 16          with -K and DNN_SHIP_BASIS=1: round the parent's tracked basis to
+                   bf16 before the children start from it (state files' QAP_DNN_SHIP_BASIS_BITS=16)
+   -mapcheck m:i:j check the basis map of dnn_warm_child (DNN_SHIP_BASIS) at size m
+                   for the child (i, j) and exit (dnn_basis_map_check)
    -N file         bound many nodes: one per line, "<i:j,... or -> [cutoff]"
    -u X            incumbent; the cutoff is X - (fathoming tolerance), the
                    tolerance being the solver's (1.95 for even objectives)
@@ -73,6 +77,7 @@
 #include <ctime>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include "qap.h"
 #include "assign.h"
 #include "util.h"
@@ -113,6 +118,7 @@ static std::string child_passes = "c,z";   // -Q: the child's starts
 static int parent_iters = 0;   // -J: the parent's own iteration budget, no give-up (0: as the children)
 static int round_warm = 0;     // -Wr 16|32: round the parent's saved Y and Z to bf16 or fp32
                                // before the children start from them (a shipped warm start)
+static int round_basis = 0;    // -Wb 16: round the parent's tracked basis (DNN_SHIP_BASIS) to bf16
 
 // round to bf16 (8 significant bits, round to nearest even) or to fp32
 static double round_to(double x, int bits)
@@ -243,6 +249,12 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
     for (double &v : warm.Z) v = round_to(v, round_warm);
     printf("WARM-ROUNDED to %s\n", round_warm == 16 ? "bf16" : "fp32");
   }
+  if (round_basis == 16 && !warm.basis.empty()) {
+    for (float &v : warm.basis) v = (float)round_to(v, 16);
+    for (float &v : warm.basis_top) v = (float)round_to(v, 16);
+    printf("BASIS-ROUNDED to bf16 (K %d kb %d)\n", warm.basis_K, warm.basis_kb);
+  }
+  if (!warm.basis.empty()) printf("PARENT-BASIS K %d kb %d top %d\n", warm.basis_K, warm.basis_kb, warm.basis_top.empty() ? 0 : 1);
   // -K i:j,i:j,... (or i:j;i:j;...): several children of the same parent
   // state, in turn
   int pass = 0;
@@ -279,6 +291,11 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
     printf("CHILD-PASS %d start=%c\n", pass, mode);
     fflush(stdout);
     DNNResult rc = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, pc, mode == 'c' ? NULL : &cw);
+    if (dnn_ship_basis() > 0)
+      printf("RESULT node=%d m=%d lb=%.17g primal=%.17g status=%s iters=%d cpu=%.3f"
+             " warm=%c seed=%d\n", pass, n - node.nfix, rc.lb, rc.primal, dnn_status_name(rc.status),
+             rc.iterations, rc.cpu, mode, rc.basis_seed);
+    else
     printf("RESULT node=%d m=%d lb=%.17g primal=%.17g status=%s iters=%d cpu=%.3f"
            " warm=%c\n", pass, n - node.nfix, rc.lb, rc.primal, dnn_status_name(rc.status),
            rc.iterations, rc.cpu, mode);
@@ -306,6 +323,15 @@ int main(int argc, char **argv)
     else if (o == "-Q" && more) child_passes = argv[++a];
     else if (o == "-J" && more) parent_iters = atoi(argv[++a]);
     else if (o == "-Wr" && more) round_warm = atoi(argv[++a]);
+    else if (o == "-Wb" && more) round_basis = atoi(argv[++a]);
+    else if (o == "-mapcheck" && more) {
+      int mm, ii, jj;
+      if (sscanf(argv[++a], "%d:%d:%d", &mm, &ii, &jj) != 3) usage();
+      double worst = 0;
+      for (unsigned sd = 1; sd <= 3; sd++) worst = std::max(worst, dnn_basis_map_check(mm, ii, jj, sd));
+      printf("MAPCHECK m=%d i=%d j=%d max_rel_err=%.3g %s\n", mm, ii, jj, worst, worst < 1e-5 ? "ok" : "FAIL");
+      return worst < 1e-5 ? 0 : 1;
+    }
     else if (o == "-N" && more) nodefile = argv[++a];
     else if (o == "-u" && more) ub = atof(argv[++a]);
     else if (o == "-c" && more) { cutoff = atof(argv[++a]); have_cutoff = true; }

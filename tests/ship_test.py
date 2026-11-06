@@ -2,7 +2,7 @@
 """Check that the parent's DNN state survives a stop and resume (state files
 version 6, QAP_DNN_SHIP; latest/state.C).
 
-  python3 tests/ship_test.py [--solver PATH] [--slice SECONDS]
+  python3 tests/ship_test.py [--solver PATH] [--slice SECONDS] [--basis]
 
 The case is a DNN search with every warm-start mechanism of the wil50
 configuration (parent-Y warm start, cut phase, pool inheritance), on nug20.
@@ -12,6 +12,15 @@ iterations, warm start, pool, cut phase) must equal the straight run's, so a
 resumed search is the same search. Slices with QAP_DNN_SHIP=32 and 16 and
 without shipping are reported for comparison: their warm-started node count
 and DNN iterations.
+
+--basis: every run with DNN_SHIP_BASIS=1, so state files are version 7 and carry
+the parents' tracked eigenbases (latest/state.C, dnn.C's seed_block); the sliced
+run with QAP_DNN_SHIP=64 (the basis in fp32, its own precision) must again equal
+the straight run node for node, i.e. a child whose parent's basis came from a
+state file solves as one whose parent was bounded in the same process. The
+nodes whose first solve was seeded (" seed 1" in the trace) are counted, and
+the basis tokens in the state files measured. A bf16 basis
+(QAP_DNN_SHIP_BASIS_BITS=16) is reported for comparison.
 """
 
 import argparse
@@ -60,20 +69,39 @@ def run(solver, args, env):
     return r.returncode, r.stdout + r.stderr
 
 
-def sliced(solver, dat, ub, tmp, tag, ship, slice_s):
+def basis_tokens(state):
+    """(version, [(m, len of the dnn token, len of the basis token)]) of a state file's warm lines"""
+    if not os.path.exists(state):
+        return 0, []
+    with open(state) as f:
+        version = int(f.readline().split()[1])
+        rows = []
+        for line in f:
+            if line.startswith("warm "):
+                t = line.split()
+                if version >= 7:
+                    rows.append((int(t[1]), len(t[-2]) if t[-2] != "-" else 0, len(t[-1]) if t[-1] != "-" else 0))
+    return version, rows
+
+
+def sliced(solver, dat, ub, tmp, tag, ship, slice_s, extra_env=None):
     state = os.path.join(tmp, f"{tag}.state")
     traces, k, rc = [], 0, 3
     args = FLAGS + ["-u", str(ub), "-o", state, "-t", str(slice_s), dat]
+    toks = []
     while rc == 3:
         traces.append(os.path.join(tmp, f"{tag}.{k}.trace"))
         env = {"QAP_DNN_TRACE": traces[-1]}
+        env.update(extra_env or {})
         if ship:
             env["QAP_DNN_SHIP"] = str(ship)
         rc, out = run(solver, args, env)
+        if rc == 3:
+            toks.append(basis_tokens(state))
         args = FLAGS + ["-o", state, "-t", str(slice_s), "-r", state, dat]
         k += 1
     sizes = os.path.getsize(state) if os.path.exists(state) else 0
-    return rc, k, read_trace(traces), out, sizes
+    return rc, k, read_trace(traces), out, sizes, toks
 
 
 def totals(rows):
@@ -87,7 +115,10 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--solver", default=os.path.join(ROOT, "latest", "bnbdrv"))
     p.add_argument("--slice", type=float, default=3.0, help="CPU seconds per slice")
+    p.add_argument("--basis", action="store_true", help="every run with DNN_SHIP_BASIS=1 (state version 7)")
     a = p.parse_args()
+    if a.basis:
+        ENV["DNN_SHIP_BASIS"] = "1"
     solver = os.path.abspath(a.solver)
     tmp = tempfile.mkdtemp(prefix="qap-ship-")
     name, ub = CASE
@@ -100,17 +131,37 @@ def main():
         return 1
     ref = read_trace([straight_trace])
     it0, w0 = totals(ref)
-    print(f"straight: {len(ref)} DNN nodes, {w0} warm-started, {it0:,} DNN iterations")
+    seeded = lambda rows: sum(1 for r in rows.values() if r.endswith(" seed 1"))
+    print(f"straight: {len(ref)} DNN nodes, {w0} warm-started, {it0:,} DNN iterations"
+          + (f", {seeded(ref)} seeded from the parent's basis" if a.basis else ""))
+    if a.basis and seeded(ref) == 0:
+        print("FAIL: no node was seeded from a basis in the straight run")
+        return 1
 
     failures = 0
-    for tag, ship in (("ship64", 64), ("ship32", 32), ("ship16", 16), ("noship", 0)):
-        rc, k, rows, out, size = sliced(solver, dat, ub, tmp, tag, ship, a.slice)
+    cases = [("ship64", 64, {}), ("ship32", 32, {}), ("ship16", 16, {}), ("noship", 0, {})]
+    if a.basis:
+        cases.insert(1, ("ship64b16", 64, {"QAP_DNN_SHIP_BASIS_BITS": "16"}))
+    for tag, ship, xenv in cases:
+        rc, k, rows, out, size, toks = sliced(solver, dat, ub, tmp, tag, ship, a.slice, xenv)
         if rc != 0:
             print(f"FAIL {tag}: slice {k} exited {rc}\n{out[-2000:]}")
             failures += 1
             continue
         it, w = totals(rows)
         line = f"{tag}: {k} slices, {len(rows)} DNN nodes, {w} warm-started, {it:,} DNN iterations"
+        if a.basis:
+            line += f", {seeded(rows)} seeded"
+            vers = sorted({v for v, _ in toks})
+            bas = [(m, d, b) for _, r in toks for (m, d, b) in r]
+            nb = sum(1 for _, _, b in bas if b)
+            if bas:
+                line += (f"; state version {'/'.join(map(str, vers))}, {nb} of {len(bas)} warm lines with a basis"
+                         + (f" (basis token mean {sum(b for _, _, b in bas if b) / max(1, nb) / 1e3:.0f} kB,"
+                            f" DNN state token mean {sum(d for _, d, b in bas if b) / max(1, nb) / 1e3:.0f} kB)" if nb else ""))
+            if ship and (vers != [7] or nb == 0) and k > 1:
+                failures += 1
+                print(f"FAIL {tag}: the state files carry no basis (versions {vers}, {nb} bases)")
         if ship == 64:
             diff = [n for n in set(ref) | set(rows) if ref.get(n) != rows.get(n)]
             if diff or k < 3:

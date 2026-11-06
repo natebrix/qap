@@ -9,11 +9,12 @@
 #   make dnntest       latest/dnntest, the DNN bound's driver (needs LAPACK, see latest/makefile)
 #   make dnncheck      validate the DNN bound (tests/dnn_test.py, ~2 min)
 #   make continuationcheck  same-node DNN continuation and exact-bound checks
+#   make shipbasischeck  shipcheck with DNN_SHIP_BASIS=1: the parents' tracked bases in state v7
 #   make clean
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel coord regression clean dnntest dnncheck shipcheck
+.PHONY: all solver test bruteforce resume parallel coord regression clean dnntest dnncheck shipcheck shipbasischeck
 
 all: solver
 
@@ -49,6 +50,12 @@ dnncheck: dnntest
 # the parent's DNN state through a stop and resume (state v6, QAP_DNN_SHIP), about 4 minutes
 shipcheck: solver
 	$(PYTHON) tests/ship_test.py
+
+# the same with the parents' tracked eigenbases (DNN_SHIP_BASIS=1, state v7): a child
+# whose parent's basis came from a state file solves as one bounded in the parent's
+# process (experiments/wil50_feasibility/speed/nov6_basis), about 5 minutes
+shipbasischeck: solver
+	$(PYTHON) tests/ship_test.py --basis
 
 clean:
 	$(MAKE) -C latest clean
