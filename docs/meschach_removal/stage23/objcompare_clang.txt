@@ -1,0 +1,47 @@
+# sh docs/meschach_removal/stage23/objcompare.sh <afe99db built by make CPP=clang++ CF='-O3 -march=native -ffp-contract=off -Wno-register'>/latest <HEAD cf4a6ca built by make CPP=clang++>/latest   (clang 18.1.3)
+# objdiff.sh: every object (same = identical disassembly)
+amx_gemm.o: same
+assign.o: same
+bnb.o: same
+branch.o: same
+console.o: same
+dlap.o: same
+dnn.o: same
+dnncut.o: same
+dnntest.o: same
+driver.o: same
+estimate.o: same
+fw.o: same
+lap.o: same
+lgb_train.o: same
+linalg.o: same
+link1.o: same
+mat.o: only in new
+qap.o: same
+qpbnd.o: 7066 lines differ
+qpbnd2.o: 2127 lines differ
+sa_qap.o: same
+solution.o: same
+state.o: same
+stats.o: same
+svd.o: only in old
+symeig.o: same
+util.o: same
+
+# fndiff.py qpbnd.o: functions that differ
+differs (259 -> 325 lines): init_ST(MAT*, MAT*, MAT*, VEC*&, VEC*&, MAT*&, MAT*&, VEC*&, VEC*&, MAT*&, MAT*&, bool)
+19 functions identical
+
+# fndiff.py qpbnd2.o: functions that differ
+differs (71 -> 124 lines): init_w0(MAT*, VEC*&, MAT*&, bool)
+3 functions identical
+
+# fpops.py: floating-point instructions and calls of the changed functions
+init_ST(MAT*, MAT*, MAT*, VEC*&, VEC*&, MAT*&, MAT*&, VEC*&, VEC*&, MAT*&, MAT*&, bool)
+  floating-point ops: 25 old, 25 new, same sequence
+  old calls: v_get v_get px_get px_get m_get vtav(MAT*, MAT*) m_get vtav(MAT*, MAT*) my_svd(MAT*, VEC*) my_svd(MAT*, VEC*) ins_sort_descending(double*, int*, int) ins_sort_ascending(double*, int*, int) px_rows px_rows m_free m_free px_free px_free v_get v_get mtvm_mlt(MAT*, VEC*, MAT*) mtvm_mlt(MAT*, VEC*, MAT*) m_get vavt(MAT*, MAT*) m_get vavt(MAT*, MAT*) _in_prod m_free m_free
+  new calls: v_get v_get operator new[](unsigned long) operator new[](unsigned long) m_get vtav(MAT*, MAT*) m_get vtav(MAT*, MAT*) my_svd(MAT*, VEC*) my_svd(MAT*, VEC*) ins_sort_descending(double*, int*, int) ins_sort_ascending(double*, int*, int) m_get permrows(MAT*, int*, MAT*) m_get permrows(MAT*, int*, MAT*) m_free m_free operator delete[](void*) operator delete[](void*) v_get v_get mtvm_mlt(MAT*, VEC*, MAT*) mtvm_mlt(MAT*, VEC*, MAT*) m_get vavt(MAT*, MAT*) m_get vavt(MAT*, MAT*) _in_prod m_free m_free
+init_w0(MAT*, VEC*&, MAT*&, bool)
+  floating-point ops: 0 old, 0 new, same sequence
+  old calls: px_get m_get vtav(MAT*, MAT*) my_svd(MAT*, VEC*) ins_sort_ascending(double*, int*, int) ins_sort_descending(double*, int*, int) m_free px_rows m_free px_free
+  new calls: operator new[](unsigned long) m_get vtav(MAT*, MAT*) my_svd(MAT*, VEC*) ins_sort_ascending(double*, int*, int) ins_sort_descending(double*, int*, int) m_free m_get permrows(MAT*, int*, MAT*) m_free operator delete[](void*)

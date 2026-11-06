@@ -1,0 +1,30 @@
+make -C latest dnntest
+make[1]: Entering directory 'latest'
+make[1]: 'dnntest' is up to date.
+make[1]: Leaving directory 'latest'
+python3 tests/dnn_test.py
+A. brute force: 2592 node bounds in 1152 dnntest runs, 34 s
+   max(lb - optimum) = 0, over nodes with m >= 2: -1.23e-13 (must be <= 0 up to 1e-9 relative)
+   bound within 1e-3 of the optimum: 2508 of 2592; fathomed at cutoff opt-1: 2557
+   nug12 [-] m=12: certified lb after 900 iterations C 567.9802, python 567.9802
+   nug12 [0:3,5:7] m=10: certified lb after 300 iterations C 604.3876, python 604.3876
+   nug12 [2:2,7:0,9:11] m=9: certified lb after 300 iterations C 608.2250, python 608.2250
+   nug20 [0:19,1:0] m=18: certified lb after 300 iterations C 2579.5553, python 2579.5553
+   nug20 [1:7,19:11] m=18: certified lb after 200 iterations C 2445.6672, python 2445.6672
+   nug20 [1:1,12:19,16:15] m=17: certified lb after 200 iterations C 2458.4815, python 2458.4815
+B. prototype agreement: 44 checkpoint values, max relative difference 8.6e-08, 18 s
+   nug20 [1:6,19:12] optimum 2570: lb 2549.209 hopeless in 200 iterations (0.6 s), study not fathomed
+   nug20 [1:6,19:13] optimum 2588: lb 2566.886 hopeless in 920 iterations (2.8 s), study not fathomed
+   nug20 [1:7,19:11] optimum 2594: lb 2568.147 fathomed in 270 iterations (0.8 s), study fathomed
+   nug20 [1:6,19:8] optimum 2594: lb 2568.057 fathomed in 330 iterations (1.1 s), study fathomed
+   nug20 [0:19,1:0] optimum 2646: lb 2571.263 fathomed in 60 iterations (0.2 s), study fathomed
+   nug20 [1:1,12:19,16:15] optimum 2584: lb 2568.112 fathomed in 140 iterations (0.3 s), study fathomed
+   nug20 [1:6,15:4,19:10] optimum 2644: lb 2572.457 fathomed in 50 iterations (0.1 s), study fathomed
+C. nug20 nodes with known optima: 17 s
+D. cancellation regressions: 13 cases, 0 s
+E. eliminated assignments: 160 nodes (88 with a stronger bound than without eliminations), 3 s
+OK
+
+real	1m11.846s
+user	1m6.353s
+sys	0m4.916s
