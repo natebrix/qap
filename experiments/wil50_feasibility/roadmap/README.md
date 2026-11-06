@@ -174,7 +174,14 @@ The two measurements that decide between these outcomes are cheap:
      (base against full) on node 5 of `../tuning/giveup/all32.txt`
      (`23:49,37:15,6:5`, 316 short converged, 329 at 300 iterations), the
      one tail-class node not yet probed; checks that node 1 stands for the
-     class. Running Nov 5 evening, `../tail_probe/runs_node5/`.
+     class. **Done Nov 5 evening** (`../tail_probe/README.md`, "Matched
+     results, node 5"): the levers hold (1.82x CPU, 4.04x per matched
+     level-5 node), but node 5's subtree is 21x smaller than node 1's under
+     the same setting (1,290 against 27,000 DNN nodes), in line with the
+     per-level model for an 89-unit difference in converged shortfall. Node
+     1 is the worst of the class, not its representative; the tail weight
+     has to be spread over converged shortfall, which the sampling plan
+     measures.
    - **RLT3 violation sample**: before building any RLT3 cut type, sample a
      few hundred random RLT3 inequalities (products of three assignment
      constraints) at the converged iterates of nodes 10, 13 and d2 and

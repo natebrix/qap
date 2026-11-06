@@ -302,6 +302,55 @@ subtree several times higher. A deeper sample under full (k = 3 is too
 few at levels 6-7) is the next step if the tail class's size matters for
 the roadmap; the lever ratios do not need it.
 
+### Matched results, node 5: the 329-short node (laptop, Nov 5, 21:02-21:48 PST; binary at 151aded)
+
+The other member of the tail class is node 5 of `../tuning/giveup/all32.txt`
+(`23:49,37:15,6:5`: 329 short at 300 iterations, 315.7 converged, against
+node 1's 455 and 404.8). The same matched probe, base against full, 3 slots
+each, in `runs_node5/` (`PROBE_RUNS=.../runs_node5 PROBE_ARGS="--node
+23:49,37:15,6:5" run_matched.sh base full`). Both arms finished in 46
+minutes of wall, against about two hours each for node 1.
+
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) | per level: nodes, fathomed/bounded |
+|---|---|---|---|---|
+| base | 1,290 | 381,930 (± 159,454) | 43,955 (± 15,861) | L4: 47, 35/47; L5: 552, 35/36; L6: 690, 3/3 |
+| full | 1,290 | 161,253 (± 62,995) | 24,204 (± 9,150) | L4: 47, 35/47; L5: 552, 35/36; L6: 690, 3/3 |
+
+Matched nodes (the same assignment bounded in both arms):
+
+| arms | L4 (47 shared) | L5 (33 shared) | L6 (3 shared) |
+|---|---|---|---|
+| base / full | 35 / 35, 26,510 / 25,100 (1.06x) | 32 / 32, 16,060 / 3,980 (**4.04x**) | 3 / 3, 440 / 170 (2.59x) |
+
+- **The levers hold here too, more cleanly than on node 1:** 2.37x in
+  estimated iterations and 1.82x in CPU on the subtree, 4.04x per node at
+  level 5 on 33 matched nodes (every one fathomed in both arms). Level 4 is
+  a wash (1.06x) instead of node 1's 0.63x penalty: the 12 branched
+  children are the only ones whose phases run to the end in both arms, and
+  the 35 fathoms are cheap in both. The identical trees (35 of 47 fathomed
+  at level 4, 35 of 36 at level 5, 3 of 3 at level 6, the same nodes) mean
+  the whole difference is per-node cost, as on node 10 and node 1.
+- **Node 1 does not stand for the class.** Under the same Nov 4 setting
+  node 5's subtree is about 1,290 DNN nodes and 44,000 laptop CPU s against
+  node 1's 27,000 and 1.09e6: 21x fewer nodes, 25x less CPU (under full:
+  11x and 15x). Level 4 tells the story: 35 of 47 children fathom here,
+  16 of 47 under node 1. The two converged shortfalls differ by 89 units,
+  0.69 of the 130-unit level of `../NOTES.md`, and 47^0.69 is 14x, so the
+  gap between the two subtrees is about what the per-level model predicts.
+  The tree model's "329-405-short class" (`../roadmap/tree_size.md`, 2 of
+  16 sampled depth-3 nodes carrying 85-91% of the total) is therefore not
+  one class: its weight has to be spread over the converged shortfall, and
+  with node 1 as the representative it is overstated, by up to 2x on these
+  two nodes. Which end of the class the other clear misses sit at (nodes
+  2-5 and 7-8 converge 202-316 short) is what the sampling plan measures;
+  the probe cannot say with two nodes.
+- **For the roadmap's center (section 3):** the tail-class CPU per node it
+  assumes is anchored on node 1, the worse of the two members by 25x. The
+  21-30-day center is conservative on this evidence, not optimistic. The
+  lever ratios it uses (full against the Nov 4 setting) are unchanged:
+  3.1x in CPU on node 1, 1.8x here, 3.5x on node 10, with the level-5 per-node
+  factor 2.7x, 4.0x and 4.3x.
+
 ## Equip phases: shorter cut phases where they cannot fathom (`QAP_DNN_CUT_EQUIP`, Nov 5 afternoon)
 
 **Hypothesis.** In the matched probe's full arm, phases that started 100 or
