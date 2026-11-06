@@ -152,9 +152,16 @@ def checkout_rev(rev):
 
 
 def build():
-    print(f"building Meschach and bnbdrv in {os.path.relpath(os.path.dirname(SOLVER_DIR), ROOT) or '.'} ...",
+    # Commits before Meschach was removed (docs/meschach_removal.md, stage 3)
+    # link src/MESCHACH/meschach.a, so --rev builds it first when it is there.
+    # (Test the makefile, not the directory: a checkout updated past the
+    # removal keeps src/MESCHACH/ with its untracked .o and .a files.)
+    steps = [(MESCHACH_DIR, "basic")] if os.path.isfile(os.path.join(MESCHACH_DIR, "makefile")) else []
+    steps.append((SOLVER_DIR, "all"))
+    what = "Meschach and bnbdrv" if len(steps) == 2 else "bnbdrv"
+    print(f"building {what} in {os.path.relpath(os.path.dirname(SOLVER_DIR), ROOT) or '.'} ...",
           flush=True)
-    for d, target in ((MESCHACH_DIR, "basic"), (SOLVER_DIR, "all")):
+    for d, target in steps:
         cmd = ["make", target]
         # MESCHACH_CC: Meschach's compiler, also for older commits whose makefile
         # hard-codes CC = clang (a command-line CC overrides it; the environment does not)

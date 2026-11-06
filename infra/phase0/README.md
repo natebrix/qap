@@ -119,7 +119,9 @@ There is no AWS access from the cloud session, so:
   as do brute force (4,536 of 4,536) and `dnncheck`.
 - Meschach now builds with the system compiler and `-ffp-contract=off`
   (stage 0 of `docs/meschach_removal.md`), so the instances need no clang,
-  and their x86 and ARM builds round alike.
+  and their x86 and ARM builds round alike. Since Nov 6 (stages 2 and 3)
+  there is no Meschach to build: the solver needs only `make`, `g++`, `cc`
+  for `amx_gemm.c` and LAPACK, and the tarball has no `src/`.
 - Not tested: the Amazon Linux packages, the ARM Linux build, the IAM
   role's S3 access from an instance, and the Spot launch itself. Those are
   what the first run tests. Each failure shows in `steps.txt`, which every

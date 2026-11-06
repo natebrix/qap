@@ -21,12 +21,9 @@ DNN_OBJ = dnn.o dnncut.o amx_gemm.o
 DNN_LIBS = $(DNN_LAPACK)
 endif
 
-MESCHACH = ../src/MESCHACH
-MESCHACHLIB = ../src/MESCHACH/meschach.a
-
-INCLUDES = -I$(MESCHACH) -I$(EVB3) -I./
+INCLUDES = -I$(EVB3) -I./
  
-LDLIBS = -lm $(MESCHACHLIB)
+LDLIBS = -lm
 
 OBJS = qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o \
        solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o \
@@ -86,7 +83,7 @@ dnncut.o: dnncut.C dnncut.h dnn.h
 dnntest.o: dnntest.C dnn.h
 	$(CPP) $(CFLAGS) $(INCLUDES) -c dnntest.C
 
-dnntest: $(OBJS) dnn.o dnncut.o amx_gemm.o dnntest.o $(MESCHACHLIB)
+dnntest: $(OBJS) dnn.o dnncut.o amx_gemm.o dnntest.o
 	$(CPP) $(CFLAGS) $(OBJS) dnn.o dnncut.o amx_gemm.o dnntest.o -o dnntest $(LDLIBS) $(DNN_LAPACK)
 
 # prototype: the DNN bound strengthened by triangle inequalities (experiments/dnn_cuts)

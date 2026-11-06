@@ -1,6 +1,6 @@
 # Build the solver and run the checks. See RUNNING.md and CONTRIBUTING.md.
 #
-#   make               build src/MESCHACH/meschach.a and latest/bnbdrv
+#   make               build latest/bnbdrv
 #   make test          brute-force, resume and parallel tests, then the regression check
 #   make bruteforce    solver vs full enumeration on small random instances (~10 s)
 #   make regression    quick suite vs bench/reference/ (~15 s)
@@ -17,13 +17,8 @@ PYTHON ?= python3
 
 all: solver
 
-solver: src/MESCHACH/meschach.a
+solver:
 	$(MAKE) -C latest
-
-# rebuilt from scratch when its makefile changes (its .o files depend only on the .c files)
-src/MESCHACH/meschach.a: src/MESCHACH/makefile
-	$(MAKE) -C src/MESCHACH cleanup
-	$(MAKE) -C src/MESCHACH basic
 
 test: bruteforce resume parallel coord regression
 
@@ -45,7 +40,7 @@ coord: solver
 regression: solver
 	$(PYTHON) bench/bench.py check
 
-dnntest: src/MESCHACH/meschach.a
+dnntest:
 	$(MAKE) -C latest dnntest
 
 dnncheck: dnntest
@@ -60,6 +55,6 @@ clean:
 	rm -f latest/bnbdrv
 
 .PHONY: continuationcheck
-continuationcheck: src/MESCHACH/meschach.a
+continuationcheck:
 	$(MAKE) -C latest dnncontinuation
 	./latest/dnncontinuation
