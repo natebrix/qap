@@ -377,3 +377,125 @@ the wall and busy columns include the gap.
 candidate (about 1.14x in iterations and CPU on this subtree). `DNN_R32_NONCERT=1`
 is neutral with AMX and 4% without; it is safe to include, since it changes no
 outcome and no certificate.
+
+## Results, Nov 6 (laptop): `fast wlowc`, the warm-call beta did not reach the children
+
+`run_pair.sh fast wlowc`, 06:41-07:02 PST, binary 073b3b0, 3 slots each.
+
+| arm | nodes / fathomed | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s |
+|---|---|---|---|---|---|
+| fast | 232 / 227 | 18,790 (13,330 + 5,460) | 2,897 | 2,947 | 1,236 |
+| wlowc | 232 / 227 | 18,790 (13,330 + 5,460) | 2,876 | 2,925 | 1,232 |
+
+Kill line 1.15x in DNN iterations on the matched nodes: **1.000x, FAIL as
+measured, but the arm did not test the lever.** The 232 matched nodes have
+the same iteration count node for node; the only difference is CPU noise
+(1.007x). The environments differ as intended (`runs/*/env.txt`:
+`DNN_BETA_SCHED=...,w=0.7` against `...,w=0.25,wc=0.7`) and the coordinator
+passes the environment through (`coord/worker.py` copies `os.environ`).
+
+The cause is in the solver. A pooled child (`QAP_DNN_POOL`, 231 of the 232
+nodes here: `warm 1 pool 1` in `runs/*/trace.txt`) is bounded by
+`dnn_pool_bound` (`latest/dnncut.C`), which assembles the inherited pool
+into an external objective term and calls `dnn_bound` with `p.L_add` set.
+In `dnn_bound` (`latest/dnn.C`, "wc: the factor for warm calls that carry a
+cut term") a warm call with `par.L_add` takes `wc` in place of `w`, so every
+pooled child ran at 0.7 in both arms: `wlowc` is `fast` under another name
+on a search with pool inheritance. `wc` was meant for the rounds of a cut
+phase (`dnncut.C`), which also pass `L_add`; the two uses are not
+distinguishable in `DNNParams` today.
+
+What follows:
+
+- `wlow` (0.25 for warm calls with or without a cut term) is the arm that
+  exercises the lever in this search; its cut rounds also run at 0.25, which
+  the memo's section 7 wanted to see separately (`wlow wlowc`). Run next
+  here as `run_pair.sh wlow core`, both arms fresh in one session: `core`
+  makes the same decisions as `fast` (the core switches do not change
+  iterations), so the pair gives the lever's iteration ratio against a
+  same-session CPU reference and a second point for the core switches' CPU
+  against `fast`.
+- For the solver: a flag on the external term saying whether it is a pool
+  or a cut round (or `wc` applied only when `DNNCutParams` is in play), so
+  that `w` reaches pooled children; then `wlowc` means what it says.
+
+## Results, Nov 6 (laptop): `best bestcore`, both pass
+
+`run_pair.sh best bestcore`, 07:07-07:28 PST, binary 073b3b0, 3 slots each.
+
+| arm | nodes / fathomed | DNN iterations (first + phase) | DNN CPU s | per iteration | CPU s | wall s |
+|---|---|---|---|---|---|---|
+| best (wlowc + `DNN_ADMM_CROSS=2`) | 232 / 227 | 18,158 (12,717 + 5,441) | 2,766 | 152 ms | 2,816 | 1,190 |
+| bestcore (best + the three core switches) | 232 / 227 | 18,330 (12,860 + 5,470) | 2,555 | 139 ms | 2,587 | 1,101 |
+
+- **The crossing certificate (`best` against `wlowc`, across sessions):
+  1.035x in DNN iterations on the 232 matched nodes (18,790 to 18,158, all
+  of it in the first solves, 13,330 to 12,717; the phases 1.003x), 1.040x in
+  DNN CPU. Kill line 1.02x in DNN CPU: PASS.** The memo expected about 1.05x
+  in iterations and 1.03x in CPU; the search gives 1.035x and 1.04x. Since
+  `wlowc` is `fast` (above), this is the certificate alone, on the same tree.
+- **The core switches (`bestcore` against `best`, same session): 1.082x in
+  DNN CPU on the matched nodes, 139 against 152 ms per iteration. Kill line
+  1.05x: PASS.** The iterations are not quite identical (0.991x, 18,158 to
+  18,330): the lazy certificate skips checks, so a few first solves fathom
+  one check later (d5 10,944 to 11,117); the per-iteration gain is 1.094x and
+  the net 1.082x. The memo's 1.11x per iteration on all32 was measured
+  through `dnntest`; the search path keeps most of it.
+- Stacked, `bestcore` against `fast`: 1.025x in iterations, **1.134x in DNN
+  CPU** on the 232 matched nodes, 1.139x in coordinator CPU, 1.123x in wall.
+
+## Results, Nov 6 (laptop): `wlow core`: the low warm beta helps depth 5, hurts depth 4 and the cut rounds
+
+`run_pair.sh wlow core`, 07:28-07:51 PST, binary 073b3b0, 3 slots each.
+`wlow` is `fast` with `w=0.25` and no `wc`, so every warm call, pooled
+children and cut rounds alike, runs at 0.25 x base beta; `core` is `fast`
+plus the three core switches (`DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1
+DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1`).
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|
+| fast (Nov 6, 06:41) | 232 / 227 | 6 (1) | 18,790 (13,330 + 5,460) | 2,897 | 154 ms | 1,236 |
+| wlow | 322 / 315 | 8 (1) | 21,630 (13,440 + 8,190) | 3,423 | 162 ms | 1,388 |
+| core | 232 / 227 | 6 (1) | 18,910 (13,440 + 5,470) | 2,629 | 139 ms | 1,127 |
+
+- **`core` against `fast`: 1.102x in DNN CPU on the 232 matched nodes
+  (154 to 139 ms per iteration), 0.994x in iterations. Kill line 1.05x:
+  PASS**, the second point for the core switches after `bestcore` against
+  `best` (1.082x). Same tree.
+- **`wlow` against `fast`: 0.971x in iterations and 0.925x in DNN CPU on
+  the 232 matched nodes, and a larger tree (322 nodes against 232).** Two
+  depth-5 nodes that `fast` fathoms (one by its phase at 1,460 iterations,
+  best 48,814.4; one by its first solve at 790) are branched under `wlow`
+  (phase 600 iterations, best 48,791.3; first solve 740 to 48,810.8 and a
+  phase of 1,600 to 48,812.5), adding 90 depth-6 nodes (2,280 iterations,
+  all first solves). Per iteration `wlow` is also 5% dearer (162 against
+  154 ms), the depth-6 children and the longer phases being the kind of
+  call that spends more time per iteration.
+- **Where the beta acts, from the traces (`runs/*/trace.txt`), first solves
+  and phases apart:**
+
+  | depth | nodes | first solves, fast -> wlow | phases, fast -> wlow |
+  |---|---|---|---|
+  | 4 | 47 | 3,020 -> 3,610 (0.84x) | 2,800 -> 5,190 (0.54x) |
+  | 5 | 184 | 10,010 -> 7,250 (**1.38x**) | 1,460 -> 2,200 (0.66x) |
+
+  At depth 5 the warm children fathom in 1.38x fewer iterations at 0.25,
+  exactly the memo's 1.35x on the warm set (`../speed/nov6_admm/README.md`,
+  section 5.1). At depth 4 the children of the given-up node 10 (its first
+  solve stops hopeless at 300 iterations, 214 short; its phase ends at
+  48,725.75, 88 short) are worse at 0.25 (0.84x): they start from a parent
+  state far from the child's optimum, where the smaller dual step slows the
+  multiplier's travel, the opposite of the warm set's children of
+  near-converged parents. The cut rounds are worse everywhere (0.54x and
+  0.66x) and lose a fathom, which is what `wc` was for.
+- **Reading.** The lever is real where the memo measured it (depth 5,
+  1.38x on 184 nodes) and the `wlowc` design (0.25 on children, 0.7 on cut
+  rounds) is the right one; the search cannot run it until the solver
+  tells a pooled child's term from a cut round's (the Nov 6 `fast wlowc`
+  section above). With that flag, `wlowc` again: the expected gain is the
+  depth-5 1.38x on 53% of the first-solve iterations less the depth-4 loss,
+  about 1.15x on the first solves and 1.1x on the arm, right at the memo's
+  kill line. A beta that depends on how far the parent stopped from the
+  cutoff (0.7 under a given-up parent, 0.25 under a fathomed-or-nearly one)
+  would take the depth-4 loss out; the trace has the parent's status, so it
+  can be read off before a solver change.
