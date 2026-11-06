@@ -1,0 +1,11 @@
+make -C latest
+make[1]: Entering directory '/home/user/qap/.claude/worktrees/agent-ad57017451a5a110f/latest'
+g++ -O3 -march=native -ffp-contract=off -Wno-register -DBNB_STANDALONE -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/home/user/qap/.claude/worktrees/agent-ad57017451a5a110f/latest'
+python3 tests/ship_test.py --basis
+straight: 184 DNN nodes, 183 warm-started, 8,710 DNN iterations, 109 seeded from the parent's basis
+ok   ship64: 9 slices, 184 DNN nodes, 183 warm-started, 8,710 DNN iterations, 109 seeded; state version 7, 20 of 20 warm lines with a basis (basis token mean 204 kB, DNN state token mean 1475 kB): every node identical to the straight run
+     ship64b16: 9 slices, 184 DNN nodes, 183 warm-started, 8,730 DNN iterations, 109 seeded; state version 7, 20 of 20 warm lines with a basis (basis token mean 102 kB, DNN state token mean 1463 kB)
+     ship32: 9 slices, 184 DNN nodes, 183 warm-started, 8,710 DNN iterations, 106 seeded; state version 7, 20 of 20 warm lines with a basis (basis token mean 202 kB, DNN state token mean 732 kB)
+     ship16: 9 slices, 184 DNN nodes, 183 warm-started, 8,750 DNN iterations, 109 seeded; state version 7, 20 of 20 warm lines with a basis (basis token mean 203 kB, DNN state token mean 366 kB)
+     noship: 12 slices, 184 DNN nodes, 43 warm-started, 13,250 DNN iterations, 18 seeded

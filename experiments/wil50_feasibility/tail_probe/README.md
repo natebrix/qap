@@ -472,3 +472,7 @@ at the start of each warm solve (about 0.7 s here), 6-9% of a 20-30-iteration
 child: the parent's eigenbasis shipped with the state would remove it, an
 idea `../speed/nov6_core/` set aside at 2.3% of a 33-s warm solve that is
 worth 2-4 times more now that the children are that short.
+**Measured Nov 6 (`../speed/nov6_basis/`): killed.** The shipped basis saves
+263-274 ms per warm solve [m], but that is 0.3-0.8% of the warm set's CPU [m]
+and about 1.5% of the production mix [e] (a free first step would give 1.7%),
+against a 3% kill line; no fathom moved. The code is on `research/ship-basis`.

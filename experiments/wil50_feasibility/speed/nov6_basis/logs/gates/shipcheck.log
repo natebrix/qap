@@ -1,0 +1,10 @@
+make -C latest
+make[1]: Entering directory '/home/user/qap/.claude/worktrees/agent-ad57017451a5a110f/latest'
+g++ -O3 -march=native -ffp-contract=off -Wno-register -DBNB_STANDALONE -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/home/user/qap/.claude/worktrees/agent-ad57017451a5a110f/latest'
+python3 tests/ship_test.py
+straight: 184 DNN nodes, 183 warm-started, 8,740 DNN iterations
+ok   ship64: 9 slices, 184 DNN nodes, 183 warm-started, 8,740 DNN iterations: every node identical to the straight run
+     ship32: 9 slices, 184 DNN nodes, 183 warm-started, 8,720 DNN iterations
+     ship16: 9 slices, 184 DNN nodes, 183 warm-started, 9,620 DNN iterations
+     noship: 11 slices, 184 DNN nodes, 100 warm-started, 10,970 DNN iterations
