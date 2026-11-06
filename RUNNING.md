@@ -346,7 +346,19 @@ items (defaults in parentheses; experiment reports in
   less CPU on 32 cold nodes, and on the node-10 subtree with the production
   candidate 1.14x fewer DNN iterations on 232 matched nodes, 1.25x end to end
   (`pipeline_ab/`, arm `fast`). Not yet tried in a nug30 search, whose base
-  penalty is 0.21.
+  penalty is 0.21. The warm factor swept Nov 6 on 24 wil50 warm children
+  (`speed/nov6_admm/`): the response is monotone from 0.85 down to 0.15, and
+  `w=0.25` fathoms the same children in 43% fewer iterations than 0.7 with
+  every miss higher; the key `wc=F` gives the rounds of a cut phase their own
+  factor (unset: `w` for both). Search A/B pending (`pipeline_ab/` arms
+  `wlow`, `wlowc`, `best`).
+- `DNN_ADMM_CROSS=2` (unset): between two regular certificates (every 10
+  iterations), certify once more at the iteration where the running best is
+  predicted to cross the cutoff (`speed/nov6_admm/`): fathoms come 0-9
+  iterations earlier (4.2 per fathom on 24 warm children, 1.05x their CPU),
+  nothing else changes. `DNN_ADMM_CROSS_FIRST`, `DNN_ADMM_WARM_DAMP` and
+  `DNN_ADMM_WARM_BETA` are the same study's other probes (measured not worth
+  it, or not run); all off by default.
 - `DNN_R32_NONCERT=1` (unset): R's rank term in fp32 except on certificate
   iterations (`speed/r32_noncert/`). 4.2% less per wil50 iteration without
   AMX, 2.5% on nug30; about 1% with `DNN_AMX=1` (the `fast` arm above).

@@ -1704,13 +1704,17 @@ static double cert_lambda(Work &w, const double *Zm)
               change), cold ones as the kind says; `w=FW` alone leaves cold
               calls at base. Measured: two,f=1.6667,t=60,w=0.7 (cold
               0.5 -> 0.3 m/3, warm 0.21 m/3; experiments/wil50_feasibility/
-              speed/beta_sched)
+              speed/beta_sched); on 24 warm children w=0.25 needs 40% fewer
+              iterations than 0.7 (speed/nov6_admm)
+   wc=FC      warm-started calls that carry a cut term (par.L_add: the rounds
+              of a cut phase) run at FC * base instead of w's factor, so that
+              children and cut rounds can differ (unset: w for both)
  Not with the accelerations (Anderson keeps Z/beta; Halpern, momentum): off
  there. Read at every call (tests set and unset it within a process).
 */
 struct BetaSched {
   int kind = 0;          // 0 off, 1 two-phase, 2 residual balancing, 3 fixed (set per call: w)
-  double f = 1, f2 = 1, c = 1, lo = 0.25, hi = 4, w = 0;
+  double f = 1, f2 = 1, c = 1, lo = 0.25, hi = 4, w = 0, wc = 0;   // wc: w for warm calls with a cut term (L_add)
   int t = 60, force = 0, every = 40, maxchg = 4, freeze = 200, nodes = 0;   // nodes: 0 all, 1 cold, 2 warm
   BetaSched()
   {
@@ -1738,9 +1742,10 @@ struct BetaSched {
         else if (k == "freeze") freeze = atoi(v.c_str());
         else if (k == "nodes") nodes = v == "cold" ? 1 : v == "warm" ? 2 : 0;
         else if (k == "w") w = atof(v.c_str());
+        else if (k == "wc") wc = atof(v.c_str());
       }
     }
-    if (!(f > 0) || !(f2 > 0) || !(c > 0) || !(lo > 0) || !(hi >= lo) || !(w >= 0)) kind = 0, w = 0;
+    if (!(f > 0) || !(f2 > 0) || !(c > 0) || !(lo > 0) || !(hi >= lo) || !(w >= 0) || !(wc >= 0)) kind = 0, w = 0, wc = 0;
   }
 };
 
@@ -1817,8 +1822,24 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // beta changes only under DNN_BETA_SCHED (bs below)
   const double beta0 = (par.beta > 0 ? par.beta : 1.0) * m / 3.0;
   double beta = beta0, ibeta = 1.0 / beta;
-  const double gamma = par.gamma, gamma1 = par.gamma1;
+  const double gamma_par = par.gamma, gamma1_par = par.gamma1;
   const int check_every = std::max(1, par.check_every);
+  // DNN_ADMM_CROSS=n (off unless set; experiments/wil50_feasibility/speed/nov6_admm):
+  // between two regular certificates, when the running best is below the cutoff
+  // and rising, predict the iteration at which it crosses from the last two
+  // certified values (their gain per iteration, decayed by the ratio of the last
+  // two gains) and certify there when that is before the next regular check; at
+  // most n extra certificates per interval. An extra check tests the fathom only:
+  // the give-up and stall rules see the regular checks alone, so with the switch
+  // a node can only fathom earlier, never decide anything else differently.
+  const int cross_max = getenv("DNN_ADMM_CROSS") ? atoi(getenv("DNN_ADMM_CROSS")) : 0;
+  // DNN_ADMM_CROSS_FIRST=k (with DNN_ADMM_CROSS, warm-started calls only): one more
+  // extra certificate at iteration k < check_every, so that the first regular check
+  // already has two points and can predict a crossing in its own first interval
+  // (in the production search a third of the fathoms come at the second check)
+  const int cross_first = cross_max > 0 && getenv("DNN_ADMM_CROSS_FIRST") ? atoi(getenv("DNN_ADMM_CROSS_FIRST")) : 0;
+  int cross_at = -1, cross_n = 0, cross_extra = 0;
+  std::vector<std::pair<int, double>> cr_hist;   // (iteration, running best) at every check
 
   double *Y = w.Y.data(), *Z = w.Z.data(), *VRV = w.VRV.data(), *Zc = w.Zc.data();
   Y[0] = 1.0;
@@ -1901,13 +1922,44 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   static const int guard_div = getenv("DNN_GUARD_DIV") ? std::max(1, atoi(getenv("DNN_GUARD_DIV"))) : 20;
   // DNN_BETA_SCHED (see BetaSched): off unless set
   BetaSched bs;
+  const bool warm_call = start && start->Z.size() == (size_t)n1 * n1;
+  const bool accel = par.anderson > 0 || par.halpern > 0 || par.momentum > 0;
   {
-    const bool warm = start && start->Z.size() == (size_t)n1 * n1;
-    if (par.anderson > 0 || par.halpern > 0 || par.momentum > 0 ||
-        (bs.nodes == 1 && warm) || (bs.nodes == 2 && !warm))
+    if (accel || (bs.nodes == 1 && warm_call) || (bs.nodes == 2 && !warm_call))
       bs.kind = 0, bs.w = 0;
-    if (warm && bs.w > 0) bs.kind = 3;   // w: a fixed beta on warm-started calls
+    if (warm_call && bs.w > 0) bs.kind = 3;   // w: a fixed beta on warm-started calls
+    // wc: the factor for warm calls that carry a cut term (the rounds of a cut
+    // phase, dnncut.C), so that children and cut rounds can run at different
+    // betas (experiments/wil50_feasibility/speed/nov6_admm); unset: w for both
+    if (warm_call && par.L_add && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
   }
+  // DNN_ADMM_WARM_BETA=F1:T:F2[:force] (off unless set): a warm-started call runs at
+  // F1 x base until the first scheduled refresh at or after iteration T, then at
+  // F2 x base (force=1: at T itself, with a full refresh there), whatever
+  // DNN_BETA_SCHED says for warm calls; cold calls are untouched. Same mechanism as
+  // BetaSched kind 1 (a change only where the R-step runs a full eigendecomposition;
+  // Z is the unscaled multiplier, so nothing is rescaled).
+  if (warm_call && !accel) {
+    const char *e = getenv("DNN_ADMM_WARM_BETA");
+    double f1 = 0, f2 = 0; int t = 0, force = 0;
+    if (e && *e && sscanf(e, "%lf:%d:%lf:%d", &f1, &t, &f2, &force) >= 3 && f1 > 0 && f2 > 0 && t > 0) {
+      bs.kind = 1; bs.f = f1; bs.t = t; bs.f2 = f2; bs.force = force; bs.w = 0;
+      bs.freeze = std::max(bs.freeze, t + 2 * std::max(1, par.refresh));
+    }
+  }
+  // DNN_ADMM_WARM_DAMP=D:K (off unless set): on a warm-started call both dual steps
+  // are scaled by D for the first K iterations (gamma1, gamma -> D gamma1, D gamma):
+  // the parent's multiplier is near the child's optimum, and the start's primal
+  // residual would otherwise move it far in the first iterations. Certificates
+  // are unaffected (the R-step multiplier does not depend on the dual steps).
+  double wd_fac = 1; int wd_k = 0;
+  if (warm_call && !accel) {
+    const char *e = getenv("DNN_ADMM_WARM_DAMP");
+    double d = 0; int k = 0;
+    if (e && *e && sscanf(e, "%lf:%d", &d, &k) == 2 && d > 0 && k > 0) { wd_fac = d; wd_k = k; }
+  }
+  if (par.verbose && (cross_max > 0 || wd_k > 0))
+    printf("admm cross %d warm_damp %g:%d\n", cross_max, wd_fac, wd_k);
   int bs_phase = 0, bs_last = 0, bs_changes = 0, bs_n = 0;
   double bs_S = 0, bs_Lnorm = 0;
   if (bs.kind == 1) { beta = bs.f * beta0; ibeta = 1.0 / beta; bs_phase = 1; }
@@ -1947,7 +1999,13 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     forward(w, Y, w.W.data(), Z, ibeta, w.t_rows_ready,
             par.eig_mode == DNN_EIG_SUBSPACE ? w.Wf.data() : NULL);   // Wf with W (used when DNN_NOSYMW=1)
     tq = thread_cpu(); w.prof[0] += tq - tp; tp = tq;
-    bool check = it % check_every == 0 || it == par.max_iter;
+    const double gamma1 = it <= wd_k ? gamma1_par * wd_fac : gamma1_par;
+    const double gamma = it <= wd_k ? gamma_par * wd_fac : gamma_par;
+    const bool regular = it % check_every == 0 || it == par.max_iter;
+    // cross_at: DNN_ADMM_CROSS's extra certificate; cross_first: its early one on warm calls
+    const bool first_extra = warm_call && cross_first > 0 && cross_first < check_every && it == cross_first;
+    bool check = regular || it == cross_at || first_extra;
+    if (it == cross_at || first_extra) { cross_at = -1; cross_extra++; }
     bool rstep_cert = check && !par.prototype_cert;
     bool okp = par.eig_mode == DNN_EIG_SUBSPACE
                    ? proj_psd_subspace(w, w.W.data(), w.R.data(), &npos, par.refresh,
@@ -2341,9 +2399,47 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     obj = dot4(L, Y, (size_t)n1 * n1) + shift;
     double pres = sqrt((double)pres2), dy = sqrt((double)dy2);
     if (par.verbose)
-      printf("it %5d lb %.4f (cert %.4f, margin %.2e%s) primal %.4f pres %.2e dY %.2e npos %d cpu %.2f\n",
+      printf("it %5d lb %.4f (cert %.4f, margin %.2e%s) primal %.4f pres %.2e dY %.2e npos %d cpu %.2f%s\n",
              it, best, lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL, ci.margin,
-             ci.chol_ok ? "" : ", chol FAILED", obj, pres, dy, npos, thread_cpu() - t0);
+             ci.chol_ok ? "" : ", chol FAILED", obj, pres, dy, npos, thread_cpu() - t0,
+             regular ? "" : " extra");
+    // DNN_ADMM_CROSS: the crossing prediction from the (iteration, running best)
+    // history of the checks; an extra check at a predicted crossing that did not
+    // fathom predicts again from its own value (at most cross_max per interval)
+    auto cross_predict = [&]() {
+      if (cross_max <= 0 || !std::isfinite(cutoff) || best <= -HUGE_VAL) return;
+      cr_hist.push_back(std::make_pair(it, best));
+      if (regular) cross_n = 0;
+      if (best > cutoff || cross_n >= cross_max) return;
+      const size_t n = cr_hist.size();
+      if (n < 2) return;
+      const int i1 = cr_hist[n - 2].first;
+      const double b1 = cr_hist[n - 2].second;
+      if (!(b1 > -HUGE_VAL) || it <= i1) return;
+      double g = (best - b1) / (it - i1);   // gain per iteration over the last interval
+      if (!(g > 0)) return;
+      // decayed as the gains decay: by the ratio of the last two gains (clamped to
+      // [0.3, 1]) or, with two points only, by 0.5 (on wil50 warm children the gain
+      // of the second interval is about 0.36 of the first's; a rate taken at face
+      // value predicts the crossing 20-30 iterations early, diag_k1.py)
+      double decay = 0.5;
+      if (n >= 3 && cr_hist[n - 3].second > -HUGE_VAL && i1 > cr_hist[n - 3].first) {
+        const double g0 = (b1 - cr_hist[n - 3].second) / (i1 - cr_hist[n - 3].first);
+        if (g0 > 0) decay = std::min(1.0, std::max(0.3, g / g0));
+      }
+      g *= decay;
+      const int next_regular = std::min(par.max_iter, (it / check_every + 1) * check_every);
+      const double need = (cutoff - best) / g;
+      if (!(need < check_every)) return;
+      const int p = it + std::max(1, (int)ceil(need));
+      if (p < next_regular) { cross_at = p; cross_n++; }
+    };
+    if (!regular) {
+      // an extra certificate: the fathom test only, then the next prediction
+      if (best > cutoff) { status = DNN_FATHOMED; break; }
+      cross_predict();
+      continue;
+    }
     lbhist.push_back(lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL);
 
     if (best > cutoff) { status = DNN_FATHOMED; break; }
@@ -2398,8 +2494,11 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         break;
       }
     }
+    cross_predict();
   }
   if (status < 0) status = DNN_ITER_LIMIT;
+  if (par.verbose && cross_max > 0)
+    printf("admm cross: %d extra certificates\n", cross_extra);
   if (cx_on && !cxe.quiet) {
     printf("certx-summary call %d status %s iters %d cutoff %.4f first std %d exact %d hg %d ls %d avg %d hgr %d"
            " hgw %d proj %d best std %.4f exact %.4f hg %.4f ls %.4f avg %.4f hgr %.4f hgw %.4f proj %.4f"

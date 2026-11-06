@@ -23,6 +23,15 @@
 #   fast   full + the Nov 5 speed switches (../speed/): R's rank term in fp32
 #          off certificate iterations (DNN_R32_NONCERT=1) and the two-phase
 #          beta for cold calls, 0.7 x beta for warm ones (DNN_BETA_SCHED)
+#   cross  fast + the certificate at the predicted cutoff crossing between two
+#          regular checks (DNN_ADMM_CROSS=2, ../speed/nov6_admm/): fathoms are
+#          found 0-9 iterations earlier, nothing else changes
+#   wlow   fast with the warm-call beta at PAB_WARM_W x base (default 0.25)
+#          instead of 0.7, for children and cut rounds alike (../speed/nov6_admm/:
+#          on 24 warm children -40% iterations to fathom, misses higher)
+#   wlowc  wlow for the children, the cut rounds kept at 0.7 (the `wc` key):
+#          the warm set measured children only
+#   best   wlowc + DNN_ADMM_CROSS=2
 #   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
@@ -43,7 +52,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n 2,30p "$0"; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -84,6 +93,18 @@ arm_env() {
     fast)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7 ;;
+    cross) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
+                  DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7 DNN_ADMM_CROSS=2 ;;
+    wlow)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
+                  DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25} ;;
+    wlowc) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
+                  DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 ;;
+    best)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
+                  DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 ;;
     certx) export QAP_DNN_CUT_ZONE=0.005 DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1 DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=10 ;;
   esac
 }
@@ -104,6 +125,12 @@ run_arm() {
     fi
     if [ "$arm" = fast ] && ! grep -aq DNN_BETA_SCHED latest/bnbdrv; then
       echo "fast: this bnbdrv has no DNN_BETA_SCHED or DNN_R32_NONCERT yet: git pull, make solver, run again"; return 1
+    fi
+    if { [ "$arm" = cross ] || [ "$arm" = best ]; } && ! grep -aq DNN_ADMM_CROSS latest/bnbdrv; then
+      echo "$arm: this bnbdrv has no DNN_ADMM_CROSS yet: git pull, make solver, run again"; return 1
+    fi
+    if { [ "$arm" = wlowc ] || [ "$arm" = best ]; } && ! grep -aq "a cut term" latest/dnn.C; then
+      echo "$arm: this tree has no wc key in DNN_BETA_SCHED yet: git pull, make solver, run again"; return 1
     fi
     if { [ "$arm" = ship ] || [ "$arm" = ship2 ] || [ "$arm" = full ]; } && ! grep -aq QAP_DNN_SHIP latest/bnbdrv; then
       echo "ship: this bnbdrv cannot carry the DNN state yet: git pull, make solver, run again"; return 1
