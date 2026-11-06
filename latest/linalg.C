@@ -189,8 +189,8 @@ removed)
 */
 MAT	*my_m_mlt(MAT *A,MAT *B,MAT *OUT)
 {
-	u_int	i, k, m, n, p;
-	Real	**A_v, **B_v /*, *B_row, *OUT_row, sum, tmp */;
+	unsigned int	i, k, m, n, p;
+	double	**A_v, **B_v /*, *B_row, *OUT_row, sum, tmp */;
 
 	m = A->m;	n = A->n;	p = B->n;
 	A_v = A->me;		B_v = B->me;
@@ -366,7 +366,7 @@ MAT *mtvm_mlt(MAT *A, VEC *b, MAT *R)
 // permute rows of A, storing them in OUT.
 void permrows0(MAT *A,int *p,MAT *OUT)
 {
-  u_int i,j;
+  unsigned int i,j;
 
   for(i=0;i<A->m;i++)
     for(j=0;j<A->n;j++)
@@ -390,7 +390,7 @@ void permrows(MAT *A,int *p,MAT *OUT)
 // permute cols of A, storing them in OUT.
 void permcols_old(MAT *A,int *p,MAT *OUT)
 {
-  u_int i,j;
+  unsigned int i,j;
 
   for(i=0;i<A->m;i++)
     for(j=0;j<A->n;j++)
@@ -401,7 +401,7 @@ void permcols_old(MAT *A,int *p,MAT *OUT)
 void permcols(MAT *A,int *p,MAT *OUT)
 {
   register double *op,*op2;
-  register u_int i,j;
+  register unsigned int i,j;
   
   op2 = A->me[0];
   for(i=0;i<A->m;i++) {

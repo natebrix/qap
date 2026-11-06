@@ -82,8 +82,6 @@ double init_ST(MAT *A,MAT *B,MAT *C,
 void update_STG(VEC *w,VEC *u,MAT *W, MAT *U,VEC *s, VEC *t, 
 		MAT *G,MAT *X,MAT *S, MAT *T,double factor);
 
-VEC	*v_ins_sort_descending(VEC *x, PERM *order);
-VEC	*v_ins_sort_ascending(VEC *x, PERM *order);
 void vtav(MAT *A, MAT *OUT);
 void vavt(MAT *A, MAT *OUT);
 

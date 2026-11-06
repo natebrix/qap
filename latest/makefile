@@ -29,7 +29,7 @@ INCLUDES = -I$(MESCHACH) -I$(EVB3) -I./
 LDLIBS = -lm $(MESCHACHLIB)
 
 OBJS = qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o \
-       solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o \
+       solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o \
        sa_qap.o stats.o console.o lgb_train.o state.o symeig.o
 
 all:    bnb

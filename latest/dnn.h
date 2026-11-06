@@ -46,8 +46,7 @@
 #define DNN_H
 
 #include <vector>
-#include "meschach.h"
-#undef catch
+#include "mat.h"
 
 enum DNNStatus {
   DNN_FATHOMED = 0,   // certified lb > cutoff

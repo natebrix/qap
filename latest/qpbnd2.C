@@ -20,8 +20,8 @@ void init_w0(MAT *A,VEC *&w,MAT *&W,bool ascending)
   const int n = A->m;
   MAT *A1=MNULL;
 
-  PERM *order_w;
-  order_w = px_get(n-1);
+  int *order_w = new int[n-1];
+  for (int k = 0; k < n-1; k++) order_w[k] = k;
 
   /* compute a1 = v'av */
   A1 = m_get(n-1,n-1);
@@ -31,19 +31,19 @@ void init_w0(MAT *A,VEC *&w,MAT *&W,bool ascending)
 
   /* now oldA1 = A1'*diag(u)*A1 */
   if(ascending)
-    ins_sort_ascending(w->ve,  (int *)order_w->pe, n-1);
+    ins_sort_ascending(w->ve,  order_w, n-1);
   else
-    ins_sort_descending(w->ve, (int *)order_w->pe, n-1);
+    ins_sort_descending(w->ve, order_w, n-1);
 
-  // Callers pass W sized (n x n) but it has to be (n-1 x n-1). px_rows() then
-  // allocates a new matrix and the caller's old one leaked: ~5 GB by 20M
-  // nodes on nug24. Free it first; px_rows allocates the right size.
+  // Callers pass W sized (n x n) but it has to be (n-1 x n-1). Meschach's
+  // px_rows() allocated a new matrix then, and the caller's old one leaked:
+  // ~5 GB by 20M nodes on nug24. Free it first and allocate the right size.
   if (W != MNULL) M_FREE(W);
-  W  = px_rows(order_w,A1,MNULL);
+  W  = m_get(n-1,n-1);  permrows(A1,order_w,W);   // W[k] = A1[order_w[k]]
 
   /* free memory */
   M_FREE(A1);
-  PX_FREE(order_w);
+  delete [] order_w;
 }
 
 // why the hell does this cause a core dump at the end of
