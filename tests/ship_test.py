@@ -18,7 +18,7 @@ the parents' tracked eigenbases (latest/state.C, dnn.C's seed_block); the sliced
 run with QAP_DNN_SHIP=64 (the basis in fp32, its own precision) must again equal
 the straight run node for node, i.e. a child whose parent's basis came from a
 state file solves as one whose parent was bounded in the same process. The
-nodes whose first solve was seeded (" seed 1" in the trace) are counted, and
+nodes whose first solve was seeded (" seed 1 res R" in the trace) are counted, and
 the basis tokens in the state files measured. A bf16 basis
 (QAP_DNN_SHIP_BASIS_BITS=16) is reported for comparison.
 """
@@ -131,7 +131,8 @@ def main():
         return 1
     ref = read_trace([straight_trace])
     it0, w0 = totals(ref)
-    seeded = lambda rows: sum(1 for r in rows.values() if r.endswith(" seed 1"))
+    # bnb.C ends a node's trace line with " seed S res R" when DNN_SHIP_BASIS=1
+    seeded = lambda rows: sum(1 for r in rows.values() if re.search(r" seed 1 res \S+$", r))
     print(f"straight: {len(ref)} DNN nodes, {w0} warm-started, {it0:,} DNN iterations"
           + (f", {seeded(ref)} seeded from the parent's basis" if a.basis else ""))
     if a.basis and seeded(ref) == 0:
@@ -162,7 +163,9 @@ def main():
             if ship and (vers != [7] or nb == 0) and k > 1:
                 failures += 1
                 print(f"FAIL {tag}: the state files carry no basis (versions {vers}, {nb} bases)")
-        if ship == 64:
+        # the exact case: the DNN state in doubles and the basis in fp32 (its own
+        # precision); a bf16 basis (ship64b16) is reported only, like ship32 and ship16
+        if ship == 64 and not xenv:
             diff = [n for n in set(ref) | set(rows) if ref.get(n) != rows.get(n)]
             if diff or k < 3:
                 failures += 1
