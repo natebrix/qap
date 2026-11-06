@@ -122,7 +122,12 @@ def main():
 
     report = []
     pooled = []   # (xbar, child qpb, gap)
-    for pid, spec in parents:
+    for row in parents:
+        # "id spec [line]": line, optional, is the line the search itself branched on
+        # (r<facility> or c<location>, original indices, read off the search's trace),
+        # scored with the others and marked "prod"
+        pid, spec = row[0], row[1]
+        prod = row[2] if len(row) > 2 else None
         fixed = parse_fixes(spec)
         fr = [i for i in range(n) if i not in fixed]
         fc = [j for j in range(n) if j not in fixed.values()]
@@ -149,6 +154,11 @@ def main():
         xc = max(fc, key=lambda j: sum(xbar[(i, j)] ** 2 for i in fr))
         lines.setdefault(("row", xr), []).append("xbar")
         lines.setdefault(("col", xc), []).append("xbar")
+        if prod:
+            kind, x = ("row" if prod[0] == "r" else "col"), int(prod[1:])
+            if x not in (fr if kind == "row" else fc):
+                raise SystemExit(f"parent {pid}: {prod} is not a free line of {spec}")
+            lines.setdefault((kind, x), []).append("prod")
         for i in rng.sample([i for i in fr if ("row", i) not in lines], args.random):
             lines.setdefault(("row", i), []).append("random")
         for j in rng.sample([j for j in fc if ("col", j) not in lines], args.random):
