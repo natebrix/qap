@@ -407,3 +407,52 @@ where level 5 is cheap. The two remaining items from the Nov 5 list stand:
 an earlier give-up for warm nodes that are still far short at 150
 iterations (25% of the arm in 300-iteration first solves), and pruning
 inactive pool cuts (pooled iterations about 15% dearer).
+
+## Node 5 under the Nov 6 warm betas: `fast`, `wlowc`, `wtwo` (laptop, Nov 6, 12:10-12:58 PST)
+
+Run 3 of the cloud's Nov 6 list (`../pipeline_ab/README.md`, "Next (Nov 6
+evening)"): the matched probe on node 5 (`23:49,37:15,6:5`, 316 short) with
+three arms at 2 slots each, binary 4f4198c, `runs_node5_w/`. `fast` is the
+Nov 5 production candidate plus fp32 R and the 0.7 warm beta; `wlowc` runs
+the children at 0.25 and cut rounds at 0.7; `wtwo` runs a child at 0.25
+until the first refresh at or after iteration 60, then 0.7
+(`DNN_ADMM_WARM_BETA=0.25:60:0.7`; the arm was added to `tail_probe.py` for
+this run).
+
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) | per level: fathomed/bounded |
+|---|---|---|---|---|
+| fast | 1,290 | 122,513 (± 50,146) | 15,219 (± 4,719) | L4 35/47; L5 35/36; L6 3/3 |
+| wlowc | 1,290 | 91,027 (± 36,555) | 14,042 (± 4,989) | L4 35/47; L5 35/36; L6 3/3 |
+| wtwo | 1,290 | 95,517 (± 37,028) | 14,389 (± 4,848) | L4 35/47; L5 35/36; L6 3/3 |
+
+Matched nodes (iterations, first arm / second):
+
+| arms | L4 (47 shared) | L5 (36 shared) | L6 (3 shared) |
+|---|---|---|---|
+| fast / wlowc | 35 / 35, 23,620 / 21,880 (1.08x) | 35 / 35, 4,330 / 3,290 (**1.32x**) | 3 / 3, 140 / 80 (1.75x) |
+| fast / wtwo | 35 / 35, 23,620 / 21,770 (1.08x) | 35 / 35, 4,330 / 3,590 (1.21x) | 3 / 3, 140 / 80 (1.75x) |
+| wlowc / wtwo | 21,880 / 21,770 (1.01x) | 3,290 / 3,590 (0.92x) | 80 / 80 (1.00x) |
+
+- **No marginal fathom moves on this tail node.** The three trees are
+  identical level for level (35 of 47, 35 of 36, 3 of 3), so the
+  node-10 phase that went either way (`../pipeline_ab/README.md`, Nov 6
+  runs) has no counterpart here, on 47 + 36 + 3 bounded nodes. One node
+  of 86 on node 10, none of 86 here: the lost fathom is noise on the
+  cutoff, not a pattern at the deep levels.
+- **The warm beta pays at every level and most where the children are
+  many**: `wlowc` 1.32x on the 36 matched level-5 nodes (first solves 82 to
+  53 iterations a node), 1.75x at level 6 (47 to 27), 1.08x at level 4;
+  1.35x on the subtree's iterations. `wtwo` sits between: 1.21x at level 5
+  (61 a node, its switch to 0.7 at the refresh after iteration 60 lands in
+  the middle of these solves), the same as `wlowc` at levels 4 and 6.
+- **In CPU the subtree gains only 1.08x (`wlowc`) and 1.06x (`wtwo`)**: a
+  53-iteration solve carries the same start-up, shipping and certificate
+  cost as an 82-iteration one, so per iteration these children are dearer
+  (level 5: 123 ms under `fast`, 151 under `wlowc`); the fixed cost per
+  node is now a third of a tail child's time and the next thing to trim if
+  the children get any faster.
+- **For the production choice:** `wlowc` is the better arm on the tail
+  (1.32x against 1.21x at level 5, no fathom lost), `wtwo` on node 10
+  (where it kept the one marginal phase). Neither effect is large in CPU;
+  `wlowc` as the candidate stands, and `wtwo` is the fallback if the
+  sampling plan shows phases flipping against `wlowc` at any rate.

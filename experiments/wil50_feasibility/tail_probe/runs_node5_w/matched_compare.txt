@@ -1,0 +1,25 @@
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) | open below | per level: nodes, fathomed/bounded |
+|---|---|---|---|---|---|
+| fast | 1,290 | 122,513 (± 50,146) | 15,219 (± 4,719) | 0 | L3: 1, 0/1; L4: 47, 35/47; L5: 552, 35/36; L6: 690, 3/3 |
+| wlowc | 1,290 | 91,027 (± 36,555) | 14,042 (± 4,989) | 0 | L3: 1, 0/1; L4: 47, 35/47; L5: 552, 35/36; L6: 690, 3/3 |
+| wtwo | 1,290 | 95,517 (± 37,028) | 14,389 (± 4,848) | 0 | L3: 1, 0/1; L4: 47, 35/47; L5: 552, 35/36; L6: 690, 3/3 |
+
+Matched nodes (the same assignment bounded in both arms), by level: fathomed in each, DNN iterations in each and their ratio
+
+| arms | level | shared | fathomed (first / second) | iterations (first / second) | ratio |
+|---|---|---|---|---|---|
+| fast / wlowc | 3 | 1 | 0 / 0 | 300 / 300 | 1.00 |
+| fast / wlowc | 4 | 47 | 35 / 35 | 23,620 / 21,880 | 1.08 |
+| fast / wlowc | 5 | 36 | 35 / 35 | 4,330 / 3,290 | 1.32 |
+| fast / wlowc | 6 | 3 | 3 / 3 | 140 / 80 | 1.75 |
+| fast / wtwo | 3 | 1 | 0 / 0 | 300 / 300 | 1.00 |
+| fast / wtwo | 4 | 47 | 35 / 35 | 23,620 / 21,770 | 1.08 |
+| fast / wtwo | 5 | 36 | 35 / 35 | 4,330 / 3,590 | 1.21 |
+| fast / wtwo | 6 | 3 | 3 / 3 | 140 / 80 | 1.75 |
+| wlowc / wtwo | 3 | 1 | 0 / 0 | 300 / 300 | 1.00 |
+| wlowc / wtwo | 4 | 47 | 35 / 35 | 21,880 / 21,770 | 1.01 |
+| wlowc / wtwo | 5 | 36 | 35 / 35 | 3,290 / 3,590 | 0.92 |
+| wlowc / wtwo | 6 | 3 | 3 / 3 | 80 / 80 | 1.00 |
+
+- wlowc against fast: 1.35x fewer estimated iterations, 1.08x less estimated CPU
+- wtwo against fast: 1.28x fewer estimated iterations, 1.06x less estimated CPU
