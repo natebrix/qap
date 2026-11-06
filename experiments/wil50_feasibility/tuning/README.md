@@ -636,3 +636,35 @@ Same two arms as nug24/25/27 above, binary at f763734, 8 workers, `--ub 5166`.
   1,708 against 1,683 nodes) is 1.7x faster per node.
 - nug26 and nug29 do not exist in QAPLIB; the Nugent family is 24, 25,
   27, 28, 30.
+
+### Nov 5: + fp32 R off certificate iterations; cold-node beta schedule neutral (`refine/nug30_best_nov5_r32*_j8_m2pro.log`)
+
+Binary at 151aded (the solver's own MAT/VEC in place of Meschach, measured
+bit-identical on the cloud), 8 workers, the Nov 4 setting plus
+`DNN_R32_NONCERT=1`; the second run adds
+`DNN_BETA_SCHED=two,f=1.6667,t=60,nodes=cold` (the two-phase penalty on
+cold calls only; the memo's warm factor was tuned against base beta 0.3 and
+this recipe already runs 0.21, so it was left off).
+
+| run | nodes / DNN fathomed | tasks | CPU | wall |
+|---|---|---|---|---|
+| Nov 4 record (+ `QAP_DNN_SHIP=32`) | 3,844 / 3,701 | 306 | 1,838 s | 322 s |
+| + `DNN_R32_NONCERT=1` | 3,820 / 3,678 | 324 | **1,593 s** | **267 s** (x5.97) |
+| + cold-node beta schedule | 3,849 / 3,705 | 343 | 1,602 s | 273 s |
+
+- 13% less CPU, more than the 2.5% per iteration the cloud measured for
+  fp32 R on nug30 depth-2 nodes; the rest is the Meschach replacement
+  and a tree 24 nodes smaller (fp32 R moves the iterates slightly; a few
+  give-up decisions shift, as warm Y did on Nov 3). Same optimum.
+- The cold-node beta schedule changes nothing here: with the shipped
+  state every node but the nine at depth 1 starts warm, so there is almost
+  nothing for it to act on (+29 nodes, +0.6% CPU, noise). Not adopted for
+  nug30; the warm factor needs its own A/B at base 0.21 before it is
+  tried.
+- nug30: 8,355 s (Oct 29) -> 2,870 (Nov 1 setting) -> 2,156 (Nov 3) ->
+  1,838 (Nov 4) -> **1,593 s** (Nov 5), 5.2x in a week.
+
+Recommended nug30 setting: `nug_deep_xbar_all.par`, `-x 1:7:1:200:1`,
+`QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2
+QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1
+QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32 DNN_R32_NONCERT=1`.
