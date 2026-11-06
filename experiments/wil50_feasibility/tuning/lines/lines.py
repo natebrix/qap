@@ -68,6 +68,29 @@ def dnn(args, spec, iters, extra=()):
     return float(r["lb"]), r["fathomed"] == "1", float(r["cpu"]), xbar
 
 
+def gl_bound(An, Bn, fixed):
+    """The Gilmore-Lawler bound of the node with assignment `fixed` (facility -> location,
+    original indices; A, B symmetric numpy arrays): fixed-fixed part as a constant, the
+    fixed-free interaction as a linear term, the minimal scalar product of each free row
+    of A (ascending) with each free row of B (descending) plus the diagonal product, and
+    a LAP over the free pairs (MatQapNB's GLbound, matqapnb_rule_G.md). Checked: 493 at
+    the nug12 root (QAPLIB's GLB); never above the optimum on 40 random 7x7 instances
+    with two fixes."""
+    import numpy as np
+    from scipy.optimize import linear_sum_assignment
+    n = len(An); fi = list(fixed); fj = [fixed[i] for i in fi]
+    fr = [i for i in range(n) if i not in fixed]
+    used = set(fixed.values()); fc = [j for j in range(n) if j not in used]
+    const = float((An[np.ix_(fi, fi)] * Bn[np.ix_(fj, fj)]).sum()) if fi else 0.0
+    lin = (An[np.ix_(fr, fi)] @ Bn[np.ix_(fc, fj)].T + An[np.ix_(fi, fr)].T @ Bn[np.ix_(fj, fc)]) if fi else 0.0
+    Af, Bf = An[np.ix_(fr, fr)], Bn[np.ix_(fc, fc)]; q = len(fr)
+    off = ~np.eye(q, dtype=bool)
+    As = np.sort(Af[off].reshape(q, q - 1), axis=1); Bs = -np.sort(-Bf[off].reshape(q, q - 1), axis=1)
+    C = As @ Bs.T + np.outer(np.diag(Af), np.diag(Bf)) + lin
+    r, c = linear_sum_assignment(C)
+    return const + float(C[r, c].sum())
+
+
 def console(args, specs, want_u=False):
     """QPB (parametric) at each node, and U (local order) if want_u."""
     cmds = []
@@ -112,7 +135,7 @@ def main():
     p.add_argument("--seed", type=int, default=20261031)
     p.add_argument("--dnn-flags", default="-T 1 -d 4 -g 1.0 -G 1.0")
     p.add_argument("--dry-run", action="store_true", help="list the candidate lines and stop")
-    p.add_argument("--rules", default="", help="also Fujii et al.'s rules: M (barycentre objective), "
+    p.add_argument("--rules", default="", help="also Fujii et al.'s rules: M (barycentre objective), G (Gilmore-Lawler child bounds), "
                    "D (the parent certificate's child bounds), e.g. M,D")
     args = p.parse_args()
     args.instance = os.path.abspath(args.instance)
@@ -200,6 +223,17 @@ def main():
                     raise RuntimeError(f"dnntest -C 2 on {spec}: {len(cb)} child bounds:\n{out[-2000:]}")
                 json.dump([[i, j, v] for (i, j), v in cb.items()], open(pdf, "w"))
             lines.setdefault(fujii_pick(cb), []).append("D")
+        if "G" in args.rules:
+            # rule G (MatQapNB branchSW = 4, unpublished; matqapnb_rule_G.md): phi = the
+            # child's Gilmore-Lawler bound
+            import numpy as np
+            An, Bn = np.array(A, dtype=float), np.array(B, dtype=float)
+            phi = {}
+            for i in fr:
+                for j in fc:
+                    child = dict(fixed); child[i] = j
+                    phi[(i, j)] = gl_bound(An, Bn, child)
+            lines.setdefault(fujii_pick(phi), []).append("G")
         for i in rng.sample([i for i in fr if ("row", i) not in lines], args.random):
             lines.setdefault(("row", i), []).append("random")
         for j in rng.sample([j for j in fc if ("col", j) not in lines], args.random):
