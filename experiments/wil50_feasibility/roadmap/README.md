@@ -191,3 +191,9 @@ The two measurements that decide between these outcomes are cheap:
      RLT3 on wil50 without a cut type; only a median several times the
      regional triangles' violations (0.1-0.2) would justify one. Prompted by
      Jeff Linderoth's RLT-n plus PDLP suggestion (Nov 5 thread).
+     **Tabled Nov 6** (`../stronger_bounds/rlt3/README.md`): the quadruple
+     separation LP has 4.3 M placement rows and no valid shortcut (merging
+     locations or dropping zero-mass potentials loses the violation), so one
+     quadruple costs 10+ minutes on the laptop; a cloud job if picked up.
+     By-product: node 10's first triple sample (30 triples, median 0.0175,
+     max 0.049), the same order as nodes 13 and d2.
