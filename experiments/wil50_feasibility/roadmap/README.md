@@ -169,3 +169,18 @@ The two measurements that decide between these outcomes are cheap:
    days) if the first two hold.
 6. The sampling plan on the first 1,000 cores, before the full run.
 7. In parallel, gated: the M2 projection test and the GPU prototype.
+8. Laptop items (Nov 5), cheapest settlement first:
+   - **The 329-short tail node**: the matched probe of `../tail_probe/`
+     (base against full) on node 5 of `../tuning/giveup/all32.txt`
+     (`23:49,37:15,6:5`, 316 short converged, 329 at 300 iterations), the
+     one tail-class node not yet probed; checks that node 1 stands for the
+     class. Running Nov 5 evening, `../tail_probe/runs_node5/`.
+   - **RLT3 violation sample**: before building any RLT3 cut type, sample a
+     few hundred random RLT3 inequalities (products of three assignment
+     constraints) at the converged iterates of nodes 10, 13 and d2 and
+     report the violation distribution, as step 8 of
+     `../stronger_bounds/README.md` did for the RLT2 triples (median about
+     0.01, a few units of gain). A median in that range closes selective
+     RLT3 on wil50 without a cut type; only a median several times the
+     regional triangles' violations (0.1-0.2) would justify one. Prompted by
+     Jeff Linderoth's RLT-n plus PDLP suggestion (Nov 5 thread).
