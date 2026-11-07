@@ -17,8 +17,10 @@ many depth-2 nodes) would hold 635 of them, 18 GB on disk and 54 GB in memory.
 
 Defaults: the instance, symmetry file and incumbent of fullrun/settings.sh,
 PARAM/nug_deep_xbar9_all.par, -x 1:4:1:300:1 (common.py). Order: shallower
-tasks first; at the last depth round-robin over parents, so the first tasks
-are a spread sample for the cost projection, printed after every task.
+tasks first; at the last depth a seeded random order (--order random), so
+the tasks done at any time are a uniform sample for the cost projection,
+printed after every task. (The first 34 tasks of the wil50 run used
+--order roundrobin, round-robin over parents by child index; README.md.)
 
 Resumable: a task with a done.json is never rerun; run the same command again.
 SIGTERM or SIGINT drains (no new task starts, running ones finish); a second
@@ -33,6 +35,7 @@ The stage-B sample is the frontier nodes with the smallest unit_hash(seed, .):
 tau is set so that about 430 of the 29,580 expected nodes fall below it.
 """
 import argparse
+import hashlib
 import json
 import os
 import signal
@@ -143,6 +146,12 @@ class StageA:
 
         def key(tid):
             t = self.tasks[tid]
+            if t["depth"] >= self.cfg["depth"] and self.a.order == "random":
+                # a seeded random order: siblings with the same index are the same
+                # facility (or location) under parents branched on the same line, so
+                # a round-robin by index is a correlated sample, not a spread one
+                h = hashlib.sha256(f"{self.cfg['seed']}:order:{tid}".encode()).hexdigest()
+                return (t["depth"], 0, h, 0)
             return (t["depth"], self.started_kids.get(t["parent"], 0), t["parent"] or "", t["index"] or 0)
         tid = min(self.ready, key=key)
         self.ready.remove(tid)
@@ -179,7 +188,8 @@ class StageA:
         doc = {"id": tid, "depth": t["depth"], "parent": t["parent"], "index": t["index"], "fixes": fixes,
                "spec": spec(fixes), "cpu_slot": cpu, "wall": wall, "rc": rc, "finished": time.strftime("%F %T"),
                "stats": stats_of(st), "checks": log_checks(logf), "trace": parse_trace(trace),
-               "n_children": len(kids), "line": child_line(fixes, [k["fixes"] for k in kids])}
+               "n_children": len(kids), "line": child_line(fixes, [k["fixes"] for k in kids]),
+               "order": self.a.order if t["depth"] >= cfg["depth"] else None}
         if any(k["depth"] != t["depth"] + 1 for k in kids):
             raise RuntimeError(f"task {tid}: children not all at depth {t['depth'] + 1}")
         if t["depth"] >= cfg["depth"]:
@@ -268,7 +278,14 @@ class StageA:
             done = by[d]
             if done:
                 mean_cpu = sum(x["stats"]["times"][0] for x in done) / len(done)
-                total += e * mean_cpu
+                rnd = [x for x in done if x.get("order") == "random"]
+                if d == D and len(rnd) >= 10:
+                    # the remaining tasks at the mean of those started in random order
+                    # (the earlier round-robin ones are a correlated subset)
+                    mean_rnd = sum(x["stats"]["times"][0] for x in rnd) / len(rnd)
+                    total += sum(x["stats"]["times"][0] for x in done) + max(0.0, e - len(done)) * mean_rnd
+                else:
+                    total += e * mean_cpu
                 mean_kids = sum(x["n_children"] for x in done) / len(done)
                 e = sum(x["n_children"] for x in done) + max(0.0, e - len(done)) * mean_kids
             else:
@@ -365,6 +382,8 @@ def main():
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--tau", type=float, default=None,
                     help=f"keep a parent's DNN state when a child hashes below this (default {TAU}; may rise on a resume)")
+    ap.add_argument("--order", choices=["random", "roundrobin"], default="random",
+                    help="last-depth task order: seeded random (default) or round-robin over parents by child index")
     ap.add_argument("--max-new", type=int, help="start at most this many tasks in this session, then drain")
     ap.add_argument("--min-free-gb", type=float, default=2.0)
     ap.add_argument("--env", action="append", default=[], help="K=V on top of the settings (validation runs only)")
