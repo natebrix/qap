@@ -59,7 +59,13 @@ has 48,789.9). The dual test's slow ascent put d2's pool optimum near
 48,795. CP-ADMM s1p1 reaches 48,785 (within 10 of that) at t = 880 against
 4,670, 5.3x [m]. It passes Polyak's final value at t = 1,050 against 5,090,
 4.8x [m]. It has 48,802.5 at t = 2,000, 11.5 short of the cutoff and still
-rising [m]. D2_LONG
+rising [m]. With three sweeps it reaches 48,785 at t = 750 (6.2x) and
+48,805 at t = 1,890. It ends at 48,807.9 after 4,500 iterations, nearly flat
+(+0.7 between t = 3,000 and 4,000) and 6.1 short of the cutoff [m]
+(`cp_s3p3_d2.log`). So d2 does not fathom on its frozen pool. But the pool's
+dual optimum is about 48,808, not about 48,795, and d2 is 6 short at the
+cap, not 18. On d2 the per-check certificate also moves more: from
+t = 1,500 on it lies up to 6 below the running best [m].
 
 ## Method
 
@@ -463,7 +469,9 @@ dual optimum. The regional triangles are still capped well short of the
 cutoff on this node: 42 short instead of 59 [m]. The dual test's conclusion
 (the family is capped) stands. But the cap on this pool is at least 48,771.7.
 That is 16 above the Polyak protocol's value and 9 above the slow ascent's
-48,763 on the laptop's pool.
+48,763 on the laptop's pool. On d2 the cap is about 48,808, 6 short of the
+cutoff, against the slow ascent's 48,795 [m]. With fresh cuts separated
+during the solve, d2 is the node to watch.
 
 ## What a production version would need
 
