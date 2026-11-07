@@ -567,7 +567,12 @@ std::vector<Region> prefix_regions(int m)
 // regions' moments, kept exact under y -= d G_t: region S' gains -d cp_i k on
 // p_i and -d cw_ij k(k-1)/2 on W_ij, k = |S ∩ S'|. The dense passes group the
 // (a, b) blocks of Y by the set of regions holding both a and b (sigma), so
-// each costs one pass over Y. Side 0 only (the region side is the first index).
+// each costs one pass over Y. Either side: on side 0 the region side is the
+// first index (row 1 + a m + i, the (a, b) block contiguous), on side 1 the
+// second (row 1 + i m + a, the (a, b) block the stride-m columns 1 + j m + b);
+// only the two dense passes (pstep, dense_term) depend on it. Side 1 visits the
+// same (a, b, i, j) in the same order of a and b, so the projector of side 1 on
+// a transposed X is side 0's to the bit (cp_selftest (f)).
 struct CPTerm { int i, j; double c; };          // j < 0: c p_i; else i < j: c W_ij
 struct CPCut { int s, t0, t1, src; double h, g2, absrow; };   // terms [t0, t1); src: index in the pool
 
@@ -612,6 +617,7 @@ void cp_cut_terms(const Cut &t, std::vector<CPTerm> &out, double &h)
 class CutProjector : public DNNYCuts {
 public:
   int m = 0, n1 = 0, R = 0;
+  int side = 0;                    // the region side: 0 the first lifted index, 1 the second (Lift)
   int sweeps = 1, passes = 1;      // Dykstra sweeps per Y-step, half-space passes per sweep
   double omega = 1.0;              // over-relaxation of the half-space steps (1: Hildreth/Dykstra)
   std::vector<double> init_mu;     // optional start multipliers (unscaled), applied at the first Y-step
@@ -685,9 +691,9 @@ public:
     return true;
   }
 
-  CutProjector(int m_, const std::vector<Region> &regions, const std::vector<Cut> &src_pool)
+  CutProjector(int m_, const std::vector<Region> &regions, const std::vector<Cut> &src_pool, int side_ = 0)
   {
-    m = m_; n1 = m * m + 1; R = (int)regions.size();
+    m = m_; n1 = m * m + 1; R = (int)regions.size(); side = side_ == 1 ? 1 : 0;
     for (auto &r : regions) rloc.push_back(r.loc);
     pool = src_pool;
     for (size_t ci = 0; ci < pool.size(); ci++) add_cut((int)ci);
@@ -758,6 +764,7 @@ public:
     Y[0] = 1.0;
     for (int c = 1; c < n1; c++) Y[c] = clip(X[c]);
     if (elim) for (int c = 1; c < n1; c++) if (elim[c - 1]) Y[c] = 0;
+    if (side == 1) { pstep_rows1(X, Y, elim); moments_from_groups(); return; }
     for (int a = 0; a < m; a++)
       for (int i = 0; i < m; i++) {
         const size_t r = 1 + (size_t)a * m + i;
@@ -789,6 +796,47 @@ public:
         }
       }
     moments_from_groups();
+  }
+
+  // the rows of the P-step on side 1: row r = 1 + i m + a (i the other side's element,
+  // a the region side's), column 1 + j m + b; the side-0 block (a, b) is the columns of
+  // second index b, at stride m. Gangster zeros: same first index (j = i, b != a) and
+  // same second index (b = a, j != i). Csig, Dsig and the block sums Gsig, Gdsig are
+  // side 0's, and each (i, j, sigma) receives its terms in the same order of (a, b)
+  void pstep_rows1(const double *X, double *Y, const unsigned char *elim)
+  {
+    const size_t mm = (size_t)m * m, sm = (size_t)m;
+    auto clip = [](double v) { return std::min(1.0, std::max(0.0, v)); };
+    for (int i = 0; i < m; i++)
+      for (int a = 0; a < m; a++) {
+        const size_t r = 1 + (size_t)i * m + a;
+        const double *xr = X + r * n1;
+        double *yr = Y + r * n1;
+        const bool erow = elim && elim[r - 1];
+        for (int b = 0; b < m; b++) {
+          const int g = sig2[(size_t)a * m + b];
+          const double *xc = xr + 1 + b;   // column (j, b) at xc[j m]
+          double *yc = yr + 1 + b;
+          if (b == a) {
+            for (int j = 0; j < m; j++) yc[j * sm] = 0;   // gangster: same second index
+            yc[i * sm] = clip(g >= 0 ? xc[i * sm] - Dsig[(size_t)g * m + i] : xc[i * sm]);
+          } else {
+            if (g >= 0) { const double *cs = &Csig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) yc[j * sm] = clip(xc[j * sm] - cs[j]); }
+            else for (int j = 0; j < m; j++) yc[j * sm] = clip(xc[j * sm]);
+            yc[i * sm] = 0;   // gangster: same first index
+          }
+        }
+        yr[0] = clip(xr[0]);
+        if (erow) for (int c = 0; c < n1; c++) yr[c] = 0;
+        else if (elim) for (int c = 1; c < n1; c++) if (elim[c - 1]) yr[c] = 0;
+        for (int b = 0; b < m; b++) {
+          const int g = sig2[(size_t)a * m + b];
+          if (g < 0) continue;
+          const double *yc = yr + 1 + b;
+          if (b == a) Gdsig[(size_t)g * m + i] += yc[i * sm];
+          else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += yc[j * sm]; }
+        }
+      }
   }
 
   void moments_from_groups()
@@ -1036,6 +1084,22 @@ public:
         D[g][i] = (double)ds[i];
         for (int j = i + 1; j < m; j++) C[g][(size_t)i * m + j] = C[g][(size_t)j * m + i] = (double)cs[(size_t)i * m + j];
       }
+    }
+    if (side == 1) {
+      // row 1 + i m + a, column 1 + j m + b (pstep_rows1): the same entries, one addition each
+      const size_t sm = (size_t)m;
+      for (int i = 0; i < m; i++)
+        for (int a = 0; a < m; a++) {
+          double *lr = L + (1 + (size_t)i * m + a) * n1;
+          for (int b = 0; b < m; b++) {
+            const int g = sig2[(size_t)a * m + b];
+            if (g < 0) continue;
+            double *lc = lr + 1 + b;   // column (j, b) at lc[j m]
+            if (b == a) lc[i * sm] += D[g][i];
+            else { const double *cg = &C[g][(size_t)i * m]; for (int j = 0; j < m; j++) if (j != i) lc[j * sm] += cg[j]; }
+          }
+        }
+      return true;
     }
     for (int a = 0; a < m; a++)
       for (int i = 0; i < m; i++) {
@@ -1657,7 +1721,10 @@ namespace {
 // a sample of cuts, the explicit sparse row of the matrix add_rcut writes (mu = 1):
 // ||G||^2 and <G, Y> against the projector's formulas, on Y from a P-step; (c) the
 // P-step's moments against aggregate(); (d) the moments kept by a half-space pass
-// against aggregate() on y_P - G'(nu_new - nu_old). Prints one line per check;
+// against aggregate() on y_P - G'(nu_new - nu_old); (e) the projection's KKT
+// conditions after up to 3,000 sweeps on a sample of the cuts, by independent code;
+// (f) on side 1, the projector against side 0's on the transposed X, to the bit.
+// All of it uses the Lift of the projector's side. Prints one line per check;
 // returns false on a mismatch beyond rounding.
 bool cp_selftest(CutProjector &pj, std::vector<Cut> cuts, const std::vector<Region> &regions,
                  const std::vector<BoxCut> &boxes, const Lift &lift, int n1)
@@ -1665,6 +1732,8 @@ bool cp_selftest(CutProjector &pj, std::vector<Cut> cuts, const std::vector<Regi
   const int m = lift.m;
   const size_t nn = (size_t)n1 * n1;
   bool ok = true;
+  const double tp_keep = pj.t_p, th_keep = pj.t_h;   // (e) and (f) run sweeps: the trace's timings exclude them
+  const int np_keep = pj.n_p, nh_keep = pj.n_h;
   std::mt19937 rng(20261107u);
   std::uniform_real_distribution<double> U(0.0, 1.0);
   // (a) random multipliers on about half the cuts
@@ -1761,8 +1830,119 @@ bool cp_selftest(CutProjector &pj, std::vector<Cut> cuts, const std::vector<Regi
   printf("cp-selftest (d) a half-space pass (%zu multipliers moved): kept moments vs aggregate(y_P - G'dnu) max |diff| %.3e (max %.3e)  %s\n",
          moved, dh, mmax, okd ? "ok" : "MISMATCH");
   ok = ok && okd;
+  // (e) the projection's optimality conditions, by code independent of the projector's
+  // grouping, on a projector of its own with a random sample of at most 500 of the
+  // pool's cuts (the same code; Dykstra from a random X with the whole pool of 13,000
+  // is at 2.4e-3 after 1,000 sweeps), from nu = 0 on X, after 1, 10, 100, 1,000 and, if
+  // needed, 3,000 sweeps: Y in P (Y_00 = 1, the box, the gangster zeros from the lifted
+  // indices decoded), Y = P(X - G'nu) with G'nu from assemble() at mu = nu, and the cut
+  // values from aggregate() and rviolation(): feasibility max (<G,Y> - h)+ / ||G|| and
+  // complementarity max over nu > 0 of |<G,Y> - h| / ||G||. Y in P and Y = P(X - G'nu)
+  // hold at every sweep (the sweep ends with a P-step); with nu >= 0 the two residuals
+  // at 0 are the KKT conditions of Y = argmin ||Y - X|| over P and the half-spaces
+  {
+    std::vector<size_t> pick(pj.cuts.size());
+    for (size_t t = 0; t < pick.size(); t++) pick[t] = t;
+    if (pick.size() > 500) { std::shuffle(pick.begin(), pick.end(), rng); pick.resize(500); std::sort(pick.begin(), pick.end()); }
+    std::vector<Cut> sub;
+    for (size_t t : pick) { sub.push_back(cuts[pj.cuts[t].src]); sub.back().mu = 0; }
+    CutProjector pe(m, regions, sub, pj.side);
+    pe.passes = pj.passes;
+    std::vector<double> Ye(nn), Lg(nn);
+    std::vector<std::vector<double>> pr(regions.size()), Wr(regions.size());
+    const int stages[5] = {1, 10, 100, 1000, 3000};
+    int done = 0;
+    double feas = 0, comp = 0, dP = 0, dfix = 0;
+    size_t nact = 0;
+    for (int st = 0; st < 5; st++) {
+      if (done >= 1000 && feas <= 1e-6 && comp <= 1e-6) break;
+      pe.run(X.data(), Ye.data(), NULL, stages[st] - done);
+      done = stages[st];
+      auto gangster = [&](int r, int c) {
+        if (r == 0 || c == 0) return false;
+        const int f1 = (r - 1) / m, s1 = (r - 1) % m, f2 = (c - 1) / m, s2 = (c - 1) % m;
+        return (f1 == f2) != (s1 == s2);
+      };
+      // Y in P
+      dP = fabs(Ye[0] - 1.0);
+      for (int r = 0; r < n1; r++)
+        for (int c = 0; c < n1; c++) {
+          const double v = Ye[(size_t)r * n1 + c];
+          if (gangster(r, c)) dP = std::max(dP, fabs(v));
+          else if (r + c > 0) dP = std::max(dP, std::max(0.0, std::max(-v, v - 1.0)));
+        }
+      // Y = P(X - G'nu), G'nu by assemble()
+      std::vector<Cut> cn = sub;
+      for (size_t t = 0; t < pe.cuts.size(); t++) cn[pe.cuts[t].src].mu = pe.nu[t];
+      std::fill(Lg.begin(), Lg.end(), 0.0);
+      double a_ = 0, h_ = 0;
+      assemble(cn, regions, boxes, lift, n1, Lg, a_, h_);
+      dfix = 0;
+      for (int r = 0; r < n1; r++)
+        for (int c = 0; c < n1; c++) {
+          if (r + c == 0) continue;
+          const size_t e = (size_t)r * n1 + c;
+          const double ref = gangster(r, c) ? 0.0 : std::min(1.0, std::max(0.0, X[e] - Lg[e]));
+          dfix = std::max(dfix, fabs(Ye[e] - ref));
+        }
+      // feasibility and complementarity on aggregate()'s moments
+      for (size_t s = 0; s < regions.size(); s++) aggregate(regions[s], Ye, lift, n1, pr[s], Wr[s]);
+      feas = 0; comp = 0; nact = 0;
+      for (size_t t = 0; t < pe.cuts.size(); t++) {
+        const Cut &c = sub[pe.cuts[t].src];
+        const double v = rviolation(c, pr[c.s], Wr[c.s], m) / sqrt(pe.cuts[t].g2);
+        feas = std::max(feas, v);
+        if (pe.nu[t] > 0) { comp = std::max(comp, fabs(v)); nact++; }
+      }
+      printf("cp-selftest (e) %4d sweeps: Y in P %.1e, Y - P(X - G'nu) %.1e, max violation/||G|| %.3e, complementarity %.3e (%zu active of %zu)\n",
+             done, dP, dfix, feas, comp, nact, pe.cuts.size());
+    }
+    const bool oke = dP == 0 && dfix <= 1e-12 && feas <= 1e-6 && comp <= 1e-6;
+    printf("cp-selftest (e) the projection's KKT conditions after %d sweeps (%zu of the %zu cuts)  %s\n", done,
+           pe.cuts.size(), pj.cuts.size(), oke ? "ok" : "MISMATCH");
+    ok = ok && oke;
+  }
+  // (f) side 1: the projector against side 0's on the transposed problem (lifted index
+  // 1 + i m + a <-> 1 + a m + i): the P-step's Y, the moments, a half-space pass, three
+  // sweeps and the dense term, all equal to the bit
+  if (pj.side == 1) {
+    CutProjector p0(m, regions, cuts, 0);
+    std::vector<size_t> perm(n1);
+    perm[0] = 0;
+    for (int i = 0; i < m; i++) for (int a = 0; a < m; a++) perm[1 + (size_t)i * m + a] = 1 + (size_t)a * m + i;
+    std::vector<double> Xt(nn), Y1(nn), Y0(nn);
+    for (int r = 0; r < n1; r++) for (int c = 0; c < n1; c++) Xt[perm[r] * n1 + perm[c]] = X[(size_t)r * n1 + c];
+    auto ydiff = [&]() { double d = 0; for (int r = 0; r < n1; r++) for (int c = 0; c < n1; c++)
+                           d = std::max(d, fabs(Y1[(size_t)r * n1 + c] - Y0[perm[r] * n1 + perm[c]])); return d; };
+    auto mdiff = [&]() { double d = 0; for (size_t q = 0; q < pj.Pag.size(); q++) d = std::max(d, fabs(pj.Pag[q] - p0.Pag[q]));
+                           for (size_t q = 0; q < pj.Wag.size(); q++) d = std::max(d, fabs(pj.Wag[q] - p0.Wag[q])); return d; };
+    auto ndiff = [&]() { double d = 0; for (size_t q = 0; q < pj.nu.size(); q++) d = std::max(d, fabs(pj.nu[q] - p0.nu[q])); return d; };
+    bool same = p0.cuts.size() == pj.cuts.size() && p0.nsig() == pj.nsig();
+    double dy = -1, dm = -1, dn = -1, dy3 = -1, dn3 = -1, dl = -1;
+    if (same) {
+      for (size_t t = 0; t < mu.size(); t++) pj.nu[t] = p0.nu[t] = mu[t] * 1e-3;
+      pj.rebuild_sums(); p0.rebuild_sums();
+      pj.pstep(X.data(), Y1.data(), NULL); p0.pstep(Xt.data(), Y0.data(), NULL);
+      dy = ydiff(); dm = mdiff();
+      pj.hpass(); p0.hpass();
+      dn = ndiff();
+      pj.run(X.data(), Y1.data(), NULL, 3); p0.run(Xt.data(), Y0.data(), NULL, 3);
+      dy3 = ydiff(); dn3 = ndiff();
+      std::vector<double> L1(nn, 0.0), L0(nn, 0.0);
+      double a1 = 0, h1 = 0, a0 = 0, h0 = 0;
+      pj.dense_term(1.0L, mu, L1.data(), a1, h1); p0.dense_term(1.0L, mu, L0.data(), a0, h0);
+      dl = fabs(a1 - a0) + fabs(h1 - h0);
+      for (int r = 0; r < n1; r++) for (int c = 0; c < n1; c++) dl = std::max(dl, fabs(L1[(size_t)r * n1 + c] - L0[perm[r] * n1 + perm[c]]));
+    }
+    const bool okf = same && dy == 0 && dm == 0 && dn == 0 && dy3 == 0 && dn3 == 0 && dl == 0;
+    printf("cp-selftest (f) side 1 vs side 0 on the transposed X (%zu cuts, %zu classes): P-step Y %.1e, moments %.1e, "
+           "half-space pass nu %.1e, 3 sweeps Y %.1e nu %.1e, dense term %.1e  %s\n",
+           pj.cuts.size(), pj.nsig(), dy, dm, dn, dy3, dn3, dl, okf ? "ok" : "MISMATCH");
+    ok = ok && okf;
+  }
   pj.nu = nu_keep;
   pj.rebuild_sums();
+  pj.t_p = tp_keep; pj.t_h = th_keep; pj.n_p = np_keep; pj.n_h = nh_keep;
   return ok;
 }
 }  // namespace
@@ -1775,7 +1955,7 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   bad.lb = -HUGE_VAL; bad.primal = HUGE_VAL; bad.status = DNN_ERROR; bad.iterations = 0; bad.cpu = 0;
   bad.certificates = 0; bad.cert_failures = 0; bad.refinements = 0; bad.halpern_restarts = 0; bad.margin = 0;
   const int m = A->m, n1 = m * m + 1;
-  if (cp.side != 0 || cp.atomic) { fprintf(stderr, "dnn_cp_bound: regional cuts on side 0 only\n"); return bad; }
+  if (cp.atomic || (cp.side != 0 && cp.side != 1)) { fprintf(stderr, "dnn_cp_bound: regional cuts only (side 0 or 1)\n"); return bad; }
   const Lift lift = {m, cp.side};
   std::vector<Region> regions;
   if (cp.grid_rows > 0) regions = grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
@@ -1793,7 +1973,7 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
     if (cp.pool_out) *cp.pool_out = DNNPool();
     return dnn_bound(A, B, C, shift, cutoff, par, start, save);
   }
-  CutProjector pj(m, regions, cuts);
+  CutProjector pj(m, regions, cuts, cp.side);
   pj.sweeps = std::max(1, cpp.sweeps); pj.passes = std::max(1, cpp.passes);
   pj.diag_every = cpp.diag_every; pj.diag_sweeps = std::max(1, cpp.diag_sweeps);
   if (cpp.omega > 0 && cpp.omega < 2) pj.omega = cpp.omega;
@@ -1907,7 +2087,7 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   const int m = A->m, n1 = m * m + 1;
   const size_t nn = (size_t)n1 * n1, mm = (size_t)m * m;
   // what the CP form does not cover runs as rounds
-  if (cp.side != 0 || cp.atomic || !warm || warm->m != m || warm->Y.size() != nn || warm->Z.size() != nn ||
+  if (cp.atomic || (cp.side != 0 && cp.side != 1) || !warm || warm->m != m || warm->Y.size() != nn || warm->Z.size() != nn ||
       !(warm->scale > 0))
     return dnn_cut_rounds(A, B, C, shift, cutoff, base, free_orig, n_orig, cp, warm, first_lb, first_primal);
   const double t0 = CutProjector::tcpu();
@@ -1932,7 +2112,7 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     remap_pool(*cp.pool_in, free_orig, n_orig, cp, regions, cuts, boxes, dropped);
   }
   out.nregions = (int)regions.size();
-  CutProjector pj(m, regions, cuts);
+  CutProjector pj(m, regions, cuts, cp.side);
   pj.sweeps = std::max(1, cp.cp_sweeps); pj.passes = std::max(1, cp.cp_passes);
   {
     const int R = (int)regions.size();
