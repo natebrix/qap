@@ -476,3 +476,68 @@ worth 2-4 times more now that the children are that short.
 263-274 ms per warm solve [m], but that is 0.3-0.8% of the warm set's CPU [m]
 and about 1.5% of the production mix [e] (a free first step would give 1.7%),
 against a 3% kill line; no fathom moved. The code is on `research/ship-basis`.
+
+## Node 5 in the production configuration: `bestcoret` against `cpcutt` (cloud box, Nov 7, 15:59-17:25 UTC)
+
+The second subtree for the CP cut phase (`../roadmap/admm/cpadmm/README.md`,
+"Side 1"; `../pipeline_ab/README.md`, the node-10 A/Bs). Node 5 is a subtree
+with many children and few phases.
+
+**The arms** (`tail_probe.py`):
+- `bestcoret` is `bestcore` (wlowc + `DNN_ADMM_CROSS=2` + the three core
+  switches). Shipping is at 16 bits, as in every probe here.
+- `cpcutt` is `bestcoret` + `QAP_DNN_CUT_CP=100:1000`.
+- Both run with `QAP_DNN_CUT_SIDE=1`, on `wil50t.dat`, with node 5's spec
+  transposed (`49:23,15:37,5:6`). The tasks run in `latest/`, so
+  `./SYM/wil50t.sym` is found by name.
+
+**The run.** `run_node5_cpt.sh`: `matched.py` per arm, `bestcoret` on cores
+0-1 and `cpcutt` on cores 2-3, 2 slots each, at the same time, binary
+90211a3, `runs_node5_cpt/`.
+- Wall time: 4,185 s and 5,158 s. The estimate beforehand, from the laptop's
+  `wlowc` probe scaled by 1.74x per iteration, was about 77 minutes [e].
+- The picks hash the trace's fixes, so these samples are not those of the
+  `wil50.dat` probes above. Between the two arms here the nodes match.
+
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) | per level: nodes, fathomed/bounded |
+|---|---|---|---|---|
+| bestcoret | 1,290 | 118,262 (± 42,704) | 32,224 (± 10,831) | L4: 47, 35/47; L5: 552, 35/36; L6: 690, 3/3 |
+| cpcutt | 1,198 | 98,091 (± 36,804) | 28,095 (± 9,696) | L4: 47, 37/47; L5: 460, 29/30; L6: 690, 3/3 |
+
+Matched nodes [m]:
+
+| level | shared | fathomed (bestcoret / cpcutt) | DNN iterations | DNN CPU s | phases (iterations) |
+|---|---|---|---|---|---|
+| 4 | 47 | 35 / 37 | 21,515 / 27,656 (0.78x) | 6,279 / 8,802 (0.71x) | 21 (13,098) / 21 (19,239) |
+| 5 | 30 | 29 / 29 | 4,977 / 3,479 (1.43x) | 1,348 / 986 (1.37x) | 3 (2,698) / 2 (1,221) |
+| 6 | 3 | 3 / 3 | 76 / 73 | 19 / 18 | 0 / 0 |
+
+- **On the subtree's estimate, `cpcutt` takes 1.21x fewer iterations and
+  1.15x less CPU** [m]. Both differences are inside one standard error.
+  Every one of `cpcutt`'s 23 phases ran in CP form (`cp 1`).
+- **Level 4 pays, level 5 gains.**
+  - At level 4 there is no inherited pool: node 5, 316 short, runs no
+    phase. Both arms run 21 phases. The CP phases take 1.47x the rounds'
+    iterations (19,239 against 13,098) and 1.69x the CPU (6,180 against
+    3,667 s) [m].
+  - Of the rounds' 12 misses, the CP phases fathom 2, in 2,950 and 550
+    iterations (rounds: 1,200 each, 36 and 3.4 short). Two more end within
+    5.9 and 1.3 of the cutoff after 2,770 and 3,400 iterations, the second
+    at the budget (rounds: 1,000 and 1,200, 46 and 41 short). Those four are
+    5,070 of the 6,141 extra iterations. The six misses 80-152 short run
+    5,570 iterations against 4,800 and end 11-28 higher. At the 10 misses
+    of both arms the CP phases end 11-40 above the rounds [m].
+  - So 10 parents branch instead of 12, and the level-5 estimate falls from
+    552 nodes to 460.
+  - The 30 matched level-5 children, on the CP phases' pools, cost 1.43x
+    fewer iterations and 1.37x less CPU.
+- **Against node 10.** There `cpcutt` gained 1.76x on the matched nodes and
+  2.2x end to end (`../pipeline_ab/README.md`, `runs_cpt`). Here it is 1.15x
+  in estimated CPU, and it loses on the 47 level-4 nodes, which are all
+  bounded. The extra phase work goes mostly to misses that the CP form
+  fathoms or brings within a few units of the cutoff, not to hopeless ones.
+  The six misses 80-152 short account for 770 of the extra iterations, so
+  a cap on hopeless phases would recover at most that much here [e]. (The
+  equip rule `QAP_DNN_CUT_EQUIP` above would also shorten a CP phase's
+  default budget; neither arm sets it.) The gain is the 92-node smaller level
+  5 and its cheaper children, inside the estimate's standard error.

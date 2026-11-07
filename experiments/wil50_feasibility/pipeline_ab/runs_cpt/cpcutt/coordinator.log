@@ -1,0 +1,53 @@
+15:15:30 [Jan 1, 2023]
+vm
+parameters file: /home/user/qap/.claude/worktrees/agent-a1fec42d163d976d3/latest/PARAM/nug_deep_xbar9_all.par
+root fixes: 27:39,48:30,49:25
+DNN bound at depths 0-4, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, OpenBLAS (prefix 'scipy_')
+symmetry file: /home/user/qap/.claude/worktrees/agent-a1fec42d163d976d3/latest/SYM/wil50t.sym
+incumbent: 48816
+max_depth has been set to 0
+state file: /tmp/qapinit-cpcutt-j1phh8n7/frontier.state
+input file: /home/user/qap/.claude/worktrees/agent-a1fec42d163d976d3/qaplib/wil50t.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+read symmetry info from /home/user/qap/.claude/worktrees/agent-a1fec42d163d976d3/latest/SYM/wil50t.sym
+15:15:30 coordinator: run cpcutt: frontier at depth 0 has 1 open nodes, 1 units, 2 slots
+15:15:30 coordinator: 0h00m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+15:16:30 coordinator: 0h01m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+15:17:30 coordinator: 0h02m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+15:18:30 coordinator: 0h03m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+15:19:30 coordinator: 0h04m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+15:20:30 coordinator: 0h05m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+15:21:30 coordinator: 0h06m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+15:22:30 coordinator: 0h07m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+15:23:31 coordinator: 0h08m00s units {'leased': 2, 'merged': 1, 'queued': 2} nodes 1 (DNN 1, fathomed 0) CPU 472 s
+15:24:31 coordinator: 0h09m00s units {'leased': 2, 'merged': 1, 'queued': 2} nodes 1 (DNN 1, fathomed 0) CPU 472 s
+15:25:31 coordinator: 0h10m00s units {'leased': 2, 'merged': 1, 'queued': 2} nodes 1 (DNN 1, fathomed 0) CPU 472 s
+15:26:31 coordinator: 0h11m00s units {'leased': 2, 'merged': 2, 'queued': 1} nodes 13 (DNN 13, fathomed 12) CPU 614 s
+15:27:31 coordinator: 0h12m00s units {'leased': 2, 'merged': 2, 'queued': 1} nodes 13 (DNN 13, fathomed 12) CPU 614 s
+15:28:31 coordinator: 0h13m00s units {'leased': 2, 'merged': 2, 'queued': 1} nodes 13 (DNN 13, fathomed 12) CPU 614 s
+15:29:31 coordinator: 0h14m00s units {'leased': 2, 'merged': 2, 'queued': 1} nodes 13 (DNN 13, fathomed 12) CPU 614 s
+15:30:31 coordinator: 0h15m00s units {'leased': 2, 'merged': 3} nodes 25 (DNN 25, fathomed 24) CPU 844 s
+15:31:31 coordinator: 0h16m00s units {'leased': 2, 'merged': 3} nodes 25 (DNN 25, fathomed 24) CPU 844 s
+15:32:31 coordinator: 0h17m00s units {'leased': 2, 'merged': 3} nodes 25 (DNN 25, fathomed 24) CPU 844 s
+15:33:31 coordinator: 0h18m00s units {'leased': 1, 'merged': 4} nodes 36 (DNN 36, fathomed 35) CPU 1028 s
+15:34:31 coordinator: 0h19m01s units {'leased': 2, 'merged': 5, 'queued': 2} nodes 58 (DNN 58, fathomed 56) CPU 1624 s
+15:35:32 coordinator: 0h20m01s units {'leased': 2, 'merged': 6, 'queued': 1} nodes 67 (DNN 67, fathomed 65) CPU 1700 s
+15:36:32 coordinator: 0h21m01s units {'leased': 1, 'merged': 8} nodes 85 (DNN 85, fathomed 83) CPU 1930 s
+15:37:32 coordinator: 0h22m01s units {'leased': 1, 'merged': 11} nodes 92 (DNN 92, fathomed 90) CPU 2013 s
+15:37:38   ---- RESULTS ----
+
+    Total Time: 2033.416577 seconds 
+         Nodes: 94 / 92 / 0
+    root bound: 0
+ fw iterations: 8141
+     DNN bound: 94 nodes, 92 fathomed, 1331.32 s
+
+coordinator: 2 slots, 12 units, wall 1327.87 s, CPU 2033.42 s (x1.53), slots busy 77.6%, best objective 48816

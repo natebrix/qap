@@ -4,17 +4,27 @@ iterations and CPU from the node traces (QAP_DNN_TRACE lines, bnb.C) and the
 coordinator's totals; then every arm against base (and warmy against zone) on
 the whole tree and on the nodes both trees share.
 
-  python3 summarize.py RUNS_DIR        (default: runs/ next to this file)
+  python3 summarize.py RUNS_DIR [--ref DIR ...]   (default: runs/ next to this file)
+
+--ref DIR adds the arms of another runs directory that RUNS_DIR does not have
+(for example runs_cp's bestcore and cpcut next to runs_cpt's transposed arms),
+for the tree and the iterations; their CPU is another session's.
 
 Iterations do not depend on the machine's speed; CPU does, so CPU ratios are
 meaningful only between arms run on the same machine, best at the same time
-(hosts.txt in each arm's directory)."""
+(hosts.txt in each arm's directory).
+
+The transposed arms (bestcoret, cpcutt: wil50t.dat, run_pair.sh) have their
+traces' fixes flipped back to wil50.dat's (i:j on wil50t.dat is j:i), so that
+their nodes match the other arms'."""
 import os
 import re
 import sys
 
 ARMS = ["base", "zone", "warmy", "certx", "ship", "full", "zone2", "base2", "ship2", "fast",
-        "cross", "wlow", "wlowc", "best", "core", "bestcore", "wtwo", "cpcut", "cpcut2", "cpcutl"]
+        "cross", "wlow", "wlowc", "best", "core", "bestcore", "wtwo", "cpcut", "cpcut2", "cpcutl",
+        "bestcoret", "cpcutt"]
+TRANSPOSED = {"bestcoret", "cpcutt"}   # on wil50t.dat: fixes flipped in read_trace
 # kill lines (README.md): the ratio of DNN iterations an arm must reach. For
 # warmy and certx the end-to-end ratio is below the run-to-run noise of one
 # configuration (README, base vs zone), so they are judged on the matched
@@ -31,7 +41,9 @@ CPU_GATES = {("cross", "fast"): 1.02, ("best", "wlowc"): 1.02, ("core", "fast"):
              # some of the cut phases' extra cost without giving up the children's gain
              ("wtwo", "wlowc"): 1.02,
              # the cut phase in CP form (roadmap/admm/cpadmm, "In the search", Nov 7)
-             ("cpcut", "bestcore"): 1.10, ("cpcut2", "bestcore"): 1.10, ("cpcutl", "bestcore"): 1.10}
+             ("cpcut", "bestcore"): 1.10, ("cpcut2", "bestcore"): 1.10, ("cpcutl", "bestcore"): 1.10,
+             # the same in the production configuration (wil50t.dat, side 1; cpadmm "Side 1")
+             ("cpcutt", "bestcoret"): 1.10}
 # the pairs compared, (arm, reference); the first reference that finished is used
 PAIRS = [("zone", ["base"]), ("warmy", ["zone"]), ("certx", ["zone", "base"]), ("ship", ["zone"]), ("full", ["ship"]), ("full", ["warmy"]),
          ("full", ["zone"]), ("full", ["base"]), ("zone2", ["zone"]), ("ship2", ["ship"]),
@@ -40,7 +52,8 @@ PAIRS = [("zone", ["base"]), ("warmy", ["zone"]), ("certx", ["zone", "base"]), (
          ("core", ["fast"]), ("bestcore", ["best"]), ("bestcore", ["fast"]),
          ("wtwo", ["wlowc"]), ("wtwo", ["fast"]),
          ("cpcut", ["bestcore"]), ("cpcut2", ["cpcut"]), ("cpcut2", ["bestcore"]),
-         ("cpcutl", ["cpcut"]), ("cpcutl", ["bestcore"])]
+         ("cpcutl", ["cpcut"]), ("cpcutl", ["bestcore"]),
+         ("cpcutt", ["bestcoret"]), ("bestcoret", ["bestcore"]), ("cpcutt", ["cpcut"])]
 
 
 def num(pat, line, conv=float):
@@ -48,12 +61,15 @@ def num(pat, line, conv=float):
     return conv(m.group(1)) if m else None
 
 
-def read_trace(path):
+def read_trace(path, transposed=False):
     rows = {}
     for line in open(path):
         if " fixes " not in line:
             continue
-        fixes = frozenset(re.search(r"fixes ([\d: ]*?) \|", line).group(1).split())
+        fixes = re.search(r"fixes ([\d: ]*?) \|", line).group(1).split()
+        if transposed:
+            fixes = [":".join(f.split(":")[::-1]) for f in fixes]
+        fixes = frozenset(fixes)
         cut = num(r"\| cut (\d)", line, int) == 1
         rows[fixes] = dict(
             depth=num(r"depth (\d+)", line, int), lb=num(r"first lb (\S+)", line),
@@ -72,7 +88,7 @@ def read_arm(d):
     out = {"arm": arm, "dir": d, "done": os.path.exists(os.path.join(d, "results.txt"))}
     if not out["done"]:
         return out
-    out["rows"] = rows = read_trace(os.path.join(d, "trace.txt"))
+    out["rows"] = rows = read_trace(os.path.join(d, "trace.txt"), arm in TRANSPOSED)
     res = open(os.path.join(d, "results.txt")).read()
     m = re.search(r"coordinator: (\d+) slots, (\d+) units, wall (\S+) s, CPU (\S+) s .*slots busy (\S+)%, "
                   r"best objective (\S+)", res)
@@ -167,12 +183,19 @@ def compare(x, y):
 
 
 def main():
-    runs = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs")
+    args = sys.argv[1:]
+    refs = [args[i + 1] for i, v in enumerate(args) if v == "--ref" and i + 1 < len(args)]
+    pos = [v for i, v in enumerate(args) if v != "--ref" and (i == 0 or args[i - 1] != "--ref")]
+    runs = pos[0] if pos else os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs")
     arms = {}
     for a in ARMS:
-        d = os.path.join(runs, a)
-        if os.path.isdir(d):
-            arms[a] = read_arm(d)
+        for src in [runs] + refs:
+            d = os.path.join(src, a)
+            if os.path.isdir(d):
+                arms[a] = read_arm(d)
+                if src != runs:
+                    arms[a]["hosts"] = [h + f" (from {os.path.basename(os.path.normpath(src))})" for h in arms[a].get("hosts", [])]
+                break
     print("# pipeline A/B on the node-10 subtree\n")
     print("| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes "
           "| DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |")

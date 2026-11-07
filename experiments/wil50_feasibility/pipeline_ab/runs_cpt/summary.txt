@@ -1,0 +1,27 @@
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| bestcoret | 231 / 226 | 231 / 226 | 5 (0) | 230 / 230 | 15,218 (8,618 + 6,600) | 4,446 | 4,474 | 2,602 | 87.1% | 48816 |
+| cpcutt | 94 / 92 | 94 / 92 | 2 (0) | 93 / 93 | 6,426 (4,356 + 2,070) | 2,021 | 2,033 | 1,328 | 77.6% | 48816 |
+  bestcoret: 2026-11-07T15:15:27Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 90211a3
+  cpcutt: 2026-11-07T15:15:30Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 90211a3
+
+## cpcutt against bestcoret
+- tree: 94 DNN nodes against 231; cut phases 2 (0 fathomed) against 5 (0)
+- DNN iterations 15,218 -> 6,426: **2.368x** (first solves 8,618 -> 4,356, cut phases 6,600 -> 2,070)
+- DNN CPU 4,446 -> 2,021 s: 2.200x; coordinator CPU 4,474 -> 2,033 s: 2.200x; wall 2,602 -> 1,328 s: 1.960x
+- the 94 shared nodes: 11,992 -> 6,426 DNN iterations, 1.866x; 0 nodes only in cpcutt, 137 only in bestcoret
+- outcome changed on 3 shared nodes:
+  - depth 4 [25:49 30:48 39:27 49:0]: bestcoret branched (first 460 it, lb 48810.9; phase 1600 it, best 48811.6), cpcutt fathomed (first 352 it, lb 48814.1)
+  - depth 4 [25:49 30:48 39:27 49:21]: bestcoret branched (first 460 it, lb 48811.4; phase 1600 it, best 48812.4), cpcutt fathomed (first 310 it, lb 48814.2)
+  - depth 5 [0:25 25:49 30:48 39:27 49:45]: bestcoret branched (first 300 it, lb 48799.0; phase 1600 it, best 48813.9), cpcutt fathomed (first 200 it, lb 48814.1)
+- the 94 matched nodes (shared, same warm start and pool status): 11,992 -> 6,426 DNN iterations, 1.866x
+- the same matched nodes' DNN CPU: 3,557 -> 2,021 s, 1.760x; per DNN iteration 297 -> 315 ms
+- the 2 nodes with a phase in both: phase iterations 1,800 -> 2,070 (0.870x), fathomed by the phase 0 -> 0, mean gain over the first solve +62.1 -> +77.8
+- by depth (nodes, DNN iterations), bestcoret -> cpcutt: d3 1/1,500 -> 1/1,410; d4 47/6,742 -> 47/3,464; d5 138/5,889 -> 46/1,552; d6 45/1,087 -> 0/0
+- kill line: 1.10x in DNN CPU on the matched nodes -> PASS (1.760x; end to end 2.200x)
+
+bestcoret: the subtree's root (depth 3): first lb 48600.35 after 300 it, phase best 48724.64 in 1200 it (iter_limit)
+
+cpcutt: the subtree's root (depth 3): first lb 48600.35 after 300 it, phase best 48740.25 in 1110 it (stalled)

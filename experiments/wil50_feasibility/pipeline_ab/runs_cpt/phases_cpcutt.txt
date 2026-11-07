@@ -1,0 +1,33 @@
+# cpcutt against bestcoret: cut phases and pooled children
+
+## The 5 nodes with a cut phase
+
+| depth | node | first lb | cutoff | bestcoret: iterations / rounds, best, status | cpcutt: iterations / separations, best, stop, active | best cpcutt - bestcoret |
+|---|---|---|---|---|---|---|
+| 3 | 27:39 48:30 49:25 | 48600.4 | 48814.1 | 1,200 / 6, 48724.6, iter_limit | 1,110 / 12, 48740.3, stall rule, 2441 | +15.6 |
+| 4 | 0:49 27:39 48:30 49:25 | 48810.9 | 48814.1 | 1,600 / 4, 48811.6, iter_limit | no phase |  |
+| 4 | 21:49 27:39 48:30 49:25 | 48811.4 | 48814.1 | 1,600 / 4, 48812.4, iter_limit | no phase |  |
+| 4 | 27:39 45:49 48:30 49:25 | 48767.5 | 48814.1 | 600 / 3, 48767.5, iter_limit | 960 / 10, 48790.1, stall rule, 2767 | +22.7 |
+| 5 | 25:0 27:39 45:49 48:30 49:25 | 48799.0 | 48814.1 | 1,600 / 4, 48813.9, iter_limit | no phase |  |
+
+- the 2 phases in both arms: iterations 1,800 -> 2,070, CPU 539 -> 690 s (300 -> 333 ms per iteration); fathomed 0 -> 0; mean best - first lb +62.1 -> +77.8; handed on a pool 2 -> 2
+- cpcutt's 2 phases by stop: stall rule 2 (2,070 iterations)
+
+## The phase nodes' children (one fix below)
+
+| node | bestcoret: children (fathomed), first-solve iterations | cpcutt: children (fathomed), first-solve iterations |
+|---|---|---|
+| 27:39 48:30 49:25 | 47 (44), 2,942 | 47 (46), 2,504 |
+| 0:49 27:39 48:30 49:25 | 46 (46), 1,067 | - |
+| 21:49 27:39 48:30 49:25 | 46 (46), 1,072 | - |
+| 27:39 45:49 48:30 49:25 | 46 (45), 2,150 | 46 (46), 1,552 |
+| 25:0 27:39 45:49 48:30 49:25 | 45 (45), 1,087 | - |
+
+## Pooled children (first solve with an inherited pool)
+
+- bestcoret: 230 pooled nodes (0 in CP form), first solves 8,318 iterations, 2,485 s, 226 fathomed by it
+- cpcutt: 93 pooled nodes (0 in CP form), first solves 4,056 iterations, 1,240 s, 92 fathomed by it
+- the 93 nodes pooled in both: first-solve iterations 5,092 -> 4,056 (1.255x), CPU 1,596 -> 1,240 s (1.287x); mean first lb cpcutt - bestcoret +0.96
+  - flip [25:0 27:39 45:49 48:30 49:25]: bestcoret branched (first lb 48799.0), cpcutt fathomed (first lb 48814.1)
+  - flip [0:49 27:39 48:30 49:25]: bestcoret branched (first lb 48810.9), cpcutt fathomed (first lb 48814.1)
+  - flip [21:49 27:39 48:30 49:25]: bestcoret branched (first lb 48811.4), cpcutt fathomed (first lb 48814.2)

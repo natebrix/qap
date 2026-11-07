@@ -707,3 +707,90 @@ The runs, on the 4-core cloud box with 2 slots per arm:
 - **`cpcutl`.** The same tree and iterations as `cpcut`, node for node. The
   phases' CPU falls about 5% relative to the first solves' (0.929 against
   0.978 across the two sessions), or about 2% of the total.
+
+## Results, Nov 7 (cloud box): the production configuration, `bestcoret cpcutt` passes
+
+**Why.** Every real wil50 run uses `wil50t.dat` with its symmetry file and
+the regions on side 1 (`../sym/README.md`). Until the side-1 projector
+(`../roadmap/admm/cpadmm/README.md`, "Side 1"), a side-1 CP phase ran the
+rounds without saying so, and every A/B above ran on `wil50.dat`, side 0.
+
+**The arms.** `bestcoret` and `cpcutt` are `bestcore` and `cpcut` with:
+- `qaplib/wil50t.dat` (`PAB_INSTANCE_T`);
+- `-s latest/SYM/wil50t.sym`, given by its absolute path, because the
+  frontier pass runs outside `latest/`. Both the frontier pass and the
+  workers log `read symmetry info from .../wil50t.sym`;
+- `QAP_DNN_CUT_SIDE=1`;
+- node 10 transposed, `-F 27:39,48:30,49:25` (`PAB_EXTRA_T`).
+
+`summarize.py` flips their traces' fixes back to `wil50.dat`'s, so that
+their nodes match the other arms'. `run_pair.sh` refuses `cpcutt` with a
+bnbdrv that still runs the rounds on side 1.
+
+**The run.** `run_cpt.sh`: `bestcoret` on cores 0-1 and `cpcutt` on cores
+2-3, 2 slots each, at the same time, binary 90211a3, in `runs_cpt/`
+(`summary.txt`; `summary_ref_runs_cp.txt` adds `runs_cp`'s arms with
+`--ref`; `phases_cpcutt.txt` from `ab_phases.py`, in `wil50t.dat`'s fixes).
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|
+| bestcoret | 231 / 226 | 5 (0) | 15,218 (8,618 + 6,600) | 4,446 | 292 ms | 2,602 |
+| cpcutt | 94 / 92 | 2 (0) | 6,426 (4,356 + 2,070) | 2,021 | 315 ms | 1,328 |
+
+- **Kill line, 1.10x in DNN CPU on the matched nodes: PASS, 1.760x** [m].
+  All 94 of `cpcutt`'s nodes are matched. Iterations fall 1.866x on them
+  (11,992 to 6,426); per iteration it is 297 to 315 ms.
+- **End to end: 2.200x in DNN CPU, 2.368x in iterations, 1.960x in wall**
+  [m].
+- **Both of `cpcutt`'s phases ran in CP form** (`cp 1` on 2 of 2 phase
+  lines, no `cp 0`). The root's phase is stopped by the stall rule at 1,110
+  iterations and 48,740.3 (rounds: 1,200 iterations, 48,724.6). `45:49`'s
+  phase is stopped at 960 iterations and 48,790.1 (rounds: 600, 48,767.5).
+- **Where it comes from.** Three nodes change outcome, all in their first
+  solve, on the CP phases' pools [m]:
+  - two depth-4 children of the root (`49:0` and `49:21` in `wil50.dat`'s
+    indices) fathom in their first solve (352 and 310 iterations). Under
+    `bestcoret` they run 1,600-iteration phases and end 2.4 and 1.7 short;
+  - the depth-5 node `0:25 ... 49:45` fathoms in its first solve (200
+    iterations, 48,814.1). Under `bestcoret` its phase ends 0.15 short
+    (48,813.9). It is the same marginal node as in `runs_cp`.
+  - On the 93 nodes pooled in both arms, the first solves fall from 5,092
+    to 4,056 iterations (1.255x) and 1,596 to 1,240 s (1.287x). The mean
+    first bound is +0.96.
+  - No CP phase fathoms here, where three did on `wil50.dat`. The children
+    fathom one level up instead.
+
+**Against `runs_cp` (`wil50.dat`, side 0, session 1: 1.307x matched, 1.864x
+end to end).** The trees differ, because node 10 branches on a different
+line [m]:
+- Read in each instance's own indices, both pick the marginal column. On
+  `wil50.dat` the children are `x:45` (second index 45); on `wil50t.dat`
+  they are `x:49`, which is `wil50.dat`'s first-index line 49. The
+  transposed counterpart of `wil50.dat`'s choice would have been
+  `wil50t.dat`'s row 45.
+- The two runs' node-10 first solves agree to 0.015 (48,600.3665 against
+  48,600.3511). Rule 9 chooses between the marginal row and the marginal
+  column by its children's QPB lookahead, and that choice is not invariant
+  under the transposition. Whether it is a near-tie or a systematic
+  preference was not determined [e].
+- The symmetry file plays no part: J3 at node 10 is the default (all
+  columns), since its cells are not all in J2.
+- So `bestcoret`'s tree is 231 nodes, not `bestcore`'s 277. The sanity check
+  of an equal tree does not hold; it rested on the transposition leaving the
+  branching unchanged.
+- On the nodes both orientations share, the work is the same [m]:
+  - `bestcoret` against `bestcore`: 49 shared nodes, 6,207 against 6,222
+    iterations (0.998x);
+  - `cpcutt` against `cpcut`: 48 shared nodes, 4,225 against 4,222
+    iterations (1.001x). The two CP phases both ran take 2,070 iterations in
+    both, with mean gains +77.6 and +77.8.
+- CPU across the two sessions is not comparable: the same work varies 2-9%
+  between sessions (above).
+
+**Verdict.** In the production configuration the CP cut phase runs in CP
+form and passes, 1.760x on the matched nodes and 2.20x end to end, against
+1.307x and 1.86x on `wil50.dat`. As on `wil50.dat`, the end-to-end factor
+rests on a few changed outcomes (three here), one of them the known marginal
+node `0:25 ...`. The subtree itself differs between the two orientations
+(location 45 or 49 at node 10), so the two results are two subtrees'
+evidence, not one subtree measured twice.

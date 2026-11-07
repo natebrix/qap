@@ -9,6 +9,8 @@
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh fast wlowc    (Nov 6: the warm-call beta)
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh best bestcore (Nov 6: the core switches on top)
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh bestcore cpcut (Nov 7: the cut phase in CP form)
+#   PAB_RUNS=.../runs_cpt experiments/wil50_feasibility/pipeline_ab/run_pair.sh bestcoret cpcutt
+#                                        (Nov 7: the same in the production configuration, side 1)
 #
 # Arms (each on top of base unless stated):
 #   base   the production configuration of coord_search/run_coord_search.sh:
@@ -54,6 +56,14 @@
 #   cpcutl cpcut + the lazy certificate inside the CP solve (DNN_CP_LAZYCERT=1, with
 #          bestcore's DNN_CORE_LAZYCERT=1): Rump's test only at checks that can decide,
 #          the skipped ones certified at the exit with their own cut term
+#   bestcoret, cpcutt  bestcore and cpcut in the production configuration of a real
+#          wil50 run (../sym/README.md): the transposed instance (PAB_INSTANCE_T, default
+#          qaplib/wil50t.dat) with its symmetry file (-s latest/SYM/wil50t.sym), the
+#          regional cuts on side 1 (QAP_DNN_CUT_SIDE=1), and the node-10 spec transposed
+#          (PAB_EXTRA_T, default -F 27:39,48:30,49:25 -x 0:4:1:300:1; i:j on wil50.dat is
+#          j:i on wil50t.dat). There is no symmetry below node 10, so bestcoret's tree is
+#          bestcore's up to the transposition's rounding. summarize.py flips their
+#          traces' fixes back to wil50.dat's, so that their nodes match the other arms'
 #   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
@@ -74,7 +84,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n '2,/^set -u$/p' "$0" | sed '$d'; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2|cpcutl) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2, cpcutl)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2|cpcutl|bestcoret|cpcutt) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2, cpcutl, bestcoret, cpcutt)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -98,8 +108,17 @@ EXTRA=${PAB_EXTRA:--F 39:27,30:48,25:49 -x 0:4:1:300:1}
 GRID=${PAB_GRID:-5:10}
 BUDGET=${PAB_BUDGET:-3600}
 UNIT=${PAB_UNIT:-1800}
+# the transposed arms (bestcoret, cpcutt): wil50t.dat, its symmetry file, side 1
+INSTANCE_T=${PAB_INSTANCE_T:-qaplib/wil50t.dat}
+EXTRA_T=${PAB_EXTRA_T:--F 27:39,48:30,49:25 -x 0:4:1:300:1 -s $R/latest/SYM/wil50t.sym}
+
+# the arm whose settings a transposed arm takes
+base_arm() { case $1 in bestcoret) echo bestcore;; cpcutt) echo cpcut;; *) echo "$1";; esac; }
+is_transposed() { case $1 in bestcoret|cpcutt) return 0;; *) return 1;; esac; }
 
 arm_env() {
+  local arm=$1
+  set -- "$(base_arm "$1")"
   export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_EXT=20
   export QAP_DNN_CUT_ZONE=0.003 QAP_DNN_CUT_GRID=$GRID QAP_DNN_CUT_SIDE=0 QAP_DNN_CUT_FREEZE=1500
   export DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40
@@ -147,11 +166,15 @@ arm_env() {
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7 DNN_ADMM_WARM_BETA=${PAB_WARM_TWO:-0.25:60:0.7} ;;
     certx) export QAP_DNN_CUT_ZONE=0.005 DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1 DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=10 ;;
   esac
+  if is_transposed "$arm"; then export QAP_DNN_CUT_SIDE=1; fi
 }
 
 run_arm() {
   local arm=$1 A=$RUNS/$1
   local B=local:$A/backend
+  local base inst=$INSTANCE extra=$EXTRA
+  base=$(base_arm "$arm")
+  if is_transposed "$arm"; then inst=$INSTANCE_T; extra=$EXTRA_T; fi
   mkdir -p "$A"
   if [ -f "$A/backend/store/runs/$arm/results.txt" ]; then
     echo "$arm: finished earlier"
@@ -160,19 +183,19 @@ run_arm() {
   arm_env "$arm"
   if [ ! -x "$A/bin/bnbdrv" ]; then
     # a private copy, so that a rebuild during the run does not change it
-    if { [ "$arm" = warmy ] || [ "$arm" = full ]; } && ! grep -aq QAP_DNN_CUT_DAMP1 latest/bnbdrv; then
+    if { [ "$base" = warmy ] || [ "$base" = full ]; } && ! grep -aq QAP_DNN_CUT_DAMP1 latest/bnbdrv; then
       echo "warmy: this bnbdrv has no first-step damping yet: git pull, make solver, run again"; return 1
     fi
-    if [ "$arm" = fast ] && ! grep -aq DNN_BETA_SCHED latest/bnbdrv; then
+    if [ "$base" = fast ] && ! grep -aq DNN_BETA_SCHED latest/bnbdrv; then
       echo "fast: this bnbdrv has no DNN_BETA_SCHED or DNN_R32_NONCERT yet: git pull, make solver, run again"; return 1
     fi
-    if { [ "$arm" = cross ] || [ "$arm" = best ] || [ "$arm" = bestcore ]; } && ! grep -aq DNN_ADMM_CROSS latest/bnbdrv; then
+    if { [ "$base" = cross ] || [ "$base" = best ] || [ "$base" = bestcore ]; } && ! grep -aq DNN_ADMM_CROSS latest/bnbdrv; then
       echo "$arm: this bnbdrv has no DNN_ADMM_CROSS yet: git pull, make solver, run again"; return 1
     fi
-    if { [ "$arm" = core ] || [ "$arm" = bestcore ]; } && ! grep -aq DNN_CORE_LAZYCERT latest/bnbdrv; then
+    if { [ "$base" = core ] || [ "$base" = bestcore ]; } && ! grep -aq DNN_CORE_LAZYCERT latest/bnbdrv; then
       echo "$arm: this bnbdrv has no DNN_CORE_* switches yet: git pull, make solver, run again"; return 1
     fi
-    if { [ "$arm" = wlowc ] || [ "$arm" = best ] || [ "$arm" = bestcore ]; } && ! grep -q "cut_round = 1" latest/dnncut.C; then
+    if { [ "$base" = wlowc ] || [ "$base" = best ] || [ "$base" = bestcore ]; } && ! grep -q "cut_round = 1" latest/dnncut.C; then
       # before the Nov 6 fix, wc also caught pooled children (they pass L_add), so wlowc was fast
       echo "$arm: this tree's wc key also applies to pooled children (fixed Nov 6): git pull, make solver, run again"; return 1
     fi
@@ -182,7 +205,7 @@ run_arm() {
     if [ latest/bnbdrv -ot latest/dnn.C ] || [ latest/bnbdrv -ot latest/dnncut.C ] || [ latest/bnbdrv -ot latest/dnn.h ]; then
       echo "$arm: latest/bnbdrv is older than the DNN sources: make solver, run again"; return 1
     fi
-    if { [ "$arm" = cpcut ] || [ "$arm" = cpcut2 ] || [ "$arm" = cpcutl ]; } && ! grep -aq QAP_DNN_CUT_CP latest/bnbdrv; then
+    if { [ "$base" = cpcut ] || [ "$base" = cpcut2 ] || [ "$base" = cpcutl ]; } && ! grep -aq QAP_DNN_CUT_CP latest/bnbdrv; then
       echo "$arm: this bnbdrv has no CP cut phase (QAP_DNN_CUT_CP) yet: git pull, make solver, run again"; return 1
     fi
     if [ "$arm" = cpcutl ] && ! grep -aq DNN_CP_LAZYCERT latest/bnbdrv; then
@@ -194,14 +217,21 @@ run_arm() {
     if { [ "$arm" = ship ] || [ "$arm" = ship2 ] || [ "$arm" = full ]; } && ! grep -aq QAP_DNN_SHIP latest/bnbdrv; then
       echo "ship: this bnbdrv cannot carry the DNN state yet: git pull, make solver, run again"; return 1
     fi
+    if is_transposed "$arm" && { [ ! -f "$inst" ] || [ ! -f latest/SYM/wil50t.sym ]; }; then
+      echo "$arm: $inst or latest/SYM/wil50t.sym is missing (../sym/make_sym.py writes both)"; return 1
+    fi
+    if [ "$arm" = cpcutt ] && ! grep -aq "regional cuts only (side 0 or 1)" latest/bnbdrv; then
+      # before the side-1 projector (roadmap/admm/cpadmm, "Side 1") a side-1 CP phase silently ran the rounds
+      echo "cpcutt: this bnbdrv's CP cut phase runs the rounds on side 1: git pull, make solver, run again"; return 1
+    fi
     mkdir -p "$A/bin" && cp latest/bnbdrv "$A/bin/bnbdrv"
     echo "$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- latest || echo ' (latest/ modified)')" > "$A/bin/commit.txt"
   fi
   env | grep -E '^(QAP_|DNN_)' | sort > "$A/env.txt"
   echo "$(date -u +%FT%TZ) $CPU slots $SLOTS $(cat "$A/bin/commit.txt")" >> "$A/hosts.txt"
   if [ ! -f "$A/backend/ledger.db" ]; then
-    $PY -m coord.qapctl init "$arm" --backend "$B" --instance "$INSTANCE" --params "$R/latest/PARAM/nug_deep_xbar9_all.par" \
-      --ub "$UB" --slots "$SLOTS" --extra "$EXTRA" --trace --solver "$A/bin/bnbdrv" \
+    $PY -m coord.qapctl init "$arm" --backend "$B" --instance "$inst" --params "$R/latest/PARAM/nug_deep_xbar9_all.par" \
+      --ub "$UB" --slots "$SLOTS" --extra "$extra" --trace --solver "$A/bin/bnbdrv" \
       --budget "$BUDGET" --target-unit-cpu "$UNIT" --steal-after 10 --lease 600 --heartbeat 60 --ckpt-upload 300 \
       --checkpoint-every 60 --status-every 60 >> "$A/coordinator.log" 2>&1 || { echo "$arm: init failed (see $A/coordinator.log)"; return 1; }
   else
