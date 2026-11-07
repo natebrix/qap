@@ -135,6 +135,14 @@ the optimal objective, and the second line is the permutation. A few files are
 broken: kra30a, kra30b, kra32, esc32d, tai25a and tho30 contain `<value> ??`,
 and nug27's claims an optimum of 5. The tools treat those optima as unknown.
 
+Three data files are scaled variants, not the QAPLIB originals: `qaplib/kra30a.dat`,
+`kra30b.dat` and `kra32.dat` have the flow and distance matrices swapped and every
+distance divided by 5, so their optima are 17,780, 18,284 and 17,740 (QAPLIB's
+88,900, 91,420 and 88,700 divided by 5) and every bound on them is one fifth of
+the literature's. The unscaled originals are `kra30a-old.dat`, `kra30b-old.dat`
+and `kra32-old.dat`. Pass the matching `--ub` (17780 for `kra30a.dat`, 88900 for
+`kra30a-old.dat`).
+
 When the solver starts, it prints two facts about the instance that affect
 the search:
 

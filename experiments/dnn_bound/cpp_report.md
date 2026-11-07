@@ -234,6 +234,19 @@ from the parent (conditioned on x_ij = 1) made a child slower, so only Z is carr
   itself is not expected to be weak there. Suspects: beta, tuned on nug, against kra's distance
   scale (3-D grid, unit costs 50/50/115) and sparse flows. To do: rerun with `dnntest -B` (beta
   factor) and more iterations, and check the primal/dual residuals (`-v`).
+  **Correction (Nov 7).** Nothing is wrong with the solver. `qaplib/kra30a.dat`, `kra30b.dat` and
+  `kra32.dat` are the canonical instances with the flow and distance matrices swapped and every
+  distance divided by 5 (50, 100, 115 become 10, 20, 23; checked entry by entry against the
+  `-old` files, which are the unscaled QAPLIB originals with Gilmore-Lawler 68,360 and 69,065).
+  Their optima are therefore 17,780, 18,284 and 17,740, and the certified roots above, times 5,
+  are 86,837 and 87,858: Oliveira-Wolkowicz-Xu's 86,838 and 87,858 to the unit. In production
+  mode (`-d 3 -L 2 -r 40 -g 1.0 -G 1.0`) the kra30a root reaches 17,367.24 in 1,500 iterations
+  with primal 17,363.1 (converged). The `-old` files give 86,809 (kra30a, 600 iterations) and
+  87,305 (kra30b, 200) directly. The one real finding: `dnntest -f` (full fp32 `ssyevd` at every
+  R-step, `-e 1`, not the production path) returns `status=error` at iteration 55 on
+  `kra32-old.dat` (LAPACK `info != 0`); the subspace mode (`-e 2`, the default and bnb.C's) and
+  `-e 0` run it fine (85,755 at 600 iterations). Every QAPLIB file in `qaplib/` has CRLF line
+  endings, which the reader handles.
 * **Per-call allocation.** Each call allocates about 80 MB at m = 28. That is negligible against
   seconds of work, but a reusable workspace would help if the bound is called millions of times
   (it should not be).

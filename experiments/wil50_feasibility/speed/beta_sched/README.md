@@ -292,6 +292,12 @@ scaling problem within a factor 1.7, and the controller sees a ratio near
 its target (rhat/shat 24-29 against c = 20, nug20's calibration) and never
 acts. Closed.
 
+*(Nov 7: the premise was wrong. `qaplib/kra30a.dat` is the instance with its
+distances divided by 5, so 17,365 x 5 = 86,825 is the right neighbourhood
+(the literature DNN root is 86,838) and QPB on the same file is about 13,720,
+not 68,600. The controller's verdict on wil50 and nug20 stands;
+`experiments/dnn_bound/cpp_report.md` has the correction.)*
+
 ## Files
 
 - `run_all32.sh`, `summarize.py`, `all32_summary.txt`, `subset_fix05_summary.txt`, `runs/`: all32.
