@@ -8,13 +8,13 @@
 #           subtree (-F 39:27,30:48,25:49), a CPU slice of SLICE seconds (default 900):
 #           the nodes both traces have must be identical, and both must have the
 #           same first nodes (the slice ends at a different node only by timing)
-# Cores: CORE_OLD, CORE_NEW (0, 1). Logs in logs/ident_search/.
+# Cores: CORE_OLD, CORE_NEW (0, 1). Logs in logs/ident_search/ (IDENT_LOGS: another directory).
 D=$(cd "$(dirname "$0")" && pwd); R=$(cd "$D/../../../../.." && pwd)
 OLD_BNB=${OLD_BNB:-/tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/bnbdrv_old}
 NEW_BNB=$R/latest/bnbdrv
 SLICE=${SLICE:-900}
 C0=${CORE_OLD:-0}; C1=${CORE_NEW:-1}
-L=$D/logs/ident_search; mkdir -p "$L"
+L=${IDENT_LOGS:-$D/logs/ident_search}; mkdir -p "$L"
 cd "$R/latest" || exit 1
 SHIP_ENV="OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40 DNN_CHOLQR_PASSES=1 QAP_DNN_WARM_Y=2 QAP_DNN_EXT=20 QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_GRID=4:5 QAP_DNN_CUT_SIDE=0 QAP_DNN_CUT_FREEZE=1500 QAP_DNN_POOL=1 QAP_DNN_POOL_CHECK=20"
 # run_pair.sh's arm_env base + bestcore

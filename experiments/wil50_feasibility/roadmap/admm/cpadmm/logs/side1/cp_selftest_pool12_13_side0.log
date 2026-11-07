@@ -1,0 +1,18 @@
+objective values are even integers: fathoming tolerance 1.95
+instance qaplib/wil50.dat n=50 node 21:28,8:41,28:19 m=47 cutoff 48814.0500  cuts regional (grid) side 0, 13 regions
+cp pool experiments/wil50_feasibility/roadmap/admm/cpadmm/logs/pool12_13.txt: 13 regions, 13000 cuts (9931 with mu > 0)
+round  0  lb 17555.8752 (gain 0.0000, best 0.0000)  primal 3782.3712  status iter_limit  iters 10  cpu 3.8  active 0  violated 73003 (max 0.7740)  added 1000
+cp pool: 13000 cuts kept (0 dropped), 13000 in the projector, 54300 terms, 13 regions, 48 region-pair classes; sweeps 1 passes 1 omega 1
+cp-selftest (a) L_add vs assemble: max |diff| 2.274e-12 (max |entry| 2.352e+03, nonzeros 3816180 vs 3816180), abs 109611278.6 vs 109611278.6, h'mu 2605.855944 vs 2605.855944  ok
+cp-selftest (c) P-step moments vs aggregate(): max |diff| 2.956e-12 (max 9.373e+02)  ok
+cp-selftest (b) 60 sparse rows (441-10374 nonzeros): ||G||^2 rel diff 0.000e+00, <G,Y> - h vs moments 6.846e-15, vs rviolation 4.707e-15  ok
+cp-selftest (d) a half-space pass (8232 multipliers moved): kept moments vs aggregate(y_P - G'dnu) max |diff| 1.160e-11 (max 1.370e+03)  ok
+cp-selftest (e)    1 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 2.2e-16, max violation/||G|| 1.379e+01, complementarity 1.379e+01 (430 active of 500)
+cp-selftest (e)   10 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 4.4e-16, max violation/||G|| 8.345e-01, complementarity 1.361e+00 (401 active of 500)
+cp-selftest (e)  100 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 1.4e-15, max violation/||G|| 2.016e-06, complementarity 2.016e-06 (400 active of 500)
+cp-selftest (e) 1000 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 1.4e-14, max violation/||G|| 5.325e-14, complementarity 7.544e-14 (400 active of 500)
+cp-selftest (e) the projection's KKT conditions after 1000 sweeps (500 of the 13000 cuts)  ok
+it    10 lb 22930.3338 (cert 22930.3338, margin 4.35e-06) primal 6181.4518 pres 7.46e-01 dY 5.88e-01 npos 2057 cpu 4.40
+cp it    10 cert 22930.333843621924 hsum 5.04722 cpcpu 0.19 cuts 13000 active 274 sum_nu 0.0608974 viol 270 (max 6.910e-03/||G||, rnorm 4.100e-02) dstep 1.103e-02 | ms pstep 9.19 (20) hpass 0.34 (10) diag 0.0 s
+cp solve  lb 22930.3338436219 (gain 5374.4586)  primal 6181.4518  status iter_limit  iters 10  cpu 4.4  certs 1 failures 0  kept 13000
+FINAL best_lb 22930.333844 first_lb 17555.875218 gain 5374.458626
