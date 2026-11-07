@@ -656,3 +656,54 @@ first refresh at or after iteration 60, then 0.7; cut rounds at 0.7).
   the phases rare, the matched comparison says whether `wtwo`'s children
   keep up with `wlowc`'s and whether marginal phases go one way or the
   other.
+
+## Results, Nov 7 (cloud box): the cut phase in CP form, `bestcore cpcut` passes
+
+Details, the code and the validity checks are in
+`../roadmap/admm/cpadmm/README.md`, "In the search". The arms:
+- `cpcut`: `bestcore` + `QAP_DNN_CUT_CP=100:1000`. The phase is one
+  CP-ADMM solve with the pool in the PRSM's Y-step and 1,000 triangles
+  separated every 100 iterations. It has the rounds' budget of 3,400 and the
+  stall rule per check.
+- `cpcut2`: `cpcut` + `QAP_DNN_POOL_CP=1`, the pooled children's first
+  solves in CP form.
+- `cpcutl`: `cpcut` + `DNN_CP_LAZYCERT=1`, the lazy certificate inside the
+  CP solves.
+
+The runs, on the 4-core cloud box with 2 slots per arm:
+- `PAB_RUNS=runs_cp`: `bestcore` and `cpcut` at the same time (session 1,
+  62b383a), then `cpcut2` and `cpcutl` (session 2, a75f1a0).
+- `PAB_RUNS=runs_cp2`: `cpcut` and `cpcut2` again at the same time
+  (session 3, 9706717).
+- `runs_cp*/phases_*.txt` are the per-phase tables (`ab_phases.py`).
+
+| arm | session | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|---|
+| bestcore | 1 | 277 / 271 | 6 (0) | 15,941 (9,741 + 6,200) | 4,821 | 302 ms | 2,840 |
+| cpcut | 1 | 94 / 92 | 5 (3) | 7,868 (4,259 + 3,609) | 2,586 | 329 ms | 1,602 |
+| cpcut2 | 2 | 94 / 92 | 4 (2) | 7,227 (4,586 + 2,641) | 2,305 | 319 ms | 1,473 |
+| cpcutl | 2 | 94 / 92 | 5 (3) | 7,868 (4,259 + 3,609) | 2,470 | 314 ms | 1,496 |
+| cpcut | 3 | 94 / 92 | 5 (3) | 7,868 (4,259 + 3,609) | 2,524 | 321 ms | 1,539 |
+| cpcut2 | 3 | 94 / 92 | 4 (2) | 7,227 (4,586 + 2,641) | 2,398 | 332 ms | 1,533 |
+
+- **`cpcut` against `bestcore`: kill line 1.10x in DNN CPU on the matched
+  nodes, PASS, 1.307x.** On the 94 matched nodes, iterations fall 1.405x.
+  End to end it is 1.864x in DNN CPU, 2.03x in iterations and 1.77x in
+  wall.
+- **The phases.** Three of the five depth-4 phases fathom in CP form, in
+  360-650 iterations. Under `bestcore` none of the six phases fathoms, and
+  three of its depth-4 phases gain nothing in their 600 iterations. The
+  depth-5 node `0:25 ...` fathoms in its first solve on the CP pool, so its
+  1,600-iteration phase and 45 children are gone too. The tree shrinks from
+  277 nodes to 94.
+- **CPU across sessions.** The same work costs 2-9% more or less CPU from
+  one session to the next (`cpcut`: 2,586 s, then 2,524 s). The decisions do
+  not vary: each replicate reproduced its tree and iterations exactly.
+- **`cpcut2` against `cpcut`, same session (`runs_cp2/`): 1.089x in
+  iterations, 1.053x in DNN CPU, wall 1.004x.** The phases shorten (3,609
+  to 2,641 iterations), because the CP-form first solves do part of their
+  work at the misses. The pooled first solves get slower: 3,959 to 4,286
+  iterations, 1,249 to 1,442 s.
+- **`cpcutl`.** The same tree and iterations as `cpcut`, node for node. The
+  phases' CPU falls about 5% relative to the first solves' (0.929 against
+  0.978 across the two sessions), or about 2% of the total.

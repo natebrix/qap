@@ -138,6 +138,10 @@ give-up point.
 give-up point against the Polyak protocol's 4,860 (4.7x, 4.9x in CPU), +3.8% per iteration
 (+13.5% in the production settings); the pool's dual optimum is at least 48,771.7. With the cuts
 separated inside the solve instead of frozen (follow-up, same README): 48,753 at 1,070.
+**In the search, Nov 7 (same README, "In the search"): passes.** The phase as one CP solve in
+bnbdrv (`QAP_DNN_CUT_CP=100:1000`) against `bestcore` on the node-10 subtree: 1.307x in DNN CPU on
+the matched nodes (kill line 1.10x), 1.86x end to end, 277 nodes to 94; 3 of 5 phases fathom where
+the rounds fathom none.
 
 **3. Already on the roadmap and consistent with the literature:** certificate polishing / GL
 subgradient ascent on mu (a bundle on the polyhedral part only, which is where Rendl-Sotirov's
@@ -159,7 +163,7 @@ a GPU than PRSM).
 | Graham 2022 | ceiling of the bound for integer data | done (even objective, cutoff 48,814.05) |
 | Hu-Sotirov-Wolkowicz 2023 | symmetry reduction after FR | n/a below the root: wil50's order-4 grid group fixes almost no location, so a depth-3 node's stabilizer is trivial or order 2 [e] |
 | Kim-Kojima-Toh / Fujii 2021 | warm-started brackets in B&B, valid bound at any iterate | equivalent (warm Z, any-Z certificate) |
-| de Meijer-Sotirov 2021/2023 | cuts in the projection by Dykstra | measured Nov 7 on a frozen pool (`cpadmm/`): passes item 2's kill line, 4.7x fewer iterations to the plateau; not in the search yet |
+| de Meijer-Sotirov 2021/2023 | cuts in the projection by Dykstra | measured Nov 7 on a frozen pool (`cpadmm/`): passes item 2's kill line, 4.7x fewer iterations to the plateau; in the search (`QAP_DNN_CUT_CP`, opt-in): the node-10 A/B passes, 1.307x in DNN CPU on the matched nodes |
 | Charbonneau-Hu-Sotirov 2026 | bound-factor RLT cuts as one box cone per inequality, projected by sort and clip inside the ADMM | not done; found Nov 6 by a citation pass over Graham 2022 (OpenAlex and Semantic Scholar, 14 citing papers, all others off-topic or already here); the question for item 2 is whether any of our cut families has the shared-slack form |
 | Jansson-Chaykin-Keil 2007; VSDP; SDPLR+ 2024 | rigorous bound from a dual point plus a primal eigenvalue/trace bound | done, with the exact trace m+1 (stronger than a lambda_max(X) bound) and Rump's Cholesky; the certificate is 3% of time with margin about 1e-7 [m], so nothing cheaper or stronger is left on this side |
 

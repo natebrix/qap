@@ -1,0 +1,66 @@
+[Jan 1, 2023]
+vm
+parameters file: PARAM/nug_deep_xbar9_all.par
+symmetry file: /nonexistent.sym
+DNN bound at depths 0-30, relative gap <= 1, give up after 0 iterations (0 = never), warm-started from the parent, OpenBLAS (prefix 'scipy_')
+incumbent: 580
+input file: /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/vsearch_final/nug12_swapped.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+couldn't find [/nonexistent.sym], assuming no symmetry
+New objective value: 578
+  ---- RESULTS ----
+
+    Total Time: 14.5688 seconds 
+         Nodes: 35 / 36 / 1
+    root bound: 479.611
+ fw iterations: 3878
+     DNN bound: 33 nodes, 24 fathomed, 13.0213 s
+     cut phase: 9 nodes, 0 fathomed, 1.52121 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    2.47
+ 1          12	0.9167	0.0000	    2.12
+ 2           4	2.5000	0.0000	    3.66
+ 3           7	1.2857	0.3333	    2.46
+ 4           6	0.8333	0.7500	    2.00
+ 5           1	1.0000	0.8571	    0.87
+ 6           1	0.0000	0.8333	    0.57
+ 7           1	0.0000	0.8000	    0.27
+ 8           1	0.0000	0.7500	    0.16
+ 9           1	0.0000	N/A	    0.00
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 12 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 4 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 7 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 6 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 7 |   0.0000   0.0000   0.0000   1.0000  | 1 
+ 8 |   0.0000   0.0000   0.0000   1.0000  | 1 
+ 9 |   0.0000   0.0000   0.0000   1.0000  | 1 
+nodes       1        0       31        3 
+time     2.47     0.00    11.67     0.43 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.051492	0.007066
+ 2| 0.020494	0.000000
+ 3| 0.020053	0.000000
+ 4| 0.020053	0.000000
+ 5| 0.019923	0.000000
+ 6| 0.019923	0.000000
+ 7| 0.019923	0.000000
+ 8| 0.019923	0.000000
+ 9| 0.019923	0.000000
+

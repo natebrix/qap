@@ -1,0 +1,41 @@
+[Jan 1, 2023]
+vm
+parameters file: PARAM/nug_deep_xbar9_all.par
+incumbent: 48816
+root fixes: 39:27,30:48,25:49
+DNN bound at depths 0-4, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, OpenBLAS (prefix 'scipy_')
+state file: /home/user/qap/.claude/worktrees/agent-ae043968f328001f4/experiments/wil50_feasibility/roadmap/admm/cpadmm/logs/ident_search/node10_old.state
+time limit 900 s
+input file: ../qaplib/wil50.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+couldn't find [./SYM/wil50.sym], assuming no symmetry
+stopped at the time limit with 72 open nodes; resume with -r /home/user/qap/.claude/worktrees/agent-ae043968f328001f4/experiments/wil50_feasibility/roadmap/admm/cpadmm/logs/ident_search/node10_old.state
+  ---- RESULTS ----
+
+    Total Time: 971.286 seconds 
+         Nodes: 22 / 20 / 0
+    root bound: 0
+ fw iterations: 4541
+     DNN bound: 22 nodes, 20 fathomed, 409.98 s
+     cut phase: 2 nodes, 0 fathomed, 556.367 s
+
+level    nodes	%fathom	%c.elim	    time
+ 3           1	0.0000	0.0000	  479.85
+ 4           1	0.0000	0.0000	  265.33
+ 5          20	1.0000	N/A	  225.91
+
+Strategy breakdown:
+nodes       0        1       21        0 
+time     0.00   479.85   491.24     0.00 
+
+Relative gap information:
+      mean  	std. dev
+

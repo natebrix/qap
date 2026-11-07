@@ -1,0 +1,13 @@
+2026-11-07 11:48:15 arms: cpcut | Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 | 2 slots per arm | logs in /home/user/qap/.claude/worktrees/agent-ae043968f328001f4/experiments/wil50_feasibility/pipeline_ab/runs_cp/ARM/ | stop with: kill 4030
+cpcut: done, coordinator: 2 slots, 9 units, wall 1601.61 s, CPU 2597.97 s (x1.62), slots busy 82.0%, best objective 48816
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| bestcore | not finished | | | | | | | | | |
+| cpcut | 94 / 92 | 94 / 92 | 5 (3) | 93 / 93 | 7,868 (4,259 + 3,609) | 2,586 | 2,598 | 1,602 | 82.0% | 48816 |
+  cpcut: 2026-11-07T11:48:15Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 62b383a
+
+cpcut: the subtree's root (depth 3): first lb 48600.37 after 300 it, phase best 48739.98 in 1110 it (stalled)
+
+To share the results: git add experiments/wil50_feasibility/pipeline_ab && git commit -m 'pipeline A/B: cpcut' && git push

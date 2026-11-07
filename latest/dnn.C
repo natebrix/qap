@@ -2073,10 +2073,14 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // DNN_CORE_LAZYCERT=1 (experiments/wil50_feasibility/speed/nov6_core): Rump's test
   // only at checks that can decide something (see the check below). Off by default;
   // not with the prototype certificate, the certificate variants, the stall rule or
-  // the child bounds, which read every check's certified value.
+  // the child bounds, which read every check's certified value. Under CP-ADMM
+  // (par.ycuts) only with DNN_CP_LAZYCERT=1 as well: the skipped checks keep their
+  // multipliers in the hook (DNNYCuts::snapshot), and the exit certifies them with
+  // their own cut term (roadmap/admm/cpadmm, "In the search")
   static const int lazy_env = getenv("DNN_CORE_LAZYCERT") ? atoi(getenv("DNN_CORE_LAZYCERT")) : 0;
+  static const int cp_lazy_env = getenv("DNN_CP_LAZYCERT") ? atoi(getenv("DNN_CP_LAZYCERT")) : 0;
   const bool lazy_ok = lazy_env > 0 && !par.prototype_cert && !cx_on && par.stall_window == 0 &&
-                       !par.child_bounds && !par.ycuts;
+                       !par.child_bounds && (!par.ycuts || cp_lazy_env > 0);
   std::vector<double> lz_Z;                 // the stored multiplier with the best polyhedral estimate
   bool lz_have = false, lz_exit = false;    // stored; the run stopped on a check that skipped the test
   double lz_pen = 0;                        // the semidefinite penalty of the last full certificate
@@ -2330,11 +2334,14 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       // at the last iteration, and (below) at the exit on the check that stopped the
       // run and on the stored multiplier with the best polyhedral value, so the
       // fathom decisions and the returned lb are those of certifying every check.
+      // Under CP-ADMM the values are those of the cut-modified objective (w.L swapped
+      // above): shift_c, sumabsL_c and exact_above_c, which equal shift, sumabsL and
+      // exact_above without it.
       ci.chol_ok = false; ci.margin = ci.sdp_penalty = 0;
-      const double val = cert_poly(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap,
-                                   exact_above, exact_below, ci);
+      const double val = cert_poly(w, Zc, scale, sumabsL_c, par.poly, par.inner_lap,
+                                   exact_above_c, exact_below, ci);
       const double proxy = val > -HUGE_VAL ? val - ci.margin_poly : -HUGE_VAL;
-      const bool could_fathom = proxy > -HUGE_VAL && nextafter(proxy + shift, -HUGE_VAL) > cutoff;
+      const bool could_fathom = proxy > -HUGE_VAL && nextafter(proxy + shift_c, -HUGE_VAL) > cutoff;
       if (res.certificates == 0 || it == par.max_iter || could_fathom || proxy == -HUGE_VAL) {
         // decisive: the full certificate, as without the switch
         if (!cert_lam(w, Zc, scale, ci)) lbs = -HUGE_VAL;
@@ -2349,11 +2356,13 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         lbs = -HUGE_VAL;   // no certified value at this check
         // the estimate for the stopping rules, and the stored multiplier with the best
         // polyhedral value so far (verified at the exit if it can raise the result)
-        lz_est = proxy - lz_pen;
+        lz_est = proxy - lz_pen - (cp_swapped ? cp_hsum : 0.0);   // of the plain objective (unshifted)
+        if (yc) yc->snapshot(0, scale, beta);   // this check's multipliers, for an exit on it
         if (lz_est + shift > lz_best_proxy) {
           lz_best_proxy = lz_est + shift;
           if (lz_Z.empty()) lz_Z.resize((size_t)n1 * n1);
           memcpy(lz_Z.data(), Zc, (size_t)n1 * n1 * sizeof(double));
+          if (yc) yc->snapshot(1, scale, beta);
           lz_have = true;
         }
       }
@@ -2672,6 +2681,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     lbhist.push_back(lazy_this ? lz_est + shift : (lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL));
 
     if (best > cutoff) { status = DNN_FATHOMED; break; }
+    if (yc && yc->stop(it, best_rule)) { status = DNN_STALLED; break; }   // CP-ADMM: the caller's rule
     if (pres < par.tol && dy < par.tol) { status = DNN_CONVERGED; lz_exit = lazy_this; break; }
     if (par.time_limit > 0 && thread_cpu() - t0 > par.time_limit) { status = DNN_TIME_LIMIT; lz_exit = lazy_this; break; }
     besthist.push_back(best_rule);
@@ -2731,15 +2741,35 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     // DNN_CORE_LAZYCERT: the checks that skipped Rump's test left no certified value.
     // Certify the multiplier of the check that stopped the run (still in Zc) and the
     // stored one with the best polyhedral estimate, if either can raise the result.
-    const double exact_below = cutoff - shift + 1e-6 * (1 + fabs(cutoff));
     for (int pass = 0; pass < 2; pass++) {
       const double *Zx = pass == 0 ? Zc : lz_Z.data();
       if (pass == 0 && !lz_exit) continue;
       if (pass == 1 && (!lz_have || lz_best_proxy <= best)) continue;
+      // CP-ADMM: the cut term of that check's multipliers (DNNYCuts::snapshot), as at
+      // a regular check; without it the plain objective's values
+      double sh = shift, sab = (double)sumabsL, ea = exact_above, hs = 0;
+      bool sw = false;
+      if (yc) {
+        const size_t nn = (size_t)n1 * n1;
+        std::fill(w.Lcp_add.begin(), w.Lcp_add.end(), 0.0);
+        double abs_add = 0;
+        const int got = yc->cert_term_at(pass, w.Lcp_add.data(), abs_add, hs);
+        if (got < 0) continue;   // not available: that check stays uncertified
+        if (got > 0) {
+          for (size_t t = 0; t < nn; t++) w.Lcp[t] = L[t] + w.Lcp_add[t];
+          sab += abs_add + maxabs_of(w.Lcp_add.data(), nn);
+          std::swap(w.L, w.Lcp);
+          sw = true;
+          sh = shift - hs;
+          ea = std::isfinite(cutoff) ? cutoff - gap - sh : HUGE_VAL;
+        } else hs = 0;
+      }
+      const double exact_below = cutoff - sh + 1e-6 * (1 + fabs(cutoff));
       CertInfo ci;
       w.want_red = par.child_bounds && par.poly != DNN_POLY_BOX;
-      const double lbs = certify(w, Zx, scale, (double)sumabsL, par.poly, par.inner_lap,
-                                 exact_above, exact_below, ci);
+      double lbs = certify(w, Zx, scale, sab, par.poly, par.inner_lap, ea, exact_below, ci);
+      if (sw) std::swap(w.L, w.Lcp);
+      if (sw && lbs > -HUGE_VAL) lbs = nextafter(lbs - hs, -HUGE_VAL);
       res.certificates++;
       if (!ci.chol_ok) res.cert_failures++;
       if (lbs > -HUGE_VAL) {

@@ -1,0 +1,57 @@
+[Jan 1, 2023]
+vm
+parameters file: PARAM/nug_deep_xbar9_all.par
+symmetry file: /nonexistent.sym
+DNN bound at depths 0-30, relative gap <= 1, give up after 0 iterations (0 = never), warm-started from the parent, OpenBLAS (prefix 'scipy_')
+incumbent: 276
+input file: /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/vsearch_final/grid_n9_0.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+couldn't find [/nonexistent.sym], assuming no symmetry
+New objective value: 274
+  ---- RESULTS ----
+
+    Total Time: 4.78147 seconds 
+         Nodes: 13 / 19 / 1
+    root bound: 233.301
+ fw iterations: 1714
+     DNN bound: 12 nodes, 6 fathomed, 4.41245 s
+     cut phase: 6 nodes, 0 fathomed, 0.362779 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    1.78
+ 1           7	1.1429	0.0000	    1.37
+ 2           1	7.0000	0.4286	    1.04
+ 3           1	3.0000	0.6667	    0.43
+ 4           1	1.0000	0.8000	    0.06
+ 5           1	0.0000	0.7500	    0.11
+ 6           1	0.0000	N/A	    0.00
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 7 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 1 
+nodes       1        0       12        0 
+time     1.78     0.00     3.00     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.047094	-nan
+ 2| 0.046920	0.000000
+ 3| 0.046920	0.000000
+ 4| 0.046840	0.000000
+ 5| 0.046840	0.000000
+ 6| 0.046840	0.000000
+

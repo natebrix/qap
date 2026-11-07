@@ -183,6 +183,12 @@ struct DNNCutParams {
   int pool_all_round; // >= 0 with pool_all_out: the whole pool after this round's new cuts,
   DNNPool *pool_all_out;  // zero multipliers included (the CP-ADMM study's frozen pool;
                       // needs other_orig). -1 / NULL: off (default)
+  // the CP form of the phase (dnn_cut_cp; roadmap/admm/cpadmm): one CP-ADMM solve
+  // with the pool in the Y-step, separating cp_k new triangles every cp_every
+  // iterations, at most cp_iters iterations (0: rounds * iters + freeze_iters),
+  // cp_sweeps Dykstra sweeps of cp_passes passes per iteration (1, 1). Used only
+  // by dnn_cut_cp; dnn_cut_rounds ignores them
+  int cp_every, cp_k, cp_iters, cp_sweeps, cp_passes;
   DNNCutParams();
 };
 
@@ -197,6 +203,7 @@ struct DNNCutResult {
   int nregions;
   int stalled;        // 1 when the stall rule stopped the rounds
   int gated;          // 1 when the primal gate stopped the rounds
+  int cp_form;        // 1 when the phase ran as one CP-ADMM solve (dnn_cut_cp), 0 as rounds
 };
 
 // A, B, C, shift: the node's reduced QAP (reduceQAP). free_orig: for each local
@@ -213,6 +220,23 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 // (frozen): one dnn_bound(par, start, save) on the modified problem; every
 // value is certified. cp.side, cp.other_orig and cp.fixed_at describe the node;
 // cp.pool_out (optional) gets the remapped pool. kept: cuts kept.
+// The cut phase in CP form (QAP_DNN_CUT_CP, bnb.C; roadmap/admm/cpadmm): the same
+// inputs and outputs as dnn_cut_rounds, but one CP-ADMM solve (dnn_bound with
+// DNNParams::ycuts) from *warm: Z, and Y when cp.warm_primal. The start pool is
+// the inherited one (nu from its multipliers) plus round 0's separation of
+// cp.kcuts triangles on warm->Y; the solve separates cp.cp_k more every
+// cp.cp_every iterations on its projected Y. Stops at the cutoff, at cp.cp_iters
+// iterations, or by the stall rule per check (after W = stall_rounds * iters
+// iterations, when cutoff - best > stall_factor * (best(t) - best(t - W)), best
+// including first_lb). Every value is certified. rounds = separations made
+// (round 0 included); pool_out = the cuts with nu > 0 at the final mu_D; *warm =
+// the final state. Regional triangles on side 0 only; anything else (side 1,
+// atomic cuts, a missing Y) runs dnn_cut_rounds instead.
+DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+                        const DNNParams &base, const std::vector<int> &free_orig,
+                        int n_orig, const DNNCutParams &cp, DNNWarm *warm,
+                        double first_lb = -HUGE_VAL, double first_primal = HUGE_VAL);
+
 DNNResult dnn_pool_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
                          const DNNParams &par, const std::vector<int> &free_orig, int n_orig,
                          const DNNCutParams &cp, const DNNWarm *start, DNNWarm *save,
@@ -245,12 +269,19 @@ struct DNNCPParams {
   // on the grown pool. All 0: off (default)
   int sep_every, sep_k, pool_cap, drop_after;
   int pool_final, sep_added, sep_dropped;   // out: the pool's size at the end, cuts added, dropped
+  // 1: a pooled child's first solve in the search (bnb.C, QAP_DNN_POOL_CP), in place of
+  // dnn_pool_bound: the inherited pool (cp.pool_in, cuts at mu > 0) in the Y-step from
+  // nu = mu / (scale beta); no surviving cut runs the plain solve, a setting the CP solve
+  // refuses runs dnn_pool_bound, and cp.pool_out gets the cuts with nu > 0 at the final
+  // mu_D = scale beta nu (empty when none, or when the solve fathomed) (0)
+  int child;
   DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0), quiet_iters(0),
                   quiet_lb(-HUGE_VAL), omega(1.0), nu_from_pool(0), sep_every(0), sep_k(0), pool_cap(0),
-                  drop_after(0), pool_final(0), sep_added(0), sep_dropped(0) {}
+                  drop_after(0), pool_final(0), sep_added(0), sep_dropped(0), child(0) {}
 };
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,
-                       DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept = NULL);
+                       DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept = NULL,
+                       int *dropped = NULL);
 
 #endif
