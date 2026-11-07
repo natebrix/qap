@@ -4,7 +4,8 @@
 # The same two runs as for node 13, dual-test settings:
 #   ref   the Polyak protocol (run_ref.sh's flags) with the round-12 pool written
 #   cp    CP-ADMM s1p1 from the give-up point with that pool, ITERS (2000) iterations
-#   bash run_node.sh ref CORE | cp CORE        logs: polyak_new_<id>.log, cp_s1p1_<id>.log
+#   cp3   the same with 3 sweeps of 3 passes (s3p3)
+#   bash run_node.sh ref|cp|cp3 CORE    logs: polyak_new_<id>.log, cp_s1p1_<id>.log, cp_s3p3_<id>.log
 D=$(cd "$(dirname "$0")" && pwd); R=$(cd "$D/../../../../.." && pwd)
 BIN=${BIN:-$R/experiments/dnn_cuts/dnncuts}
 NODE=${NODE:-d2:39:27,30:48,25:49,26:5}
@@ -19,5 +20,8 @@ case $1 in
   cp)  f=$D/logs/cp_s1p1_$id.log
        grep -q '^FINAL' "$f" 2>/dev/null || taskset -c $2 "$BIN" -grid 5:10 -u 48816 -T 1 -v -I 400 -x $x -cpadmm $D/logs/pool12_$id.txt \
          -cpsweeps 1 -cppasses 1 -cpdiag 200:30 -cpiters $ITERS -v qaplib/wil50.dat > "$f.tmp" 2>&1 && mv "$f.tmp" "$f" ;;
-  *) echo "usage: run_node.sh ref|cp CORE"; exit 1 ;;
+  cp3) f=$D/logs/cp_s3p3_$id.log
+       grep -q '^FINAL' "$f" 2>/dev/null || taskset -c $2 "$BIN" -grid 5:10 -u 48816 -T 1 -v -I 400 -x $x -cpadmm $D/logs/pool12_$id.txt \
+         -cpsweeps 3 -cppasses 3 -cpdiag 500:30 -cpiters $ITERS -v qaplib/wil50.dat > "$f.tmp" 2>&1 && mv "$f.tmp" "$f" ;;
+  *) echo "usage: run_node.sh ref|cp|cp3 CORE"; exit 1 ;;
 esac

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tables for the CP-ADMM study (README.md) from the logs in logs/.
 
-  python3 -I analyze.py [--logs logs] [--ref polyak_ref_13.log] [ARM ...]
+  python3 -I analyze.py [--logs logs] [--ref polyak_ref_13.log] [--node 13] [--levels L ...] [--] [ARM ...]
 
 Iterations are counted from the give-up point (after round 0's 400 uncut
 iterations), for both protocols. Polyak: the best certified value so far over
@@ -130,13 +130,14 @@ def main():
     p.add_argument("--ref", default="polyak_ref_13.log")
     p.add_argument("--target", type=float, default=48763.0)
     p.add_argument("--levels", type=float, nargs="+", default=[48713.0, 48743.0, 48753.0, 48755.39, 48763.0])
+    p.add_argument("--node", default="13", help="the node id in the log names (13, d2)")
     p.add_argument("arms", nargs="*", default=["s1p1", "s1p5", "s3p3", "plain"])
     a = p.parse_args()
     ref = os.path.join(a.logs, a.ref)
     pol, calls = polyak(ref) if os.path.exists(ref) else ([], [])
     arms = []
     for name in a.arms:
-        f = os.path.join(a.logs, "cp_%s_13.log" % name)
+        f = os.path.join(a.logs, "cp_%s_%s.log" % (name, a.node))
         if not os.path.exists(f):
             f += ".tmp"
         if os.path.exists(f):

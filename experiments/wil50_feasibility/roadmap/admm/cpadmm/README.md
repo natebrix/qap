@@ -52,7 +52,14 @@ time. Iterations t are counted from the give-up point, for both protocols.
   would fit the regional triangles, but the cones would be nearly scalar
   [m].
 
-SECOND_NODE
+**A second node, d2** (`39:27,30:48,25:49,26:5`, the dual test's other node;
+`run_node.sh`, same settings and protocol, its own round-12 pool). Polyak:
+48,790.8 after the quiet round, 23.2 short of the cutoff [m] (the laptop log
+has 48,789.9). The dual test's slow ascent put d2's pool optimum near
+48,795. CP-ADMM s1p1 reaches 48,785 (within 10 of that) at t = 880 against
+4,670, 5.3x [m]. It passes Polyak's final value at t = 1,050 against 5,090,
+4.8x [m]. It has 48,802.5 at t = 2,000, 11.5 short of the cutoff and still
+rising [m]. D2_LONG
 
 ## Method
 
@@ -164,7 +171,7 @@ pay, for three reasons:
   solve with I + H'H. That solve is diagonal for Max-Cut, where each image
   entry is one matrix entry. For us each moment sums |S|^2 entries of Y and
   the 13 regions overlap.
-- Our half-space steps on the moments already cost 0.53 ms per pass over
+- Our half-space steps on the moments already cost 0.56 ms per pass over
   13,000 cuts [m].
 
 The paper's bounds are not certified ("should not be interpreted as
@@ -241,7 +248,7 @@ Best certified value so far against iterations after the give-up point. The
 "Polyak" column is the run on this box (`logs/polyak_ref_13.log`). The laptop
 log (`stronger_bounds/dual/tri_13.log`) has round ends only; it gives 48,686.4
 at t = 900, 48,708.97 at 3,600 and 48,755.42 after the quiet round, within
-0.03 of this box's run. "uncut" continues the give-up point without cuts
+0.04 of this box's run. "uncut" continues the give-up point without cuts
 (`-cpplain`).
 
 | t | Polyak, best so far | Polyak, at the check | CP 1 sweep x 1 pass (s1p1) | CP 1 x 5 (s1p5) | CP 3 x 3 (s3p3) | uncut |
@@ -314,7 +321,7 @@ The Y-step's output after one sweep against a 30-sweep projection from the
 same start, every 200 iterations (`-cpdiag 200:30`), and the cut residuals of
 the output [m]:
 
-| t | arm | ||Y - Y_30|| / ||Y_30|| | max viol / ||G||, output | max viol / ||G||, 30 sweeps | cuts violated > 1e-4 | active cuts (nu > 0) |
+| t | arm | norm(Y - Y_30) / norm(Y_30) | max violation / norm(G), output | the same after 30 sweeps | cuts violated by > 1e-4 | active cuts (nu > 0) |
 |---|---|---|---|---|---|---|
 | 200 | s1p1 | 3.8e-3 | 1.0e-3 | 1.5e-4 | 2,675 | 2,228 |
 | 1,000 | s1p1 | 1.5e-3 | 4.1e-4 | 5.6e-5 | 1,619 | 2,530 |
@@ -395,12 +402,33 @@ little because they are not consistent with the uncut Z. The first checks
 are lower (48,479 against 48,488 at t = 50). A pooled child would also bring
 the parent's Z.
 
+### Variants
+
+All on node 13 in the dual test's settings, from the give-up point [m]:
+
+| arm | 48,753 at | t = 1,000 | t = 2,000 | per iteration | note |
+|---|---|---|---|---|---|
+| s1p1: 1 sweep, 1 pass | 1,040 | 48,752.0 | 48,767.1 | 0.530 s | the memo's design |
+| s1p5: 1 sweep, 5 passes | 1,070 | 48,751.0 | 48,766.4 | 0.531 s | passes do not help |
+| s3p3: 3 sweeps, 3 passes | 850 | 48,758.2 | 48,769.8 | 0.550 s | best per CPU |
+| s1p1, omega = 1.5 | not reached | 48,746.0 | | 0.526 s | over-relaxed steps: ahead to t = 850, then oscillates |
+| s1p1, round-2 pool (3,000 cuts) | 1,150 | 48,749.1 | 48,763.2 | 0.523 s | the first 3,000 cuts carry most of it |
+| s1p1 from Polyak's mu | 920 | 48,755.6 | | 0.535 s | see above |
+
+The over-relaxed run's half-space step grows from 5e-4 to 8e-2 after
+t = 850, and its certificate falls back to 48,640-48,660
+(`cp_s1p1_w15_13.log`). The round-2 pool is the pool after round 2's cuts
+in the same Polyak run (`logs/pool2_13.txt`, `polyak_pool2_13.log`). It ends
+4 below the full pool at t = 2,000. A CP phase would therefore need only a
+few separations, early.
+
 ## Decision
 
 Against the memo's kill line:
 - **Within 10 of 48,763 by 2,000 iterations: passes.** s1p1 certifies 48,753
   at t = 1,040 and 48,767.1 by t = 2,000 [m]. The production settings give
-  1,170 and 48,763.8 [m]. D2_DECISION
+  1,170 and 48,763.8 [m]. On d2 the same level (within 10 of the dual test's
+  estimate) comes at t = 880 against 4,670 [m].
 - **Per-iteration overhead at most 30%: passes.** It is +3.8% in total and
   +6.7% for the CP work itself, in the dual test's settings [m]. In the
   production settings it is +13.5%, of which 6.8 points come from
@@ -454,8 +482,9 @@ Not built tonight. The pieces:
 3. **The quiet round.** Not needed. A quiet round from the CP state at
    t = 1,500 (mu_D frozen, Y restarted) reaches 48,757.0 after 1,000
    iterations [m]. Continuing the CP solve for those 1,000 reaches 48,768.9
-   [m]. The certificate lags less in CP-ADMM because Y and Z are never
-   restarted, so the quiet round's job is already done.
+   [m]. The quiet round exists because each Polyak round restarts Y and its
+   certificate trails the Lagrangian. A CP phase is one solve with no
+   restarts.
 4. **The warm start.** The CP state is (Y, Z, nu). Within a phase there is
    one solve, so there is no restart and QAP_DNN_CUT_WARMY is moot. For the
    children, hand on Z (and Y under QAP_DNN_WARM_Y) as today, plus mu_D as
@@ -485,7 +514,7 @@ pools down [m, run 2's `wlowc`, 6 phases with 0 fathoms]. Two readings:
 - **Same budget, higher bound.** In a 1,000-iteration budget CP-ADMM
   certifies 48,752 against 48,686, +66 [m]. Phases that end within about 60
   of the cutoff today would fathom instead of handing a pool down, and the
-  pooled children would inherit near-optimal multipliers. The effect on the
+  pooled children would inherit better multipliers [e]. The effect on the
   tree needs a search run to estimate.
 
 Either way the next step is the search, not more single-node runs: the
