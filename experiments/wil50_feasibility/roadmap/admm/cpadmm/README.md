@@ -215,6 +215,7 @@ step.
      gap, so the cuts bind.
    - On nug12's root CP-ADMM certifies 574.0 against the optimum 578. The
      uncut value is 567.9, and the Polyak rounds there drop to 485.7 [m].
+   - A rerun with the final binary gives the same summary [m].
 3. **The production path is unchanged** (`check_identity.sh`,
    `logs/ident_summary.txt`). The binaries of this tree, with the switch off,
    print the same traces as scratch builds of the parent commit 57adbe6 (every
@@ -224,10 +225,14 @@ step.
      Nov 6 bundle (DNN_BETA_SCHED, LAZYCERT, NOSYMV, NOSYMW,
      REFRESH_PARTIAL): 9 of 9 identical;
    - the whole 5,500-iteration cut phase on node 13 (564 lines, `run_ref.sh`):
-     identical.
+     identical;
+   - with the final binaries again, a 4-round cut phase with a quiet round of
+     300 on node 13 (196 lines, `CUT4=1`): identical.
 
    The CP code path with an empty pool reproduces the plain solve bit for
-   bit (nug12 and node 13), so the restructured Y/Z step is exact [m].
+   bit (nug12 and node 13), so the restructured Y/Z step is exact [m]. The
+   dnntest traces, the 4-round cut phase and the empty-pool checks were run
+   with the final binaries (`logs/ident_summary.txt`).
 4. **The large values, cross-checked through the standard path**
    (`logs/cp_s1p1_q_13.log`). After 1,500 CP iterations (certified
    48,762.50), the final mu_D were frozen as L_add, and the plain solve ran
@@ -498,7 +503,8 @@ Not built tonight. The pieces:
    with the current mu_D is an upper bound on the certified one.
 7. **Scope.** The projector handles regional cuts on side 0 (wil50). nug30's
    side-1 grid and atomic cuts need a second P-step loop or a transposed
-   layout.
+   layout. The P-step implements eliminated assignments as dnn.C does, but no
+   run here exercised them.
 
 **Expected effect on the cut phase's share.** In the production `bestcore`
 arm on the node-10 subtree, the phases are 6,200 of 15,963 DNN iterations
