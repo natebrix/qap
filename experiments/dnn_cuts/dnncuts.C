@@ -11,7 +11,7 @@
        [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-loadpool F] [-savepool F]
        [-poolcheck K] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
        [-savepoolall R:F] [-cpadmm F [-cpiters N] [-cpsweeps S] [-cppasses K]
-       [-cpdiag E[:S]] [-cpcheck] [-cpquiet N] [-cpomega W]]
+       [-cpdiag E[:S]] [-cpcheck] [-cpquiet N] [-cpomega W] [-cpmu]]
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
  original indices of one side (default side 0, the first matrix: wil50's
@@ -46,7 +46,8 @@
  sweep (1), -cpdiag E[:S] every E iterations the distance to an S-sweep
  projection (30), -cpcheck the cut extraction self-test first, -cpquiet N
  afterwards a quiet round of N iterations with the final multipliers frozen
- (the plain path with L_add, warm), -cpomega W over-relaxed half-space steps. The per-check trace (-vc is implied) is
+ (the plain path with L_add, warm), -cpomega W over-relaxed half-space steps,
+ -cpmu the start multipliers from the pool file instead of zero. The per-check trace (-vc is implied) is
  certified at every check.
 */
 
@@ -201,6 +202,7 @@ int main(int argc, char **argv)
     else if (o == "-cpcheck") cpp.selftest = 1;
     else if (o == "-cpquiet" && more) cpp.quiet_iters = atoi(argv[++a]);   // then a quiet round with mu_D frozen
     else if (o == "-cpomega" && more) cpp.omega = atof(argv[++a]);        // over-relaxed half-space steps, (0, 2)
+    else if (o == "-cpmu") cpp.nu_from_pool = 1;                           // start from the pool's multipliers
     else if (o == "-cpplain") cp_plain = 1;   // the same solve from the give-up point without the cuts (no hook)
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;

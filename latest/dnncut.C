@@ -613,6 +613,8 @@ public:
   int m = 0, n1 = 0, R = 0;
   int sweeps = 1, passes = 1;      // Dykstra sweeps per Y-step, half-space passes per sweep
   double omega = 1.0;              // over-relaxation of the half-space steps (1: Hildreth/Dykstra)
+  std::vector<double> init_mu;     // optional start multipliers (unscaled), applied at the first Y-step
+  double init_scale = 0;           // as nu = mu / (scale beta)
   int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
   std::vector<std::vector<int>> rloc;
   std::vector<CPCut> cuts;
@@ -849,6 +851,11 @@ public:
 
   void project(const double *X, double *Y, double beta, const unsigned char *elim, int it) override
   {
+    if (!init_mu.empty() && init_scale > 0) {
+      for (size_t t = 0; t < nu.size() && t < init_mu.size(); t++) nu[t] = std::max(0.0, init_mu[t] / (init_scale * beta));
+      init_mu.clear();
+      beta_last = beta;
+    }
     // the multipliers mu = scale beta nu stay put when beta changes
     if (beta_last > 0 && beta != beta_last) for (double &v : nu) v *= beta_last / beta;
     beta_last = beta;
@@ -1644,6 +1651,21 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   pj.sweeps = std::max(1, cpp.sweeps); pj.passes = std::max(1, cpp.passes);
   pj.diag_every = cpp.diag_every; pj.diag_sweeps = std::max(1, cpp.diag_sweeps);
   if (cpp.omega > 0 && cpp.omega < 2) pj.omega = cpp.omega;
+  if (cpp.nu_from_pool) {
+    // start from the pool's multipliers: nu = mu / (scale beta), scale = max(1, max |L|)
+    // of the lifted objective as dnn_bound forms it (no L_add here)
+    double mx = 0;
+    for (int i = 0; i < m; i++)
+      for (int j = 0; j < m; j++) {
+        mx = std::max(mx, fabs(0.5 * C->me[i][j]));
+        for (int k = 0; k < m; k++)
+          for (int l = 0; l < m; l++)
+            mx = std::max(mx, fabs(0.5 * (A->me[i][k] * B->me[j][l] + A->me[k][i] * B->me[l][j])));
+      }
+    pj.init_scale = std::max(1.0, mx);
+    pj.init_mu.assign(pj.cuts.size(), 0.0);
+    for (size_t t = 0; t < pj.cuts.size(); t++) pj.init_mu[t] = cuts[pj.cuts[t].src].mu;
+  }
   if (cp.verbose) {
     size_t nt = 0; for (auto &c : pj.cuts) nt += c.t1 - c.t0;
     printf("cp pool: %d cuts kept (%d dropped), %zu in the projector, %zu terms, %d regions, %zu region-pair classes; sweeps %d passes %d omega %g\n",

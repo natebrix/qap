@@ -27,6 +27,7 @@ def polyak(path):
     """[(t since give-up, cert, best so far, call index)], per-call iteration counts"""
     out, calls = [], []
     off, last, call = 0, 0, 0
+    cpu_off, last_cpu = 0.0, 0.0
     best = float("-inf")
     rounds = []   # (name, iters, cpu) of every solve, from the round lines
     for line in open(path):
@@ -39,11 +40,13 @@ def polyak(path):
         it = int(m.group(1))
         if it <= last:   # a new solve
             calls.append(last); off += last; call += 1
+            cpu_off += last_cpu
         last = it
+        last_cpu = float(m.group(4))
         # a DNN_CORE_LAZYCERT check that skipped Rump's test prints an estimate: not certified
         c = float("-inf") if ", lazy" in line else fl(m.group(3))
         best = max(best, c)
-        out.append((off + it - 400, c, best, call, float(m.group(4))))
+        out.append((off + it - 400, c, best, call, cpu_off + float(m.group(4))))
     calls.append(last)
     polyak.rounds = rounds
     return out, calls
@@ -126,6 +129,7 @@ def main():
     p.add_argument("--logs", default=os.path.join(D, "logs"))
     p.add_argument("--ref", default="polyak_ref_13.log")
     p.add_argument("--target", type=float, default=48763.0)
+    p.add_argument("--levels", type=float, nargs="+", default=[48713.0, 48743.0, 48753.0, 48755.39, 48763.0])
     p.add_argument("arms", nargs="*", default=["s1p1", "s1p5", "s3p3", "plain"])
     a = p.parse_args()
     ref = os.path.join(a.logs, a.ref)
@@ -166,9 +170,11 @@ def main():
         q = [r for r in rr if r[0].startswith("quiet")]
         if q:
             print("  Polyak quiet round: %d iterations, %.1f CPU s, %.4f s per iteration" % (q[0][1], q[0][2], q[0][2] / q[0][1]))
-        for lvl in (a.target - 10, a.target - 20, a.target - 50):
-            first = next((t for t, c, b, *_ in pol if b >= lvl), None)
-            print("  Polyak first reaches %.0f at t = %s" % (lvl, first))
+        cpu0 = next((r[4] for r in pol if r[0] >= 0), 0.0)
+        for lvl in a.levels:
+            first = next((r for r in pol if r[2] >= lvl and r[0] > 0), None)
+            print("  Polyak first reaches %.1f at t = %s (CPU since the give-up point %s s)"
+                  % (lvl, first[0] if first else None, "%.0f" % (first[4] - cpu0) if first else "-"))
     for name, f, its, cps, prof, r0, solve in arms:
         print("\n== %s (%s)" % (name, os.path.basename(f)))
         print("  round 0 lb %s; %s" % (r0, solve))
@@ -176,9 +182,10 @@ def main():
             sm = re.search(r"iters (\d+)  cpu ([0-9.]+)", solve)
             if sm:
                 print("  solve: %.4f s per iteration (setup included; quiet round excluded)" % (float(sm.group(2)) / int(sm.group(1))))
-        for lvl in (a.target - 10, a.target - 20, a.target - 50):
-            first = next((it for it, c, b, _ in its if b >= lvl), None)
-            print("  first reaches %.0f at t = %s" % (lvl, first))
+        for lvl in a.levels:
+            first = next((r for r in its if r[2] >= lvl), None)
+            print("  first reaches %.1f at t = %s (CPU %s s)" % (lvl, first[0] if first else None,
+                                                             "%.0f" % first[3] if first else "-"))
         if prof:
             print("  profile:", prof)
         if cps and cps[-1]["ms_p"] is not None:

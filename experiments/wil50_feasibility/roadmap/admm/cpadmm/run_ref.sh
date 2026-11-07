@@ -13,7 +13,9 @@
 #                       the old one's (check_identity.sh).
 #   polyak_prod_13.log  this tree's binary with the production DNN settings
 #                       (run_cp.sh's PROD_ENV and -d 3), pool to pool12_prod_13.txt
-#   bash run_ref.sh [old|new|prod|both]   (both = old and new; OLD defaults to the scratch build)
+#   polyak_prodnl_13.log the same without DNN_CORE_LAZYCERT: the same iterates, every
+#                       check certified (the lazy run certifies only the decisive ones)
+#   bash run_ref.sh [old|new|prod|prodnl|both]   (both = old and new; OLD defaults to the scratch build)
 D=$(cd "$(dirname "$0")" && pwd); R=$(cd "$D/../../../../.." && pwd)
 OLD=${OLD:-/tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/dnncuts_old}
 NEW=$R/experiments/dnn_cuts/dnncuts
@@ -26,6 +28,7 @@ one() { # tag core binary extra...
   local tag=$1 core=$2 bin=$3; shift 3
   local f=$D/logs/${tag}_13.log envs=""
   [ "$tag" = polyak_prod ] && envs=$PROD_ENV
+  [ "$tag" = polyak_prodnl ] && envs=${PROD_ENV/DNN_CORE_LAZYCERT=1 /}
   grep -q '^FINAL' "$f" 2>/dev/null && return 0
   env $envs taskset -c $core "$bin" $F "$@" qaplib/wil50.dat > "$f.tmp" 2>&1 && mv "$f.tmp" "$f"
 }
@@ -33,5 +36,6 @@ case ${1:-both} in
   old) one polyak_ref ${CORE:-0} "$OLD" ;;
   new) one polyak_new ${CORE:-1} "$NEW" -savepoolall 12:$D/logs/pool12_13.txt ;;
   prod) one polyak_prod ${CORE:-2} "$NEW" -d 3 -savepoolall 12:$D/logs/pool12_prod_13.txt ;;
+  prodnl) one polyak_prodnl ${CORE:-2} "$NEW" -d 3 ;;
   both) one polyak_ref 0 "$OLD" & one polyak_new 1 "$NEW" -savepoolall 12:$D/logs/pool12_13.txt; wait ;;
 esac

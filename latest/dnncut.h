@@ -234,8 +234,10 @@ struct DNNCPParams {
                       // iterations (0); its certified bound goes to quiet_lb
   double quiet_lb;    // out: the quiet round's certified bound (-inf when not run)
   double omega;       // in (0, 2): over-relaxation of the half-space steps (1: plain Dykstra)
+  int nu_from_pool;   // 1: start from the pool's own multipliers (nu = mu / (scale beta)), as a
+                      // pooled child would; 0: from zero, the give-up point's uncut state (0)
   DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0), quiet_iters(0),
-                  quiet_lb(-HUGE_VAL), omega(1.0) {}
+                  quiet_lb(-HUGE_VAL), omega(1.0), nu_from_pool(0) {}
 };
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,
