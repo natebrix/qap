@@ -29,6 +29,7 @@ DNNCutParams::DNNCutParams()
   L_ext = NULL; L_ext_abs = 0; ext_const = 0;
   pool_in = NULL; pool_out = NULL; other_orig = NULL; fixed_at = NULL; pool_check = 0;
   pool_all_round = -1; pool_all_out = NULL;
+  cp_every = 0; cp_k = 0; cp_iters = 0; cp_sweeps = 1; cp_passes = 1;
 }
 
 namespace {
@@ -626,6 +627,12 @@ public:
   std::vector<int> last_pos;       // per projector cut: the last separation at which nu > 0 (or its arrival)
   int n_sep = 0, last_found = 0, last_added = 0, n_added = 0, n_dropped = 0;
   double last_maxv = 0, t_sep = 0;
+  // the stall rule per check (dnn_cut_cp): after stall_window iterations, stop when
+  // cutoff - best > stall_factor * (best(t) - best(t - stall_window)), best >= first_lb
+  int stall_window = 0;
+  double stall_factor = 3.0, stall_cutoff = HUGE_VAL, stall_first = -HUGE_VAL;
+  bool stalled = false;
+  std::vector<std::pair<int, double>> best_hist;
   int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
   std::vector<std::vector<int>> rloc;
   std::vector<CPCut> cuts;
@@ -1046,6 +1053,18 @@ public:
   bool cert_term(double scale, double beta, double *Ladd, double &abs_add, double &hsum) override
   {
     return dense_term((long double)scale * (long double)beta, nu, Ladd, abs_add, hsum);
+  }
+
+  bool stop(int it, double best) override
+  {
+    if (stall_window <= 0 || !std::isfinite(stall_cutoff)) return false;
+    const double b = std::max(best, stall_first);
+    best_hist.push_back({it, b});
+    if (it < stall_window) return false;
+    double b0 = stall_first;   // the running best at it - W (first_lb before the first check)
+    for (const auto &h : best_hist) { if (h.first > it - stall_window) break; b0 = h.second; }
+    if (stall_cutoff - b > stall_factor * std::max(0.0, b - b0)) { stalled = true; return true; }
+    return false;
   }
 
   std::string trace() const override
@@ -1815,4 +1834,129 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
              dnn_status_name(rq.status), rq.iterations, rq.cpu, hsum);
   }
   return r;   // the CP solve's own result; the quiet round's bound is in cpp.quiet_lb
+}
+
+// max(1, max |L|) of the lifted objective as dnn_bound forms it, without L_add:
+// the scale of a CP solve, for nu = mu / (scale beta)
+static double cp_lifted_scale(const MAT *A, const MAT *B, const MAT *C, int m)
+{
+  double mx = 0;
+  for (int i = 0; i < m; i++)
+    for (int j = 0; j < m; j++) {
+      mx = std::max(mx, fabs(0.5 * C->me[i][j]));
+      for (int k = 0; k < m; k++)
+        for (int l = 0; l < m; l++)
+          mx = std::max(mx, fabs(0.5 * (A->me[i][k] * B->me[j][l] + A->me[k][i] * B->me[l][j])));
+    }
+  return std::max(1.0, mx);
+}
+
+DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+                        const DNNParams &base, const std::vector<int> &free_orig,
+                        int n_orig, const DNNCutParams &cp, DNNWarm *warm,
+                        double first_lb, double first_primal)
+{
+  const int m = A->m, n1 = m * m + 1;
+  const size_t nn = (size_t)n1 * n1, mm = (size_t)m * m;
+  // what the CP form does not cover runs as rounds
+  if (cp.side != 0 || cp.atomic || !warm || warm->m != m || warm->Y.size() != nn || warm->Z.size() != nn ||
+      !(warm->scale > 0))
+    return dnn_cut_rounds(A, B, C, shift, cutoff, base, free_orig, n_orig, cp, warm, first_lb, first_primal);
+  const double t0 = CutProjector::tcpu();
+  const Lift lift = {m, cp.side};
+  std::vector<Region> regions;
+  if (cp.grid_rows > 0) regions = grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
+  else if (cp.prefix) regions = prefix_regions(m);
+  DNNCutResult out;
+  out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
+  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0;
+  out.nregions = (int)regions.size();
+  if (regions.empty()) return out;
+  std::vector<Cut> cuts;
+  std::vector<BoxCut> boxes;
+  std::vector<L7Cut> l7;
+  init_p7(); g_box = &boxes; g_l7 = &l7;
+  // the inherited pool at its multipliers, then round 0's separation on the first solve's Y
+  const bool inherited = cp.pool_in && !cp.pool_in->cuts.empty() && cp.other_orig && cp.fixed_at;
+  if (inherited) {
+    int dropped = 0;
+    remap_pool(*cp.pool_in, free_orig, n_orig, cp, regions, cuts, boxes, dropped);
+  }
+  out.nregions = (int)regions.size();
+  CutProjector pj(m, regions, cuts);
+  pj.sweeps = std::max(1, cp.cp_sweeps); pj.passes = std::max(1, cp.cp_passes);
+  {
+    const int R = (int)regions.size();
+    std::vector<double> Pm((size_t)R * m, 0.0), Wm((size_t)R * mm, 0.0), p, W;
+    for (int s = 0; s < R; s++) {
+      aggregate(regions[s], warm->Y, lift, n1, p, W);
+      std::copy(p.begin(), p.end(), Pm.begin() + (size_t)s * m);
+      std::copy(W.begin(), W.end(), Wm.begin() + s * mm);
+    }
+    pj.sep_k = std::max(0, cp.kcuts);
+    if (pj.sep_k > 0) pj.separate(0, Pm, Wm);
+  }
+  if (pj.cuts.empty()) {
+    // no cut at all: the rounds stop here too (no solve, status -1, no pool)
+    if (cp.pool_out && cp.other_orig) *cp.pool_out = DNNPool();
+    out.cpu = CutProjector::tcpu() - t0;
+    return out;
+  }
+  if (inherited) {
+    // nu from the inherited multipliers (the separated cuts start at zero)
+    pj.init_scale = cp_lifted_scale(A, B, C, m);
+    pj.init_mu.assign(pj.cuts.size(), 0.0);
+    for (size_t t = 0; t < pj.cuts.size(); t++) pj.init_mu[t] = std::max(0.0, pj.pool[pj.cuts[t].src].mu);
+  }
+  pj.sep_every = std::max(0, cp.cp_every); pj.sep_k = std::max(0, cp.cp_k);
+  pj.stall_window = cp.stall_rounds > 0 ? cp.stall_rounds * cp.iters : 0;
+  pj.stall_factor = cp.stall_factor; pj.stall_cutoff = cutoff; pj.stall_first = first_lb;
+  DNNParams par = base;
+  par.ycuts = &pj;
+  par.L_add = NULL; par.L_add_abs = 0;
+  par.max_iter = cp.cp_iters > 0 ? cp.cp_iters : std::max(1, cp.rounds * cp.iters + std::max(0, cp.freeze_iters));
+  par.hopeless_after = 0; par.hopeless_gap_ratio = 0;   // as the cut rounds
+  par.warm_primal = cp.warm_primal;
+  par.cut_round = 1;   // DNN_BETA_SCHED's wc, as the rounds
+  DNNWarm save;
+  DNNResult res = dnn_bound(A, B, C, shift, cutoff, par, warm, &save);
+  if (res.status == DNN_ERROR && res.iterations == 0)   // a setting the CP solve refuses (the accelerations)
+    return dnn_cut_rounds(A, B, C, shift, cutoff, base, free_orig, n_orig, cp, warm, first_lb, first_primal);
+  out.iterations = res.iterations;
+  out.rounds = pj.n_sep;
+  out.best_lb = std::max(first_lb, res.lb);
+  out.stalled = pj.stalled ? 1 : 0;
+  out.status = out.best_lb > cutoff ? DNN_FATHOMED : res.status;
+  for (double v : pj.nu) out.active += v > 0;
+  if (cp.pool_out && cp.other_orig && out.status != DNN_FATHOMED) {
+    // the children's pool: the cuts with nu > 0 at the final mu_D = scale beta nu, handed
+    // on with the final state; a phase that did not inherit hands on a pool only when
+    // its solve beat the uncut bound (as the rounds)
+    *cp.pool_out = DNNPool();
+    if ((inherited || res.lb > first_lb) && save.scale > 0) {
+      const long double f = (long double)save.scale * (long double)pj.beta_last;
+      std::vector<Cut> ex;
+      for (size_t t = 0; t < pj.cuts.size(); t++) {
+        Cut c = pj.pool[pj.cuts[t].src];
+        c.mu = (double)(f * (long double)pj.nu[t]);
+        if (c.mu > 0) ex.push_back(c);
+      }
+      if (cp.pool_check > 0 && !ex.empty()) {
+        std::vector<double> L(nn, 0.0);
+        double abs_add = 0, hsum = 0;
+        assemble(ex, regions, boxes, lift, n1, L, abs_add, hsum);
+        const double w = check_term(L, hsum, m, cp.pool_check, 24680u);
+        if (w > 1e-7 * (1 + fabs(hsum))) {
+          fprintf(stderr, "dnn_cut_cp: the pool term is positive (%g) at a permutation\n", w); abort(); }
+      }
+      export_pool(ex, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+    }
+  }
+  *warm = save;
+  out.cpu = CutProjector::tcpu() - t0;
+  if (cp.verbose)
+    printf("cp phase  lb %.4f (first %.4f)  status %s  iters %d  separations %d  pool %zu  active %d  stalled %d  cpu %.1f\n",
+           out.best_lb, first_lb, dnn_status_name(out.status), out.iterations, out.rounds, pj.cuts.size(), out.active,
+           out.stalled, out.cpu);
+  return out;
 }

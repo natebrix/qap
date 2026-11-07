@@ -2672,6 +2672,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     lbhist.push_back(lazy_this ? lz_est + shift : (lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL));
 
     if (best > cutoff) { status = DNN_FATHOMED; break; }
+    if (yc && yc->stop(it, best_rule)) { status = DNN_STALLED; break; }   // CP-ADMM: the caller's rule
     if (pres < par.tol && dy < par.tol) { status = DNN_CONVERGED; lz_exit = lazy_this; break; }
     if (par.time_limit > 0 && thread_cpu() - t0 > par.time_limit) { status = DNN_TIME_LIMIT; lz_exit = lazy_this; break; }
     besthist.push_back(best_rule);

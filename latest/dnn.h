@@ -102,6 +102,10 @@ struct DNNYCuts {
   virtual bool cert_term(double scale, double beta, double *Ladd, double &abs_add, double &hsum) = 0;
   // one line of diagnostics for the verbose trace (may be empty)
   virtual std::string trace() const { return std::string(); }
+  // at every regular check after the fathom test: true stops the solve as
+  // DNN_STALLED (a stopping rule of the caller's; best is the running certified
+  // best, shift included). Default: never
+  virtual bool stop(int it, double best) { (void)it; (void)best; return false; }
 };
 
 struct DNNParams {

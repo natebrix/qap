@@ -758,7 +758,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  dp.warm_primal = 0;   // the cut phase below sets its own
 	  DNNWarm *cut_state = NULL;   // the cut phase's state for the children (QAP_DNN_POOL)
 	  DNNCutResult cr_trace;
-	  bool cut_ran = false;
+	  bool cut_ran = false, cut_cp = false;
 	  dnn_ran = true;
 	  stats->dnn_nodes++;
 	  stats->dnn_time += r.cpu;
@@ -834,9 +834,30 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      cp.pool_out = &pool_out;
 	      cp.other_orig = &other_orig; cp.fixed_at = &fixed_at; cp.pool_check = pool_check;
 	    }
+	    // QAP_DNN_CUT_CP=k:K (roadmap/admm/cpadmm): the phase as one CP-ADMM solve
+	    // (dnn_cut_cp) instead of the rounds: the pool inside the PRSM's Y-step,
+	    // K new triangles separated every k iterations on its own iterate, from the
+	    // inherited pool (its multipliers) plus round 0's QAP_DNN_CUT_K cuts on the
+	    // first solve's Y, warm from its Z (and Y under QAP_DNN_CUT_WARMY), at most
+	    // QAP_DNN_CUT_CP_ITERS iterations (default the rounds' ROUNDS x ITERS +
+	    // FREEZE), stopped by the stall rule per check over STALL x ITERS
+	    // iterations. QAP_DNN_CUT_CP_SWEEPS=S[:P]: Dykstra sweeps and passes per
+	    // iteration (1:1). Off by default; side-0 regional triangles only (anything
+	    // else runs the rounds)
+	    if (const char *e = getenv("QAP_DNN_CUT_CP"))
+	      if (sscanf(e, "%d:%d", &cp.cp_every, &cp.cp_k) == 2 && cp.cp_every > 0 && cp.cp_k > 0) {
+	        cut_cp = true;
+	        if (const char *f = getenv("QAP_DNN_CUT_CP_ITERS")) cp.cp_iters = atoi(f);
+	        if (const char *f = getenv("QAP_DNN_CUT_CP_SWEEPS")) {
+	          cp.cp_sweeps = atoi(f);
+	          if (const char *c = strchr(f, ':')) cp.cp_passes = atoi(c + 1);
+	        }
+	      }
 	    DNNWarm *wc = new DNNWarm(*save);
-	    DNNCutResult cr = dnn_cut_rounds(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp,
-	                                     free_orig, n, cp, wc, r.lb, r.primal);
+	    DNNCutResult cr = cut_cp ? dnn_cut_cp(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp,
+	                                          free_orig, n, cp, wc, r.lb, r.primal)
+	                             : dnn_cut_rounds(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp,
+	                                              free_orig, n, cp, wc, r.lb, r.primal);
 	    cut_ran = true; cr_trace = cr;
 	    if (dnn_pool && cr.status != DNN_FATHOMED && !pool_out.cuts.empty() && wc->m == m) {
 	      dnn_pool_out = dnn_pool_encode(pool_out);
@@ -871,6 +892,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	              have_pool ? 1 : 0, pool_kept, pool_dropped, cut_ran ? 1 : 0);
 	      if (cut_ran) fprintf(tf, " best %.4f rounds %d iters %d cpu %.2f status %s", cr_trace.best_lb,
 	                           cr_trace.rounds, cr_trace.iterations, cr_trace.cpu, dnn_status_name(cr_trace.status));
+	      if (cut_ran && cut_cp) fprintf(tf, " cp 1 active %d stalled %d", cr_trace.active, cr_trace.stalled);
 	      fprintf(tf, " | cutoff %.4f fathomed %d pool_out %zu\n", inc - DELTA, dnn_fathomed ? 1 : 0, dnn_pool_out.size());
 	      fclose(tf);
 	    }
