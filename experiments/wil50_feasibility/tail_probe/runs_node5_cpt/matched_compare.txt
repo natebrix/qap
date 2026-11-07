@@ -1,0 +1,15 @@
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) | open below | per level: nodes, fathomed/bounded |
+|---|---|---|---|---|---|
+| bestcoret | 1,290 | 118,262 (± 42,704) | 32,224 (± 10,831) | 0 | L3: 1, 0/1; L4: 47, 35/47; L5: 552, 35/36; L6: 690, 3/3 |
+| cpcutt | 1,198 | 98,091 (± 36,804) | 28,095 (± 9,696) | 0 | L3: 1, 0/1; L4: 47, 37/47; L5: 460, 29/30; L6: 690, 3/3 |
+
+Matched nodes (the same assignment bounded in both arms), by level: fathomed in each, DNN iterations in each and their ratio
+
+| arms | level | shared | fathomed (first / second) | iterations (first / second) | ratio |
+|---|---|---|---|---|---|
+| bestcoret / cpcutt | 3 | 1 | 0 / 0 | 300 / 300 | 1.00 |
+| bestcoret / cpcutt | 4 | 47 | 35 / 37 | 21,515 / 27,656 | 0.78 |
+| bestcoret / cpcutt | 5 | 30 | 29 / 29 | 4,977 / 3,479 | 1.43 |
+| bestcoret / cpcutt | 6 | 3 | 3 / 3 | 76 / 73 | 1.04 |
+
+- cpcutt against bestcoret: 1.21x fewer estimated iterations, 1.15x less estimated CPU

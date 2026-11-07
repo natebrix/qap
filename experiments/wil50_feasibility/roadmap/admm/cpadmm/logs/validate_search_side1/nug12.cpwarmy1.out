@@ -1,0 +1,66 @@
+[Jan 1, 2023]
+vm
+parameters file: PARAM/nug_deep_xbar9_all.par
+symmetry file: /nonexistent.sym
+DNN bound at depths 0-30, relative gap <= 1, give up after 0 iterations (0 = never), warm-started from the parent, OpenBLAS (prefix 'scipy_')
+incumbent: 580
+input file: /home/user/qap/.claude/worktrees/agent-a1fec42d163d976d3/qaplib/nug12.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+couldn't find [/nonexistent.sym], assuming no symmetry
+New objective value: 578
+  ---- RESULTS ----
+
+    Total Time: 15.9082 seconds 
+         Nodes: 37 / 38 / 1
+    root bound: 478.468
+ fw iterations: 4049
+     DNN bound: 35 nodes, 26 fathomed, 14.1751 s
+     cut phase: 9 nodes, 0 fathomed, 1.7064 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    2.76
+ 1          12	0.9167	0.0000	    2.07
+ 2           4	2.5000	0.0000	    4.02
+ 3           7	1.2857	0.1111	    3.02
+ 4           8	0.8750	0.7500	    2.15
+ 5           1	1.0000	0.8571	    0.98
+ 6           1	0.0000	0.8333	    0.52
+ 7           1	0.0000	0.8000	    0.24
+ 8           1	0.0000	0.7500	    0.14
+ 9           1	0.0000	N/A	    0.00
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 12 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 4 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 7 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 8 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 7 |   0.0000   0.0000   0.0000   1.0000  | 1 
+ 8 |   0.0000   0.0000   0.0000   1.0000  | 1 
+ 9 |   0.0000   0.0000   0.0000   1.0000  | 1 
+nodes       1        0       33        3 
+time     2.76     0.00    12.76     0.38 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.050836	0.006991
+ 2| 0.020280	0.000000
+ 3| 0.020199	0.000000
+ 4| 0.020199	0.000000
+ 5| 0.019700	0.000000
+ 6| 0.019698	0.000000
+ 7| 0.019698	0.000000
+ 8| 0.019698	0.000000
+ 9| 0.019698	0.000000
+

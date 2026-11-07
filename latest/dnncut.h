@@ -230,8 +230,8 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 // iterations, when cutoff - best > stall_factor * (best(t) - best(t - W)), best
 // including first_lb). Every value is certified. rounds = separations made
 // (round 0 included); pool_out = the cuts with nu > 0 at the final mu_D; *warm =
-// the final state. Regional triangles on side 0 only; anything else (side 1,
-// atomic cuts, a missing Y) runs dnn_cut_rounds instead.
+// the final state. Regional triangles on either side (QAP_DNN_CUT_SIDE); atomic
+// cuts or a missing Y run dnn_cut_rounds instead.
 DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
                         const DNNParams &base, const std::vector<int> &free_orig,
                         int n_orig, const DNNCutParams &cp, DNNWarm *warm,
@@ -246,7 +246,7 @@ DNNResult dnn_pool_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 // with cp.pool_in (remapped, zero multipliers kept) projected inside the Y-step by
 // cyclic Dykstra sweeps (DNNYCuts in dnn.h), certified at every check with the
 // sweeps' multipliers. One dnn_bound(par, start, save); every value is certified.
-// Regional cuts on side 0 only.
+// Regional cuts on either side (cp.side); atomic cuts are refused (DNN_ERROR).
 struct DNNCPParams {
   int sweeps;         // Dykstra sweeps (P-step, half-space pass) per Y-step (1)
   int passes;         // half-space passes per sweep (1)

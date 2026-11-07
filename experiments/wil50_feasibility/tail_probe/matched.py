@@ -50,7 +50,8 @@ D = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, D)
 import tail_probe as tp  # noqa: E402
 
-ARM_ORDER = ("base", "baseship", "full", "fullwide", "equip3", "equip150", "equip150r2", "fast", "wlowc", "wtwo")
+ARM_ORDER = ("base", "baseship", "full", "fullwide", "equip3", "equip150", "equip150r2", "fast", "wlowc", "wtwo",
+             "bestcoret", "cpcutt")
 
 
 def node_keys(path):
@@ -301,7 +302,7 @@ def compare(runs, arms):
                 out.append(f"| {a} / {b} | {lvl} | {len(sh)} | {fa} / {fb} | {ia:,} / {ib:,} | "
                            f"{ia / ib if ib else float('nan'):.2f} |")
     out.append("")
-    for ref in ("base", "baseship", "fast"):
+    for ref in ("base", "baseship", "fast", "bestcoret"):
         if ref in tot:
             for a in arms:
                 if a != ref:

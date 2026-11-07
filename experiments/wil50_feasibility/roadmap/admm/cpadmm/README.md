@@ -66,6 +66,20 @@ time. Iterations t are counted from the give-up point, for both protocols.
   - 1.307x in DNN CPU on the matched nodes, against a kill line of 1.10x;
   - 1.86x end to end, and the tree falls from 277 nodes to 94.
   - Three depth-4 phases fathom where the rounds end 17-21 short.
+- **Side 1, the production configuration** (see "Side 1" below). The
+  projector now handles regions on the second index, so `cpcut` runs in CP
+  form on `wil50t.dat` with `QAP_DNN_CUT_SIDE=1`; before, it ran the rounds
+  there without saying so.
+  - The side-1 projector equals side 0's on the transposed X to the bit
+    [m], and costs +0.6% per iteration [m].
+  - Node 13 transposed reaches 48,753 at t = 1,070 on both sides, within
+    0.19 of side 0 from t = 300 on [m].
+  - In the node-10 A/B on `wil50t.dat`, `cpcutt` beats `bestcoret` 1.760x
+    in DNN CPU on the matched nodes and 2.20x end to end [m]. The subtree
+    differs from `wil50.dat`'s, because node 10 branches on another line.
+  - On node 5 of the tail probe, the estimate is 1.15x less CPU (inside one
+    standard error). The phases cost more at level 4, and the children at
+    level 5 gain 1.37x [m].
 
 **Two more nodes**, with the same settings and protocol and each node's own
 round-12 pool (`run_node.sh`).
@@ -550,7 +564,8 @@ search" below): items 1, 2 (as QAP_DNN_POOL_CP), 4, 5 (the stall rule) and
 7. **Scope.** The projector handles regional cuts on side 0 (wil50). nug30's
    side-1 grid and atomic cuts need a second P-step loop or a transposed
    layout. The P-step implements eliminated assignments as dnn.C does, but no
-   run here exercised them.
+   run here exercised them. **Side 1 built since** ("Side 1" below: a
+   second loop over the side-1 layout); atomic cuts are not.
 
 **Expected effect on the cut phase's share.** In the production `bestcore`
 arm on the node-10 subtree, the phases are 6,200 of 15,963 DNN iterations
@@ -813,7 +828,8 @@ the parent commit (below).
     holds the final state for the children.
   - **Fallback.** Side 1, atomic cuts, a missing state, or a setting the CP
     solve refuses run the rounds. The trace's `cp F` says which ran
-    (`cp 1 active N stalled S` after the phase's fields).
+    (`cp 1 active N stalled S` after the phase's fields). Side 1 has run in
+    CP form since "Side 1" below; atomic cuts still run the rounds.
 - **Stopping rules, per check.** The fathom test at the cutoff is dnn.C's
   own. The stall rule runs in iteration form through a hook,
   `DNNYCuts::stop`, called at every check after the fathom test. With
@@ -1041,6 +1057,256 @@ and the same iterations as `cpcut`, node for node, and the same phases [m].
   example the node-5 tail probe (`../../../tail_probe/`), `cpcut` against
   `bestcore`. If it holds, the projector's side-1 and atomic cuts for nug30.
 
+## Side 1 (Nov 7): the CP projector on the second index
+
+**Why.** Every real wil50 run uses the transposed instance `wil50t.dat` with
+the regions on side 1 (`QAP_DNN_CUT_SIDE=1`), because the symmetry file acts
+on the second matrix (`../../../sym/README.md`). nug30's grid (5:6) is on side
+1 too. Until now the projector handled side 0 only. `dnn_cut_cp` and the
+pooled children's CP solve fell back to the rounds on side 1, and the trace
+said `cp 0`. So in the production configuration `cpcut` ran the rounds
+without saying so, and the node-10 A/Bs above ran on `wil50.dat`, side 0.
+
+### What was built
+
+On side 1 the region side is the second lifted index: row `1 + i m + a`,
+with `a` the region side's element and `i` the other side's. The side-0
+`(a, b)` block, which the P-step and the dense term group by sigma, becomes
+the columns `1 + j m + b` of fixed `b`, at stride m. Only those two dense
+passes read the layout. The moments, the half-space steps, the separation,
+`remap_pool`/`export_pool`, `cert_term`/`cert_term_at` (through
+`dense_term`) and the certificate's assembly are side-independent, so they
+are unchanged.
+
+- `CutProjector` takes the side. `pstep` on side 1 runs `pstep_rows1`, a
+  second loop over the side-1 layout. It uses side 0's `Csig`/`Dsig` and
+  block sums `Gsig`/`Gdsig`, and each `(i, j, sigma)` receives its terms in
+  the same order of `(a, b)` as on side 0. So the side-1 projector on a
+  transposed X equals side 0's to the bit: Y, the moments, nu and the dense
+  term (self-test (f) below).
+- The stride-m passes run on two row buffers. The X row is copied in
+  sequentially, the Y row copied out sequentially, and the next row
+  prefetched meanwhile. In place, the strided accesses cost 15.8-16.2 ms per
+  P-step; with the buffers it is 10.3-10.4 ms, against side 0's 8.7-8.8 ms,
+  at m = 47 with the caches flushed (best of 10 calls, two runs) [m] (`pstep_bench.C`, on node 13's regions; the
+  five variants tried gave identical Y and moments).
+- `dense_term` gets the same second loop, writing in place (9.7 ms against
+  7.4 ms per check, +0.2 ms per iteration at a check every 10 [m]). The
+  rounding conventions are untouched: one rounding per entry from long-double
+  sums, the magnitude sum times 1 + 1e-12, and h'mu rounded up.
+- The fallbacks are gone: `dnn_cut_cp` and `dnn_cp_bound` (including
+  `child`) accept side 1, bnb.C's `QAP_DNN_POOL_CP` no longer requires
+  `cut_side == 0`, and `dnncuts -cpadmm/-cpsep` work with `-side 1`. Atomic
+  cuts still run the rounds (`dnn_cut_cp`) or are refused (`dnn_cp_bound`).
+  With the switches off nothing changed (identity below).
+- **Atomic cuts: not built.** They act on single lifted entries, and the
+  half-space steps run on the regions' moments without Y. An atomic step
+  would need the entries it reads kept under every regional step that
+  touches them, and its own sparse G'nu in the P-step. That is a different
+  mechanism, not a second loop, so it is left out. bnbdrv never sets atomic
+  cuts; only `dnncuts -atomic` does (+0.2 on nug30,
+  `../../../stronger_bounds/README.md`).
+
+### Validity
+
+**(a) The self-test covers side 1** (`cp_selftest`, `dnncuts -cpcheck`). Two
+checks are new and run on both sides:
+- (e) The projection's optimality conditions, by code independent of the
+  projector's grouping. On a projector of its own with a sample of at most
+  500 of the pool's cuts, it runs 1, 10, 100 and 1,000 sweeps from nu = 0 on
+  the random X, then 3,000 if needed. It checks that Y is in P (Y_00 = 1, the
+  box, the gangster zeros from the decoded lifted indices), and that
+  Y = P(X - G'nu) with G'nu from `assemble()`. Then the half-space
+  feasibility, max (<G,Y> - h)+ / ||G||, and the complementarity, max over
+  nu > 0 of |<G,Y> - h| / ||G||, from `aggregate()` and `rviolation()`. With
+  nu >= 0 these are the KKT conditions of Y = argmin ||Y - X|| over P and
+  the half-spaces. The tolerance is 1e-6. The whole pool is too slow for it:
+  with 13,000 cuts, Dykstra from a random X is at 2.4e-3 after 1,000 sweeps
+  [m].
+- (f) On side 1 only, the projector against side 0's on the transposed X,
+  lifted index `1 + i m + a` to `1 + a m + i`. It compares the P-step's Y,
+  the moments, a half-space pass's nu, three sweeps' Y and nu, and the dense
+  term. All must be equal to the bit.
+
+Results [m]:
+
+| run | (a) L_add vs assemble | (b) sparse rows | (c) moments | (d) after a pass | (e) KKT after 1,000 sweeps | (f) side 1 = side 0 |
+|---|---|---|---|---|---|---|
+| nug12 root, grid 3:4, side 1, 297 cuts | 7.1e-15 | 2.1e-15 | 2.8e-14 | 2.5e-14 | feasibility 4.8e-8, complementarity 4.8e-8 | 0 (all six) |
+| wil50t node 13, side 1, the round-12 pool (13,000 cuts, 48 classes) | 2.3e-12 on 3,816,180 nonzeros | 4.3e-15 | 3.0e-12 | 1.4e-11 | 5.3e-14, 6.2e-14 (500 cuts) | 0 (all six) |
+| wil50 node 13, side 0, the same pool | 2.3e-12 | 6.8e-15 | 3.0e-12 | 1.2e-11 | 5.3e-14, 7.5e-14 (500 cuts) | (side 1 only) |
+
+Logs: `logs/side1/cp_selftest_pool12_13_side{0,1}.log`; the side-1 pool is
+`logs/pool12_13.txt` with its side field set to 1 (the same original
+indices). Side 0's lines (a)-(d) are those of `logs/cp_selftest_pool12_13.log`
+to every printed digit. On nug12, side 1's CP solve certifies 573.91
+(optimum 578, uncut 567.90); side 0 on the swapped nug12 gave 574.0 from its
+own pool.
+
+**(b) Transpose equivalence on node 13** (`transpose_check.py`). Node 13 runs
+with `run_sep.sh`'s `s1sep100_13` settings (`-cpsep 100:1000`, 1 sweep, the
+dual test's settings) for 1,500 iterations, on `wil50.dat` with side 0
+(`-x 21:28,8:41,28:19`) and on `wil50t.dat` with side 1 (`-x
+28:21,41:8,19:28`), at the same time on cores 1 and 2, final binary
+(`logs/side1/tr_s{0,1}_13.log`) [m]:
+
+| t | best, side 0 | best, side 1 | difference | pool (side 0 / 1) |
+|---|---|---|---|---|
+| 0 (give-up point, uncut) | 48,596.836 | 48,596.716 | -0.120 | 1,000 / 1,000 |
+| 100 | 48,568.278 | 48,567.766 | -0.511 | 2,000 / 2,000 |
+| 300 | 48,680.061 | 48,680.151 | +0.090 | 3,722 / 3,670 |
+| 500 | 48,716.784 | 48,716.896 | +0.111 | 3,915 / 3,875 |
+| 1,000 | 48,750.718 | 48,750.804 | +0.085 | 4,210 / 4,174 |
+| 1,070 | 48,753.041 | 48,753.155 | +0.114 | 4,210 / 4,174 |
+| 1,500 | 48,762.023 | 48,762.182 | +0.159 | 4,391 / 4,348 |
+
+- **Both reach 48,753 at t = 1,070**, the reference's iteration. The levels
+  48,686.4, 48,709, 48,713 and 48,743 come at the same t on both sides
+  (330, 450, 480, 830). 48,755.4 comes at 1,170 on side 0 and 1,150 on side 1.
+- **Certified values at the 150 matching checks:** max |difference| 2.33
+  (at t = 40), 0.53 over t = 101-300, 0.16 over 301-500, 0.12 over 501-1,000
+  and 0.19 over 1,001-1,500. The mean is 0.20.
+- **Side 0 is unchanged.** Its trace equals `logs/cp_s1sep100_13.log`, the
+  study's run, in all 300 lines up to t = 1,500 (CPU fields stripped).
+- **Where the difference comes from: the plain PRSM, not the CP path.**
+  The give-up points already differ by 0.12, and the round-0 separations find
+  9,403 and 9,401 violated triangles. The projector is exact under the
+  transposition (self-test (f)). dnn.C's transforms are equivariant too
+  (`G = Rot diag(1, H kron H)`, and `ll` is fixed by the transposition), but
+  its subspace eigensolver appends pseudo-random guard vectors from a fixed
+  seed in the reduced basis. They are not permuted, so the two runs' P_psd
+  approximations differ. The control is the same restart from the give-up
+  point without cuts (`-cpplain`, 300 iterations,
+  `logs/side1/tr_plain_s{0,1}_13.log`). It differs by up to 4.40 (t = 10) and
+  0.69 after t = 100, more than the CP pair's 2.33 and 0.53 [m]. The
+  sym README's node-10 check found 0.02-0.09 at 400-700 iterations for the
+  plain path and the rounds. After that the separations pick slightly
+  different cuts (the pools differ by about 1%), and the values stay within
+  0.2.
+
+**(c) Brute force through bnbdrv, side 1** (`validate_search.py --arms cp1
+cpwarmy1 poolcp1 cplazy1`, `logs/validate_search_side1.txt`, samples in
+`logs/validate_search_side1/`). The same 16 random instances (prefix
+regions over the second index's free elements) and nug12 unswapped (grid 3:4
+on its second matrix). Each arm is its side-0 arm with
+`QAP_DNN_CUT_SIDE=1`. A phase that ran as rounds (`cp 0`) now counts as a
+failure. Results [m]:
+
+| arm | traced DNN nodes (all checked) | phases (in CP form) | separations | pooled nodes (first solve in CP form) | max(bound - node optimum) |
+|---|---|---|---|---|---|
+| cp1 | 194 | 97 (97) | 263 | 62 (0) | 0 |
+| cpwarmy1 | 192 | 97 (97) | 245 | 66 (0) | 0 |
+| poolcp1 | 196 | 97 (97) | 238 | 70 (70) | 0 |
+| cplazy1 | 196 | 97 (97) | 238 | 70 (70) | 0 |
+
+Every final objective is the optimum, and no first or phase bound is above
+its node's optimum: **PASS**. On the new binary the side-0 arms
+(`logs/validate_search_side0_rerun.txt`) give exactly the counts of
+`logs/validate_search_summary.txt` (192, 190, 192 and 192 nodes; 264, 253,
+246 and 246 separations; 52, 65, 67 and 67 pooled nodes), and PASS [m].
+
+**(d) Identity with the switches off** (`check_identity_search.sh` against a
+scratch build of 617ceda, `logs/ident_search_side1_summary.txt`,
+`logs/ident_search_side1/`) [m]:
+- nug20, the whole search at the ship test's DNN settings: trace-identical
+  (184 node lines; 184 / 172 nodes);
+- node 10 at `bestcore`'s settings, a 900 CPU-second slice: the 22 node lines
+  both runs reach are identical, 2 phases among them (the previous check had
+  the same 22).
+
+**(e) Gates** (`run_gates.sh`, `logs/gates_side1.txt`, outputs in
+`logs/gates_side1/`), on c2a040e (the code of this section), cores 1-3, one
+thread per process, the CP switches unset [m]:
+- `make` (bnbdrv, dnntest, dnncontinuation): ok;
+- `tests/brute_force.py --jobs 3`: 4,536 of 4,536 passed;
+- `tests/resume_test.py`: 5 of 5 resume cases identical;
+- `tests/parallel_test.py --jobs 3`: all parallel checks passed;
+- `tests/coord_test.py`: all coordinator scenarios passed (the AWS scenario
+  skipped, no boto3);
+- `bench/bench.py check`: 7 instances match the reference exactly;
+- `tests/dnn_test.py`: OK;
+- `tests/ship_test.py`: ship64 identical to the straight run;
+- `./latest/dnncontinuation`: PASS (72 identity cases, 648 safe
+  certificates, 108 cut-pool cases, max state and certificate error 0).
+
+### Overhead per iteration on side 1
+
+The same node, both sides at the same time, from the transpose pair's
+profiles (1,500 CP iterations each) [m]:
+
+| | side 0 (`wil50.dat`) | side 1 (`wil50t.dat`) | difference |
+|---|---|---|---|
+| CP solve, ms per iteration | 545.5 | 548.5 | +3.1 (+0.6%) |
+| projection, ms per iteration | 19.0 | 22.7 | +3.7 |
+| P-step, ms per call (2 per iteration) | 8.96 | 10.72 | +1.76 |
+| half-space pass, ms | 0.33 | 0.35 | |
+| eigensolver, s | 616.3 | 615.0 | |
+
+So side 1 costs 0.6% more per iteration than side 0, all of it in the
+P-steps. The first side-1 build, which made the stride-m passes in place,
+ran its P-steps at 16.9 ms in the same solve (stopped at t = 100, not kept).
+
+### The node-10 A/B in the production configuration
+
+`../../../pipeline_ab/run_cpt.sh` runs `bestcoret` against `cpcutt`. They
+are `bestcore` and `cpcut` on `wil50t.dat` with the symmetry file,
+`QAP_DNN_CUT_SIDE=1` and node 10 transposed: 2 slots each, at the same time,
+binary 90211a3 (`pipeline_ab/runs_cpt/`; details in
+`../../../pipeline_ab/README.md`).
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|
+| bestcoret | 231 / 226 | 5 (0) | 15,218 (8,618 + 6,600) | 4,446 | 292 ms | 2,602 |
+| cpcutt | 94 / 92 | 2 (0) | 6,426 (4,356 + 2,070) | 2,021 | 315 ms | 1,328 |
+
+- **Kill line 1.10x in DNN CPU on the matched nodes: PASS, 1.760x.** End to
+  end it is 2.200x in DNN CPU, 2.368x in iterations and 1.960x in wall [m].
+  On `wil50.dat` (`runs_cp`) it was 1.307x and 1.864x.
+- Both CP phases ran in CP form (`cp 1`). Three nodes fathom in their first
+  solve on the CP pools where `bestcoret` branches after 1,600-iteration
+  phases that end 0.15-2.4 short [m].
+- **The subtree is not `runs_cp`'s.** Node 10 branches on its marginal
+  column in both orientations: second index 45 on `wil50.dat`, 49 on
+  `wil50t.dat`, which is `wil50.dat`'s row 49. So rule 9's choice between
+  the marginal row and column is not invariant under the transposition, and
+  `bestcoret` has 231 nodes, not `bestcore`'s 277 [m]. On the nodes the two
+  orientations share, the iterations agree: 0.998x (49 nodes, the plain
+  arms) and 1.001x (48 nodes, the CP arms). The shared CP phases take 2,070
+  iterations in both [m].
+
+### A second subtree: node 5 of the tail probe, production configuration
+
+`../../../tail_probe/run_node5_cpt.sh`: the matched probe on node 5
+(`49:23,15:37,5:6` on `wil50t.dat`), `bestcoret` against `cpcutt`, 2 slots
+each, at the same time, `tail_probe/runs_node5_cpt/` (details in
+`../../../tail_probe/README.md`). The wall times were 4,185 and 5,158 s; the
+estimate beforehand was about 77 minutes [e].
+
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) |
+|---|---|---|---|
+| bestcoret | 1,290 | 118,262 (± 42,704) | 32,224 (± 10,831) |
+| cpcutt | 1,198 | 98,091 (± 36,804) | 28,095 (± 9,696) |
+
+- On the estimate, `cpcutt` takes 1.21x fewer iterations and 1.15x less CPU
+  [m]. That is well inside one standard error. All 23 of its phases ran in
+  CP form.
+- Level 4, all 47 nodes bounded in both arms: 0.78x in iterations and 0.71x
+  in CPU. There is no inherited pool, and the CP phases run 1.47x the
+  rounds' iterations. They fathom 2 more children (37 against 35 of 47) and
+  bring two others within 6 of the cutoff [m].
+- Level 5, 30 matched children on the CP pools: 1.43x in iterations and
+  1.37x in CPU. With fewer parents branching, its estimate is 460 nodes
+  against 552 [m].
+- So the gain on a tail subtree is smaller than on node 10 (1.76x matched,
+  2.2x end to end). It is not established beyond the sampling error.
+
+**nug30, a smoke test.** nug30's root on its side-1 grid (`-grid 5:6 -side 1
+-I 400 -cpsep 100:1000 -cpiters 1500 -cpcheck`,
+`logs/side1/nug30_root_s1sep100.log`): the CP solve certifies 5,995.75 from
+the uncut 5,947.80 (+47.9), optimum 6,124. The self-test passes before the
+solve (1,000 cuts, 29 classes) and after its 15 separations (1,630 cuts)
+[m]. No comparison with the rounds was run.
+
 ## Files
 
 - `run_ref.sh`: the Polyak protocol on node 13, with the old binary and with
@@ -1108,3 +1374,26 @@ and the same iterations as `cpcut`, node for node, and the same phases [m].
       stall rule, `snapshot` and `cert_term_at`.
     - dnn.h/C: `DNNYCuts::stop`, `snapshot` and `cert_term_at`, and
       DNN_CP_LAZYCERT.
+- Side 1 ("Side 1" above):
+  - Code: dnncut.C, `CutProjector::side`, `pstep_rows1` and the side-1 loop of
+    `dense_term`, the self-test's (e) and (f); `dnn_cut_cp` and `dnn_cp_bound`
+    without the side check; bnb.C, `QAP_DNN_POOL_CP` on either side.
+  - `run_selftest_side1.sh`: the self-tests (`logs/side1/cp_selftest_*.log`).
+  - `pstep_bench.C` (`bash build_pstep_bench.sh`): the P-step and dense-term
+    timings of side 0, side 1 and the side-1 loops tried.
+  - `transpose_check.py SIDE0.log SIDE1.log [--ref LOG]`: the transpose
+    equivalence and the per-iteration overhead
+    (`logs/side1/tr_s{0,1}_13.log`, the plain control
+    `logs/side1/tr_plain_s{0,1}_13.log`).
+  - `validate_search.py --arms cp1 cpwarmy1 poolcp1 cplazy1`
+    (`logs/validate_search_side1.txt`, samples in
+    `logs/validate_search_side1/`); `logs/validate_search_side0_rerun.txt`.
+  - `check_identity_search.sh` with `IDENT_LOGS` and `OLD_BNB` (617ceda):
+    `logs/ident_search_side1_summary.txt`, `logs/ident_search_side1/`.
+  - `run_gates.sh`: the merge gates (`logs/gates_side1.txt`,
+    `logs/gates_side1/`).
+  - `logs/side1/nug30_root_s1sep100.log`: nug30's root on side 1.
+  - The A/B: `../../../pipeline_ab/runs_cpt/` (arms `bestcoret` and `cpcutt`
+    in `run_pair.sh` and `summarize.py`, launched by `run_cpt.sh`).
+  - Node 5: `../../../tail_probe/runs_node5_cpt/` (arms `bestcoret` and
+    `cpcutt` in `tail_probe.py`, launched by `run_node5_cpt.sh`).

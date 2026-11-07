@@ -749,7 +749,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // first solve in CP form (dnn_cp_bound with DNNCPParams::child): the inherited
 	  // pool inside the PRSM's Y-step from nu = mu / (scale beta) instead of frozen
 	  // at mu in the objective; it hands on (and a cut phase starts from) the cuts
-	  // with nu > 0 at its final mu_D. Side 0 only; off by default
+	  // with nu > 0 at its final mu_D. Either side; off by default
 	  static const int pool_cp = getenv("QAP_DNN_POOL_CP") ? atoi(getenv("QAP_DNN_POOL_CP")) : 0;
 	  bool pool_cp_ran = false;
 	  DNNResult r;
@@ -757,7 +757,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    DNNCutParams pc;
 	    pc.side = cut_side; pc.pool_in = &pool_in; pc.pool_out = &pool_mid;
 	    pc.other_orig = &other_orig; pc.fixed_at = &fixed_at; pc.pool_check = pool_check;
-	    if (pool_cp && cut_side == 0) {
+	    if (pool_cp) {
 	      DNNCPParams cpp;
 	      cpp.child = 1; cpp.nu_from_pool = 1;
 	      r = dnn_cp_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, free_orig, n, pc, cpp, sp, save,
@@ -856,8 +856,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // QAP_DNN_CUT_CP_ITERS iterations (default the rounds' ROUNDS x ITERS +
 	    // FREEZE), stopped by the stall rule per check over STALL x ITERS
 	    // iterations. QAP_DNN_CUT_CP_SWEEPS=S[:P]: Dykstra sweeps and passes per
-	    // iteration (1:1). Off by default; side-0 regional triangles only (anything
-	    // else runs the rounds)
+	    // iteration (1:1). Off by default; regional triangles on either side
+	    // (atomic cuts would run the rounds; bnbdrv never sets them)
 	    if (const char *e = getenv("QAP_DNN_CUT_CP"))
 	      if (sscanf(e, "%d:%d", &cp.cp_every, &cp.cp_k) == 2 && cp.cp_every > 0 && cp.cp_k > 0) {
 	        cut_cp = true;

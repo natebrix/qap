@@ -1,0 +1,19 @@
+objective values are even integers: fathoming tolerance 1.95
+instance qaplib/wil50t.dat n=50 node 28:21,41:8,19:28 m=47 cutoff 48814.0500  cuts regional (grid) side 1, 13 regions
+cp pool /home/user/qap/.claude/worktrees/agent-a1fec42d163d976d3/experiments/wil50_feasibility/roadmap/admm/cpadmm/logs/side1/pool12_13_side1.txt.tmp: 13 regions, 13000 cuts (9931 with mu > 0)
+round  0  lb 17806.2249 (gain 0.0000, best 0.0000)  primal 3779.1224  status iter_limit  iters 10  cpu 3.3  active 0  violated 75839 (max 0.7807)  added 1000
+cp pool: 13000 cuts kept (0 dropped), 13000 in the projector, 54300 terms, 13 regions, 48 region-pair classes; sweeps 1 passes 1 omega 1
+cp-selftest (a) L_add vs assemble: max |diff| 2.274e-12 (max |entry| 2.352e+03, nonzeros 3816180 vs 3816180), abs 109611278.6 vs 109611278.6, h'mu 2605.855944 vs 2605.855944  ok
+cp-selftest (c) P-step moments vs aggregate(): max |diff| 2.956e-12 (max 9.429e+02)  ok
+cp-selftest (b) 60 sparse rows (441-10374 nonzeros): ||G||^2 rel diff 0.000e+00, <G,Y> - h vs moments 4.312e-15, vs rviolation 3.873e-15  ok
+cp-selftest (d) a half-space pass (8237 multipliers moved): kept moments vs aggregate(y_P - G'dnu) max |diff| 1.364e-11 (max 1.365e+03)  ok
+cp-selftest (e)    1 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 2.2e-16, max violation/||G|| 1.393e+01, complementarity 1.393e+01 (430 active of 500)
+cp-selftest (e)   10 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 4.4e-16, max violation/||G|| 7.518e-01, complementarity 1.490e+00 (404 active of 500)
+cp-selftest (e)  100 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 8.9e-16, max violation/||G|| 2.419e-06, complementarity 2.419e-06 (401 active of 500)
+cp-selftest (e) 1000 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 3.2e-15, max violation/||G|| 5.325e-14, complementarity 6.215e-14 (401 active of 500)
+cp-selftest (e) the projection's KKT conditions after 1000 sweeps (500 of the 13000 cuts)  ok
+cp-selftest (f) side 1 vs side 0 on the transposed X (13000 cuts, 48 classes): P-step Y 0.0e+00, moments 0.0e+00, half-space pass nu 0.0e+00, 3 sweeps Y 0.0e+00 nu 0.0e+00, dense term 0.0e+00  ok
+it    10 lb 23147.9451 (cert 23147.9451, margin 4.35e-06) primal 6186.0315 pres 7.46e-01 dY 5.89e-01 npos 2058 cpu 4.92
+cp it    10 cert 23147.945065604494 hsum 5.20523 cpcpu 0.22 cuts 13000 active 276 sum_nu 0.0610217 viol 271 (max 6.968e-03/||G||, rnorm 4.116e-02) dstep 1.113e-02 | ms pstep 10.94 (20) hpass 0.32 (10) diag 0.0 s
+cp solve  lb 23147.9450656045 (gain 5341.7202)  primal 6186.0315  status iter_limit  iters 10  cpu 5.0  certs 1 failures 0  kept 13000
+FINAL best_lb 23147.945066 first_lb 17806.224856 gain 5341.720209
