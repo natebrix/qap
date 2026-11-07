@@ -135,3 +135,38 @@ the mean of its two lines):
   (47^(gap/130) per unfathomed child) and one far-short child can move a line's cost by
   10-20%, so the ranking among the top three lines is not resolved, only that nothing
   beats rule 9 by a margin that matters.
+
+## Open (Nov 7): the root and depth-1 lines are untested, and they set the tail
+
+Everything above is depth 3 and below. No line study has run at depths 0-2, and
+that is where the remaining leverage is, for two reasons that do not hold deeper
+down (`../../roadmap/tree_size.md` sections 2-3; nothing here was run):
+
+- **What the top lines decide.** Nothing fathoms at depths 1-2 whatever the line,
+  so the depth-3 frontier is 29,580 orbits regardless. The lines at depths 0-2
+  decide the *distribution* of depth-3 gaps, and the two tail nodes among the 16
+  sampled (329 and 405 short) carry 85-91% of every tree estimate. In the
+  exponential model (subtree ∝ 47^(gap/130)) a 10% change in a tail node's gap is
+  2.7-3.3x on its subtree. The 5% per decision left on the table at depths 4-5 is
+  a different order of question.
+- **Why rule 9 is unvalidated there.** The root is about 680 short and the
+  relaxation is far from integral, so the marginal row and column it reads are
+  diffuse; the parents where rule 9 was validated were 160-240 short. With
+  `wil50t.sym` the root must branch on a facility (15 orbit children whatever the
+  facility), so the root decision is only *which* facility; the same holds at
+  depth 1 whenever the placed cell is in the grid's middle row.
+
+**The test, when there is time** (not run; the budget says it is cheap):
+
+- Root: all 50 facilities, 15 children each at about 250 s, about 50 CPU-hours
+  (under 0.03% of the 6e8 CPU-s budget); score each facility by the lines cost
+  (sum over its children of 47^(gap/130)) and compare rule 9's pick against the
+  best. 750 independent depth-1 solves: an overnight job on the laptop at 8 jobs.
+- Depth 1: 15 nodes; rule 9's two xbar lines plus M's line and one random line
+  per node, about 2,700 child solves, about 2e5 CPU-s, a day on the cloud box.
+  Exhaustive strong branching (49 lines x 15 nodes) is not needed.
+- Both fit inside the sampling plan's stage A, which runs depths 0-2 under the
+  production rule anyway.
+- Caveat: child gap at depth 1 is a proxy for subtree size two levels down. In the
+  tail study the same proxy's rank correlation with realised cost was +0.6 to +0.9,
+  enough to see a factor of two, not a 5% difference.
