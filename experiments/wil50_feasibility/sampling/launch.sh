@@ -8,11 +8,13 @@ stage=$1
 shift
 case $stage in stage_a|stage_b) ;; *) echo "usage: $0 stage_a|stage_b [ARGS...]"; exit 2;; esac
 mkdir -p "$D/runs"
-if [ -f "$D/runs/$stage.pid" ] && kill -0 "$(cat "$D/runs/$stage.pid")" 2>/dev/null; then
-  echo "$stage is already running (pid $(cat "$D/runs/$stage.pid"))"; exit 1
+# LAUNCH_TAG=x: a second session's pid file (runs/STAGE.x.pid), e.g. next to a draining one
+pidf="$D/runs/$stage${LAUNCH_TAG:+.$LAUNCH_TAG}.pid"
+if [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null; then
+  echo "$stage is already running (pid $(cat "$pidf"))"; exit 1
 fi
 out="$D/runs/$stage.$(date +%Y%m%d-%H%M%S).out"
 cd "$D" || exit 1
 setsid nohup python3 "$D/$stage.py" "$@" > "$out" 2>&1 < /dev/null &
-echo $! > "$D/runs/$stage.pid"
+echo $! > "$pidf"
 echo "started $stage, pid $!, log $out"

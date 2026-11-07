@@ -137,6 +137,9 @@ class StageA:
 
     def _load(self):
         self._add("r", 0, None, None)
+        if self.a.skip:
+            # tasks another (draining) session is still running: not scheduled here
+            self.ready = [t for t in self.ready if t not in self.a.skip]
         log_line(self.log_path, f"stage A: {len(self.done)} tasks done, {len(self.ready)} ready "
                                 f"(run {self.run}, binary {self.commit['commit'][:10]})")
 
@@ -211,9 +214,71 @@ class StageA:
         write_json(os.path.join(wd, "done.json"), doc)
         return doc
 
+    # ------------------------------------------------------------ claims and CPUs
+    def _claim(self, tid):
+        """claim a task for this session (tasks/<id>/claim, created atomically), so
+        that sessions that overlap never run the same task; a claim whose process
+        is gone is stale and taken over. False: another live session holds it, or
+        the task is already done (its done.json is then loaded)."""
+        wd = self.tdir(tid)
+        os.makedirs(wd, exist_ok=True)
+        p = os.path.join(wd, "claim")
+        for _ in range(2):
+            if os.path.exists(os.path.join(wd, "done.json")):
+                self.done[tid] = json.load(open(os.path.join(wd, "done.json")))
+                return False
+            try:
+                fd = os.open(p, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(fd, f"{os.getpid()} {time.strftime('%F %T')}\n".encode())
+                os.close(fd)
+                return True
+            except FileExistsError:
+                try:
+                    pid = int(open(p).read().split()[0])
+                    os.kill(pid, 0)
+                    if pid != os.getpid():
+                        return False
+                except (ValueError, IndexError, ProcessLookupError, FileNotFoundError):
+                    pass
+                except PermissionError:
+                    return False
+                try:
+                    os.remove(p)            # stale: its session is gone
+                except FileNotFoundError:
+                    pass
+        return False
+
+    def _unclaim(self, tid):
+        try:
+            os.remove(os.path.join(self.tdir(tid), "claim"))
+        except FileNotFoundError:
+            pass
+
+    @staticmethod
+    def _cpu_busy(cpu):
+        """another session's solver is pinned to this CPU (at most one solver per CPU)"""
+        for d in os.listdir("/proc"):
+            if not d.isdigit():
+                continue
+            try:
+                with open(f"/proc/{d}/comm") as f:
+                    if f.read().strip() != "bnbdrv":
+                        continue
+                if os.sched_getaffinity(int(d)) == {cpu}:
+                    return True
+            except (OSError, ProcessLookupError):
+                continue
+        return False
+
     # ------------------------------------------------------------ the slots
     def _slot(self, cpu):
         while True:
+            waited = False
+            while not self.draining and self._cpu_busy(cpu):
+                if not waited:
+                    log_line(self.log_path, f"stage A: CPU {cpu} busy with another session's solver; waiting")
+                    waited = True
+                time.sleep(10)
             with self.cond:
                 while True:
                     stop = self.draining or (self.a.max_new is not None and self.new_started >= self.a.max_new)
@@ -223,17 +288,25 @@ class StageA:
                     if stop or (not self.ready and not self.running):
                         self.cond.notify_all()
                         return
-                    if self.ready:
-                        tid = self._pick()
+                    tid = None
+                    while self.ready:
+                        t = self._pick()
+                        if self._claim(t):
+                            tid = t
+                            break
+                    if tid is not None:
                         self.running[tid] = cpu
                         self.new_started += 1
                         break
+                    if not self.ready and not self.running:
+                        continue
                     self.cond.wait(timeout=5)
             try:
                 doc = self._run_task(tid, cpu)
                 err = None
             except Exception as e:      # noqa: BLE001  (a failed task is reported and rerun next start)
                 doc, err = None, e
+            self._unclaim(tid)
             with self.cond:
                 del self.running[tid]
                 if doc is not None:
@@ -328,6 +401,10 @@ class StageA:
         for th in threads:
             while th.is_alive():
                 th.join(timeout=1.0)
+        for tid in self.tasks:          # tasks other sessions finished meanwhile
+            p = os.path.join(self.tdir(tid), "done.json")
+            if tid not in self.done and os.path.exists(p):
+                self.done[tid] = json.load(open(p))
         finished = not self.ready and not self.running and not self.failed and len(self.done) == len(self.tasks)
         if finished:
             self.assemble()
@@ -384,6 +461,8 @@ def main():
                     help=f"keep a parent's DNN state when a child hashes below this (default {TAU}; may rise on a resume)")
     ap.add_argument("--order", choices=["random", "roundrobin"], default="random",
                     help="last-depth task order: seeded random (default) or round-robin over parents by child index")
+    ap.add_argument("--skip", action="append", default=[],
+                    help="a task id another (draining) session is still running: do not schedule it here")
     ap.add_argument("--max-new", type=int, help="start at most this many tasks in this session, then drain")
     ap.add_argument("--min-free-gb", type=float, default=2.0)
     ap.add_argument("--env", action="append", default=[], help="K=V on top of the settings (validation runs only)")
