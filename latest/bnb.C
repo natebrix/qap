@@ -978,25 +978,61 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    qs_int(factor*(loc_in_row - loc_kept));
 	  
 	  if(kids > 0) {
-	    for(sum_of_scores=0.0,i=0;i<kids;i++)
-	      sum_of_scores+=score(s->getObjective(),stats->root_bound,
-				   kid[i].predicted_bound,
-				   params->score_exponent);
-	    val = sum_of_scores*drand();
-	    
+	    // Sampling probability of each child. Default: the QPB score of its
+	    // predicted bound. QAP_EST_XBAR=a: when the node has DNN marginals
+	    // (rules 8 and 9), child (i,j) gets (1-mix) x_ij^a / sum + mix/kids
+	    // (QAP_EST_XBAR_MIX, default 0.1; the uniform part keeps every
+	    // child's probability positive, so the estimate stays unbiased).
+	    static const double est_xbar_pow =
+	      getenv("QAP_EST_XBAR") ? atof(getenv("QAP_EST_XBAR")) : 0.0;
+	    static const double est_xbar_mix =
+	      getenv("QAP_EST_XBAR_MIX") ? atof(getenv("QAP_EST_XBAR_MIX")) : 0.1;
+	    std::vector<double> prob(kids, 0.0);
+	    bool by_xbar = false;
+#ifdef HAVE_DNN
+	    if (est_xbar_pow > 0.0 && (int)dnn_xbar.size() == m * m) {
+	      // local index of a free row/column = its rank among the free ones
+	      std::vector<int> lrow(n, -1), lcol(n, -1);
+	      for (int r = 0, k = 0; r < n; r++) if (node.p[r] <= NONE) lrow[r] = k++;
+	      for (int c = 0, k = 0; c < n; c++) if (node.pinv[c] <= NONE) lcol[c] = k++;
+	      double wsum = 0.0;
+	      for (int k = 0; k < kids; k++) {
+		double x = 0.0;
+		for (int r = 0; r < n; r++)   // the pair this child fixes
+		  if (node.p[r] <= NONE && kid[k].p[r] > NONE) {
+		    x = dnn_xbar[lrow[r] * m + lcol[kid[k].p[r]]];
+		    break;
+		  }
+		prob[k] = pow(std::max(x, 0.0), est_xbar_pow);
+		wsum += prob[k];
+	      }
+	      if (wsum > 0.0) {
+		by_xbar = true;
+		for (int k = 0; k < kids; k++)
+		  prob[k] = (1.0 - est_xbar_mix) * prob[k] / wsum + est_xbar_mix / kids;
+	      }
+	    }
+#endif
+	    if (!by_xbar) {
+	      for(sum_of_scores=0.0,i=0;i<kids;i++) {
+		prob[i] = score(s->getObjective(),stats->root_bound,
+				kid[i].predicted_bound,
+				params->score_exponent);
+		sum_of_scores += prob[i];
+	      }
+	      for(i=0;i<kids;i++) prob[i] /= sum_of_scores;
+	    }
+	    val = drand();
+
 	    sum_so_far = 0.0; i=0;
 	    do {
-	      sum_so_far += score(s->getObjective(),stats->root_bound,
-				  kid[i].predicted_bound,
-				  params->score_exponent);
+	      sum_so_far += prob[i];
 	      if(sum_so_far >= val) break;
 	      i++;
 	    } while(i<kids-1);
-	    
-	    importance = score(s->getObjective(),stats->root_bound,
-			       kid[i].predicted_bound,
-			       params->score_exponent)/sum_of_scores;
-	    
+
+	    importance = prob[i];
+
 	    push(stack,kid[i],stats);
 	  }
 	}
