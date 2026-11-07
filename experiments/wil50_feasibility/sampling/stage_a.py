@@ -74,15 +74,27 @@ class StageA:
         settings, info = fullrun_env(self.binary)
         cfg = {"instance": a.instance or info["FULLRUN_INSTANCE"], "sym": a.sym or info["FULLRUN_SYM"],
                "ub": a.ub if a.ub is not None else float(info["FULLRUN_UB"]), "params": a.params,
-               "xspec": a.xspec, "depth": a.depth, "seed": a.seed, "tau": a.tau,
+               "xspec": a.xspec, "depth": a.depth, "seed": a.seed, "tau": a.tau if a.tau is not None else TAU,
                "env_overrides": dict(kv.split("=", 1) for kv in a.env), "settings_env": settings,
                "commit": self.commit}
         if os.path.exists(cfg_path):
             old = json.load(open(cfg_path))
-            for k in ("instance", "sym", "ub", "params", "xspec", "depth", "seed", "tau", "env_overrides",
-                      "settings_env"):
+            for k in ("instance", "sym", "ub", "params", "xspec", "depth", "seed", "env_overrides", "settings_env"):
                 if old[k] != cfg[k]:
                     raise SystemExit(f"{cfg_path}: {k} was {old[k]!r}, now {cfg[k]!r}; use another --run")
+            # tau only decides which parents keep their DNN state for stage B (the
+            # sample is the bottom-n by hash whatever tau is), so it may rise on a
+            # resume; the tasks finished before keep what they kept
+            if a.tau is None:
+                a.tau = old["tau"]
+            if a.tau < old["tau"]:
+                raise SystemExit(f"{cfg_path}: tau was {old['tau']}, may only rise (now {a.tau})")
+            if a.tau > old["tau"]:
+                hist = old.get("tau_history", [[old["tau"], 0]])
+                hist.append([a.tau, len([1 for t in os.listdir(os.path.join(self.run, "tasks"))
+                                         if os.path.exists(os.path.join(self.run, "tasks", t, "done.json"))])])
+                old["tau"], old["tau_history"] = a.tau, hist
+                write_json(cfg_path, old)
             cfg = old
         else:
             write_json(cfg_path, cfg)
@@ -351,7 +363,8 @@ def main():
     ap.add_argument("--slots", type=int, default=4)
     ap.add_argument("--cpus", default="0,1,2,3", help="one CPU per slot (taskset)")
     ap.add_argument("--seed", type=int, default=SEED)
-    ap.add_argument("--tau", type=float, default=TAU)
+    ap.add_argument("--tau", type=float, default=None,
+                    help=f"keep a parent's DNN state when a child hashes below this (default {TAU}; may rise on a resume)")
     ap.add_argument("--max-new", type=int, help="start at most this many tasks in this session, then drain")
     ap.add_argument("--min-free-gb", type=float, default=2.0)
     ap.add_argument("--env", action="append", default=[], help="K=V on top of the settings (validation runs only)")
