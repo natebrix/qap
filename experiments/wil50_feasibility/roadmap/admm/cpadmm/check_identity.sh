@@ -10,6 +10,8 @@
 #   2. the cut phase: dnncuts with the dual test's flags on node 13, old against
 #      new, from run_ref.sh's two logs (the new one also wrote the round-12 pool):
 #      every "it", "round" and "quiet" line, CPU stripped.
+#   2b. (CUT4=1) the same with the final binaries, shorter: 4 rounds and a quiet
+#      round of 300 (OLD_DNNCUTS against this tree's dnncuts).
 #   3. the CP code path with an empty pool against the plain solve from the same
 #      give-up point (dnncuts -cpadmm with pool "-" against -cpplain): the
 #      restructured Y/Z step reproduces the plain one bit for bit.
@@ -17,6 +19,7 @@
 D=$(cd "$(dirname "$0")" && pwd); R=$(cd "$D/../../../../.." && pwd)
 S=/tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad
 OLD_DNNTEST=${OLD_DNNTEST:-$S/dnntest_old}
+OLD_DNNCUTS=${OLD_DNNCUTS:-$S/dnncuts_old}
 NEW_DNNTEST=${NEW_DNNTEST:-$R/latest/dnntest}
 NEW_DNNCUTS=${NEW_DNNCUTS:-$R/experiments/dnn_cuts/dnncuts}
 CPU=${CPU:-3}
@@ -50,6 +53,12 @@ done
 if [ -s "$D/logs/polyak_ref_13.log" ] && [ -s "$D/logs/polyak_new_13.log" ]; then
   same "dnncuts node 13 cut phase (12 rounds + quiet)" "$D/logs/polyak_ref_13.log" "$D/logs/polyak_new_13.log"
 else echo "dnncuts node 13 cut phase: run_ref.sh logs missing"; fi
+if [ "${CUT4:-0}" = 1 ]; then
+  C4="-grid 5:10 -u 48816 -T 1 -k 1000 -v -I 400 -i 300 -r 4 -delta 50 -nocap -freeze 0:300 -vc -x 21:28,8:41,28:19"
+  [ -s "$L/cut4_old.log" ] || taskset -c $CPU "$OLD_DNNCUTS" $C4 qaplib/wil50.dat > "$L/cut4_old.log" 2>&1
+  [ -s "$L/cut4_new.log" ] || taskset -c $CPU "$NEW_DNNCUTS" $C4 qaplib/wil50.dat > "$L/cut4_new.log" 2>&1
+  same "dnncuts node 13, 4 rounds + quiet 300, final binary" "$L/cut4_old.log" "$L/cut4_new.log"
+fi
 for spec in "nug12s|-grid 3:4 -c 578 -I 200|$D/logs/validate/nug12_swapped.dat|400" "w13|-grid 5:10 -u 48816 -I 40 -x 21:28,8:41,28:19|qaplib/wil50.dat|60"; do
   IFS='|' read -r name flags dat its <<< "$spec"
   [ -s "$dat" ] || { echo "$name: $dat missing (run validate_cp.py first)"; continue; }
