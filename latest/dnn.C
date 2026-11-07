@@ -2382,7 +2382,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     if (cp_swapped) std::swap(w.L, w.Lcp);
     // CP-ADMM: the bound of the cut-modified objective less h'mu (rounded up by
     // the hook), rounded down; lb = lbs + shift below rounds down once more
-    if (yc && lbs > -HUGE_VAL) lbs = nextafter(lbs - cp_hsum, -HUGE_VAL);
+    if (cp_swapped && lbs > -HUGE_VAL) lbs = nextafter(lbs - cp_hsum, -HUGE_VAL);
     if (cx_on) {
       // experimental certificate variants at this iterate (DNN_CERTX; see above)
       const double tx0 = thread_cpu();
