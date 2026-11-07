@@ -11,7 +11,9 @@
 #                       (13,000 triangles, zero multipliers included), the
 #                       frozen pool of the CP-ADMM runs. Its trace must equal
 #                       the old one's (check_identity.sh).
-#   bash run_ref.sh            (both; OLD defaults to the scratch build)
+#   polyak_prod_13.log  this tree's binary with the production DNN settings
+#                       (run_cp.sh's PROD_ENV and -d 3), pool to pool12_prod_13.txt
+#   bash run_ref.sh [old|new|prod|both]   (both = old and new; OLD defaults to the scratch build)
 D=$(cd "$(dirname "$0")" && pwd); R=$(cd "$D/../../../../.." && pwd)
 OLD=${OLD:-/tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/dnncuts_old}
 NEW=$R/experiments/dnn_cuts/dnncuts
@@ -19,14 +21,17 @@ F="-grid 5:10 -u 48816 -T 1 -k 1000 -v -I 400 -i 300 -r 12 -delta 50 -nocap -fre
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 cd "$R" || exit 1
 mkdir -p "$D/logs"
+PROD_ENV="DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40 DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.25,wc=0.7 DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1"
 one() { # tag core binary extra...
   local tag=$1 core=$2 bin=$3; shift 3
-  local f=$D/logs/${tag}_13.log
+  local f=$D/logs/${tag}_13.log envs=""
+  [ "$tag" = polyak_prod ] && envs=$PROD_ENV
   grep -q '^FINAL' "$f" 2>/dev/null && return 0
-  taskset -c $core "$bin" $F "$@" qaplib/wil50.dat > "$f.tmp" 2>&1 && mv "$f.tmp" "$f"
+  env $envs taskset -c $core "$bin" $F "$@" qaplib/wil50.dat > "$f.tmp" 2>&1 && mv "$f.tmp" "$f"
 }
 case ${1:-both} in
   old) one polyak_ref ${CORE:-0} "$OLD" ;;
   new) one polyak_new ${CORE:-1} "$NEW" -savepoolall 12:$D/logs/pool12_13.txt ;;
+  prod) one polyak_prod ${CORE:-2} "$NEW" -d 3 -savepoolall 12:$D/logs/pool12_prod_13.txt ;;
   both) one polyak_ref 0 "$OLD" & one polyak_new 1 "$NEW" -savepoolall 12:$D/logs/pool12_13.txt; wait ;;
 esac

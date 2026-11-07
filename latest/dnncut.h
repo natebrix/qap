@@ -229,10 +229,15 @@ struct DNNCPParams {
   int diag_every;     // > 0: every this many Y-steps, the distance of the output to a
   int diag_sweeps;    // run of diag_sweeps sweeps from the same start (0; 30)
   int selftest;       // 1: check the cut extraction against assemble() first (0)
-  DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0) {}
+  int quiet_iters;    // > 0: then a quiet round: the plain solve (DNNParams::L_add) with the
+                      // final multipliers mu_D frozen, warm from the CP solve's Z, this many
+                      // iterations (0); its certified bound goes to quiet_lb
+  double quiet_lb;    // out: the quiet round's certified bound (-inf when not run)
+  DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0), quiet_iters(0),
+                  quiet_lb(-HUGE_VAL) {}
 };
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,
-                       const DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept = NULL);
+                       DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept = NULL);
 
 #endif

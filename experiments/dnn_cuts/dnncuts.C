@@ -11,7 +11,7 @@
        [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-loadpool F] [-savepool F]
        [-poolcheck K] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
        [-savepoolall R:F] [-cpadmm F [-cpiters N] [-cpsweeps S] [-cppasses K]
-       [-cpdiag E[:S]] [-cpcheck]]
+       [-cpdiag E[:S]] [-cpcheck] [-cpquiet N]]
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
  original indices of one side (default side 0, the first matrix: wil50's
@@ -44,8 +44,10 @@
  state with pool F frozen inside the Y-step (dnn_cp_bound, latest/dnncut.h):
  -cpsweeps S Dykstra sweeps per iteration (1), -cppasses K half-space passes per
  sweep (1), -cpdiag E[:S] every E iterations the distance to an S-sweep
- projection (30), -cpcheck the cut extraction self-test first. The per-check
- trace (-vc is implied) is certified at every check.
+ projection (30), -cpcheck the cut extraction self-test first, -cpquiet N
+ afterwards a quiet round of N iterations with the final multipliers frozen
+ (the plain path with L_add, warm). The per-check trace (-vc is implied) is
+ certified at every check.
 */
 
 #include "dnncut.h"
@@ -197,6 +199,7 @@ int main(int argc, char **argv)
       cpp.diag_every = atoi(z); if (c) cpp.diag_sweeps = atoi(c + 1);
     }
     else if (o == "-cpcheck") cpp.selftest = 1;
+    else if (o == "-cpquiet" && more) cpp.quiet_iters = atoi(argv[++a]);   // then a quiet round with mu_D frozen
     else if (o == "-cpplain") cp_plain = 1;   // the same solve from the give-up point without the cuts (no hook)
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
@@ -309,8 +312,8 @@ int main(int argc, char **argv)
     printf("cp solve  lb %.10f (gain %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  certs %d failures %d  kept %d\n",
            r.lb, r.lb - r0.first_lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, r.certificates,
            r.cert_failures, kept);
-    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", std::max(r.lb, r0.first_lb), r0.first_lb,
-           std::max(r.lb, r0.first_lb) - r0.first_lb);
+    const double fin = std::max(std::max(r.lb, r0.first_lb), cpp.quiet_lb);
+    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", fin, r0.first_lb, fin - r0.first_lb);
     delete q;
     return 0;
   }

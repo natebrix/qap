@@ -852,8 +852,10 @@ public:
       // the distance of this Y-step's output to a longer run of the same projection
       // from the same start (nu0): ||Y - Y_long||_F, ||G'(nu - nu_long)|| proxy
       std::vector<double> nu_out = nu, Yl((size_t)n1 * n1);
+      const double dstep_out = last_dstep;
       nu = nu0;
       run(X, Yl.data(), elim, diag_sweeps);
+      last_dstep = dstep_out;
       double dy = 0, yn = 0;
       for (size_t t = 0; t < Yl.size(); t++) { dy += (Y[t] - Yl[t]) * (Y[t] - Yl[t]); yn += Yl[t] * Yl[t]; }
       double dn = 0;
@@ -1603,7 +1605,7 @@ bool cp_selftest(CutProjector &pj, std::vector<Cut> cuts, const std::vector<Regi
 
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,
-                       const DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept)
+                       DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept)
 {
   DNNResult bad;
   bad.lb = -HUGE_VAL; bad.primal = HUGE_VAL; bad.status = DNN_ERROR; bad.iterations = 0; bad.cpu = 0;
@@ -1637,5 +1639,26 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   DNNParams p = par;
   p.ycuts = &pj;
   p.L_add = NULL; p.L_add_abs = 0;
-  return dnn_bound(A, B, C, shift, cutoff, p, start, save);
+  DNNWarm own;
+  DNNWarm *sv = save ? save : &own;
+  DNNResult r = dnn_bound(A, B, C, shift, cutoff, p, start, sv);
+  cpp.quiet_lb = -HUGE_VAL;
+  if (cpp.quiet_iters > 0 && r.status != DNN_FATHOMED && r.status != DNN_ERROR && sv->scale > 0) {
+    // the quiet round: mu_D = scale beta nu frozen as L_add, the cut rounds' path
+    std::vector<double> La((size_t)n1 * n1, 0.0);
+    double abs_add = 0, hsum = 0;
+    const bool any = pj.dense_term((long double)sv->scale * (long double)pj.beta_last, pj.nu, La.data(), abs_add, hsum);
+    DNNParams q = par;
+    q.ycuts = NULL;
+    q.max_iter = cpp.quiet_iters;
+    q.L_add = any ? La.data() : NULL; q.L_add_abs = any ? abs_add : 0;
+    if (!any) hsum = 0;
+    DNNWarm st = *sv;
+    DNNResult rq = dnn_bound(A, B, C, shift - hsum, cutoff, q, &st, sv);
+    cpp.quiet_lb = rq.lb;
+    if (cp.verbose)
+      printf("cp quiet round  lb %.10f  primal %.4f  status %s  iters %d  cpu %.1f  h'mu %.6g\n", rq.lb, rq.primal,
+             dnn_status_name(rq.status), rq.iterations, rq.cpu, hsum);
+  }
+  return r;   // the CP solve's own result; the quiet round's bound is in cpp.quiet_lb
 }
