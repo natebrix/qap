@@ -1,0 +1,49 @@
+[Jan 1, 2023]
+vm
+parameters file: PARAM/nug_deep_xbar9_all.par
+DNN bound at depths 0-4, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, OpenBLAS (prefix 'scipy_')
+incumbent: 2570
+input file: ../qaplib/nug20.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+read symmetry info from ./SYM/nug20.sym
+  ---- RESULTS ----
+
+    Total Time: 28.245 seconds 
+         Nodes: 184 / 172 / 0
+    root bound: 2243.94
+ fw iterations: 20199
+     DNN bound: 184 nodes, 172 fathomed, 25.0366 s
+     cut phase: 8 nodes, 0 fathomed, 2.86967 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    1.56
+ 1           6	0.1667	0.0000	    9.35
+ 2          79	0.9494	0.0000	   10.13
+ 3          64	0.9688	0.0000	    6.09
+ 4          34	1.0000	N/A	    1.11
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   1.0000   0.0000   0.0000  | 6 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 79 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 64 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 34 
+nodes       1        6      177        0 
+time     1.56     9.35    17.34     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.196981	0.000000
+ 2| 0.051548	0.030325
+ 3| 0.032269	0.015246
+ 4| 0.012611	0.001542
+

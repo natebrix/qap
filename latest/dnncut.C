@@ -935,6 +935,7 @@ public:
     }
     cuts.swap(nc); terms.swap(nt); nu.swap(nn); pool.swap(np); last_pos.swap(nl);
     rebuild_sums();
+    gen++;   // the snapshots' cut indices are stale
   }
 
   // separation on the moments (Pm, Wm) of the Y-step's output at iteration it: the
@@ -1053,6 +1054,24 @@ public:
   bool cert_term(double scale, double beta, double *Ladd, double &abs_add, double &hsum) override
   {
     return dense_term((long double)scale * (long double)beta, nu, Ladd, abs_add, hsum);
+  }
+
+  // DNN_CP_LAZYCERT: a check's multipliers, for its certificate at the exit (the cuts
+  // separated since enter at zero; a compaction since makes the slot unavailable)
+  std::vector<double> snap_nu[2];
+  long double snap_f[2] = {0, 0};
+  int snap_gen[2] = {-1, -1}, gen = 0;
+  void snapshot(int slot, double scale, double beta) override
+  {
+    if (slot < 0 || slot > 1) return;
+    snap_nu[slot] = nu; snap_f[slot] = (long double)scale * (long double)beta; snap_gen[slot] = gen;
+  }
+  int cert_term_at(int slot, double *Ladd, double &abs_add, double &hsum) override
+  {
+    if (slot < 0 || slot > 1 || snap_gen[slot] != gen) return -1;
+    std::vector<double> v = snap_nu[slot];
+    v.resize(cuts.size(), 0.0);
+    return dense_term(snap_f[slot], v, Ladd, abs_add, hsum) ? 1 : 0;
   }
 
   bool stop(int it, double best) override

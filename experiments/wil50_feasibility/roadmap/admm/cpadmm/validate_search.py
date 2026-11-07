@@ -18,8 +18,10 @@ matrix (grid 3:4 regions, side 0). Arms:
   cp       QAP_DNN_CUT_CP=50:100 (Y restarted at 0)
   cpwarmy  the same with QAP_DNN_CUT_WARMY=1 (the phase starts from the first solve's Y)
   poolcp   cpwarmy plus QAP_DNN_POOL_CP=1 (a pooled child's first solve in CP form)
+  cplazy   poolcp plus the lazy certificate, in the plain solves (DNN_CORE_LAZYCERT=1)
+           and in the CP ones (DNN_CP_LAZYCERT=1)
 
-  python3 validate_search.py [--core 0] [--count 2] [--out DIR] [--arms cp cpwarmy poolcp]
+  python3 validate_search.py [--core 0] [--count 2] [--out DIR] [--arms cp cpwarmy poolcp cplazy]
 """
 import argparse
 import importlib.util
@@ -40,7 +42,8 @@ BASE_ENV = {"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "QAP_DNN_GAMMA1
             "QAP_DNN_CUT_K": "100", "QAP_DNN_CUT_ROUNDS": "4", "QAP_DNN_CUT_ITERS": "100", "QAP_DNN_CUT_FREEZE": "200",
             "QAP_DNN_POOL": "1", "QAP_DNN_POOL_CHECK": "20", "QAP_DNN_CUT_CP": "50:100"}
 ARMS = {"cp": {}, "cpwarmy": {"QAP_DNN_CUT_WARMY": "1"},
-        "poolcp": {"QAP_DNN_CUT_WARMY": "1", "QAP_DNN_POOL_CP": "1"}}
+        "poolcp": {"QAP_DNN_CUT_WARMY": "1", "QAP_DNN_POOL_CP": "1"},
+        "cplazy": {"QAP_DNN_CUT_WARMY": "1", "QAP_DNN_POOL_CP": "1", "DNN_CORE_LAZYCERT": "1", "DNN_CP_LAZYCERT": "1"}}
 FLAGS = ["-p", "PARAM/nug_deep_xbar9_all.par", "-s", "/nonexistent.sym", "-x", "0:30:1:0:1"]
 TOL = 1e-4
 
