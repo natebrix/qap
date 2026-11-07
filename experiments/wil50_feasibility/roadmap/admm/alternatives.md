@@ -58,7 +58,7 @@ high rank. 2403.11210 is about penalty heuristics.
 | dual-factorized ADMM (De Santis-Rendl-Wiegele 2018; Cerulli et al. 2021) | GEMMs with U, K x 600 | about ADMM's | perturbation or repair of the dual [m] | K r | good | our Chebyshev-tracked negative subspace already does this |
 | RLT2 dual ascent (Hahn-Grant; Adams et al. 2007; Date-Nagi GPU) | O(n^6) multipliers, about 1.6e10 at n = 50 [e] | many | every dual-feasible LP point | far too large | GPU clusters | ">= 10x rPRSM's time for similar bounds" (Graham et al.) [m] |
 | CP-ALM / CP-ADMM (de Meijer-Sotirov 2021; de Meijer et al. 2023) | PRSM plus one Dykstra sweep over the cuts, +10-30% [e] | not reported at this size | their paper needs a post-processing solve [m]; ours: GL(L + Z' + G'mu_D) - h'mu_D for the Dykstra mu_D >= 0 [e] | + pool | same as PRSM | research code, published bounds on QCCP and graph partition |
-| box-cone ADMM (Charbonneau-Hu-Sotirov, arXiv 2610.41051, Oct 29 2026) | PRSM plus one sort-and-clip projection per cut row (the 2n bound-factor products of one inequality share a slack, so they form one box cone; no Dykstra loop, no slack per scalar cut) [m, their claim] | not reported on QAP; BQP against SDPNAL+, Max-Cut triangle cuts inside MADAM's B&B 6.5% median faster on 220 graphs [m] | none: "residual-corrected dual bounds ... should not be interpreted as certified" [m]; ours would be the Dykstra form of item 2 with mu_D read off the cone multipliers [e] | + pool | same as PRSM | C/MPI research code; the cheap projection exists only for cut families with the shared-slack form, which ours (pooled, not bound-factor products of a common row) may not have; an hour's read for item 2, not a build |
+| box-cone ADMM (Charbonneau-Hu-Sotirov, arXiv 2610.41051, Oct 29 2026) | PRSM plus one sort-and-clip projection per cut row (the 2n bound-factor products of one inequality share a slack, so they form one box cone; no Dykstra loop, no slack per scalar cut) [m, their claim] | not reported on QAP; BQP against SDPNAL+, Max-Cut triangle cuts inside MADAM's B&B 6.5% median faster on 220 graphs [m] | none: "residual-corrected dual bounds ... should not be interpreted as certified" [m]; ours would be the Dykstra form of item 2 with mu_D read off the cone multipliers [e] | + pool | same as PRSM | C/MPI research code; the cheap projection exists only for cut families with the shared-slack form, which ours (pooled, not bound-factor products of a common row) may not have; an hour's read for item 2, not a build. Read Nov 7 (`cpadmm/README.md`): none of our families has the bound-factor form; the Appendix-A base-pair grouping fits the regional triangles but gives near-scalar cones (mean 4.6 third vertices) |
 | preconditioned ALM / SDPF+ (Tang-Toh, arXiv 2605.17089, May 2026) | ALM with a tangent-space-weighted penalty on a feasible-method base | - | any outer Z through our certificate | - | - | claims wins only on SDPs with low-rank optimal solutions; the same exclusion as cuHALLaR, LoRADS and RNNAL (rank R* about 1,500 of 2,117) |
 
 ## 3. Why nothing replaces the PRSM
@@ -134,6 +134,9 @@ version of that idea, but the heavily overlapping regional cuts may make the swe
 **Cheapest test:** node 13's round-12 pool, frozen. PRSM plus the Dykstra Y-step from the
 give-up point.
 **Kill:** not within 10 of 48,763 by 2,000 iterations, or more than 30% per-iteration overhead.
+**Measured Nov 7 (`cpadmm/README.md`): passes.** 48,753 certified at 1,040 iterations after the
+give-up point against the Polyak protocol's 4,860 (4.7x, 4.9x in CPU), +3.8% per iteration
+(+13.5% in the production settings); the pool's dual optimum is at least 48,771.7.
 
 **3. Already on the roadmap and consistent with the literature:** certificate polishing / GL
 subgradient ascent on mu (a bundle on the polyhedral part only, which is where Rendl-Sotirov's
@@ -155,7 +158,7 @@ a GPU than PRSM).
 | Graham 2022 | ceiling of the bound for integer data | done (even objective, cutoff 48,814.05) |
 | Hu-Sotirov-Wolkowicz 2023 | symmetry reduction after FR | n/a below the root: wil50's order-4 grid group fixes almost no location, so a depth-3 node's stabilizer is trivial or order 2 [e] |
 | Kim-Kojima-Toh / Fujii 2021 | warm-started brackets in B&B, valid bound at any iterate | equivalent (warm Z, any-Z certificate) |
-| de Meijer-Sotirov 2021/2023 | cuts in the projection by Dykstra | **not done**. Item 2 |
+| de Meijer-Sotirov 2021/2023 | cuts in the projection by Dykstra | measured Nov 7 on a frozen pool (`cpadmm/`): passes item 2's kill line, 4.7x fewer iterations to the plateau; not in the search yet |
 | Charbonneau-Hu-Sotirov 2026 | bound-factor RLT cuts as one box cone per inequality, projected by sort and clip inside the ADMM | not done; found Nov 6 by a citation pass over Graham 2022 (OpenAlex and Semantic Scholar, 14 citing papers, all others off-topic or already here); the question for item 2 is whether any of our cut families has the shared-slack form |
 | Jansson-Chaykin-Keil 2007; VSDP; SDPLR+ 2024 | rigorous bound from a dual point plus a primal eigenvalue/trace bound | done, with the exact trace m+1 (stronger than a lambda_max(X) bound) and Rump's Cholesky; the certificate is 3% of time with margin about 1e-7 [m], so nothing cheaper or stronger is left on this side |
 

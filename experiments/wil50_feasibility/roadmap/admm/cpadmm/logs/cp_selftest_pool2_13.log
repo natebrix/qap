@@ -1,0 +1,71 @@
+objective values are even integers: fathoming tolerance 1.95
+instance qaplib/wil50.dat n=50 node 21:28,8:41,28:19 m=47 cutoff 48814.0500  cuts regional (grid) side 0, 13 regions
+cp pool /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/t/pool2_13.txt: 13 regions, 3000 cuts (1991 with mu > 0)
+round  0  lb 48596.8362 (gain 0.0000, best 0.0000)  primal 48587.9882  status iter_limit  iters 400  cpu 196.3  active 0  violated 9403 (max 0.0900)  added 2000
+cp pool: 3000 cuts kept (0 dropped), 3000 in the projector, 13228 terms, 13 regions, 48 region-pair classes; sweeps 1 passes 1
+cp-selftest (a) L_add vs assemble: max |diff| 5.684e-14 (max |entry| 1.592e+02, nonzeros 1792956 vs 1792956), abs 13536362.82 vs 13536362.82, h'mu 1458.700287 vs 1458.700287  ok
+cp-selftest (c) P-step moments vs aggregate(): max |diff| 2.615e-12 (max 9.105e+02)  ok
+cp-selftest (b) 60 sparse rows (1106-8029 nonzeros): ||G||^2 rel diff 0.000e+00, <G,Y> - h vs moments 3.401e-15, vs rviolation 3.538e-15  ok
+cp-selftest (d) a half-space pass (2120 multipliers moved): kept moments vs aggregate(y_P - G'dnu) max |diff| 1.091e-11 (max 1.248e+03)  ok
+it    10 lb 47992.1634 (cert 47992.1634, margin 4.47e-06) primal 45448.5785 pres 3.44e-01 dY 4.16e-01 npos 1633 cpu 6.36
+cp it    10 cert 47992.163395084761 hsum 227.407 cpcpu 0.18 cuts 3000 active 2078 sum_nu 0.627583 viol 1403 (max 2.822e-03/||G||, rnorm 2.263e-02) dstep 5.101e-03
+it    20 lb 48283.9580 (cert 48283.9580, margin 4.47e-06) primal 48041.0953 pres 1.95e-01 dY 1.74e-01 npos 1621 cpu 10.68
+cp it    20 cert 48283.957950895689 hsum 273.364 cpcpu 0.36 cuts 3000 active 1578 sum_nu 0.856943 viol 2340 (max 1.785e-03/||G||, rnorm 2.726e-02) dstep 2.461e-03
+it    30 lb 48388.8361 (cert 48388.8361, margin 4.45e-06) primal 48853.9072 pres 1.25e-01 dY 9.91e-02 npos 1537 cpu 16.34
+cp it    30 cert 48388.836110170821 hsum 285.137 cpcpu 0.54 cuts 3000 active 1498 sum_nu 1.02612 viol 2492 (max 1.876e-03/||G||, rnorm 2.924e-02) dstep 2.310e-03
+it    40 lb 48452.2858 (cert 48452.2858, margin 4.44e-06) primal 48559.6362 pres 1.06e-01 dY 5.66e-02 npos 1557 cpu 21.39
+cp it    40 cert 48452.285845145459 hsum 308.258 cpcpu 0.72 cuts 3000 active 1437 sum_nu 1.18991 viol 2468 (max 1.613e-03/||G||, rnorm 2.434e-02) dstep 1.862e-03
+it    50 lb 48488.0022 (cert 48488.0022, margin 4.43e-06) primal 48560.2590 pres 8.01e-02 dY 5.03e-02 npos 1502 cpu 27.51
+cp it    50 cert 48488.00220600373 hsum 330.64 cpcpu 1.09 cuts 3000 active 1405 sum_nu 1.34126 viol 2472 (max 1.451e-03/||G||, rnorm 2.292e-02) dstep 3.812e-04  diag@50 (30 sweeps): |Y-Ylong| 2.642e-02 (|Ylong| 4.611e+00) |G'(nu-nulong)| 7.003e-02 long maxviol 2.813e-04
+it    60 lb 48515.5694 (cert 48515.5694, margin 4.41e-06) primal 48535.2820 pres 7.25e-02 dY 3.39e-02 npos 1531 cpu 32.87
+cp it    60 cert 48515.569429503084 hsum 351.599 cpcpu 1.28 cuts 3000 active 1388 sum_nu 1.47627 viol 2453 (max 1.403e-03/||G||, rnorm 2.117e-02) dstep 1.530e-03  diag@50 (30 sweeps): |Y-Ylong| 2.642e-02 (|Ylong| 4.611e+00) |G'(nu-nulong)| 7.003e-02 long maxviol 2.813e-04
+it    70 lb 48536.4815 (cert 48536.4815, margin 4.40e-06) primal 48561.7430 pres 6.29e-02 dY 3.22e-02 npos 1506 cpu 38.86
+cp it    70 cert 48536.481535458901 hsum 372.206 cpcpu 1.45 cuts 3000 active 1394 sum_nu 1.60372 viol 2439 (max 1.357e-03/||G||, rnorm 2.020e-02) dstep 1.448e-03  diag@50 (30 sweeps): |Y-Ylong| 2.642e-02 (|Ylong| 4.611e+00) |G'(nu-nulong)| 7.003e-02 long maxviol 2.813e-04
+it    80 lb 48553.5433 (cert 48553.5433, margin 4.39e-06) primal 48533.7258 pres 5.91e-02 dY 2.41e-02 npos 1524 cpu 44.22
+cp it    80 cert 48553.543347650062 hsum 391.507 cpcpu 1.63 cuts 3000 active 1388 sum_nu 1.72222 viol 2393 (max 1.275e-03/||G||, rnorm 1.879e-02) dstep 1.217e-03  diag@50 (30 sweeps): |Y-Ylong| 2.642e-02 (|Ylong| 4.611e+00) |G'(nu-nulong)| 7.003e-02 long maxviol 2.813e-04
+it    90 lb 48567.1706 (cert 48567.1706, margin 4.38e-06) primal 48558.2696 pres 5.41e-02 dY 2.41e-02 npos 1505 cpu 49.80
+cp it    90 cert 48567.170643112389 hsum 410.069 cpcpu 1.80 cuts 3000 active 1393 sum_nu 1.83366 viol 2401 (max 1.247e-03/||G||, rnorm 1.828e-02) dstep 1.223e-03  diag@50 (30 sweeps): |Y-Ylong| 2.642e-02 (|Ylong| 4.611e+00) |G'(nu-nulong)| 7.003e-02 long maxviol 2.813e-04
+it   100 lb 48579.4764 (cert 48579.4764, margin 4.37e-06) primal 48540.6181 pres 5.16e-02 dY 1.90e-02 npos 1523 cpu 55.20
+cp it   100 cert 48579.476356245767 hsum 428.028 cpcpu 2.21 cuts 3000 active 1402 sum_nu 1.93928 viol 2348 (max 1.174e-03/||G||, rnorm 1.699e-02) dstep 2.707e-04  diag@100 (30 sweeps): |Y-Ylong| 2.205e-02 (|Ylong| 5.094e+00) |G'(nu-nulong)| 6.879e-02 long maxviol 1.724e-04
+it   110 lb 48590.0289 (cert 48590.0289, margin 4.36e-06) primal 48553.0933 pres 4.88e-02 dY 1.97e-02 npos 1505 cpu 60.99
+cp it   110 cert 48590.028901059959 hsum 445.095 cpcpu 2.39 cuts 3000 active 1431 sum_nu 2.03868 viol 2325 (max 1.184e-03/||G||, rnorm 1.642e-02) dstep 9.999e-04  diag@100 (30 sweeps): |Y-Ylong| 2.205e-02 (|Ylong| 5.094e+00) |G'(nu-nulong)| 6.879e-02 long maxviol 1.724e-04
+it   120 lb 48599.7812 (cert 48599.7812, margin 4.36e-06) primal 48550.1389 pres 4.69e-02 dY 1.59e-02 npos 1525 cpu 66.29
+cp it   120 cert 48599.781166583722 hsum 461.685 cpcpu 2.57 cuts 3000 active 1440 sum_nu 2.13421 viol 2282 (max 1.111e-03/||G||, rnorm 1.559e-02) dstep 9.608e-04  diag@100 (30 sweeps): |Y-Ylong| 2.205e-02 (|Ylong| 5.094e+00) |G'(nu-nulong)| 6.879e-02 long maxviol 1.724e-04
+it   130 lb 48608.1297 (cert 48608.1297, margin 4.35e-06) primal 48553.7142 pres 4.50e-02 dY 1.70e-02 npos 1504 cpu 72.04
+cp it   130 cert 48608.129669000125 hsum 477.363 cpcpu 2.74 cuts 3000 active 1462 sum_nu 2.2243 viol 2264 (max 1.077e-03/||G||, rnorm 1.524e-02) dstep 9.607e-04  diag@100 (30 sweeps): |Y-Ylong| 2.205e-02 (|Ylong| 5.094e+00) |G'(nu-nulong)| 6.879e-02 long maxviol 1.724e-04
+it   140 lb 48616.2272 (cert 48616.2272, margin 4.34e-06) primal 48560.2340 pres 4.35e-02 dY 1.38e-02 npos 1524 cpu 77.24
+cp it   140 cert 48616.22724510917 hsum 492.76 cpcpu 2.92 cuts 3000 active 1477 sum_nu 2.3113 viol 2217 (max 1.022e-03/||G||, rnorm 1.438e-02) dstep 9.344e-04  diag@100 (30 sweeps): |Y-Ylong| 2.205e-02 (|Ylong| 5.094e+00) |G'(nu-nulong)| 6.879e-02 long maxviol 1.724e-04
+it   150 lb 48622.9953 (cert 48622.9953, margin 4.33e-06) primal 48561.5131 pres 4.22e-02 dY 1.54e-02 npos 1474 cpu 83.13
+cp it   150 cert 48622.995286404723 hsum 507.346 cpcpu 3.33 cuts 3000 active 1481 sum_nu 2.39361 viol 2198 (max 9.795e-04/||G||, rnorm 1.400e-02) dstep 2.275e-04  diag@150 (30 sweeps): |Y-Ylong| 2.080e-02 (|Ylong| 5.372e+00) |G'(nu-nulong)| 7.251e-02 long maxviol 1.374e-04
+it   160 lb 48629.7593 (cert 48629.7593, margin 4.33e-06) primal 48570.8427 pres 4.08e-02 dY 1.23e-02 npos 1526 cpu 88.26
+cp it   160 cert 48629.759312426562 hsum 521.56 cpcpu 3.50 cuts 3000 active 1480 sum_nu 2.47353 viol 2166 (max 9.202e-04/||G||, rnorm 1.332e-02) dstep 8.859e-04  diag@150 (30 sweeps): |Y-Ylong| 2.080e-02 (|Ylong| 5.372e+00) |G'(nu-nulong)| 7.251e-02 long maxviol 1.374e-04
+it   170 lb 48635.4428 (cert 48635.4428, margin 4.32e-06) primal 48572.7934 pres 3.99e-02 dY 1.47e-02 npos 1517 cpu 93.94
+cp it   170 cert 48635.442771926253 hsum 535.037 cpcpu 3.68 cuts 3000 active 1497 sum_nu 2.54901 viol 2140 (max 8.707e-04/||G||, rnorm 1.296e-02) dstep 8.807e-04  diag@150 (30 sweeps): |Y-Ylong| 2.080e-02 (|Ylong| 5.372e+00) |G'(nu-nulong)| 7.251e-02 long maxviol 1.374e-04
+it   180 lb 48641.2765 (cert 48641.2765, margin 4.32e-06) primal 48580.4140 pres 3.86e-02 dY 1.13e-02 npos 1527 cpu 99.21
+cp it   180 cert 48641.27647736443 hsum 548.211 cpcpu 3.86 cuts 3000 active 1491 sum_nu 2.62239 viol 2111 (max 8.444e-04/||G||, rnorm 1.244e-02) dstep 8.823e-04  diag@150 (30 sweeps): |Y-Ylong| 2.080e-02 (|Ylong| 5.372e+00) |G'(nu-nulong)| 7.251e-02 long maxviol 1.374e-04
+it   190 lb 48645.5240 (cert 48645.5240, margin 4.31e-06) primal 48579.4712 pres 3.82e-02 dY 1.41e-02 npos 1400 cpu 104.71
+cp it   190 cert 48645.523969789603 hsum 560.993 cpcpu 4.04 cuts 3000 active 1502 sum_nu 2.69192 viol 2077 (max 8.137e-04/||G||, rnorm 1.196e-02) dstep 8.892e-04  diag@150 (30 sweeps): |Y-Ylong| 2.080e-02 (|Ylong| 5.372e+00) |G'(nu-nulong)| 7.251e-02 long maxviol 1.374e-04
+it   200 lb 48651.0261 (cert 48651.0261, margin 4.30e-06) primal 48588.9157 pres 3.67e-02 dY 1.04e-02 npos 1526 cpu 110.33
+cp it   200 cert 48651.026133680869 hsum 572.974 cpcpu 4.47 cuts 3000 active 1508 sum_nu 2.75961 viol 2060 (max 7.842e-04/||G||, rnorm 1.166e-02) dstep 2.064e-04  diag@200 (30 sweeps): |Y-Ylong| 1.958e-02 (|Ylong| 5.563e+00) |G'(nu-nulong)| 7.311e-02 long maxviol 1.613e-04
+it   210 lb 48655.2055 (cert 48655.2055, margin 4.30e-06) primal 48592.9522 pres 3.61e-02 dY 9.39e-03 npos 1527 cpu 115.73
+cp it   210 cert 48655.20551930651 hsum 584.611 cpcpu 4.65 cuts 3000 active 1518 sum_nu 2.82381 viol 2032 (max 7.672e-04/||G||, rnorm 1.120e-02) dstep 8.695e-04  diag@200 (30 sweeps): |Y-Ylong| 1.958e-02 (|Ylong| 5.563e+00) |G'(nu-nulong)| 7.311e-02 long maxviol 1.613e-04
+it   220 lb 48659.5006 (cert 48659.5006, margin 4.29e-06) primal 48597.5941 pres 3.51e-02 dY 9.77e-03 npos 1531 cpu 121.41
+cp it   220 cert 48659.500649238966 hsum 595.996 cpcpu 4.83 cuts 3000 active 1525 sum_nu 2.88622 viol 2014 (max 7.667e-04/||G||, rnorm 1.099e-02) dstep 8.634e-04  diag@200 (30 sweeps): |Y-Ylong| 1.958e-02 (|Ylong| 5.563e+00) |G'(nu-nulong)| 7.311e-02 long maxviol 1.613e-04
+it   230 lb 48663.1530 (cert 48663.1530, margin 4.29e-06) primal 48600.6089 pres 3.46e-02 dY 8.80e-03 npos 1529 cpu 126.72
+cp it   230 cert 48663.153000334365 hsum 606.911 cpcpu 5.02 cuts 3000 active 1536 sum_nu 2.94591 viol 1979 (max 7.593e-04/||G||, rnorm 1.056e-02) dstep 8.407e-04  diag@200 (30 sweeps): |Y-Ylong| 1.958e-02 (|Ylong| 5.563e+00) |G'(nu-nulong)| 7.311e-02 long maxviol 1.613e-04
+it   240 lb 48666.8462 (cert 48666.8462, margin 4.28e-06) primal 48606.9688 pres 3.38e-02 dY 9.25e-03 npos 1529 cpu 132.53
+cp it   240 cert 48666.846236505196 hsum 617.535 cpcpu 5.21 cuts 3000 active 1536 sum_nu 3.00381 viol 1959 (max 7.499e-04/||G||, rnorm 1.037e-02) dstep 8.295e-04  diag@200 (30 sweeps): |Y-Ylong| 1.958e-02 (|Ylong| 5.563e+00) |G'(nu-nulong)| 7.311e-02 long maxviol 1.613e-04
+it   250 lb 48670.0109 (cert 48670.0109, margin 4.28e-06) primal 48607.8842 pres 3.33e-02 dY 8.32e-03 npos 1528 cpu 138.06
+cp it   250 cert 48670.010925105998 hsum 627.766 cpcpu 5.63 cuts 3000 active 1544 sum_nu 3.05952 viol 1907 (max 7.355e-04/||G||, rnorm 9.977e-03) dstep 2.097e-04  diag@250 (30 sweeps): |Y-Ylong| 1.861e-02 (|Ylong| 5.706e+00) |G'(nu-nulong)| 7.239e-02 long maxviol 1.558e-04
+it   260 lb 48673.2773 (cert 48673.2773, margin 4.28e-06) primal 48615.3760 pres 3.25e-02 dY 8.84e-03 npos 1534 cpu 143.55
+cp it   260 cert 48673.27734592613 hsum 637.713 cpcpu 5.80 cuts 3000 active 1552 sum_nu 3.11352 viol 1895 (max 7.312e-04/||G||, rnorm 9.826e-03) dstep 7.899e-04  diag@250 (30 sweeps): |Y-Ylong| 1.861e-02 (|Ylong| 5.706e+00) |G'(nu-nulong)| 7.239e-02 long maxviol 1.558e-04
+it   270 lb 48676.1584 (cert 48676.1584, margin 4.27e-06) primal 48614.7689 pres 3.21e-02 dY 7.93e-03 npos 1532 cpu 148.55
+cp it   270 cert 48676.15839052535 hsum 647.353 cpcpu 5.97 cuts 3000 active 1564 sum_nu 3.16568 viol 1855 (max 7.112e-04/||G||, rnorm 9.476e-03) dstep 7.550e-04  diag@250 (30 sweeps): |Y-Ylong| 1.861e-02 (|Ylong| 5.706e+00) |G'(nu-nulong)| 7.239e-02 long maxviol 1.558e-04
+it   280 lb 48678.9851 (cert 48678.9851, margin 4.27e-06) primal 48621.2798 pres 3.15e-02 dY 8.52e-03 npos 1529 cpu 154.00
+cp it   280 cert 48678.985052452779 hsum 656.702 cpcpu 6.15 cuts 3000 active 1571 sum_nu 3.21613 viol 1842 (max 7.012e-04/||G||, rnorm 9.298e-03) dstep 7.407e-04  diag@250 (30 sweeps): |Y-Ylong| 1.861e-02 (|Ylong| 5.706e+00) |G'(nu-nulong)| 7.239e-02 long maxviol 1.558e-04
+it   290 lb 48681.6468 (cert 48681.6468, margin 4.26e-06) primal 48620.9958 pres 3.10e-02 dY 7.61e-03 npos 1528 cpu 159.08
+cp it   290 cert 48681.646799846836 hsum 665.761 cpcpu 6.33 cuts 3000 active 1585 sum_nu 3.26499 viol 1811 (max 6.833e-04/||G||, rnorm 8.999e-03) dstep 7.096e-04  diag@250 (30 sweeps): |Y-Ylong| 1.861e-02 (|Ylong| 5.706e+00) |G'(nu-nulong)| 7.239e-02 long maxviol 1.558e-04
+it   300 lb 48684.2142 (cert 48684.2142, margin 4.26e-06) primal 48626.4316 pres 3.05e-02 dY 8.29e-03 npos 1535 cpu 164.99
+cp it   300 cert 48684.214150167951 hsum 674.508 cpcpu 6.75 cuts 3000 active 1593 sum_nu 3.31212 viol 1794 (max 6.754e-04/||G||, rnorm 8.881e-03) dstep 2.293e-04  diag@300 (30 sweeps): |Y-Ylong| 1.775e-02 (|Ylong| 5.819e+00) |G'(nu-nulong)| 7.083e-02 long maxviol 1.377e-04
+cp solve  lb 48684.2141501680 (gain 87.3780)  primal 48626.4316  status iter_limit  iters 300  cpu 165.0  certs 30 failures 0  kept 3000
+FINAL best_lb 48684.214150 first_lb 48596.836191 gain 87.377960

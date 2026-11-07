@@ -46,6 +46,7 @@
 #define DNN_H
 
 #include <vector>
+#include <string>
 #include "mat.h"
 
 enum DNNStatus {
@@ -79,6 +80,28 @@ enum DNNEig {
   DNN_EIG_SINGLE = 1,   // ssyevd: about 2x faster, same iteration counts in tests
   DNN_EIG_SUBSPACE = 2  // track the negative eigenspace by a filtered subspace
                         // iteration, full ssyevd every `refresh` iterations
+};
+
+// CP-ADMM (opt-in; experiments/wil50_feasibility/roadmap/admm/cpadmm): valid
+// cuts <G_t, Y> <= h_t taken into the Y-step as constraints. The Y-step then
+// returns an approximate projection of X = VRV' - (L/scale + Z)/beta onto
+// P ∩ {G Y <= h} (P: the box, Y_00 = 1, the gangster and eliminated zeros),
+// and the certificate at a check is GL(L + G'mu + scale Zc) - h'mu - (m+1)
+// scale lambda, with mu >= 0 the projection's current cut multipliers
+// (unscaled): valid for any mu >= 0, like DNNParams::L_add. dnncut.C
+// implements it for the regional cut pools (dnn_cp_bound).
+struct DNNYCuts {
+  virtual ~DNNYCuts() {}
+  // Y <- the approximate projection of X (n1 x n1, row-major) at penalty beta;
+  // elim as DNNParams::elim; it: the ADMM iteration (for diagnostics)
+  virtual void project(const double *X, double *Y, double beta, const unsigned char *elim, int it) = 0;
+  // the cut term G'mu (unscaled) at the current multipliers, mu = scale beta nu,
+  // added into Ladd (n1 x n1, zero on entry); abs_add: the sum of the terms'
+  // magnitudes (as assemble() in dnncut.C); hsum: h'mu rounded up. Returns
+  // false when there is no term (every multiplier zero).
+  virtual bool cert_term(double scale, double beta, double *Ladd, double &abs_add, double &hsum) = 0;
+  // one line of diagnostics for the verbose trace (may be empty)
+  virtual std::string trace() const { return std::string(); }
 };
 
 struct DNNParams {
@@ -174,7 +197,12 @@ struct DNNParams {
                        // spectral/acceleration history or stopping-rule counters.
   int child_bounds;    // 1: also return child bounds (DNNResult::child_lb) from the
                        // best certificate's outer assignment problem (0)
-  int verbose;         // 1: print the certified bound at every check, 2: also a
+  DNNYCuts *ycuts;     // CP-ADMM (see DNNYCuts): cuts in the Y-step, certified with
+                       // their multipliers at every check. NULL: off (default). Not
+                       // with prototype_cert, the accelerations, DNN_CERTX or the
+                       // child bounds (DNN_ERROR); DNN_FUSE and DNN_CORE_LAZYCERT
+                       // are ignored (every check certifies)
+  int verbose;       // 1: print the certified bound at every check, 2: also a
                        // CPU profile at the end
 
   DNNParams();

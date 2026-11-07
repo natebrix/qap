@@ -10,6 +10,8 @@
        [-Ladd file[:const]] [-warmY] [-dumpY prefix] [-addto R] [-seven K[:S]]
        [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-loadpool F] [-savepool F]
        [-poolcheck K] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
+       [-savepoolall R:F] [-cpadmm F [-cpiters N] [-cpsweeps S] [-cppasses K]
+       [-cpdiag E[:S]] [-cpcheck] [-cpquiet N] [-cpomega W] [-cpmu]]
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
  original indices of one side (default side 0, the first matrix: wil50's
@@ -34,6 +36,19 @@
  cuts in the last primal iterate, Polyak step toward min(cutoff, best + delta);
  stop at the first certified bound above the cutoff. Every value printed is
  certified.
+
+ CP-ADMM (experiments/wil50_feasibility/roadmap/admm/cpadmm): -savepoolall R:F
+ writes the whole pool after round R's new cuts (zero multipliers included) to
+ F. -cpadmm F runs the uncut round (-I iterations, as the rounds' round 0: the
+ give-up point) and then one solve of -cpiters N iterations (2000) from its
+ state with pool F frozen inside the Y-step (dnn_cp_bound, latest/dnncut.h):
+ -cpsweeps S Dykstra sweeps per iteration (1), -cppasses K half-space passes per
+ sweep (1), -cpdiag E[:S] every E iterations the distance to an S-sweep
+ projection (30), -cpcheck the cut extraction self-test first, -cpquiet N
+ afterwards a quiet round of N iterations with the final multipliers frozen
+ (the plain path with L_add, warm), -cpomega W over-relaxed half-space steps,
+ -cpmu the start multipliers from the pool file instead of zero. The per-check trace (-vc is implied) is
+ certified at every check.
 */
 
 #include "dnncut.h"
@@ -117,6 +132,9 @@ int main(int argc, char **argv)
   double gamma = 1.0, gamma1 = 1.0;
   const char *file = NULL;
   std::string ladd_spec, dumpy, loadpool, savepool;
+  std::string savepoolall, cpadmm;   // CP-ADMM study
+  int savepoolall_round = -1, cp_iters = 2000, cp_plain = 0;
+  DNNCPParams cpp;
   for (int a = 1; a < argc; a++) {
     std::string o = argv[a];
     bool more = a + 1 < argc;
@@ -168,6 +186,24 @@ int main(int argc, char **argv)
     else if (o == "-loadpool" && more) loadpool = argv[++a];              // a parent's cut pool (dnncut.h DNNPool; also Astra's v1 file)
     else if (o == "-savepool" && more) savepool = argv[++a];              // write the pool handed to the children
     else if (o == "-poolcheck" && more) cp.pool_check = atoi(argv[++a]);
+    else if (o == "-savepoolall" && more) {                                // R:F the whole pool after round R
+      const char *z = argv[++a], *c = strchr(z, ':');
+      if (!c) { fprintf(stderr, "bad -savepoolall R:F\n"); return 1; }
+      savepoolall_round = atoi(z); savepoolall = c + 1;
+    }
+    else if (o == "-cpadmm" && more) cpadmm = argv[++a];
+    else if (o == "-cpiters" && more) cp_iters = atoi(argv[++a]);
+    else if (o == "-cpsweeps" && more) cpp.sweeps = atoi(argv[++a]);
+    else if (o == "-cppasses" && more) cpp.passes = atoi(argv[++a]);
+    else if (o == "-cpdiag" && more) {
+      const char *z = argv[++a], *c = strchr(z, ':');
+      cpp.diag_every = atoi(z); if (c) cpp.diag_sweeps = atoi(c + 1);
+    }
+    else if (o == "-cpcheck") cpp.selftest = 1;
+    else if (o == "-cpquiet" && more) cpp.quiet_iters = atoi(argv[++a]);   // then a quiet round with mu_D frozen
+    else if (o == "-cpomega" && more) cpp.omega = atof(argv[++a]);        // over-relaxed half-space steps, (0, 2)
+    else if (o == "-cpmu") cpp.nu_from_pool = 1;                           // start from the pool's multipliers
+    else if (o == "-cpplain") cp_plain = 1;   // the same solve from the give-up point without the cuts (no hook)
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
     else if (o == "-atomic") cp.atomic = true;
@@ -250,8 +286,40 @@ int main(int argc, char **argv)
     if ((cp.side == 0 ? node.pinv[a] : node.p[a]) == NONE) other_orig.push_back(a);
     else fixed_at[a] = cp.side == 0 ? node.pinv[a] : node.p[a];
   }
-  DNNPool pin, pout;
+  DNNPool pin, pout, pall;
   if (!savepool.empty()) { cp.pool_out = &pout; cp.other_orig = &other_orig; }
+  if (!savepoolall.empty()) { cp.pool_all_round = savepoolall_round; cp.pool_all_out = &pall; cp.other_orig = &other_orig; }
+  if (!cpadmm.empty() || cp_plain) {
+    // CP-ADMM: the give-up point (the uncut round 0 of the rounds), then one solve
+    // with the frozen pool inside the Y-step (-cpplain: the same solve, plain Y-step)
+    if (!cp_plain && (!read_pool_file(cpadmm, pin) || pin.side != cp.side)) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", cpadmm.c_str()); return 1; }
+    size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
+    printf("cp pool %s: %zu regions, %zu cuts (%zu with mu > 0)\n", cpadmm.c_str(), pin.regions.size(), pin.cuts.size(), pos);
+    DNNCutParams c0 = cp;
+    c0.rounds = 0; c0.freeze_iters = 0; c0.freeze_after = 0;
+    c0.pool_in = NULL; c0.pool_out = NULL; c0.pool_all_out = NULL;
+    DNNCutResult r0 = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, c0, &warm);
+    DNNParams p = base;
+    p.max_iter = cp_iters;
+    p.hopeless_after = 0; p.hopeless_gap_ratio = 0;   // as the cut rounds
+    p.warm_primal = 0;
+    p.cut_round = 1;
+    p.verbose = std::max(1, check_trace);
+    if (verbose >= 2) p.verbose = 2;
+    DNNCutParams c1 = cp;
+    c1.pool_in = &pin; c1.other_orig = &other_orig; c1.fixed_at = &fixed_at; c1.pool_out = NULL; c1.pool_all_out = NULL;
+    DNNWarm save;
+    int kept = 0;
+    DNNResult r = cp_plain ? dnn_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, p, &warm, &save)
+                           : dnn_cp_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, p, free_orig, n, c1, cpp, &warm, &save, &kept);
+    printf("cp solve  lb %.10f (gain %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  certs %d failures %d  kept %d\n",
+           r.lb, r.lb - r0.first_lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, r.certificates,
+           r.cert_failures, kept);
+    const double fin = std::max(std::max(r.lb, r0.first_lb), cpp.quiet_lb);
+    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", fin, r0.first_lb, fin - r0.first_lb);
+    delete q;
+    return 0;
+  }
   if (!loadpool.empty()) {
     if (!read_pool_file(loadpool, pin) || pin.side != cp.side) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", loadpool.c_str()); return 1; }
     size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
@@ -280,6 +348,11 @@ int main(int argc, char **argv)
   }
   DNNCutResult res = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, cp, &warm);
   if (!savepool.empty()) { FILE *f = fopen(savepool.c_str(), "w"); if (f) { fprintf(f, "%s\n", dnn_pool_encode(pout).c_str()); fclose(f); } }
+  if (!savepoolall.empty()) {
+    FILE *f = fopen(savepoolall.c_str(), "w");
+    if (f) { fprintf(f, "%s\n", dnn_pool_encode(pall).c_str()); fclose(f); }
+    printf("whole pool after round %d: %zu cuts to %s\n", savepoolall_round, pall.cuts.size(), savepoolall.c_str());
+  }
   printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", res.best_lb, res.first_lb,
          res.best_lb - res.first_lb);
   if (!dumpy.empty() && !warm.Y.empty()) {

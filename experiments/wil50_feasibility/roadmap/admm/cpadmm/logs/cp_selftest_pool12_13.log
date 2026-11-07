@@ -1,0 +1,13 @@
+objective values are even integers: fathoming tolerance 1.95
+instance qaplib/wil50.dat n=50 node 21:28,8:41,28:19 m=47 cutoff 48814.0500  cuts regional (grid) side 0, 13 regions
+cp pool /home/user/qap/.claude/worktrees/agent-ae043968f328001f4/experiments/wil50_feasibility/roadmap/admm/cpadmm/logs/pool12_13.txt: 13 regions, 13000 cuts (9931 with mu > 0)
+round  0  lb 17555.8752 (gain 0.0000, best 0.0000)  primal 3782.3712  status iter_limit  iters 10  cpu 3.7  active 0  violated 73003 (max 0.7740)  added 2000
+cp pool: 13000 cuts kept (0 dropped), 13000 in the projector, 54300 terms, 13 regions, 48 region-pair classes; sweeps 1 passes 1 omega 1
+cp-selftest (a) L_add vs assemble: max |diff| 2.274e-12 (max |entry| 2.352e+03, nonzeros 3816180 vs 3816180), abs 109611278.6 vs 109611278.6, h'mu 2605.855944 vs 2605.855944  ok
+cp-selftest (c) P-step moments vs aggregate(): max |diff| 2.956e-12 (max 9.373e+02)  ok
+cp-selftest (b) 60 sparse rows (441-10374 nonzeros): ||G||^2 rel diff 0.000e+00, <G,Y> - h vs moments 6.846e-15, vs rviolation 4.707e-15  ok
+cp-selftest (d) a half-space pass (8232 multipliers moved): kept moments vs aggregate(y_P - G'dnu) max |diff| 1.160e-11 (max 1.370e+03)  ok
+it    10 lb 22930.3338 (cert 22930.3338, margin 4.35e-06) primal 6181.4518 pres 7.46e-01 dY 5.88e-01 npos 2057 cpu 4.34
+cp it    10 cert 22930.333843621924 hsum 5.04722 cpcpu 0.18 cuts 13000 active 274 sum_nu 0.0608974 viol 270 (max 6.910e-03/||G||, rnorm 4.100e-02) dstep 1.103e-02 | ms pstep 8.86 (20) hpass 0.31 (10) diag 0.0 s
+cp solve  lb 22930.3338436219 (gain 5374.4586)  primal 6181.4518  status iter_limit  iters 10  cpu 4.4  certs 1 failures 0  kept 13000
+FINAL best_lb 22930.333844 first_lb 17555.875218 gain 5374.458626
