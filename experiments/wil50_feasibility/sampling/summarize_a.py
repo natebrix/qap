@@ -105,6 +105,26 @@ def main():
               f"{min(sh):.1f} / {statistics.median(sh):.1f} / {max(sh):.1f} | "
               f"{statistics.median(r['cpu'] for r in rs):.1f} |")
     w("")
+    # shortfall histogram of the last depth's first solves (after the phase, if one ran)
+    lastrows = [r for d in by.get(Dmax, []) for r in d["trace"]]
+    if lastrows:
+        edges = [-1e9, 0, 50, 100, 150, 200, 244, 300, 350, 400, 450, 500, 600, 1e9]
+        names = ["fathomed", "0-50", "50-100", "100-150", "150-200", "200-244", "244-300", "300-350", "350-400",
+                 "400-450", "450-500", "500-600", ">= 600"]
+        cnt = [0] * len(names)
+        for r in lastrows:
+            s = -1.0 if r["fathomed"] else r["short"]
+            for k in range(len(names)):
+                if edges[k] < s <= edges[k + 1] or (k == 0 and s <= 0):
+                    cnt[k] += 1
+                    break
+        w(f"Depth-{Dmax} nodes by shortfall after their DNN bound (first solve, or the cut phase where one ran; "
+          f"the cut zone is 244):")
+        w("")
+        w("| " + " | ".join(names) + " |")
+        w("|" + "---|" * len(names))
+        w("| " + " | ".join(str(x) for x in cnt) + " |")
+        w("")
     if phases:
         w("Cut phases:")
         w("")
@@ -124,10 +144,25 @@ def main():
         ds = sorted(by.get(depth, []), key=lambda d: [int(x) if x.isdigit() else -1 for x in d["id"].split(".")])
         cnt = collections.Counter(d["line"].split()[0] for d in ds if d["n_children"])
         w(f"- depth {depth}: {len(ds)} nodes, {sum(1 for d in ds if d['n_children'])} branched: "
-          + ", ".join(f"{k} {v}" for k, v in sorted(cnt.items())))
+          + ", ".join(f"{v} on a {k}" for k, v in sorted(cnt.items())))
         if depth < Dmax and ds:
             w("  " + "; ".join(f"`{d['spec'] or 'root'}` {d['line']} ({d['n_children']})" for d in ds))
     w("")
+    if Dmax >= 2 and by.get(1):
+        w(f"Per depth-1 node: its first solve, its line, and its depth-2 children (bounded so far, fathomed, "
+          f"their lines, the frontier nodes they left):")
+        w("")
+        w("| depth-1 node | shortfall | line | children | bounded | fathomed | depth-2 lines | frontier nodes |")
+        w("|---|---|---|---|---|---|---|---|")
+        for d in sorted(by[1], key=lambda d: int(d["id"].split(".")[1])):
+            kids = [x for x in by.get(2, []) if x["parent"] == d["id"]]
+            t = d["trace"][0] if d["trace"] else None
+            lc = collections.Counter(x["line"] for x in kids if x["n_children"])
+            w(f"| `{d['spec']}` | {t['short']:.1f} | {d['line']} | {d['n_children']} | {len(kids)} | "
+              f"{sum(1 for x in kids if x['n_children'] == 0)} | "
+              + ", ".join(f"{k} x{v}" for k, v in lc.most_common(4)) + (" ..." if len(lc) > 4 else "")
+              + f" | {sum(x['n_children'] for x in kids):,} |")
+        w("")
     # children counts at the last depth
     last = by.get(Dmax, [])
     kc = collections.Counter(d["n_children"] for d in last)
@@ -145,8 +180,12 @@ def main():
           f"median {q(sh, .5):.1f}, 90% {q(sh, .9):.1f}, max {max(sh):.1f}. QPB predicted bound (parent's QPB + U_ij), "
           f"shortfall: min {min(psh):.1f}, median {q(psh, .5):.1f}, max {max(psh):.1f}.")
         kept = sum(1 for d in last if d.get("retained"))
-        w(f"Parents kept with their DNN state for stage B: {kept} of {len(last)}; frontier nodes below the hash "
-          f"threshold: {sum(1 for f in fr if f['hash'] < cfg['tau'])}")
+        hs = sorted(f["hash"] for f in fr)
+        h400 = hs[399] if len(hs) >= 400 else None
+        need = sum(1 for d in last if not d.get("retained") and any(f["hash"] <= (h400 or 1) for f in d["frontier"]))
+        w(f"Parents kept with their DNN state for stage B: {kept} of {len(last)} (tau history "
+          f"{cfg.get('tau_history', [[cfg['tau'], 0]])}: [tau, tasks done when it was set]); the 400th smallest hash "
+          f"is {h400}; parents of the 400 that stage B must rebuild: {need}")
     # sanity
     w("")
     w("Sanity checks:")

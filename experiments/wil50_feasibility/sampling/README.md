@@ -115,4 +115,49 @@ DNN node's trace line. Reports in `results/validation/`.
   every line but the CPU times, the DNN state included, and the sampled
   child's give-up result is the same.
 
-(TO BE COMPLETED: stage A results, stage B smoke test and projection.)
+(TO BE COMPLETED: stage A results.)
+
+## Stage B (`stage_b.py`): built and smoke-tested, not run
+
+- **The sample.** The 400 frontier nodes with the smallest
+  `unit_hash(20261107, node)`, from stage A's records (`sample.tsv`). The seed
+  was fixed before stage A ran; the hash makes the sample uniform over the
+  frontier and independent of the order in which stage A produced it.
+- **The give-up step**, one task per node, the way the full run treats a
+  depth-3 node's first solve: a state file holding the node alone with its
+  parent's warm start as stage A wrote it (the parent's QPB point, its cut
+  pool when its phase ran, and its fp32 DNN state from `out.full.state`, or
+  from a rebuilt parent), resumed with `bnbdrv -r node.state -d 3 -o out.state`
+  under the settings and `-x 1:4:1:300:1`. So the node is warm-started from
+  its parent's shipped state (a pooled node's first solve is on the inherited
+  pool), and stops at the production give-up rule (300 iterations when
+  hopeless) or fathoms. The cut phase is switched off at depth 3
+  (`QAP_DNN_CUT_MAXDEPTH=2`, which gates nothing else): the strata are defined
+  on the first-solve shortfall, and the phase (up to 3,400 iterations) would
+  multiply the step's cost; `--phase` runs it as production would.
+- **The converge step**: the 80 nodes farthest from the cutoff at the give-up
+  point, from the same state file with no give-up (`-x 1:4:1:0:1`) and no cut
+  phase (`QAP_DNN_CUT_ZONE=0`): the DNN runs to its own limit, 4,000 iterations,
+  or its convergence test. On nug30 the 4,000-iteration bound is 1.1-1.2 units
+  above the warm 300-iteration one. On wil50's clear misses of
+  `../tuning/giveup/all32.txt`, the 1,500-iteration uncut values
+  (`../stronger_bounds/README.md` step 2) are 50-74 above the cold
+  300-iteration ones (`../tuning/giveup/cloud/H300_*.log`, Oct 31 settings).
+- **The report** (`summary.md`): every node's first bound, shortfall, status,
+  iterations, CPU, warm and pool flags and children; the converged bounds; the
+  class fractions in the plan's strata (fathomed in the first solve, under 150
+  short, 150-210, 210-300, 300 and more), each with a 1-sigma Wilson interval,
+  classed by the converged shortfall where there is one and by the give-up
+  shortfall (an upper bound on it) otherwise; the give-up shortfall quantiles.
+- **Checks built in**: `--check-F K` reruns the first K nodes with no warm start
+  and with `-F` (equal first bound required); `--calibrate SPEC` runs a `-F`
+  node through both steps cold. Node 5 of `../tuning/giveup/all32.txt`
+  (`49:23,15:37,5:6` on wil50t) has two recorded values: 48,450.4827 at 300
+  iterations cold under these settings (363.6 short;
+  `../tail_probe/runs_node5_cpt/cpcutt/L3_0.trace`, the same solver sources),
+  and 48,498.4 after 1,500 uncut iterations (315.7 short; Oct 31 settings).
+  The "329 short" quoted for it matches no log; `../roadmap/tree_size.md`
+  section 3 calls it "the extrapolated 329", so it is model.py's
+  extrapolation, not a measurement.
+
+(TO BE COMPLETED: the smoke test and the projection.)
