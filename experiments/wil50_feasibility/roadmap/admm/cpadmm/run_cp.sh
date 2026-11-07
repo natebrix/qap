@@ -19,13 +19,15 @@
 #          ignored by the CP solve, which certifies every check)
 # ITERS (default 2000) iterations after the give-up point; DIAG (default 200:30):
 # every 200 iterations the distance of the Y-step's output to a 30-sweep projection;
-# QUIET (default 0): then a quiet round of that many iterations with mu_D frozen.
+# QUIET (default 0): then a quiet round of that many iterations with mu_D frozen;
+# EXTRA: more dnncuts flags (e.g. -cpomega 1.5) with TAG naming the log (_<tag>).
 D=$(cd "$(dirname "$0")" && pwd); R=$(cd "$D/../../../../.." && pwd)
 BIN=${BIN:-$R/experiments/dnn_cuts/dnncuts}
 POOL=${POOL:-$D/logs/pool12_13.txt}
 ITERS=${ITERS:-2000}
 DIAG=${DIAG:-200:30}
 QUIET=${QUIET:-0}
+EXTRA=${EXTRA:-}
 TAG=${TAG:-}
 BASE="-grid 5:10 -u 48816 -T 1 -v -I 400 -x 21:28,8:41,28:19"
 PROD_ENV="DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40 DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.25,wc=0.7 DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1"
@@ -44,7 +46,7 @@ one() { # name core
   esac
   local f=$D/logs/cp_${name}${TAG}_13.log
   grep -q '^FINAL' "$f" 2>/dev/null && return 0
-  env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 $envs taskset -c $core "$BIN" $BASE $flags -cpiters $ITERS -cpquiet $QUIET -v qaplib/wil50.dat > "$f.tmp" 2>&1 && mv "$f.tmp" "$f"
+  env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 $envs taskset -c $core "$BIN" $BASE $flags -cpiters $ITERS -cpquiet $QUIET $EXTRA -v qaplib/wil50.dat > "$f.tmp" 2>&1 && mv "$f.tmp" "$f"
 }
 for a in "$@"; do one ${a%:*} ${a#*:} & done
 wait

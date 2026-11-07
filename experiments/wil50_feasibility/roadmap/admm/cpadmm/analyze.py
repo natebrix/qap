@@ -15,7 +15,7 @@ import re
 D = os.path.dirname(os.path.abspath(__file__))
 IT = re.compile(r"^it +(\d+) lb (\S+) \(cert (\S+),.*cpu ([0-9.]+)")
 CPIT = re.compile(r"^cp it +(\d+) cert (\S+) hsum (\S+) cpcpu (\S+) cuts (\d+) active (\d+) sum_nu (\S+) viol (\d+) "
-                  r"\(max (\S+)/\|\|G\|\|, rnorm (\S+)\) dstep (\S+)(?:  diag@(\d+) \((\d+) sweeps\): \|Y-Ylong\| (\S+) "
+                  r"\(max (\S+)/\|\|G\|\|, rnorm (\S+)\) dstep (\S+)(?: \| ms pstep (\S+) \((\d+)\) hpass (\S+) \((\d+)\) diag (\S+) s)?(?:  diag@(\d+) \((\d+) sweeps\): \|Y-Ylong\| (\S+) "
                   r"\(\|Ylong\| (\S+)\) \|G'\(nu-nulong\)\| (\S+) long maxviol (\S+))?")
 
 
@@ -79,9 +79,13 @@ def cp(path):
             g = m.groups()
             cps.append(dict(it=int(g[0]), cert=fl(g[1]), hsum=float(g[2]), cpcpu=float(g[3]), active=int(g[5]),
                             sum_nu=float(g[6]), nviol=int(g[7]), maxviol=float(g[8]), rnorm=float(g[9]),
-                            dstep=float(g[10]), diag_it=int(g[11]) if g[11] else None,
-                            diag_dy=float(g[13]) if g[13] else None, diag_y=float(g[14]) if g[14] else None,
-                            diag_dnu=float(g[15]) if g[15] else None, diag_viol=float(g[16]) if g[16] else None))
+                            dstep=float(g[10]),
+                            ms_p=float(g[11]) if g[11] else None, n_p=int(g[12]) if g[12] else None,
+                            ms_h=float(g[13]) if g[13] else None, n_h=int(g[14]) if g[14] else None,
+                            t_diag=float(g[15]) if g[15] else None,
+                            diag_it=int(g[16]) if g[16] else None,
+                            diag_dy=float(g[18]) if g[18] else None, diag_y=float(g[19]) if g[19] else None,
+                            diag_dnu=float(g[20]) if g[20] else None, diag_viol=float(g[21]) if g[21] else None))
             continue
         if line.startswith("profile (s): forward"):
             v = re.findall(r"([a-zA-Z/-]+(?:-step)?) ([0-9.]+)", line)
@@ -177,6 +181,12 @@ def main():
             print("  first reaches %.0f at t = %s" % (lvl, first))
         if prof:
             print("  profile:", prof)
+        if cps and cps[-1]["ms_p"] is not None:
+            c = cps[-1]
+            print("  projection at the end: %.2f ms per P-step (%d), %.2f ms per half-space pass (%d), diagnostics %.1f s, hook total %.1f s"
+                  % (c["ms_p"], c["n_p"], c["ms_h"], c["n_h"], c["t_diag"], c["cpcpu"]))
+            nit = c["it"]
+            print("  per iteration without the diagnostics: %.2f ms" % (1e3 * (c["cpcpu"] - c["t_diag"]) / nit))
         if cps:
             print("  | it | cert | sum h'mu | active | violated > 1e-4 | max viol/||G|| | ||viol/G|| | dstep | diag: |Y-Ylong|/|Ylong| | diag |G'dnu| | diag long maxviol |")
             print("  |---|---|---|---|---|---|---|---|---|---|---|")

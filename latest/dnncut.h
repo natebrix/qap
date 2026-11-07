@@ -233,8 +233,9 @@ struct DNNCPParams {
                       // final multipliers mu_D frozen, warm from the CP solve's Z, this many
                       // iterations (0); its certified bound goes to quiet_lb
   double quiet_lb;    // out: the quiet round's certified bound (-inf when not run)
+  double omega;       // in (0, 2): over-relaxation of the half-space steps (1: plain Dykstra)
   DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0), quiet_iters(0),
-                  quiet_lb(-HUGE_VAL) {}
+                  quiet_lb(-HUGE_VAL), omega(1.0) {}
 };
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,

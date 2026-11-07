@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <ctime>
 #include <random>
 
 DNNCutParams::DNNCutParams()
@@ -611,6 +612,7 @@ class CutProjector : public DNNYCuts {
 public:
   int m = 0, n1 = 0, R = 0;
   int sweeps = 1, passes = 1;      // Dykstra sweeps per Y-step, half-space passes per sweep
+  double omega = 1.0;              // over-relaxation of the half-space steps (1: Hildreth/Dykstra)
   int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
   std::vector<std::vector<int>> rloc;
   std::vector<CPCut> cuts;
@@ -628,6 +630,10 @@ public:
   int last_nviol = 0, last_nact = 0, ysteps = 0;
   double diag_dy = -1, diag_dnu = -1, diag_viol = -1, diag_ynorm = -1;
   int diag_it = -1;
+  // CPU seconds: P-steps, half-space passes, the diagnostic runs (inside the hook's total)
+  double t_p = 0, t_h = 0, t_diag = 0;
+  int n_p = 0, n_h = 0;
+  static double tcpu() { timespec ts; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts); return ts.tv_sec + 1e-9 * ts.tv_nsec; }
 
   CutProjector(int m_, const std::vector<Region> &regions, const std::vector<Cut> &pool)
   {
@@ -790,7 +796,7 @@ public:
     for (size_t t = 0; t < cuts.size(); t++) {
       const CPCut &c = cuts[t];
       const double v = value(c);
-      const double nn = std::max(0.0, nu[t] + v / c.g2), d = nn - nu[t];
+      const double nn = std::max(0.0, nu[t] + omega * v / c.g2), d = nn - nu[t];
       if (d == 0) continue;
       nu[t] = nn;
       dmax = std::max(dmax, fabs(d) * sqrt(c.g2));
@@ -827,13 +833,17 @@ public:
 
   void run(const double *X, double *Y, const unsigned char *elim, int nsweeps)
   {
+    double t0 = tcpu(), t1;
     rebuild_sums();
     pstep(X, Y, elim);
+    t1 = tcpu(); t_p += t1 - t0; t0 = t1; n_p++;
     for (int k = 0; k < nsweeps; k++) {
       double d = 0;
       for (int p = 0; p < passes; p++) d = hpass();
+      t1 = tcpu(); t_h += t1 - t0; t0 = t1; n_h += passes;
       last_dstep = d;
       pstep(X, Y, elim);
+      t1 = tcpu(); t_p += t1 - t0; t0 = t1; n_p++;
     }
   }
 
@@ -849,6 +859,7 @@ public:
     run(X, Y, elim, sweeps);
     residuals();
     if (diag) {
+      const double td = tcpu(), tp0 = t_p, th0 = t_h; const int np0 = n_p, nh0 = n_h;
       // the distance of this Y-step's output to a longer run of the same projection
       // from the same start (nu0): ||Y - Y_long||_F, ||G'(nu - nu_long)|| proxy
       std::vector<double> nu_out = nu, Yl((size_t)n1 * n1);
@@ -865,6 +876,8 @@ public:
       diag_dy = sqrt(dy); diag_ynorm = sqrt(yn); diag_dnu = sqrt(dn); diag_viol = vmax; diag_it = it;
       nu = nu_out;
       rebuild_sums();   // the state of the regular run; Pag/Wag are refreshed by the next pstep
+      t_p = tp0; t_h = th0; n_p = np0; n_h = nh0;   // the regular runs' counters exclude the diagnostic
+      t_diag += tcpu() - td;
     }
   }
 
@@ -937,6 +950,9 @@ public:
     snprintf(buf, sizeof buf, "cuts %zu active %d sum_nu %.6g viol %d (max %.3e/||G||, rnorm %.3e) dstep %.3e",
              cuts.size(), last_nact, sn, last_nviol, last_viol, last_rnorm, last_dstep);
     std::string s = buf;
+    snprintf(buf, sizeof buf, " | ms pstep %.2f (%d) hpass %.2f (%d) diag %.1f s",
+             n_p ? 1e3 * t_p / n_p : 0.0, n_p, n_h ? 1e3 * t_h / n_h : 0.0, n_h, t_diag);
+    s += buf;
     if (diag_it > 0) {
       snprintf(buf, sizeof buf, "  diag@%d (%d sweeps): |Y-Ylong| %.3e (|Ylong| %.3e) |G'(nu-nulong)| %.3e long maxviol %.3e",
                diag_it, diag_sweeps, diag_dy, diag_ynorm, diag_dnu, diag_viol);
@@ -1627,10 +1643,11 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   CutProjector pj(m, regions, cuts);
   pj.sweeps = std::max(1, cpp.sweeps); pj.passes = std::max(1, cpp.passes);
   pj.diag_every = cpp.diag_every; pj.diag_sweeps = std::max(1, cpp.diag_sweeps);
+  if (cpp.omega > 0 && cpp.omega < 2) pj.omega = cpp.omega;
   if (cp.verbose) {
     size_t nt = 0; for (auto &c : pj.cuts) nt += c.t1 - c.t0;
-    printf("cp pool: %d cuts kept (%d dropped), %zu in the projector, %zu terms, %d regions, %zu region-pair classes; sweeps %d passes %d\n",
-           nk, nd, pj.cuts.size(), nt, (int)regions.size(), pj.nsig(), pj.sweeps, pj.passes);
+    printf("cp pool: %d cuts kept (%d dropped), %zu in the projector, %zu terms, %d regions, %zu region-pair classes; sweeps %d passes %d omega %g\n",
+           nk, nd, pj.cuts.size(), nt, (int)regions.size(), pj.nsig(), pj.sweeps, pj.passes, pj.omega);
   }
   if (cpp.selftest && !cp_selftest(pj, cuts, regions, boxes, lift, n1)) {
     fprintf(stderr, "dnn_cp_bound: self-test failed\n");
