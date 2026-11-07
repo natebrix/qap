@@ -1,0 +1,36 @@
+# cpcut2 against bestcore: cut phases and pooled children
+
+## The 6 nodes with a cut phase
+
+| depth | node | first lb | cutoff | bestcore: iterations / rounds, best, status | cpcut2: iterations / separations, best, stop, active | best cpcut2 - bestcore |
+|---|---|---|---|---|---|---|
+| 3 | 25:49 30:48 39:27 | 48600.4 | 48814.1 | 1,200 / 6, 48726.2, iter_limit | 1,110 / 12, 48740.0, stall rule, 2443 | +13.8 |
+| 4 | 19:45 25:49 30:48 39:27 | 48793.4 | 48814.1 | 1,600 / 4, 48796.5, iter_limit | 440 / 5, 48814.1, fathomed, 2794 | +17.5 |
+| 4 | 25:49 29:45 30:48 39:27 | 48793.0 | 48814.1 | 600 / 3, 48793.0, iter_limit | 491 / 5, 48814.1, fathomed, 2857 | +21.0 |
+| 4 | 25:49 30:48 39:27 49:45 | 48767.6 | 48814.1 | 600 / 3, 48767.6, iter_limit | 600 / 7, 48787.5, stall rule, 2774 | +19.9 |
+| 4 | 9:45 25:49 30:48 39:27 | 48796.2 | 48814.1 | 600 / 3, 48796.2, iter_limit | no phase |  |
+| 5 | 0:25 25:49 30:48 39:27 49:45 | 48799.1 | 48814.1 | 1,600 / 4, 48813.3, iter_limit | no phase |  |
+
+- the 4 phases in both arms: iterations 4,000 -> 2,641, CPU 1,216 -> 836 s (304 -> 317 ms per iteration); fathomed 0 -> 2; mean best - first lb +32.2 -> +40.8; handed on a pool 4 -> 2
+- cpcut2's 4 phases by stop: fathomed 2 (931 iterations); stall rule 2 (1,710 iterations)
+
+## The phase nodes' children (one fix below)
+
+| node | bestcore: children (fathomed), first-solve iterations | cpcut2: children (fathomed), first-solve iterations |
+|---|---|---|
+| 25:49 30:48 39:27 | 47 (43), 2,423 | 47 (46), 2,902 |
+| 19:45 25:49 30:48 39:27 | 46 (46), 1,176 | - |
+| 25:49 29:45 30:48 39:27 | 46 (46), 1,292 | - |
+| 25:49 30:48 39:27 49:45 | 46 (45), 2,134 | 46 (46), 1,384 |
+| 9:45 25:49 30:48 39:27 | 46 (46), 1,399 | - |
+| 0:25 25:49 30:48 39:27 49:45 | 45 (45), 1,017 | - |
+
+## Pooled children (first solve with an inherited pool)
+
+- bestcore: 276 pooled nodes (0 in CP form), first solves 9,441 iterations, 2,922 s, 271 fathomed by it
+- cpcut2: 93 pooled nodes (93 in CP form), first solves 4,286 iterations, 1,385 s, 90 fathomed by it
+- the 93 nodes pooled in both: first-solve iterations 4,557 -> 4,286 (1.063x), CPU 1,482 -> 1,385 s (1.070x); mean first lb cpcut2 - bestcore +2.15
+  - flip [0:25 25:49 30:48 39:27 49:45]: bestcore branched (first lb 48799.1), cpcut2 fathomed (first lb 48814.2)
+  - flip [25:49 30:48 39:27 9:45]: bestcore branched (first lb 48796.2), cpcut2 fathomed (first lb 48814.1)
+  - flip [25:49 29:45 30:48 39:27]: bestcore branched (first lb 48793.0), cpcut2 fathomed (first lb 48807.3, by its phase)
+  - flip [19:45 25:49 30:48 39:27]: bestcore branched (first lb 48793.4), cpcut2 fathomed (first lb 48805.9, by its phase)

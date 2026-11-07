@@ -1,0 +1,63 @@
+2026-11-07 12:36:54 arms: cpcut2 | Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 | 2 slots per arm | logs in /home/user/qap/.claude/worktrees/agent-ae043968f328001f4/experiments/wil50_feasibility/pipeline_ab/runs_cp/ARM/ | stop with: kill 8906
+cpcut2: done, coordinator: 2 slots, 8 units, wall 1473.16 s, CPU 2313.17 s (x1.57), slots busy 79.4%, best objective 48816
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| bestcore | 277 / 271 | 277 / 271 | 6 (0) | 276 / 276 | 15,941 (9,741 + 6,200) | 4,821 | 4,860 | 2,840 | 86.6% | 48816 |
+| cpcut | 94 / 92 | 94 / 92 | 5 (3) | 93 / 93 | 7,868 (4,259 + 3,609) | 2,586 | 2,598 | 1,602 | 82.0% | 48816 |
+| cpcut2 | 94 / 92 | 94 / 92 | 4 (2) | 93 / 93 | 7,227 (4,586 + 2,641) | 2,305 | 2,313 | 1,473 | 79.4% | 48816 |
+| cpcutl | not finished | | | | | | | | | |
+  bestcore: 2026-11-07T11:48:12Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 62b383a
+  cpcut: 2026-11-07T11:48:15Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 62b383a
+  cpcut2: 2026-11-07T12:36:54Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 a75f1a0
+
+## cpcut against bestcore
+- tree: 94 DNN nodes against 277; cut phases 5 (3 fathomed) against 6 (0)
+- DNN iterations 15,941 -> 7,868: **2.026x** (first solves 9,741 -> 4,259, cut phases 6,200 -> 3,609)
+- DNN CPU 4,821 -> 2,586 s: 1.864x; coordinator CPU 4,860 -> 2,598 s: 1.871x; wall 2,840 -> 1,602 s: 1.773x
+- the 94 shared nodes: 11,057 -> 7,868 DNN iterations, 1.405x; 0 nodes only in cpcut, 183 only in bestcore
+- outcome changed on 4 shared nodes:
+  - depth 4 [19:45 25:49 30:48 39:27]: bestcore branched (first 300 it, lb 48793.4; phase 1600 it, best 48796.5), cpcut fathomed (first 300 it, lb 48797.8; phase 529 it, best 48814.2)
+  - depth 4 [25:49 29:45 30:48 39:27]: bestcore branched (first 310 it, lb 48793.0; phase 600 it, best 48793.0), cpcut fathomed (first 320 it, lb 48798.5; phase 650 it, best 48814.1)
+  - depth 4 [25:49 30:48 39:27 9:45]: bestcore branched (first 310 it, lb 48796.2; phase 600 it, best 48796.2), cpcut fathomed (first 310 it, lb 48800.0; phase 360 it, best 48814.1)
+  - depth 5 [0:25 25:49 30:48 39:27 49:45]: bestcore branched (first 300 it, lb 48799.1; phase 1600 it, best 48813.3), cpcut fathomed (first 200 it, lb 48814.1)
+- the 94 matched nodes (shared, same warm start and pool status): 11,057 -> 7,868 DNN iterations, 1.405x
+- the same matched nodes' DNN CPU: 3,380 -> 2,586 s, 1.307x; per DNN iteration 306 -> 329 ms
+- the 5 nodes with a phase in both: phase iterations 4,600 -> 3,609 (1.275x), fathomed by the phase 0 -> 3, mean gain over the first solve +25.8 -> +40.3
+- by depth (nodes, DNN iterations), bestcore -> cpcut: d3 1/1,500 -> 1/1,410; d4 47/5,823 -> 47/4,903; d5 184/7,601 -> 46/1,555; d6 45/1,017 -> 0/0
+- kill line: 1.10x in DNN CPU on the matched nodes -> PASS (1.307x; end to end 1.864x)
+
+## cpcut2 against cpcut
+- tree: 94 DNN nodes against 94; cut phases 4 (2 fathomed) against 5 (3)
+- DNN iterations 7,868 -> 7,227: **1.089x** (first solves 4,259 -> 4,586, cut phases 3,609 -> 2,641)
+- DNN CPU 2,586 -> 2,305 s: 1.122x; coordinator CPU 2,598 -> 2,313 s: 1.123x; wall 1,602 -> 1,473 s: 1.087x
+- the 94 shared nodes: 7,868 -> 7,227 DNN iterations, 1.089x; 0 nodes only in cpcut2, 0 only in cpcut
+- the 94 matched nodes (shared, same warm start and pool status): 7,868 -> 7,227 DNN iterations, 1.089x
+- the same matched nodes' DNN CPU: 2,586 -> 2,305 s, 1.122x; per DNN iteration 329 -> 319 ms
+- the 4 nodes with a phase in both: phase iterations 3,249 -> 2,641 (1.230x), fathomed by the phase 2 -> 2, mean gain over the first solve +46.8 -> +40.8
+- by depth (nodes, DNN iterations), cpcut -> cpcut2: d3 1/1,410 -> 1/1,410; d4 47/4,903 -> 47/4,433; d5 46/1,555 -> 46/1,384
+
+## cpcut2 against bestcore
+- tree: 94 DNN nodes against 277; cut phases 4 (2 fathomed) against 6 (0)
+- DNN iterations 15,941 -> 7,227: **2.206x** (first solves 9,741 -> 4,586, cut phases 6,200 -> 2,641)
+- DNN CPU 4,821 -> 2,305 s: 2.091x; coordinator CPU 4,860 -> 2,313 s: 2.101x; wall 2,840 -> 1,473 s: 1.928x
+- the 94 shared nodes: 11,057 -> 7,227 DNN iterations, 1.530x; 0 nodes only in cpcut2, 183 only in bestcore
+- outcome changed on 4 shared nodes:
+  - depth 4 [19:45 25:49 30:48 39:27]: bestcore branched (first 300 it, lb 48793.4; phase 1600 it, best 48796.5), cpcut2 fathomed (first 330 it, lb 48805.9; phase 440 it, best 48814.1)
+  - depth 4 [25:49 29:45 30:48 39:27]: bestcore branched (first 310 it, lb 48793.0; phase 600 it, best 48793.0), cpcut2 fathomed (first 460 it, lb 48807.3; phase 491 it, best 48814.1)
+  - depth 4 [25:49 30:48 39:27 9:45]: bestcore branched (first 310 it, lb 48796.2; phase 600 it, best 48796.2), cpcut2 fathomed (first 770 it, lb 48814.1)
+  - depth 5 [0:25 25:49 30:48 39:27 49:45]: bestcore branched (first 300 it, lb 48799.1; phase 1600 it, best 48813.3), cpcut2 fathomed (first 160 it, lb 48814.2)
+- the 94 matched nodes (shared, same warm start and pool status): 11,057 -> 7,227 DNN iterations, 1.530x
+- the same matched nodes' DNN CPU: 3,380 -> 2,305 s, 1.466x; per DNN iteration 306 -> 319 ms
+- the 4 nodes with a phase in both: phase iterations 4,000 -> 2,641 (1.515x), fathomed by the phase 0 -> 2, mean gain over the first solve +32.2 -> +40.8
+- by depth (nodes, DNN iterations), bestcore -> cpcut2: d3 1/1,500 -> 1/1,410; d4 47/5,823 -> 47/4,433; d5 184/7,601 -> 46/1,384; d6 45/1,017 -> 0/0
+- kill line: 1.10x in DNN CPU on the matched nodes -> PASS (1.466x; end to end 2.091x)
+
+bestcore: the subtree's root (depth 3): first lb 48600.37 after 300 it, phase best 48726.19 in 1200 it (iter_limit)
+
+cpcut: the subtree's root (depth 3): first lb 48600.37 after 300 it, phase best 48739.98 in 1110 it (stalled)
+
+cpcut2: the subtree's root (depth 3): first lb 48600.37 after 300 it, phase best 48739.98 in 1110 it (stalled)
+
+To share the results: git add experiments/wil50_feasibility/pipeline_ab && git commit -m 'pipeline A/B: cpcut2' && git push

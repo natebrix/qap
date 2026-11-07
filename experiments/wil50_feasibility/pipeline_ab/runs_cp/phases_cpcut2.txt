@@ -1,0 +1,30 @@
+# cpcut2 against cpcut: cut phases and pooled children
+
+## The 5 nodes with a cut phase
+
+| depth | node | first lb | cutoff | cpcut: iterations / rounds, best, status | cpcut2: iterations / separations, best, stop, active | best cpcut2 - cpcut |
+|---|---|---|---|---|---|---|
+| 3 | 25:49 30:48 39:27 | 48600.4 | 48814.1 | 1,110 / 12, 48740.0, stalled | 1,110 / 12, 48740.0, stall rule, 2443 | +0.0 |
+| 4 | 19:45 25:49 30:48 39:27 | 48797.8 | 48814.1 | 529 / 6, 48814.2, fathomed | 440 / 5, 48814.1, fathomed, 2794 | -0.1 |
+| 4 | 25:49 29:45 30:48 39:27 | 48798.5 | 48814.1 | 650 / 7, 48814.1, fathomed | 491 / 5, 48814.1, fathomed, 2857 | -0.0 |
+| 4 | 25:49 30:48 39:27 49:45 | 48774.5 | 48814.1 | 960 / 10, 48790.1, stalled | 600 / 7, 48787.5, stall rule, 2774 | -2.6 |
+| 4 | 9:45 25:49 30:48 39:27 | 48800.0 | 48814.1 | 360 / 4, 48814.1, fathomed | no phase |  |
+
+- the 4 phases in both arms: iterations 3,249 -> 2,641, CPU 1,103 -> 836 s (340 -> 317 ms per iteration); fathomed 2 -> 2; mean best - first lb +46.8 -> +40.8; handed on a pool 2 -> 2
+- cpcut2's 4 phases by stop: fathomed 2 (931 iterations); stall rule 2 (1,710 iterations)
+
+## The phase nodes' children (one fix below)
+
+| node | cpcut: children (fathomed), first-solve iterations | cpcut2: children (fathomed), first-solve iterations |
+|---|---|---|
+| 25:49 30:48 39:27 | 47 (46), 2,404 | 47 (46), 2,902 |
+| 19:45 25:49 30:48 39:27 | - | - |
+| 25:49 29:45 30:48 39:27 | - | - |
+| 25:49 30:48 39:27 49:45 | 46 (46), 1,555 | 46 (46), 1,384 |
+| 9:45 25:49 30:48 39:27 | - | - |
+
+## Pooled children (first solve with an inherited pool)
+
+- cpcut: 93 pooled nodes (0 in CP form), first solves 3,959 iterations, 1,265 s, 89 fathomed by it
+- cpcut2: 93 pooled nodes (93 in CP form), first solves 4,286 iterations, 1,385 s, 90 fathomed by it
+- the 93 nodes pooled in both: first-solve iterations 3,959 -> 4,286 (0.924x), CPU 1,265 -> 1,385 s (0.913x); mean first lb cpcut2 - cpcut -0.95
