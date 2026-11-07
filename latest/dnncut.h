@@ -236,8 +236,18 @@ struct DNNCPParams {
   double omega;       // in (0, 2): over-relaxation of the half-space steps (1: plain Dykstra)
   int nu_from_pool;   // 1: start from the pool's own multipliers (nu = mu / (scale beta)), as a
                       // pooled child would; 0: from zero, the give-up point's uncut state (0)
+  // separation inside the solve: every sep_every iterations, up to sep_k new violated
+  // regional triangles separated on that iteration's Y-step output (the projected Y, in P),
+  // with dnn_cut_rounds' separator and ranking, appended with nu = 0 unless already in the
+  // pool. pool_cap > 0 bounds the pool (zero-multiplier cuts leave first, the longest at
+  // zero first); drop_after > 0 drops a cut whose nu has stayed 0 for that many iterations
+  // (checked at the separations). With selftest, the self-test runs again after the solve
+  // on the grown pool. All 0: off (default)
+  int sep_every, sep_k, pool_cap, drop_after;
+  int pool_final, sep_added, sep_dropped;   // out: the pool's size at the end, cuts added, dropped
   DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0), quiet_iters(0),
-                  quiet_lb(-HUGE_VAL), omega(1.0), nu_from_pool(0) {}
+                  quiet_lb(-HUGE_VAL), omega(1.0), nu_from_pool(0), sep_every(0), sep_k(0), pool_cap(0),
+                  drop_after(0), pool_final(0), sep_added(0), sep_dropped(0) {}
 };
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,

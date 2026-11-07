@@ -615,6 +615,17 @@ public:
   double omega = 1.0;              // over-relaxation of the half-space steps (1: Hildreth/Dykstra)
   std::vector<double> init_mu;     // optional start multipliers (unscaled), applied at the first Y-step
   double init_scale = 0;           // as nu = mu / (scale beta)
+  // separation inside the solve (DNNCPParams::sep_every): every sep_every Y-steps, up to
+  // sep_k new violated regional triangles on the Y-step's output, ranked as in
+  // dnn_cut_rounds, appended with nu = 0; pool_cap bounds the pool (zero-multiplier cuts
+  // dropped first, the longest at zero first), drop_after drops cuts whose nu has been 0
+  // for that many Y-steps at a separation
+  int sep_every = 0, sep_k = 0, pool_cap = 0, drop_after = 0;
+  std::vector<Cut> pool;           // the cuts (CPCut::src indexes it)
+  std::set<std::vector<int>> keys; // the pool's triangles, as dnn_cut_rounds keys them
+  std::vector<int> last_pos;       // per projector cut: the last separation at which nu > 0 (or its arrival)
+  int n_sep = 0, last_found = 0, last_added = 0, n_added = 0, n_dropped = 0;
+  double last_maxv = 0, t_sep = 0;
   int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
   std::vector<std::vector<int>> rloc;
   std::vector<CPCut> cuts;
@@ -637,31 +648,42 @@ public:
   int n_p = 0, n_h = 0;
   static double tcpu() { timespec ts; clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts); return ts.tv_sec + 1e-9 * ts.tv_nsec; }
 
-  CutProjector(int m_, const std::vector<Region> &regions, const std::vector<Cut> &pool)
+  static std::vector<int> cut_key(const Cut &c) { return {c.type, c.a, c.b, c.c, c.s, c.d, c.e, c.mask, c.alpha}; }
+
+  // the cut pool[ci] into the projector (terms, ||G||^2, magnitudes); false when it
+  // has no terms or is not regional
+  bool add_cut(int ci)
+  {
+    const Cut &c = pool[ci];
+    if (c.s < 0 || c.s >= R) return false;   // atomic cuts are not supported
+    std::vector<CPTerm> tt;
+    double h;
+    cp_cut_terms(c, tt, h);
+    if (tt.empty()) return false;
+    CPCut k;
+    k.s = c.s; k.h = h; k.t0 = (int)terms.size(); k.src = ci;
+    const double sz = (double)rloc[c.s].size();
+    double g2 = 0, ab = 0;
+    for (auto &x : tt) {
+      terms.push_back(x);
+      if (x.j < 0) { g2 += sz * x.c * x.c; ab += fabs(x.c) * sz; }
+      else { g2 += 0.5 * sz * (sz - 1) * x.c * x.c; ab += fabs(x.c) * sz * (sz - 1); }
+    }
+    k.t1 = (int)terms.size(); k.g2 = g2; k.absrow = ab;
+    if (!(g2 > 0)) { terms.resize(k.t0); return false; }
+    cuts.push_back(k);
+    nu.push_back(0.0);
+    last_pos.push_back(0);
+    if (c.type <= 3) keys.insert(cut_key(c));
+    return true;
+  }
+
+  CutProjector(int m_, const std::vector<Region> &regions, const std::vector<Cut> &src_pool)
   {
     m = m_; n1 = m * m + 1; R = (int)regions.size();
     for (auto &r : regions) rloc.push_back(r.loc);
-    std::vector<CPTerm> tt;
-    for (size_t ci = 0; ci < pool.size(); ci++) {
-      const Cut &c = pool[ci];
-      if (c.s < 0 || c.s >= R) continue;   // atomic cuts are not supported
-      double h;
-      cp_cut_terms(c, tt, h);
-      if (tt.empty()) continue;
-      CPCut k;
-      k.s = c.s; k.h = h; k.t0 = (int)terms.size(); k.src = (int)ci;
-      const double sz = (double)rloc[c.s].size();
-      double g2 = 0, ab = 0;
-      for (auto &x : tt) {
-        terms.push_back(x);
-        if (x.j < 0) { g2 += sz * x.c * x.c; ab += fabs(x.c) * sz; }
-        else { g2 += 0.5 * sz * (sz - 1) * x.c * x.c; ab += fabs(x.c) * sz * (sz - 1); }
-      }
-      k.t1 = (int)terms.size(); k.g2 = g2; k.absrow = ab;
-      if (g2 > 0) cuts.push_back(k);
-      else terms.resize(k.t0);
-    }
-    nu.assign(cuts.size(), 0.0);
+    pool = src_pool;
+    for (size_t ci = 0; ci < pool.size(); ci++) add_cut((int)ci);
     // region membership signatures, the sigma of every (a, b)
     std::vector<std::vector<char>> in(R, std::vector<char>(m, 0));
     for (int s = 0; s < R; s++) for (int a : rloc[s]) in[s][a] = 1;
@@ -861,10 +883,12 @@ public:
     beta_last = beta;
     ysteps++;
     const bool diag = diag_every > 0 && it % diag_every == 0;
-    std::vector<double> nu0;
+    const bool sep = sep_every > 0 && sep_k > 0 && it % sep_every == 0;
+    std::vector<double> nu0, Psep, Wsep;
     if (diag) nu0 = nu;
     run(X, Y, elim, sweeps);
     residuals();
+    if (sep) { Psep = Pag; Wsep = Wag; }   // the output Y's moments (the diagnostic overwrites them)
     if (diag) {
       const double td = tcpu(), tp0 = t_p, th0 = t_h; const int np0 = n_p, nh0 = n_h;
       // the distance of this Y-step's output to a longer run of the same projection
@@ -886,6 +910,80 @@ public:
       t_p = tp0; t_h = th0; n_p = np0; n_h = nh0;   // the regular runs' counters exclude the diagnostic
       t_diag += tcpu() - td;
     }
+    if (sep) separate(it, Psep, Wsep);
+  }
+
+  // keep the projector cuts with keep[t]; the others leave the pool and its keys
+  void compact(const std::vector<char> &keep)
+  {
+    std::vector<CPCut> nc; std::vector<CPTerm> nt; std::vector<double> nn; std::vector<Cut> np; std::vector<int> nl;
+    for (size_t t = 0; t < cuts.size(); t++) {
+      const Cut &c = pool[cuts[t].src];
+      if (!keep[t]) { if (c.type <= 3) keys.erase(cut_key(c)); n_dropped++; continue; }
+      CPCut k = cuts[t];
+      const int t0 = (int)nt.size();
+      for (int q = k.t0; q < k.t1; q++) nt.push_back(terms[q]);
+      k.t0 = t0; k.t1 = (int)nt.size(); k.src = (int)np.size();
+      np.push_back(c); nc.push_back(k); nn.push_back(nu[t]); nl.push_back(last_pos[t]);
+    }
+    cuts.swap(nc); terms.swap(nt); nu.swap(nn); pool.swap(np); last_pos.swap(nl);
+    rebuild_sums();
+  }
+
+  // separation on the moments (Pm, Wm) of the Y-step's output at iteration it: the
+  // regional triangles of dnn_cut_rounds (types 0-3 on i < j < k of every region,
+  // violation above 1e-4, ranked by violation), the sep_k most violated ones not in the
+  // pool appended with nu = 0
+  void separate(int it, const std::vector<double> &Pm, const std::vector<double> &Wm)
+  {
+    const double t0 = tcpu();
+    const size_t mm = (size_t)m * m;
+    for (size_t t = 0; t < cuts.size(); t++) if (nu[t] > 0) last_pos[t] = it;
+    std::vector<std::pair<double, Cut>> found;
+    std::vector<double> p(m), W(mm);
+    double vmax = 0;
+    for (int s = 0; s < R; s++) {
+      std::copy(Pm.begin() + (size_t)s * m, Pm.begin() + (size_t)(s + 1) * m, p.begin());
+      std::copy(Wm.begin() + s * mm, Wm.begin() + (s + 1) * mm, W.begin());
+      for (int i = 0; i < m; i++)
+        for (int j = i + 1; j < m; j++)
+          for (int k = j + 1; k < m; k++)
+            for (int type = 0; type < 4; type++) {
+              Cut t = {type, i, j, k, s, 0.0, 0, 0, 0, 0};
+              const double v = rviolation(t, p, W, m);
+              vmax = std::max(vmax, v);
+              if (v > 1e-4) found.push_back({v, t});
+            }
+    }
+    std::sort(found.begin(), found.end(), [](const std::pair<double, Cut> &u, const std::pair<double, Cut> &w) {
+      return u.first > w.first; });
+    // room: cuts whose nu has been 0 for drop_after Y-steps leave; under the cap the
+    // zero-multiplier cuts leave too, the longest at zero first, as far as needed
+    std::vector<char> keep(cuts.size(), 1);
+    bool any = false;
+    if (drop_after > 0)
+      for (size_t t = 0; t < cuts.size(); t++)
+        if (!(nu[t] > 0) && it - last_pos[t] >= drop_after) { keep[t] = 0; any = true; }
+    int kept = 0;
+    for (char k : keep) kept += k;
+    if (pool_cap > 0 && kept + sep_k > pool_cap) {
+      std::vector<std::pair<int, int>> zero;   // (last_pos, t) of the zero-multiplier cuts still kept
+      for (size_t t = 0; t < cuts.size(); t++) if (keep[t] && !(nu[t] > 0)) zero.push_back({last_pos[t], (int)t});
+      std::sort(zero.begin(), zero.end());
+      for (size_t q = 0; q < zero.size() && kept + sep_k > pool_cap; q++) { keep[zero[q].second] = 0; kept--; any = true; }
+    }
+    if (any) compact(keep);
+    const int room = pool_cap > 0 ? std::max(0, pool_cap - (int)cuts.size()) : sep_k;
+    int added = 0;
+    for (auto &f : found) {
+      if (added >= std::min(sep_k, room)) break;
+      if (keys.count(cut_key(f.second))) continue;
+      pool.push_back(f.second);
+      if (add_cut((int)pool.size() - 1)) { last_pos.back() = it; added++; }
+      else pool.pop_back();
+    }
+    n_sep++; n_added += added; last_added = added; last_found = (int)found.size(); last_maxv = vmax;
+    t_sep += tcpu() - t0;
   }
 
   // the dense cut term at mu = f nu (long double sums, one rounding per entry)
@@ -960,6 +1058,11 @@ public:
     snprintf(buf, sizeof buf, " | ms pstep %.2f (%d) hpass %.2f (%d) diag %.1f s",
              n_p ? 1e3 * t_p / n_p : 0.0, n_p, n_h ? 1e3 * t_h / n_h : 0.0, n_h, t_diag);
     s += buf;
+    if (sep_every > 0) {
+      snprintf(buf, sizeof buf, " | pool %zu sep %d (last: violated %d max %.4f added %d; total added %d dropped %d) sep %.1f s",
+               cuts.size(), n_sep, last_found, last_maxv, last_added, n_added, n_dropped, t_sep);
+      s += buf;
+    }
     if (diag_it > 0) {
       snprintf(buf, sizeof buf, "  diag@%d (%d sweeps): |Y-Ylong| %.3e (|Ylong| %.3e) |G'(nu-nulong)| %.3e long maxviol %.3e",
                diag_it, diag_sweeps, diag_dy, diag_ynorm, diag_dnu, diag_viol);
@@ -1651,6 +1754,8 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   pj.sweeps = std::max(1, cpp.sweeps); pj.passes = std::max(1, cpp.passes);
   pj.diag_every = cpp.diag_every; pj.diag_sweeps = std::max(1, cpp.diag_sweeps);
   if (cpp.omega > 0 && cpp.omega < 2) pj.omega = cpp.omega;
+  pj.sep_every = std::max(0, cpp.sep_every); pj.sep_k = std::max(0, cpp.sep_k);
+  pj.pool_cap = std::max(0, cpp.pool_cap); pj.drop_after = std::max(0, cpp.drop_after);
   if (cpp.nu_from_pool) {
     // start from the pool's multipliers: nu = mu / (scale beta), scale = max(1, max |L|)
     // of the lifted objective as dnn_bound forms it (no L_add here)
@@ -1681,6 +1786,16 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   DNNWarm own;
   DNNWarm *sv = save ? save : &own;
   DNNResult r = dnn_bound(A, B, C, shift, cutoff, p, start, sv);
+  cpp.pool_final = (int)pj.cuts.size(); cpp.sep_added = pj.n_added; cpp.sep_dropped = pj.n_dropped;
+  if (cp.verbose && pj.sep_every > 0)
+    printf("cp separation: %d separations, %d cuts added, %d dropped, pool %zu at the end, %.1f s\n", pj.n_sep, pj.n_added,
+           pj.n_dropped, pj.cuts.size(), pj.t_sep);
+  if (cpp.selftest && pj.sep_every > 0) {
+    // the extraction self-test again, on the pool the separations grew
+    std::vector<double> nu_end = pj.nu;
+    if (!cp_selftest(pj, pj.pool, regions, boxes, lift, n1)) fprintf(stderr, "dnn_cp_bound: self-test after the separations failed\n");
+    pj.nu = nu_end; pj.rebuild_sums();
+  }
   cpp.quiet_lb = -HUGE_VAL;
   if (cpp.quiet_iters > 0 && r.status != DNN_FATHOMED && r.status != DNN_ERROR && sv->scale > 0) {
     // the quiet round: mu_D = scale beta nu frozen as L_add, the cut rounds' path

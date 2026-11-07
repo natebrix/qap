@@ -15,7 +15,7 @@ import re
 D = os.path.dirname(os.path.abspath(__file__))
 IT = re.compile(r"^it +(\d+) lb (\S+) \(cert (\S+),.*cpu ([0-9.]+)")
 CPIT = re.compile(r"^cp it +(\d+) cert (\S+) hsum (\S+) cpcpu (\S+) cuts (\d+) active (\d+) sum_nu (\S+) viol (\d+) "
-                  r"\(max (\S+)/\|\|G\|\|, rnorm (\S+)\) dstep (\S+)(?: \| ms pstep (\S+) \((\d+)\) hpass (\S+) \((\d+)\) diag (\S+) s)?(?:  diag@(\d+) \((\d+) sweeps\): \|Y-Ylong\| (\S+) "
+                  r"\(max (\S+)/\|\|G\|\|, rnorm (\S+)\) dstep (\S+)(?: \| ms pstep (\S+) \((\d+)\) hpass (\S+) \((\d+)\) diag (\S+) s)?(?: \| pool (\d+) sep (\d+) \(last: violated (\d+) max (\S+) added (\d+); total added (\d+) dropped (\d+)\) sep (\S+) s)?(?:  diag@(\d+) \((\d+) sweeps\): \|Y-Ylong\| (\S+) "
                   r"\(\|Ylong\| (\S+)\) \|G'\(nu-nulong\)\| (\S+) long maxviol (\S+))?")
 
 
@@ -86,9 +86,13 @@ def cp(path):
                             ms_p=float(g[11]) if g[11] else None, n_p=int(g[12]) if g[12] else None,
                             ms_h=float(g[13]) if g[13] else None, n_h=int(g[14]) if g[14] else None,
                             t_diag=float(g[15]) if g[15] else None,
-                            diag_it=int(g[16]) if g[16] else None,
-                            diag_dy=float(g[18]) if g[18] else None, diag_y=float(g[19]) if g[19] else None,
-                            diag_dnu=float(g[20]) if g[20] else None, diag_viol=float(g[21]) if g[21] else None))
+                            pool=int(g[16]) if g[16] else None, nsep=int(g[17]) if g[17] else None,
+                            sep_viol=int(g[18]) if g[18] else None, sep_max=float(g[19]) if g[19] else None,
+                            sep_added=int(g[21]) if g[21] else None, sep_dropped=int(g[22]) if g[22] else None,
+                            t_sep=float(g[23]) if g[23] else None,
+                            diag_it=int(g[24]) if g[24] else None,
+                            diag_dy=float(g[26]) if g[26] else None, diag_y=float(g[27]) if g[27] else None,
+                            diag_dnu=float(g[28]) if g[28] else None, diag_viol=float(g[29]) if g[29] else None))
             continue
         if line.startswith("profile (s): forward"):
             v = re.findall(r"([a-zA-Z/-]+(?:-step)?) ([0-9.]+)", line)
@@ -195,6 +199,15 @@ def main():
                   % (c["ms_p"], c["n_p"], c["ms_h"], c["n_h"], c["t_diag"], c["cpcpu"]))
             nit = c["it"]
             print("  per iteration without the diagnostics: %.2f ms" % (1e3 * (c["cpcpu"] - c["t_diag"]) / nit))
+            if c["pool"] is not None:
+                print("  separation: %d separations, pool %d at the end, %d added, %d dropped, %.1f s (%.2f ms per iteration)"
+                      % (c["nsep"], c["pool"], c["sep_added"], c["sep_dropped"], c["t_sep"], 1e3 * c["t_sep"] / nit))
+                rows = [x for x in cps if x["pool"] is not None and x["it"] in (300, 600, 900, 1200, 1500, 2100, 3000, 4500)]
+                if rows:
+                    print("  | it | pool | violated > 1e-4 at the last separation | its max violation | cert |")
+                    print("  |---|---|---|---|---|")
+                    for x in rows:
+                        print("  | %d | %d | %d | %.4f | %.2f |" % (x["it"], x["pool"], x["sep_viol"], x["sep_max"], x["cert"]))
         if cps:
             print("  | it | cert | sum h'mu | active | violated > 1e-4 | max viol/||G|| | ||viol/G|| | dstep | diag: |Y-Ylong|/|Ylong| | diag |G'dnu| | diag long maxviol |")
             print("  |---|---|---|---|---|---|---|---|---|---|---|")

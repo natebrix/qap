@@ -136,7 +136,8 @@ give-up point.
 **Kill:** not within 10 of 48,763 by 2,000 iterations, or more than 30% per-iteration overhead.
 **Measured Nov 7 (`cpadmm/README.md`): passes.** 48,753 certified at 1,040 iterations after the
 give-up point against the Polyak protocol's 4,860 (4.7x, 4.9x in CPU), +3.8% per iteration
-(+13.5% in the production settings); the pool's dual optimum is at least 48,771.7.
+(+13.5% in the production settings); the pool's dual optimum is at least 48,771.7. With the cuts
+separated inside the solve instead of frozen (follow-up, same README): 48,753 at 1,070.
 
 **3. Already on the roadmap and consistent with the literature:** certificate polishing / GL
 subgradient ascent on mu (a bundle on the polyhedral part only, which is where Rendl-Sotirov's

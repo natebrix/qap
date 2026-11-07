@@ -9,6 +9,10 @@ CP-ADMM solve with that pool frozen in the Y-step, in three arms:
   base     1 sweep, 1 pass, cutoff = optimum (-cpcheck: the extraction self-test)
   hard     3 sweeps of 5 passes (multipliers pushed harder), cutoff = optimum
   fathom   1 sweep, cutoff = optimum - 1: a fathom must come with lb > cutoff
+  sep      separation inside the solve (-cpsep 50:150) from round 0's own pool,
+           cutoff = optimum, with the self-test before and after the separations
+  sepf     the same with a pool cap of 400 and drops after 200 zero iterations
+           (-cpsep 50:150:400:200), cutoff = optimum - 1
 Every certified value of every check (the "cert" field of each "it" line) must
 be <= optimum + 1e-9 |optimum|, no run may report "fathomed" with the cutoff at
 the optimum, and every self-test line must end in "ok".
@@ -18,7 +22,7 @@ regions of the free elements) and nug12 with its matrices swapped so that the
 3 x 4 grid distance is the first matrix (grid 3:4 regions, side 0): its root
 (optimum 578) and nodes with three facilities fixed (m = 9, enumerated).
 
-  python3 validate_cp.py [--core 2] [--count 2] [--out logs/validate]
+  python3 validate_cp.py [--core 2] [--count 2] [--out logs/validate] [--sep]
 """
 import argparse
 import importlib.util
@@ -97,10 +101,14 @@ def check_node(dat, fixes, opt, regions, tag, outdir, failures, stats):
     arms = [("base", ["-cpsweeps", "1", "-cppasses", "1", "-cpcheck"], opt),
             ("hard", ["-cpsweeps", "3", "-cppasses", "5"], opt),
             ("fathom", ["-cpsweeps", "1"], opt - 1)]
+    if args_sep:
+        arms += [("sep", ["-k", "150", "-cpsep", "50:150", "-cpcheck"], opt),
+                 ("sepf", ["-k", "150", "-cpsep", "50:150:400:200"], opt - 1)]
     tol = 1e-9 * max(1.0, abs(opt))
     for arm, extra, cut in arms:
-        rc, txt = run([DNNCUTS] + regions + ["-c", repr(cut), "-T", "1", "-v", "-I", "200", "-cpadmm", pool,
-                      "-cpiters", "800", "-x", x] + extra + [dat], os.path.join(outdir, "%s.%s.log" % (tag, arm)))
+        src = [] if arm.startswith("sep") else ["-cpadmm", pool]   # the sep arms start from round 0's pool
+        rc, txt = run([DNNCUTS] + regions + ["-c", repr(cut), "-T", "1", "-v", "-I", "200"] + src +
+                      ["-cpiters", "800", "-x", x] + extra + [dat], os.path.join(outdir, "%s.%s.log" % (tag, arm)))
         if rc != 0:
             failures.append("%s %s: rc=%d" % (tag, arm, rc)); continue
         for line in txt.splitlines():
@@ -116,31 +124,41 @@ def check_node(dat, fixes, opt, regions, tag, outdir, failures, stats):
         stats["certs"] += len(certs); stats["runs"] += 1
         worst = max(certs + [lb])
         stats["worst"] = max(stats["worst"], worst - opt)
+        if arm.startswith("sep"):
+            stats["sep_certs"] += len(certs); stats["sep_runs"] += 1
+            stats["sep_worst"] = max(stats["sep_worst"], worst - opt)
+            ms = re.search(r"^cp separation: (\d+) separations, (\d+) cuts added, (\d+) dropped", txt, re.M)
+            if ms:
+                stats["sep_added"] += int(ms.group(2)); stats["sep_dropped"] += int(ms.group(3))
         r0 = re.search(r"^round  0  lb (\S+)", txt, re.M)
         lb0 = float(r0.group(1)) if r0 else float("-inf")
         if arm == "hard": stats["gain"].append((lb - lb0, opt - lb0))
         if worst > opt + tol:
             failures.append("%s %s: certified %.9g > optimum %.9g" % (tag, arm, worst, opt))
-        if arm != "fathom" and status == "fathomed":
+        at_opt = arm not in ("fathom", "sepf")   # the cutoff is the optimum: no fathom allowed
+        if at_opt and status == "fathomed":
             failures.append("%s %s: fathomed with the cutoff at the optimum" % (tag, arm))
-        if arm == "fathom" and status == "fathomed":
+        if not at_opt and status == "fathomed":
             stats["fathomed"] += 1
-            if not lb > cut: failures.append("%s fathom: fathomed but lb %.9g <= cutoff" % (tag, lb))
+            if not lb > cut: failures.append("%s %s: fathomed but lb %.9g <= cutoff" % (tag, arm, lb))
 
 
 def main():
-    global args_core
+    global args_core, args_sep
     p = argparse.ArgumentParser()
+    p.add_argument("--sep", action="store_true", help="also the separating arms (sep, sepf)")
     p.add_argument("--core", type=int, default=2)
     p.add_argument("--count", type=int, default=2)
     p.add_argument("--out", default=os.path.join(D, "logs", "validate"))
     a = p.parse_args()
     args_core = a.core
+    args_sep = a.sep
     os.makedirs(a.out, exist_ok=True)
     bf = load_bf()
     rng = random.Random(1107)
     failures = []
-    stats = dict(runs=0, certs=0, worst=-np.inf, fathomed=0, selftests=0, pool=0, nopool=0, gain=[])
+    stats = dict(runs=0, certs=0, worst=-np.inf, fathomed=0, selftests=0, pool=0, nopool=0, gain=[],
+                 sep_runs=0, sep_certs=0, sep_worst=-np.inf, sep_added=0, sep_dropped=0)
     nodes = 0
     for family in bf.FAMILIES:
         for n in (7, 8, 9):
@@ -181,8 +199,12 @@ def main():
     print("CP-ADMM validity: %d nodes, %d dnncuts -cpadmm runs, %d certified values, %d self-test lines"
           % (nodes, stats["runs"], stats["certs"], stats["selftests"]))
     print("  pools: %d cuts in all, %d nodes without a violated cut" % (stats["pool"], stats["nopool"]))
-    print("  max(certified - optimum) = %.3g (must be <= 1e-9 |optimum|); fathomed at cutoff opt-1: %d"
-          % (stats["worst"], stats["fathomed"]))
+    print("  max(certified - optimum) = %.3g (must be <= 1e-9 |optimum|); fathomed at cutoff opt-1 (fathom%s): %d"
+          % (stats["worst"], " and sepf arms" if args_sep else " arm", stats["fathomed"]))
+    if args_sep:
+        print("  separating arms: %d runs, %d certified values, max(certified - optimum) = %.3g; %d cuts added inside the"
+              " solves, %d dropped" % (stats["sep_runs"], stats["sep_certs"], stats["sep_worst"], stats["sep_added"],
+                                       stats["sep_dropped"]))
     if closed:
         print("  hard arm: share of the uncut gap closed: median %.3f, max %.3f over %d nodes with a gap"
               % (float(np.median(closed)), max(closed), len(closed)))

@@ -54,6 +54,12 @@ time. Iterations t are counted from the give-up point, for both protocols.
   families has the bound-factor form. Its Appendix-A grouping of triangles
   would fit the regional triangles, but the cones would be nearly scalar
   [m].
+- **Follow-up: cuts separated inside the solve** (see "Separation inside
+  the solve" below). Starting from round 0's 1,000 cuts and separating
+  1,000 more every 100 iterations on its own iterate, CP-ADMM reaches 48,753
+  at t = 1,070 [m]. The frozen 13,000-cut pool reaches it at 1,040 and
+  Polyak at 4,860. Node 14 fathoms at 790 [m]. d2 does not fathom: 48,808.0
+  at t = 4,500, 6.1 short [m].
 
 **Two more nodes**, with the same settings and protocol and each node's own
 round-12 pool (`run_node.sh`).
@@ -506,11 +512,9 @@ Not built tonight. The pieces:
    separate on its own iterate every k iterations and append the new cuts
    with nu = 0. The node's regions do not change, so the projector's
    grouping stays. A pass costs 0.56 ms per 13,000 cuts [m], so the pool's
-   size is not a cost. Cuts whose nu stays at 0 can be dropped. Not
-   measured: whether separating inside the solve keeps the speed. That is
-   the first test, against this study's frozen-pool runs, on node 13 and on
-   d2 (6 short at its frozen pool's cap). The round-2 pool's run suggests a
-   few early separations carry most of the gain [m].
+   size is not a cost. Cuts whose nu stays at 0 can be dropped. **Measured
+   in the follow-up below** (`-cpsep`): separating inside the solve keeps
+   the frozen pool's speed, and the pool stays near 4,000-5,000 cuts.
 2. **Pooled children.** Remap the parent's pool as today (`remap_pool`, with
    zero multipliers kept) and start nu = mu / (s beta) from the parent's
    mu_D (`-cpmu` does this). From the Polyak round-12 multipliers it gains
@@ -561,6 +565,211 @@ Either way the next step is the search, not more single-node runs: the
 node-10 A/B of `pipeline_ab` with a CP phase (items 1, 2, 5) against
 `bestcore`, scored on DNN CPU and fathoms.
 
+## Separation inside the solve (follow-up, Nov 7)
+
+**Why.** The frozen round-12 pool hands CP-ADMM all 13,000 cuts at t = 0.
+The Polyak run had them only by t = 3,300-3,600, separated on its own later
+iterates. The honest comparison separates during the CP solve, at the
+Polyak protocol's cadence.
+
+**Method** (`-cpsep k:K[:CAP[:DROP]]`, in dnncut.C and dnncuts.C; dnn.C is
+untouched).
+- The start pool is round 0's own separation at the give-up point: 1,000
+  triangles separated on the give-up point's Y, exactly as round 0 of the
+  cut rounds does. That is the same as starting from an empty pool and
+  separating at t = 0 on the give-up point's Y. It is also the
+  coordinator's pool-0 file (9 regions, 1,000 cuts).
+- Every k iterations, the solve separates on that iteration's Y-step
+  output: the projected Y (in P), which is the iterate the ADMM carries.
+  It is the same object as a Polyak round's last Y, the output of the
+  round's last Y-step.
+- The separator and ranking are dnn_cut_rounds': the four triangle types on
+  every i < j < k of every region, violation above 1e-4, sorted by
+  violation, the K most violated that are not already in the pool (the same
+  key). The moments come from the P-step that produced the Y, which the
+  self-test checks against `aggregate()`.
+- New cuts enter with nu = 0 at the end of the cyclic order. The region
+  grouping does not change (a node's regions are fixed), and the sums are
+  rebuilt from nu at every Y-step.
+- Options: CAP bounds the pool (zero-multiplier cuts leave first, the
+  longest at zero first); DROP drops a cut whose nu has stayed 0 for that
+  many iterations (checked at each separation). Neither was needed for the
+  runs below (both 0).
+
+**Check.** Through t = 300 the cadence-300 run's trace equals the
+coordinator's pool-0 run (`cp_s1p1_pool0_13.log`) bit for bit. Through
+t = 100 so does the cadence-100 run's [m]. So the start pool is the same,
+and the separations are the only difference.
+
+### Node 13, the dual test's settings
+
+The no-lookahead baseline is the coordinator's run (`cp_s1p1_pool0_13.log`,
+commands in `polyak_r1_13.log` and `run_pool0.sh`'s step 2): CP s1p1 on round
+0's 1,000 cuts, frozen, 2,000 iterations. The separating runs are
+`cp_s1sep300_13.log` and `cp_s1sep100_13.log`, s1p1 with
+`-cpsep 300:1000` and `-cpsep 100:1000`, 3,000 iterations (`run_sep.sh`).
+Best certified value so far [m]:
+
+| t | Polyak | frozen round-12 pool | pool-0, frozen | separating, every 300 | separating, every 100 |
+|---|---|---|---|---|---|
+| 100 | 48,596.8 | 48,579.9 | 48,568.3 | 48,568.3 | 48,568.3 |
+| 300 | 48,636.5 | 48,685.2 | 48,664.7 | 48,664.7 | 48,680.1 |
+| 500 | 48,643.9 | 48,719.9 | 48,693.1 | 48,707.0 | 48,716.8 |
+| 1,000 | 48,686.4 | 48,752.0 | 48,715.0 | 48,747.7 | 48,750.7 |
+| 1,500 | 48,686.4 | 48,762.5 | 48,720.6 | 48,760.7 | 48,762.0 |
+| 2,000 | 48,692.5 | 48,767.1 | 48,722.4 | 48,766.3 | 48,766.8 |
+| 3,000 | 48,703.3 | 48,770.5 | | 48,770.3 | 48,770.4 |
+| pool at the end | 13,000 | 13,000 | 1,000 | 4,025 | 4,594 |
+
+First iteration (and CPU since the give-up point) to certify a level [m]:
+
+| level | Polyak | frozen round-12 pool | pool-0, frozen | every 300 | every 100 |
+|---|---|---|---|---|---|
+| 48,686.4 | 1,770, 970 s (round 3 ends at 48,686.36, t = 900) | 310, 167 s | 440, 248 s | 390, 221 s | 330, 187 s |
+| 48,709.0 (round 12) | 3,600, 1,984 s | 430, 231 s | 770, 431 s | 520, 292 s | 450, 252 s |
+| 48,713 | 3,930, 2,166 s | 450, 241 s | 910, 510 s | 550, 308 s | 480, 268 s |
+| 48,743 | 4,370, 2,401 s | 790, 417 s | not reached | 900, 499 s | 830, 459 s |
+| **48,753** | **4,860, 2,659 s** | **1,040, 547 s** | not reached | **1,150, 633 s** | **1,070, 589 s** |
+| 48,763 | not reached | 1,550, 810 s | not reached | 1,670, 916 s | 1,590, 874 s |
+
+**In-solve separation keeps the frozen pool's speed.**
+- With a separation every 100 iterations, CP-ADMM reaches 48,753 at
+  t = 1,070. The frozen round-12 pool reaches it at 1,040 and the Polyak
+  protocol at 4,860. That is 4.5x fewer iterations and 4.5x less CPU than
+  Polyak [m].
+- At the Polyak cadence (300) it is t = 1,150, 4.2x [m].
+- At t = 3,000 both separating runs are within 0.2 of the frozen pool [m].
+- The pool-0 baseline stops at 48,722.4, its 1,000-cut cap [m]. The cuts
+  separated later are what carry the rest, and the solve finds them on its
+  own iterates.
+
+The pool stays small. Separations at t = 600 already find only 1,900-3,000
+violated triangles, most of them in the pool, and the pool ends at
+4,000-4,600 cuts, not 13,000 [m]. The separation itself costs 3 ms per call,
+0.1 s over 30 calls (0.03 ms per iteration) [m].
+
+Per iteration, solve CPU over iterations [m]:
+
+| run | s per iteration |
+|---|---|
+| plain | 0.510 |
+| frozen round-12 pool | 0.530 |
+| every 300 | 0.548 |
+| every 100 | 0.549 |
+| pool-0 (the coordinator's run, under other load) | 0.560 |
+
+Against the frozen run, the Y/Z-step (50.8 against 50.3 ms) and the checks
+(24.9 against 24.2 ms) are the same. The difference is in the eigensolver
+(403.5 against 389.2 ms) and forward (40.1 against 37.8 ms): the iterates
+and the load differ, not the separation. Against the plain iteration it is
++7.5%, well inside the kill line's 30% [m].
+
+### Node d2, node 14 and the production settings
+
+All with a separation every 100 iterations (the better cadence on node 13),
+one sweep, from each node's own round-0 pool [m]:
+
+| run | Polyak | frozen round-12 pool | separating | log |
+|---|---|---|---|---|
+| node 14: fathoms at | 4,390, 2,412 s | 770, 430 s | **790, 436 s** | `cp_s1sep100_14.log` |
+| d2: 48,785 at | 4,670, 2,292 s | 880, 413 s | 880, 430 s | `cp_s1sep100_d2.log` |
+| d2: 48,800 at | not reached | 1,670, 787 s | 1,680, 824 s | |
+| d2: best at t = 4,500 | 48,790.8 (t = 5,100) | 48,807.9 (three sweeps) | **48,807.2** | |
+| node 13, production: 48,753 at | 4,290, 1,348 s | 1,170, 380 s | **1,210, 410 s** | `cp_s1sep100_prod_13.log` |
+| node 13, production: t = 2,000 | 48,711.5 | 48,763.8 | 48,763.4 | |
+
+- Node 14 fathoms 5.6x sooner than with Polyak, 20 iterations behind the
+  frozen pool [m].
+- In the production settings, separation reaches 48,753 3.5x sooner than
+  Polyak (3.3x in CPU) [m].
+- **d2 does not fathom with fresh cuts.** With one sweep it is 48,807.2 at
+  t = 4,500, 6.8 short of the cutoff 48,814.05 [m]. It rises 0.3-0.7 per 500
+  iterations from t = 3,000, so it would not close the gap in any phase
+  budget [e].
+- On d2 the separating run follows the frozen pool's curve within 1 to
+  t = 2,000 (48,789.4 against 48,789.4 at t = 1,000), with 4,855 cuts
+  against 13,000 [m]. New separations after t = 1,000 find 1,200-1,700
+  violated triangles and add 10-50 new ones each [m]. The separated pool has
+  converged on the cuts that bind. More cuts of this family do not move the
+  cap.
+
+Per iteration: node 14 0.552 s, d2 0.486 s (frozen 0.471), production
+0.335 s (frozen 0.328) [m]. The separations cost 0.2 s on d2 over 45 calls,
+0.04 ms per iteration [m].
+
+### Validity of the separating runs
+
+- **Brute force** (`validate_cp.py --sep`, `logs/validate_summary.txt`). The
+  77 small nodes gain two separating arms:
+  - `sep`: `-cpsep 50:150` from round 0's pool, cutoff at the optimum, with
+    the self-test;
+  - `sepf`: `-cpsep 50:150:400:200`, a pool cap of 400 and drops after 200
+    zero iterations, with the cutoff at optimum - 1.
+
+  Results over 154 runs [m]:
+  - 6,482 certified values, max(certified - optimum) = -1.2e-9;
+  - 13,226 cuts added inside the solves and 128 dropped;
+  - no fathom with the cutoff at the optimum, and every fathom at
+    optimum - 1 with lb > cutoff;
+  - all 924 self-test lines ok, including the ones run after the solve's
+    appends and drops.
+
+  (A first pass counted the `sepf` arm's allowed fathoms at optimum - 1 as
+  failures. That was the script's arm logic, not the bound.)
+- **Extraction after appends.** On nug12 the self-test after 12 separations
+  (162 cuts, then 107 after a capped run with 116 drops) matches `assemble`
+  to 7e-15 [m]. The separating arms above run the same self-test after
+  every solve [m].
+- **The rest of the code path is the frozen-pool path.** New cuts enter the
+  same projector and certificate. With nu = 0 a new cut adds nothing to
+  L_add or h'mu.
+- **Switch-off identity.** dnn.C is untouched; dnncut.C changed only inside
+  the projector and `dnn_cp_bound`. With this build, `check_identity.sh
+  CUT4=1` again gives identical traces [m] (`logs/ident_summary.txt`): 9 of
+  9 dnntest traces against the parent commit's binaries, the 4-round cut
+  phase on node 13 (196 lines), and the CP path with an empty pool against
+  the plain solve (nug12, node 13). The gates pass on this code as well
+  (`logs/gates.txt`): `make test` (brute force 4,536 of 4,536, resume,
+  parallel, coordinator; AWS skipped), `make dnncheck`, `make shipcheck`,
+  `make continuationcheck` and the exact bench check [m].
+
+### Three sweeps with separation
+
+`-cpsweeps 3 -cppasses 3 -cpsep 100:1000` [m]:
+
+| run | 48,753 (node 13) | node 13 at t = 3,000 | d2: 48,800 | d2 at t = 4,500 | s per iteration |
+|---|---|---|---|---|---|
+| frozen round-12 pool, s3p3 | 850, 461 s | 48,771.7 | 1,280 | 48,807.9 | 0.550 / 0.488 |
+| separating, s3p3 | **880, 493 s** | 48,771.7 | 1,300 | **48,808.0** | 0.553 / 0.488 |
+
+Three sweeps with separation reach 48,753 5.5x sooner than the Polyak
+protocol (5.4x in CPU), 30 iterations behind the frozen pool [m]
+(`cp_s3sep100_13.log`). d2 ends at 48,808.0, 6.1 short of the cutoff, the
+same as the frozen pool [m] (`cp_s3sep100_d2.log`).
+
+### Verdict
+
+- **In-solve separation keeps the frozen pool's speed.**
+  - Node 13: one sweep reaches 48,753 at t = 1,070 against the frozen
+    pool's 1,040 and Polyak's 4,860 (4.5x); three sweeps at 880 against 850
+    (5.5x) [m].
+  - Node 14 fathoms at 790 against 770 and 4,390 [m].
+  - Production settings: 1,210 against 1,170 and 4,290 [m].
+  - Without separation, the 1,000 cuts of round 0 cap the bound at 48,722.4
+    [m]. A separation every 100 iterations supplies the rest at 3 ms a call,
+    and the pool stays at 4,000-5,300 cuts.
+  - Cadence 100 is a little better than Polyak's 300 (1,070 against 1,150).
+    The kill line holds with fresh cuts.
+- **d2 does not fathom.** With fresh cuts it reaches 48,807.2 with one sweep
+  and 48,808.0 with three by t = 4,500. It rises under 1 per 500 iterations
+  there, 6.1 short of the cutoff [m]. The fresh cuts change nothing at the
+  cap: the frozen pool's runs end at the same values. On d2 the regional
+  triangles are capped about 6 below the cutoff [e]. Fathoming d2 needs a
+  stronger family, not more of these cuts or better multipliers.
+- For the production estimate above, about 1.3x on the subtree's DNN work if
+  phases stop at the same bound [e]: the separating runs are within 2-4% of
+  the frozen-pool iteration counts used there, so the estimate stands.
+
 ## Files
 
 - `run_ref.sh`: the Polyak protocol on node 13, with the old binary and with
@@ -571,6 +780,9 @@ node-10 A/B of `pipeline_ab` with a CP phase (items 1, 2, 5) against
   EXTRA and TAG for the variants).
 - `run_node.sh`: the same runs on another node (d2, 14): the Polyak
   reference with its pool, CP s1p1, and CP s3p3 (`cp3`).
+- `run_sep.sh`: the separating arms of the follow-up (`s1sep100_13`,
+  `s1sep300_13`, `s1sep100_d2`, `s1sep100_14`, `s1sep100_prod_13`,
+  `s3sep100_13`, `s3sep100_d2`).
 - `validate_cp.py`: the brute-force validity check.
 - `check_identity.sh`: the switch-off identity check. The "old" binaries in
   it and in `run_ref.sh` are scratch builds of the parent commit 57adbe6
@@ -586,7 +798,10 @@ node-10 A/B of `pipeline_ab` with a CP phase (items 1, 2, 5) against
   - `polyak_{ref,new,prod,prodnl}_13.log`, `cp_*_13.log`, and the d2 and 14
     logs (`polyak_new_{d2,14}.log`, `cp_s1p1_{d2,14}.log`, `cp_s3p3_d2.log`);
   - `pool12_13.txt`, `pool12_prod_13.txt`, `pool12_d2.txt`, `pool12_14.txt`,
-    `pool2_13.txt`: the frozen pools;
+    `pool2_13.txt`, `pool0_13.txt`: the frozen pools;
+  - the follow-up: `cp_s1sep*_*.log`, `cp_s3sep*_*.log`, and the
+    coordinator's no-lookahead baseline `cp_s1p1_pool0_13.log` with
+    `polyak_r1_13.log`, the run that wrote its pool;
   - `cp_selftest_pool{2,12}_13.log`, plus `polyak_pool2_13.log`, the run
     that made the round-2 pool;
   - `validate/`: samples (nug12's root and one random instance) and the
@@ -594,5 +809,7 @@ node-10 A/B of `pipeline_ab` with a CP phase (items 1, 2, 5) against
   - `ident/`, `ident_summary.txt`, `gates.txt`.
 - Code: `latest/dnn.h` and `dnn.C` (`DNNYCuts`, `DNNParams::ycuts`),
   `latest/dnncut.h` and `dnncut.C` (`CutProjector`, `cp_selftest`,
-  `dnn_cp_bound`, `DNNCPParams`, `-savepoolall`'s `pool_all_round`), and
-  `experiments/dnn_cuts/dnncuts.C` (the options).
+  `dnn_cp_bound`, `DNNCPParams`, `-savepoolall`'s `pool_all_round`; for the
+  follow-up `CutProjector::separate`, `compact`, `add_cut` and the
+  `DNNCPParams` fields `sep_every`, `sep_k`, `pool_cap`, `drop_after`), and
+  `experiments/dnn_cuts/dnncuts.C` (the options, with `-cpsep`).
