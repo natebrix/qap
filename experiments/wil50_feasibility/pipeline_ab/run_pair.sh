@@ -45,6 +45,11 @@
 #          first refresh at or after iteration 60 (80 at refresh 40), then 0.7, so
 #          that fast children keep 0.25's gain and a miss hands its cut phase a
 #          state like fast's; cut rounds stay at 0.7
+#   cpcut  bestcore with the cut phase in CP form (QAP_DNN_CUT_CP=100:1000,
+#          roadmap/admm/cpadmm/README.md "In the search"): one CP-ADMM solve with the
+#          pool in the PRSM's Y-step and 1,000 new triangles separated every 100
+#          iterations, the rounds' budget (12 x 200 + 1,000) and the stall rule per check
+#   cpcut2 cpcut + a pooled child's first solve in CP form (QAP_DNN_POOL_CP=1)
 #   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
@@ -65,7 +70,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n '2,/^set -u$/p' "$0" | sed '$d'; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -126,6 +131,12 @@ arm_env() {
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 \
                   DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1 ;;
+    cpcut|cpcut2) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+                  QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
+                  DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 \
+                  DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1 \
+                  QAP_DNN_CUT_CP=${PAB_CUT_CP:-100:1000}
+           if [ "$1" = cpcut2 ]; then export QAP_DNN_POOL_CP=1; fi ;;
     wtwo)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7 DNN_ADMM_WARM_BETA=${PAB_WARM_TWO:-0.25:60:0.7} ;;
@@ -165,6 +176,12 @@ run_arm() {
     fi
     if [ latest/bnbdrv -ot latest/dnn.C ] || [ latest/bnbdrv -ot latest/dnncut.C ] || [ latest/bnbdrv -ot latest/dnn.h ]; then
       echo "$arm: latest/bnbdrv is older than the DNN sources: make solver, run again"; return 1
+    fi
+    if { [ "$arm" = cpcut ] || [ "$arm" = cpcut2 ]; } && ! grep -aq QAP_DNN_CUT_CP latest/bnbdrv; then
+      echo "$arm: this bnbdrv has no CP cut phase (QAP_DNN_CUT_CP) yet: git pull, make solver, run again"; return 1
+    fi
+    if [ "$arm" = cpcut2 ] && ! grep -aq QAP_DNN_POOL_CP latest/bnbdrv; then
+      echo "cpcut2: this bnbdrv has no CP first solve for pooled children (QAP_DNN_POOL_CP) yet: git pull, make solver, run again"; return 1
     fi
     if { [ "$arm" = ship ] || [ "$arm" = ship2 ] || [ "$arm" = full ]; } && ! grep -aq QAP_DNN_SHIP latest/bnbdrv; then
       echo "ship: this bnbdrv cannot carry the DNN state yet: git pull, make solver, run again"; return 1

@@ -1165,7 +1165,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 
   DNNCutResult out;
   out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
-  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0;
+  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0; out.cp_form = 0;
   out.nregions = (int)regions.size();
   std::vector<double> best_hist;   // best after each round (index = round)
   if (regional && regions.empty()) return out;
@@ -1750,7 +1750,7 @@ bool cp_selftest(CutProjector &pj, std::vector<Cut> cuts, const std::vector<Regi
 
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,
-                       DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept)
+                       DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept, int *dropped)
 {
   DNNResult bad;
   bad.lb = -HUGE_VAL; bad.primal = HUGE_VAL; bad.status = DNN_ERROR; bad.iterations = 0; bad.cpu = 0;
@@ -1767,8 +1767,13 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   init_p7(); g_box = &boxes; g_l7 = &l7;
   int nd = 0, nk = 0;
   if (cp.pool_in && cp.other_orig && cp.fixed_at)
-    nk = remap_pool(*cp.pool_in, free_orig, n_orig, cp, regions, cuts, boxes, nd, true);
+    nk = remap_pool(*cp.pool_in, free_orig, n_orig, cp, regions, cuts, boxes, nd, !cpp.child);
   if (kept) *kept = nk;
+  if (dropped) *dropped = nd;
+  if (cpp.child && nk == 0) {   // a pooled child whose pool did not survive: the plain solve
+    if (cp.pool_out) *cp.pool_out = DNNPool();
+    return dnn_bound(A, B, C, shift, cutoff, par, start, save);
+  }
   CutProjector pj(m, regions, cuts);
   pj.sweeps = std::max(1, cpp.sweeps); pj.passes = std::max(1, cpp.passes);
   pj.diag_every = cpp.diag_every; pj.diag_sweeps = std::max(1, cpp.diag_sweeps);
@@ -1805,6 +1810,30 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   DNNWarm own;
   DNNWarm *sv = save ? save : &own;
   DNNResult r = dnn_bound(A, B, C, shift, cutoff, p, start, sv);
+  if (cpp.child && r.status == DNN_ERROR && r.iterations == 0)   // a setting the CP solve refuses
+    return dnn_pool_bound(A, B, C, shift, cutoff, par, free_orig, n_orig, cp, start, save, kept, dropped);
+  if (cpp.child && cp.pool_out) {
+    // the children's pool: the cuts with nu > 0 at the final mu_D = scale beta nu
+    *cp.pool_out = DNNPool();
+    if (r.status != DNN_FATHOMED && sv->scale > 0 && cp.other_orig) {
+      const long double f = (long double)sv->scale * (long double)pj.beta_last;
+      std::vector<Cut> ex;
+      for (size_t t = 0; t < pj.cuts.size(); t++) {
+        Cut c = pj.pool[pj.cuts[t].src];
+        c.mu = (double)(f * (long double)pj.nu[t]);
+        if (c.mu > 0) ex.push_back(c);
+      }
+      if (cp.pool_check > 0 && !ex.empty()) {
+        std::vector<double> L((size_t)n1 * n1, 0.0);
+        double abs_add = 0, hsum = 0;
+        assemble(ex, regions, boxes, lift, n1, L, abs_add, hsum);
+        const double w = check_term(L, hsum, m, cp.pool_check, 13579u);
+        if (w > 1e-7 * (1 + fabs(hsum))) {
+          fprintf(stderr, "dnn_cp_bound: the pool term is positive (%g) at a permutation\n", w); abort(); }
+      }
+      if (!ex.empty()) export_pool(ex, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+    }
+  }
   cpp.pool_final = (int)pj.cuts.size(); cpp.sep_added = pj.n_added; cpp.sep_dropped = pj.n_dropped;
   if (cp.verbose && pj.sep_every > 0)
     printf("cp separation: %d separations, %d cuts added, %d dropped, pool %zu at the end, %.1f s\n", pj.n_sep, pj.n_added,
@@ -1869,8 +1898,9 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   else if (cp.prefix) regions = prefix_regions(m);
   DNNCutResult out;
   out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
-  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0;
+  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0; out.cp_form = 0;
   out.nregions = (int)regions.size();
+  out.cp_form = 1;
   if (regions.empty()) return out;
   std::vector<Cut> cuts;
   std::vector<BoxCut> boxes;

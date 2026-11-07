@@ -203,6 +203,7 @@ struct DNNCutResult {
   int nregions;
   int stalled;        // 1 when the stall rule stopped the rounds
   int gated;          // 1 when the primal gate stopped the rounds
+  int cp_form;        // 1 when the phase ran as one CP-ADMM solve (dnn_cut_cp), 0 as rounds
 };
 
 // A, B, C, shift: the node's reduced QAP (reduceQAP). free_orig: for each local
@@ -268,12 +269,19 @@ struct DNNCPParams {
   // on the grown pool. All 0: off (default)
   int sep_every, sep_k, pool_cap, drop_after;
   int pool_final, sep_added, sep_dropped;   // out: the pool's size at the end, cuts added, dropped
+  // 1: a pooled child's first solve in the search (bnb.C, QAP_DNN_POOL_CP), in place of
+  // dnn_pool_bound: the inherited pool (cp.pool_in, cuts at mu > 0) in the Y-step from
+  // nu = mu / (scale beta); no surviving cut runs the plain solve, a setting the CP solve
+  // refuses runs dnn_pool_bound, and cp.pool_out gets the cuts with nu > 0 at the final
+  // mu_D = scale beta nu (empty when none, or when the solve fathomed) (0)
+  int child;
   DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0), quiet_iters(0),
                   quiet_lb(-HUGE_VAL), omega(1.0), nu_from_pool(0), sep_every(0), sep_k(0), pool_cap(0),
-                  drop_after(0), pool_final(0), sep_added(0), sep_dropped(0) {}
+                  drop_after(0), pool_final(0), sep_added(0), sep_dropped(0), child(0) {}
 };
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,
-                       DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept = NULL);
+                       DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept = NULL,
+                       int *dropped = NULL);
 
 #endif
