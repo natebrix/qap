@@ -1,0 +1,59 @@
+# Gates on the final code (Nov 7, this box), from the repository root
+
+## make test
+168 instances x 9 params x 3 upper-bound modes = 4536 solver runs (seed 1, files in /tmp/qap-bf-b1kngjzi)
+4536/4536 passed
+ok   nug15: 19 slices, nodes 1964 / 1278 / 2, objective 1150
+ok   had14: 5 slices, nodes 370 / 211 / 0, objective 2724
+ok   tai12b: 17 slices, nodes 1884 / 1089 / 23, objective 39464925
+ok   chr12a: 7 slices, nodes 1129 / 691 / 2, objective 9552
+ok   nug14: 41 slices, nodes 5720 / 3628 / 94, objective 1014
+5/5 resume cases identical
+ok   nug15 --ub opt: serial 1964 / 1278 / 2, fw 271227; parallel 1964 / 1278 / 2, fw 271227
+ok   tai12b --ub opt: serial 1884 / 1089 / 23, fw 299892; parallel 1884 / 1089 / 23, fw 299892
+ok   had14 --ub opt: serial 370 / 211 / 0, fw 77250; parallel 370 / 211 / 0, fw 77250
+ok   nug14 no upper bound: found 1014.0, optimum 1014
+ok   tai12b no upper bound: found 39464925.0, optimum 39464925
+ok   nug16a interrupted and resumed: serial 9867 / 6969 / 0, fw 999183; resumed 9867 / 6969 / 0, fw 999183
+all parallel checks passed
+normal     ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (14 s)  units 75, retried 0 (0 from a checkpoint), returned 40
+kill9      ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (15 s)  units 88, retried 3 (0 from a checkpoint), returned 42
+kill9ckpt  ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (12 s)  units 17, retried 3 (1 from a checkpoint), returned 0
+coordkill  ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 84, retried 0 (0 from a checkpoint), returned 44
+crash_marked ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 80, retried 0 (0 from a checkpoint), returned 44
+crash_applied ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 86, retried 0 (0 from a checkpoint), returned 44
+crash_saving ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 84, retried 0 (0 from a checkpoint), returned 46
+drain      ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (14 s)  units 80, retried 0 (0 from a checkpoint), returned 47
+noub       ok  nodes (109484, 81069, 478) fw 5269186 best 1732.0  (10 s)  units 104, retried 0 (0 from a checkpoint), returned 72
+aws: skipped (Command '['/usr/bin/python3', '-c', 'import boto3, moto']' returned non-zero exit status 1.)
+all coordinator scenarios passed
+regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
+
+## make dnncheck
+A. brute force: 2592 node bounds in 1152 dnntest runs, 40 s
+   max(lb - optimum) = 0, over nodes with m >= 2: -1.23e-13 (must be <= 0 up to 1e-9 relative)
+B. prototype agreement: 44 checkpoint values, max relative difference 8.6e-08, 18 s
+C. nug20 nodes with known optima: 16 s
+D. cancellation regressions: 13 cases, 0 s
+E. eliminated assignments: 160 nodes (88 with a stronger bound than without eliminations), 3 s
+OK
+
+## make shipcheck
+straight: 184 DNN nodes, 183 warm-started, 8,740 DNN iterations
+ok   ship64: 8 slices, 184 DNN nodes, 183 warm-started, 8,740 DNN iterations: every node identical to the straight run
+     ship32: 9 slices, 184 DNN nodes, 183 warm-started, 8,720 DNN iterations
+     ship16: 9 slices, 184 DNN nodes, 183 warm-started, 9,610 DNN iterations
+     noship: 10 slices, 184 DNN nodes, 55 warm-started, 12,520 DNN iterations
+
+## make continuationcheck
+PASS identity_cases=72 safe_certificates=648 rescaling_cases=72 cut_pool_cases=108 malformed_cases=7 max_state_error=0 max_certificate_error=0 legacy_different=72 legacy_max_state_error=1.2293847597606922
+
+## python3 bench/bench.py check
+     nug12: ok       nodes=       246  time=    0.142s  wall=0.15s
+     nug14: ok       nodes=      2179  time=    1.400s  wall=1.41s
+     nug15: ok       nodes=      1964  time=    1.005s  wall=1.02s
+    nug16b: ok       nodes=      3187  time=    1.557s  wall=1.58s
+     had12: ok       nodes=       114  time=    0.104s  wall=0.11s
+     had14: ok       nodes=       370  time=    0.301s  wall=0.31s
+     had16: ok       nodes=      3251  time=    2.797s  wall=2.83s
+regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)

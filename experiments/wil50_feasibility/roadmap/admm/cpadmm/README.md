@@ -47,13 +47,23 @@ time. Iterations t are counted from the give-up point, for both protocols.
     above anything the Polyak protocol certified [m].
   - With the switch off the solver is trace-identical to the parent
     commit [m].
+- Two more nodes agree. Node 14 fathoms at t = 770 against the Polyak
+  protocol's 4,390 (5.7x). Node d2 reaches the Polyak final value at
+  t = 1,050 against 5,090 (4.8x) [m].
 - The box-cone paper's cheap projection does not apply: none of our
   families has the bound-factor form. Its Appendix-A grouping of triangles
   would fit the regional triangles, but the cones would be nearly scalar
   [m].
 
-**A second node, d2** (`39:27,30:48,25:49,26:5`, the dual test's other node;
-`run_node.sh`, same settings and protocol, its own round-12 pool). Polyak:
+**Two more nodes**, with the same settings and protocol and each node's own
+round-12 pool (`run_node.sh`).
+
+*Node 14* (`47:23,10:44,40:34`). Here the Polyak protocol fathoms, in its
+quiet round at t = 4,390 (2,412 s). CP-ADMM s1p1 fathoms at t = 770 (430 s):
+5.7x fewer iterations and 5.6x less CPU [m] (`polyak_new_14.log`,
+`cp_s1p1_14.log`).
+
+*Node d2* (`39:27,30:48,25:49,26:5`, the dual test's other node). Polyak:
 48,790.8 after the quiet round, 23.2 short of the cutoff [m] (the laptop log
 has 48,789.9). The dual test's slow ascent put d2's pool optimum near
 48,795. CP-ADMM s1p1 reaches 48,785 (within 10 of that) at t = 880 against
@@ -63,9 +73,10 @@ rising [m]. With three sweeps it reaches 48,785 at t = 750 (6.2x) and
 48,805 at t = 1,890. It ends at 48,807.9 after 4,500 iterations, nearly flat
 (+0.7 between t = 3,000 and 4,000) and 6.1 short of the cutoff [m]
 (`cp_s3p3_d2.log`). So d2 does not fathom on its frozen pool. But the pool's
-dual optimum is about 48,808, not about 48,795, and d2 is 6 short at the
-cap, not 18. On d2 the per-check certificate also moves more: from
-t = 1,500 on it lies up to 6 below the running best [m].
+dual optimum is at least 48,807.9, about 48,808-48,810 from the flat curve
+[e], not about 48,795. d2 is 4-6 short at the cap, not 18. On d2 the
+per-check certificate also moves more: from t = 1,500 on it lies up to 6
+below the running best [m].
 
 ## Method
 
@@ -159,9 +170,11 @@ rows are equalities, and facial reduction already removes their products
 McCormick inequalities (their section 5.1). In the QAP DNN they follow from
 Y >= 0 and the lifted row sums: Y_(ij),(kl) <= sum_l' Y_(ij),(kl') = x_ij, and
 x_ij - Y_(ij),(kl) = sum_{l' != l} Y_(ij),(kl') <= sum_{l' != l} x_kl' = 1 - x_kl.
-The 5-point, local-7 and box (count) cuts are products of two slacks
-((q - b)(q - b - 1) >= 0), which the paper's section 5.2 places outside the
-box-cone form.
+(The row sums hold because every column of a feasible Y lies in range(V).)
+The 5-point and box (count) cuts are products of two slacks,
+(q - b)(q - b - 1) >= 0, which the paper's section 5.2 places outside the
+box-cone form. The local-7 cuts are facets of a 7-point hull, with no shared
+slack.
 
 The paper's Appendix A is closer to us. In correlation coordinates the four
 triangles of a triple read |Z_ik + Z_jk| <= 1 + Z_ij and
@@ -250,6 +263,15 @@ step.
    certificate with the same mu_D (48,762.50) lies below that, as a lower
    bound on L(mu_D) must [m]. The run also repeats the s1p1 trace exactly up
    to t = 1,500, so the runs are deterministic [m].
+
+5. **Gates** on the final code (`logs/gates.txt`) [m]:
+   - `make test`: brute force 4,536 of 4,536, resume 5 of 5, parallel and
+     coordinator all passed (the AWS scenario skipped, no boto3 here), and
+     the regression check exact;
+   - `make dnncheck`: OK;
+   - `make shipcheck`: ok, ship64 identical to the straight run;
+   - `make continuationcheck`: PASS;
+   - `python3 bench/bench.py check`: 7 of 7 match the reference exactly.
 
 ## Results
 
@@ -439,16 +461,18 @@ Against the memo's kill line:
 - **Within 10 of 48,763 by 2,000 iterations: passes.** s1p1 certifies 48,753
   at t = 1,040 and 48,767.1 by t = 2,000 [m]. The production settings give
   1,170 and 48,763.8 [m]. On d2 the same level (within 10 of the dual test's
-  estimate) comes at t = 880 against 4,670 [m].
+  estimate) comes at t = 880 against 4,670 [m]. Node 14 fathoms at t = 770
+  against 4,390 [m].
 - **Per-iteration overhead at most 30%: passes.** It is +3.8% in total and
   +6.7% for the CP work itself, in the dual test's settings [m]. In the
   production settings it is +13.5%, of which 6.8 points come from
   certifying every check [m].
 
 **Decision: pass.** The memo expected 1.3-2x fewer phase iterations [e]. The
-measured gain to the Polyak protocol's plateau is 4.7x in iterations and
-4.9x in CPU with one sweep per iteration [m]. With three sweeps it is 5.7x
-and 5.8x [m].
+measured gain to the Polyak protocol's plateau on node 13 is 4.7x in
+iterations and 4.9x in CPU with one sweep per iteration, and 5.7x and 5.8x
+with three [m]. Nodes 14 and d2 give 5.7x (to the fathom) and 4.8x (to
+Polyak's final value) with one sweep [m].
 
 Why it works. The Polyak phase moves the multipliers once per 300
 iterations, along the subgradient at a 300-iteration iterate. Two of the 12
@@ -469,8 +493,8 @@ dual optimum. The regional triangles are still capped well short of the
 cutoff on this node: 42 short instead of 59 [m]. The dual test's conclusion
 (the family is capped) stands. But the cap on this pool is at least 48,771.7.
 That is 16 above the Polyak protocol's value and 9 above the slow ascent's
-48,763 on the laptop's pool. On d2 the cap is about 48,808, 6 short of the
-cutoff, against the slow ascent's 48,795 [m]. With fresh cuts separated
+48,763 on the laptop's pool. On d2 the cap is at least 48,807.9 [m], 6 short
+of the cutoff, against the slow ascent's 48,795. With fresh cuts separated
 during the solve, d2 is the node to watch.
 
 ## What a production version would need
@@ -484,7 +508,9 @@ Not built tonight. The pieces:
    grouping stays. A pass costs 0.56 ms per 13,000 cuts [m], so the pool's
    size is not a cost. Cuts whose nu stays at 0 can be dropped. Not
    measured: whether separating inside the solve keeps the speed. That is
-   the first test, against this study's frozen-pool run.
+   the first test, against this study's frozen-pool runs, on node 13 and on
+   d2 (6 short at its frozen pool's cap). The round-2 pool's run suggests a
+   few early separations carry most of the gain [m].
 2. **Pooled children.** Remap the parent's pool as today (`remap_pool`, with
    zero multipliers kept) and start nu = mu / (s beta) from the parent's
    mu_D (`-cpmu` does this). From the Polyak round-12 multipliers it gains
@@ -543,19 +569,29 @@ node-10 A/B of `pipeline_ab` with a CP phase (items 1, 2, 5) against
   certificate.
 - `run_cp.sh`: the CP arms (s1p1, s1p5, s3p3, plain, `*_prod`; QUIET,
   EXTRA and TAG for the variants).
-- `run_node.sh`: the same two runs on another node (d2).
+- `run_node.sh`: the same runs on another node (d2, 14): the Polyak
+  reference with its pool, CP s1p1, and CP s3p3 (`cp3`).
 - `validate_cp.py`: the brute-force validity check.
-- `check_identity.sh`: the switch-off identity check.
+- `check_identity.sh`: the switch-off identity check. The "old" binaries in
+  it and in `run_ref.sh` are scratch builds of the parent commit 57adbe6
+  (`latest/` and `experiments/dnn_cuts/dnncuts.C` from `git archive 57adbe6`,
+  then `make dnntest dnncuts`). Set OLD, OLD_DNNTEST and OLD_DNNCUTS to use
+  others.
 - `analyze.py`: the curve, level, overhead and residual tables from the logs.
+  For example: `python3 -I analyze.py s1p1 s1p5 s3p3 plain` (node 13);
+  `--ref polyak_prodnl_13.log s1p1_prod s3p3_prod`; or
+  `--ref polyak_new_d2.log --node d2 --levels 48785 48790.8 -- s1p1 s3p3`.
 - `pool_stats.py`: the pool's structure, for the box-cone question.
 - `logs/`:
-  - `polyak_{ref,new,prod,prodnl}_13.log`, `cp_*_13.log`, and the d2 logs;
-  - `pool12_13.txt`, `pool12_prod_13.txt`, `pool12_d2.txt`: the frozen pools;
+  - `polyak_{ref,new,prod,prodnl}_13.log`, `cp_*_13.log`, and the d2 and 14
+    logs (`polyak_new_{d2,14}.log`, `cp_s1p1_{d2,14}.log`, `cp_s3p3_d2.log`);
+  - `pool12_13.txt`, `pool12_prod_13.txt`, `pool12_d2.txt`, `pool12_14.txt`,
+    `pool2_13.txt`: the frozen pools;
   - `cp_selftest_pool{2,12}_13.log`, plus `polyak_pool2_13.log`, the run
     that made the round-2 pool;
   - `validate/`: samples (nug12's root and one random instance) and the
     swapped nug12 instance; `validate_summary.txt`;
-  - `ident/`, `ident_summary.txt`.
+  - `ident/`, `ident_summary.txt`, `gates.txt`.
 - Code: `latest/dnn.h` and `dnn.C` (`DNNYCuts`, `DNNParams::ycuts`),
   `latest/dnncut.h` and `dnncut.C` (`CutProjector`, `cp_selftest`,
   `dnn_cp_bound`, `DNNCPParams`, `-savepoolall`'s `pool_all_round`), and
