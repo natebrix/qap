@@ -58,6 +58,8 @@ high rank. 2403.11210 is about penalty heuristics.
 | dual-factorized ADMM (De Santis-Rendl-Wiegele 2018; Cerulli et al. 2021) | GEMMs with U, K x 600 | about ADMM's | perturbation or repair of the dual [m] | K r | good | our Chebyshev-tracked negative subspace already does this |
 | RLT2 dual ascent (Hahn-Grant; Adams et al. 2007; Date-Nagi GPU) | O(n^6) multipliers, about 1.6e10 at n = 50 [e] | many | every dual-feasible LP point | far too large | GPU clusters | ">= 10x rPRSM's time for similar bounds" (Graham et al.) [m] |
 | CP-ALM / CP-ADMM (de Meijer-Sotirov 2021; de Meijer et al. 2023) | PRSM plus one Dykstra sweep over the cuts, +10-30% [e] | not reported at this size | their paper needs a post-processing solve [m]; ours: GL(L + Z' + G'mu_D) - h'mu_D for the Dykstra mu_D >= 0 [e] | + pool | same as PRSM | research code, published bounds on QCCP and graph partition |
+| box-cone ADMM (Charbonneau-Hu-Sotirov, arXiv 2610.41051, Oct 29 2026) | PRSM plus one sort-and-clip projection per cut row (the 2n bound-factor products of one inequality share a slack, so they form one box cone; no Dykstra loop, no slack per scalar cut) [m, their claim] | not reported on QAP; BQP against SDPNAL+, Max-Cut triangle cuts inside MADAM's B&B 6.5% median faster on 220 graphs [m] | none: "residual-corrected dual bounds ... should not be interpreted as certified" [m]; ours would be the Dykstra form of item 2 with mu_D read off the cone multipliers [e] | + pool | same as PRSM | C/MPI research code; the cheap projection exists only for cut families with the shared-slack form, which ours (pooled, not bound-factor products of a common row) may not have; an hour's read for item 2, not a build |
+| preconditioned ALM / SDPF+ (Tang-Toh, arXiv 2605.17089, May 2026) | ALM with a tangent-space-weighted penalty on a feasible-method base | - | any outer Z through our certificate | - | - | claims wins only on SDPs with low-rank optimal solutions; the same exclusion as cuHALLaR, LoRADS and RNNAL (rank R* about 1,500 of 2,117) |
 
 ## 3. Why nothing replaces the PRSM
 
@@ -154,6 +156,7 @@ a GPU than PRSM).
 | Hu-Sotirov-Wolkowicz 2023 | symmetry reduction after FR | n/a below the root: wil50's order-4 grid group fixes almost no location, so a depth-3 node's stabilizer is trivial or order 2 [e] |
 | Kim-Kojima-Toh / Fujii 2021 | warm-started brackets in B&B, valid bound at any iterate | equivalent (warm Z, any-Z certificate) |
 | de Meijer-Sotirov 2021/2023 | cuts in the projection by Dykstra | **not done**. Item 2 |
+| Charbonneau-Hu-Sotirov 2026 | bound-factor RLT cuts as one box cone per inequality, projected by sort and clip inside the ADMM | not done; found Nov 6 by a citation pass over Graham 2022 (OpenAlex and Semantic Scholar, 14 citing papers, all others off-topic or already here); the question for item 2 is whether any of our cut families has the shared-slack form |
 | Jansson-Chaykin-Keil 2007; VSDP; SDPLR+ 2024 | rigorous bound from a dual point plus a primal eigenvalue/trace bound | done, with the exact trace m+1 (stronger than a lambda_max(X) bound) and Rump's Cholesky; the certificate is 3% of time with margin about 1e-7 [m], so nothing cheaper or stronger is left on this side |
 
 ## 6. References (d)
@@ -172,6 +175,8 @@ a GPU than PRSM).
 - Yurtsever, Tropp, Fercoq, Udell, Cevher. Scalable semidefinite programming. SIMODS 2021; arXiv 1912.02949.
 - Hou, Tang, Toh. Low-rank ALM for DNN relaxations of MBQPs (RNNAL). Oper. Res. 2025; arXiv 2502.13849. RiNNAL+, arXiv 2507.13776.
 - Huang, Gleich. Suboptimality bounds for trace-bounded SDPs (SDPLR+). arXiv 2406.10407 (2024).
+- Charbonneau, Hu, Sotirov. Box-cone representations of bound-factor RLT constraints in semidefinite relaxations. arXiv 2610.41051 (Oct 2026).
+- Tang, Toh. A preconditioned augmented Lagrangian method for solving semidefinite programming problems. arXiv 2605.17089 (May 2026).
 - De Santis, Rendl, Wiegele. Using a factored dual in ALMs for SDP. Oper. Res. Lett. 2018; Cerulli, De Santis, Gaar, Wiegele. 4OR 19 (2021) 415-448.
 - de Meijer, Sotirov. SDP-based bounds for the quadratic cycle cover problem via cutting plane ALM. INFORMS J. Comput. 2021; arXiv 2009.03616. de Meijer, Sotirov, Wiegele, Zhao. Partitioning through projections. Comput. Oper. Res. 151 (2023).
 - Kanoh, Yoshise. Centering ADMM for the SDP relaxation of the QAP. arXiv 2001.05739 (2020).
