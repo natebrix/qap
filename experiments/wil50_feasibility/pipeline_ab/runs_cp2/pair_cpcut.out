@@ -1,0 +1,26 @@
+2026-11-07 13:19:32 arms: cpcut | Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 | 2 slots per arm | logs in /home/user/qap/.claude/worktrees/agent-ae043968f328001f4/experiments/wil50_feasibility/pipeline_ab/runs_cp2/ARM/ | stop with: kill 10632
+cpcut: done, coordinator: 2 slots, 9 units, wall 1539.43 s, CPU 2536.14 s (x1.65), slots busy 83.4%, best objective 48816
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| cpcut | 94 / 92 | 94 / 92 | 5 (3) | 93 / 93 | 7,868 (4,259 + 3,609) | 2,524 | 2,536 | 1,539 | 83.4% | 48816 |
+| cpcut2 | 94 / 92 | 94 / 92 | 4 (2) | 93 / 93 | 7,227 (4,586 + 2,641) | 2,398 | 2,407 | 1,533 | 79.4% | 48816 |
+  cpcut: 2026-11-07T13:19:32Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 9706717
+  cpcut2: 2026-11-07T13:19:35Z Intel(R) Xeon(R) Processor @ 2.10GHz amx_cpus 4 slots 2 9706717
+
+## cpcut2 against cpcut
+- tree: 94 DNN nodes against 94; cut phases 4 (2 fathomed) against 5 (3)
+- DNN iterations 7,868 -> 7,227: **1.089x** (first solves 4,259 -> 4,586, cut phases 3,609 -> 2,641)
+- DNN CPU 2,524 -> 2,398 s: 1.053x; coordinator CPU 2,536 -> 2,407 s: 1.054x; wall 1,539 -> 1,533 s: 1.004x
+- the 94 shared nodes: 7,868 -> 7,227 DNN iterations, 1.089x; 0 nodes only in cpcut2, 0 only in cpcut
+- the 94 matched nodes (shared, same warm start and pool status): 7,868 -> 7,227 DNN iterations, 1.089x
+- the same matched nodes' DNN CPU: 2,524 -> 2,398 s, 1.053x; per DNN iteration 321 -> 332 ms
+- the 4 nodes with a phase in both: phase iterations 3,249 -> 2,641 (1.230x), fathomed by the phase 2 -> 2, mean gain over the first solve +46.8 -> +40.8
+- by depth (nodes, DNN iterations), cpcut -> cpcut2: d3 1/1,410 -> 1/1,410; d4 47/4,903 -> 47/4,433; d5 46/1,555 -> 46/1,384
+
+cpcut: the subtree's root (depth 3): first lb 48600.37 after 300 it, phase best 48739.98 in 1110 it (stalled)
+
+cpcut2: the subtree's root (depth 3): first lb 48600.37 after 300 it, phase best 48739.98 in 1110 it (stalled)
+
+To share the results: git add experiments/wil50_feasibility/pipeline_ab && git commit -m 'pipeline A/B: cpcut' && git push

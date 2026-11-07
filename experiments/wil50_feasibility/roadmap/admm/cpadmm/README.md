@@ -60,6 +60,12 @@ time. Iterations t are counted from the give-up point, for both protocols.
   at t = 1,070 [m]. The frozen 13,000-cut pool reaches it at 1,040 and
   Polyak at 4,860. Node 14 fathoms at 790 [m]. d2 does not fathom: 48,808.0
   at t = 4,500, 6.1 short [m].
+- **In the search** (see "In the search" below). The cut phase runs as one
+  CP solve in bnbdrv (`QAP_DNN_CUT_CP=100:1000`) and passes the node-10 A/B
+  against `bestcore` [m]:
+  - 1.307x in DNN CPU on the matched nodes, against a kill line of 1.10x;
+  - 1.86x end to end, and the tree falls from 277 nodes to 94.
+  - Three depth-4 phases fathom where the rounds end 17-21 short.
 
 **Two more nodes**, with the same settings and protocol and each node's own
 round-12 pool (`run_node.sh`).
@@ -505,7 +511,9 @@ during the solve, d2 is the node to watch.
 
 ## What a production version would need
 
-Not built tonight. The pieces:
+Not built in the first study. Built since, in the search (see "In the
+search" below): items 1, 2 (as QAP_DNN_POOL_CP), 4, 5 (the stall rule) and
+6 (DNN_CP_LAZYCERT). The pieces:
 
 1. **Pool changes between rounds.** Today each round adds 1,000 cuts,
    separated on the round's last Y. A CP phase is one solve. It would
@@ -770,6 +778,269 @@ same as the frozen pool [m] (`cp_s3sep100_d2.log`).
   phases stop at the same bound [e]: the separating runs are within 2-4% of
   the frozen-pool iteration counts used there, so the estimate stands.
 
+## In the search (Nov 7): the cut phase in CP form, node-10 A/B
+
+**Question.** With the phase built into bnbdrv, does the search get the
+single-node gain? The test is the `pipeline_ab` node-10 subtree against
+`bestcore`, with the kill line at 1.10x in DNN CPU on the matched nodes.
+
+### What was built
+
+All of it is opt-in. With the switches off, the search is trace-identical to
+the parent commit (below).
+
+- **`QAP_DNN_CUT_CP=k:K`** (bnb.C) runs the cut phase as one CP-ADMM solve,
+  `dnn_cut_cp` (dnncut.C), in place of `dnn_cut_rounds`. It takes the same
+  inputs and gives the same outputs.
+  - **Start.** `wc`, the first solve's final state: its Z, and its Y as well
+    under QAP_DNN_CUT_WARMY=1 (as the rounds use it; `bestcore` sets it).
+  - **Start pool.** The inherited pool, remapped as the rounds remap it,
+    with nu from its multipliers: nu = mu / (s beta), where s is the CP
+    solve's own scale. Then round 0's separation on the first solve's Y,
+    exactly as the rounds' round 0: QAP_DNN_CUT_K (1,000) triangles, entered
+    at nu = 0. A phase with no cuts returns with no solve, as the rounds do.
+  - **The solve.** It separates K more every k iterations on its projected
+    Y, as `-cpsep`. Its budget is QAP_DNN_CUT_CP_ITERS, by default the
+    rounds' 12 x 200 + 1,000 = 3,400. The hopeless rules are off and the
+    `wc` beta key applies (`cut_round = 1`), as in the rounds.
+    QAP_DNN_CUT_CP_SWEEPS=S[:P] sets the sweeps (1:1).
+  - **Outputs.** best_lb, status, iterations, CPU (the whole phase,
+    separations included), active (cuts with nu > 0), stalled, and rounds,
+    which counts the separations, round 0 included. `pool_out` holds the
+    cuts with nu > 0 at the final mu_D = s beta nu. It is checked on
+    QAP_DNN_POOL_CHECK random permutations, and it is handed on under the
+    rounds' condition (inherited, or the solve beat the first bound). `wc`
+    holds the final state for the children.
+  - **Fallback.** Side 1, atomic cuts, a missing state, or a setting the CP
+    solve refuses run the rounds. The trace's `cp F` says which ran
+    (`cp 1 active N stalled S` after the phase's fields).
+- **Stopping rules, per check.** The fathom test at the cutoff is dnn.C's
+  own. The stall rule runs in iteration form through a hook,
+  `DNNYCuts::stop`, called at every check after the fathom test. With
+  W = stall_rounds x iters = 3 x 200 = 600, the solve stops when
+  cutoff - best > 3 x (best(t) - best(t - W)); best is the running
+  certified best, first_lb included. The primal gate is not built: it is
+  off in `bestcore`. The dnn.C change is that one line, plus item 3.
+- **Item 3, the lazy certificate in CP mode: `DNN_CP_LAZYCERT=1`.** It is a
+  separate switch, active only together with `bestcore`'s
+  DNN_CORE_LAZYCERT=1. At a check that skips Rump's test, the hook keeps
+  that check's nu (`DNNYCuts::snapshot`: the last check, and the one with
+  the best estimate). The exit certifies them with their own cut term
+  (`cert_term_at`), as DNN_CORE_LAZYCERT does for plain solves. The
+  polyhedral value, the fathom test and the estimate use the cut-modified
+  objective's shift, magnitude sum and exact-LAP threshold. These equal the
+  plain ones without the hook, so the plain path is unchanged.
+- **Item 4, `QAP_DNN_POOL_CP=1`.** A pooled child's first solve runs in CP
+  form: `dnn_cp_bound` with `DNNCPParams::child`, in place of
+  `dnn_pool_bound`. The inherited cuts sit in the Y-step from nu = mu /
+  (s beta), instead of frozen at mu in the objective. There is no
+  separation. The child hands on the cuts with nu > 0 at its final mu_D,
+  and its own cut phase starts from them. If no cut survives the remap, it
+  runs the plain solve. If the setting is refused, it runs
+  `dnn_pool_bound`. The trace adds `pcp 1 handed N`.
+- **Item 5, state.** A CP solve never crosses a checkpoint. bnbdrv takes
+  its checkpoints and its time limit only between nodes (bnb.C: "before
+  the next node is popped"), and a unit is a bnbdrv run. So nu need not be
+  shipped. The children get mu_D in the pool (`dnn_pool_out`, which the
+  state files carry) and the final DNN state (`*save`, shipped under
+  QAP_DNN_SHIP). A CP-form child (item 4) converts mu_D back to nu at its
+  own scale and beta.
+
+### Validity and identity
+
+- **Brute force through bnbdrv** (`validate_search.py`). 17 instances: the
+  four families of `tests/brute_force.py` at n = 8 and 9, two of each, and
+  nug12 with its matrices swapped so that the 3 x 4 grid's regions apply.
+  - Settings: phases forced (QAP_DNN_CUT_ZONE=1, so every DNN miss runs
+    one), pools on with the pool check, `QAP_DNN_CUT_CP=50:100`, and the
+    upper bound at the optimum + 2, so the search must find the optimum
+    itself.
+  - Checks: the final objective equals the optimum. Every traced node's
+    first bound and phase bound is at most that node's optimum, found by
+    enumeration up to 9 free elements, else by a plain QPB search from the
+    node.
+  - Four switch sets on the final binary (63058bb):
+    - `cp`: the phase, Y restarted;
+    - `cpwarmy`: + QAP_DNN_CUT_WARMY=1;
+    - `poolcp`: + QAP_DNN_POOL_CP=1;
+    - `cplazy`: + DNN_CORE_LAZYCERT=1 DNN_CP_LAZYCERT=1.
+  - Each set: 190-192 DNN nodes, all checked; 97 phases, all in CP form;
+    246-264 separations; 52-67 pooled nodes (all 67 in CP form under
+    `poolcp` and `cplazy`). Max(bound - node optimum) = 0. **PASS** [m]
+    (`logs/validate_search_summary.txt`, samples in `logs/validate_search/`).
+- **Identity with the switches off** (`check_identity_search.sh`): this
+  tree's bnbdrv against the parent commit 7849e38's.
+  - nug20, the whole search at the ship test's DNN settings: trace-identical
+    (184 node lines; 184 / 172 nodes).
+  - node 10 at `bestcore`'s settings (DNN_CORE_LAZYCERT among them), a CPU
+    slice: the node lines both runs reach are identical, phases included.
+  - On the final code (9706717) with a 900 CPU-second slice: 22 node lines,
+    2 phases among them, identical [m] (`logs/ident_search_summary.txt`).
+    The same check on acd49af, the first build, gave the same.
+- **Gates** (63058bb, switches unset): `make dnncheck` OK, `make
+  continuationcheck` PASS, `make shipcheck` ok (ship64 identical to the
+  straight run), `python3 bench/bench.py check` passed (7 instances).
+  `make test` on an idle box (9706717, the same `latest/`): brute force
+  4,536/4,536, resume 5/5 identical, the parallel and coordinator checks
+  passed (the AWS scenario skipped, no boto3), regression passed [m]
+  (`logs/gates_search.txt`).
+- **The lazy certificate in CP mode** (`run_lazy.sh`): node 13's separating
+  CP solve at the production settings, 1,500 iterations, with and without
+  DNN_CP_LAZYCERT=1.
+  - The iterates are identical, and so is the final certified bound, to the
+    last bit (48,758.1519152734).
+  - 2 Rump tests instead of 150, and 498.6 s against 518.5 s of CPU:
+    -3.8% [m] (`logs/cp_lazy{0,1}_13.log`).
+
+### The A/B: `bestcore` against `cpcut`
+
+`PAB_RUNS=runs_cp run_pair.sh`, with `bestcore` on cores 0-1 and `cpcut`
+(`bestcore` + QAP_DNN_CUT_CP=100:1000) on cores 2-3. 2 slots each, both at
+the same time, binary 62b383a (`pipeline_ab/runs_cp/`, `summary.txt`,
+`phases_cpcut.txt` from `ab_phases.py`).
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|
+| bestcore | 277 / 271 | 6 (0) | 15,941 (9,741 + 6,200) | 4,821 | 302 ms | 2,840 |
+| cpcut | 94 / 92 | 5 (3) | 7,868 (4,259 + 3,609) | 2,586 | 329 ms | 1,602 |
+
+- **Kill line, 1.10x in DNN CPU on the matched nodes: PASS, 1.307x** [m].
+  All 94 of cpcut's nodes are matched (same warm start and pool status).
+  - Iterations 11,057 to 7,868 (1.405x). Per iteration, 306 to 329 ms.
+  - End to end: **1.864x in DNN CPU, 2.03x in iterations, 1.77x in wall**
+    [m]. The tree shrinks from 277 nodes to 94.
+- **Where it comes from.** Four nodes change outcome [m]:
+  - Three depth-4 phases fathom in CP form, in 529, 650 and 360 iterations.
+    Under `bestcore` they branch after 1,600, 600 and 600 iterations.
+  - The depth-5 node `0:25 ...` fathoms in its first solve (lb 48,814.1
+    after 200 iterations). It inherits the CP phase's pool from `49:45`.
+    Under `bestcore` its phase ran 1,600 iterations and ended 0.8 short
+    (48,813.3). Its 45 children went with it.
+  - The 183 nodes only in `bestcore` are those four nodes' children and
+    grandchildren.
+
+**Per phase** (`phases_cpcut.txt`; cutoff 48,814.05) [m]:
+
+| depth | node | first lb | bestcore phase: iterations / rounds, best | cpcut phase: iterations / separations, best, stop | cpcut - bestcore |
+|---|---|---|---|---|---|
+| 3 | `25:49 30:48 39:27` (node 10) | 48,600.4 | 1,200 / 6, 48,726.2 | 1,110 / 12, 48,740.0, stall rule | +13.8 |
+| 4 | `19:45 ...` | 48,793.4 (cpcut 48,797.8) | 1,600 / 4, 48,796.5 | 529 / 6, 48,814.2, fathomed | +17.7 |
+| 4 | `29:45 ...` | 48,793.0 (48,798.5) | 600 / 3, 48,793.0 | 650 / 7, 48,814.1, fathomed | +21.1 |
+| 4 | `49:45 ...` | 48,767.6 (48,774.5) | 600 / 3, 48,767.6 | 960 / 10, 48,790.1, stall rule | +22.5 |
+| 4 | `9:45 ...` | 48,796.2 (48,800.0) | 600 / 3, 48,796.2 | 360 / 4, 48,814.1, fathomed | +17.9 |
+| 5 | `0:25 ... 49:45` | 48,799.1 (48,814.1) | 1,600 / 4, 48,813.3 | none: fathomed by its first solve | |
+
+- **On the 5 phases both arms ran** [m]:
+  - Iterations 4,600 to 3,609. CPU 1,384 to 1,230 s.
+  - Per iteration 301 to 341 ms (+13%): the projection, and a Rump test at
+    every check [e].
+  - Mean gain over the first bound +25.8 to +40.3. Fathomed 0 to 3.
+- **The rounds stall at once on inherited pools.** Three of `bestcore`'s
+  depth-4 phases gain nothing in 600 iterations. Their best equals the first
+  bound, and the stall rule stops them after 3 rounds. The CP phases at the
+  same nodes end 18-23 higher and fathom two of them [m].
+- **The depth-4 nodes start higher in `cpcut`** (+3.8 to +6.9), because the
+  root's CP phase hands on a better pool.
+  - It hands on the 2,443 cuts with nu > 0 at mu_D (84 KB encoded, against
+    the rounds' 147 KB).
+  - The 93 nodes pooled in both arms: first-solve iterations 4,557 to 3,959
+    (1.151x), CPU 1,482 to 1,265 s (1.172x), mean first bound +3.1.
+  - The root's 47 children: 43 fathom in their first solve in both arms.
+    Under `cpcut`, 3 of the other 4 fathom in their phase [m].
+- **The budget is not binding, and no longer phase hurt** [m].
+  - Three CP phases fathom (360-650 iterations), and the stall rule stops
+    the other two: the root at 1,110 iterations, 74 short, and `49:45` at
+    960, 24 short. None reaches the 3,400 budget.
+  - Phase for phase, the CP phases are shorter than the rounds on average
+    (722 against 920 iterations). Each one ended by fathoming or by the rule
+    well before 3,400, so a longer budget would not have changed them.
+
+### Items 3 and 4 in the search: `cpcutl` and `cpcut2`
+
+Sessions 2 and 3 used the same box with 2 slots per arm:
+- session 2 (a75f1a0, `runs_cp/`): `cpcut2` on cores 0-1 and `cpcutl` on
+  2-3, ten minutes apart;
+- session 3 (9706717, `runs_cp2/`): `cpcut` and `cpcut2` at the same time,
+  for a same-session CPU ratio.
+
+Every CP arm is deterministic in its decisions: each replicate reproduced
+its tree and its iteration counts exactly [m].
+
+| arm | session | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|---|
+| bestcore | 1 | 277 / 271 | 6 (0) | 15,941 (9,741 + 6,200) | 4,821 | 302 ms | 2,840 |
+| cpcut | 1 | 94 / 92 | 5 (3) | 7,868 (4,259 + 3,609) | 2,586 | 329 ms | 1,602 |
+| cpcut2 | 2 | 94 / 92 | 4 (2) | 7,227 (4,586 + 2,641) | 2,305 | 319 ms | 1,473 |
+| cpcutl | 2 | 94 / 92 | 5 (3) | 7,868 (4,259 + 3,609) | 2,470 | 314 ms | 1,496 |
+| cpcut | 3 | 94 / 92 | 5 (3) | 7,868 (4,259 + 3,609) | 2,524 | 321 ms | 1,539 |
+| cpcut2 | 3 | 94 / 92 | 4 (2) | 7,227 (4,586 + 2,641) | 2,398 | 332 ms | 1,533 |
+
+**Across sessions** the same work costs 2-9% less or more CPU [m]:
+- `cpcut` itself: 2,586 s in session 1, 2,524 s in session 3;
+- the root's 300-iteration first solve: 91-92 s in session 1, 84-86 s
+  later.
+
+So only same-session CPU ratios are used below. Iterations do not depend
+on the session.
+
+**`cpcut2`, the pooled children's first solves in CP form: 1.089x in
+iterations, 1.053x in DNN CPU against `cpcut`, same session** [m]
+(`runs_cp2/summary.txt`, `phases_cpcut2.txt`). Wall time is the same
+(1.004x).
+- **The gain is all in the phases:** 3,609 to 2,641 iterations, 1,189 to
+  870 s.
+  - At the depth-4 misses, the CP first solve keeps rising, so the
+    hopeless rule stops it later. The solve does part of the phase's work.
+    For example, `29:45` runs 460 + 491 iterations against 320 + 650, and
+    `9:45` fathoms in its first solve at 770 iterations, against 310 + 360
+    with a phase.
+  - `49:45`'s phase starts 4.3 higher (48,778.8). The stall rule stops it at
+    600 iterations instead of 960, at 48,787.5 against 48,790.1. Its child
+    `0:25 ...` still fathoms in its first solve.
+- **The children that fathom in their first solve get slower.** On the 93
+  pooled nodes, the first solves take 3,959 to 4,286 iterations and 1,249
+  to 1,442 s (0.866x). That is 336 ms per iteration against 315.
+  - The extra cost is likely the projection's two dense P-steps per
+    iteration, about 9 ms each in the first study, with no lazy certificate
+    [e].
+  - The mean first bound is 0.95 lower [m].
+- Against `bestcore` (across sessions 1 and 2): 2.21x in iterations end to
+  end, 1.53x on the matched nodes [m].
+
+**`cpcutl`, the lazy certificate in the CP solves.** It gives the same tree
+and the same iterations as `cpcut`, node for node, and the same phases [m].
+- The plain first solves are the same work in both arms, so they calibrate
+  the session: 0.978x of `cpcut`'s CPU in session 2.
+- The CP phases ran at 0.929x, so the switch saves about 5% of the phase
+  CPU, 2% of the total [m] (`cpcut` against `cpcutl` in `runs_cp/`). On
+  node 13 it saved 3.8% (above).
+- Valid, and decision-neutral here, but small.
+
+### Verdict
+
+- **`cpcut` passes.** It gives 1.307x in DNN CPU on the matched nodes
+  against the 1.10x kill line, measured in the same session [m]. End to end
+  it is 1.86x in DNN CPU, 2.03x in iterations and 1.77x in wall time [m].
+  It is the candidate to take forward.
+- **The gain is the phases' bound.**
+  - The CP phases gain +40 over the first bound on average, against +26,
+    and fathom 3 of 5. The rounds fathom none, and on inherited pools they
+    stall at once [m].
+  - An iteration of a phase costs 13% more (301 to 341 ms) [m].
+  - The stall rule stopped the other two CP phases. None reached the 3,400
+    budget, so the budget cost nothing here.
+- **Caveat: one subtree.** The end-to-end factor rests on 4 changed
+  outcomes. One of them, the depth-5 node `0:25 ...`, is a known marginal
+  fathom: it flipped between `wlowc` and `wtwo` (`pipeline_ab`, run 2). The
+  matched-node 1.307x does not count the 183 nodes that disappear.
+- **The other two arms are small.** `cpcut2` adds 1.089x in iterations and
+  1.053x in DNN CPU, all of it from the phases; its children that fathom in
+  their first solve cost 15% more. `cpcutl` adds about 2%. Both stay opt-in,
+  and the decision needs neither.
+- **Next.** A second subtree where children are many and phases rare, for
+  example the node-5 tail probe (`../../../tail_probe/`), `cpcut` against
+  `bestcore`. If it holds, the projector's side-1 and atomic cuts for nug30.
+
 ## Files
 
 - `run_ref.sh`: the Polyak protocol on node 13, with the old binary and with
@@ -813,3 +1084,27 @@ same as the frozen pool [m] (`cp_s3sep100_d2.log`).
   follow-up `CutProjector::separate`, `compact`, `add_cut` and the
   `DNNCPParams` fields `sep_every`, `sep_k`, `pool_cap`, `drop_after`), and
   `experiments/dnn_cuts/dnncuts.C` (the options, with `-cpsep`).
+- In the search ("In the search" above):
+  - `validate_search.py`: the brute force through bnbdrv (arms `cp`,
+    `cpwarmy`, `poolcp`, `cplazy`).
+  - `check_identity_search.sh`: the switch-off identity against the parent
+    commit 7849e38 (a scratch build, OLD_BNB), on nug20 and a node-10 slice
+    (SLICE CPU seconds).
+  - `ab_phases.py RUNS REF CP`: the per-phase and pooled-children tables of
+    an A/B (`pipeline_ab/runs_cp/phases_*.txt`).
+  - `run_lazy.sh`: DNN_CP_LAZYCERT on node 13 (`logs/cp_lazy{0,1}_13.log`).
+  - Logs: `logs/validate_search/` (samples) with
+    `logs/validate_search_summary.txt`, `logs/ident_search/` with
+    `logs/ident_search_summary.txt`, and `logs/gates_search.txt`. The A/B is
+    in `pipeline_ab/runs_cp/` (the arms `cpcut`, `cpcut2` and `cpcutl` in
+    `run_pair.sh` and `summarize.py`).
+  - Code:
+    - bnb.C: QAP_DNN_CUT_CP, QAP_DNN_CUT_CP_ITERS, QAP_DNN_CUT_CP_SWEEPS and
+      QAP_DNN_POOL_CP; the trace's `cp F active N stalled S` and
+      `pcp 1 handed N`.
+    - dnncut.h/C: `dnn_cut_cp`, the `DNNCutParams` fields `cp_every`,
+      `cp_k`, `cp_iters`, `cp_sweeps` and `cp_passes`,
+      `DNNCutResult::cp_form`, `DNNCPParams::child`, and the projector's
+      stall rule, `snapshot` and `cert_term_at`.
+    - dnn.h/C: `DNNYCuts::stop`, `snapshot` and `cert_term_at`, and
+      DNN_CP_LAZYCERT.
