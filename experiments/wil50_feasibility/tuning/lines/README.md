@@ -170,3 +170,35 @@ down (`../../roadmap/tree_size.md` sections 2-3; nothing here was run):
 - Caveat: child gap at depth 1 is a proxy for subtree size two levels down. In the
   tail study the same proxy's rank correlation with realised cost was +0.6 to +0.9,
   enough to see a factor of two, not a 5% difference.
+
+### First root result (Nov 7, laptop): rule 8's root pick is 5x worse than its runner-up
+
+`root/`: the root solved 1,000 iterations with `-X` (`root_xbar.log`, lb 48,122.2,
+691.9 short), then the 15 orbit children (J1 cells: grid rows 0-2 x columns 0-4) of
+rule 8's three top facilities, cold, 1,500 iterations each, production flags, no
+give-up (`run_children.sh`, 45 logs in `children/`, scored by `score.py`; 52 min
+wall at 8 jobs, about 440 s a child). On `wil50.dat` a child is `-x cell:facility`.
+
+| facility | rule 8 score (sum x^2) | flow total (rank of 50) | children fathomed | median gap | worst gap | cost = sum 47^(gap/130) |
+|---|---|---|---|---|---|---|
+| **45** | 0.125 (2nd) | 178 (50th) | 0 | 390 | 515 | **1.27e7** |
+| 26 | 0.098 (3rd) | 189 (47th) | 0 | 494 | 552 | 6.33e7 (5.0x) |
+| 25 | 0.134 (1st, **rule 8's pick**) | 184 (48th) | 0 | 495 | 559 | 6.72e7 (5.3x) |
+
+- Rule 8's root choice (facility 25, by a 7% margin in sum x^2 over 45) costs
+  5.3x the runner-up on the lines metric. The root marginals are flat (no entry
+  above 0.18 against a uniform 0.02), and rule 8's ranking among the top lines
+  does not predict their cost there. The question "is our root line the best
+  possible" is therefore open in the direction that matters.
+- The pattern: the three most concentrated facilities are among the four
+  lowest-flow ones, and their mass sits on the four corner cells. The corner
+  child (cell 0) is the *hardest* child for all three (gap 515-559); the
+  easiest is the centre cell 24 (288-452). Facility 45's children gain 177-404
+  on the root's 692, facility 25's 133-240.
+- Not yet run: the two highest-flow facilities (40, flow 267; 31, 259) and a
+  median facility as control, which test the opposite hypothesis (diffuse
+  marginals but every child pins down something that matters). Same script:
+  `run_children.sh 40 31 <median>`, about 50 minutes at 8 jobs.
+- Caveats: cold children at 1,500 iterations (all `iter_limit`), so gaps are a
+  little pessimistic for everyone alike; the lines cost is the model of
+  `../README.md`, and 5x is far outside its noise.
