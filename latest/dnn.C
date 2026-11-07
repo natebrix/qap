@@ -230,6 +230,7 @@ DNNParams::DNNParams()
   cut_round = 0;
   warm_primal = 0;
   child_bounds = 0;
+  ycuts = NULL;
   verbose = 0;
 }
 
@@ -501,6 +502,9 @@ struct Work {
   // transform fusion (DNN_FUSE=1): the Y/Z step leaves the next forward's row phase
   // in T (t_rows_ready) and forward writes Wf alongside W (wf_ready)
   bool t_rows_ready = false, wf_ready = false;
+  // CP-ADMM (DNNParams::ycuts): the projected Y, the certificate's objective and
+  // cut term; allocated only then
+  std::vector<double> Ycp, Lcp, Lcp_add;
   ~Work() { if (use_amx) amx_ctx_free(&amx); }
 
   void alloc(int m_)
@@ -2009,13 +2013,21 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // is in cache, and forward writes Wf with W (node_speed.md trim f); not with the
   // accelerations, which rewrite Y and Z after the step
   static const int fuse_env = getenv("DNN_FUSE") ? atoi(getenv("DNN_FUSE")) : 0;
-  const bool fuse_ok = fuse_env > 0 && par.anderson == 0 && par.halpern == 0 && !m_on;
+  const bool fuse_ok = fuse_env > 0 && par.anderson == 0 && par.halpern == 0 && !m_on && !par.ycuts;
   // subspace block guard = K / DNN_GUARD_DIV (20; node_speed.md trim c tries 40)
   static const int guard_div = getenv("DNN_GUARD_DIV") ? std::max(1, atoi(getenv("DNN_GUARD_DIV"))) : 20;
   // DNN_BETA_SCHED (see BetaSched): off unless set
   BetaSched bs;
   const bool warm_call = start && start->Z.size() == (size_t)n1 * n1;
   const bool accel = par.anderson > 0 || par.halpern > 0 || par.momentum > 0;
+  // CP-ADMM (par.ycuts): cuts projected in the Y-step, certified with their
+  // multipliers at every check (see DNNYCuts)
+  DNNYCuts *const yc = par.ycuts;
+  if (yc && (accel || par.prototype_cert || cx_on || par.child_bounds)) {
+    res.status = DNN_ERROR; res.cpu = thread_cpu() - t0; return res;
+  }
+  double cp_cpu = 0;   // CPU seconds in the hook's projection
+  if (yc) { w.Ycp.assign((size_t)n1 * n1, 0.0); w.Lcp.assign((size_t)n1 * n1, 0.0); w.Lcp_add.assign((size_t)n1 * n1, 0.0); }
   {
     if (accel || (bs.nodes == 1 && warm_call) || (bs.nodes == 2 && !warm_call))
       bs.kind = 0, bs.w = 0;
@@ -2064,7 +2076,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // the child bounds, which read every check's certified value.
   static const int lazy_env = getenv("DNN_CORE_LAZYCERT") ? atoi(getenv("DNN_CORE_LAZYCERT")) : 0;
   const bool lazy_ok = lazy_env > 0 && !par.prototype_cert && !cx_on && par.stall_window == 0 &&
-                       !par.child_bounds;
+                       !par.child_bounds && !par.ycuts;
   std::vector<double> lz_Z;                 // the stored multiplier with the best polyhedral estimate
   bool lz_have = false, lz_exit = false;    // stored; the run stopped on a check that skipped the test
   double lz_pen = 0;                        // the semidefinite penalty of the last full certificate
@@ -2134,6 +2146,39 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     // a row at a time: clip, then the fixed entries, then the updates
     long double pres2 = 0, dy2 = 0, dz2 = 0;
     double *yn = w.tmp.data();
+    if (yc) {
+      // CP-ADMM: Zc and the first dual step as below, X = VRV - (L/scale + Z)/beta
+      // (in T, free without DNN_FUSE), its projection onto P and the cuts by the
+      // hook, then the Z-step
+      double *X = w.T.data(), *Yn = w.Ycp.data();
+      for (int r = 0; r < n1; r++) {
+        const double *lr = L + (size_t)r * n1, *vr = VRV + (size_t)r * n1;
+        double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1, *cr = Zc + (size_t)r * n1;
+        double *xr = X + (size_t)r * n1;
+        if (rstep_cert)
+          for (int c = 0; c < n1; c++) cr[c] = zr[c] + beta * (yr[c] - vr[c]);
+        if (gamma1 > 0)
+          for (int c = 0; c < n1; c++) zr[c] += gamma1 * beta * (yr[c] - vr[c]);
+        for (int c = 0; c < n1; c++) xr[c] = vr[c] - (lr[c] * iscale + zr[c]) * ibeta;
+      }
+      const double tc = thread_cpu();
+      yc->project(X, Yn, beta, w.elim, it);
+      cp_cpu += thread_cpu() - tc;
+      double *rs = w.tmp.data() + n1, *ds = rs + n1;
+      for (int r = 0; r < n1; r++) {
+        const double *vr = VRV + (size_t)r * n1, *ynr = Yn + (size_t)r * n1;
+        double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1;
+        for (int c = 0; c < n1; c++) {
+          double y = ynr[c], res_ = y - vr[c];
+          zr[c] += gamma * beta * res_;
+          rs[c] = res_;
+          ds[c] = y - yr[c];
+          yr[c] = y;
+        }
+        pres2 += dot4(rs, rs, n1);
+        dy2 += dot4(ds, ds, n1);
+      }
+    } else   // the plain Y/Z step
     for (int r = 0; r < n1; r++) {
       const double *lr = L + (size_t)r * n1, *vr = VRV + (size_t)r * n1;
       double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1, *cr = Zc + (size_t)r * n1;
@@ -2248,6 +2293,23 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     // certified bound
     CertInfo ci;
     double lbs;
+    // CP-ADMM: this check's cut term G'mu goes into the objective the certificate
+    // reads (w.L, swapped back below) and h'mu into the shift; else shift_c == shift
+    double cp_hsum = 0, sumabsL_c = (double)sumabsL;
+    bool cp_swapped = false;
+    if (yc) {
+      const size_t nn = (size_t)n1 * n1;
+      std::fill(w.Lcp_add.begin(), w.Lcp_add.end(), 0.0);
+      double abs_add = 0;
+      if (yc->cert_term(scale, beta, w.Lcp_add.data(), abs_add, cp_hsum)) {
+        for (size_t t = 0; t < nn; t++) w.Lcp[t] = L[t] + w.Lcp_add[t];
+        sumabsL_c += abs_add + maxabs_of(w.Lcp_add.data(), nn);
+        std::swap(w.L, w.Lcp);   // L (the pointer) still reads the plain objective
+        cp_swapped = true;
+      } else cp_hsum = 0;
+    }
+    const double shift_c = yc ? shift - cp_hsum : shift;
+    const double exact_above_c = !yc ? exact_above : (std::isfinite(cutoff) ? cutoff - gap - shift_c : HUGE_VAL);
     if (par.prototype_cert) {
       // dnn.py: Zt = Z - V P_psd(V'ZV) V' (extra eigendecomposition)
       forward(w, Z, w.W.data());
@@ -2256,7 +2318,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       expand(w, w.R.data(), Zc);
       for (size_t t = 0; t < (size_t)n1 * n1; t++) Zc[t] = Z[t] - Zc[t];
     }
-    const double exact_below = cutoff - shift + 1e-6 * (1 + fabs(cutoff));
+    const double exact_below = cutoff - shift_c + 1e-6 * (1 + fabs(cutoff));
     w.want_red = par.child_bounds && par.poly != DNN_POLY_BOX;
     bool lazy_this = false;   // DNN_CORE_LAZYCERT: this check skipped Rump's test
     if (lazy_ok) {
@@ -2296,14 +2358,14 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         }
       }
     } else {
-      lbs = certify(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap, exact_above,
+      lbs = certify(w, Zc, scale, sumabsL_c, par.poly, par.inner_lap, exact_above_c,
                     exact_below, ci);
     }
     if (w.want_red) red_cur = w.red;
     if (!lazy_this) res.certificates++;
     if (!lazy_this && !ci.chol_ok) res.cert_failures++;
     if (!lazy_this && !par.prototype_cert && par.eig_mode != DNN_EIG_DOUBLE &&
-        (!ci.chol_ok || (lbs + shift <= cutoff && lbs + shift + ci.sdp_penalty > cutoff))) {
+        (!ci.chol_ok || (lbs + shift_c <= cutoff && lbs + shift_c + ci.sdp_penalty > cutoff))) {
       // single-precision R-steps leave V'Z'V slightly indefinite; when that
       // costs the fathom, project it in double: Z' <- Z' - V P_psd(V'Z'V) V'
       forward(w, Zc, w.W.data());
@@ -2312,11 +2374,15 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       expand(w, w.R.data(), VRV);   // VRV is free until the next R-step
       for (size_t t = 0; t < (size_t)n1 * n1; t++) Zc[t] -= VRV[t];
       CertInfo c2;
-      double l2 = certify(w, Zc, scale, (double)sumabsL, par.poly, par.inner_lap,
-                          exact_above, exact_below, c2);
+      double l2 = certify(w, Zc, scale, sumabsL_c, par.poly, par.inner_lap,
+                          exact_above_c, exact_below, c2);
       res.refinements++;
       if (l2 > lbs) { lbs = l2; ci = c2; if (w.want_red) red_cur = w.red; }
     }
+    if (cp_swapped) std::swap(w.L, w.Lcp);
+    // CP-ADMM: the bound of the cut-modified objective less h'mu (rounded up by
+    // the hook), rounded down; lb = lbs + shift below rounds down once more
+    if (yc && lbs > -HUGE_VAL) lbs = nextafter(lbs - cp_hsum, -HUGE_VAL);
     if (cx_on) {
       // experimental certificate variants at this iterate (DNN_CERTX; see above)
       const double tx0 = thread_cpu();
@@ -2558,6 +2624,11 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
              it, best_rule, lazy_this ? lz_est + shift : (lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL), ci.margin,
              lazy_this ? ", lazy" : (ci.chol_ok ? "" : ", chol FAILED"), obj, pres, dy, npos, thread_cpu() - t0,
              regular ? "" : " extra");
+    if (par.verbose && yc) {
+      const std::string t = yc->trace();
+      const double cv = lbs > -HUGE_VAL ? nextafter(lbs + shift, -HUGE_VAL) : -HUGE_VAL;
+      printf("cp it %5d cert %.17g hsum %.6g cpcpu %.2f %s\n", it, cv, cp_hsum, cp_cpu, t.c_str());
+    }
     // DNN_ADMM_CROSS: the crossing prediction from the (iteration, running best)
     // history of the checks; an extra check at a predicted crossing that did not
     // fathom predicts again from its own value (at most cross_max per interval)
@@ -2696,6 +2767,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   if (par.verbose >= 2)
     printf("profile (s): forward %.3f  eig %.3f  expand %.3f  Y/Z-step %.3f  certify %.3f\n",
            w.prof[0], w.prof[1], w.prof[2], w.prof[3], w.prof[4]);
+  if (par.verbose >= 2 && yc) printf("profile (s): cp projection %.3f (inside Y/Z-step)\n", cp_cpu);
   if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE)
     printf("eig split (s): full ssyevd %.3f (%d refreshes, K=%d)  filter+RR %.3f (%d steps, mean kb %.0f, mean nneg %.0f)  form R %.3f\n",
            w.prof[5], w.n_refresh, w.K, w.prof[6], w.n_sub,

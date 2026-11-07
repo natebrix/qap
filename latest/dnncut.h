@@ -180,6 +180,9 @@ struct DNNCutParams {
                       // side, the original region-side index it is fixed to (-1: free)
   int pool_check;     // > 0: evaluate the pool's term on this many random permutations of
                       // the node and abort if it is positive (a guard on the assembly)
+  int pool_all_round; // >= 0 with pool_all_out: the whole pool after this round's new cuts,
+  DNNPool *pool_all_out;  // zero multipliers included (the CP-ADMM study's frozen pool;
+                      // needs other_orig). -1 / NULL: off (default)
   DNNCutParams();
 };
 
@@ -214,5 +217,22 @@ DNNResult dnn_pool_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
                          const DNNParams &par, const std::vector<int> &free_orig, int n_orig,
                          const DNNCutParams &cp, const DNNWarm *start, DNNWarm *save,
                          int *kept = NULL, int *dropped = NULL);
+
+// CP-ADMM (experiments/wil50_feasibility/roadmap/admm/cpadmm): the node's bound
+// with cp.pool_in (remapped, zero multipliers kept) projected inside the Y-step by
+// cyclic Dykstra sweeps (DNNYCuts in dnn.h), certified at every check with the
+// sweeps' multipliers. One dnn_bound(par, start, save); every value is certified.
+// Regional cuts on side 0 only.
+struct DNNCPParams {
+  int sweeps;         // Dykstra sweeps (P-step, half-space pass) per Y-step (1)
+  int passes;         // half-space passes per sweep (1)
+  int diag_every;     // > 0: every this many Y-steps, the distance of the output to a
+  int diag_sweeps;    // run of diag_sweeps sweeps from the same start (0; 30)
+  int selftest;       // 1: check the cut extraction against assemble() first (0)
+  DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0) {}
+};
+DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
+                       const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,
+                       const DNNCPParams &cpp, const DNNWarm *start, DNNWarm *save, int *kept = NULL);
 
 #endif
