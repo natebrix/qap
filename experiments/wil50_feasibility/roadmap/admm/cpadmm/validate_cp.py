@@ -135,11 +135,12 @@ def check_node(dat, fixes, opt, regions, tag, outdir, failures, stats):
         if arm == "hard": stats["gain"].append((lb - lb0, opt - lb0))
         if worst > opt + tol:
             failures.append("%s %s: certified %.9g > optimum %.9g" % (tag, arm, worst, opt))
-        if arm != "fathom" and status == "fathomed":
+        at_opt = arm not in ("fathom", "sepf")   # the cutoff is the optimum: no fathom allowed
+        if at_opt and status == "fathomed":
             failures.append("%s %s: fathomed with the cutoff at the optimum" % (tag, arm))
-        if arm == "fathom" and status == "fathomed":
+        if not at_opt and status == "fathomed":
             stats["fathomed"] += 1
-            if not lb > cut: failures.append("%s fathom: fathomed but lb %.9g <= cutoff" % (tag, lb))
+            if not lb > cut: failures.append("%s %s: fathomed but lb %.9g <= cutoff" % (tag, arm, lb))
 
 
 def main():
@@ -198,8 +199,8 @@ def main():
     print("CP-ADMM validity: %d nodes, %d dnncuts -cpadmm runs, %d certified values, %d self-test lines"
           % (nodes, stats["runs"], stats["certs"], stats["selftests"]))
     print("  pools: %d cuts in all, %d nodes without a violated cut" % (stats["pool"], stats["nopool"]))
-    print("  max(certified - optimum) = %.3g (must be <= 1e-9 |optimum|); fathomed at cutoff opt-1: %d"
-          % (stats["worst"], stats["fathomed"]))
+    print("  max(certified - optimum) = %.3g (must be <= 1e-9 |optimum|); fathomed at cutoff opt-1 (fathom%s): %d"
+          % (stats["worst"], " and sepf arms" if args_sep else " arm", stats["fathomed"]))
     if args_sep:
         print("  separating arms: %d runs, %d certified values, max(certified - optimum) = %.3g; %d cuts added inside the"
               " solves, %d dropped" % (stats["sep_runs"], stats["sep_certs"], stats["sep_worst"], stats["sep_added"],
