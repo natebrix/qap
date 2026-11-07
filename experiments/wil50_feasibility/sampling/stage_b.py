@@ -293,6 +293,38 @@ class StageB:
         self.pool(jobs)
         return self.finish(todo, N, complete, partial_run=self.draining)
 
+    # ------------------------------------------------------------ the projection
+    def projection(self, rows):
+        """the full stage B's CPU and wall [e]: n x the mean give-up CPU of the nodes
+        bounded so far, plus the converge step at the mean CPU per converged node
+        so far (or 4,000 iterations at the give-up runs' CPU per iteration), plus
+        the rebuilt parents at their stage-A CPU (exact, from done.json)"""
+        try:
+            s, _, _ = self.sample()
+        except SystemExit:
+            return "Projection: no complete frontier yet."
+        give = [r["giveup"]["stats"]["times"][0] for r in rows]
+        if not give:
+            return "Projection: no node bounded yet."
+        g = sum(give) / len(give)
+        conv = [r["converge"]["stats"]["times"][0] for r in rows if r["converge"]]
+        per_it = [r["giveup"]["trace"]["cpu"] / r["giveup"]["trace"]["iters"] for r in rows
+                  if r["giveup"]["trace"] and r["giveup"]["trace"]["iters"] >= 100]
+        if conv:
+            v, vsrc = sum(conv) / len(conv), f"measured on {len(conv)}"
+        elif per_it:
+            v, vsrc = 4000 * sum(per_it) / len(per_it), "4,000 iterations at the give-up runs' CPU per iteration"
+        else:
+            v, vsrc = 0.0, "unknown"
+        parents = {x[1] for x in s if not os.path.exists(os.path.join(self.A, "tasks", x[1], "out.full.state"))}
+        rb = sum(json.load(open(os.path.join(self.A, "tasks", p, "done.json")))["stats"]["times"][0] for p in parents)
+        total = self.a.n * g + self.a.converge * v + rb
+        slots = len(self.cpus)
+        return (f"Projection for the full stage B [e]: {self.a.n} give-ups x {g:.0f} s (mean of {len(give)}) = "
+                f"{self.a.n * g:,.0f} s; {self.a.converge} converges x {v:.0f} s ({vsrc}) = {self.a.converge * v:,.0f} s; "
+                f"{len(parents)} parents to rebuild, {rb:,.0f} s at their stage-A CPU; total {total:,.0f} CPU s, "
+                f"{total / slots / 3600:.1f} h of wall on {slots} slots (CPU/wall about 0.99 in stage A)")
+
     # ------------------------------------------------------------ the report
     def load(self, key):
         p = os.path.join(self.run, "tasks", key, "result.json")
@@ -377,6 +409,7 @@ class StageB:
                     t = r["trace"]
                     lines.append(f"Calibration {self.a.calibrate} {mode}: lb {t['lb']:.2f}, {t['short']:.1f} short, "
                                  f"{t['iters']} iterations, {t['status']}, CPU {r['stats']['times'][0]:.0f} s")
+        lines += ["", self.projection(rows)]
         if partial_run:
             lines.append("(the run was stopped before the end: run the same command again to resume)")
         txt = "\n".join(lines) + "\n"
