@@ -11,7 +11,7 @@
        [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-loadpool F] [-savepool F]
        [-poolcheck K] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
        [-savepoolall R:F] [-cpadmm F [-cpiters N] [-cpsweeps S] [-cppasses K]
-       [-cpdiag E[:S]] [-cpcheck] [-cpquiet N] [-cpomega W] [-cpmu]]
+       [-cpdiag E[:S]] [-cpcheck] [-cpquiet N] [-cpomega W] [-cpmu] [-cpsep k:K[:CAP[:DROP]]]]
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
  original indices of one side (default side 0, the first matrix: wil50's
@@ -47,7 +47,12 @@
  projection (30), -cpcheck the cut extraction self-test first, -cpquiet N
  afterwards a quiet round of N iterations with the final multipliers frozen
  (the plain path with L_add, warm), -cpomega W over-relaxed half-space steps,
- -cpmu the start multipliers from the pool file instead of zero. The per-check trace (-vc is implied) is
+ -cpmu the start multipliers from the pool file instead of zero.
+ -cpsep k:K[:CAP[:DROP]] separates inside the solve: every k iterations up to K new
+ violated regional triangles on that iteration's projected Y (dnn_cut_rounds'
+ separator and ranking), appended with nu = 0; CAP bounds the pool, DROP drops cuts
+ whose nu has been 0 for DROP iterations. Without -cpadmm the start pool is round 0's
+ own separation at the give-up point (-k cuts). The per-check trace (-vc is implied) is
  certified at every check.
 */
 
@@ -203,6 +208,10 @@ int main(int argc, char **argv)
     else if (o == "-cpquiet" && more) cpp.quiet_iters = atoi(argv[++a]);   // then a quiet round with mu_D frozen
     else if (o == "-cpomega" && more) cpp.omega = atof(argv[++a]);        // over-relaxed half-space steps, (0, 2)
     else if (o == "-cpmu") cpp.nu_from_pool = 1;                           // start from the pool's multipliers
+    else if (o == "-cpsep" && more) {                                      // k:K[:CAP[:DROP]]: separate K cuts every k iterations
+      if (sscanf(argv[++a], "%d:%d:%d:%d", &cpp.sep_every, &cpp.sep_k, &cpp.pool_cap, &cpp.drop_after) < 2 ||
+          cpp.sep_every < 1 || cpp.sep_k < 1) { fprintf(stderr, "bad -cpsep k:K[:CAP[:DROP]]\n"); return 1; }
+    }
     else if (o == "-cpplain") cp_plain = 1;   // the same solve from the give-up point without the cuts (no hook)
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
@@ -289,16 +298,28 @@ int main(int argc, char **argv)
   DNNPool pin, pout, pall;
   if (!savepool.empty()) { cp.pool_out = &pout; cp.other_orig = &other_orig; }
   if (!savepoolall.empty()) { cp.pool_all_round = savepoolall_round; cp.pool_all_out = &pall; cp.other_orig = &other_orig; }
-  if (!cpadmm.empty() || cp_plain) {
+  if (!cpadmm.empty() || cp_plain || cpp.sep_every > 0) {
     // CP-ADMM: the give-up point (the uncut round 0 of the rounds), then one solve
-    // with the frozen pool inside the Y-step (-cpplain: the same solve, plain Y-step)
-    if (!cp_plain && (!read_pool_file(cpadmm, pin) || pin.side != cp.side)) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", cpadmm.c_str()); return 1; }
-    size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
-    printf("cp pool %s: %zu regions, %zu cuts (%zu with mu > 0)\n", cpadmm.c_str(), pin.regions.size(), pin.cuts.size(), pos);
+    // with the frozen pool inside the Y-step (-cpplain: the same solve, plain Y-step).
+    // -cpsep without -cpadmm: the pool is round 0's own separation at the give-up
+    // point (-k cuts, as the rounds' round 0), and the solve separates more as it goes
+    const bool pool0 = cpadmm.empty() && !cp_plain;
+    if (!cp_plain && !pool0 && (!read_pool_file(cpadmm, pin) || pin.side != cp.side)) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", cpadmm.c_str()); return 1; }
+    if (!pool0) {
+      size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
+      printf("cp pool %s: %zu regions, %zu cuts (%zu with mu > 0)\n", cpadmm.c_str(), pin.regions.size(), pin.cuts.size(), pos);
+    }
     DNNCutParams c0 = cp;
     c0.rounds = 0; c0.freeze_iters = 0; c0.freeze_after = 0;
     c0.pool_in = NULL; c0.pool_out = NULL; c0.pool_all_out = NULL;
+    DNNPool p0;
+    if (pool0) { c0.pool_all_round = 0; c0.pool_all_out = &p0; c0.other_orig = &other_orig; }
     DNNCutResult r0 = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, c0, &warm);
+    if (pool0) {
+      pin = p0;
+      printf("cp pool: round 0's separation at the give-up point, %zu regions, %zu cuts; in-solve separation every %d iterations, %d cuts, cap %d, drop after %d\n",
+             pin.regions.size(), pin.cuts.size(), cpp.sep_every, cpp.sep_k, cpp.pool_cap, cpp.drop_after);
+    }
     DNNParams p = base;
     p.max_iter = cp_iters;
     p.hopeless_after = 0; p.hopeless_gap_ratio = 0;   // as the cut rounds
