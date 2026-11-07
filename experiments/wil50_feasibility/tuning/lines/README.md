@@ -202,3 +202,13 @@ wall at 8 jobs, about 440 s a child). On `wil50.dat` a child is `-x cell:facilit
 - Caveats: cold children at 1,500 iterations (all `iter_limit`), so gaps are a
   little pessimistic for everyone alike; the lines cost is the model of
   `../README.md`, and 5x is far outside its noise.
+
+**Facility 40, the highest-flow facility (flow 267), Nov 7, 18 min**: 15 children, 0
+fathomed, gaps 190 to 643, median 504, cost 4.01e+08 (32x facility 45,
+6.0x rule 8's pick). Its corner child (cell 0, gap 190) is the easiest child
+seen at the root, but its centre children barely move the bound (cells 14, 23, 24:
+619, 607, 643 on the root's 692), and the lines cost is set by the worst
+children. So the opposite hypothesis fails too: a diffuse high-flow line is worse
+than a concentrated low-flow one, by the spread of its children. The best root
+line so far is facility 45, found by rule 8's score as runner-up, and nothing
+here says how to find it a priori. Facility 31 and a median control not run.
