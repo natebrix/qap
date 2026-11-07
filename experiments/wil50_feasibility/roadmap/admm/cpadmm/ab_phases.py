@@ -137,7 +137,8 @@ def main():
         fl = [k for k in sh if X[k]["fathomed"] != Y[k]["fathomed"]]
         for k in fl:
             print(f"  - flip [{' '.join(sorted(k))}]: {a.ref} {'fathomed' if X[k]['fathomed'] else 'branched'} "
-                  f"(lb {X[k]['lb']:.1f}), {a.cp} {'fathomed' if Y[k]['fathomed'] else 'branched'} (lb {Y[k]['lb']:.1f})")
+                  f"(first lb {X[k]['lb']:.1f}), {a.cp} {'fathomed' if Y[k]['fathomed'] else 'branched'} "
+                  f"(first lb {Y[k]['lb']:.1f}{', by its phase' if Y[k]['cut'] and Y[k]['fathomed'] else ''})")
     only = [k for k in Y if Y[k]["pool"] == 1 and (k not in X or X[k]["pool"] != 1)]
     if only:
         print(f"- {len(only)} nodes pooled in {a.cp} only (not bounded, or not pooled, in {a.ref}): first solves "

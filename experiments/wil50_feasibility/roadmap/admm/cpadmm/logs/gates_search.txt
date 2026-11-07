@@ -1,0 +1,21 @@
+Gates on 63058bb (Nov 7, this box, one core, CP switches unset):
+make dnncheck: exit 0, 81 s, last line: OK
+make continuationcheck: exit 0, 3 s, last line: PASS identity_cases=72 safe_certificates=648 rescaling_cases=72 cut_pool_cases=108 malformed_cases=7 max_state_error=0 max_certificate_error=0 legacy_different=72 legacy_max_state_error=1.2293847597606922
+make shipcheck: exit 0, 152 s, last line:      noship: 11 slices, 184 DNN nodes, 51 warm-started, 13,000 DNN iterations
+python3 bench/bench.py check: exit 0, 8 s, last line: regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
+
+
+make shipcheck:
+straight: 184 DNN nodes, 183 warm-started, 8,740 DNN iterations
+ok   ship64: 9 slices, 184 DNN nodes, 183 warm-started, 8,740 DNN iterations: every node identical to the straight run
+     ship32: 9 slices, 184 DNN nodes, 183 warm-started, 8,720 DNN iterations
+     ship16: 9 slices, 184 DNN nodes, 183 warm-started, 9,620 DNN iterations
+     noship: 11 slices, 184 DNN nodes, 51 warm-started, 13,000 DNN iterations
+
+make dnncheck (tail):
+   nug20 [1:1,12:19,16:15] optimum 2584: lb 2568.112 fathomed in 140 iterations (0.3 s), study fathomed
+   nug20 [1:6,15:4,19:10] optimum 2644: lb 2572.457 fathomed in 50 iterations (0.1 s), study fathomed
+C. nug20 nodes with known optima: 17 s
+D. cancellation regressions: 13 cases, 0 s
+E. eliminated assignments: 160 nodes (88 with a stronger bound than without eliminations), 3 s
+OK

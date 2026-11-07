@@ -8,6 +8,7 @@
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh full ship2    (all levers; ship replicate)
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh fast wlowc    (Nov 6: the warm-call beta)
 #   experiments/wil50_feasibility/pipeline_ab/run_pair.sh best bestcore (Nov 6: the core switches on top)
+#   experiments/wil50_feasibility/pipeline_ab/run_pair.sh bestcore cpcut (Nov 7: the cut phase in CP form)
 #
 # Arms (each on top of base unless stated):
 #   base   the production configuration of coord_search/run_coord_search.sh:
@@ -50,6 +51,9 @@
 #          pool in the PRSM's Y-step and 1,000 new triangles separated every 100
 #          iterations, the rounds' budget (12 x 200 + 1,000) and the stall rule per check
 #   cpcut2 cpcut + a pooled child's first solve in CP form (QAP_DNN_POOL_CP=1)
+#   cpcutl cpcut + the lazy certificate inside the CP solve (DNN_CP_LAZYCERT=1, with
+#          bestcore's DNN_CORE_LAZYCERT=1): Rump's test only at checks that can decide,
+#          the skipped ones certified at the exit with their own cut term
 #   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
@@ -70,7 +74,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n '2,/^set -u$/p' "$0" | sed '$d'; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2|cpcutl) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2, cpcutl)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -131,12 +135,13 @@ arm_env() {
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 \
                   DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1 ;;
-    cpcut|cpcut2) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+    cpcut|cpcut2|cpcutl) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 \
                   DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1 \
                   QAP_DNN_CUT_CP=${PAB_CUT_CP:-100:1000}
-           if [ "$1" = cpcut2 ]; then export QAP_DNN_POOL_CP=1; fi ;;
+           if [ "$1" = cpcut2 ]; then export QAP_DNN_POOL_CP=1; fi
+           if [ "$1" = cpcutl ]; then export DNN_CP_LAZYCERT=1; fi ;;
     wtwo)  export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_R32_NONCERT=1 DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7 DNN_ADMM_WARM_BETA=${PAB_WARM_TWO:-0.25:60:0.7} ;;
@@ -177,8 +182,11 @@ run_arm() {
     if [ latest/bnbdrv -ot latest/dnn.C ] || [ latest/bnbdrv -ot latest/dnncut.C ] || [ latest/bnbdrv -ot latest/dnn.h ]; then
       echo "$arm: latest/bnbdrv is older than the DNN sources: make solver, run again"; return 1
     fi
-    if { [ "$arm" = cpcut ] || [ "$arm" = cpcut2 ]; } && ! grep -aq QAP_DNN_CUT_CP latest/bnbdrv; then
+    if { [ "$arm" = cpcut ] || [ "$arm" = cpcut2 ] || [ "$arm" = cpcutl ]; } && ! grep -aq QAP_DNN_CUT_CP latest/bnbdrv; then
       echo "$arm: this bnbdrv has no CP cut phase (QAP_DNN_CUT_CP) yet: git pull, make solver, run again"; return 1
+    fi
+    if [ "$arm" = cpcutl ] && ! grep -aq DNN_CP_LAZYCERT latest/bnbdrv; then
+      echo "cpcutl: this bnbdrv has no lazy certificate in CP form (DNN_CP_LAZYCERT) yet: git pull, make solver, run again"; return 1
     fi
     if [ "$arm" = cpcut2 ] && ! grep -aq QAP_DNN_POOL_CP latest/bnbdrv; then
       echo "cpcut2: this bnbdrv has no CP first solve for pooled children (QAP_DNN_POOL_CP) yet: git pull, make solver, run again"; return 1
