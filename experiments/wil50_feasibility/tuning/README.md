@@ -699,3 +699,27 @@ before any number here is called a record.
   stacked levers put nug30 near 1,250-1,400 CPU s (0.80-0.87x of 1,593).
   Noise in this set is larger than the usual 2%, because the background
   load varied between runs.
+
+### Nov 7: the same three on a quiet machine: a record (`refine/nug30_nov7_*_j8_m2pro.log`)
+
+Binary at e9326e2 (the CP cut phase merged, every switch of it off), load under 4
+at the start, the three runs back to back, 8 workers, the Nov 5 recipe plus
+`DNN_R32_NONCERT=1` as the control:
+
+| run | nodes / DNN fathomed | tasks | CPU | per node | wall |
+|---|---|---|---|---|---|
+| control (Nov 5 recipe) | 3,820 / 3,678 | 376 | 1,660 s | 0.435 s | 234 s |
+| + cross + core | 3,844 / 3,701 | 323 | 1,534 s (0.92x) | 0.399 s (0.92x) | 225 s |
+| + cross + core + w=0.36 | 3,934 / 3,788 | 351 | **1,370 s (0.83x)** | 0.348 s (0.80x) | **196 s** |
+
+- **1,370 CPU s and 3 min 16 s wall is the new laptop record** (0.86x and
+  0.73x of the Nov 5 1,593 s / 267 s). The tree is the Nov 6 one node for
+  node, so the loaded-machine ratios were right about the direction and a
+  little optimistic on the size (0.80x there, 0.83x here).
+- The control came out 4% above its Nov 5 CPU (1,660 against 1,593) with the
+  same tree, so the machine was slightly slower than on Nov 5, not faster;
+  the record stands on a conservative control. Its wall was better (234
+  against 267 s) on fewer steals and a better task balance.
+- The crossing certificate and core switches alone are worth 8% here, not
+  the 13% of the loaded runs; the warm-child beta adds a further 11% on top,
+  so most of the gain is the beta.

@@ -255,7 +255,8 @@ The same runs on an Apple M2 Pro laptop (6 P + 4 E cores, Accelerate,
 | nug28 nug_deep.par -x 2:5 | 1,736 (DNN: 1,727, 1,664 fathomed, 3,994 s) | 4,003 | 9.2 min |
 | nug30 nug_deep.par -x 2:7:1:300:1 | 585,550 (DNN: 5,834, 5,619 fathomed, 8,240 s) | 8,355 | 19.7 min (experiments/nug30_solve) |
 | nug30 nug_deep.par -x 2:7:1:300:1 (Apple M1, 4 P + 4 E cores, 8 workers) | 536,075 (DNN: 5,858, 5,643 fathomed, 18,231 s) | 18,383 | 42.9 min (experiments/nug30_solve) |
-| **nug30 record setting (Nov 4, below)** | **3,844 (DNN: 3,843, 3,701 fathomed, 1,826 s)** | **1,838** | **5.4 min** (experiments/nug30_solve) |
+| nug30 record setting (Nov 4) | 3,844 (DNN: 3,843, 3,701 fathomed, 1,826 s) | 1,838 | 5.4 min (experiments/nug30_solve) |
+| **nug30 record setting (Nov 7, below)** | **3,934 (DNN: 3,933, 3,788 fathomed, 1,358 s)** | **1,370** | **3.3 min** (experiments/nug30_solve) |
 
 With plain `-x 2:5` the trees match the Xeon runs exactly (nug27, nug28).
 With the give-up threshold and warm starts (`-x ...:300:1`) a few decisions
@@ -265,15 +266,17 @@ QPB-only nodes followed below depth 7 (84 CPU s, 1% of the run). Per DNN
 node the laptop is about 3x faster than the 2.8 GHz Xeon (depth 3: 1.9 s
 against 5.8; depth 4: 1.2 against 3.5).
 
-**The nug30 record setting** (Nov 4: 1,838 CPU s and 5 min 22 s on the
-M2 Pro with 8 workers; Nov 5: 3,270 CPU s and 14 min 9 s on 4 cores of a
-2.1 GHz Xeon; how each switch got there is in
-`experiments/nug30_solve/README.md`):
+**The nug30 record setting** (Nov 7: 1,370 CPU s and 3 min 16 s on the
+M2 Pro with 8 workers; the Nov 5 subset of it, without the last line of
+switches, took 3,270 CPU s and 14 min 9 s on 4 cores of a 2.1 GHz Xeon; how
+each switch got there is in `experiments/nug30_solve/README.md`):
 
 ```sh
 export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 \
        QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1 \
-       QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32
+       QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32 DNN_R32_NONCERT=1 \
+       DNN_ADMM_CROSS=2 DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 \
+       DNN_CORE_REFRESH_PARTIAL=1 DNN_BETA_SCHED=w=0.36
 python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
     --params PARAM/nug_deep_xbar_all.par --extra "-x 1:7:1:200:1" \
     --checkpoint nug30.ckpt --checkpoint-every 300

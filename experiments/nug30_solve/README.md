@@ -7,7 +7,40 @@ Anstreicher, Brixius, Goux and Linderoth proved it first in 2000, with
 `SUMMARY.md` summarizes the whole effort (Oct 25 – Nov 5): the key
 requests, the findings by theme, what was closed, and where the files are.
 
-## Record: 5 min 22 s on a laptop (November 4)
+## Record: 3 min 16 s on a laptop (November 7)
+
+| | |
+|---|---|
+| machine | Apple M2 Pro laptop (6 performance + 4 efficiency cores), Accelerate, 8 workers |
+| nodes | 3,934 (3,788 fathomed) |
+| DNN bound | 3,933 nodes, 3,788 fathomed, 1,358 s of the CPU |
+| CPU | 1,370 s, summed over the 8 workers |
+| wall | 196 s (3 min 16 s); 351 tasks, 14 steals, 6.99x CPU over wall |
+| log | `../wil50_feasibility/tuning/refine/nug30_nov7_xcore_w036_j8_m2pro.log` (binary at e9326e2) |
+
+```sh
+export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 \
+       QAP_DNN_BETA=0.21 QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 DNN_CHOLQR_PASSES=1 \
+       QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32 DNN_R32_NONCERT=1 \
+       DNN_ADMM_CROSS=2 DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 \
+       DNN_CORE_REFRESH_PARTIAL=1 DNN_BETA_SCHED=w=0.36
+python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
+    --params PARAM/nug_deep_xbar_all.par --extra "-x 1:7:1:200:1" \
+    --checkpoint nug30.ckpt --checkpoint-every 300
+```
+
+On top of the Nov 4 setting below: fp32 for the non-certificate iterations
+(`DNN_R32_NONCERT=1`, Nov 5), the certificate at the predicted cutoff
+crossing (`DNN_ADMM_CROSS=2`), the Nov 6 core switches (lazy certificate,
+unsymmetrised V and W, partial refresh), and warm-started children at 0.36
+of the base beta (`DNN_BETA_SCHED=w=0.36`). The warm beta grows the tree 3%
+(3,934 nodes against 3,820) and takes 20% off the time per node. Same-day
+control on the same binary: 1,660 s and 234 s wall for the Nov 5 recipe
+(`refine/nug30_nov7_ctl_j8_m2pro.log`), so the gain is 0.83x in CPU against
+the control and 0.86x against the Nov 5 figure. Details in
+`../wil50_feasibility/tuning/README.md` ("Nov 7").
+
+### The previous record: 5 min 22 s (November 4)
 
 | | |
 |---|---|
@@ -85,7 +118,9 @@ Each row adds one change to the row above. Logs are in
 | Nov 1 | the DNN bound from depth 1 | 3,842 / 3,700 | 3,632 s | 8 min 43 s | `refine/nug30_xall_c3t2_d1*` |
 | Nov 1 | beta 0.21 m/3, refresh every 120 (Goux's setting) | 3,820 / 3,679 | 2,895 s | 6 min 59 s | `refine/nug30_xall_c3t2_d1_b021r120*` |
 | Nov 3 | the parent's Y, one-pass CholQR, Goux's safeguards | 3,843 / 3,701 | 2,156 s | 5 min 46 s | `refine/nug30_best_nov3_warmy_cq1_ext*` |
-| Nov 4 | the parent's state carried in the task files | 3,843 / 3,701 | **1,838 s** | **5 min 22 s** | `refine/nug30_best_nov4_ship32*` |
+| Nov 4 | the parent's state carried in the task files | 3,843 / 3,701 | 1,838 s | 5 min 22 s | `refine/nug30_best_nov4_ship32*` |
+| Nov 5 | fp32 for the non-certificate iterations (`DNN_R32_NONCERT=1`) | 3,819 / 3,678 | 1,593 s | 4 min 27 s | `refine/` (Nov 5) |
+| Nov 7 | crossing certificate, core switches, warm-child beta 0.36 | 3,933 / 3,788 | **1,370 s** | **3 min 16 s** | `refine/nug30_nov7_xcore_w036*` |
 
 Notes:
 - Changes measured together were not separated: beta and refresh, and on
