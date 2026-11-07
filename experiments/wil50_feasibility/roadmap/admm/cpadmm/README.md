@@ -77,6 +77,9 @@ time. Iterations t are counted from the give-up point, for both protocols.
   - In the node-10 A/B on `wil50t.dat`, `cpcutt` beats `bestcoret` 1.760x
     in DNN CPU on the matched nodes and 2.20x end to end [m]. The subtree
     differs from `wil50.dat`'s, because node 10 branches on another line.
+  - On node 5 of the tail probe, the estimate is 1.15x less CPU (inside one
+    standard error). The phases cost more at level 4, and the children at
+    level 5 gain 1.37x [m].
 
 **Two more nodes**, with the same settings and protocol and each node's own
 round-12 pool (`run_node.sh`).
@@ -1083,9 +1086,9 @@ are unchanged.
   term (self-test (f) below).
 - The stride-m passes run on two row buffers. The X row is copied in
   sequentially, the Y row copied out sequentially, and the next row
-  prefetched meanwhile. In place, the strided accesses cost 16.2 ms per
-  P-step; with the buffers it is 10.4 ms, against side 0's 8.7 ms, at m = 47
-  with the caches flushed [m] (`pstep_bench.C`, on node 13's regions; the
+  prefetched meanwhile. In place, the strided accesses cost 15.8-16.2 ms per
+  P-step; with the buffers it is 10.3-10.4 ms, against side 0's 8.7-8.8 ms,
+  at m = 47 with the caches flushed (best of 10 calls, two runs) [m] (`pstep_bench.C`, on node 13's regions; the
   five variants tried gave identical Y and moments).
 - `dense_term` gets the same second loop, writing in place (9.7 ms against
   7.4 ms per check, +0.2 ms per iteration at a check every 10 [m]). The
@@ -1271,6 +1274,32 @@ binary 90211a3 (`pipeline_ab/runs_cpt/`; details in
   arms) and 1.001x (48 nodes, the CP arms). The shared CP phases take 2,070
   iterations in both [m].
 
+### A second subtree: node 5 of the tail probe, production configuration
+
+`../../../tail_probe/run_node5_cpt.sh`: the matched probe on node 5
+(`49:23,15:37,5:6` on `wil50t.dat`), `bestcoret` against `cpcutt`, 2 slots
+each, at the same time, `tail_probe/runs_node5_cpt/` (details in
+`../../../tail_probe/README.md`). The wall times were 4,185 and 5,158 s; the
+estimate beforehand was about 77 minutes [e].
+
+| arm | est. DNN nodes | est. iterations (± 1 SE) | est. CPU s (± 1 SE) |
+|---|---|---|---|
+| bestcoret | 1,290 | 118,262 (± 42,704) | 32,224 (± 10,831) |
+| cpcutt | 1,198 | 98,091 (± 36,804) | 28,095 (± 9,696) |
+
+- On the estimate, `cpcutt` takes 1.21x fewer iterations and 1.15x less CPU
+  [m]. That is well inside one standard error. All 23 of its phases ran in
+  CP form.
+- Level 4, all 47 nodes bounded in both arms: 0.78x in iterations and 0.71x
+  in CPU. There is no inherited pool, and the CP phases run 1.47x the
+  rounds' iterations. They fathom 2 more children (37 against 35 of 47) and
+  bring two others within 6 of the cutoff [m].
+- Level 5, 30 matched children on the CP pools: 1.43x in iterations and
+  1.37x in CPU. With fewer parents branching, its estimate is 460 nodes
+  against 552 [m].
+- So the gain on a tail subtree is smaller than on node 10 (1.76x matched,
+  2.2x end to end). It is not established beyond the sampling error.
+
 **nug30, a smoke test.** nug30's root on its side-1 grid (`-grid 5:6 -side 1
 -I 400 -cpsep 100:1000 -cpiters 1500 -cpcheck`,
 `logs/side1/nug30_root_s1sep100.log`): the CP solve certifies 5,995.75 from
@@ -1365,4 +1394,6 @@ solve (1,000 cuts, 29 classes) and after its 15 separations (1,630 cuts)
     `logs/gates_side1/`).
   - `logs/side1/nug30_root_s1sep100.log`: nug30's root on side 1.
   - The A/B: `../../../pipeline_ab/runs_cpt/` (arms `bestcoret` and `cpcutt`
-    in `run_pair.sh` and `summarize.py`).
+    in `run_pair.sh` and `summarize.py`, launched by `run_cpt.sh`).
+  - Node 5: `../../../tail_probe/runs_node5_cpt/` (arms `bestcoret` and
+    `cpcutt` in `tail_probe.py`, launched by `run_node5_cpt.sh`).
