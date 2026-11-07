@@ -265,6 +265,8 @@ The same runs on an Apple M2 Pro laptop (6 P + 4 E cores, Accelerate,
 | nug30 nug_deep.par -x 2:7:1:300:1 (Apple M1, 4 P + 4 E cores, 8 workers) | 536,075 (DNN: 5,858, 5,643 fathomed, 18,231 s) | 18,383 | 42.9 min (experiments/nug30_solve) |
 | nug30 record setting (Nov 4) | 3,844 (DNN: 3,843, 3,701 fathomed, 1,826 s) | 1,838 | 5.4 min (experiments/nug30_solve) |
 | **nug30 record setting (Nov 7, below)** | **3,934 (DNN: 3,933, 3,788 fathomed, 1,358 s)** | **1,370** | **3.3 min** (experiments/nug30_solve) |
+| kra30a, the nug30 record setting, `--ub 17780` (scaled file; Nov 7) | 198 (DNN: 197, 190 fathomed, 100 s) | 101 | 18 s (experiments/kra30_solve) |
+| kra30b, the nug30 record setting, `--ub 18284` (scaled file; Nov 7) | 3,446 (DNN: 3,445, 3,315 fathomed, 1,252 s) | 1,261 | 3.1 min (experiments/kra30_solve) |
 
 With plain `-x 2:5` the trees match the Xeon runs exactly (nug27, nug28).
 With the give-up threshold and warm starts (`-x ...:300:1`) a few decisions
