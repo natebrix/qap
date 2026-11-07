@@ -660,6 +660,73 @@ Against the frozen run, the Y/Z-step (50.8 against 50.3 ms) and the checks
 and the load differ, not the separation. Against the plain iteration it is
 +7.5%, well inside the kill line's 30% [m].
 
+### Node d2, node 14 and the production settings
+
+All with a separation every 100 iterations (the better cadence on node 13),
+one sweep, from each node's own round-0 pool [m]:
+
+| run | Polyak | frozen round-12 pool | separating | log |
+|---|---|---|---|---|
+| node 14: fathoms at | 4,390, 2,412 s | 770, 430 s | **790, 436 s** | `cp_s1sep100_14.log` |
+| d2: 48,785 at | 4,670, 2,292 s | 880, 413 s | 880, 430 s | `cp_s1sep100_d2.log` |
+| d2: 48,800 at | not reached | 1,670, 787 s | 1,680, 824 s | |
+| d2: best at t = 4,500 | 48,790.8 (t = 5,100) | 48,807.9 (three sweeps) | **48,807.2** | |
+| node 13, production: 48,753 at | 4,290, 1,348 s | 1,170, 380 s | **1,210, 410 s** | `cp_s1sep100_prod_13.log` |
+| node 13, production: t = 2,000 | 48,711.5 | 48,763.8 | 48,763.4 | |
+
+- Node 14 fathoms 5.6x sooner than with Polyak, 20 iterations behind the
+  frozen pool [m].
+- In the production settings, separation reaches 48,753 3.5x sooner than
+  Polyak (3.3x in CPU) [m].
+- **d2 does not fathom with fresh cuts.** With one sweep it is 48,807.2 at
+  t = 4,500, 6.8 short of the cutoff 48,814.05 [m]. It rises 0.3-0.7 per 500
+  iterations from t = 3,000, so it would not close the gap in any phase
+  budget [e].
+- On d2 the separating run follows the frozen pool's curve within 1 to
+  t = 2,000 (48,789.4 against 48,789.4 at t = 1,000), with 4,855 cuts
+  against 13,000 [m]. New separations after t = 1,000 find 1,200-1,700
+  violated triangles and add 10-50 new ones each [m]. The separated pool has
+  converged on the cuts that bind. More cuts of this family do not move the
+  cap.
+
+Per iteration: node 14 0.552 s, d2 0.486 s (frozen 0.471), production
+0.335 s (frozen 0.328) [m]. The separations cost 0.2 s on d2 over 45 calls,
+0.04 ms per iteration [m].
+
+### Validity of the separating runs
+
+- **Brute force** (`validate_cp.py --sep`, `logs/validate_summary.txt`). The
+  77 small nodes gain two separating arms:
+  - `sep`: `-cpsep 50:150` from round 0's pool, cutoff at the optimum, with
+    the self-test;
+  - `sepf`: `-cpsep 50:150:400:200`, a pool cap of 400 and drops after 200
+    zero iterations, with the cutoff at optimum - 1.
+
+  Results over 154 runs [m]:
+  - 6,482 certified values, max(certified - optimum) = -1.2e-9;
+  - 13,226 cuts added inside the solves and 128 dropped;
+  - no fathom with the cutoff at the optimum, and every fathom at
+    optimum - 1 with lb > cutoff;
+  - all 924 self-test lines ok, including the ones run after the solve's
+    appends and drops.
+
+  (A first pass counted the `sepf` arm's allowed fathoms at optimum - 1 as
+  failures. That was the script's arm logic, not the bound.)
+- **Extraction after appends.** On nug12 the self-test after 12 separations
+  (162 cuts, then 107 after a capped run with 116 drops) matches `assemble`
+  to 7e-15 [m]. The separating arms above run the same self-test after
+  every solve [m].
+- **The rest of the code path is the frozen-pool path.** New cuts enter the
+  same projector and certificate. With nu = 0 a new cut adds nothing to
+  L_add or h'mu.
+- **Switch-off identity.** dnn.C is untouched; dnncut.C changed only inside
+  the projector and `dnn_cp_bound`. With this build, `check_identity.sh
+  CUT4=1` again gives identical traces [m] (`logs/ident_summary.txt`): 9 of
+  9 dnntest traces against the parent commit's binaries, the 4-round cut
+  phase on node 13 (196 lines), and the CP path with an empty pool against
+  the plain solve (nug12, node 13). The gates pass on this code as well
+  GATES_SEP.
+
 SEP_MORE
 
 ## Files
