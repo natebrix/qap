@@ -66,6 +66,17 @@ time. Iterations t are counted from the give-up point, for both protocols.
   - 1.307x in DNN CPU on the matched nodes, against a kill line of 1.10x;
   - 1.86x end to end, and the tree falls from 277 nodes to 94.
   - Three depth-4 phases fathom where the rounds end 17-21 short.
+- **Side 1, the production configuration** (see "Side 1" below). The
+  projector now handles regions on the second index, so `cpcut` runs in CP
+  form on `wil50t.dat` with `QAP_DNN_CUT_SIDE=1`; before, it ran the rounds
+  there without saying so.
+  - The side-1 projector equals side 0's on the transposed X to the bit
+    [m], and costs +0.6% per iteration [m].
+  - Node 13 transposed reaches 48,753 at t = 1,070 on both sides, within
+    0.19 of side 0 from t = 300 on [m].
+  - In the node-10 A/B on `wil50t.dat`, `cpcutt` beats `bestcoret` 1.760x
+    in DNN CPU on the matched nodes and 2.20x end to end [m]. The subtree
+    differs from `wil50.dat`'s, because node 10 branches on another line.
 
 **Two more nodes**, with the same settings and protocol and each node's own
 round-12 pool (`run_node.sh`).
@@ -1074,8 +1085,8 @@ are unchanged.
   sequentially, the Y row copied out sequentially, and the next row
   prefetched meanwhile. In place, the strided accesses cost 16.2 ms per
   P-step; with the buffers it is 10.4 ms, against side 0's 8.7 ms, at m = 47
-  with the caches flushed [m] (a harness in the scratchpad, on node 13's
-  regions; the five variants tried gave identical Y and moments).
+  with the caches flushed [m] (`pstep_bench.C`, on node 13's regions; the
+  five variants tried gave identical Y and moments).
 - `dense_term` gets the same second loop, writing in place (9.7 ms against
   7.4 ms per check, +0.2 ms per iteration at a check every 10 [m]). The
   rounding conventions are untouched: one rounding per entry from long-double
@@ -1232,6 +1243,34 @@ So side 1 costs 0.6% more per iteration than side 0, all of it in the
 P-steps. The first side-1 build, which made the stride-m passes in place,
 ran its P-steps at 16.9 ms in the same solve (stopped at t = 100, not kept).
 
+### The node-10 A/B in the production configuration
+
+`../../../pipeline_ab/run_cpt.sh` runs `bestcoret` against `cpcutt`. They
+are `bestcore` and `cpcut` on `wil50t.dat` with the symmetry file,
+`QAP_DNN_CUT_SIDE=1` and node 10 transposed: 2 slots each, at the same time,
+binary 90211a3 (`pipeline_ab/runs_cpt/`; details in
+`../../../pipeline_ab/README.md`).
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU s | per iteration | wall s |
+|---|---|---|---|---|---|---|
+| bestcoret | 231 / 226 | 5 (0) | 15,218 (8,618 + 6,600) | 4,446 | 292 ms | 2,602 |
+| cpcutt | 94 / 92 | 2 (0) | 6,426 (4,356 + 2,070) | 2,021 | 315 ms | 1,328 |
+
+- **Kill line 1.10x in DNN CPU on the matched nodes: PASS, 1.760x.** End to
+  end it is 2.200x in DNN CPU, 2.368x in iterations and 1.960x in wall [m].
+  On `wil50.dat` (`runs_cp`) it was 1.307x and 1.864x.
+- Both CP phases ran in CP form (`cp 1`). Three nodes fathom in their first
+  solve on the CP pools where `bestcoret` branches after 1,600-iteration
+  phases that end 0.15-2.4 short [m].
+- **The subtree is not `runs_cp`'s.** Node 10 branches on its marginal
+  column in both orientations: second index 45 on `wil50.dat`, 49 on
+  `wil50t.dat`, which is `wil50.dat`'s row 49. So rule 9's choice between
+  the marginal row and column is not invariant under the transposition, and
+  `bestcoret` has 231 nodes, not `bestcore`'s 277 [m]. On the nodes the two
+  orientations share, the iterations agree: 0.998x (49 nodes, the plain
+  arms) and 1.001x (48 nodes, the CP arms). The shared CP phases take 2,070
+  iterations in both [m].
+
 **nug30, a smoke test.** nug30's root on its side-1 grid (`-grid 5:6 -side 1
 -I 400 -cpsep 100:1000 -cpiters 1500 -cpcheck`,
 `logs/side1/nug30_root_s1sep100.log`): the CP solve certifies 5,995.75 from
@@ -1311,6 +1350,8 @@ solve (1,000 cuts, 29 classes) and after its 15 separations (1,630 cuts)
     `dense_term`, the self-test's (e) and (f); `dnn_cut_cp` and `dnn_cp_bound`
     without the side check; bnb.C, `QAP_DNN_POOL_CP` on either side.
   - `run_selftest_side1.sh`: the self-tests (`logs/side1/cp_selftest_*.log`).
+  - `pstep_bench.C` (`bash build_pstep_bench.sh`): the P-step and dense-term
+    timings of side 0, side 1 and the side-1 loops tried.
   - `transpose_check.py SIDE0.log SIDE1.log [--ref LOG]`: the transpose
     equivalence and the per-iteration overhead
     (`logs/side1/tr_s{0,1}_13.log`, the plain control
