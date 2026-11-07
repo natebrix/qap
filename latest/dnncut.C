@@ -802,21 +802,37 @@ public:
   // a the region side's), column 1 + j m + b; the side-0 block (a, b) is the columns of
   // second index b, at stride m. Gangster zeros: same first index (j = i, b != a) and
   // same second index (b = a, j != i). Csig, Dsig and the block sums Gsig, Gdsig are
-  // side 0's, and each (i, j, sigma) receives its terms in the same order of (a, b)
+  // side 0's, and each (i, j, sigma) receives its terms in the same order of (a, b).
+  // Each row goes through two row buffers (rowx, rowy), so that memory is read and
+  // written in sequence and the stride-m passes stay in L1, and the next row is
+  // prefetched meanwhile: 10.3 ms per P-step against 16 ms in place and side 0's
+  // 8.8 ms, m = 47, caches flushed (README.md, "Side 1")
+  std::vector<double> rowx, rowy;
   void pstep_rows1(const double *X, double *Y, const unsigned char *elim)
   {
     const size_t mm = (size_t)m * m, sm = (size_t)m;
     auto clip = [](double v) { return std::min(1.0, std::max(0.0, v)); };
+    rowx.resize(n1); rowy.resize(n1);
+    const int per = (n1 + 8 * m - 1) / (8 * m);   // cache lines of the next row to prefetch per b
     for (int i = 0; i < m; i++)
       for (int a = 0; a < m; a++) {
         const size_t r = 1 + (size_t)i * m + a;
         const double *xr = X + r * n1;
         double *yr = Y + r * n1;
+        const double *xn = r + 1 < (size_t)n1 ? xr + n1 : xr;
+        double *yn = r + 1 < (size_t)n1 ? yr + n1 : yr;
         const bool erow = elim && elim[r - 1];
+        std::copy(xr, xr + n1, rowx.begin());
+        const double *xx = rowx.data() + 1;
+        double *yy = rowy.data() + 1;
         for (int b = 0; b < m; b++) {
+          for (int k = 0; k < per; k++) {
+            const size_t o = ((size_t)b * per + k) * 8;
+            if (o < (size_t)n1) { __builtin_prefetch(xn + o, 0, 3); __builtin_prefetch(yn + o, 1, 3); }
+          }
           const int g = sig2[(size_t)a * m + b];
-          const double *xc = xr + 1 + b;   // column (j, b) at xc[j m]
-          double *yc = yr + 1 + b;
+          const double *xc = xx + b;   // column (j, b) at xc[j m]
+          double *yc = yy + b;
           if (b == a) {
             for (int j = 0; j < m; j++) yc[j * sm] = 0;   // gangster: same second index
             yc[i * sm] = clip(g >= 0 ? xc[i * sm] - Dsig[(size_t)g * m + i] : xc[i * sm]);
@@ -826,16 +842,17 @@ public:
             yc[i * sm] = 0;   // gangster: same first index
           }
         }
-        yr[0] = clip(xr[0]);
-        if (erow) for (int c = 0; c < n1; c++) yr[c] = 0;
-        else if (elim) for (int c = 1; c < n1; c++) if (elim[c - 1]) yr[c] = 0;
+        rowy[0] = clip(rowx[0]);
+        if (erow) std::fill(rowy.begin(), rowy.end(), 0.0);
+        else if (elim) for (int c = 1; c < n1; c++) if (elim[c - 1]) rowy[c] = 0;
         for (int b = 0; b < m; b++) {
           const int g = sig2[(size_t)a * m + b];
           if (g < 0) continue;
-          const double *yc = yr + 1 + b;
+          const double *yc = yy + b;
           if (b == a) Gdsig[(size_t)g * m + i] += yc[i * sm];
           else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += yc[j * sm]; }
         }
+        std::copy(rowy.begin(), rowy.end(), yr);
       }
   }
 

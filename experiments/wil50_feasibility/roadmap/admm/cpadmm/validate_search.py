@@ -20,8 +20,14 @@ matrix (grid 3:4 regions, side 0). Arms:
   poolcp   cpwarmy plus QAP_DNN_POOL_CP=1 (a pooled child's first solve in CP form)
   cplazy   poolcp plus the lazy certificate, in the plain solves (DNN_CORE_LAZYCERT=1)
            and in the CP ones (DNN_CP_LAZYCERT=1)
+  cp1, cpwarmy1, poolcp1, cplazy1: the same four on side 1 (QAP_DNN_CUT_SIDE=1: the
+           regions over the second matrix's indices, prefix regions of its free
+           elements on the random instances); their nug12 is the unswapped
+           nug12.dat, whose second matrix is the 3 x 4 grid
+A phase that ran as rounds (trace "cp 0") counts as a failure: every arm sets
+QAP_DNN_CUT_CP, so a fallback would go unseen otherwise.
 
-  python3 validate_search.py [--core 0] [--count 2] [--out DIR] [--arms cp cpwarmy poolcp cplazy]
+  python3 validate_search.py [--core 0] [--count 2] [--out DIR] [--arms cp cpwarmy poolcp cplazy cp1 ...]
 """
 import argparse
 import importlib.util
@@ -44,6 +50,8 @@ BASE_ENV = {"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "QAP_DNN_GAMMA1
 ARMS = {"cp": {}, "cpwarmy": {"QAP_DNN_CUT_WARMY": "1"},
         "poolcp": {"QAP_DNN_CUT_WARMY": "1", "QAP_DNN_POOL_CP": "1"},
         "cplazy": {"QAP_DNN_CUT_WARMY": "1", "QAP_DNN_POOL_CP": "1", "DNN_CORE_LAZYCERT": "1", "DNN_CP_LAZYCERT": "1"}}
+for _k in list(ARMS):   # the side-1 arms
+    ARMS[_k + "1"] = dict(ARMS[_k], QAP_DNN_CUT_SIDE="1")
 FLAGS = ["-p", "PARAM/nug_deep_xbar9_all.par", "-s", "/nonexistent.sym", "-x", "0:30:1:0:1"]
 TOL = 1e-4
 
@@ -135,6 +143,11 @@ def main():
     dat = os.path.join(a.out, "nug12_swapped.dat")
     bf.write_dat(dat, Dm, F, None)
     insts.append(("nug12_swapped", dat, np.array(Dm, float), np.array(F, float), None, {"QAP_DNN_CUT_GRID": "3:4"}))
+    # side 1: the unswapped nug12, whose second matrix is the 3 x 4 grid
+    insts.append(("nug12", os.path.join(ROOT, "qaplib", "nug12.dat"), np.array(F, float), np.array(Dm, float), None,
+                  {"QAP_DNN_CUT_GRID": "3:4"}))
+    side_of = lambda arm: ARMS[arm].get("QAP_DNN_CUT_SIDE", BASE_ENV["QAP_DNN_CUT_SIDE"])
+    grid_side = {"nug12_swapped": "0", "nug12": "1"}   # the grid instances, for the arms of their side only
     failures = []
     stats = {arm: dict(runs=0, nodes=0, phases=0, cp_phases=0, seps=0, pooled=0, pcp=0, pool_out=0, worst=-np.inf,
                        checked=0) for arm in a.arms}
@@ -142,10 +155,11 @@ def main():
     for name, dat, A, B, C, env in insts:
         nn = len(A)
         if (name, ()) not in opt_cache:
-            opt_cache[(name, ())] = 578.0 if name == "nug12_swapped" else \
+            opt_cache[(name, ())] = 578.0 if name in grid_side else \
                 min(objective(A, B, C, np.array(p)) for p in itertools.permutations(range(nn)))
         opt = opt_cache[(name, ())]
         for arm in a.arms:
+            if name in grid_side and grid_side[name] != side_of(arm): continue
             trace = os.path.join(a.out, "%s.%s.trace" % (name, arm))
             if os.path.exists(trace): os.unlink(trace)
             e = dict(env); e.update(ARMS[arm]); e["QAP_DNN_TRACE"] = trace
@@ -157,6 +171,8 @@ def main():
                 failures.append("%s %s: rc %d, final %s, optimum %g" % (name, arm, rc, objs[-1] if objs else None, opt))
             for r in read_trace(trace):
                 st["nodes"] += 1; st["phases"] += r["cut"]; st["cp_phases"] += r["cut"] and r["cp"]
+                if r["cut"] and not r["cp"]:
+                    failures.append("%s %s node %s: the phase ran as rounds (cp 0)" % (name, arm, r["fixes"]))
                 st["seps"] += r["seps"]; st["pooled"] += r["pool"]; st["pcp"] += r["pcp"]; st["pool_out"] += r["pool_out"] > 0
                 key = (name, r["fixes"])
                 if key not in opt_cache:
@@ -172,7 +188,8 @@ def main():
                     st["worst"] = max(st["worst"], v - no)
                     if v > no + TOL:
                         failures.append("%s %s node %s: %s bound %.4f > node optimum %.4f" % (name, arm, r["fixes"], what, v, no))
-    print("CP cut phase in the search: %d instances (n = 8, 9 and nug12), ub = optimum + 2" % len(insts))
+    print("CP cut phase in the search: %d instances per arm (n = 8, 9 and nug12, swapped for side 0), ub = optimum + 2"
+          % (len(insts) - 1))
     for arm, st in stats.items():
         print("  %-8s %d runs, %d traced DNN nodes (%d checked), %d phases (%d in CP form, %d separations), %d pooled "
               "nodes (%d first solves in CP form), %d nodes handed on a pool; max(bound - node optimum) = %.4g"
