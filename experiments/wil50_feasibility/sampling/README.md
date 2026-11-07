@@ -45,7 +45,16 @@ candidate (below).
 Resuming: a task with `done.json` is never rerun, so the stage is resumable
 at task granularity; SIGTERM drains (no new task, running ones finish), a
 second signal kills the running solvers (their tasks rerun). The work redone
-at a stop is at most the tasks in flight.
+at a stop is at most the tasks in flight. Sessions may overlap: a task is
+claimed atomically before it runs (`tasks/<id>/claim`, stale once its process
+is gone), and a slot waits until no other `bnbdrv` is pinned to its CPU, so
+a new session can start while an old one drains its long cut phases without
+idling the freed CPUs and without exceeding one solver per CPU. The last
+depth runs in a seeded random order, and the projection estimates the
+remaining tasks from the random-order ones only. Under the parents branched
+on one line, the same child index is the same facility at the same location,
+so a round-robin by index (the first 57 tasks of the wil50 run) is a
+correlated sample.
 
 The stage-B sample is fixed before stage A runs: the 400 frontier nodes
 with the smallest `unit_hash(20261107, node)` (SHA-256 of the seed and the
