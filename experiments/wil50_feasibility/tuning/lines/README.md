@@ -96,4 +96,42 @@ Production settings for the DNN runs (laptop, no AMX):
         > experiments/wil50_feasibility/tuning/lines/wil50_tail2_lines.log 2>&1
 
 (the cloud adds `DNN_AMX=1 DNN_CHOLQR_PASSES=1` and runs `parents_tail.txt` into
-`work_tail`). Results to follow.
+`work_tail`).
+
+### Results (Nov 7): rule 9 is within a few percent of the best line in the tail; branching is closed
+
+Five parents scored [m]: `n1d4a` on the cloud (`work_tail/`, `wil50_tail_lines.log`), `n1d4c`,
+`n1d4d`, `n1d5b`, `n5d4b` on the laptop (`work_tail2/`, `wil50_tail2_lines.log`). Each rule's line
+cost against the best candidate line at that parent (1.00 = best; for the random baseline,
+the mean of its two lines):
+
+| rule | n1d4a | n1d4c | n1d4d | n1d5b | n5d4b | geometric mean | worst |
+|---|---|---|---|---|---|---|---|
+| production (rule 9) | 1.25 | 1.00 | 1.00 | 1.02 | 1.02 | **1.05** | 1.25 |
+| better of the two xbar lines | 1.18 | 1.00 | 1.00 | 1.00 | 1.01 | 1.04 | 1.18 |
+| M (barycentre objective) | 1.00 | 1.17 | 1.48 | 1.02 | 1.00 | 1.12 | 1.48 |
+| G (Gilmore-Lawler) | 1.18 | 1.17 | 1.48 | 1.00 | 1.00 | 1.15 | 1.48 |
+| QPB lookahead (rule 4) | 1.10 | 1.17 | 1.48 | 1.72 | 1.30 | 1.34 | 1.72 |
+| eccentric (rule 6) | 2.77 | 2.86 | 3.29 | 2.90 | 1.62 | 2.61 | 3.29 |
+| D (our certificate's child bounds) | 2.77 | 2.86 | 3.29 | 2.42 | 2.72 | 2.80 | 3.29 |
+| random | 3.14 | 3.35 | 2.95 | 2.31 | 2.90 | 2.91 | 3.35 |
+
+- **Rule 9 holds deep in the tail**: within 2% of the best line on four parents, 1.25x on
+  one (`n1d4a`, where M's line was best), 1.05x on average. No rule beats it consistently:
+  M and G win on two parents each and lose 1.2-1.5x on others; QPB lookahead is 1.1-1.7x
+  worse; D and the eccentric rule are as bad as a random line. At depth 3 the xbar line was
+  also the best (section above), so rule 9 is near the best line at every level measured.
+- Choosing the better of rule 9's two xbar lines perfectly (its QPB lookahead picked the
+  worse one on `n1d4a` and `n1d5b`) would give 1.04x against 1.05x: nothing to take.
+- An oracle that always found the best of these lines would save about 5% per branching
+  decision; over the three or four levels of a tail subtree that compounds to 1.15-1.2x at
+  most, and no rule here comes close to the oracle. **Branching is closed for wil50.**
+- D, the dual-bound rule, is consistently 2.4-3.3x off: no reason to spend more cycles on
+  dual-bound branching.
+- Not scored: the cloud's other three parents (`n1d4b`, `n1d5`, `n5d4`; on `n1d4b` rule 9, M, G
+  and the xbar row all pick the same line). They were stopped at the cloud's background time
+  limit and are not needed for the verdict; `work_tail/` resumes them if wanted.
+- Caveats: five parents from the same deep region; the cost score is a model
+  (47^(gap/130) per unfathomed child) and one far-short child can move a line's cost by
+  10-20%, so the ranking among the top three lines is not resolved, only that nothing
+  beats rule 9 by a margin that matters.
