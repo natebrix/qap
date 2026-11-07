@@ -1,0 +1,16 @@
+serial: nodes (47528, 35161, 0), fw 3176173
+normal     ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 76, retried 0 (0 from a checkpoint), returned 46
+kill9      ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (15 s)  units 89, retried 3 (0 from a checkpoint), returned 45
+kill9ckpt  ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (12 s)  units 17, retried 3 (1 from a checkpoint), returned 0
+coordkill  ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (11 s)  units 85, retried 0 (0 from a checkpoint), returned 45
+crash_marked ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (10 s)  units 81, retried 0 (0 from a checkpoint), returned 46
+crash_applied ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (11 s)  units 77, retried 0 (0 from a checkpoint), returned 42
+crash_saving ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (11 s)  units 81, retried 0 (0 from a checkpoint), returned 44
+drain      ok  nodes (47528, 35161, 0) fw 3176173 best 1732.0  (14 s)  units 82, retried 0 (0 from a checkpoint), returned 47
+noub       ok  nodes (109310, 80882, 478) fw 5248448 best 1732.0  (20 s)  units 100, retried 0 (0 from a checkpoint), returned 70
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import boto3, moto
+ModuleNotFoundError: No module named 'boto3'
+aws: skipped (Command '['/usr/bin/python3', '-c', 'import boto3, moto']' returned non-zero exit status 1.)
+all coordinator scenarios passed
