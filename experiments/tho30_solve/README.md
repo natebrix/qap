@@ -51,7 +51,15 @@ QAP_DNN_CUT_SIDE=1 QAP_DNN_CUT_DELTA=20 QAP_DNN_CUT_MAXDEPTH=2`, the rounds form
 trims the tree 3% and costs 12% more CPU. The rounds form was chosen on the
 belief that the CP form is side 0 only; that was out of date (the side-1 CP
 projector went in on Nov 7, 02655b9, and this binary has it), and the CP form
-is run below.
+was run later the same morning (binary 9d6e216, the same command plus
+`QAP_DNN_CUT_CP=100:1000`, `tho30_cutd2_cp_j8_m2pro.log`): 17,786 nodes,
+17,085 fathomed, the rounds tree to the node; DNN CPU 5,957 s, total 6,994 s
+(0.975x the rounds, still 1.09x no cut phase), wall 1,040 s. The CP form costs
+2.5% less than the rounds for the same cuts; on tho30 the phase does not pay on
+either form, since what it fathoms at depth 2 is not enough to cover its cost
+at depths 1-2. (The parallel log does not carry the per-node cut lines, so the
+identical tree is the evidence that both forms fathom the same nodes, not a
+check that the CP path ran; the CPU difference is the right sign and size.)
 
 | | rule 8 (Nov 7, above) | rule 9 | rule 8 + cut phase, depth <= 2 |
 |---|---|---|---|
