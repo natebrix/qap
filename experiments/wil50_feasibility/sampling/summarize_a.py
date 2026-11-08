@@ -59,9 +59,10 @@ def main():
     by = collections.defaultdict(list)
     for d in docs.values():
         by[d["depth"]].append(d)
-    w("| depth | nodes bounded | fathomed | DNN bounded | DNN fathomed | DNN iterations | DNN CPU s | CPU s (all) | "
-      "CPU s per node | warm-started | cut phases | children kept | children eliminated in branching |")
-    w("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    w("| depth | nodes bounded | fathomed | DNN bounded | DNN fathomed | DNN iterations: first solves + cut phases | "
+      "CPU s: first solves + cut phases + QPB and branching = all | CPU s per node | warm-started | cut phases | "
+      "children kept | children eliminated in branching |")
+    w("|---|---|---|---|---|---|---|---|---|---|---|---|")
     tot = collections.Counter()
     phases = []
     for depth in sorted(by):
@@ -73,19 +74,24 @@ def main():
             cutoff = tr[0]["cutoff"]
         dn = len(tr)
         df = sum(r["fathomed"] for r in tr)
-        it = sum(r["iters"] + r.get("cut_iters", 0) for r in tr)
-        dcpu = sum(d["stats"]["dnn_time"][0] for d in ds)
+        it1 = sum(r["iters"] for r in tr)
+        itc = sum(r.get("cut_iters", 0) for r in tr)
+        it = it1 + itc
+        dcpu = sum(d["stats"]["dnn_time"][0] for d in ds)       # the first solves (bnb.C: dnn_time)
+        ccpu = sum(r.get("cut_cpu", 0.0) for r in tr)            # the cut phases (trace)
         cpu = sum(d["stats"]["times"][0] for d in ds)
         warm = sum(r["warm"] for r in tr)
         ph = [r for r in tr if r["cut"]]
         phases += ph
         kept = sum(d["n_children"] for d in ds)
         elim = sum(d["stats"]["e_level"][depth] for d in ds)
-        w(f"| {depth} | {nb} | {nf} | {dn} | {df} | {it:,} | {dcpu:,.0f} | {cpu:,.0f} | {cpu / max(1, nb):,.1f} | "
+        w(f"| {depth} | {nb} | {nf} | {dn} | {df} | {it1:,} + {itc:,} = {it:,} | "
+          f"{dcpu:,.0f} + {ccpu:,.0f} + {cpu - dcpu - ccpu:,.0f} = {cpu:,.0f} | {cpu / max(1, nb):,.1f} | "
           f"{warm} | {len(ph)} | {kept:,} | {elim:,} |")
-        tot.update(nodes=nb, fathomed=nf, dnn=dn, dnn_f=df, iters=it, dnn_cpu=dcpu, cpu=cpu)
-    w(f"| all | {tot['nodes']} | {tot['fathomed']} | {tot['dnn']} | {tot['dnn_f']} | {tot['iters']:,} | "
-      f"{tot['dnn_cpu']:,.0f} | {tot['cpu']:,.0f} | | | {len(phases)} | | |")
+        tot.update(nodes=nb, fathomed=nf, dnn=dn, dnn_f=df, it1=it1, itc=itc, dnn_cpu=dcpu, cut_cpu=ccpu, cpu=cpu)
+    w(f"| all | {tot['nodes']} | {tot['fathomed']} | {tot['dnn']} | {tot['dnn_f']} | "
+      f"{tot['it1']:,} + {tot['itc']:,} = {tot['it1'] + tot['itc']:,} | {tot['dnn_cpu']:,.0f} + {tot['cut_cpu']:,.0f} + "
+      f"{tot['cpu'] - tot['dnn_cpu'] - tot['cut_cpu']:,.0f} = {tot['cpu']:,.0f} | | | {len(phases)} | | |")
     w("")
     wall = sum(d["wall"] for d in docs.values())
     w(f"Task wall time summed over slots: {wall:,.0f} s; CPU/wall {tot['cpu'] / wall if wall else 0:.3f}.")
