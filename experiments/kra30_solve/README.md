@@ -43,5 +43,36 @@ python3 bench/parallel.py qaplib/kra30a.dat --jobs 8 --ub 17780 \
 
 Not tuned: rule 8 at every node, the DNN depths 1-7, beta 0.21 m/3 and the rest
 are nug30's values. The symmetry files `latest/SYM/kra30a.sym` and
-`kra30b.sym` (11 and 6 root orbits) were picked up by name. The `-old` files
-with `--ub 88900` / `--ub 91420` should give the same trees; not run.
+`kra30b.sym` (11 and 6 root orbits) were picked up by name.
+
+## The unscaled files and kra32 (November 8)
+
+Run overnight on the laptop, the same recipe and binary (f60f77e), 8 workers.
+None of the three has a symmetry file (the `.sym` lookup is by basename, so
+`kra30a-old.dat` finds nothing), so these trees branch on all 30 or 32 lines
+at the root and are not node-for-node with the scaled runs above; they prove
+the same optima.
+
+| | kra30a-old | kra30b-old | kra32 (scaled) |
+|---|---|---|---|
+| optimum proved | 88,900 | 91,420 | 17,740 (x5 = 88,700, QAPLIB's) |
+| upper bound given | 88,900 | 91,420 | 17,740 |
+| nodes | 873 (842 fathomed) | 28,112 (27,072 fathomed) | 10,852 (10,484 fathomed) |
+| DNN CPU | 369 s | 17,929 s | 7,368 s |
+| CPU, summed over 8 workers | 373 s | 18,063 s | 7,406 s |
+| wall | 56 s (144 tasks, 6.67x) | 2,844 s, 47 min 24 s (811 tasks, 6.35x) | 1,065 s, 17 min 45 s (709 tasks, 6.95x) |
+| vs the scaled run with symmetry | 4.4x nodes, 3.7x CPU | 8.2x nodes, 14x CPU | - |
+| log | `kra30a-old_j8_m2pro.log` | `kra30b-old_j8_m2pro.log` | `kra32_j8_m2pro.log` |
+
+- All three searches closed with no open node and the given upper bound as the
+  best objective. The unscaled kra30a and kra30b give QAPLIB's 88,900 and 91,420,
+  so the scaled files and their `/5` optima are consistent with the originals
+  (the kra30a root anomaly of `../dnn_bound/cpp_report.md` was the scaling, not
+  the solver).
+- Symmetry is worth more than the orbit count suggests on kra30b: 8x the nodes
+  and 14x the CPU without it, against 4.4x and 3.7x on kra30a. Anyone running the
+  `-old` files should copy the `.sym` file to the `-old` basename first
+  (`latest/SYM/kra30a-old.sym`), or pass `-s`.
+- kra32 is the first 32-location instance proven here: 10,852 nodes and 2.1
+  CPU-hours, 3x kra30b's scaled tree, with no symmetry file. `QAPSOLN/kra32.sln`
+  says 17,780; the optimum is 17,740 (88,700/5), and the file should be fixed.
