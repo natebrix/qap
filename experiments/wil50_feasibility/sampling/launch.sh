@@ -6,7 +6,7 @@
 D=$(cd "$(dirname "$0")" && pwd)
 stage=$1
 shift
-case $stage in stage_a|stage_b) ;; *) echo "usage: $0 stage_a|stage_b [ARGS...]"; exit 2;; esac
+case $stage in stage_a|stage_b|run_samples) ;; *) echo "usage: $0 stage_a|stage_b|run_samples [ARGS...]"; exit 2;; esac
 mkdir -p "$D/runs"
 # LAUNCH_TAG=x: a second session's pid file (runs/STAGE.x.pid), e.g. next to a draining one
 pidf="$D/runs/$stage${LAUNCH_TAG:+.$LAUNCH_TAG}.pid"
@@ -15,6 +15,10 @@ if [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null; then
 fi
 out="$D/runs/$stage.$(date +%Y%m%d-%H%M%S).out"
 cd "$D" || exit 1
-setsid nohup python3 "$D/$stage.py" "$@" > "$out" 2>&1 < /dev/null &
+if [ "$stage" = run_samples ]; then
+  setsid nohup bash "$D/run_samples.sh" "$@" > "$out" 2>&1 < /dev/null &
+else
+  setsid nohup python3 "$D/$stage.py" "$@" > "$out" 2>&1 < /dev/null &
+fi
 echo $! > "$pidf"
 echo "started $stage, pid $!, log $out"

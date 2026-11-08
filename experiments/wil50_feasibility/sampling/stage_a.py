@@ -38,6 +38,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import signal
 import sys
 import threading
@@ -79,12 +80,13 @@ class StageA:
                "ub": a.ub if a.ub is not None else float(info["FULLRUN_UB"]), "params": a.params,
                "xspec": a.xspec, "depth": a.depth, "seed": a.seed, "tau": a.tau if a.tau is not None else TAU,
                "env_overrides": dict(kv.split("=", 1) for kv in a.env), "settings_env": settings,
-               "commit": self.commit}
+               "commit": self.commit, "root_facility": a.root_facility, "sample_last": a.sample_last}
         if os.path.exists(cfg_path):
             old = json.load(open(cfg_path))
-            for k in ("instance", "sym", "ub", "params", "xspec", "depth", "seed", "env_overrides", "settings_env"):
-                if old[k] != cfg[k]:
-                    raise SystemExit(f"{cfg_path}: {k} was {old[k]!r}, now {cfg[k]!r}; use another --run")
+            for k in ("instance", "sym", "ub", "params", "xspec", "depth", "seed", "env_overrides", "settings_env",
+                      "root_facility", "sample_last"):
+                if old.get(k) != cfg[k]:
+                    raise SystemExit(f"{cfg_path}: {k} was {old.get(k)!r}, now {cfg[k]!r}; use another --run")
             # tau only decides which parents keep their DNN state for stage B (the
             # sample is the bottom-n by hash whatever tau is), so it may rise on a
             # resume; the tasks finished before keep what they kept
@@ -118,6 +120,9 @@ class StageA:
         self.draining = False
         self.killing = False
         self.failed = []
+        self.excluded = set()    # last-depth tasks outside --sample-last's sample, or outside --only
+        self.sample = None
+        self.guard_tripped = False
         self._load()
 
     # ------------------------------------------------------------ the task graph
@@ -133,7 +138,39 @@ class StageA:
                 for k in range(self.done[tid]["n_children"]):
                     self._add(f"{tid}.{k}", depth + 1, tid, k)
         else:
+            self._make_ready(tid)
+
+    def _make_ready(self, tid):
+        if self.a.only and tid not in self.a.only:
+            self.excluded.add(tid)
+        else:
             self.ready.append(tid)
+
+    @staticmethod
+    def order_hash(seed, tid):
+        """the seeded random order of the last depth (and --sample-last's sample:
+        the N smallest are a uniform random sample of the last depth's tasks)"""
+        return hashlib.sha256(f"{seed}:order:{tid}".encode()).hexdigest()
+
+    def _sample_gate(self):
+        """--sample-last N: no last-depth task starts before every shallower task is
+        done (so the population is known); then the N with the smallest order hash
+        are the sample and the others are excluded. True when last-depth tasks may start."""
+        N, D = self.cfg.get("sample_last"), self.cfg["depth"]
+        if not N:
+            return True
+        if any(t["depth"] < D and tid not in self.done for tid, t in self.tasks.items()):
+            return False
+        if self.sample is None:
+            last = sorted((x for x, t in self.tasks.items() if t["depth"] == D),
+                          key=lambda x: self.order_hash(self.cfg["seed"], x))
+            self.sample = set(last[:N])
+            out = set(last[N:])
+            self.excluded |= out
+            self.ready = [x for x in self.ready if x not in out]
+            log_line(self.log_path, f"stage A: sample of {len(self.sample)} of the {len(last)} depth-{D} tasks "
+                                    f"(the smallest order hashes, seed {self.cfg['seed']})")
+        return True
 
     def _load(self):
         self._add("r", 0, None, None)
@@ -146,6 +183,10 @@ class StageA:
     def _pick(self):
         if not self.ready:
             return None
+        cand = self.ready if self._sample_gate() else [x for x in self.ready
+                                                       if self.tasks[x]["depth"] < self.cfg["depth"]]
+        if not cand:
+            return None
 
         def key(tid):
             t = self.tasks[tid]
@@ -153,10 +194,9 @@ class StageA:
                 # a seeded random order: siblings with the same index are the same
                 # facility (or location) under parents branched on the same line, so
                 # a round-robin by index is a correlated sample, not a spread one
-                h = hashlib.sha256(f"{self.cfg['seed']}:order:{tid}".encode()).hexdigest()
-                return (t["depth"], 0, h, 0)
+                return (t["depth"], 0, self.order_hash(self.cfg["seed"], tid), 0)
             return (t["depth"], self.started_kids.get(t["parent"], 0), t["parent"] or "", t["index"] or 0)
-        tid = min(self.ready, key=key)
+        tid = min(cand, key=key)
         self.ready.remove(tid)
         t = self.tasks[tid]
         self.started_kids[t["parent"]] = self.started_kids.get(t["parent"], 0) + 1
@@ -183,6 +223,9 @@ class StageA:
         rc, wall = run_bnbdrv(self.binary, args, self.env, logf, trace, cpu=cpu, procs=self.procs, tag=tid)
         if rc != 0 or not os.path.exists(out):
             raise RuntimeError(f"task {tid}: bnbdrv exit {rc} (see {logf})")
+        rule_line = None
+        if t["depth"] == 0 and cfg.get("root_facility") is not None:
+            rule_line = self.force_root_line(out, cfg["root_facility"])
         st = State(out)
         kids = []
         for text, _ in st.nodes:
@@ -193,6 +236,8 @@ class StageA:
                "stats": stats_of(st), "checks": log_checks(logf), "trace": parse_trace(trace),
                "n_children": len(kids), "line": child_line(fixes, [k["fixes"] for k in kids]),
                "order": self.a.order if t["depth"] >= cfg["depth"] else None}
+        if rule_line is not None:
+            doc["rule_line"], doc["forced_root_facility"] = rule_line, cfg["root_facility"]
         if any(k["depth"] != t["depth"] + 1 for k in kids):
             raise RuntimeError(f"task {tid}: children not all at depth {t['depth'] + 1}")
         if t["depth"] >= cfg["depth"]:
@@ -213,6 +258,41 @@ class StageA:
             os.remove(inp)
         write_json(os.path.join(wd, "done.json"), doc)
         return doc
+
+    @staticmethod
+    def force_root_line(out, F):
+        """--root-facility F: the root's children become facility F in the cells the
+        rule's line used (the 15 J1 cells: at a symmetric root the rule branches on a
+        row, restricted to J1). Every other field of a child stays: depth 1, the root's
+        bound inherited, the root's warm start (its QPB point, from which a child's
+        start is cut by its own assignment), the header's root bound. Only the
+        predicted bound (the root's bound + U at the rule's cell, which the state does
+        not hold for F) becomes the inherited bound; it enters only pick_param's
+        relative gap (still above 0.2: the first parameter block, as for every
+        depth-1 node) and a max() with the node's own bounds, which the DNN bound
+        exceeds. The rule's children are kept in out.rule.state."""
+        shutil.copyfile(out, out.replace("out.state", "out.rule.state"))
+        st = State(out)
+        n = st.n
+        nodes, line = [], set()
+        for text, w in st.nodes:
+            tok = text.split()
+            p = [int(x) for x in tok[5:5 + n]]
+            hist = tok[5 + n:5 + 2 * n]
+            fixed = [(i, j) for i, j in enumerate(p) if j >= 0]
+            if len(fixed) != 1 or int(tok[1]) != 1 or int(tok[4]) != 1 or hist[0] != str(fixed[0][0]):
+                raise RuntimeError(f"root child is not a depth-1 node with one assignment: {text[:80]}")
+            r, c = fixed[0]
+            line.add(r)
+            p[r] = -1
+            p[F] = c
+            hist[0] = str(F)
+            tok[3] = tok[2]
+            nodes.append((" ".join(tok[:5] + [str(x) for x in p] + hist), w))
+        if len(line) != 1:
+            raise RuntimeError(f"the root's children are not one row: facilities {sorted(line)}")
+        st.write(out, nodes)
+        return f"row {line.pop()}"
 
     # ------------------------------------------------------------ claims and CPUs
     def _claim(self, tid):
@@ -291,6 +371,8 @@ class StageA:
                     tid = None
                     while self.ready:
                         t = self._pick()
+                        if t is None:
+                            break
                         if self._claim(t):
                             tid = t
                             break
@@ -316,7 +398,7 @@ class StageA:
                         for k in range(doc["n_children"]):
                             cid = f"{tid}.{k}"
                             self.tasks[cid] = {"id": cid, "depth": t["depth"] + 1, "parent": tid, "index": k}
-                            self.ready.append(cid)
+                            self._make_ready(cid)
                     self._report(tid, doc)
                 elif not self.killing:
                     self.failed.append(tid)
@@ -333,6 +415,14 @@ class StageA:
                                 f"{' retained' if doc.get('retained') else ''}")
         p = self.projection()
         write_json(os.path.join(self.run, "status.json"), p)
+        D = self.cfg["depth"]
+        n_rnd = sum(1 for x in self.done.values() if x["depth"] == D and x.get("order") == "random")
+        if (self.a.max_wall_h and p.get("total_cpu_est") and n_rnd >= 20 and not self.guard_tripped
+                and p["total_cpu_est"] / len(self.cpus) / 0.99 / 3600 > self.a.max_wall_h):
+            self.guard_tripped = self.draining = True
+            log_line(self.log_path, f"stage A: the projection, {p['total_cpu_est']:.0f} CPU s = "
+                                    f"{p['total_cpu_est'] / len(self.cpus) / 0.99 / 3600:.1f} h of wall on "
+                                    f"{len(self.cpus)} slots, exceeds --max-wall-h {self.a.max_wall_h}; draining")
         if p.get("total_cpu_est"):
             log_line(self.log_path, f"projection: {p['done']} tasks done, CPU {p['done_cpu']:.0f} s; expected nodes "
                                     f"{p['expected']}; total CPU {p['total_cpu_est']:.0f} s, remaining wall "
@@ -347,6 +437,8 @@ class StageA:
         expected, total = {}, 0.0
         e = 1.0
         for d in range(D + 1):
+            if d == D and self.cfg.get("sample_last"):
+                e = min(e, self.cfg["sample_last"])
             expected[d] = e
             done = by[d]
             if done:
@@ -405,14 +497,19 @@ class StageA:
             p = os.path.join(self.tdir(tid), "done.json")
             if tid not in self.done and os.path.exists(p):
                 self.done[tid] = json.load(open(p))
-        finished = not self.ready and not self.running and not self.failed and len(self.done) == len(self.tasks)
+        if self.a.only:
+            log_line(self.log_path, f"stage A: --only: {sum(1 for x in self.a.only if x in self.done)} of "
+                                    f"{len(self.a.only)} listed tasks done")
+            return 0 if all(x in self.done for x in self.a.only) else 3
+        finished = (not self.ready and not self.running and not self.failed and not self.guard_tripped
+                    and len(self.done) == len(self.tasks) - len(self.excluded))
         if finished:
             self.assemble()
             log_line(self.log_path, f"stage A: finished, {len(self.done)} tasks")
             return 0
         log_line(self.log_path, f"stage A: stopped with {len(self.done)} of {len(self.tasks)} known tasks done, "
                                 f"{len(self.ready)} ready, {len(self.failed)} failed; run again to resume")
-        return 3
+        return 4 if self.guard_tripped else 3
 
     def assemble(self):
         """frontier.state (every frontier node, slim warm starts, the stage's
@@ -431,6 +528,8 @@ class StageA:
                 rows.append(f"{tid}\t{k}\t{f['spec']}\t{f['bound']!r}\t{f['pred']!r}\t{f['hash']:.12f}")
         # the statistics: the sum over every task (each task's in.state had them zeroed)
         for tid, doc in self.done.items():
+            if tid in self.excluded:
+                continue
             p = os.path.join(self.tdir(tid), "out.slim.state" if doc["depth"] >= D else "out.state")
             st = State(p)
             if totals is None:
@@ -461,6 +560,11 @@ def main():
                     help=f"keep a parent's DNN state when a child hashes below this (default {TAU}; may rise on a resume)")
     ap.add_argument("--order", choices=["random", "roundrobin"], default="random",
                     help="last-depth task order: seeded random (default) or round-robin over parents by child index")
+    ap.add_argument("--root-facility", type=int, help="force the root's line: facility F in the 15 J1 cells")
+    ap.add_argument("--sample-last", type=int, help="bound only a seeded uniform sample of N last-depth tasks")
+    ap.add_argument("--only", type=lambda v: set(v.split(",")), default=None,
+                    help="comma list of task ids to run (validation subsets)")
+    ap.add_argument("--max-wall-h", type=float, help="drain (exit 4) when the projected wall exceeds this")
     ap.add_argument("--skip", action="append", default=[],
                     help="a task id another (draining) session is still running: do not schedule it here")
     ap.add_argument("--max-new", type=int, help="start at most this many tasks in this session, then drain")

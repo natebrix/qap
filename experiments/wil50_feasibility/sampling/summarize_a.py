@@ -174,8 +174,21 @@ def main():
     kc = collections.Counter(d["n_children"] for d in last)
     w(f"Children per depth-{Dmax} node: " + ", ".join(f"{k}: {v} nodes" for k, v in sorted(kc.items())))
     nfront = sum(d["n_children"] for d in last)
-    w(f"**Frontier at depth {Dmax + 1}: {nfront:,} nodes** (Burnside orbit count 29,580 for wil50 at depth 3, "
-      f"roadmap/tree_size.md section 1, before any fathoming)")
+    pop = sum(d["n_children"] for d in by.get(Dmax - 1, [])) if Dmax >= 1 else 1
+    if cfg.get("sample_last") or len(last) < pop:
+        mk = nfront / len(last) if last else 0.0
+        sd = statistics.pstdev([d["n_children"] for d in last]) if len(last) > 1 else 0.0
+        fpc = ((pop - len(last)) / max(1, pop - 1)) ** 0.5
+        w(f"**Depth-{Dmax} sample: {len(last)} of {pop} nodes, {nfront:,} children; expected frontier at depth "
+          f"{Dmax + 1}: {pop * mk:,.0f} nodes (1 SE {pop * sd / max(1, len(last)) ** 0.5 * fpc:,.0f})** "
+          f"[e: {pop} x the sample's mean children]")
+    else:
+        w(f"**Frontier at depth {Dmax + 1}: {nfront:,} nodes** (Burnside orbit count 29,580 for wil50 at depth 3, "
+          f"roadmap/tree_size.md section 1, before any fathoming)")
+    root = docs.get("r")
+    if root and root.get("forced_root_facility") is not None:
+        w(f"Root line forced: facility {root['forced_root_facility']} in the 15 J1 cells (the rule's line was "
+          f"{root['rule_line']}; out.rule.state)")
     w("")
     # the frontier's inherited bounds
     fr = [f for d in last for f in d.get("frontier", [])]
