@@ -132,13 +132,26 @@ def main():
         w("| " + " | ".join(str(x) for x in cnt) + " |")
         w("")
     if phases:
-        w("Cut phases:")
+        w("Cut phases (CP form), by outcome (every phase in `phases.tsv`):")
         w("")
-        w("| node | depth | first lb | phase best | status | iterations | CPU s |")
+        w("| depth | outcome | phases | first-solve shortfall (min / median / max) | after the phase (min / median / "
+          "max) | iterations (median) | CPU s (sum) |")
         w("|---|---|---|---|---|---|---|")
-        for r in phases:
-            w(f"| {r['fixes']} | {r['depth']} | {r['lb']:.2f} | {r.get('cut_best', float('nan')):.2f} | "
-              f"{r.get('cut_status')} | {r.get('cut_iters')} | {r.get('cut_cpu', 0):.0f} |")
+        for depth in sorted({r["depth"] for r in phases}):
+            for st in sorted({r.get("cut_status") for r in phases if r["depth"] == depth}):
+                rs = [r for r in phases if r["depth"] == depth and r.get("cut_status") == st]
+                s0 = [r["cutoff"] - r["lb"] for r in rs]
+                s1 = [r["cutoff"] - r.get("cut_best", r["lb"]) for r in rs]
+                w(f"| {depth} | {st} | {len(rs)} | {min(s0):.1f} / {statistics.median(s0):.1f} / {max(s0):.1f} | "
+                  f"{min(s1):.1f} / {statistics.median(s1):.1f} / {max(s1):.1f} | "
+                  f"{statistics.median(r.get('cut_iters', 0) for r in rs):.0f} | "
+                  f"{sum(r.get('cut_cpu', 0) for r in rs):,.0f} |")
+        os.makedirs(a.out, exist_ok=True)
+        with open(os.path.join(a.out, "phases.tsv"), "w") as f:
+            f.write("node\tdepth\tfirst_lb\tphase_best\tstatus\titerations\tcpu\n")
+            for r in phases:
+                f.write(f"{r['fixes']}\t{r['depth']}\t{r['lb']:.4f}\t{r.get('cut_best', float('nan')):.4f}\t"
+                        f"{r.get('cut_status')}\t{r.get('cut_iters')}\t{r.get('cut_cpu', 0):.2f}\n")
     else:
         w("Cut phases: none ran (no first solve ended within the zone, 0.005 x 48,816 = 244 units of the cutoff).")
     w("")
@@ -195,6 +208,17 @@ def main():
     if fr and cutoff:
         sh = [cutoff - f["bound"] for f in fr]
         psh = [cutoff - f["pred"] for f in fr]
+        edges = [0, 50, 100, 150, 200, 244, 300, 350, 400, 450, 500, 600, 1e9]
+        names = ["0-50", "50-100", "100-150", "150-200", "200-244", "244-300", "300-350", "350-400", "400-450",
+                 "450-500", "500-600", ">= 600"]
+        cnt = [sum(1 for x in sh if edges[k] < x <= edges[k + 1]) for k in range(len(names))]
+        w("Frontier nodes by inherited shortfall (cutoff minus the parent's best bound, an upper bound on the "
+          "node's own shortfall before it is bounded):")
+        w("")
+        w("| " + " | ".join(names) + " |")
+        w("|" + "---|" * len(names))
+        w("| " + " | ".join(f"{x:,}" for x in cnt) + " |")
+        w("")
         w(f"Frontier nodes' inherited bound (the parent's best bound), shortfall: min {min(sh):.1f}, 10% {q(sh, .1):.1f}, "
           f"median {q(sh, .5):.1f}, 90% {q(sh, .9):.1f}, max {max(sh):.1f}. QPB predicted bound (parent's QPB + U_ij), "
           f"shortfall: min {min(psh):.1f}, median {q(psh, .5):.1f}, max {max(psh):.1f}.")
