@@ -62,7 +62,7 @@ Other flags (`./bnbdrv` with no arguments prints help):
 | `-d X` | stop at tree depth X (overrides the params file) |
 | `-f X` | scale reported times by X |
 | `-h` | run the heuristic only (no branch and bound) |
-| `-e` | estimate tree size (reads `estimate.par`) |
+| `-e` | estimate tree size with Knuth-style dives (`latest/estimate.C`). Reads `./estimate.par`: six numbers, `start_dive_level trials print_every print_everything_every score_exponent ignore_depth` (the checked-in file is `2 1000 100 100 1.5 1000`). Without the file it silently uses the defaults in `estimate.h` (10,000 trials, exponent 1.0). Pass the known optimum with `-u`: dives are weighted by it. `rand()` is seeded only when `QAP_EST_SEED` is set, so set a different seed per process when running several in parallel; `QAP_EST_HIST=F` writes the per-dive history (depth, node estimate, time estimate) to F instead of `dive_history_nug25_2.txt` |
 | `-b` | benchmark mode |
 | `-c` / `-a F` | interactive console / run console commands from file F |
 | `-l F` | log file |
