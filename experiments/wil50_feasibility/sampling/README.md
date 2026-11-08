@@ -312,4 +312,39 @@ stops. `compare_lines.py` writes the comparison (`results/root_lines.md`).
   section 3 calls it "the extrapolated 329", so it is model.py's
   extrapolation, not a measurement.
 
-(TO BE COMPLETED: the smoke test and the projection.)
+### Smoke test (Nov 8, 13:01-13:43 UTC; `results/stageB_smoke/`)
+
+`stage_b.py --limit 4 --check-F 1 --converge 2 --calibrate 49:23,15:37,5:6` on
+the finished frontier: the first 4 of the 400 sampled nodes (by hash), the -F
+check on the first, node 5's calibration, and the converge step (on 1 node,
+the only miss).
+
+| node | inherited (parent's bound) | first solve | iterations | CPU s | warm, pool | converged (4,000 it) |
+|---|---|---|---|---|---|---|
+| `21:2,27:0,45:45` | 48,678.2 | 48,944.63, fathomed | 20 | 8 | yes, yes | - |
+| `21:13,24:0,34:40` | 48,788.5 | 48,815.63, fathomed | 30 | 11 | yes, yes | - |
+| `21:13,28:0,45:14` | 48,734.4 | 48,816.07, fathomed | 20 | 8 | yes, yes | - |
+| `21:2,25:0,39:49` | 48,524.1 | 48,740.74, 73.3 short | 300 | 103 | yes, no | 48,745.54, 68.5 short, 1,267 s |
+
+[m: `results/stageB_smoke/summary.md`]
+
+- All four start from the parent's shipped fp32 DNN state; the three children of
+  stalled phases also start from the inherited cut pool and fathom in 20-30
+  iterations. The miss gains 217 over its parent's bound in its first solve,
+  and the 4,000 iterations add 4.8 more.
+- -F check (first node): no warm start 48,828.0264 in 98 iterations, -F the
+  same; with the parent's state, 48,944.63 in 20.
+- Calibration, node 5 started with -F: 48,450.48 at 300 iterations (363.6
+  short), equal to the tail probe's 48,450.4827 under the same settings; at
+  4,000 cold iterations 48,498.65 (315.4 short), against 48,498.4 (315.7)
+  after 1,500 under the Oct 31 settings. So the converge step reproduces the
+  earlier converged value.
+
+**Projection for the full stage B [e]**: 400 give-ups at the 4 nodes' mean of
+32 s = 1.3e4 CPU s (up to 4.1e4 if every give-up cost the miss's 103 s), 80
+converges at 1,267 s = 1.0e5, and 9 rebuilt parents at their stage-A CPU =
+2,408 s (exact). Total 1.17e5-1.45e5 CPU s, **8.2-10.2 h of wall on 4 slots**,
+against the plan's 6.6e4 + 1e5. The converges are 70-87% of it: bnbdrv has no
+switch for the DNN's iteration limit (4,000), so a converge cannot stop at
+1,500. On the one warm miss the converge gained 4.8 units, so converging only
+the nodes within about 30 of a stratum boundary would cut most of it [e].

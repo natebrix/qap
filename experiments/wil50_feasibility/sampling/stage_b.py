@@ -318,12 +318,19 @@ class StageB:
             v, vsrc = 0.0, "unknown"
         parents = {x[1] for x in s if not os.path.exists(os.path.join(self.A, "tasks", x[1], "out.full.state"))}
         rb = sum(json.load(open(os.path.join(self.A, "tasks", p, "done.json")))["stats"]["times"][0] for p in parents)
-        total = self.a.n * g + self.a.converge * v + rb
+        # the full design (--n, and --project-converge converged nodes), whatever this run's --limit/--converge
+        nc = self.a.project_converge
+        hop = [r["giveup"]["stats"]["times"][0] for r in rows if r["giveup"]["trace"]
+               and r["giveup"]["trace"]["status"] == "hopeless"]
+        gmax = max(g, sum(hop) / len(hop)) if hop else g
+        total = self.a.n * g + nc * v + rb
+        upper = self.a.n * gmax + nc * v + rb
         slots = len(self.cpus)
         return (f"Projection for the full stage B [e]: {self.a.n} give-ups x {g:.0f} s (mean of {len(give)}) = "
-                f"{self.a.n * g:,.0f} s; {self.a.converge} converges x {v:.0f} s ({vsrc}) = {self.a.converge * v:,.0f} s; "
+                f"{self.a.n * g:,.0f} s; {nc} converges x {v:.0f} s ({vsrc}) = {nc * v:,.0f} s; "
                 f"{len(parents)} parents to rebuild, {rb:,.0f} s at their stage-A CPU; total {total:,.0f} CPU s, "
-                f"{total / slots / 3600:.1f} h of wall on {slots} slots (CPU/wall about 0.99 in stage A)")
+                f"{total / slots / 0.99 / 3600:.1f} h of wall on {slots} slots; if every give-up cost what the "
+                f"hopeless ones did ({gmax:.0f} s): {upper:,.0f} CPU s, {upper / slots / 0.99 / 3600:.1f} h")
 
     # ------------------------------------------------------------ the report
     def load(self, key):
@@ -425,6 +432,7 @@ def main():
     ap.add_argument("--run", default=os.path.join(D, "runs", "stageB"))
     ap.add_argument("--n", type=int, default=400)
     ap.add_argument("--converge", type=int, default=80)
+    ap.add_argument("--project-converge", type=int, default=80, help="converged nodes in the projected full stage B")
     ap.add_argument("--limit", type=int, help="bound only the first K sampled nodes (the smoke test)")
     ap.add_argument("--check-F", type=int, default=0)
     ap.add_argument("--calibrate", help="a -F spec run cold through both steps (node 5: 49:23,15:37,5:6)")
