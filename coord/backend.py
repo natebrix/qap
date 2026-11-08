@@ -354,6 +354,10 @@ class AwsBackend:
                     {"IndexName": "by_seq", "Projection": {"ProjectionType": "ALL"},
                      "KeySchema": [{"AttributeName": "run_id", "KeyType": "HASH"},
                                    {"AttributeName": "merged_seq", "KeyType": "RANGE"}]}])
+        # a new table is CREATING for some seconds, and an init that follows
+        # at once would find no table (moto creates them at once)
+        for t in (f"{self.name}-runs", f"{self.name}-units"):
+            self.ddb.get_waiter("table_exists").wait(TableName=t, WaiterConfig={"Delay": 2, "MaxAttempts": 60})
 
     # store
     def _key(self, key):
