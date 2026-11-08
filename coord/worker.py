@@ -28,6 +28,11 @@ import time
 
 from .common import LANES, ROOT, SOLVER, State, run_key, unit_key
 
+# every run on a backend shares its queues: a worker that receives another
+# run's message hides it this long (and waits a poll) and leaves it for that
+# run's workers
+FOREIGN_HIDE_S = 1
+
 
 class Worker:
     def __init__(self, backend, run_id, slots, solver=SOLVER, workdir=None, log=print,
@@ -255,6 +260,12 @@ class Worker:
                 with self.lock:
                     if self.busy == 0 and self.exit_when_idle and time.time() - self.idle_since > self.exit_when_idle:
                         return
+                time.sleep(poll)
+                continue
+            if msg.body.get("run", self.run_id) != self.run_id:
+                # another run's unit: deleting the message would strand it (a
+                # coordinator sends a queued unit once)
+                self.b.extend(msg, FOREIGN_HIDE_S)
                 time.sleep(poll)
                 continue
             unit = self._lease(msg)

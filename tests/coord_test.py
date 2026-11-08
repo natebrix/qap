@@ -21,6 +21,9 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
              (totals then depend on timing; only the objective is checked)
   aws        `normal` on the AWS backend against a local moto server
              (needs boto3 and moto: --python VENV/bin/python)
+  tworuns    two runs on one backend at the same time: they share the
+             queues, so each run's worker also receives the other's messages;
+             both must reproduce the serial totals
 
   python3 tests/coord_test.py [--instance nug17 --opt 1732] [--only kill9,drain] [--python PY]
 """
@@ -104,7 +107,34 @@ def wait_all(procs, timeout):
         p.wait(timeout=max(1, timeout - (time.time() - t0)))
 
 
+def two_runs(name, py, base, inst, opt):
+    be = f"local:{os.path.join(base, name)}"
+    runs = [Run(py, be, f"{name}_{x}", inst, opt) for x in "ab"]
+    try:
+        for r in runs:
+            r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
+        procs = [p for r in runs for p in (r.coordinator(), r.worker("w1"))]
+        try:
+            wait_all(procs, 120)
+        except subprocess.TimeoutExpired:
+            pass                                # a stranded run never finishes: reported below
+        got = [totals(r.results()) for r in runs]
+        from coord.backend import open_backend
+        units = [u for r in runs for u in open_backend(be).all_units(r.run_id)]
+        r0 = runs[0]
+        r0.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
+                    "returned": sum(u.get("outcome") == "returned" for u in units),
+                    "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
+        r0.tmp = " and ".join(r.tmp for r in runs)
+        return (got[0] if got[0] == got[1] else (None, None, None)), r0
+    finally:
+        for r in runs:
+            r.cleanup()
+
+
 def scenario(name, py, base, inst, opt, aws_endpoint=None):
+    if name == "tworuns":
+        return two_runs(name, py, base, inst, opt)
     if name == "aws":
         backend = f"aws:qaptest/{name}?region=eu-north-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
         r = Run(py, backend, name, inst, opt)
@@ -169,7 +199,7 @@ def main():
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,crash_marked,crash_applied,crash_saving,"
-                                      "drain,noub,aws")
+                                      "drain,noub,aws,tworuns")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args()
     ref = serial(a.instance, int(a.opt))
