@@ -136,12 +136,12 @@ Per level (mean over the 20 dives ± SE; "reach" is how many dives had nodes the
 Reading:
 
 - **The estimate has not converged.** One dive carries 96% of the CPU, the two seeds differ
-  45x, and the SE equals the mean. Twenty dives bound the tree from below better than they
-  center it: the 88-day figure without the largest dive is the least it could plausibly be,
-  and the 5.8 years is what the sample says so far.
+  45x, and the SE equals the mean. The 88-day figure without the largest dive is a low reading
+  (dropping a dive biases the mean down), and the 5.8 years is what the sample says so far;
+  a deeper dive than any seen could raise it again.
 - **Where the tail is.** In the largest dive, 8.3e9 depth-7 nodes (bounded by the DNN with
   give-up 200) branched into 3.4e11 depth-8 nodes (QPB only), which then fathomed (3 nodes
-  at depth 9). Level 8 holds 92% of the estimated nodes and 72% of the CPU over all dives.
+  at depth 9). Level 8 holds 95% of the estimated nodes and 72% of the CPU over all dives.
   That is the recipe tuned for nug30 (DNN through depth 7, give-up 200) meeting an instance
   whose bound gains a lot after the give-up point: at depth 3 the unfathomed nodes gained
   4M-8M between iteration 400 and 1,500 (section 2).
