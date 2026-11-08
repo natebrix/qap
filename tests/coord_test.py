@@ -106,7 +106,7 @@ def wait_all(procs, timeout):
 
 def scenario(name, py, base, inst, opt, aws_endpoint=None):
     if name == "aws":
-        backend = f"aws:qaptest/{name}?region=us-east-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
+        backend = f"aws:qaptest/{name}?region=eu-north-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
         r = Run(py, backend, name, inst, opt)
         r.ctl("aws-setup", *r.args)
     else:
