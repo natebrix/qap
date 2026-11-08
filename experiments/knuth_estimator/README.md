@@ -108,3 +108,19 @@ on the 2-core Xeon (8 + 7 dives). Per dive: depth, node estimate, CPU-s estimate
   to the roadmap's 1e10-6e10 CPU-s comes from, and it is the cheapest thing to
   check directly: stage A of the sampling plan (depths 0-2 exact) gives the real
   depth-2 and depth-3 counts.
+
+## To do: log per-level estimates per dive
+
+The dive history file records only each dive's depth and its total node and CPU
+estimates, so per-level variances can't be computed afterwards. bnbdrv does print
+the per-level table (nodes, %fathom, time by level), but only cumulatively and only
+every `print_everything_every` dives: the Nov 7 wil50 run printed it once per
+process, after dive 5. Per-level estimates and their variances are valuable (where
+the tree is, how sure we are of each level), so the next runs should log them:
+
+- Simplest change: write each dive's per-level node and time contributions (its
+  `path_stats` scaled by the dive's weight) as one line per dive to the history file,
+  or to a second file next to it.
+- Workaround with no code change: set `print_everything_every` to 1. The table is
+  then printed after every dive, and dive k's contribution to a level is
+  k·mean_k − (k−1)·mean_(k−1).
