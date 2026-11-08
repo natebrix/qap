@@ -308,6 +308,9 @@ class Coordinator:
         report = "\n".join(lines)
         self.b.put_bytes(run_key(self.run_id, "results.txt"), (report + "\n").encode())
         self.run = self.b.update_run(self.run_id, {"status": "finished", "finished_at": now, "wall_s": wall})
+        # the last status.json says finished, with the final totals (a run
+        # shorter than status_every would otherwise leave its first one)
+        self.status(self.b.count_by_status(self.run_id), force=True)
         self.log(report)
         return report
 
