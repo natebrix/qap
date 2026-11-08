@@ -124,7 +124,150 @@ DNN node's trace line. Reports in `results/validation/`.
   every line but the CPU times, the DNN state included, and the sampled
   child's give-up result is the same.
 
-(TO BE COMPLETED: stage A results.)
+## Stage A on wil50t (cloud box, Nov 7 18:39 to Nov 8 12:57 UTC)
+
+Binary: `latest/` at 4d8693d (the private copy's commit.txt says a667727, which
+adds only this directory; `latest/` unmodified, no source newer than the
+binary). Every number is measured [m: `results/stageA_summary.md`, built by
+`summarize_a.py` from the 651 tasks' `done.json`], except where marked [e].
+
+| depth | nodes bounded | fathomed | DNN iterations: first solves + cut phases | CPU s: first solves + cut phases + QPB = all | cut phases |
+|---|---|---|---|---|---|
+| 0 | 1 (QPB only) | 0 | - | 1 | 0 |
+| 1 | 15 | 0 | 4,500 + 0 | 1,762 + 0 + 13 = 1,775 | 0 |
+| 2 | 635 | **331** (57 in the first solve, 274 in the cut phase) | 187,936 + 455,344 | 69,816 + 183,881 + 139 = 253,837 | 463 |
+| all | 651 | 331 | 192,436 + 455,344 = 647,780 | **255,612** | 463 |
+
+- **Frontier: 14,192 depth-3 nodes** (284 depth-2 parents x 48 + 20 rows-only
+  parents x 28), against the 29,580 depth-3 orbits that `../roadmap/tree_size.md`
+  assumes (0.48x). No child was eliminated in branching (`e_level` = 0); the
+  difference is the 331 depth-2 fathoms.
+- **The depth-2 nodes are near the cutoff, and the cut zone catches most of
+  them.** After the first solve (300 iterations, warm from the depth-1 parent's
+  shipped state), 463 of 635 were within the 244-unit zone and ran a CP cut
+  phase: 274 fathomed (first-solve shortfall 4-171, median 84), 174 stalled
+  (134-244 short at the start, 6.5-145 after, median 69), 15 hit the
+  3,400-iteration limit (0.1-7.5 short after). Phases are 72% of the stage's CPU.
+- **Shortfall histogram of the depth-2 nodes** (after the phase where one ran):
+  fathomed 331; 0-50: 75; 50-100: 72; 100-150: 42; 150-244: 0 (a phase either
+  fathoms or ends below 150); 244-300: 54; 300-350: 32; 350-400: 15; 400-450: 13;
+  450-500: 1.
+- **The frontier's inherited gap** (the parent's best bound; an upper bound on
+  each node's own shortfall before it is bounded): 0-50: 3,500; 50-100: 3,336;
+  100-150: 1,976; 244-300: 2,492; 300-350: 1,496; 350-400: 720; 400-450: 624;
+  450-500: 48. So 8,812 frontier nodes (62%) are children of stalled phases and
+  start with the parent's cut pool; 5,380 (38%) have parents 244-458 short.
+- **Branching lines.** Root: row 21 (facility 21 in the 15 J1 cells; the root has
+  QPB only, `-x 1:...`). Depth 1: 8 on a column (location 0, a corner, at
+  `21:1`-`21:4`, `21:10`, `21:12`-`21:14`), 7 on a row (facility 45 at `21:0`,
+  `21:11`, `21:20`, `21:21`; facility 31 at `21:22`-`21:24`). Depth 2: 183 on a
+  column, 121 on a row (per-parent table in the summary; `frontier_stats.tsv`).
+  Which rule chose them: see "Root lines" below.
+- **Symmetry**: "read symmetry info from .../latest/SYM/wil50t.sym" in all 651
+  solver logs. 15 depth-1 nodes; 635 depth-2 nodes before bounding (10 x 49 + 5 x
+  29, the five row-2 cells branching rows-only), as `../sym/README.md` counts.
+- **Root and depth-1 bounds against earlier values**: the root's QPB bound is
+  46,100.957 (`../sym/logs/d1_sym.txt`: 46,101), and its 15 children's
+  predicted bounds give a mean relative gap of 0.886607 (sd 0.025193), equal to
+  that log's to the 6 printed digits, so the root branched on the same line as
+  the Nov 3 run. The depth-1 DNN bounds (333-570 short at 300 iterations) are new;
+  the laptop's 1,500-iteration cold bounds of the same 15 children (`2d26817`,
+  `tuning/lines/root/children/f21_*`) are 55-62 higher, child for child.
+- **Cost**: 255,612 CPU s against `tree_size.md`'s estimate of 1.6e5 (651 x 250
+  s): 1.6x, from the phases. 18.3 h of wall on 4 slots; CPU/wall 0.990 per task.
+- **Segments and redone work**: five sessions (34 tasks for the cost gate; then
+  the switch to the random order; a 3-slot session beside a draining 25-minute
+  cut phase; the claim files; tau raised to 0.04). About one slot-hour idled in
+  drains before the claim files existed; one task (`r.5.17`) ran twice at once
+  for about a minute when the random-order switch raced a drain, and both copies
+  were killed and it was rerun. Nothing else was redone.
+- **Kept for stage B**: 251 parents' full states (7.2 GB under `runs/stageA/`);
+  the 400th smallest hash is 0.0287, so 9 parents of the 400 sampled nodes
+  (finished before tau rose to 0.04) are rebuilt by stage B. Committed:
+  `results/frontier.state.gz` (the frontier as a state file without DNN states,
+  11 MB), `results/frontier.tsv` (every node: parent, inherited and predicted
+  bound, hash), the trace lines, the launcher log, config and environment.
+
+**What it changes in the estimate [e].** The tree model multiplies 29,580
+depth-3 orbits by a per-orbit cost (1.0e4-6e4 DNN nodes under the Oct 29
+settings, 85-91% of it from the far tail). The production frontier is 14,192
+nodes. With the per-node mix unchanged that would divide the total by 2.08. But
+the 331 fathomed depth-2 parents removed the depth-3 nodes nearest the cutoff,
+which were the cheap ones, so the factor on the total is smaller than 2.08. What
+it is depends on how many of the 14,192 are tail nodes (300 or more short at
+convergence). The 2,888 frontier nodes whose parents were 300-458 short are the
+candidates. Stage B's class fractions decide it. Stage A's own cost, 2.6e5 CPU s,
+is still under 0.05% of a 6e8-CPU-s week.
+
+## Root lines: forcing the root's facility (`--root-facility`, Nov 8)
+
+The laptop's root study (`2d26817`, `tuning/lines/README.md`, "Root summary")
+scored six root facilities by the lines cost of their 15 orbit children (cold,
+1,500 iterations): facility 45 best, 21 at 1.2x, 25 (rule 8's pick with root
+marginals) at 5.3x. This run's root is facility 21.
+
+**Which rule picked 21.** The root has QPB only (`-x 1:...`), and in
+`nug_deep_xbar9_all.par` the root's block is rule 9 (`BRANCH_XBAR_LOOKAHEAD`).
+At the root `determine_J3` restricts the columns to J1 (15 cells), so
+`can_branch_on_cols` is false and `select()` calls `select_row_lookahead`: the
+QPB row lookahead of rule 4 over the 30 best rows by U, scored by each child's
+QPB bound. That function never reads the DNN marginals (`dnn_xbar` appears only
+in rule 8's selector and in `select_ind_lookahead`'s two-line mode). So the
+root's line is a QPB lookahead whether or not the DNN runs at the root:
+**D1 = 0 would give the same facility 21**, since branching uses the QPB bound
+and U either way. The same holds at every rows-only node: the five depth-1
+nodes in row 2 (`21:20`-`21:24`) and the 45 rows-only depth-2 nodes branch by
+QPB row lookahead. Only the 10 other depth-1 nodes and the 590 other depth-2
+nodes use rule 9's two DNN-marginal lines.
+
+**How the line is forced.** The root task runs as before. Its 15 children (the
+rule's facility in the 15 J1 cells) are rewritten to facility F in the same
+cells, and the rule's version is kept as `out.rule.state`. Every other field
+stays: depth 1, the inherited root bound, the root's warm start, the state's
+root bound. The only change is the predicted bound (the root's bound plus U at
+the rule's cell, which the state does not hold for F), which becomes the
+inherited bound. It enters only `pick_param`'s relative gap, which stays above
+0.2, so the first parameter block applies as it does for every depth-1 node.
+It also enters a `max()` with the node's own bounds, which the DNN bound
+exceeds. A child finds its warm start by comparing its `p` with the parent's
+(`warm_child_offsets`), so F at c starts from the root's QPB point cut at
+(F, c), like any root child.
+
+Why not `bnbdrv -F F:c`: `stats->root_bound` is set only when a depth-0 node is
+bounded, so under `-F` it stays 0 (the node-10 `-F` logs print "root bound: 0").
+`pick_param` then computes the relative gap against 48,816 instead of against
+48,816 - 46,101, about 0.05 instead of 0.89 at depth 1. That selects the third
+parameter block (FW 100/50/25, 5 best rows) instead of the first (150/100/25,
+30 best rows), so the QPB bounds and the lookahead differ. At depth 3 the two
+coincide (the third block) for nodes within 326 of the cutoff; nodes farther
+out get the second block in the full run and the third under `-F`. The tail
+probes' `-F` roots (node 1 at 455 short, node 5 at 364) are such nodes. Their
+DNN bounds are unaffected; their QPB parameters were not the full run's.
+
+**Symmetry below a forced node.** `determine_J3` looks only at the node's depth
+and its assigned locations: depth 0 means J1, and all assigned locations in row
+2 means rows only (J3 = rows 0-2). A rewritten depth-1 node (depth 1, one
+assignment) is therefore treated exactly like a rule's root child: 29 children
+in the row-2 cells, 49 elsewhere, 635 in all. An `-F` node has depth equal to
+its number of fixes (`QAPAssignment::fix` increments it), so it is never
+treated as a root restricted to J1.
+
+**Validation** (`validate_force.py`, `results/validation/force21.txt`): a run
+forcing facility 21, restricted to the root, `r.0` [21:0], `r.4` [21:4], `r.14`
+[21:24] (row 2: 29 children) and `r.14.0`, with a byte-identical binary,
+reproduces stage A's tasks in every field compared: first lb 48,248.852,
+48,411.3768, 48,480.9476 and 48,829.9474, the primal values, iterations,
+statuses, the lines (row 45, col 0, row 31), the children's assignments and
+their inherited and predicted bounds, and the per-level statistics.
+
+**The samples** (`run_samples.sh`, detached; facility 45, then 25): the root,
+the 15 depth-1 nodes of the forced line, and a seeded uniform sample of 200 of
+the 635 depth-2 nodes (`--sample-last 200`). No depth-2 task starts until every
+depth-1 task is done; then the 200 task ids with the smallest seeded order hash
+are bounded, the same ids in every run. The same 200 ids in stage A's full run
+form facility 21's matched sample. No parent state is kept (`--tau 0`). A run
+drains (exit 4) if its projection exceeds 9 h of wall, and the chain then
+stops. `compare_lines.py` writes the comparison (`results/root_lines.md`).
 
 ## Stage B (`stage_b.py`): built and smoke-tested, not run
 
