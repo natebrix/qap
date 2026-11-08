@@ -1,7 +1,10 @@
 # sko42, first attempt (November 8 2026): stopped after 5.5 hours, not finished
 
-Skorin-Kapov's 6 x 7 grid instance (QAPLIB optimum 15,812, found by heuristics
-and never proven), tried with the nug30 record recipe unchanged
+Skorin-Kapov's 6 x 7 grid instance (QAPLIB optimum 15,812; first proven by
+Fujii, Ito, Kim, Kojima, Shinano and Toh with a parallel DNN branch and bound,
+along with tai30a, arXiv:2101.09629 / ZIB report 21-02, the paper
+`../wil50_feasibility/NOTES.md` uses for its wil50 tree estimates; their sko42
+run is the yardstick for any attempt here), tried with the nug30 record recipe unchanged
 (`../nug30_solve/README.md`), 8 workers on the M2 Pro laptop, binary at f60f77e.
 
 ## Files

@@ -47,8 +47,11 @@ Both tried overnight on the laptop, the recipe above otherwise unchanged, 8
 workers, binary at f60f77e. Rule 9 (`PARAM/nug_deep_xbar9_all.par`: rule 8's two
 best lines, chosen by the children's QPB) is the new tho30 best; the side-1 cut
 phase through depth 2 (`QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_GRID=3:10
-QAP_DNN_CUT_SIDE=1 QAP_DNN_CUT_DELTA=20 QAP_DNN_CUT_MAXDEPTH=2`, the rounds form,
-since the CP form is side 0 only) trims the tree 3% and costs 12% more CPU.
+QAP_DNN_CUT_SIDE=1 QAP_DNN_CUT_DELTA=20 QAP_DNN_CUT_MAXDEPTH=2`, the rounds form)
+trims the tree 3% and costs 12% more CPU. The rounds form was chosen on the
+belief that the CP form is side 0 only; that was out of date (the side-1 CP
+projector went in on Nov 7, 02655b9, and this binary has it), and the CP form
+is run below.
 
 | | rule 8 (Nov 7, above) | rule 9 | rule 8 + cut phase, depth <= 2 |
 |---|---|---|---|
@@ -62,6 +65,6 @@ Rule 9 takes 19% off the nodes and 26% off the CPU, more than on nug30 the same
 night (7%; `../nug30_solve/README.md`), consistent with the lines studies:
 the bigger the tree, the more a better line at the top is worth. The cut phase
 is the same story as nug30 at depth 2 (break-even there, a loss here): the
-rounds form on side 1 spends more at depths 1-2 than it saves below. Not
-tried: rule 9 with the cut phase, or the CP form, which would need the grid as
-the first matrix (a transposed file, as for wil50t).
+rounds form on side 1 spends more at depths 1-2 than it saves below. The tho30 loss does not
+read across to wil50: there the phase fathomed 274 of the 635 depth-2 nodes in
+stage A, each one a 48-child subtree. Not tried: rule 9 with the cut phase.
