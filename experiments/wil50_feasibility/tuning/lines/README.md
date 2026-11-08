@@ -142,9 +142,11 @@ Everything above is depth 3 and below. No line study has run at depths 0-2, and
 that is where the remaining leverage is, for two reasons that do not hold deeper
 down (`../../roadmap/tree_size.md` sections 2-3; nothing here was run):
 
-- **What the top lines decide.** Nothing fathoms at depths 1-2 whatever the line,
-  so the depth-3 frontier is 29,580 orbits regardless. The lines at depths 0-2
-  decide the *distribution* of depth-3 gaps, and the two tail nodes among the 16
+- **What the top lines decide.** *(Corrected Nov 8: with the CP cut phase at
+  depth 2, stage A fathoms about half of the depth-2 nodes, so the frontier is
+  about 15,100 depth-3 nodes, not 29,580; the fathomed ones were the near-cutoff,
+  cheap ones.)* The lines at depths 0-2 decide the *distribution* of depth-3
+  gaps and which depth-2 nodes fathom, and the two tail nodes among the 16
   sampled (329 and 405 short) carry 85-91% of every tree estimate. In the
   exponential model (subtree ∝ 47^(gap/130)) a 10% change in a tail node's gap is
   2.7-3.3x on its subtree. The 5% per decision left on the table at depths 4-5 is
@@ -247,3 +249,11 @@ fathomed, gaps 276 to 513, median 403, cost 1.48e+07 (1.2x facility 45). Corner 
 - Caveats: cold children, 1,500 iterations, all `iter_limit`; the lines cost model
   of `../README.md`; one level measured, two tail nodes dominate the tree estimate
   and their lines are set at depths 0-2 together.
+- Stage A (cloud, Nov 7-8, `sampling/`) happened to branch the root on facility 21
+  (its root has only the QPB bound, so the rule there is not rule 8; rule 8's pick of
+  25 arises only with DNN marginals at the root). Its depth-1 children at 300
+  iterations rank as the 1,500-iteration solves here do (corner hardest, centre
+  easiest), 333-570 short. The cloud is adding `--root-facility` to `stage_a.py`
+  and running 45 and 25 on the 15 depth-1 nodes plus 200 random depth-2 nodes each,
+  so the three root lines will be compared on the real depth-2 bounds, with the
+  depth-1 line question answered by the same data.
