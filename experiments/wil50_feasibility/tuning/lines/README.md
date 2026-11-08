@@ -217,3 +217,33 @@ here says how to find it a priori. Facility 31 and a median control not run.
 0 fathomed, gaps 302 to 570, median 506, cost 1.03e+08 (8.1x facility 45,
 1.53x rule 8's pick, 0.26x facility 40). Corner child 302, centre children
 (cells 14, 23, 24) 564, 566, 570. Median control not run.
+
+**Facility 21, rule 8's fourth (flow 190, rank 46th), Nov 7, 18 min**: 15 children, 0
+fathomed, gaps 276 to 513, median 403, cost 1.48e+07 (1.2x facility 45). Corner child
+508, centre children (cells 14, 23, 24) 302, 320, 276.
+
+### Root summary (Nov 7): six facilities, 90 children, about 2 hours at 8 jobs
+
+| facility | why tested | rule 8 score | flow (rank) | median gap | worst gap | cost | vs best |
+|---|---|---|---|---|---|---|---|
+| 45 | rule 8's 2nd | 0.125 | 178 (50th) | 391 | 515 | 1.27e+07 | 1.0x |
+| 21 | rule 8's 4th | 0.086 | 190 (46th) | 403 | 513 | 1.48e+07 | 1.2x |
+| 26 | rule 8's 3rd | 0.098 | 189 (47th) | 494 | 552 | 6.33e+07 | 5.0x |
+| 25 | rule 8's pick | 0.134 | 184 (48th) | 495 | 559 | 6.72e+07 | 5.3x |
+| 31 | 2nd-highest flow | - | 259 (2nd) | 506 | 570 | 1.03e+08 | 8.1x |
+| 40 | highest flow | 0.083 | 267 (1st) | 504 | 643 | 4.01e+08 | 31.5x |
+
+- The root line matters by 5x or more between lines rule 8 ranks within 7% of each
+  other, and the best line (45) is found by rule 8's score only as runner-up.
+  Flow total is the wrong direction (the two heaviest facilities are the two worst
+  lines). What distinguishes 45 is the narrow spread of its children; no root
+  statistic tried here predicts that, child bounds do.
+- Proposed fix (not built): at the root, and perhaps at depth 1, shortlist by rule 8
+  (top 4-5 lines) and choose by the children's bounds (short cold solves, a few
+  hundred iterations each; the full 1,500-iteration version above cost about 20
+  CPU-hours per facility-set of six, once per run). Whether depth 1 has the same
+  problem is the next test and is the cloud box's size (15 nodes x 4 lines x 45
+  children).
+- Caveats: cold children, 1,500 iterations, all `iter_limit`; the lines cost model
+  of `../README.md`; one level measured, two tail nodes dominate the tree estimate
+  and their lines are set at depths 0-2 together.
