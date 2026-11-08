@@ -79,3 +79,32 @@ QPB-sampler pilot (Nov 7, 4 dives, 9-11 min each on this Xeon): depths 3, 2, 2, 
 node estimates 22,090 / 501 / 448 / 32,706; CPU estimates 4.4e5 / 1.3e5 / 3.1e5 /
 3.9e5 s. All four dives landed on children that fathomed at depth 2-3, which is why
 the marginal sampler was built; these dives are not used in the estimate.
+
+### First marginal-sampler estimate (Nov 7, 15 dives)
+
+Seeds 31 and 32, `QAP_EST_XBAR=1 QAP_EST_XBAR_MIX=0.1`, two processes for two hours
+on the 2-core Xeon (8 + 7 dives). Per dive: depth, node estimate, CPU-s estimate:
+
+```
+4 971 224719          5 12536 3.64048e+06
+8 1902617 1.94622e+07 3 1103 306837
+7 3875416 1.24056e+08 6 58652 1.15428e+07
+4 96605 1.60073e+07   4 4852 116864
+2 697 250155          6 6592088 1.08021e+08
+6 79952 2.45838e+07   6 561589 4.68152e+06
+4 3203 795689         2 225 243826
+4 258243 2.07253e+06
+```
+
+- **9.0e5 ± 4.7e5 DNN-era nodes, 2.1e7 ± 1.0e7 CPU-s on this Xeon** (about 6 hours
+  on 1,000 such cores). The SE is a floor: two dives carry 73% of the CPU sum.
+- Depths reached: 2 (2), 3 (1), 4 (5), 5 (1), 6 (4), 7 (1), 8 (1); the QPB sampler's
+  four pilot dives all stopped at depth 2-3.
+- Nodes by level, each process's estimate at its fifth dive: level 2 174 / 83,
+  level 3 181 / 1,845, then 1e4-1e6 per level at depths 4-8. The rule-9 tree with
+  the DNN from depth 1 keeps a depth-3 frontier of hundreds to a few thousand nodes,
+  against the 29,580 orbits `../wil50_feasibility/roadmap/tree_size.md` assumed
+  (its section 3 names this as the main upside risk). That is where most of the gap
+  to the roadmap's 1e10-6e10 CPU-s comes from, and it is the cheapest thing to
+  check directly: stage A of the sampling plan (depths 0-2 exact) gives the real
+  depth-2 and depth-3 counts.
