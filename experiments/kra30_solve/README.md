@@ -77,3 +77,31 @@ the same optima.
   CPU-hours, 3x kra30b's scaled tree, with no symmetry file. `QAPSOLN/kra32.sln`
   said 17,780; fixed on Nov 8 to 17,740 (88,700/5) with an optimal permutation from a
   tabu search, checked against both data files.
+
+## Rule 9 (November 8, later the same morning)
+
+The same recipe with `PARAM/nug_deep_xbar9_all.par` (rule 9: rule 8's two best
+lines, chosen by the children's QPB, at every node through depth 6), binary at
+9d6e216, 8 workers. kra30b is the first non-grid instance to test rule 9 on,
+and it halves the tree.
+
+| | kra30b, rule 8 (above) | kra30b, rule 9 | kra32, rule 8 (above) | kra32, rule 9 |
+|---|---|---|---|---|
+| nodes | 3,446 (3,315 fathomed) | **1,686** (1,620 fathomed), 0.49x | 10,852 (10,484 fathomed) | 10,807 (10,440 fathomed), 1.00x |
+| DNN CPU | 1,252 s | 644 s | 7,368 s | 5,554 s |
+| CPU, summed over 8 workers | 1,261 s | **651 s (0.52x)** | 7,406 s | **5,603 s (0.76x)** |
+| wall | 187 s | **110 s** (472 tasks, 27 steals, 5.91x) | 1,065 s | **826 s, 13 min 46 s** (760 tasks, 16 steals, 6.78x) |
+| log | `kra30b_nug30recipe_j8_m2pro.log` | `kra30b_rule9_j8_m2pro.log` | `kra32_j8_m2pro.log` | `kra32_rule9_j8_m2pro.log` |
+
+- On kra30b rule 9 is worth 2x in nodes and CPU, more than on tho30 (0.74x) or
+  nug30 (0.93x): the kra flows are far from uniform and the QPB lookahead
+  between rule 8's two candidate lines separates them well.
+- On kra32 the tree is the same size to within 0.4% but the CPU is 24% lower,
+  on the same machine within the hour (the earlier run had the laptop to
+  itself overnight; this one shared it with nothing but the first three
+  minutes of a 1-thread marginals solve). A tree that is a different shape at
+  the same size, with the DNN solves converging faster below rule 9's lines, is
+  the reading; a repeat would settle how much is the machine. kra32 has no
+  symmetry file in either run.
+- Rule 9 is now a win on every instance it has been run on as the production
+  rule (nug30, tho30, kra30b, kra32) and should be the recipe's default.

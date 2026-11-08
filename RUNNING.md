@@ -271,6 +271,9 @@ The same runs on an Apple M2 Pro laptop (6 P + 4 E cores, Accelerate,
 | **nug30 record setting + rule 9 (`nug_deep_xbar9_all.par`; Nov 8)** | **3,705 (DNN: 3,704, 3,563 fathomed, 1,256 s)** | **1,270** | **3.0 min** (experiments/nug30_solve) |
 | tho30, record setting + rule 9 (Nov 8) | 14,822 (DNN: 14,819, 14,213 fathomed, 4,683 s) | 4,733 | 10.9 min (experiments/tho30_solve) |
 | tho30, record setting + side-1 cut phase through depth 2 (Nov 8) | 17,786 (DNN: 17,779, 17,056 fathomed, 6,113 s) | 7,172 | 17.1 min (experiments/tho30_solve) |
+| tho30, the same with the CP form (`QAP_DNN_CUT_CP=100:1000`; Nov 8) | 17,786 (DNN: 17,779, 17,056 fathomed, 5,957 s) | 6,994 | 17.3 min (experiments/tho30_solve) |
+| kra30b, record setting + rule 9, `--ub 18284` (Nov 8) | 1,686 (DNN: 1,685, 1,620 fathomed, 644 s) | 651 | 1.8 min (experiments/kra30_solve) |
+| kra32, record setting + rule 9, `--ub 17740` (no symmetry file; Nov 8) | 10,807 (DNN: 10,806, 10,440 fathomed, 5,554 s) | 5,603 | 13.8 min (experiments/kra30_solve) |
 | kra30a-old, record setting, `--ub 88900`, no symmetry file (Nov 8) | 873 (DNN: 872, 842 fathomed, 369 s) | 373 | 56 s (experiments/kra30_solve) |
 | kra30b-old, record setting, `--ub 91420`, no symmetry file (Nov 8) | 28,112 (DNN: 28,111, 27,072 fathomed, 17,929 s) | 18,063 | 47.4 min (experiments/kra30_solve) |
 | kra32, record setting, `--ub 17740` (scaled file, no symmetry file; Nov 8) | 10,852 (DNN: 10,851, 10,484 fathomed, 7,368 s) | 7,406 | 17.7 min (experiments/kra30_solve) |
