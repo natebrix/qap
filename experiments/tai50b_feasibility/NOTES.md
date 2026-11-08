@@ -16,9 +16,14 @@ summarize.py depth3 458821516.05` builds the depth-3 table.
 - From the root to depth 3 the shortfall falls 5.6x (28.7M to a median of 5.1M over all
   12), about **1.8x per level**. wil50's falls about 1.25x per level; tho40's halves. On
   sko49 none of 12 depth-3 nodes fathomed.
-- So the relative root gap overstates tai50b, as it did tai40b (4.5% at the root, solved
-  in 278,465 nodes by Fujii et al. 2021). Fujii et al. estimate 5.5e7 nodes for tai50b
-  with their rule M. The tree size is what `estimate/` measures next.
+- So the relative root gap overstates how hard the top of the tree is, as it did for tai40b
+  (4.5% at the root, solved in 278,465 nodes by Fujii et al. 2021).
+- **But the Knuth estimate (20 dives, section 4) puts the tree at 1.8e11 ± 1.7e11 CPU-s on
+  this Xeon (about 5.8 years on 1,000 cores), from one dive carrying 96% of it; without
+  that dive, 7.6e9 CPU-s (88 days).** Either way that is far above Fujii et al.'s 5.5e7
+  nodes (rule M), and above wil50's roadmap center. The tail comes from depths 7-8, where
+  the recipe's DNN gives up at 200 iterations (depth 7) or is not used (depth 8 and
+  below): raising the give-up and the DNN depth for tai50b is the first thing to test.
 
 ## 0. The instance
 
@@ -88,7 +93,63 @@ random locations, `depth3/draw_nodes.py`), same `dnntest` settings, cutoff
   14.4M at depth 3), so branching order should matter more here than on the grid instances.
 - Per node, a tai50b DNN solve costs what a wil50 one does (same m, 0.55-0.6 s per
   iteration here).
-- The tree size is not settled by 12 nodes. Next: the Knuth estimate in `estimate/` with
-  the nug30 record recipe (`../nug30_solve/README.md`: rule 9 through depth 6, DNN at
-  depths 1-7, give-up 200) and the DNN-marginal sampler with a 30% uniform share,
-  per-level table after every dive.
+- The tree size is not settled by 12 nodes; section 4 estimates it.
+
+## 4. Knuth estimate (`estimate/`, 20 dives, Nov 8)
+
+`estimate/run_est.sh SEED`: `bnbdrv -e` with the nug30 record recipe
+(`../nug30_solve/README.md`: `nug_deep_xbar_all.par`, rule 9 through depth 6, DNN at
+depths 1-7 with give-up 200, the Nov 7 environment), the DNN-marginal sampler with a 30%
+uniform share (`QAP_EST_XBAR=1 QAP_EST_XBAR_MIX=0.3`), dives from level 1, the per-level
+table printed after every dive (`estimate.par`: `1 10000 1 1 1.5 1000`). Seeds 41 and 42,
+one per core, two hours each, 10 dives each. Logs in `estimate/logs/`; `dives.csv` (one
+row per dive), `dive_levels.csv` (per dive and level) and `levels.csv` (mean and SE per
+level) are derived from the 64-bit tables in the logs (dive k's share of a level is k
+times the k-dive mean less k-1 times the previous one; level 1's ±0.9 is rounding of the
+printed means). The `dives_s*.txt` node column wraps at 2^31 for the largest dives: the
+history line printed an `int`, fixed in 3a678aa after these runs started.
+
+| | value (on this Xeon) |
+|---|---|
+| nodes, mean of 20 dives | **1.8e10 ± 1.7e10** |
+| CPU-s, mean of 20 dives | **1.8e11 ± 1.7e11 (about 2,100 days, 5.8 years, on 1,000 cores)** |
+| largest dive's share of the CPU sum | 96% (seed 41, dive 6: 3.5e11 nodes, 3.5e12 CPU-s) |
+| without that dive (19 dives) | 5.3e8 nodes, 7.6e9 CPU-s (88 days on 1,000 cores) |
+| per seed (10 dives each) | seed 41 3.6e11 CPU-s, seed 42 8.0e9 |
+| median dive | 9.2e6 nodes, 3.1e8 CPU-s |
+| depths where dives ended | 2 (1), 3 (3), 4 (6), 5 (5), 6 (2), 7 (1), 8 (1), 9 (2) |
+
+Per level (mean over the 20 dives ± SE; "reach" is how many dives had nodes there):
+
+| level | nodes | CPU-s | reach |
+|---|---|---|---|
+| 1 | 50 | 1.2e4 | 20 |
+| 2 | 2,806 ± 498 | 2.8e5 ± 5.1e4 | 20 |
+| 3 | 1.7e5 ± 5.5e4 | 5.4e7 ± 4.2e7 | 19 |
+| 4 | 3.1e6 ± 1.3e6 | 1.6e8 ± 9.3e7 | 16 |
+| 5 | 1.4e8 ± 1.2e8 | 4.4e9 ± 2.3e9 | 14 |
+| 6 | 4.0e8 ± 3.3e8 | 8.4e9 ± 6.6e9 | 11 |
+| 7 | 4.2e8 ± 4.1e8 | 3.9e10 ± 3.8e10 | 7 |
+| 8 | 1.7e10 ± 1.7e10 | 1.3e11 ± 1.3e11 | 7 |
+| 9 | 2.1e7 ± 1.6e7 | 1.4e8 ± 1.2e8 | 5 |
+
+Reading:
+
+- **The estimate has not converged.** One dive carries 96% of the CPU, the two seeds differ
+  45x, and the SE equals the mean. Twenty dives bound the tree from below better than they
+  center it: the 88-day figure without the largest dive is the least it could plausibly be,
+  and the 5.8 years is what the sample says so far.
+- **Where the tail is.** In the largest dive, 8.3e9 depth-7 nodes (bounded by the DNN with
+  give-up 200) branched into 3.4e11 depth-8 nodes (QPB only), which then fathomed (3 nodes
+  at depth 9). Level 8 holds 92% of the estimated nodes and 72% of the CPU over all dives.
+  That is the recipe tuned for nug30 (DNN through depth 7, give-up 200) meeting an instance
+  whose bound gains a lot after the give-up point: at depth 3 the unfathomed nodes gained
+  4M-8M between iteration 400 and 1,500 (section 2).
+- **Next, cheapest first:** (1) the same estimate with a later give-up at depths 5-7 and
+  the DNN through depth 8 or 9 (`-x 1:9:1:H:1`, H 400-600), to see how much of level 8
+  goes away; (2) more dives, ideally started from an exact depth-2 or depth-3 frontier
+  (`start_dive_level`), so the top levels add no sampling error; (3) the per-level node
+  cost: about 10 CPU-s per node overall here, 0.55-0.6 s per DNN iteration at m = 47.
+- Against Fujii et al.'s 5.5e7 nodes (rule M, Newton-bracketing bounds, no QPB): their
+  nodes are all DNN-bounded, so the counts don't compare directly; their tai40b took
+  1.8e8 core-seconds (278,465 nodes, 1.05e5 s on 1,728 cores).
