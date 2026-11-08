@@ -212,3 +212,8 @@ children. So the opposite hypothesis fails too: a diffuse high-flow line is wors
 than a concentrated low-flow one, by the spread of its children. The best root
 line so far is facility 45, found by rule 8's score as runner-up, and nothing
 here says how to find it a priori. Facility 31 and a median control not run.
+
+**Facility 31, the second-highest-flow facility (flow 259), Nov 7, 18 min**: 15 children,
+0 fathomed, gaps 302 to 570, median 506, cost 1.03e+08 (8.1x facility 45,
+1.53x rule 8's pick, 0.26x facility 40). Corner child 302, centre children
+(cells 14, 23, 24) 564, 566, 570. Median control not run.
