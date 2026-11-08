@@ -284,3 +284,45 @@ further 4x cheaper and still orders these six correctly, but the two best lines
 are only 7% apart there and the cost scale is meaningless, so 300 is the
 setting to trust. One level, one instance, six lines; the cloud's depth-2
 comparison (above) is the real test.
+
+## Depth 1 (Nov 8, laptop): rule 8's pick is 2.4x the best line at node (cell 0, facility 45)
+
+`depth1/`: the depth-1 node with facility 45 in cell 0 (the best root line's
+corner child) solved 1,000 iterations with `-X` (`node_0_45_xbar.log`, lb
+48,297.7, 165 s), rule 8's score (sum of squared marginals over a free line)
+computed for all 98 free lines, cells and facilities alike (`shortlist.txt`), the
+top 4 lines taken, and every child of each (49 per line, `-x 0:45,c:f`) solved
+300 cold iterations with the Nov 7 child settings (`children/c{c}_f{f}.log`,
+196 children, 94 min at 8 jobs, about 69 CPU s each). Cost is the lines model,
+sum of 47^(gap/130); 300-iteration costs rank lines as 1,500-iteration ones do
+(root calibration above) but are not comparable in scale to the root tables.
+
+| line | rule 8 rank, score | median gap | min / max gap | cost | vs best |
+|---|---|---|---|---|---|
+| facility 21 | 2nd, 0.169 | 203 | 66 / 468 | 4.11e+06 | 1.0x |
+| cell 40 | 4th, 0.149 | 311 | 98 / 488 | 4.52e+06 | 1.1x |
+| facility 25 | 3rd, 0.166 | 362 | 319 / 487 | 9.23e+06 | 2.2x |
+| cell 49 | **1st, 0.193** | 298 | 75 / 490 | 9.81e+06 | 2.4x |
+
+- The root's pattern repeats one level down, smaller: rule 8's top-scored line
+  is the worst of its own top 4 by child bounds, 2.4x the best (5.3x at the
+  root). The spread between the four is 2.4x against 5x at the root, as expected
+  if the line choice matters most where the subtrees are largest.
+- Facility 21 is the best line here as it was the root's runner-up (1.2x there);
+  facility 25, rule 8's root pick, is again a poor line. Cell lines are in the
+  mix at depth 1 (cell 40 within 10% of the best), where the root study tested
+  facilities only.
+- Median gap and cost disagree (cell 40's median is 100 above facility 21's,
+  its cost 10% above): the cost is set by the few hardest children, so a line
+  with a narrow spread of children beats one with a better typical child, as at
+  the root.
+- Four lines are the shortlist, not the full 98; the best line at this node may
+  be outside rule 8's top 4. Cost of the test: 196 children x 69 CPU s = 3.8
+  CPU-hours, once per depth-1 node. At 300 iterations the shortlist-then-child-
+  bounds rule costs about 1 CPU-hour per candidate line per node; at the 15
+  depth-1 nodes of a wil50 run that is a rounding error against the tree
+  (NOTES.md: 1e10 CPU-s), and the 2.4x here, if it holds, is worth more than
+  any switch measured since the cut phase.
+- Next: the cloud's stage-A comparison of root lines 21, 45 and 25 on real
+  depth-2 bounds, and the same shortlist test on a second depth-1 node (an
+  interior cell) to see whether 2.4x is typical.
