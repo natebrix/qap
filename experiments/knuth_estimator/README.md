@@ -101,13 +101,29 @@ on the 2-core Xeon (8 + 7 dives). Per dive: depth, node estimate, CPU-s estimate
 - Depths reached: 2 (2), 3 (1), 4 (5), 5 (1), 6 (4), 7 (1), 8 (1); the QPB sampler's
   four pilot dives all stopped at depth 2-3.
 - Nodes by level, each process's estimate at its fifth dive: level 2 174 / 83,
-  level 3 181 / 1,845, then 1e4-1e6 per level at depths 4-8. The rule-9 tree with
-  the DNN from depth 1 keeps a depth-3 frontier of hundreds to a few thousand nodes,
-  against the 29,580 orbits `../wil50_feasibility/roadmap/tree_size.md` assumed
-  (its section 3 names this as the main upside risk). That is where most of the gap
-  to the roadmap's 1e10-6e10 CPU-s comes from, and it is the cheapest thing to
-  check directly: stage A of the sampling plan (depths 0-2 exact) gives the real
-  depth-2 and depth-3 counts.
+  level 3 181 / 1,845, then 1e4-1e6 per level at depths 4-8.
+- **Level 2 says this sample is low.** No depth-1 node fathoms (level 1: 0% in both
+  tables), so level 2 holds about 635 nodes (`../wil50_feasibility/sym/README.md`:
+  15 orbits at depth 1, 635 at depth 2; rule 9's lines can change that somewhat).
+  The estimate gives 83-174, 4-8x low. The marginal sampler mostly follows
+  high-marginal children, whose 1/p weights are small, and reaches the rest only
+  through the 10% uniform share, at weights in the thousands; 15 dives have not
+  drawn enough of those. The shortfall compounds with depth, so the total is
+  probably low by more than the level-2 factor.
+- Against the repo: the implied cost per node (2.1e7 / 9.0e5, about 23 CPU-s on this
+  Xeon) matches the roadmap's 63 Xeon-s per node divided by the measured per-node
+  levers, so the whole difference from the roadmap (5e7-8e8 nodes with the tree
+  levers in `roadmap/tree_size.md` section 6; a center of 18-26 days on 1,000 cores
+  in `roadmap/README.md` section 3) is tree size, and this sample cannot yet say the
+  tree is smaller. One tail-class node's subtree alone (`tail_probe/`, node 1, about
+  14,000 DNN nodes under `full`) times the tail class's share of the depth-3 frontier
+  exceeds 9e5.
+- One finding that does bear on the repo: two of the 15 dives fathomed at depth 2,
+  where `tuning/lines/README.md` and `roadmap/tree_size.md` assume nothing fathoms.
+  If that holds at scale the depth-3 frontier is below 29,580 orbits, the upside
+  `tree_size.md` section 3 names. Stage A of the sampling plan (depths 0-2 exact)
+  measures it, and dives started from that exact frontier (`start_dive_level` 3)
+  remove the level-1 and level-2 sampling error from the estimate.
 
 ## To do: log per-level estimates per dive
 
