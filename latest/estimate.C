@@ -22,7 +22,9 @@ void print_dive(std::ostream &outs,
   // terminal depth, node estimate, and time estimate for each dive
 
   int depth=0;
-  qs_int node;
+  // 64-bit, as the counters are: a qs_int (int) wrapped at 2^31 (tai50b dives
+  // reach 1e10 nodes)
+  QAPStatistics::ctr_type node;
   double time;
 
   node = top_stats->node + path_stats->node;
@@ -169,8 +171,8 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
     }
     if((i % ep->print_everything_every == 0)&&(i<ep->trials)) {
       print_time();
-      printf("[ %5d dives  %12d nodes  %12.2f seconds %d ignored]\n",
-		i,int(double(total_stats->node)/i),
+      printf("[ %5d dives  %14.0f nodes  %12.2f seconds %d ignored]\n",
+		i,double(total_stats->node)/i,
 		ep->time_scale*total_stats->total_time/i,too_deep);
 
       estimated_stats = new QAPStatistics(*total_stats);
