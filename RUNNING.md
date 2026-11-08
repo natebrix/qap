@@ -268,6 +268,13 @@ The same runs on an Apple M2 Pro laptop (6 P + 4 E cores, Accelerate,
 | kra30a, the nug30 record setting, `--ub 17780` (scaled file; Nov 7) | 198 (DNN: 197, 190 fathomed, 100 s) | 101 | 18 s (experiments/kra30_solve) |
 | kra30b, the nug30 record setting, `--ub 18284` (scaled file; Nov 7) | 3,446 (DNN: 3,445, 3,315 fathomed, 1,252 s) | 1,261 | 3.1 min (experiments/kra30_solve) |
 | tho30, the nug30 record setting, `--ub 149936` (Nov 7) | 18,410 (DNN: 18,403, 17,680 fathomed, 6,354 s) | 6,401 | 15.6 min (experiments/tho30_solve) |
+| **nug30 record setting + rule 9 (`nug_deep_xbar9_all.par`; Nov 8)** | **3,705 (DNN: 3,704, 3,563 fathomed, 1,256 s)** | **1,270** | **3.0 min** (experiments/nug30_solve) |
+| tho30, record setting + rule 9 (Nov 8) | 14,822 (DNN: 14,819, 14,213 fathomed, 4,683 s) | 4,733 | 10.9 min (experiments/tho30_solve) |
+| tho30, record setting + side-1 cut phase through depth 2 (Nov 8) | 17,786 (DNN: 17,779, 17,056 fathomed, 6,113 s) | 7,172 | 17.1 min (experiments/tho30_solve) |
+| kra30a-old, record setting, `--ub 88900`, no symmetry file (Nov 8) | 873 (DNN: 872, 842 fathomed, 369 s) | 373 | 56 s (experiments/kra30_solve) |
+| kra30b-old, record setting, `--ub 91420`, no symmetry file (Nov 8) | 28,112 (DNN: 28,111, 27,072 fathomed, 17,929 s) | 18,063 | 47.4 min (experiments/kra30_solve) |
+| kra32, record setting, `--ub 17740` (scaled file, no symmetry file; Nov 8) | 10,852 (DNN: 10,851, 10,484 fathomed, 7,368 s) | 7,406 | 17.7 min (experiments/kra30_solve) |
+| sko42t (grid second, `SYM/sko42t.sym`), record setting, `--ub 15812` (Nov 8, stopped after 5.5 h) | 9,651 bounded, 9,318 fathomed, 3,168 open and growing | 32,988 so far | checkpoint kept, not finished (experiments/sko42_solve) |
 
 With plain `-x 2:5` the trees match the Xeon runs exactly (nug27, nug28).
 With the give-up threshold and warm starts (`-x ...:300:1`) a few decisions
