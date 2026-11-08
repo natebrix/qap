@@ -314,6 +314,7 @@ class AwsBackend:
         self.prefix = u.path.strip("/")
         self.name = q.get("name", "qap")
         region = q.get("region") or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+        self.region = region
         kw = {"region_name": region}
         if q.get("endpoint"):
             kw["endpoint_url"] = q["endpoint"]
@@ -327,7 +328,11 @@ class AwsBackend:
         try:
             self.s3.head_bucket(Bucket=self.bucket)
         except Exception:
-            self.s3.create_bucket(Bucket=self.bucket)
+            # outside us-east-1, S3 refuses a bucket without its region
+            # (IllegalLocationConstraintException)
+            loc = {} if self.region == "us-east-1" else \
+                {"CreateBucketConfiguration": {"LocationConstraint": self.region}}
+            self.s3.create_bucket(Bucket=self.bucket, **loc)
         for lane in ("large", "small"):
             self.sqs.create_queue(QueueName=f"{self.name}-units-{lane}",
                                   Attributes={"VisibilityTimeout": "1800", "MessageRetentionPeriod": "1209600"})

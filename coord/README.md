@@ -74,7 +74,7 @@ about 90 units a run):
 | crash_marked, crash_applied, crash_saving | the coordinator stops (`QAP_COORD_CRASH`) in its 20th merge: after marking a unit merged, after applying it, between writing the totals and `totals.json`; a new one replays | = serial |
 | drain | SIGTERM to the worker's process group mid-run | = serial |
 | noub | no incumbent: the run finds the optimum and publishes it verified | optimum |
-| aws | normal, on S3/SQS/DynamoDB (a local moto server) | = serial |
+| aws | normal, on S3/SQS/DynamoDB (a local moto server, region eu-north-1, where a new bucket must name its region) | = serial |
 
 On wil50 (`experiments/wil50_feasibility/coord_search/README.md`): the
 node-10 subtree with the production settings, one 4-slot worker: the same
