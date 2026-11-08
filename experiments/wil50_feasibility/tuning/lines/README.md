@@ -257,3 +257,30 @@ fathomed, gaps 276 to 513, median 403, cost 1.48e+07 (1.2x facility 45). Corner 
   and running 45 and 25 on the 15 depth-1 nodes plus 200 random depth-2 nodes each,
   so the three root lines will be compared on the real depth-2 bounds, with the
   depth-1 line question answered by the same data.
+
+### Calibration (Nov 8, laptop): 300 cold iterations rank the root lines as 1,500 do
+
+The same 90 children (`children_i300/`, `children_i100/`), the same command with
+`-i 300` and `-i 100`, scored with `score.py` against the 1,500-iteration ranking.
+The order of the six facilities is identical at every iteration count; only the
+cost scale moves, since the cold bound is still rising at 300 iterations (median
+gap 457 against 391) and far from done at 100 (gap about 2,500, where the cost
+model's numbers mean nothing but the order survives).
+
+| facility | 1,500 iters: cost, vs best | 300 iters: cost, vs best | 100 iters: vs best | CPU per facility (1,500 / 300 / 100) |
+|---|---|---|---|---|
+| 45 | 1.27e+07, 1.0x | 6.93e+07, 1.0x | 1.0x | 6,637 / 1,277 / 327 s |
+| 21 | 1.48e+07, 1.2x | 7.81e+07, 1.1x | 1.1x | 6,289 / 1,258 / 321 s |
+| 26 | 6.33e+07, 5.0x | 3.01e+08, 4.3x | 1.8x | 5,976 / 1,275 / 322 s |
+| 25 | 6.72e+07, 5.3x | 3.06e+08, 4.4x | 8.8x | 6,774 / 1,278 / 317 s |
+| 31 | 1.03e+08, 8.1x | 4.85e+08, 7.0x | 14x | 6,331 / 1,274 / 317 s |
+| 40 | 4.01e+08, 31.5x | 1.95e+09, 28x | 210x | 6,531 / 1,206 / 301 s |
+
+So the proposed fix (shortlist by rule 8, choose by child bounds) can be run at
+300 iterations for a fifth of the 1,500-iteration price: about 85 CPU s per
+child, 1,300 CPU s per candidate line, 20 CPU-minutes for a shortlist of
+rule 8's top 5 at one node of a 1,000-core run. The 100-iteration pass is a
+further 4x cheaper and still orders these six correctly, but the two best lines
+are only 7% apart there and the cost scale is meaningless, so 300 is the
+setting to trust. One level, one instance, six lines; the cloud's depth-2
+comparison (above) is the real test.
