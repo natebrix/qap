@@ -75,6 +75,7 @@ about 90 units a run):
 | drain | SIGTERM to the worker's process group mid-run | = serial |
 | noub | no incumbent: the run finds the optimum and publishes it verified | optimum |
 | aws | normal, on S3/SQS/DynamoDB (a local moto server, region eu-north-1, where a new bucket must name its region) | = serial |
+| tworuns | two runs on one backend at once: they share the queues, and a worker leaves the other run's messages alone (it used to delete them, which stranded that run's units) | both = serial |
 
 On wil50 (`experiments/wil50_feasibility/coord_search/README.md`): the
 node-10 subtree with the production settings, one 4-slot worker: the same
@@ -85,8 +86,11 @@ CPU and wall ratios against the parallel.py run (1.29x, 1.28x) are mostly a
 faster host after a container restart (1.23x per iteration on identical
 nodes).
 
-Not built yet (later phases of the plan): the Terraform and the Spot
-instance-metadata handler (the drain path is what it will call), the
-dashboard, pruning queued units against a new incumbent (the solver fathoms
+On EC2, `infra/phase1/` (README.md there) runs a run on one instance: the
+launcher, the instance script with a Spot-notice watcher that drains the
+worker, and the acceptance check against `bench/parallel.py`.
+
+Not built yet (later phases of the plan): the Terraform and the
+auto-scaling group, the dashboard, pruning queued units against a new incumbent (the solver fathoms
 them at pop time anyway), per-depth ETA, ledger snapshots, the AWS
 `count_by_status` without a scan.
