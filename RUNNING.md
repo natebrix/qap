@@ -278,6 +278,7 @@ The same runs on an Apple M2 Pro laptop (6 P + 4 E cores, Accelerate,
 | kra30b-old, record setting, `--ub 91420`, no symmetry file (Nov 8) | 28,112 (DNN: 28,111, 27,072 fathomed, 17,929 s) | 18,063 | 47.4 min (experiments/kra30_solve) |
 | kra32, record setting, `--ub 17740` (scaled file, no symmetry file; Nov 8) | 10,852 (DNN: 10,851, 10,484 fathomed, 7,368 s) | 7,406 | 17.7 min (experiments/kra30_solve) |
 | sko42t (grid second, `SYM/sko42t.sym`), record setting, `--ub 15812` (Nov 8, stopped after 5.5 h) | 9,651 bounded, 9,318 fathomed, 3,168 open and growing | 32,988 so far | checkpoint kept, not finished (experiments/sko42_solve) |
+| tho40t (grid second, `SYM/tho40t.sym`), record setting + rule 9, `--ub 240516`, traced (Nov 8, stopped after 5 h) | 29,254 bounded, 28,271 fathomed, 5,440 open | 40,691 so far | not finished; tree estimated at 1.6e6-4.0e6 nodes (experiments/tho40_estimate) |
 
 With plain `-x 2:5` the trees match the Xeon runs exactly (nug27, nug28).
 With the give-up threshold and warm starts (`-x ...:300:1`) a few decisions
