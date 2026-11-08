@@ -40,3 +40,28 @@ python3 bench/parallel.py qaplib/tho30.dat --jobs 8 --ub 149936 \
 Not tuned: rule 8 at every node, the DNN depths 1-7, beta 0.21 m/3 and the rest
 are nug30's values. With a tree this size the cut phase at depth 2 (break-even on
 nug30) and rule 9 are the first things to try if a faster tho30 is wanted.
+
+## Rule 9 and the cut phase (November 8)
+
+Both tried overnight on the laptop, the recipe above otherwise unchanged, 8
+workers, binary at f60f77e. Rule 9 (`PARAM/nug_deep_xbar9_all.par`: rule 8's two
+best lines, chosen by the children's QPB) is the new tho30 best; the side-1 cut
+phase through depth 2 (`QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_GRID=3:10
+QAP_DNN_CUT_SIDE=1 QAP_DNN_CUT_DELTA=20 QAP_DNN_CUT_MAXDEPTH=2`, the rounds form,
+since the CP form is side 0 only) trims the tree 3% and costs 12% more CPU.
+
+| | rule 8 (Nov 7, above) | rule 9 | rule 8 + cut phase, depth <= 2 |
+|---|---|---|---|
+| nodes | 18,410 (17,686 fathomed) | **14,822** (14,215 fathomed) | 17,786 (17,085 fathomed) |
+| DNN CPU | 6,354 s | 4,683 s | 6,113 s |
+| CPU, summed over 8 workers | 6,401 s | **4,733 s (0.74x)** | 7,172 s (1.12x) |
+| wall | 937 s (525 tasks, 6.83x) | **653 s, 10 min 53 s** (342 tasks, 7.25x) | 1,029 s (415 tasks, 6.97x) |
+| log | `tho30_nug30recipe_j8_m2pro.log` | `tho30_rule9_j8_m2pro.log` | `tho30_cutd2_j8_m2pro.log` |
+
+Rule 9 takes 19% off the nodes and 26% off the CPU, more than on nug30 the same
+night (7%; `../nug30_solve/README.md`), consistent with the lines studies:
+the bigger the tree, the more a better line at the top is worth. The cut phase
+is the same story as nug30 at depth 2 (break-even there, a loss here): the
+rounds form on side 1 spends more at depths 1-2 than it saves below. Not
+tried: rule 9 with the cut phase, or the CP form, which would need the grid as
+the first matrix (a transposed file, as for wil50t).

@@ -7,7 +7,27 @@ Anstreicher, Brixius, Goux and Linderoth proved it first in 2000, with
 `SUMMARY.md` summarizes the whole effort (Oct 25 – Nov 5): the key
 requests, the findings by theme, what was closed, and where the files are.
 
-## Record: 3 min 16 s on a laptop (November 7)
+## Record: 3 min 0 s on a laptop (November 8): rule 9
+
+The November 7 recipe below with one change, `PARAM/nug_deep_xbar9_all.par`
+in place of `nug_deep_xbar_all.par`: rule 9 (rule 8's two best lines, chosen by
+the children's QPB) at every node through depth 6. Binary at f60f77e, 8 workers,
+overnight on a machine otherwise idle.
+
+| | |
+|---|---|
+| nodes | 3,705 (3,563 fathomed); 0.94x the rule-8 tree |
+| DNN bound | 3,704 nodes, 3,563 fathomed, 1,256 s of the CPU |
+| CPU | 1,270 s, summed over the 8 workers (0.93x) |
+| wall | 180 s (3 min 0 s); 339 tasks, 14 steals, 7.07x CPU over wall |
+| log | `../wil50_feasibility/tuning/refine/nug30_rule9_j8_m2pro.log` |
+
+Rule 9 had been measured on nug30 before (`../wil50_feasibility/tuning/lines/`,
+within a few percent of rule 8 at the levels sampled) but never run as the
+production rule on the record recipe. On tho30 the same night it was worth 26%
+(`../tho30_solve/README.md`).
+
+### The previous record: 3 min 16 s (November 7)
 
 | | |
 |---|---|
@@ -120,7 +140,8 @@ Each row adds one change to the row above. Logs are in
 | Nov 3 | the parent's Y, one-pass CholQR, Goux's safeguards | 3,843 / 3,701 | 2,156 s | 5 min 46 s | `refine/nug30_best_nov3_warmy_cq1_ext*` |
 | Nov 4 | the parent's state carried in the task files | 3,843 / 3,701 | 1,838 s | 5 min 22 s | `refine/nug30_best_nov4_ship32*` |
 | Nov 5 | fp32 for the non-certificate iterations (`DNN_R32_NONCERT=1`) | 3,819 / 3,678 | 1,593 s | 4 min 27 s | `refine/` (Nov 5) |
-| Nov 7 | crossing certificate, core switches, warm-child beta 0.36 | 3,933 / 3,788 | **1,370 s** | **3 min 16 s** | `refine/nug30_nov7_xcore_w036*` |
+| Nov 7 | crossing certificate, core switches, warm-child beta 0.36 | 3,933 / 3,788 | 1,370 s | 3 min 16 s | `refine/nug30_nov7_xcore_w036*` |
+| Nov 8 | rule 9 (two xbar lines, chosen by the children's QPB) at every node | 3,704 / 3,563 | **1,270 s** | **3 min 0 s** | `refine/nug30_rule9*` |
 
 Notes:
 - Changes measured together were not separated: beta and refresh, and on
