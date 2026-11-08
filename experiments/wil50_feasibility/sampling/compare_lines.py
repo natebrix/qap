@@ -43,10 +43,10 @@ def load(run):
     return docs, json.load(open(os.path.join(run, "config.json")))
 
 
-def laptop_bounds(rev, F):
+def laptop_bounds(rev, F, sub="children"):
     out = {}
     for c in CELLS:
-        path = f"experiments/wil50_feasibility/tuning/lines/root/children/f{F}_c{c}.log"
+        path = f"experiments/wil50_feasibility/tuning/lines/root/{sub}/f{F}_c{c}.log"
         r = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=R, capture_output=True, text=True)
         m = re.search(r"lb=(\S+).*iters=(\d+)", r.stdout)
         out[c] = (float(m.group(1)), int(m.group(2))) if m else None
@@ -121,7 +121,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--runs", nargs="+", default=[f"21={D}/runs/stageA", f"45={D}/runs/stageA_f45",
                                                   f"25={D}/runs/stageA_f25"])
-    ap.add_argument("--laptop", default="2d26817")
+    ap.add_argument("--laptop", default="2d26817", help="the laptop's 1,500-iteration children")
+    ap.add_argument("--laptop300", default="165780c", help="its 300-iteration calibration (children_i300)")
     ap.add_argument("--out", default=os.path.join(D, "results", "root_lines.md"))
     a = ap.parse_args()
     runs = {}
@@ -133,36 +134,49 @@ def main():
     # 1. depth-1 bounds
     L += ["## Depth-1 first solves against the laptop's children", "",
           "Ours: the production first solve (QPB warm start from the root, cold DNN, give-up at 300 iterations "
-          "when hopeless). Laptop: cold, 1,500 iterations, no give-up (`tuning/lines/root/children/`, "
-          f"rev {a.laptop}). Shortfall to the cutoff 48,814.05.", ""]
-    hdr = "| cell |" + "".join(f" f{F} ours: lb (short), it | f{F} laptop: lb (short) | f{F} line, children |"
+          "when hopeless; Xeon, OpenBLAS). Laptop: the same children cold with `-i 300` "
+          f"(`tuning/lines/root/children_i300/`, rev {a.laptop300}) and `-i 1,500` (`children/`, rev {a.laptop}). "
+          "Bound (shortfall to the cutoff 48,814.05).", ""]
+    hdr = "| cell |" + "".join(f" f{F} ours, 300 it | f{F} laptop, 300 it | f{F} laptop, 1,500 it | f{F} line, children |"
                                 for F in sorted(runs))
-    L += [hdr, "|---|" + "---|---|---|" * len(runs)]
+    L += [hdr, "|---|" + "---|---|---|---|" * len(runs)]
     lap = {F: laptop_bounds(a.laptop, F) for F in runs}
+    lap3 = {F: laptop_bounds(a.laptop300, F, "children_i300") for F in runs}
     rows = {F: {} for F in runs}
     for F, (docs, cfg) in runs.items():
         for k, c in enumerate(CELLS):
             rows[F][c] = docs.get(f"r.{k}")
+    fmt = lambda lb: f" {lb[0]:.1f} ({48814.05 - lb[0]:.1f}) |" if lb else " - |"
     for c in CELLS:
         line = f"| {c} |"
         for F in sorted(runs):
             d = rows[F][c]
             t = d["trace"][0] if d and d["trace"] else None
-            lb = lap[F].get(c)
-            line += (f" {t['lb']:.1f} ({t['short']:.1f}), {t['iters']} |" if t else " - |")
-            line += (f" {lb[0]:.1f} ({48814.05 - lb[0]:.1f}) |" if lb else " - |")
+            line += (f" {t['lb']:.1f} ({t['short']:.1f}) |" if t else " - |")
+            line += fmt(lap3[F].get(c)) + fmt(lap[F].get(c))
             line += (f" {d['line']}, {d['n_children']} |" if d else " - |")
         L.append(line)
-    L.append("")
+    L += ["", "Lines cost over the 15 children, sum 47^(gap/130), and the ratio to facility 45's:", "",
+          "| facility | ours, 300 it | laptop, 300 it | laptop, 1,500 it | largest difference ours - laptop at 300 it |",
+          "|---|---|---|---|---|"]
+    cost = lambda xs: sum(47 ** (x / 130) for x in xs)
+    costs = {}
     for F in sorted(runs):
         ours = [rows[F][c]["trace"][0]["short"] for c in CELLS if rows[F][c] and rows[F][c]["trace"]]
-        theirs = [48814.05 - lap[F][c][0] for c in CELLS if lap[F].get(c)]
-        if ours:
-            L.append(f"- f{F}: ours median {statistics.median(ours):.1f} short (worst {max(ours):.1f}), "
-                     f"laptop median {statistics.median(theirs) if theirs else float('nan'):.1f} (worst "
-                     f"{max(theirs) if theirs else float('nan'):.1f}); lines cost over the 15 children "
-                     f"sum 47^(gap/130): ours {sum(47 ** (s / 130) for s in ours):.3g}, laptop "
-                     f"{sum(47 ** (s / 130) for s in theirs) if theirs else float('nan'):.3g}")
+        t3 = [48814.05 - lap3[F][c][0] for c in CELLS if lap3[F].get(c)]
+        t15 = [48814.05 - lap[F][c][0] for c in CELLS if lap[F].get(c)]
+        diff = max((abs(rows[F][c]["trace"][0]["lb"] - lap3[F][c][0]) for c in CELLS
+                    if rows[F][c] and rows[F][c]["trace"] and lap3[F].get(c)), default=float("nan"))
+        costs[F] = (cost(ours) if len(ours) == 15 else None, cost(t3) if len(t3) == 15 else None,
+                    cost(t15) if len(t15) == 15 else None, diff)
+    base = costs.get(45)
+    for F in sorted(runs):
+        cells = []
+        for k in range(3):
+            v = costs[F][k]
+            r = f", {v / base[k]:.2f}x" if v and base and base[k] else ""
+            cells.append(f"{v:.3g}{r}" if v else "-")
+        L.append(f"| {F} | " + " | ".join(cells) + f" | {costs[F][3]:.2f} |")
     # 2-6. depth 2
     L += ["", "## Depth 2", "",
           "The sample: the 200 depth-2 task ids with the smallest seeded order hash (`stage_a.py --sample-last`), "
