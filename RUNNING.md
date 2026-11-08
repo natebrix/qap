@@ -132,7 +132,7 @@ N-fold on shared machines.
 
 Known optimal solutions are in `QAPSOLN/<name>.sln`. The first line is `n` and
 the optimal objective, and the second line is the permutation. A few files are
-broken: kra30a, kra30b, kra32, esc32d, tai25a and tho30 contain `<value> ??`,
+broken: kra30a, kra30b, esc32d, tai25a and tho30 contain `<value> ??` (kra32's was fixed on Nov 8 from a tabu solution checked against the data file),
 and nug27's claims an optimum of 5. The tools treat those optima as unknown.
 
 Three data files are scaled variants, not the QAPLIB originals: `qaplib/kra30a.dat`,

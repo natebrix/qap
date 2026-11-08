@@ -75,4 +75,5 @@ the same optima.
   (`latest/SYM/kra30a-old.sym`), or pass `-s`.
 - kra32 is the first 32-location instance proven here: 10,852 nodes and 2.1
   CPU-hours, 3x kra30b's scaled tree, with no symmetry file. `QAPSOLN/kra32.sln`
-  says 17,780; the optimum is 17,740 (88,700/5), and the file should be fixed.
+  said 17,780; fixed on Nov 8 to 17,740 (88,700/5) with an optimal permutation from a
+  tabu search, checked against both data files.
