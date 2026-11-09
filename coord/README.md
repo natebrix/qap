@@ -9,7 +9,7 @@ die at any time.
 ```
 python3 -m coord.qapctl init RUN --backend local:DIR --instance qaplib/wil50.dat \
     --params PARAM/nug_deep_xbar9_all.par --ub 48816 --slots 4 \
-    --extra "-F 39:27,30:48,25:49 -x 0:4:1:300:1" --env QAP_DNN_POOL=1 ... [--trace]
+    --extra "-F 39:27,30:48,25:49 -x 0:4:1:300:1" [--env DNN_R32=1 ...] [--trace]
 python3 -m coord.qapctl coordinator RUN --backend local:DIR      # one per run
 python3 -m coord.qapctl worker RUN --backend local:DIR --slots 4 # one per machine
 python3 -m coord.qapctl status RUN --backend local:DIR

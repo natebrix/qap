@@ -14,14 +14,11 @@
 # 4, the tree identical. Some setting here keeps state inside a process that
 # the state file does not carry; make shipcheck's smaller set is exact.
 INSTANCE=qaplib/nug30.dat
-PARAMS=PARAM/nug_deep_xbar9_all.par
+PARAMS=../infra/phase1/recipes/nug30.par   # relative to latest/: nug_deep_xbar9_all.par plus the [settings] below
 OPT=6124          # the known optimum, which the check expects
 UB=6124           # the incumbent given to the solver (--no-ub drops it)
-EXTRA="-x 1:7:1:200:1"
-ENV="QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_BETA=0.21
-     QAP_DNN_REFRESH=120 QAP_DNN_WARM_Y=2 QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003
-     QAP_DNN_SHIP=64 DNN_ADMM_CROSS=2 DNN_CORE_LAZYCERT=1
-     DNN_BETA_SCHED=w=0.36"
+EXTRA=""          # the DNN depths (dnn.depths = 1:7) are in the params file
+ENV=""            # experiment switches (DNN_*) would go here, as --env K=V
 # units of about a minute (the whole tree is about 1,300 CPU s on the M2 Pro),
 # so that units return, split and are stolen as they will at scale
 COORD="--budget 60 --target-unit-cpu 60 --steal-after 20 --checkpoint-every 20 --ckpt-upload 60"

@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Check that the parent's DNN state survives a stop and resume (state files
-version 6, QAP_DNN_SHIP; latest/state.C).
+version 6, ship.bits; latest/state.C).
 
   python3 tests/ship_test.py [--solver PATH] [--slice SECONDS]
 
 The case is a DNN search with every warm-start mechanism of the wil50
 configuration (parent-Y warm start, cut phase, pool inheritance), on nug20.
 It is solved straight through, then in CPU slices (-t SLICE -o STATE, then
--r STATE) with QAP_DNN_SHIP=64: every node's DNN trace (bound, primal, status,
+-r STATE) with ship.bits = 64: every node's DNN trace (bound, primal, status,
 iterations, warm start, pool, cut phase) must equal the straight run's, so a
 resumed search is the same search, and so must the per-level DNN, cut-phase and
 fathom-cause tables the last slice prints (state version 7 carries them
-through every resume; CPU columns aside). Slices with QAP_DNN_SHIP=32 and 16 and
+through every resume; CPU columns aside). Slices with ship.bits = 32 and 16 and
 without shipping are reported for comparison: their warm-started node count
 and DNN iterations.
 """
@@ -24,13 +24,16 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "bench"))
+import envpar  # noqa: E402  (a par file per ship.bits value)
+# the solver's settings are the [settings] section of tests/par/ship.par (the
+# DNN bound at depths 0-4, the cut phase, the pool); only the thread variables
+# and the pool diagnostic stay in the environment
 ENV = {"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1",
-       "QAP_DNN_GAMMA1": "1.0", "QAP_DNN_GAMMA": "1.0", "QAP_DNN_CHEB": "3", "QAP_DNN_TIGHT_LAM": "2",
-       "QAP_DNN_REFRESH": "40", "QAP_DNN_WARM_Y": "2", "QAP_DNN_EXT": "20",
-       "QAP_DNN_CUT_ZONE": "0.005", "QAP_DNN_CUT_GRID": "4:5", "QAP_DNN_CUT_SIDE": "0",
-       "QAP_DNN_CUT_FREEZE": "1500", "QAP_DNN_POOL": "1", "QAP_DNN_POOL_CHECK": "20"}
+       "QAP_DNN_POOL_CHECK": "20"}
 CASE = ("nug20", 2570)
-FLAGS = ["-p", "PARAM/nug_deep_xbar9_all.par", "-x", "0:4:1:300:1"]
+PAR = os.path.join(ROOT, "tests", "par", "ship.par")
+FLAGS = ["-p", PAR]
 
 
 def node_key(line):
@@ -65,14 +68,16 @@ def run(solver, args, env):
 def sliced(solver, dat, ub, tmp, tag, ship, slice_s):
     state = os.path.join(tmp, f"{tag}.state")
     traces, k, rc = [], 0, 3
-    args = FLAGS + ["-u", str(ub), "-o", state, "-t", str(slice_s), dat]
+    flags = FLAGS
+    if ship:   # the case's par file with ship.bits set
+        par = os.path.join(tmp, f"ship{ship}.par")
+        envpar.write_par(PAR, {"ship.bits": str(ship)}, par, solver=solver)
+        flags = ["-p", par]
+    args = flags + ["-u", str(ub), "-o", state, "-t", str(slice_s), dat]
     while rc == 3:
         traces.append(os.path.join(tmp, f"{tag}.{k}.trace"))
-        env = {"QAP_DNN_TRACE": traces[-1]}
-        if ship:
-            env["QAP_DNN_SHIP"] = str(ship)
-        rc, out = run(solver, args, env)
-        args = FLAGS + ["-o", state, "-t", str(slice_s), "-r", state, dat]
+        rc, out = run(solver, args, {"QAP_DNN_TRACE": traces[-1]})
+        args = flags + ["-o", state, "-t", str(slice_s), "-r", state, dat]
         k += 1
     sizes = os.path.getsize(state) if os.path.exists(state) else 0
     return rc, k, read_trace(traces), out, sizes

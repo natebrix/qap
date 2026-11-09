@@ -12,14 +12,14 @@ the main unknown. Stage A builds that frontier; stage B samples it.
 
 | part | setting | why |
 |---|---|---|
-| environment | `../fullrun/settings.sh`, sourced by the launchers (`common.fullrun_env`), with `fullrun_check` on the binary; the caller's own `QAP_*`/`DNN_*` variables are dropped | the full run's settings, decided Nov 7 (the `cpcutt` arm) |
+| settings | `../fullrun/fullrun.par` (`common.PARAMS`), the params file whose `[settings]` section holds every solver setting, the depth spec included; `../fullrun/settings.sh`, sourced by the launchers (`common.fullrun_env`), gives the instance, the symmetry file, the upper bound and the thread variables, with `fullrun_check` on the binary; the caller's own `QAP_*`/`DNN_*` variables are dropped. Until Nov 9 the settings were `settings.sh`'s environment and the depth spec the flag `-x 1:4:1:300:1` (`docs/settings_plan.md`, Phase 2) | the full run's settings, decided Nov 7 (the `cpcutt` arm) |
 | instance | `qaplib/wil50t.dat`, `-s latest/SYM/wil50t.sym`, `-u 48816` (cutoff 48,814.05) | `../sym/README.md` |
 | parameter file | `latest/PARAM/nug_deep_xbar9_all.par` | the file of every measured production arm (`../pipeline_ab/run_pair.sh`): rule 9 through depth 6, rule 2 below |
-| depth spec | `-x 1:4:1:300:1` | **D1 = 1**: the DNN bound from depth 1 (`tree_size.md` section 4), so that rule 9 has marginals at depths 1-2; the root gets QPB only (its line is a row restricted to the 15 J1 cells, which the marginals cannot change). **D2 = 4**: with `QAP_DNN_EXT=20` every child of a miss keeps the DNN bound, so D2 >= 3 is all that matters (section 4); 4 makes depths 3 and below run exactly the absolute depth spec of the measured node-10 arms (`-x 0:4:1:300:1` from a depth-3 node, `../pipeline_ab/`). **G = 1** (every gap), **H = 300** (the production give-up), **W = 1** (warm start from the parent) as in every production arm |
+| depth spec | `dnn.depths = 1:4`, `dnn.giveup = 300`, `dnn.warm = 1` in `fullrun.par` (was `-x 1:4:1:300:1`) | **D1 = 1**: the DNN bound from depth 1 (`tree_size.md` section 4), so that rule 9 has marginals at depths 1-2; the root gets QPB only (its line is a row restricted to the 15 J1 cells, which the marginals cannot change). **D2 = 4**: with `dnn.ext = 20` every child of a miss keeps the DNN bound, so D2 >= 3 is all that matters (section 4); 4 makes depths 3 and below run exactly the absolute depth spec of the measured node-10 arms (`-x 0:4:1:300:1` from a depth-3 node, `../pipeline_ab/`). **G = 1** (every gap), **H = 300** (the production give-up), **W = 1** (warm start from the parent) as in every production arm |
 
 ## Why one bnbdrv task per node, not the coordinator
 
-`QAP_DNN_SHIP=32` puts a branched node's final DNN state into the state file
+`ship.bits = 32` puts a branched node's final DNN state into the state file
 its children travel in. At depth 2 (m = 48) that is the upper triangles of Z
 and Y, (48^2+1)^2 entries each at fp32, 28.4 MB of base64 per parent, and
 about 85 MB of doubles in memory while its children are open [m: token size
@@ -83,7 +83,7 @@ python3 stage_b.py                                                         # 400
 
 `validate.py` runs `stage_a.py` (4 slots) and one serial
 `bnbdrv -d 2 -o serial.state` with the same private binary and environment
-(the settings plus the instance's grid, `QAP_DNN_CUT_GRID`, and the shipping
+(the settings plus the instance's grid, `cut.grid`, and the shipping
 precision under test), then compares the frontiers node by node, the per-level
 statistics (`n_level`, `f_level`, `l_level`, `e_level`, DNN counts) and every
 DNN node's trace line. Reports in `results/validation/`.
@@ -338,16 +338,16 @@ phase either fathoms or stops below 150.
   parent's warm start as stage A wrote it (the parent's QPB point, its cut
   pool when its phase ran, and its fp32 DNN state from `out.full.state`, or
   from a rebuilt parent), resumed with `bnbdrv -r node.state -d 3 -o out.state`
-  under the settings and `-x 1:4:1:300:1`. So the node is warm-started from
+  under the settings (`-x 1:4:1:300:1`, now `fullrun.par`'s keys). So the node is warm-started from
   its parent's shipped state (a pooled node's first solve is on the inherited
   pool), and stops at the production give-up rule (300 iterations when
   hopeless) or fathoms. The cut phase is switched off at depth 3
-  (`QAP_DNN_CUT_MAXDEPTH=2`, which gates nothing else): the strata are defined
+  (`cut.maxdepth = 2`, which gates nothing else): the strata are defined
   on the first-solve shortfall, and the phase (up to 3,400 iterations) would
   multiply the step's cost; `--phase` runs it as production would.
 - **The converge step**: the 80 nodes farthest from the cutoff at the give-up
-  point, from the same state file with no give-up (`-x 1:4:1:0:1`) and no cut
-  phase (`QAP_DNN_CUT_ZONE=0`): the DNN runs to its own limit, 4,000 iterations,
+  point, from the same state file with no give-up (`dnn.giveup = 0`) and no cut
+  phase (`cut.zone = 0`): the DNN runs to its own limit, 4,000 iterations,
   or its convergence test. On nug30 the 4,000-iteration bound is 1.1-1.2 units
   above the warm 300-iteration one. On wil50's clear misses of
   `../tuning/giveup/all32.txt`, the 1,500-iteration uncut values

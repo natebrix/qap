@@ -41,6 +41,7 @@ D = os.path.dirname(os.path.abspath(__file__))
 R = os.path.abspath(os.path.join(D, "../../.."))
 sys.path.insert(0, os.path.join(R, "bench"))
 from parallel import State  # noqa: E402
+import envpar  # noqa: E402  (the arms' settings into a params file, docs/settings_plan.md Phase 2)
 
 BASE_ENV = {
     "QAP_DNN_GAMMA1": "1.0", "QAP_DNN_GAMMA": "1.0", "QAP_DNN_EXT": "20",
@@ -185,8 +186,16 @@ def main():
     env["QAP_DNN_CUT_GRID"] = args.grid
     wd = os.path.join(args.runs, args.arm)
     os.makedirs(wd, exist_ok=True)
+    # since Nov 9 the solver reads the arms' settings as keys of the params file's
+    # [settings] section and rejects the names: the arm's file from the dict above
+    # (envpar maps each name to its key); what is not a key stays in the environment
+    base_par = args.params if os.path.isabs(args.params) else os.path.join(R, "latest", args.params)
+    args.params = os.path.join(wd, "arm.par")
+    env = envpar.write_par(base_par, env, args.params, solver=args.solver,
+                           comment=f"tail_probe.py arm {args.arm}: BASE_ENV and the arm's dict as keys")
     with open(os.path.join(wd, "env.txt"), "w") as f:
         f.write(" ".join(f"{k}={v}" for k, v in sorted(env.items())) + "\n" + " ".join(sys.argv) + "\n")
+        f.write("settings: " + " ".join(f"{k}={v}" for k, v in envpar.read_par(args.params)[1].items()) + "\n")
     log = lambda m: print(f"{time.strftime('%H:%M:%S')} {args.arm}: {m}", flush=True)
     rng = random.Random(args.seed)
     L0 = args.level

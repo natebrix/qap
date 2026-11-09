@@ -24,8 +24,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (D, PARAMS, R, XSPEC, State, fullrun_env, node_fields, parse_trace, private_binary,  # noqa: E402
-                    run_bnbdrv, solver_env, spec, write_one)
+from common import (D, PARAMS, R, XSPEC, State, dnn_flags, fullrun_env, node_fields, params_with, parse_trace,  # noqa: E402
+                    private_binary, run_bnbdrv, solver_env, spec, write_one)
 
 
 def frontier_of(path):
@@ -55,18 +55,18 @@ def main():
     ap.add_argument("--instance", required=True)
     ap.add_argument("--sym", required=True)
     ap.add_argument("--ub", type=float, required=True)
-    ap.add_argument("--grid", required=True, help="QAP_DNN_CUT_GRID of the instance (side 1)")
+    ap.add_argument("--grid", required=True, help="cut.grid of the instance (side 1)")
     ap.add_argument("--depth", type=int, default=2)
     ap.add_argument("--ship", default="32")
     ap.add_argument("--tag", required=True)
     ap.add_argument("--slots", type=int, default=4)
     ap.add_argument("--restart-nodes", type=int, default=3)
-    ap.add_argument("--env", action="append", default=[], help="K=V on top (diagnostics)")
+    ap.add_argument("--env", action="append", default=[], help="K=V on top (a settings key, or a diagnostic)")
     a = ap.parse_args()
     inst, sym = os.path.abspath(a.instance), os.path.abspath(a.sym)
     vdir = os.path.join(D, "runs", "val_" + a.tag)
     os.makedirs(vdir, exist_ok=True)
-    overrides = {"QAP_DNN_CUT_GRID": a.grid, "QAP_DNN_SHIP": a.ship}
+    overrides = {"cut.grid": a.grid, "ship.bits": a.ship}
     for kv in a.env:
         k, v = kv.split("=", 1)
         overrides[k] = v
@@ -83,13 +83,14 @@ def main():
         sys.exit(f"stage_a.py failed ({r.returncode}):\n{r.stdout[-3000:]}\n{r.stderr[-3000:]}")
     binary, commit = private_binary(os.path.join(R, "latest", "bnbdrv"), os.path.join(run, "bin"))
     settings, _ = fullrun_env(binary)
-    env = solver_env(settings, overrides)
+    par = os.path.join(vdir, "params.par")    # fullrun.par with the overrides' settings
+    env = solver_env(settings, params_with(PARAMS, overrides, par, binary))
 
     # 2. the serial run, same binary and environment
     ser = os.path.join(vdir, "serial.state")
     strace = os.path.join(vdir, "serial.trace")
     if not os.path.exists(ser):
-        rc, wall = run_bnbdrv(binary, ["-p", PARAMS, "-x", XSPEC, "-s", sym, "-u", repr(a.ub), "-d", str(a.depth),
+        rc, wall = run_bnbdrv(binary, ["-p", par] + dnn_flags(XSPEC) + ["-s", sym, "-u", repr(a.ub), "-d", str(a.depth),
                                        "-o", ser, inst], env, os.path.join(vdir, "serial.log"), strace, cpu=0)
         if rc != 0:
             sys.exit(f"serial run failed: {rc}")
@@ -139,14 +140,14 @@ def main():
             tag = f"rs_{sp.replace(':', '_').replace(',', '-')}_{mode}"
             inp = os.path.join(vdir, tag + ".in.state")
             write_one(src, int(idx), inp, warm=mode)
-            rc, _ = run_bnbdrv(binary, ["-p", PARAMS, "-x", XSPEC, "-s", sym, "-u", repr(a.ub),
+            rc, _ = run_bnbdrv(binary, ["-p", par] + dnn_flags(XSPEC) + ["-s", sym, "-u", repr(a.ub),
                                         "-d", str(a.depth + 1), "-r", inp, "-o", os.path.join(vdir, tag + ".out.state"),
                                         inst], env, os.path.join(vdir, tag + ".log"),
                                os.path.join(vdir, tag + ".trace"), cpu=0)
             tr = parse_trace(os.path.join(vdir, tag + ".trace"))
             res[mode] = tr[0] if tr else None
         tag = f"rs_{sp.replace(':', '_').replace(',', '-')}_F"
-        rc, _ = run_bnbdrv(binary, ["-p", PARAMS, "-x", XSPEC, "-s", sym, "-u", repr(a.ub), "-d", str(a.depth + 1),
+        rc, _ = run_bnbdrv(binary, ["-p", par] + dnn_flags(XSPEC) + ["-s", sym, "-u", repr(a.ub), "-d", str(a.depth + 1),
                                     "-F", sp, "-o", os.path.join(vdir, tag + ".out.state"), inst], env,
                            os.path.join(vdir, tag + ".log"), os.path.join(vdir, tag + ".trace"), cpu=0)
         tr = parse_trace(os.path.join(vdir, tag + ".trace"))

@@ -9,7 +9,7 @@ to a private S3 bucket and terminates itself.
 
 | family | CPU | why it is in the list |
 |---|---|---|
-| c7i | Xeon Sapphire Rapids | AMX: the `DNN_AMX=1` kernel (the cloud box is this CPU at 2.1 GHz) |
+| c7i | Xeon Sapphire Rapids | AMX: the `dnn.amx = 1` kernel (the cloud box is this CPU at 2.1 GHz) |
 | c7a | EPYC Genoa | x86 without AMX; one vCPU is a whole core |
 | c7g | Graviton3 | about a third of x86's Spot price per core in the plan's Oct 31 snapshot; the first ARM Linux build |
 | c8g | Graviton4 | the same, newer |
@@ -39,7 +39,7 @@ Separately, it shuts itself down at `--limit` minutes (75) whatever
 happens, and the instance terminates when it shuts down.
 
 Flags: `-T 1 -d 3 -L 2 -r 40 -g 1.0 -G 1.0 -H 300 -i 2500 -u 48816`,
-`DNN_CHOLQR_PASSES=1 DNN_AMX=1` (bundle D; the AMX switch falls back by
+`dnn.amx = 1` (`dnntest.par`; bundle D, one CholQR pass being the only behaviour since Nov 9; the AMX switch falls back by
 itself on CPUs without AMX), one BLAS thread.
 
 ## Running it (laptop)

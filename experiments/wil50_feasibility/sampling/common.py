@@ -1,7 +1,7 @@
 """Shared pieces of the sampling launchers (README.md): the full run's
-environment from fullrun/settings.sh, one-node state files, solver tasks
-pinned to one CPU, the DNN trace format and the seeded hash that draws the
-stage-B sample."""
+configuration from fullrun/settings.sh and fullrun.par, one-node state files,
+solver tasks pinned to one CPU, the DNN trace format and the seeded hash that
+draws the stage-B sample."""
 import hashlib
 import json
 import os
@@ -15,16 +15,18 @@ D = os.path.dirname(os.path.abspath(__file__))
 R = os.path.abspath(os.path.join(D, "../../.."))
 sys.path.insert(0, os.path.join(R, "bench"))
 from parallel import State, Warm  # noqa: E402,F401  (the solver's state-file format, latest/state.h)
+import envpar  # noqa: E402  (settings overrides into a params file's [settings] section)
 
 SETTINGS = os.path.join(R, "experiments", "wil50_feasibility", "fullrun", "settings.sh")
-# the parameter file of every measured production arm (pipeline_ab/run_pair.sh): rule 9
-# (lookahead between the two DNN-marginal lines) through depth 6, rule 2 below
-PARAMS = os.path.join(R, "latest", "PARAM", "nug_deep_xbar9_all.par")
-# the DNN bound from depth 1 (roadmap/tree_size.md section 4) through depth 4, then
-# QAP_DNN_EXT=20 levels below a miss: from depth 3 down exactly the absolute depths of
-# the measured node-10 arms (-x 0:4:1:300:1 from a depth-3 node); give up after 300
-# iterations when hopeless; children warm-started from the parent
-XSPEC = "1:4:1:300:1"
+# the full run's params file (fullrun/README.md): nug_deep_xbar9_all.par (rule 9, lookahead
+# between the two DNN-marginal lines, through depth 6, rule 2 below) with every solver
+# setting in its [settings] section, the depth spec included (dnn.depths = 1:4, the DNN
+# bound from depth 1, roadmap/tree_size.md section 4, through depth 4, then dnn.ext = 20
+# levels below a miss: from depth 3 down exactly the absolute depths of the measured
+# node-10 arms; dnn.giveup = 300; dnn.warm = 1). Until Nov 9 the settings were the
+# environment of settings.sh and the depth spec the flag -x 1:4:1:300:1.
+PARAMS = os.path.join(R, "experiments", "wil50_feasibility", "fullrun", "fullrun.par")
+XSPEC = ""   # no -x: the params file carries the depth spec (a value here overrides it)
 SOLVER_PREFIXES = ("QAP_", "DNN_")
 THREAD_VARS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")
 
@@ -39,12 +41,13 @@ def log_line(path, msg):
 
 def fullrun_env(binary):
     """(env, info): exactly the solver variables fullrun/settings.sh exports (the
-    caller's own QAP_*/DNN_* variables are dropped), after its fullrun_check on
-    `binary`; info holds FULLRUN_INSTANCE, FULLRUN_SYM and FULLRUN_UB"""
+    thread variables and the diagnostics; the caller's own QAP_*/DNN_* variables
+    are dropped), after its fullrun_check on `binary`; info holds
+    FULLRUN_INSTANCE, FULLRUN_SYM, FULLRUN_UB and FULLRUN_PAR"""
     base = {k: v for k, v in os.environ.items() if not k.startswith(SOLVER_PREFIXES)}
     script = ('. "$1" || exit 1; fullrun_check "$2" >&2 || exit 1; '
-              'printf "FULLRUN_INSTANCE=%s\\0FULLRUN_SYM=%s\\0FULLRUN_UB=%s\\0--\\0" '
-              '"$FULLRUN_INSTANCE" "$FULLRUN_SYM" "$FULLRUN_UB"; env -0')
+              'printf "FULLRUN_INSTANCE=%s\\0FULLRUN_SYM=%s\\0FULLRUN_UB=%s\\0FULLRUN_PAR=%s\\0--\\0" '
+              '"$FULLRUN_INSTANCE" "$FULLRUN_SYM" "$FULLRUN_UB" "$FULLRUN_PAR"; env -0')
     r = subprocess.run(["bash", "-c", script, "bash", SETTINGS, binary], env=base, capture_output=True)
     if r.returncode != 0:
         raise SystemExit("fullrun_check failed:\n" + r.stderr.decode())
@@ -58,6 +61,22 @@ def fullrun_env(binary):
         if k.startswith(SOLVER_PREFIXES) or k in THREAD_VARS:
             env[k] = v
     return env, info
+
+
+def params_with(base, overrides, out, binary=None):
+    """`out`: the params file `base` with the settings among `overrides` (keys, or
+    the pre-Phase-2 environment names) in its [settings] section; returns the
+    overrides that are not settings (diagnostics, thread variables), for the
+    environment. An existing `out` is kept (a resumed run keeps its file)."""
+    if os.path.exists(out):
+        settings, residual = envpar.split_env(overrides or {}, envpar.settings_map(binary or envpar.SOLVER))
+        return residual
+    return envpar.write_par(base, overrides or {}, out, solver=binary or envpar.SOLVER)
+
+
+def dnn_flags(xspec):
+    """the -x flag when a depth spec is given (the params file has it otherwise)"""
+    return ["-x", xspec] if xspec else []
 
 
 def solver_env(settings_env, overrides=None):
@@ -129,8 +148,8 @@ def write_one(src_path, index, out_path, warm="keep"):
     warm = keep (its warm start as written), nodnn (without the DNN state) or
     none (no warm start at all, the node as -F starts it)"""
     st = State(src_path)
-    if st.magic[1] != "6":
-        raise ValueError(f"{src_path}: state version {st.magic[1]}, expected 6")
+    if st.magic[1] not in ("6", "7", "8"):   # the warm line carries the DNN state from 6; 7 adds
+        raise ValueError(f"{src_path}: state version {st.magic[1]}, expected 6-8")   # tables, 8 the settings record
     st.zero_stats()
     text, w = st.nodes[index]
     if warm == "nodnn":

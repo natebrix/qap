@@ -40,9 +40,8 @@ extern int fw_nofathom_patience;
 
 const double ROLLOVER = 4295.0;
 
-// for branching rules 1, 3 and 4
-const bool use_weighted_branching = true; 
-const double branching_weight = 0.50;
+// the branching weights (rules 1, 3 and 4) are the settings branch.weighted and
+// branch.weight (settings.C), read in branch.C
 
 // print cpu time every PRINT_MESSAGE_EVERY nodes
 const int PRINT_MESSAGE_EVERY = 10000000;  

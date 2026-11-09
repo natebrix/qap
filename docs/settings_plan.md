@@ -138,6 +138,72 @@ dump under `settings.sh` equal to the dump rebuilt from the cpcutt arm's
 
 ## Phase 2: one home (2-3 days, most of it launchers and equivalence runs)
 
+**Status, Nov 9 (laptop)**: done, with these deviations and notes.
+- **Syntax.** `[settings]` is one section after the positional blocks,
+  `key = value` per line, `#` comments; `[block k]` is not implemented (no
+  per-block policy exists yet; the reader rejects such a block as "not
+  supported yet"). The 53 existing files parse unchanged.
+- **The flags stay.** `-x` and `-w` remain as overrides of their keys (source
+  `flag`); an empty `-x` field now leaves that key to the file or its
+  default instead of resetting it. The par file's positional sym and
+  max-depth fields are left as they were (item 3's warning is not done).
+- **Keys** (`bnbdrv --settings-map` lists the old names): `dnn.depths`,
+  `dnn.maxgap`, `dnn.giveup`, `dnn.warm`, `dnn.ext`, `dnn.gamma1`, `dnn.gamma`,
+  `dnn.cheb`, `dnn.tight_lam`, `dnn.gap_ratio`, `dnn.gu_zone`, `dnn.momentum`,
+  `dnn.beta`, `dnn.refresh`, `dnn.warm_y`, `dnn.beta_sched`, `dnn.cross`,
+  `dnn.lazycert`, `dnn.amx`, `ship.bits`, 25 `cut.*`, `pool.on`, `pool.cp`,
+  `branch.weighted`, `branch.weight`, `branch.xbar_lines`, `fw.patience`,
+  `est.xbar`, `est.xbar_mix`, `par.hash`. The `DNN_*` experiment switches
+  that the production arms use (`DNN_BETA_SCHED`, `DNN_ADMM_CROSS`,
+  `DNN_CORE_LAZYCERT`, `DNN_AMX`) graduated to keys; `DNN_R32`,
+  `DNN_ADMM_CROSS_FIRST`, `DNN_FUSE`, `DNN_ADMM_WARM_BETA` and
+  `DNN_ADMM_WARM_DAMP` stay in the environment as experiments.
+- **The old name is an error** whose message names the key, not a silent
+  alias, so no launcher can keep exporting it unnoticed. `bench/envpar.py`
+  converts a recipe (and `--from-env --shell` converts a bash launcher's
+  exports in place); it reads the map from the binary.
+- **dnntest** takes `-p file.par`; its own flags override the file, its
+  DNNParams defaults are the registry's defaults in that process
+  (`settings_override_default`), and the dump shows which.
+- **The table is generated**: `bnbdrv --settings-table`, included in
+  `RUNNING.md` between markers, checked by `tests/settings_doc.py` in
+  `make test` (`--update` rewrites it). `--settings-table` and
+  `--settings-map` print nothing else and do not read the environment.
+- **Launchers converted**: `tests/parallel_test.py` and `tests/ship_test.py`
+  (`tests/par/`), `infra/phase1/recipes/nug30.sh` (`recipes/nug30.par`,
+  `EXTRA` and `ENV` empty), `infra/phase0/bench.sh` (`dnntest.par`),
+  `fullrun/settings.sh` + `fullrun.par` (item 7; `QAP_DNN_POOL_CHECK=20`, a
+  diagnostic, stays exported so the configuration is the measured one to the
+  letter), the sampling launchers (`common.PARAMS` is `fullrun.par`; each
+  stage-A run writes its own `params.par` from the base plus `--env`
+  settings; stage B derives `giveup.par` and `converge.par`; `validate.py`
+  its `params.par`), `pipeline_ab/run_pair.sh` (each arm's exports become
+  `runs/ARM/arm.par` through envpar; the certx arm no longer runs),
+  `tail_probe/tail_probe.py` (the arm dicts, through envpar, to `arm.par`),
+  `coord` (`--env` is for experiment switches and diagnostics; policy is the
+  `--params` file). Historical experiment scripts are untouched.
+- **Gate, laptop (M2 Pro, Accelerate)**: all with the binary of this commit, Nov 9
+  (`make test` with the settings-table check; `make shipcheck`; `make dnncheck`;
+  bench standard fe14ac0 vs this tree: 19 instances, nodes exactly 1.000, time
+  0.965; nug30 rule 9: 3,716 nodes, 3,574 DNN-fathomed; dumps old (environment
+  and flags) vs new (par file) value for value identical through the map for
+  the nug30 recipe, the tho30 CP recipe, the ship test and the full run; wil50
+  depth-1 tasks r.0, r.10, r.14 (and r.20, which is r.14 again: the root has 15
+  children) replayed from the root with fe14ac0 + `settings.sh`'s environment +
+  `-x 1:4:1:300:1` against this binary + `fullrun.par`: identical trace lines
+  (bound, status, 300 iterations each, children; pid and CPU aside) and
+  identical children (49, 29, 29). **tho30 with the CP cut phase through depth
+  2 gives 17,470 nodes (16,740 DNN-fathomed), not the 17,786 of the Nov 8
+  log**, and the old binary fe14ac0 under the environment recipe gives the same
+  17,470 on this machine, so the difference predates Phase 2 (commits between
+  9d6e216 and fe14ac0: the Nov 8 default changes, the retirements, the
+  tidying) and is not a settings fault; `experiments/tho30_solve/cutd2_cp.par`
+  is the recipe as a par file. Worth a bisect before the next tho30 claim.
+- **Gate, cloud box (after stage B)**: the 8 depth-2 replays with
+  `sampling/validate.py` are still to run there, old binary (a667727 or
+  fe14ac0) against this one, on the same machine.
+
+
 1. **Keyed settings in the par file.** Add an optional section after the
    positional blocks, so the 53 existing files parse unchanged:
 

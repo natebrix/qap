@@ -49,8 +49,11 @@ def main():
     c = cfg["commit"]
     w(f"- binary: commit `{c['commit'][:12]}`, latest/ modified: {c['latest_modified']}, sources newer than the "
       f"binary: {c['sources_newer_than_binary'] or 'none'} (built {c['built']})")
-    w(f"- `bnbdrv -p {os.path.basename(cfg['params'])} -x {cfg['xspec']} -s {os.path.relpath(cfg['sym'], os.path.join(D, '../../..'))} "
-      f"-u {cfg['ub']:g} -d <depth> -r <one node> -o ...`; environment: fullrun/settings.sh"
+    x = f" -x {cfg['xspec']}" if cfg.get("xspec") else ""
+    w(f"- `bnbdrv -p {os.path.basename(cfg['params'])}{x} -s {os.path.relpath(cfg['sym'], os.path.join(D, '../../..'))} "
+      f"-u {cfg['ub']:g} -d <depth> -r <one node> -o ...`; the params file is "
+      + (f"`{os.path.relpath(cfg['params_base'], os.path.join(D, '../../..'))}`" if cfg.get("params_base")
+         else "the run's") + " plus the --env settings; environment: fullrun/settings.sh"
       + (f" plus {cfg['env_overrides']}" if cfg["env_overrides"] else " unchanged"))
     w(f"- stage-B sample seed {cfg['seed']}, parents kept below hash {cfg['tau']}")
     sym_ok = sum(1 for d in docs.values() if d["checks"]["sym_loaded"] and not d["checks"]["sym_missing"])

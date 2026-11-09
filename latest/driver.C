@@ -119,7 +119,13 @@ void print_help()
        << "-r F\tresume from state file F instead of the root" << std::endl
        << "-F i:j,...\tstart at the node with these assignments fixed (depth = number of fixes)" << std::endl
        << "-w W\tat lookahead/strong levels, stop a node's FW W iterations after it\n"
-       << "\tlast fixed out more children (default 0 = off)" << std::endl;
+       << "\tlast fixed out more children (default 0 = off)" << std::endl
+       << "--print-settings\twith the other options, print the resolved settings and exit" << std::endl
+       << "--settings-table\tthe settings reference table (Markdown) and exit" << std::endl
+       << "--settings-map\tthe retired environment names and their keys and exit" << std::endl
+       << "--allow-settings-change\tresume (-r) although the settings differ from the state file's" << std::endl
+       << "(-x and -w are the keys dnn.depths/maxgap/giveup/warm and fw.patience of the\n"
+       << "params file's [settings] section; a flag overrides the file. RUNNING.md, Settings.)" << std::endl;
   cerr << "(The path to a QAPLIB input file must also be provided.)" << std::endl;
 }
 
@@ -310,7 +316,11 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	const char *v = need_arg(i, argc, argv);
 #ifdef HAVE_DNN
 	{
-	  // dmin:dmax[:maxgap[:hopeless[:warm]]]; an empty field keeps its default
+	  // dmin:dmax[:maxgap[:hopeless[:warm]]]; an empty field leaves that
+	  // setting to the params file or its default. The flag is recorded in the
+	  // registry (dnn.depths, dnn.maxgap, dnn.giveup, dnn.warm); the globals
+	  // are set from the registry once the params file has been read
+	  // (apply_policy_settings), so a flag overrides the file.
 	  char *f[5] = {NULL, NULL, NULL, NULL, NULL};
 	  char *arg = new_string(v);
 	  int n = 0;
@@ -321,41 +331,21 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	    *colon = '\0';
 	    p = colon + 1;
 	  }
-	  if (n >= 1 && *f[0]) dnn_min_depth = (int)arg_int("-x", f[0]);
-	  if (n >= 2 && *f[1]) dnn_max_depth = (int)arg_int("-x", f[1]);
-	  if (n >= 3 && *f[2]) dnn_max_gap = arg_num("-x", f[2]);
-	  if (n >= 4 && *f[3]) dnn_hopeless_after = (int)arg_int("-x", f[3]);
-	  if (n >= 5 && *f[4]) dnn_warm = (int)arg_int("-x", f[4]);
-	  delete [] arg;
-	  if (n < 2 || n > 5 || dnn_max_depth < 0 || dnn_min_depth < 0 || dnn_min_depth > dnn_max_depth ||
-	      strchr(v, ':') == NULL || (n == 5 && strchr(strchr(strchr(strchr(strchr(v, ':') + 1, ':') + 1, ':') + 1, ':') + 1, ':'))) {
+	  int dmin = -1, dmax = -1;
+	  if (n >= 1 && *f[0]) dmin = (int)arg_int("-x", f[0]);
+	  if (n >= 2 && *f[1]) dmax = (int)arg_int("-x", f[1]);
+	  if (n < 2 || n > 5 || dmin < 0 || dmax < 0 || dmin > dmax ||
+	      (n == 5 && strchr(f[4], ':'))) {
 	    cerr << "-x needs dmin:dmax[:maxgap[:hopeless[:warm]]] with dmin <= dmax, e.g. -x 2:3" << std::endl;
 	    exit(1);
 	  }
-	  // the policy flags are settings too (settings.C: the dump and the state file's record)
 	  char buf[64];
-	  snprintf(buf, sizeof buf, "%d:%d", dnn_min_depth, dnn_max_depth);
+	  snprintf(buf, sizeof buf, "%d:%d", dmin, dmax);
 	  settings_set("dnn.depths", buf, SRC_FLAG);
-	  snprintf(buf, sizeof buf, "%.17g", dnn_max_gap);
-	  settings_set("dnn.maxgap", buf, SRC_FLAG);
-	  snprintf(buf, sizeof buf, "%d", dnn_hopeless_after);
-	  settings_set("dnn.giveup", buf, SRC_FLAG);
-	  snprintf(buf, sizeof buf, "%d", dnn_warm);
-	  settings_set("dnn.warm", buf, SRC_FLAG);
-	  // one core per solver process. Accelerate (macOS) has no such call;
-	  // it reads VECLIB_MAXIMUM_THREADS when it is loaded, so that must be
-	  // set in the environment (bench/parallel.py sets it for its workers).
-	  if (!dnn_set_blas_threads(1) && !getenv("VECLIB_MAXIMUM_THREADS"))
-	    cerr << "warning: the BLAS may use several threads per process; "
-		 << "export VECLIB_MAXIMUM_THREADS=1 when running several solvers"
-		 << std::endl;
-	  cout << "DNN bound at depths " << dnn_min_depth << "-" << dnn_max_depth
-	       << ", relative gap <= " << dnn_max_gap << ", give up after "
-	       << dnn_hopeless_after << " iterations (0 = never), "
-	       << (dnn_warm ? "warm-started from the parent, " : "")
-	       << "extended " << setting_s("QAP_DNN_EXT") << " levels below a last-level miss, "
-	       << "give-ups within " << setting_s("QAP_DNN_GU_ZONE") << " of the cutoff confirmed, "
-	       << dnn_lapack_name() << std::endl;
+	  if (n >= 3 && *f[2]) settings_set("dnn.maxgap", f[2], SRC_FLAG);
+	  if (n >= 4 && *f[3]) settings_set("dnn.giveup", f[3], SRC_FLAG);
+	  if (n >= 5 && *f[4]) settings_set("dnn.warm", f[4], SRC_FLAG);
+	  delete [] arg;
 	}
 #else
 	cerr << "-x: this build has no DNN bound (make with HAVE_DNN)" << std::endl;
@@ -364,10 +354,8 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	break;
       }
 
-      case 'w': // Frank-Wolfe patience once a node cannot be fathomed
-	fw_nofathom_patience = (int)arg_int("-w", need_arg(i, argc, argv));
-	settings_set("fw.patience", argv[i], SRC_FLAG);
-	cout << "FW patience after cannot-fathom: " << fw_nofathom_patience << std::endl;
+      case 'w': // Frank-Wolfe patience once a node cannot be fathomed (fw.patience)
+	settings_set("fw.patience", need_arg(i, argc, argv), SRC_FLAG);
 	break;
 
       default:
@@ -445,6 +433,49 @@ void set_sym_file(char *input_file,char *&sym_file)
 }
 
 // assumes input_file ends in ".dat"
+// The policy settings the solver keeps in globals, from the registry once
+// the environment, the flags and the params file have all been read
+// (settings.h: a flag overrides the file, the file its default).
+static void apply_policy_settings()
+{
+  const char *depths = setting_s("dnn.depths");
+  if (*depths) {
+#ifdef HAVE_DNN
+    int dmin, dmax;
+    char tail;
+    if (sscanf(depths, "%d:%d%c", &dmin, &dmax, &tail) != 2 || dmin < 0 || dmin > dmax) {
+      cerr << "dnn.depths needs dmin:dmax with 0 <= dmin <= dmax, not '" << depths << "'" << std::endl;
+      exit(2);
+    }
+    dnn_min_depth = dmin;
+    dnn_max_depth = dmax;
+    dnn_max_gap = setting_d("dnn.maxgap");
+    dnn_hopeless_after = (int)setting_i("dnn.giveup");
+    dnn_warm = (int)setting_i("dnn.warm");
+    // one core per solver process. Accelerate (macOS) has no such call;
+    // it reads VECLIB_MAXIMUM_THREADS when it is loaded, so that must be
+    // set in the environment (bench/parallel.py sets it for its workers).
+    if (!dnn_set_blas_threads(1) && !getenv("VECLIB_MAXIMUM_THREADS"))
+      cerr << "warning: the BLAS may use several threads per process; "
+	   << "export VECLIB_MAXIMUM_THREADS=1 when running several solvers"
+	   << std::endl;
+    cout << "DNN bound at depths " << dnn_min_depth << "-" << dnn_max_depth
+	 << ", relative gap <= " << dnn_max_gap << ", give up after "
+	 << dnn_hopeless_after << " iterations (0 = never), "
+	 << (dnn_warm ? "warm-started from the parent, " : "")
+	 << "extended " << setting_s("dnn.ext") << " levels below a last-level miss, "
+	 << "give-ups within " << setting_s("dnn.gu_zone") << " of the cutoff confirmed, "
+	 << dnn_lapack_name() << std::endl;
+#else
+    cerr << "dnn.depths: this build has no DNN bound (make with HAVE_DNN)" << std::endl;
+    exit(2);
+#endif
+  }
+  fw_nofathom_patience = (int)setting_i("fw.patience");
+  if (fw_nofathom_patience)
+    cout << "FW patience after cannot-fathom: " << fw_nofathom_patience << std::endl;
+}
+
 void set_param_file(char *input_file,char *&param_file)
 {
   char *suffix;
@@ -493,6 +524,12 @@ int main(int argc, char *argv[])
   ConsoleParameters *c = new ConsoleParameters();
   Node *stack = NULL;
 
+  // the two listings are documentation (tests/settings_doc.py, bench/envpar.py
+  // read them): nothing else on stdout
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "--settings-table") == 0) { settings_table(cout); return 0; }
+    if (strcmp(argv[i], "--settings-map") == 0) { settings_env_map(cout); return 0; }
+  }
   cout << qap_version_info << std::endl;
   system("hostname");
   driver_init();
@@ -503,6 +540,7 @@ int main(int argc, char *argv[])
     if (c->param_file) {
       settings_set("par.file", c->param_file, SRC_FLAG);
       settings_set("par.hash", settings_hash_file(c->param_file), SRC_PAR);
+      settings_read_par(c->param_file);
     }
     settings_dump(cout);
     return 0;
@@ -557,6 +595,8 @@ int main(int argc, char *argv[])
   solution->setObjective(qap_upper_bound);
   
   qap_read_params(c->param_file,params, c->nlevel, c->sym_file,param_max_depth);
+  settings_read_par(c->param_file);   // its [settings] section (settings.h)
+  apply_policy_settings();            // -x/-w or the file into the solver's globals
   settings_dump(cout);   // every setting with its value and source (settings.h)
 
   if (!set_max_depth) {

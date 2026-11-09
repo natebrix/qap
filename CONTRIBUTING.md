@@ -133,8 +133,10 @@ The rules that follow from it:
 - **An unknown setting is an error, not a warning:** an unknown variable, par
   key or flag, or a value that doesn't parse.
 
-The registry, the startup dump, the state-file record and the unknown-name
-check are being built (`docs/settings_plan.md`, Phase 1); moving policy out of
-the environment and the `-x`/`-w` flags into the par file is Phase 2. Until
-those land, a launcher must set every `QAP_*`/`DNN_*` variable it depends on
-explicitly, never rely on a default, and save its environment beside the run.
+The registry (`latest/settings.C`), the startup dump, the state-file record
+and the unknown-name check are in (`docs/settings_plan.md`, Phase 1), and
+policy lives in the par file's `[settings]` section (Phase 2, Nov 9; `-x` and
+`-w` remain as overrides of their keys). `RUNNING.md` "Settings" documents the
+table; `make test` checks that copy against the binary. A launcher passes a
+committed par file and saves the solver's dump beside the run;
+`bench/envpar.py` converts a pre-Nov-9 environment recipe.

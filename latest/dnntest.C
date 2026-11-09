@@ -83,6 +83,7 @@
 static void usage()
 {
   printf("usage: dnntest [-x i:j,... | -N nodefile] [-u ub | -c cutoff] [-i iters] [-t secs]\n"
+         "               [-p params.par: its [settings] dnn.* keys, under any flag given]\n"
          "               [-k every] [-b] [-l 0|1|2] [-P] [-f] [-s window] [-H iters] [-T threads]\n"
          "               [-R rho] [-C 1|2] [-E i:j,...] [-X] [-v] file.dat\n");
   exit(1);
@@ -290,9 +291,60 @@ static bool run_node(QAP *q, const std::string &fixes, double cutoff, const DNNP
   return true;
 }
 
+// dnntest's DNNParams defaults differ from the solver's; the registry's
+// entries say so (settings_override_default), so the dump and a -p file read
+// against them. A flag that has a key is registered as the flag's value, so
+// the file does not override it; the file's values then go into par.
+static std::string num_text(double v)
+{
+  char b[64];   // the shortest text that reads back as v
+  for (int prec = 6; prec <= 17; prec++) {
+    snprintf(b, sizeof b, "%.*g", prec, v);
+    if (strtod(b, NULL) == v) break;
+  }
+  return b;
+}
+
+static void par_to_settings(const DNNParams &par, void (*set)(const char *, const std::string &))
+{
+  set("dnn.giveup", num_text(par.hopeless_after));
+  set("dnn.gap_ratio", num_text(par.hopeless_gap_ratio));
+  set("dnn.momentum", num_text(par.momentum));
+  set("dnn.gu_zone", num_text(par.hopeless_zone));
+  set("dnn.refresh", num_text(par.refresh));
+  set("dnn.cheb", num_text(par.cheb_degree));
+  set("dnn.tight_lam", num_text(par.tight_lam));
+  set("dnn.beta", num_text(par.beta));
+  set("dnn.gamma", num_text(par.gamma));
+  set("dnn.gamma1", num_text(par.gamma1));
+}
+
+static void set_default(const char *k, const std::string &v) { settings_override_default(k, v); }
+static void set_flag(const char *k, const std::string &v)
+{
+  if (setting(k).text != v) settings_set(k, v, SRC_FLAG);   // only what a flag changed
+}
+
+static void settings_to_par(DNNParams &par)
+{
+  if (setting("dnn.giveup").src == SRC_PAR) par.hopeless_after = (int)setting_i("dnn.giveup");
+  if (setting("dnn.gap_ratio").src == SRC_PAR) par.hopeless_gap_ratio = setting_d("dnn.gap_ratio");
+  if (setting("dnn.momentum").src == SRC_PAR) par.momentum = setting_d("dnn.momentum");
+  if (setting("dnn.gu_zone").src == SRC_PAR) par.hopeless_zone = setting_d("dnn.gu_zone");
+  if (setting("dnn.refresh").src == SRC_PAR) par.refresh = (int)setting_i("dnn.refresh");
+  if (setting("dnn.cheb").src == SRC_PAR) par.cheb_degree = (int)setting_i("dnn.cheb");
+  if (setting("dnn.tight_lam").src == SRC_PAR) par.tight_lam = (int)setting_i("dnn.tight_lam");
+  if (setting("dnn.beta").src == SRC_PAR) par.beta = setting_d("dnn.beta");
+  if (setting("dnn.gamma").src == SRC_PAR) par.gamma = setting_d("dnn.gamma");
+  if (setting("dnn.gamma1").src == SRC_PAR) par.gamma1 = setting_d("dnn.gamma1");
+}
+
 int main(int argc, char **argv)
 {
   DNNParams par;
+  par_to_settings(par, set_default);   // the registry's defaults are dnntest's
+  const char *par_file = NULL;
+  bool print_only = false;   // --print-settings: the resolved settings, then exit
   std::string fixes = "-", child, elims = "-";
   const char *nodefile = NULL;
   double ub = HUGE_VAL, cutoff = HUGE_VAL;
@@ -302,8 +354,9 @@ int main(int argc, char **argv)
 
   for (int a = 1; a < argc; a++) {
     std::string o = argv[a];
-    if (o == "--print-settings") { settings_dump(std::cout); return 0; }
     bool more = a + 1 < argc;
+    if (o == "--print-settings") { print_only = true; continue; }
+    if (o == "-p" && more) { par_file = argv[++a]; continue; }
     if (o == "-x" && more) fixes = argv[++a];
     else if (o == "-K" && more) child = argv[++a];
     else if (o == "-Q" && more) child_passes = argv[++a];
@@ -355,8 +408,14 @@ int main(int argc, char **argv)
     else if (o[0] == '-') usage();
     else file = argv[a];
   }
+  par_to_settings(par, set_flag);   // the flags, so the file does not override them
+  if (par_file) {
+    settings_read_par(par_file);
+    settings_to_par(par);
+  }
+  if (print_only) { settings_dump(std::cout); return 0; }
   if (!file) usage();
-  settings_dump(std::cout);   // the DNN_* settings this run resolved (settings.h)
+  settings_dump(std::cout);   // the settings this run resolved (settings.h)
   dnn_set_blas_threads(threads);
 
   QAP *q = readQAPLIB(file);

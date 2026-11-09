@@ -164,7 +164,7 @@ void F77(ssyrk)(const char *uplo, const char *trans, const lapack_int *n, const 
                 const float *alpha, const float *a, const lapack_int *lda,
                 const float *beta, float *c, const lapack_int *ldc, size_t, size_t);
 void F77(strtri)(const char *uplo, const char *diag, const lapack_int *n, float *a,
-                 const lapack_int *lda, lapack_int *info, int, int);
+                 const lapack_int *lda, lapack_int *info, size_t, size_t);
 void F77(strsm)(const char *side, const char *uplo, const char *transa, const char *diag,
                 const lapack_int *m, const lapack_int *n, const float *alpha, const float *a,
                 const lapack_int *lda, float *b, const lapack_int *ldb,
@@ -577,7 +577,7 @@ struct Work {
     kb = since_refresh = 0;
     have_basis = false;
     lam_hi = theta_top = 0;
-    if (const int e = (int)setting_i("DNN_AMX"); e > 0)
+    if (const int e = (int)setting_i("dnn.amx"); e > 0)
       if (!use_amx && amx_available() && amx_ctx_init(&amx, K, K) == 0) use_amx = e;   // 1: W*Y; 2: also CholQR and Rayleigh-Ritz
     amx_packed = false;
   }
@@ -1492,7 +1492,7 @@ struct BetaSched {
   int t = 60, force = 0, every = 40, maxchg = 4, freeze = 200, nodes = 0;   // nodes: 0 all, 1 cold, 2 warm
   BetaSched()
   {
-    const char *e = setting_s("DNN_BETA_SCHED");   // default w=0.36, the record recipe's warm-child beta; "" turns it off
+    const char *e = setting_s("dnn.beta_sched");   // default w=0.36, the record recipe's warm-child beta; "" turns it off
     if (!*e) return;
     std::string s = e;
     for (size_t pos = 0; pos <= s.size();) {
@@ -1603,7 +1603,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // most n extra certificates per interval. An extra check tests the fathom only:
   // the give-up and stall rules see the regular checks alone, so with the switch
   // a node can only fathom earlier, never decide anything else differently.
-  const int cross_max = (int)setting_i("DNN_ADMM_CROSS");
+  const int cross_max = (int)setting_i("dnn.cross");
   // DNN_ADMM_CROSS_FIRST=k (with DNN_ADMM_CROSS, warm-started calls only): one more
   // extra certificate at iteration k < check_every, so that the first regular check
   // already has two points and can predict a crossing in its own first interval
@@ -1737,8 +1737,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // (par.ycuts) only with DNN_CP_LAZYCERT=1 as well: the skipped checks keep their
   // multipliers in the hook (DNNYCuts::snapshot), and the exit certifies them with
   // their own cut term (roadmap/admm/cpadmm, "In the search")
-  static const int lazy_env = (int)setting_i("DNN_CORE_LAZYCERT");
-  static const int cp_lazy_env = (int)setting_i("DNN_CP_LAZYCERT");
+  static const int lazy_env = (int)setting_i("dnn.lazycert");
+  static const int cp_lazy_env = (int)setting_i("cut.cp_lazycert");
   const bool lazy_ok = lazy_env > 0 && !par.prototype_cert && par.stall_window == 0 &&
                        !par.child_bounds && (!par.ycuts || cp_lazy_env > 0);
   std::vector<double> lz_Z;                 // the stored multiplier with the best polyhedral estimate
@@ -2144,18 +2144,18 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       // extrapolate the running best certified value: with d1, d2 its gains
       // over the last two windows of ~50 iterations and r = d1/d2, a
       // geometric tail would add d1 r/(1-r); allow 5 times that
-      int w = std::max(1, (50 + check_every - 1) / check_every);
+      int win = std::max(1, (50 + check_every - 1) / check_every);
       int h = (int)besthist.size();
       bool fire = false;
       if (par.hopeless_gap_ratio > 0) {
-        // gap-ratio rule: the gap to the cutoff over the last w checks
-        if (h > w && besthist[h - 1 - w] > -HUGE_VAL) {
-          double g1 = cutoff - besthist[h - 1], g0 = cutoff - besthist[h - 1 - w];
+        // gap-ratio rule: the gap to the cutoff over the last win checks
+        if (h > win && besthist[h - 1 - win] > -HUGE_VAL) {
+          double g1 = cutoff - besthist[h - 1], g0 = cutoff - besthist[h - 1 - win];
           if (g0 > 0 && g1 / g0 > par.hopeless_gap_ratio) fire = true;
         }
-      } else if (h > 2 * w && besthist[h - 1 - 2 * w] > -HUGE_VAL) {
-        double d1 = besthist[h - 1] - besthist[h - 1 - w];
-        double d2 = besthist[h - 1 - w] - besthist[h - 1 - 2 * w];
+      } else if (h > 2 * win && besthist[h - 1 - 2 * win] > -HUGE_VAL) {
+        double d1 = besthist[h - 1] - besthist[h - 1 - win];
+        double d2 = besthist[h - 1 - win] - besthist[h - 1 - 2 * win];
         double r = d2 > 0 ? std::min(d1 / d2, 0.95) : (d1 > 0 ? 0.95 : 0.0);
         if (best_rule + 5 * d1 * r / (1 - r) < cutoff) fire = true;   // best_rule == best unless DNN_CORE_LAZYCERT
       }

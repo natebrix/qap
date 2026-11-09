@@ -109,12 +109,13 @@ def main():
     os.rmdir(tmp)
     # the DNN bound, its per-level counts through state version 7
     name, ub, x = "nug16a", 1610, "2:4:1:0:1"
-    env = dict(os.environ, QAP_DNN_SHIP="64", OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1")
-    s_out = subprocess.run([SOLVER, "-p", "PARAM/default.par", "-u", str(ub), "-x", x,
+    par = os.path.join(ROOT, "tests", "par", "default_ship64.par")   # default.par with ship.bits = 64
+    env = dict(os.environ, OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1")
+    s_out = subprocess.run([SOLVER, "-p", par, "-u", str(ub), "-x", x,
                             os.path.join(ROOT, "qaplib", name + ".dat")],
                            cwd=os.path.dirname(SOLVER), capture_output=True, text=True, env=env).stdout
     q_out = subprocess.run([sys.executable, PAR, os.path.join(ROOT, "qaplib", name + ".dat"),
-                            "--jobs", str(args.jobs), "--ub", str(ub), "--extra", f"-x {x}"],
+                            "--jobs", str(args.jobs), "--ub", str(ub), "--params", par, "--extra", f"-x {x}"],
                            capture_output=True, text=True, env=env).stdout
     s, q = dnn_tree(s_out), dnn_tree(q_out)
     ok = s == q and None not in s[2] and s[1] is not None

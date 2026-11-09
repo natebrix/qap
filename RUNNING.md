@@ -84,36 +84,51 @@ what was asked.
 
 ### Settings
 
-Every setting the solver reads from the environment, plus the policy flags
-`-x` and `-w` and the params file, is an entry of one table
-(`latest/settings.C`: name, type, default, range, class, one line of
+Every setting the solver reads is an entry of one table (`latest/settings.C`:
+key and/or environment name, type, default, range, class, one line of
 description; `docs/settings_plan.md` is the plan, `CONTRIBUTING.md` "Where
 settings live" the rule). The table is read once at startup, so every reader
-sees the same value. Each run prints the resolved table after it has read the
-params file, as the dump `bnbdrv --print-settings` gives on its own:
+sees the same value. Where a setting lives follows from its class:
+
+- **policy** (changes the search): a key in the params file's `[settings]`
+  section, after the positional blocks ("Params file format" below). The
+  families are `dnn.*`, `cut.*`, `pool.*`, `ship.*`, `branch.*`, `est.*`,
+  `fw.*`. The flags `-x` and `-w` are aliases of `dnn.depths`, `dnn.maxgap`,
+  `dnn.giveup`, `dnn.warm` and `fw.patience`, and override the file.
+- **experiment** (an A/B switch in flight): an environment variable (`DNN_*`).
+  It graduates to a key or a default, or goes.
+- **run** (this run's identity): the `-p` path, `QAP_EST_SEED`,
+  `QAP_ALLOW_UNKNOWN`.
+- **diagnostic** (output only): `QAP_DNN_TRACE`, `QAP_DNN_POOL_CHECK`,
+  `QAP_XBAR_DEBUG`, `QAP_EST_HIST`.
+
+Each run prints the resolved table after it has read the params file, as the
+dump `bnbdrv --print-settings [-p file.par] [-x ...]` gives on its own:
 
 ```
-settings 61 hash cceb954b0d66ef6f
-setting QAP_DNN_EXT 20 env policy
-setting QAP_DNN_BETA 0.3 env policy
+settings 64 hash ebd9848cb3f7e0d2
+setting dnn.depths 1:4 par policy
+setting dnn.maxgap 1 default policy
 ...
-setting dnn.depths 1:4 flag policy
-setting par.hash 3f2a9c... par policy
+setting DNN_R32 0 default experiment
+setting par.hash 3f2f813daeeb4a6b par policy
 ```
 
 One line per entry: name, value (`""` when empty), source (`default`, `env`,
-`flag`, `par`) and class. The classes: `policy` and `experiment` change the
-search (the latter is an A/B still in flight); `run` is this run's identity
-(a seed, the params file's path); `diagnostic` is output only. The hash
-covers every policy and experiment entry, defaults included, so a changed
-default changes it.
+`flag`, `par`) and class. The hash covers every policy and experiment entry,
+defaults included, so a changed default changes it.
 
-- **An unknown name is an error.** A variable in the environment whose name
-  starts with `QAP_DNN_`, `QAP_EST_`, `QAP_XBAR_` or `DNN_` and is not in the
-  table stops the run with exit code 2 and names it, as does a value that
-  does not parse or is out of range. `QAP_ALLOW_UNKNOWN=1` makes unknown names
-  a warning, for bisecting old commits. Other `QAP_*` names (`QAP_ROLE`,
-  `QAP_BUCKET`, ...) belong to the launchers and are not checked.
+- **An unknown name is an error.** A `[settings]` key not in the table, a
+  variable in the environment whose name starts with `QAP_DNN_`, `QAP_EST_`,
+  `QAP_XBAR_` or `DNN_` and is not in the table, and a value that does not
+  parse or is out of range all stop the run with exit code 2 and a message
+  naming it. The environment name a policy setting had before Nov 9
+  (`QAP_DNN_BETA`, `DNN_BETA_SCHED`, ...) is such an error, and the message
+  names the key; `bnbdrv --settings-map` prints the whole map (one `OLD KEY`
+  per line) and `bench/envpar.py` turns an old environment recipe into a
+  params file with a `[settings]` section. `QAP_ALLOW_UNKNOWN=1` makes unknown
+  and old names a warning, for bisecting old commits. Other `QAP_*` names
+  (`QAP_ROLE`, `QAP_BUCKET`, ...) belong to the launchers and are not checked.
 - **State files carry the record** (`QAP-STATE 8`: the hash and the entries
   set away from their defaults). `-r` refuses a file whose hash differs from
   the run's own settings, printing both records, unless
@@ -121,10 +136,85 @@ default changes it.
   record and load as before. `bench/parallel.py` keeps the line verbatim in
   the task files it writes, so its workers are checked too.
 - **Launchers check a golden dump.** `fullrun/settings.sh`'s `fullrun_check`
-  diffs the binary's dump under that environment against the committed
+  diffs the binary's dump under `fullrun/fullrun.par` against the committed
   `fullrun/settings.golden`; any difference, a changed default included,
   fails it. The sampling launcher writes the dump to `settings.txt` beside
   each run's `env.json`.
+- **`dnntest` reads the same keys** (`dnntest -p file.par`), its own flags
+  (`-B`, `-g`, `-G`, `-H`, `-R`, `-M`, `-Z`, `-r`, `-d`, `-L`) overriding the
+  file, so a cold node solve and the search can run from one file.
+
+The table, as `bnbdrv --settings-table` prints it (`make test` fails when this
+copy differs; `tests/settings_doc.py --update` rewrites it):
+
+<!-- settings-table-begin -->
+| setting | where | type | default | range | class | what |
+|---|---|---|---|---|---|---|
+| `dnn.depths` | par key or `-x` | text | unset | text | policy | -x dmin:dmax: the DNN bound's depth range (unset: no DNN bound) |
+| `dnn.maxgap` | par key or `-x` | number | `1` | 0..inf | policy | -x third field: relative gap (inc - QPB)/(inc - root QPB) at most this |
+| `dnn.giveup` | par key or `-x` | integer | `0` | 0..100000000 | policy | -x fourth field: give up on a hopeless node after this many iterations (0: never) |
+| `dnn.warm` | par key or `-x` | integer | `0` | 0..1 | policy | -x fifth field: 1: a child's ADMM starts from its parent's final state |
+| `dnn.ext` | par key | integer | `20` | 0..1000 | policy | levels below the last DNN depth at which a child of a DNN miss keeps the bound |
+| `dnn.gamma1` | par key | number | `1.0` | 0..2 | policy | Peaceman-Rachford first dual step (0: none) |
+| `dnn.gamma` | par key | number | `1.0` | 0..2 | policy | ADMM dual step length |
+| `dnn.cheb` | par key | integer | `3` | 1..12 | policy | Chebyshev filter degree of the subspace eigensolver |
+| `dnn.tight_lam` | par key | integer | `2` | 0..10 | policy | the filter's upper end lam_hi from this many Lanczos steps (0: off) |
+| `dnn.gap_ratio` | par key | number | `0` | 0..inf | policy | gap-ratio give-up rule in place of the extrapolation (0: off) |
+| `dnn.gu_zone` | par key | number | `0.003` | 0..1 | policy | a give-up within this fraction of the cutoff is confirmed 100 iterations later (0: off) |
+| `dnn.momentum` | par key | number | `0` | 0..10 | policy | fast ADMM with Goux's safeguards, restarted when the residual grows by this factor (1.05; 0: off) |
+| `dnn.beta` | par key | number | `0.21` | 1e-06..100 | policy | ADMM penalty, as a multiple of dnn.py's m/3 |
+| `dnn.refresh` | par key | integer | `120` | 1..1000000 | policy | full eigendecomposition every this many iterations |
+| `dnn.warm_y` | par key | integer | `2` | 0..2 | policy | a child starts from its parent's Y too: 0 Z only, 1 restricted, 2 conditioned on its assignment |
+| `dnn.beta_sched` | par key | text | `w=0.36` | text | policy | ADMM penalty schedule, e.g. two,f=1.6667,t=60,w=0.25,wc=0.7 ("": off) |
+| `dnn.cross` | par key | integer | `2` | 0..100 | policy | extra certificates at the predicted cutoff crossing (0: off) |
+| `dnn.lazycert` | par key | integer | `1` | 0..1 | policy | 1: Rump's test only at checks that can decide something |
+| `dnn.amx` | par key | integer | `0` | 0..2 | policy | AMX bf16 kernels: 1 W*Y, 2 also CholQR and Rayleigh-Ritz (no effect without AMX) |
+| `ship.bits` | par key | integer | `32` | 0..64 | policy | the parent's DNN state in state files: 0 none, 16 bf16, 32 fp32, 64 fp64 |
+| `cut.zone` | par key | number | `0` | 0..1 | policy | run the cut phase when the uncut bound ends within this fraction of |incumbent| of the cutoff (0: off) |
+| `cut.maxdepth` | par key | integer | `1073741824` | 0..inf | policy | the cut phase only at nodes of at most this depth |
+| `cut.side` | par key | integer | `0` | 0..1 | policy | regions over the first (0) or the second (1) matrix |
+| `cut.grid` | par key | text | unset | text | policy | R:C grid whose prefixes are the regions (unset: prefixes of the free elements) |
+| `cut.rounds` | par key | integer | `12` | 1..1000 | policy | cut rounds per phase |
+| `cut.iters` | par key | integer | `300` | 1..1000000 | policy | ADMM iterations per cut round |
+| `cut.k` | par key | integer | `1000` | 0..1000000 | policy | new triangle cuts per round |
+| `cut.k5` | par key | integer | `0` | 0..1000000 | policy | 5-point count inequalities per round (0: off; rounds form only) |
+| `cut.k7` | par key | integer | `0` | 0..1000000 | policy | local-7 inequalities per round (0: off; rounds form only) |
+| `cut.sub7` | par key | integer | `1000` | 1..10000000 | policy | random 7-subsets sampled per region and round (rounds form only) |
+| `cut.kbox` | par key | text | unset | text | policy | box inequalities per round, K[:QMAX] (unset: none; rounds form only) |
+| `cut.delta` | par key | number | `50` | 0..inf | policy | Polyak target: best + delta (rounds form only) |
+| `cut.stall` | par key | integer | `3` | 0..1000 | policy | after this many rounds, stop when the gap exceeds 3x the gain of the last that many (0: off) |
+| `cut.pgate` | par key | text | unset | text | policy | primal gate R:M: stop after round R when the best primal is more than M below the cutoff (rounds form only) |
+| `cut.nocap` | par key | integer | `1` | 0..1 | policy | 1: Polyak target uncapped at the cutoff; 0: capped (rounds form only) |
+| `cut.freeze` | par key | integer | `600` | 0..1000000 | policy | iterations of the quiet round with frozen multipliers when a phase ends unfathomed with its primal above the cutoff (0: off) |
+| `cut.warmy` | par key | integer | `0` | 0..1 | policy | 1: cut rounds restart from the previous round's Y as well as its Z |
+| `cut.damp1` | par key | text | unset | text | policy | F[:G]: factor on the first (and later) Polyak steps of a phase that starts from a pool (rounds form only) |
+| `cut.equip` | par key | text | unset | text | policy | G:R: a phase more than G below the cutoff runs at most R rounds, to equip the children |
+| `cut.cp` | par key | text | unset | text | policy | k:K: the phase as one CP-ADMM solve separating K triangles every k iterations |
+| `cut.cp_iters` | par key | integer | `0` | 0..100000000 | policy | CP-ADMM iteration limit (0: rounds x iters + freeze) |
+| `cut.cp_sweeps` | par key | text | `1:1` | text | policy | S[:P]: Dykstra sweeps and passes per CP-ADMM iteration |
+| `cut.cp_lazycert` | par key | integer | `0` | 0..1 | policy | 1: the lazy certificate in CP-ADMM solves too |
+| `pool.on` | par key | integer | `0` | 0..1 | policy | 1: a node hands its cut pool to its children |
+| `pool.cp` | par key | integer | `0` | 0..1 | policy | 1: a pooled child's first solve in CP form |
+| `branch.weighted` | par key | integer | `1` | 0..1 | policy | rules 1, 3 and 4: weight the U sums by the row's gap fraction |
+| `branch.weight` | par key | number | `0.5` | 0..1 | policy | the weight of that fraction |
+| `branch.xbar_lines` | par key | integer | `1` | 1..64 | policy | rule 9: candidate rows and columns per side from the DNN marginals |
+| `fw.patience` | par key or `-w` | integer | `0` | 0..100000000 | policy | -w: Frank-Wolfe patience at lookahead/strong levels (0: off) |
+| `est.xbar` | par key | number | `0` | 0..inf | policy | estimator: child weights x_ij^a from the DNN marginals (0: QPB scores) |
+| `est.xbar_mix` | par key | number | `0.1` | 0..1 | policy | estimator: uniform share mixed into the x_ij^a weights |
+| `par.hash` | the `-p` file | text | unset | text | policy | FNV-1a of the params file's bytes |
+| `DNN_R32` | environment | integer | `0` | 0..1 | experiment | 1: R's rank term in fp32 on certificate iterations too |
+| `DNN_ADMM_CROSS_FIRST` | environment | integer | `0` | 0..1000 | experiment | one more extra certificate at this iteration of a warm call (0: off) |
+| `DNN_FUSE` | environment | integer | `0` | 0..1 | experiment | 1: fuse the Y/Z step with the next forward's row phase |
+| `DNN_ADMM_WARM_BETA` | environment | text | unset | text | experiment | F1:T:F2[:force]: a warm call's own penalty schedule |
+| `DNN_ADMM_WARM_DAMP` | environment | text | unset | text | experiment | D:K: both dual steps scaled by D for the first K iterations of a warm call |
+| `QAP_EST_SEED` | environment | text | unset | text | run | estimator: seed for rand() (unset: the fixed sequence) |
+| `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/DNN_ variable is a warning, not an error |
+| `par.file` | `-p` | text | unset | text | run | -p: the params file |
+| `QAP_DNN_TRACE` | environment | text | unset | text | diagnostic | append a line per DNN node to this file |
+| `QAP_DNN_POOL_CHECK` | environment | integer | `0` | 0..1000000 | diagnostic | check each assembled pool term on this many random permutations |
+| `QAP_EST_HIST` | environment | text | `dive_history_nug25_2.txt` | text | diagnostic | estimator: the per-dive history file |
+| `QAP_XBAR_DEBUG` | environment | integer | `0` | 0..1 | diagnostic | 1: print the rule 8/9 line choice per node to stderr |
+<!-- settings-table-end -->
 
 ### Long runs: checkpoint and resume
 
@@ -146,12 +236,12 @@ written under other settings unless `--allow-settings-change` is given.
 
 With the DNN bound (`-x`), a branched node's final ADMM state (Z and Y), from
 which its children start, is held in memory only. It goes into the state file
-(version 6) only with `QAP_DNN_SHIP=16|32|64` (bf16, fp32 or the exact
-doubles). With 64, a stopped and resumed DNN search is the uninterrupted
+(version 6) only with `ship.bits = 16|32|64` in the params file (bf16, fp32
+or the exact doubles). With 64, a stopped and resumed DNN search is the uninterrupted
 search node for node (`make shipcheck`). Without it, nodes restored from a
 file start their ADMM cold, which costs iterations but nothing else. This
 matters for `bench/parallel.py`, whose tasks are state files: on nug30,
-`QAP_DNN_SHIP=32` took 15% off the CPU on an identical tree.
+`ship.bits = 32` took 15% off the CPU on an identical tree.
 
 ### Several cores: bench/parallel.py
 
@@ -257,7 +347,7 @@ level  fathoms	     qpb	     dnn	    cuts	  popped
 `DNN bound by level`: the nodes the DNN bound ran on, the fractions it
 fathomed and gave up on as hopeless (the `-x` give-up rule), its ADMM
 iterations and CPU seconds. `Cut phase by level` (only with
-`QAP_DNN_CUT_ZONE`): nodes, fraction fathomed, CPU. `Fathoms by cause` splits
+`cut.zone`): nodes, fraction fathomed, CPU. `Fathoms by cause` splits
 each depth's fathoms: by QPB, by the DNN bound, by the cut phase, and nodes
 popped after the incumbent improved past their bound (`qpb` is what is left
 after the other three; a run resumed from a state file before version 7 has no
@@ -288,6 +378,22 @@ Example from `PARAM/default.par`:
 30    step for parametric bound
 30    compute B for the best _ rows of U
 ```
+
+After the blocks an optional `[settings]` section holds the keyed settings
+("Settings" above), one `key = value` per line, `#` starting a comment:
+
+```
+[settings]
+# the DNN bound from depth 1 through depth 4, with the cut phase in CP form
+dnn.depths = 1:4
+dnn.giveup = 300
+cut.cp = 100:1000
+```
+
+The 53 files that have no section parse unchanged. An unknown key, or a
+value out of range, is an error. `experiments/wil50_feasibility/fullrun/fullrun.par`
+is a complete example; `bench/envpar.py base.par --env OLD=VALUE ... -o new.par`
+writes one from a pre-Nov-9 environment recipe.
 
 Rule 5 (`BRANCH_BUFF`) reads coefficients from `latest/lgb_init.txt`, which
 isn't in the repo. Don't use rule 5 without that file.
@@ -367,7 +473,7 @@ The same runs on an Apple M2 Pro laptop (6 P + 4 E cores, Accelerate,
 | **nug30 record setting + rule 9 (`nug_deep_xbar9_all.par`; Nov 8)** | **3,705 (DNN: 3,704, 3,563 fathomed, 1,256 s)** | **1,270** | **3.0 min** (experiments/nug30_solve) |
 | tho30, record setting + rule 9 (Nov 8) | 14,822 (DNN: 14,819, 14,213 fathomed, 4,683 s) | 4,733 | 10.9 min (experiments/tho30_solve) |
 | tho30, record setting + side-1 cut phase through depth 2 (Nov 8) | 17,786 (DNN: 17,779, 17,056 fathomed, 6,113 s) | 7,172 | 17.1 min (experiments/tho30_solve) |
-| tho30, the same with the CP form (`QAP_DNN_CUT_CP=100:1000`; Nov 8) | 17,786 (DNN: 17,779, 17,056 fathomed, 5,957 s) | 6,994 | 17.3 min (experiments/tho30_solve) |
+| tho30, the same with the CP form (`cut.cp = 100:1000`; Nov 8) | 17,786 (DNN: 17,779, 17,056 fathomed, 5,957 s) | 6,994 | 17.3 min (experiments/tho30_solve) |
 | kra30b, record setting + rule 9, `--ub 18284` (Nov 8) | 1,686 (DNN: 1,685, 1,620 fathomed, 644 s) | 651 | 1.8 min (experiments/kra30_solve) |
 | kra32, record setting + rule 9, `--ub 17740` (no symmetry file; Nov 8) | 10,807 (DNN: 10,806, 10,440 fathomed, 5,554 s) | 5,603 | 13.8 min (experiments/kra30_solve) |
 | kra30a-old, record setting, `--ub 88900`, no symmetry file (Nov 8) | 873 (DNN: 872, 842 fathomed, 369 s) | 373 | 56 s (experiments/kra30_solve) |
@@ -388,7 +494,7 @@ against 5.8; depth 4: 1.2 against 3.5).
 M2 Pro with 8 workers; the Nov 5 subset of it, without the last line of
 switches, took 3,270 CPU s and 14 min 9 s on 4 cores of a 2.1 GHz Xeon; how
 each switch got there is in `experiments/nug30_solve/README.md`) **is the
-solver's default since Nov 8 2026**: with no `QAP_DNN_*`/`DNN_*` variable set,
+solver's default since Nov 8 2026**: with no `[settings]` section,
 
 ```sh
 python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
@@ -397,31 +503,33 @@ python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
 ```
 
 gives the record tree (3,716 nodes with rule 9, verified node for node
-against the explicit environment). The environment still overrides every
-switch, and setting the recipe explicitly is harmless. The defaults that
-changed, old -> new, for anyone whose A/B control was "unset":
+against the explicit recipe). A `[settings]` key still overrides every
+default, and writing the recipe out is harmless. The defaults that changed
+on Nov 8, old -> new, for anyone whose A/B control was "unset" (the keys are
+Nov 9's names; until then each was an environment variable, `QAP_DNN_BETA`
+for `dnn.beta` and so on, `bnbdrv --settings-map` lists them):
 
-| variable | old default | new default | variable | old default | new default |
+| setting | old default | new default | setting | old default | new default |
 |---|---|---|---|---|---|
-| `QAP_DNN_GAMMA1` | 0 | 1.0 | `DNN_CHOLQR_PASSES` | 2 | 1, then removed Nov 9 |
-| `QAP_DNN_GAMMA` | 1.6 | 1.0 | `DNN_R32_NONCERT` | 0 | 1, then removed Nov 9 |
-| `QAP_DNN_CHEB` | 2 | 3 | `DNN_ADMM_CROSS` | 0 | 2 |
-| `QAP_DNN_TIGHT_LAM` | 0 | 2 | `DNN_CORE_LAZYCERT` | 0 | 1 |
-| `QAP_DNN_BETA` | 0.3 | 0.21 | `DNN_CORE_NOSYMV` | 0 | 1, then removed Nov 9 |
-| `QAP_DNN_REFRESH` | 20 | 120 | `DNN_NOSYMW` | 0 | 1, then removed Nov 9 |
-| `QAP_DNN_WARM_Y` | 0 | 2 | `DNN_CORE_REFRESH_PARTIAL` | 0 | 1, then removed Nov 9 |
-| `QAP_DNN_EXT` | 0 | 20 | `DNN_BETA_SCHED` | unset (off) | `w=0.36` (`""` turns it off) |
-| `QAP_DNN_GU_ZONE` | 0 | 0.003 | `QAP_DNN_SHIP` | 0 | 32 |
+| `dnn.gamma1` | 0 | 1.0 | `DNN_CHOLQR_PASSES` | 2 | 1, then removed Nov 9 |
+| `dnn.gamma` | 1.6 | 1.0 | `DNN_R32_NONCERT` | 0 | 1, then removed Nov 9 |
+| `dnn.cheb` | 2 | 3 | `dnn.cross` | 0 | 2 |
+| `dnn.tight_lam` | 0 | 2 | `dnn.lazycert` | 0 | 1 |
+| `dnn.beta` | 0.3 | 0.21 | `DNN_CORE_NOSYMV` | 0 | 1, then removed Nov 9 |
+| `dnn.refresh` | 20 | 120 | `DNN_NOSYMW` | 0 | 1, then removed Nov 9 |
+| `dnn.warm_y` | 0 | 2 | `DNN_CORE_REFRESH_PARTIAL` | 0 | 1, then removed Nov 9 |
+| `dnn.ext` | 0 | 20 | `dnn.beta_sched` | unset (off) | `w=0.36` (`""` turns it off) |
+| `dnn.gu_zone` | 0 | 0.003 | `ship.bits` | 0 | 32 |
 
 "Removed Nov 9": the variable and its losing code path are gone
 (`docs/settings_plan.md`, step 1), so the winning behaviour is unconditional
-and setting the variable does nothing (until Phase 1 makes unknown names an
-error). `DNN_GUARD_DIV` (20) and the `DNN_CERTX*` experiment went the same way.
-The `QAP_DNN_*` defaults apply to the search (`bnbdrv -x`); the `DNN_*` ones
-live in `dnn.C` and so also apply to `dnntest`, whose cold solves are
-unaffected by `DNN_BETA_SCHED=w=...` (a warm-child factor). The cut phase
-(`QAP_DNN_CUT_*`, `QAP_DNN_POOL_CP`, `DNN_CP_LAZYCERT`) stays opt-in. The
-previous form of this block, for the record:
+and the name is an error. `DNN_GUARD_DIV` (20) and the `DNN_CERTX*`
+experiment went the same way. The `dnn.*` keys apply to the search and, with
+`dnntest -p`, to `dnntest`, whose cold solves are unaffected by
+`dnn.beta_sched = w=...` (a warm-child factor). The cut phase (`cut.*`,
+`pool.cp`, `cut.cp_lazycert`) stays opt-in. The previous form of this block,
+for the record (an environment that the solver now rejects;
+`bench/envpar.py` converts it):
 
 ```sh
 export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 \
@@ -451,23 +559,24 @@ chosen for the CPU, so node counts with `-x` can differ between machines
 `make dnncheck` validates the bound itself; `python3 tests/brute_force.py
 --solver-args "-x 0:20"` checks it inside the search.
 
-Opt-in DNN settings, as environment variables read by `bnbdrv -x` (all off
-by default; each has its experiment report): `QAP_DNN_GAMMA1=1.0
-QAP_DNN_GAMMA=1.0` the Peaceman-Rachford step and `QAP_DNN_CHEB=4` the
-filter degree (experiments/eigensolver: 1.5x less DNN CPU on nug30);
-`QAP_DNN_TIGHT_LAM=2` with `QAP_DNN_CHEB=3` (degree-4 strength at 85% of the
-cost); `QAP_DNN_GAP_RATIO=0.65` the gap-ratio give-up rule
-(experiments/wil50_feasibility/tuning); `QAP_DNN_EXT=20` keeps the DNN bound
+The DNN settings, as `[settings]` keys of the params file (the table above
+has every one with its default; each has its experiment report; the values
+here were the opt-in ones before Nov 8): `dnn.gamma1 = 1.0 dnn.gamma = 1.0`
+the Peaceman-Rachford step and `dnn.cheb = 4` the filter degree
+(experiments/eigensolver: 1.5x less DNN CPU on nug30); `dnn.tight_lam = 2`
+with `dnn.cheb = 3` (degree-4 strength at 85% of the cost);
+`dnn.gap_ratio = 0.65` the gap-ratio give-up rule
+(experiments/wil50_feasibility/tuning); `dnn.ext = 20` keeps the DNN bound
 up to 20 levels below a last-level miss instead of handing its subtree to
-QPB alone, and `QAP_DNN_GU_ZONE=0.003` makes a give-up within 0.3% of the
+QPB alone, and `dnn.gu_zone = 0.003` makes a give-up within 0.3% of the
 cutoff wait 100 iterations for confirmation (both from J.-P. Goux's nug30
-solver; experiments/wil50_feasibility/tuning/goux). `QAP_DNN_CUT_ZONE=0.002`
-adds a cut phase after a DNN miss that ends within that fraction of the
-cutoff: regional triangle cuts (latest/dnncut.h) from the node's own iterate,
-`QAP_DNN_CUT_GRID=R:C` the grid whose row and column prefixes are the
-regions (wil50 `5:10`; nug30 `5:6` with `QAP_DNN_CUT_SIDE=1`, the second
-matrix), `QAP_DNN_CUT_ROUNDS` (12), `_ITERS` (300), `_K` (1000), `_DELTA`
-(50), `_K5` (0: also this many of the regional 5-point count inequalities a
+solver; experiments/wil50_feasibility/tuning/goux). `cut.zone = 0.002` adds
+a cut phase after a DNN miss that ends within that fraction of the cutoff:
+regional triangle cuts (latest/dnncut.h) from the node's own iterate,
+`cut.grid = R:C` the grid whose row and column prefixes are the regions
+(wil50 `5:10`; nug30 `5:6` with `cut.side = 1`, the second matrix),
+`cut.rounds` (12), `cut.iters` (300), `cut.k` (1000), `cut.delta` (50),
+`cut.k5` (0: also this many of the regional 5-point count inequalities a
 round, latest/dnncut.h); every value stays certified
 (experiments/wil50_feasibility/stronger_bounds). On nug30 the cut phase
 costs more than it saves (+34% CPU on the laptop, +42% on the cloud), so the
@@ -476,22 +585,22 @@ record setting leaves it off.
 Later switches, all used in the nug30 record setting except the last two
 items (defaults in parentheses; experiment reports in
 `experiments/wil50_feasibility/`):
-- `QAP_DNN_BETA=F`: the ADMM penalty is F·m/3 (0.3).
-- `QAP_DNN_REFRESH=N`: a full eigendecomposition every N iterations (20).
+- `dnn.beta = F`: the ADMM penalty is F·m/3 (0.3).
+- `dnn.refresh = N`: a full eigendecomposition every N iterations (20).
   Goux's 0.21 and 120 together took 20% off nug30 (`tuning/goux`); on wil50
   they do not pay.
-- `QAP_DNN_WARM_Y=2`: a child starts from its parent's final Y, conditioned
+- `dnn.warm_y = 2`: a child starts from its parent's final Y, conditioned
   on its new assignment, as well as its Z (0: Z only; `warm_y/`). With it, a
   child's `-x ...:W` warm start carries the primal too.
 - One CholQR pass in the subspace step (was `DNN_CHOLQR_PASSES`, default 2;
   `roadmap/node_speed.md`). Unconditional since Nov 9.
-- `QAP_DNN_SHIP=32`: carry the parent's ADMM state in state files, as
+- `ship.bits = 32`: carry the parent's ADMM state in state files, as
   above (0).
-- `DNN_AMX=1`: Intel AMX bf16 kernels for the subspace products, on CPUs
+- `dnn.amx = 1`: Intel AMX bf16 kernels for the subspace products, on CPUs
   with AMX-BF16 only (`amx/`).
-- The wil50 cut-phase switches `QAP_DNN_POOL`, `QAP_DNN_CUT_WARMY` and
-  `QAP_DNN_CUT_DAMP1` (`pool_search/`, `pipeline_ab/`). Unused on nug30.
-- `DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.7` (unset): a schedule for the ADMM
+- The wil50 cut-phase switches `pool.on`, `cut.warmy` and `cut.damp1`
+  (`pool_search/`, `pipeline_ab/`). Unused on nug30.
+- `dnn.beta_sched = two,f=1.6667,t=60,w=0.7` (unset): a schedule for the ADMM
   penalty. Cold calls start at 1.6667 x the base penalty and drop to the base
   at the first full eigendecomposition at or after iteration 60. Warm-started
   calls run at 0.7 x the base throughout (`speed/beta_sched/`). On wil50: 13%
@@ -506,9 +615,9 @@ items (defaults in parentheses; experiment reports in
   too). In the search (`pipeline_ab/`, laptop, Nov 6): `w=0.25,wc=0.7` gives
   1.24x fewer DNN iterations and 1.12x less DNN CPU on the node-10 subtree's
   232 matched nodes, so the wil50 production candidate is now
-  `DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.25,wc=0.7`. `w=0.25` for the cut
+  `dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7`. `w=0.25` for the cut
   rounds as well (`wlow`) loses: the rounds take 1.5-1.9x the iterations.
-- `DNN_ADMM_CROSS=2` (unset): between two regular certificates (every 10
+- `dnn.cross = 2` (unset): between two regular certificates (every 10
   iterations), certify once more at the iteration where the running best is
   predicted to cross the cutoff (`speed/nov6_admm/`): fathoms come 0-9
   iterations earlier (4.2 per fathom on 24 warm children, 1.05x their CPU),
@@ -518,14 +627,14 @@ items (defaults in parentheses; experiment reports in
   it); all off by default.
 - `DNN_ADMM_WARM_BETA=F1:T:F2` (unset): a node's own warm solve runs at F1 x
   the base penalty until the first full eigendecomposition at or after
-  iteration T, then at F2 x it, in place of `DNN_BETA_SCHED`'s `w`; cut rounds
+  iteration T, then at F2 x it, in place of `dnn.beta_sched`'s `w`; cut rounds
   keep `w` or `wc`. Under test Nov 6 as `0.25:60:0.7` (`pipeline_ab/` arm
   `wtwo`): children fathom as at 0.25, and a miss hands its cut phase a state
   closer to 0.7's.
 - R's rank term in fp32 except on certificate iterations (was
   `DNN_R32_NONCERT=1`; unconditional since Nov 9; `speed/r32_noncert/`). 4.2% less per wil50 iteration without
-  AMX, 2.5% on nug30; about 1% with `DNN_AMX=1` (the `fast` arm above).
-- `DNN_CORE_LAZYCERT=1` (unset): Rump's Cholesky test of the certificate only
+  AMX, 2.5% on nug30; about 1% with `dnn.amx = 1` (the `fast` arm above).
+- `dnn.lazycert = 1` (unset): Rump's Cholesky test of the certificate only
   at checks that can decide something (the first, any whose polyhedral value
   could clear the cutoff, the last iteration, and the stopping check and the
   stored best at the exit); the same fathom decisions and returned lb by

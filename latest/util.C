@@ -125,8 +125,18 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
 
   if(sym_file_given)
     {
-      sym_file = new char[filename_len];
-      f.getline(sym_file,filename_len);
+      // the params file may name a symmetry file; -s (sym_file already set) wins,
+      // and the old code overwrote that pointer (review D)
+      char *from_par = new char[filename_len];
+      f.getline(from_par,filename_len);
+      if (sym_file) {
+	if (strcmp(sym_file, from_par) != 0)
+	  std::cerr << "note: params file names symmetry file [" << from_par << "], keeping -s "
+		    << sym_file << std::endl;
+	delete [] from_par;
+      }
+      else
+	sym_file = from_par;
     }
 
   f >> max_depth;
@@ -200,7 +210,7 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
   // anything left over means the level count is too small
   {
     std::string rest; f >> rest;
-    if(!rest.empty()) {
+    if(!rest.empty() && rest[0] != '[') {   // a [settings] section may follow (settings_read_par)
       std::cerr << "error: parameters file [" << filename << "] has more data than its "
 		<< nlevel << " levels; check the level count" << std::endl;
       exit(1);
@@ -280,7 +290,7 @@ void nice_array_print(double *d, int n, char delim)
 }
 
 void matrix_to_file(std::ofstream &f, double **a, int m, int n) {
-  char *s = new char[50]; // todo
+  char s[50];
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       snprintf(s, 50, "%.8f", a[i][j]);
@@ -292,7 +302,7 @@ void matrix_to_file(std::ofstream &f, double **a, int m, int n) {
 }
 
 void write_matrix_flat(std::ofstream &f, double **a, int m, int n, char delim) {
-  char *s = new char[50]; // todo
+  char s[50];
   for (int i = 0; i < m; i++) {
     for (int j = 0; j < n; j++) {
       snprintf(s, 50, "%.8f", a[i][j]);
@@ -304,7 +314,7 @@ void write_matrix_flat(std::ofstream &f, double **a, int m, int n, char delim) {
 
 
 void matrix_to_ampl_file(std::ofstream &f, const char *name, double **a, int m, int n) {
-  char *s = new char[50]; // todo
+  char s[50];
   f << "param " << name << std::endl;
   f << ": ";
   for (int i = 0; i < n; i++) {

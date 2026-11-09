@@ -46,8 +46,8 @@ import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (D, PARAMS, R, XSPEC, State, disk_free_gb, fullrun_env, log_checks, log_line,  # noqa: E402
-                    node_fields, parse_trace, private_binary, run_bnbdrv, slim_copy, solver_env, spec,
+from common import (D, PARAMS, R, XSPEC, State, disk_free_gb, dnn_flags, fullrun_env, log_checks, log_line,  # noqa: E402
+                    params_with, node_fields, parse_trace, private_binary, run_bnbdrv, slim_copy, solver_env, spec,
                     stats_of, unit_hash, write_json, write_one)
 
 SEED = 20261107
@@ -77,15 +77,19 @@ class StageA:
         cfg_path = os.path.join(self.run, "config.json")
         self.binary, self.commit = private_binary(a.binary, os.path.join(self.run, "bin"))
         settings, info = fullrun_env(self.binary)
+        # the run's own params file: the base (fullrun.par) plus any --env setting
+        # (a key or a pre-Phase-2 name); what is not a setting stays in the environment
+        params = os.path.join(self.run, "params.par")
+        env_overrides = params_with(a.params, dict(kv.split("=", 1) for kv in a.env), params, self.binary)
         cfg = {"instance": a.instance or info["FULLRUN_INSTANCE"], "sym": a.sym or info["FULLRUN_SYM"],
-               "ub": a.ub if a.ub is not None else float(info["FULLRUN_UB"]), "params": a.params,
+               "ub": a.ub if a.ub is not None else float(info["FULLRUN_UB"]), "params": params, "params_base": a.params,
                "xspec": a.xspec, "depth": a.depth, "seed": a.seed, "tau": a.tau if a.tau is not None else TAU,
-               "env_overrides": dict(kv.split("=", 1) for kv in a.env), "settings_env": settings,
+               "env_overrides": env_overrides, "settings_env": settings,
                "commit": self.commit, "root_facility": a.root_facility, "sample_last": a.sample_last}
         if os.path.exists(cfg_path):
             old = json.load(open(cfg_path))
-            for k in ("instance", "sym", "ub", "params", "xspec", "depth", "seed", "env_overrides", "settings_env",
-                      "root_facility", "sample_last"):
+            for k in ("instance", "sym", "ub", "params", "params_base", "xspec", "depth", "seed", "env_overrides",
+                      "settings_env", "root_facility", "sample_last"):
                 if old.get(k) != cfg[k]:
                     raise SystemExit(f"{cfg_path}: {k} was {old.get(k)!r}, now {cfg[k]!r}; use another --run")
             # tau only decides which parents keep their DNN state for stage B (the
@@ -111,8 +115,8 @@ class StageA:
                                                                               "VECLIB_"))})
         # the solver's own view of those settings (docs/settings_plan.md, Phase 1):
         # every registry entry with its value and source, as the run's log prints it
-        dump = subprocess.run([self.binary, "--print-settings"], env=self.env, capture_output=True, text=True,
-                              cwd=os.path.dirname(self.binary)).stdout
+        dump = subprocess.run([self.binary, "--print-settings", "-p", cfg["params"]] + dnn_flags(cfg["xspec"]),
+                              env=self.env, capture_output=True, text=True, cwd=os.path.dirname(self.binary)).stdout
         with open(os.path.join(self.run, "settings.txt"), "w") as f:
             f.write("".join(l for l in dump.splitlines(True) if l.startswith(("settings ", "setting "))))
         self.cpus = [int(x) for x in a.cpus.split(",")][:a.slots]
@@ -216,8 +220,8 @@ class StageA:
         os.makedirs(wd, exist_ok=True)
         inp, out = os.path.join(wd, "in.state"), os.path.join(wd, "out.state")
         cfg = self.cfg
-        args = ["-p", cfg["params"], "-x", cfg["xspec"], "-s", cfg["sym"], "-u", repr(cfg["ub"]),
-                "-d", str(t["depth"]), "-o", out]
+        args = ["-p", cfg["params"]] + dnn_flags(cfg["xspec"]) + ["-s", cfg["sym"], "-u", repr(cfg["ub"]),
+                                                                 "-d", str(t["depth"]), "-o", out]
         if t["parent"] is None:
             fixes = []
         else:
@@ -557,8 +561,8 @@ def main():
     ap.add_argument("--instance", help="default: fullrun/settings.sh's FULLRUN_INSTANCE")
     ap.add_argument("--sym", help="default: FULLRUN_SYM")
     ap.add_argument("--ub", type=float, help="default: FULLRUN_UB")
-    ap.add_argument("--params", default=PARAMS)
-    ap.add_argument("--xspec", default=XSPEC)
+    ap.add_argument("--params", default=PARAMS, help="the base params file (default: fullrun/fullrun.par)")
+    ap.add_argument("--xspec", default=XSPEC, help="a -x depth spec overriding the params file's (default: none)")
     ap.add_argument("--depth", type=int, default=2, help="the last depth bounded; its children are the frontier")
     ap.add_argument("--slots", type=int, default=4)
     ap.add_argument("--cpus", default="0,1,2,3", help="one CPU per slot (taskset)")
@@ -576,7 +580,9 @@ def main():
                     help="a task id another (draining) session is still running: do not schedule it here")
     ap.add_argument("--max-new", type=int, help="start at most this many tasks in this session, then drain")
     ap.add_argument("--min-free-gb", type=float, default=2.0)
-    ap.add_argument("--env", action="append", default=[], help="K=V on top of the settings (validation runs only)")
+    ap.add_argument("--env", action="append", default=[],
+                    help="K=V on top of the settings (validation runs only): a settings key or pre-Phase-2 name "
+                         "goes into the run's params file, anything else into the environment")
     ap.add_argument("--binary", default=os.path.join(R, "latest", "bnbdrv"))
     a = ap.parse_args()
     for p in ("instance", "sym", "params"):

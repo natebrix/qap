@@ -35,6 +35,13 @@
 #define INCORRECT_WEIGHT
 #define BRANCH_USES_QPBND
 
+// Branching policy from the settings registry (settings.C, keys branch.*):
+// function-local statics, read once (a file-scope static initialised from the
+// registry could run before the registry's own static initialisation).
+static bool weighted_branching() { static const bool v = setting_i("branch.weighted") > 0; return v; }   // rules 1, 3, 4
+static double branching_weight() { static const double v = setting_d("branch.weight"); return v; }
+static int xbar_lines_per_side() { static const int v = (int)setting_i("branch.xbar_lines"); return v; }   // rule 9
+
 void set_branch_parameters(BranchParameters *bp, BNBParameters *param,
 			   bool use_J, bool reorder_children) {
   bp->use_best = param->use_best;
@@ -112,10 +119,10 @@ exists in the problem.
 */
 void branch_init(int n)
 {
-  if(!use_weighted_branching) 
+  if(!weighted_branching()) 
     std::cout << "[not using weight for branching] " << std::endl;
   else
-    std::cout << "branching_weight = " << branching_weight << std::endl;
+    std::cout << "branching_weight() = " << branching_weight() << std::endl;
   J_dim = 0; // only one J2 set
 
   J1 = NULL;
@@ -742,9 +749,9 @@ inline void weighted_row_sum(const QAPAssignment &assign,
 	
 	grf = std::min(1.0, (U->me[di][dj])/(opt - assign.bound) );
 #ifdef INCORRECT_WEIGHT
-	u_row_sum[di] += ((1 - branching_weight)*grf + branching_weight) * grf;
+	u_row_sum[di] += ((1 - branching_weight())*grf + branching_weight()) * grf;
 #else
-	u_row_sum[di] += (1 - (1 - branching_weight)*grf) * grf;
+	u_row_sum[di] += (1 - (1 - branching_weight())*grf) * grf;
 #endif
 
       }
@@ -790,11 +797,11 @@ void weighted_row_col_sums(const QAPAssignment &assign,int *J3,int J3_dim,
 	grf = std::min(1.0, (U->me[di][dj])/(opt - assign.bound) );
 
 #ifdef INCORRECT_WEIGHT
-	u_row_sum[di] += ((1 - branching_weight)*grf + branching_weight) * grf;
-	u_col_sum[dj] += ((1 - branching_weight)*grf + branching_weight) * grf;
+	u_row_sum[di] += ((1 - branching_weight())*grf + branching_weight()) * grf;
+	u_col_sum[dj] += ((1 - branching_weight())*grf + branching_weight()) * grf;
 #else
-	u_row_sum[di] += (1 - (1 - branching_weight)*grf) * grf;
-	u_col_sum[dj] += (1 - (1 - branching_weight)*grf) * grf;
+	u_row_sum[di] += (1 - (1 - branching_weight())*grf) * grf;
+	u_col_sum[dj] += (1 - (1 - branching_weight())*grf) * grf;
 #endif
       }
     }
@@ -1720,7 +1727,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
     if (dnn_xbar_lines(assign, dr, sr, dc, sc)) {
       for (int d = 0; d < m; d++) { row_order[d] = m;  col_order[d] = m; }
       row_order[dr] = 0;  col_order[dc] = 0;
-      kr = kc = 1;
+      kr = kc = xbar_lines_per_side();
       xbar_used = true;
     }
   }
@@ -2069,11 +2076,11 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
   case BRANCH_U_SUM:
     if (can_branch_on_cols) {
       select_ind_max_sum(qap,assign,J3,J3_dim,X,U,bound,qpbp,
-			   use_weighted_branching,row_in_U,row_in_assign,chose_row);
+			   weighted_branching(),row_in_U,row_in_assign,chose_row);
     }
     else
       select_row_max_sum(qap,assign,J3,J3_dim,U,bound,qpbp,
-			 use_weighted_branching,row_in_U,row_in_assign);
+			 weighted_branching(),row_in_U,row_in_assign);
     break;
 
   case BRANCH_U_FATHOM:
@@ -2090,13 +2097,13 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
     if(J3_dim == J3_default_dim) {
       select_ind_max_sum_using_B(qap,assign,J3,J3_dim,X,U,bound,qpbp,
 				 bp->use_best,
-				 use_weighted_branching, bp->which_bound,
+				 weighted_branching(), bp->which_bound,
 				 row_in_U,row_in_assign,chose_row);
     }
     else
       select_row_max_sum_using_B(qap,assign,J3,J3_dim,U,bound,qpbp,
 				 bp->use_best,
-				 use_weighted_branching, bp->which_bound,
+				 weighted_branching(), bp->which_bound,
 				 row_in_U,row_in_assign);
     break;
 
@@ -2110,14 +2117,14 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
     if(can_branch_on_cols) {
       select_ind_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
 			   bp->use_best,
-			   use_weighted_branching, bp->which_bound,
+			   weighted_branching(), bp->which_bound,
 			   row_in_U,row_in_assign,chose_row,false,
 			   bp->how == BRANCH_XBAR_LOOKAHEAD);
     }
     else
       select_row_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
 			   bp->use_best,
-			   use_weighted_branching, bp->which_bound,
+			   weighted_branching(), bp->which_bound,
 			   row_in_U,row_in_assign);
     break;
 
@@ -2125,13 +2132,13 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
     if(can_branch_on_cols) {
       select_ind_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
 			   bp->use_best,
-			   use_weighted_branching, bp->which_bound,
+			   weighted_branching(), bp->which_bound,
 			   row_in_U,row_in_assign,chose_row,true);
     }
     else
       select_row_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
 			   bp->use_best,
-			   use_weighted_branching, bp->which_bound,
+			   weighted_branching(), bp->which_bound,
 			   row_in_U,row_in_assign);
     break;
 

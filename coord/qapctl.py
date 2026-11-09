@@ -5,7 +5,7 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
 
   python3 -m coord.qapctl init RUN --backend B --instance qaplib/nug20.dat \\
         --params PARAM/default.par --ub 2570 --slots 4 [--extra "-x 0:4:1:300:1"] \\
-        [--env QAP_DNN_POOL=1 ...] [--budget 1800] [--trace]
+        [--env DNN_R32=1 ...] [--budget 1800] [--trace]
   python3 -m coord.qapctl coordinator RUN --backend B
   python3 -m coord.qapctl worker RUN --backend B --slots 4
   python3 -m coord.qapctl status RUN --backend B
@@ -65,7 +65,9 @@ def main(argv=None):
     p.add_argument("--instance")
     p.add_argument("--params", default="PARAM/default.par", help="relative to latest/")
     p.add_argument("--extra", default="", help="solver flags, e.g. '-F 39:27 -x 0:4:1:300:1'")
-    p.add_argument("--env", action="append", default=[], help="K=V for the solver (repeat)")
+    p.add_argument("--env", action="append", default=[],
+                   help="K=V for the solver's environment (repeat): experiment switches and diagnostics; "
+                        "policy settings are keys in the params file (RUNNING.md, Settings)")
     p.add_argument("--ub", type=float)
     p.add_argument("--frontier-depth", type=int, default=0)
     p.add_argument("--solver", default=SOLVER)

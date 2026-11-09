@@ -33,7 +33,8 @@ per hour of churn.
 ## The design: one file per parent, referenced by content hash
 
 The DNN token moves out of the state file into a store directory; the warm
-line keeps a reference. State version 8:
+line keeps a reference. State version 9 (8 is the settings record,
+`docs/settings_plan.md` Phase 1):
 
 ```
 warm <m> <p[0..n-1]> <X...> <dnn_ext> <pool> @warm/3f2a...9c.dnn
@@ -96,7 +97,7 @@ warm <m> <p[0..n-1]> <X...> <dnn_ext> <pool> @warm/3f2a...9c.dnn
 ### What stays the same
 
 - Node lines, statistics, the pool token, `-r`/`-o`/`-t`/`-k`, the steal
-  protocol, and the resume path: `parallel.py --resume` on a version 8
+  protocol, and the resume path: `parallel.py --resume` on a version 9
   checkpoint reads references like any other warm text.
 - Certification: the shipped state only moves where a child's ADMM starts.
   A missing or corrupt store file should be a hard error on read, as a
@@ -118,7 +119,7 @@ files. Two things to agree before landing this:
 ## Steps and checks
 
 1. `state.C`: read `@path`; write under `QAP_DNN_WARM_DIR`; `dnn_ref` on
-   `WarmStart`; version 8 in `state.h`'s comment and `STATE_VERSION`.
+   `WarmStart`; version 9 in `state.h`'s comment and `STATE_VERSION`.
    Check: the resume test with `QAP_DNN_SHIP=64` through the store is the
    same run bit for bit (as the inline test is today); a version 7 file
    still loads.

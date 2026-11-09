@@ -1,0 +1,59 @@
+0    has the location of a symmetry file been provided?
+-1    restriction on tree depth (-1 means none)
+4    number of branching rules
+
+0.20 use this rule when gap is worse than...
+2    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 30    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+4    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than... (all nodes thru depth 6 use rule 8)
+6    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+ 2    branching rule at bottom of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+[settings]
+# tests/ship_test.py: the DNN bound with the cut phase and the pool on nug20 (QAP_DNN_POOL_CHECK=20 stays in its environment)
+dnn.gamma1 = 1.0
+dnn.gamma = 1.0
+dnn.cheb = 3
+dnn.tight_lam = 2
+dnn.refresh = 40
+dnn.warm_y = 2
+dnn.ext = 20
+cut.zone = 0.005
+cut.grid = 4:5
+cut.side = 0
+cut.freeze = 1500
+pool.on = 1
+dnn.depths = 0:4
+dnn.giveup = 300
+dnn.warm = 1

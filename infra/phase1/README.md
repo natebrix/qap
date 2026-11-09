@@ -54,9 +54,9 @@ expects), `UB` (the incumbent given to the solver), `EXTRA` (solver flags),
 | recipe | what | CPU [e] |
 |---|---|---|
 | `nug17` | the smoke test: QPB only, one-second units, a few dozen of them through S3/SQS/DynamoDB | 20 s |
-| `nug30` | the acceptance run: the Nov 8 record recipe (rule 9, DNN at depths 1-7) with `QAP_DNN_SHIP=64`, one-minute units | 1,300 s on the M2 Pro; more on Graviton |
+| `nug30` | the acceptance run: the Nov 8 record recipe (rule 9, DNN at depths 1-7) with `ship.bits = 64` (`recipes/nug30.par`), one-minute units | 1,300 s on the M2 Pro; more on Graviton |
 
-`QAP_DNN_SHIP=64` instead of the record's 32: with 64 a node restored from a
+`ship.bits = 64` instead of the record's 32: with 64 a node restored from a
 state file starts its DNN from its parent's exact doubles, so a tree cut into
 units at other places than `parallel.py` cuts it is the same tree. On nug20
 with this recipe both 64 and 32 gave the coordinator and `parallel.py`

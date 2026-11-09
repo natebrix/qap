@@ -74,7 +74,8 @@
 # power and an external display connected).
 #
 # Results: runs/ARM/ (trace.txt, results.txt, coordinator.log, worker.log,
-# hosts.txt, env.txt), and summary.txt comparing every finished arm with base.
+# hosts.txt, env.txt, arm.par: the arm's settings as the solver reads them),
+# and summary.txt comparing every finished arm with base.
 # The stores and work directories (runs/ARM/backend, work, bin) are ignored by
 # git.
 set -u
@@ -181,6 +182,13 @@ run_arm() {
     return 0
   fi
   arm_env "$arm"
+  # Since Nov 9 (docs/settings_plan.md, Phase 2) the solver reads these as keys of
+  # the params file's [settings] section and rejects the names: the arm's par file
+  # from the exports, which are then unset; what is not a key (QAP_DNN_POOL_CHECK,
+  # DNN_ADMM_WARM_BETA) stays in the environment. The certx arm's DNN_CERTX_*
+  # were retired with the certificate-extrapolation path and no longer run.
+  eval "$($PY bench/envpar.py latest/PARAM/nug_deep_xbar9_all.par -o "$A/arm.par" --from-env --shell \
+          --comment "pipeline_ab/run_pair.sh arm $arm: the exports of arm_env as keys")" || { echo "$arm: envpar failed"; return 1; }
   if [ ! -x "$A/bin/bnbdrv" ]; then
     # a private copy, so that a rebuild during the run does not change it
     if { [ "$base" = warmy ] || [ "$base" = full ]; } && ! grep -aq QAP_DNN_CUT_DAMP1 latest/bnbdrv; then
@@ -227,10 +235,10 @@ run_arm() {
     mkdir -p "$A/bin" && cp latest/bnbdrv "$A/bin/bnbdrv"
     echo "$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- latest || echo ' (latest/ modified)')" > "$A/bin/commit.txt"
   fi
-  env | grep -E '^(QAP_|DNN_)' | sort > "$A/env.txt"
+  { env | grep -E '^(QAP_|DNN_)' | sort; sed -n '/^\[settings\]/,$p' "$A/arm.par"; } > "$A/env.txt"
   echo "$(date -u +%FT%TZ) $CPU slots $SLOTS $(cat "$A/bin/commit.txt")" >> "$A/hosts.txt"
   if [ ! -f "$A/backend/ledger.db" ]; then
-    $PY -m coord.qapctl init "$arm" --backend "$B" --instance "$inst" --params "$R/latest/PARAM/nug_deep_xbar9_all.par" \
+    $PY -m coord.qapctl init "$arm" --backend "$B" --instance "$inst" --params "$A/arm.par" \
       --ub "$UB" --slots "$SLOTS" --extra "$extra" --trace --solver "$A/bin/bnbdrv" \
       --budget "$BUDGET" --target-unit-cpu "$UNIT" --steal-after 10 --lease 600 --heartbeat 60 --ckpt-upload 300 \
       --checkpoint-every 60 --status-every 60 >> "$A/coordinator.log" 2>&1 || { echo "$arm: init failed (see $A/coordinator.log)"; return 1; }

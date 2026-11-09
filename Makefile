@@ -1,7 +1,7 @@
 # Build the solver and run the checks. See RUNNING.md and CONTRIBUTING.md.
 #
 #   make               build latest/bnbdrv
-#   make test          brute-force, resume and parallel tests, then the regression check
+#   make test          brute-force, resume and parallel tests, the settings table, then the regression check
 #   make bruteforce    solver vs full enumeration on small random instances (~10 s)
 #   make regression    quick suite vs bench/reference/ (~15 s)
 #   make resume        stop/resume a run in slices; totals must not change (~10 s)
@@ -13,14 +13,14 @@
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel coord regression clean dnntest dnncheck shipcheck
+.PHONY: all solver test bruteforce resume parallel coord settings-doc regression clean dnntest dnncheck shipcheck
 
 all: solver
 
 solver:
 	$(MAKE) -C latest
 
-test: bruteforce resume parallel coord regression
+test: bruteforce resume parallel coord settings-doc regression
 
 bruteforce: solver
 	$(PYTHON) tests/brute_force.py
@@ -36,6 +36,10 @@ parallel: solver
 # are importable (else it is skipped)
 coord: solver
 	$(PYTHON) tests/coord_test.py
+
+# RUNNING.md's settings table is the solver's (tests/settings_doc.py --update rewrites it)
+settings-doc: solver
+	$(PYTHON) tests/settings_doc.py
 
 regression: solver
 	$(PYTHON) bench/bench.py check

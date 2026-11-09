@@ -37,7 +37,7 @@ static const char *const CUT_LEVEL_CTRS[] = {"cut_n_level", "cut_f_level"};
 */
 static int dnn_ship_bits()
 {
-  static const int b = (int)setting_i("QAP_DNN_SHIP");
+  static const int b = (int)setting_i("ship.bits");
   if (b != 0 && b != 16 && b != 32 && b != 64) {
     std::cerr << "settings: QAP_DNN_SHIP=" << b << " is not 0, 16, 32 or 64" << std::endl;
     exit(2);

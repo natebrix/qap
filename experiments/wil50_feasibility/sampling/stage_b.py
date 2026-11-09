@@ -47,8 +47,8 @@ import threading
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import (D, State, disk_free_gb, fullrun_env, log_checks, log_line, node_fields,  # noqa: E402
-                    parse_trace, run_bnbdrv, slim_copy, solver_env, spec, stats_of, write_json, write_one)
+from common import (D, State, disk_free_gb, dnn_flags, fullrun_env, log_checks, log_line, node_fields,  # noqa: E402
+                    params_with, parse_trace, run_bnbdrv, slim_copy, solver_env, spec, stats_of, write_json, write_one)
 
 STRATA = [("fathomed", None, None), ("near (< 150)", 0, 150), ("150-210", 150, 210), ("210-300", 210, 300),
           ("tail (>= 300)", 300, math.inf)]
@@ -77,12 +77,19 @@ class StageB:
         settings, _ = fullrun_env(self.binary)
         if settings != self.acfg["settings_env"]:
             raise SystemExit("fullrun/settings.sh changed since stage A ran; stage B must use stage A's settings")
-        base = dict(self.acfg["env_overrides"])
-        self.env_giveup = solver_env(settings, dict(base, **({} if a.phase else {"QAP_DNN_CUT_MAXDEPTH": "2"})))
-        self.env_conv = solver_env(settings, dict(base, QAP_DNN_CUT_ZONE="0"))
-        x = self.acfg["xspec"].split(":")
+        # stage A's params file with the two modes' settings (params_with; before Nov 9
+        # these were environment variables and the -x spec's give-up field)
+        self.env = solver_env(settings, self.acfg["env_overrides"])
+        self.par_giveup = os.path.join(self.run, "giveup.par")
+        params_with(self.acfg["params"], {} if a.phase else {"cut.maxdepth": "2"}, self.par_giveup, self.binary)
+        self.par_conv = os.path.join(self.run, "converge.par")
+        params_with(self.acfg["params"], {"cut.zone": "0", "dnn.giveup": "0"}, self.par_conv, self.binary)
         self.x_giveup = self.acfg["xspec"]
-        self.x_conv = ":".join(x[:3] + ["0"] + x[4:])
+        if self.x_giveup:   # a -x spec overrides the file: its give-up field must say 0 too
+            x = self.x_giveup.split(":")
+            self.x_conv = ":".join(x[:3] + ["0"] + x[4:])
+        else:
+            self.x_conv = ""
         self.cpus = [int(c) for c in a.cpus.split(",")][:a.slots]
         self.cpu_lock = threading.Lock()
         self.free_cpus = list(self.cpus)
@@ -149,10 +156,10 @@ class StageB:
         inp, out = os.path.join(wd, "in.state"), os.path.join(wd, "out.state.tmp")
         write_one(os.path.join(self.A, "tasks", doc["parent"], "out.state"), doc["index"], inp, warm="keep")
         c = self.acfg
-        env = solver_env(c["settings_env"], c["env_overrides"])
-        rc, wall = run_bnbdrv(self.binary, ["-p", c["params"], "-x", c["xspec"], "-s", c["sym"], "-u", repr(c["ub"]),
+        rc, wall = run_bnbdrv(self.binary, ["-p", c["params"]] + dnn_flags(c["xspec"]) +
+                                           ["-s", c["sym"], "-u", repr(c["ub"]),
                                             "-d", str(doc["depth"]), "-r", inp, "-o", out, c["instance"]],
-                              env, os.path.join(wd, "solver.log"), os.path.join(wd, "trace.txt"), cpu=cpu,
+                              self.env, os.path.join(wd, "solver.log"), os.path.join(wd, "trace.txt"), cpu=cpu,
                               procs=self.procs, tag="regen " + parent)
         if rc != 0:
             raise RuntimeError(f"regen {parent}: exit {rc}")
@@ -176,16 +183,16 @@ class StageB:
         os.makedirs(wd, exist_ok=True)
         c = self.acfg
         conv = mode.endswith("converge")
-        env, xs = (self.env_conv, self.x_conv) if conv else (self.env_giveup, self.x_giveup)
+        par, xs = (self.par_conv, self.x_conv) if conv else (self.par_giveup, self.x_giveup)
         out, inp = os.path.join(wd, "out.state"), os.path.join(wd, "in.state")
-        args = ["-p", c["params"], "-x", xs, "-s", c["sym"], "-u", repr(c["ub"]), "-d", str(self.depth), "-o", out]
+        args = ["-p", par] + dnn_flags(xs) + ["-s", c["sym"], "-u", repr(c["ub"]), "-d", str(self.depth), "-o", out]
         if F:
             args += ["-F", F]
         else:
             write_one(src, index, inp, warm="none" if mode == "cold" else "keep")
             args += ["-r", inp]
         args.append(c["instance"])
-        rc, wall = run_bnbdrv(self.binary, args, env, os.path.join(wd, "solver.log"), os.path.join(wd, "trace.txt"),
+        rc, wall = run_bnbdrv(self.binary, args, self.env, os.path.join(wd, "solver.log"), os.path.join(wd, "trace.txt"),
                               cpu=cpu, procs=self.procs, tag=key)
         if rc != 0 or not os.path.exists(out):
             raise RuntimeError(f"{key}: exit {rc}")
