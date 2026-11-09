@@ -103,6 +103,11 @@ struct WarmStart
   // (version 6), so by default a child restored from a file starts its DNN
   // cold but still with the inherited pool.
   std::string dnn_pool;
+  // Where this state lives in a parent-state store (state.C, QAP_DNN_WARM_DIR;
+  // docs/parent_state_store.md): the absolute path of the file holding the
+  // token, set when the warm start was read by reference or first written to
+  // the store, so it is never re-encoded or re-written. Empty otherwise.
+  mutable std::string dnn_ref;
 };
 
 /*

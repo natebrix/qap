@@ -208,6 +208,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `DNN_ADMM_WARM_BETA` | environment | text | unset | text | experiment | F1:T:F2[:force]: a warm call's own penalty schedule |
 | `DNN_ADMM_WARM_DAMP` | environment | text | unset | text | experiment | D:K: both dual steps scaled by D for the first K iterations of a warm call |
 | `QAP_EST_SEED` | environment | text | unset | text | run | estimator: seed for rand() (unset: the fixed sequence) |
+| `QAP_DNN_WARM_DIR` | environment | text | unset | text | run | parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline) |
 | `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/DNN_ variable is a warning, not an error |
 | `par.file` | `-p` | text | unset | text | run | -p: the params file |
 | `QAP_DNN_TRACE` | environment | text | unset | text | diagnostic | append a line per DNN node to this file |
@@ -238,10 +239,25 @@ With the DNN bound (`-x`), a branched node's final ADMM state (Z and Y), from
 which its children start, is held in memory only. It goes into the state file
 (version 6) only with `ship.bits = 16|32|64` in the params file (bf16, fp32
 or the exact doubles). With 64, a stopped and resumed DNN search is the uninterrupted
-search node for node (`make shipcheck`). Without it, nodes restored from a
+search node for node (`make shipcheck`): 64 ships the whole matrices, since
+with `DNN_CORE_NOSYMV` (the default) Z and Y are symmetric to rounding only and
+a mirrored upper triangle is not the parent's state; 16 and 32 ship the upper
+triangles. Without it, nodes restored from a
 file start their ADMM cold, which costs iterations but nothing else. This
 matters for `bench/parallel.py`, whose tasks are state files: on nug30,
 `ship.bits = 32` took 15% off the CPU on an identical tree.
+
+**The parent-state store** (state version 9, `docs/parent_state_store.md`).
+At m = 40 a shipped state is 10 MB of text, and every file that mentions the
+parent carries it. With `QAP_DNN_WARM_DIR=DIR` in the environment the solver
+writes each parent's state once to `DIR/<hash>.dnn` and the warm line says
+`@<path>` instead (relative to the state file's directory when the store is
+under it, absolute otherwise); a reader takes the token from that file, and
+a missing file is an error, never a silent cold start. A state file and its
+store directory travel together: copy `warm/` along with a checkpoint.
+Without the variable the file is self-contained, as before. `make shipcheck`
+checks that a stop and resume through the store is the same search node for
+node.
 
 ### Several cores: bench/parallel.py
 
@@ -276,6 +292,17 @@ at their next node after S seconds, writes F and exits 3. (Before Nov 8 2026
 a checkpoint stopped every worker and launched nothing until the last had
 exited, which on long-task instances such as tho40 idled 70% of the machine.) `bench.py run --jobs N` runs each
 instance this way; compare such runs with `compare --time wall`.
+
+The workers write their parents' DNN states to a parent-state store
+(`--warm-dir`, default `WORKDIR/warm`; `--warm-dir ''` for the inline tokens
+of before Nov 9 2026), so a task file carries a reference per parent instead
+of 10 MB of text, and the coordinator never parses a token. A checkpoint is
+written with references into its own `warm/` directory next to it (the
+referenced files are hard-linked or copied there), so `F` and `warm/` are the
+unit to keep or move; `--resume F` reads them from there.
+`--checkpoint-inline` writes a self-contained checkpoint instead, for a
+hand-off to another machine. At every checkpoint the store files no open
+node references, and no running worker can still be writing, are deleted.
 
 On this 4-vCPU container nug16a ran 3.2x faster in wall time with 4 workers and
 nug17 2.7x; total CPU rises somewhat under full load, so expect less than

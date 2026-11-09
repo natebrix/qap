@@ -17,7 +17,16 @@ Uses the solver's state files (latest/state.h):
  3. New tasks start from the best incumbent found so far.
  4. Statistics from all pieces are summed and printed in the solver's own
     RESULTS format (bench.py parses it).
- 5. With --checkpoint F, every --checkpoint-every seconds F is rewritten as
+ 5. The workers' parents' DNN states go to a parent-state store (--warm-dir,
+    default WORKDIR/warm; QAP_DNN_WARM_DIR for the solver, state version 9,
+    docs/parent_state_store.md): a task file carries "@warm/<hash>.dnn" per
+    parent instead of the token, and this script never parses a token. A
+    checkpoint is written with references into its own warm/ directory (the
+    files linked or copied there): keep or move F together with warm/.
+    --checkpoint-inline writes a self-contained F instead. At every checkpoint
+    the store files no open node references (and no running worker can be
+    writing) are deleted.
+ 6. With --checkpoint F, every --checkpoint-every seconds F is rewritten as
     an ordinary state file holding every open node and the totals so far,
     without stopping anyone: the open nodes are the pool plus the nodes the
     running tasks were given, and the totals count finished tasks only, so a
@@ -54,11 +63,48 @@ SOLVER = os.path.join(ROOT, "latest", "bnbdrv")
 
 class Warm:
     """A parent's Frank-Wolfe point (a "warm" line), shared by the nodes that
-    start from it; written once per file, wherever its nodes go."""
-    __slots__ = ("text",)
+    start from it; written once per file, wherever its nodes go. Its last
+    field is the parent's DNN state: "-", an inline token, or (state version
+    9, docs/parent_state_store.md) "@<path>" into the parent-state store; a
+    relative path is resolved against the file's directory on read (`ref` is
+    then the absolute path) and written relative to the new file's directory
+    when the store is under it."""
+    __slots__ = ("text", "ref")
 
-    def __init__(self, text):
+    def __init__(self, text, state_dir=None):
+        self.ref = None
+        head, _, last = text.rpartition(" ")
+        if last.startswith("@"):
+            path = last[1:]
+            if not os.path.isabs(path) and state_dir is not None:
+                path = os.path.normpath(os.path.join(state_dir, path))
+            self.ref = path
+            text = head + " @" + path
         self.text = text
+
+    def line(self, state_dir, link_dir=None, inline=False):
+        """the warm line for a file in state_dir: the reference made relative
+        when it is under state_dir; with link_dir, the store file is first
+        linked (or copied) into link_dir and the reference points there; with
+        inline, the token itself replaces the reference."""
+        if self.ref is None:
+            return self.text
+        head = self.text.rpartition(" ")[0]
+        if inline:
+            with open(self.ref) as f:
+                return head + " " + f.readline().strip()
+        ref = self.ref
+        if link_dir is not None:
+            dst = os.path.join(link_dir, os.path.basename(ref))
+            if not os.path.exists(dst):
+                os.makedirs(link_dir, exist_ok=True)
+                try:
+                    os.link(ref, dst)
+                except OSError:
+                    shutil.copy2(ref, dst)
+            ref = dst
+        rel = os.path.relpath(ref, state_dir)
+        return head + " @" + (rel if not rel.startswith("..") else ref)
 
 
 class State:
@@ -100,9 +146,22 @@ class State:
             self.arrays["dnn_time"] = [0.0]
         warms = []
         if line[0] == "warm_starts":            # version 2
-            warms = [Warm(" ".join(next(it)[1:])) for _ in range(int(line[1]))]
+            state_dir = os.path.dirname(os.path.abspath(path))
+            warms = [Warm(" ".join(next(it)[1:]), state_dir) for _ in range(int(line[1]))]
             line = next(it)
-        has_warm = int(self.magic[1]) >= 2
+        version = int(self.magic[1])
+        has_warm = version >= 2
+        # the warm lines of versions 3-5 lack dnn_ext, the pool and the DNN state:
+        # bring them to the current layout, since this file is rewritten in the
+        # current version (worker-returned nodes carry current lines; one file
+        # cannot mix layouts)
+        for w in warms:
+            if version < 4:
+                w.text += " 0"
+            if version < 5:
+                w.text += " -"
+            if version < 6:
+                w.text += " -"
         self.nodes = []
         for _ in range(int(line[1])):
             f = next(it)
@@ -122,9 +181,17 @@ class State:
         for k in self.arrays:
             self.arrays[k] = [a + b for a, b in zip(self.arrays[k], other.arrays[k])]
 
-    def write(self, path, nodes=None):
+    def write(self, path, nodes=None, link_dir=None, inline=False):
+        """link_dir: the store directory this file's DNN references point into
+        (the referenced files are linked or copied there: a checkpoint and its
+        warm/ directory travel together); inline: no references, every token in
+        the file (a self-contained file for another machine)"""
         nodes = self.nodes if nodes is None else nodes
-        out = [" ".join(self.magic),            # the version of the file read: its warm lines carry that version's fields
+        state_dir = os.path.dirname(os.path.abspath(path))
+        # the current version when the file read had a settings record (8 and
+        # up), else 7, the last version without one: a reader of 8+ requires it
+        magic = "QAP-STATE 9" if self.settings is not None else "QAP-STATE 7"
+        out = [magic,
                f"n {self.n} levels {self.levels} strategies {self.strategies}",
                " ".join(["incumbent", repr(self.obj), str(self.found)] + list(self.perm)),
                f"root_bound {self.root_bound}",
@@ -139,14 +206,21 @@ class State:
             if w is not None and id(w) not in ids:
                 ids[id(w)] = (len(ids), w)
         out.append(f"warm_starts {len(ids)}")
-        out += ["warm " + w.text for _, w in sorted(ids.values(), key=lambda x: x[0])]
+        out += ["warm " + w.line(state_dir, link_dir, inline) for _, w in sorted(ids.values(), key=lambda x: x[0])]
         out.append(f"nodes {len(nodes)}")
         out += [f"{t} {ids[id(w)][0] if w is not None else -1}" for t, w in nodes]
         out.append("end")
+        os.makedirs(state_dir, exist_ok=True)
         tmp = path + ".tmp"
         with open(tmp, "w") as f:
             f.write("\n".join(out) + "\n")
         os.replace(tmp, path)
+
+
+# A fresh worker installs its SIGUSR1 handler at the top of main; a signal
+# before that kills it ("worker failed"). No worker is signalled before it has
+# run this long (the steal path waits --steal-after, at least this).
+SIGNAL_GRACE = 1.0
 
 
 def solver_tables(solver, params, state, instance):
@@ -213,12 +287,21 @@ def main():
                    help="after this many wall seconds, stop the workers at their next node, "
                         "write the checkpoint and exit 3 (default: none)")
     p.add_argument("--workdir", help="keep task files here (default: a temp dir, removed)")
+    p.add_argument("--warm-dir", help="the parent-state store (QAP_DNN_WARM_DIR for the workers: each "
+                   "parent's DNN state once, referenced from the task files; default WORKDIR/warm; "
+                   "'' for inline tokens as before Nov 9)")
+    p.add_argument("--checkpoint-inline", action="store_true",
+                   help="write checkpoints with the DNN states inline instead of references into "
+                   "CHECKPOINT's own warm/ directory (self-contained, for another machine)")
     args = p.parse_args()
 
     solver = os.path.abspath(args.solver)
     sdir = os.path.dirname(solver)
     inst = os.path.abspath(args.instance)
     work = args.workdir or tempfile.mkdtemp(prefix="qap-par-")
+    warm_dir = os.path.abspath(args.warm_dir) if args.warm_dir else ("" if args.warm_dir == "" else os.path.join(os.path.abspath(work), "warm"))
+    if warm_dir:
+        os.makedirs(warm_dir, exist_ok=True)
     os.makedirs(work, exist_ok=True)
     base_cmd = [solver, "-p", args.params] + args.extra.split()
     if args.ub is not None:
@@ -231,7 +314,10 @@ def main():
         print(f"parallel: resuming from {frontier}", flush=True)
     else:
         frontier = os.path.join(work, "frontier.state")
-        r = subprocess.run(base_cmd + ["-d", str(args.depth), "-o", frontier, inst],
+        fenv = dict(os.environ)
+        if warm_dir:
+            fenv["QAP_DNN_WARM_DIR"] = warm_dir   # the frontier's parents go to the store too
+        r = subprocess.run(base_cmd + ["-d", str(args.depth), "-o", frontier, inst], env=fenv,
                            cwd=sdir, capture_output=True, text=True)
         if r.returncode != 0:
             sys.exit(f"frontier pass failed (rc={r.returncode}):\n{r.stdout[-2000:]}{r.stderr}")
@@ -253,6 +339,16 @@ def main():
     task_id = 0
     tasks_run = steals = 0
 
+    incumbent_file = os.path.join(work, "incumbent.txt")
+
+    def publish_incumbent():
+        """the best objective and permutation so far, for the running workers
+        (-U: re-read every 50 nodes; a lower value is adopted)"""
+        tmp = incumbent_file + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(" ".join([repr(best_obj)] + list(best_perm)) + "\n")
+        os.replace(tmp, incumbent_file)
+
     def launch(free_slots):
         nonlocal task_id
         # chunks shrink as the pool does; at least one node per task
@@ -262,7 +358,7 @@ def main():
         path = os.path.join(work, f"task{task_id}.state")
         template.obj, template.perm, template.found = best_obj, best_perm, best_found
         template.write(path, nodes)
-        cmd = base_cmd + ["-r", path, "-o", path]
+        cmd = base_cmd + ["-r", path, "-o", path, "-U", incumbent_file]
         if args.slice > 0:
             cmd += ["-t", str(args.slice)]
         log = open(path + ".log", "w")
@@ -270,6 +366,10 @@ def main():
         # Accelerate (macOS) only reads this variable
         env = dict(os.environ)
         env.setdefault("VECLIB_MAXIMUM_THREADS", "1")
+        if warm_dir:
+            env["QAP_DNN_WARM_DIR"] = warm_dir
+        else:
+            env.pop("QAP_DNN_WARM_DIR", None)
         proc = subprocess.Popen(cmd + [inst], cwd=sdir, stdout=log, stderr=subprocess.STDOUT, env=env)
         log.close()
         # keep the Popen object: if it is garbage-collected, subprocess reaps
@@ -282,7 +382,7 @@ def main():
         nonlocal steals
         now = time.perf_counter()
         cand = [(t0, pid) for pid, (path, t0, asked, proc, _) in running.items()
-                if not asked and now - t0 >= args.steal_after]
+                if not asked and now - t0 >= max(args.steal_after, SIGNAL_GRACE)]
         if not cand:
             return False
         pid = min(cand)[1]
@@ -290,6 +390,20 @@ def main():
         running[pid][2] = True
         steals += 1
         return True
+
+    def collect_store(open_nodes):
+        """delete the store files no open node references and no running
+        worker can be writing (older than the oldest running task's start):
+        from this checkpoint on nothing can need them"""
+        if not warm_dir:
+            return
+        live = {w.ref for _, w in open_nodes if w is not None and w.ref}
+        oldest = min([t0 for _, t0, _, _, _ in running.values()] or [time.perf_counter()])
+        cutoff = time.time() - (time.perf_counter() - oldest) - 1.0
+        for name in os.listdir(warm_dir):
+            path = os.path.join(warm_dir, name)
+            if path not in live and os.path.getmtime(path) < cutoff:
+                os.remove(path)
 
     def write_checkpoint(why):
         """The state at this instant, without stopping anyone: every open node
@@ -299,7 +413,10 @@ def main():
         for v in running.values():
             open_nodes.extend(v[4])
         total.obj, total.perm, total.found = best_obj, best_perm, best_found
-        total.write(os.path.abspath(args.checkpoint), open_nodes)
+        ckpt = os.path.abspath(args.checkpoint)
+        total.write(ckpt, open_nodes, link_dir=None if args.checkpoint_inline else os.path.join(os.path.dirname(ckpt), "warm"),
+                    inline=args.checkpoint_inline)
+        collect_store(open_nodes)
         print(f"parallel: checkpoint ({why}) with {len(open_nodes)} open nodes "
               f"({len(running)} tasks in flight), {total.counters[0]} nodes so far -> {args.checkpoint}",
               flush=True)
@@ -328,8 +445,9 @@ def main():
             draining = True
             print(f"parallel: wall limit {args.wall_limit:.0f} s reached; stopping {len(running)} "
                   f"workers at their next node", flush=True)
+        if draining:   # each worker once it has had time to install its handler
             for pid, v in running.items():
-                if not v[2]:
+                if not v[2] and now - v[1] >= SIGNAL_GRACE:
                     os.kill(pid, signal.SIGUSR1)
                     v[2] = True
         if draining and not running:
@@ -366,6 +484,7 @@ def main():
         if st.obj < best_obj:
             best_obj, best_perm, best_found = st.obj, st.perm, st.found
             print(f"New objective value: {st.obj:.17g}", flush=True)
+            publish_incumbent()
         if rc == 3:
             pool.extend(st.nodes)          # unfinished nodes go back to the pool
         os.remove(path)

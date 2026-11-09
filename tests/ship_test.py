@@ -9,7 +9,8 @@ configuration (parent-Y warm start, cut phase, pool inheritance), on nug20.
 It is solved straight through, then in CPU slices (-t SLICE -o STATE, then
 -r STATE) with ship.bits = 64: every node's DNN trace (bound, primal, status,
 iterations, warm start, pool, cut phase) must equal the straight run's, so a
-resumed search is the same search, and so must the per-level DNN, cut-phase and
+resumed search is the same search (with the states inline in the state file
+and, ship64store, through a parent-state store, QAP_DNN_WARM_DIR), and so must the per-level DNN, cut-phase and
 fathom-cause tables the last slice prints (state version 7 carries them
 through every resume; CPU columns aside). Slices with ship.bits = 32 and 16 and
 without shipping are reported for comparison: their warm-started node count
@@ -19,6 +20,7 @@ and DNN iterations.
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -65,7 +67,9 @@ def run(solver, args, env):
     return r.returncode, r.stdout + r.stderr
 
 
-def sliced(solver, dat, ub, tmp, tag, ship, slice_s):
+def sliced(solver, dat, ub, tmp, tag, ship, slice_s, store=False):
+    """store: the parents' DNN states through a parent-state store
+    (QAP_DNN_WARM_DIR, state version 9) instead of inline in the state file"""
     state = os.path.join(tmp, f"{tag}.state")
     traces, k, rc = [], 0, 3
     flags = FLAGS
@@ -73,10 +77,14 @@ def sliced(solver, dat, ub, tmp, tag, ship, slice_s):
         par = os.path.join(tmp, f"ship{ship}.par")
         envpar.write_par(PAR, {"ship.bits": str(ship)}, par, solver=solver)
         flags = ["-p", par]
+    env = {}
+    if store:
+        env["QAP_DNN_WARM_DIR"] = os.path.join(tmp, f"{tag}.warm")
+        os.makedirs(env["QAP_DNN_WARM_DIR"], exist_ok=True)
     args = flags + ["-u", str(ub), "-o", state, "-t", str(slice_s), dat]
     while rc == 3:
         traces.append(os.path.join(tmp, f"{tag}.{k}.trace"))
-        rc, out = run(solver, args, {"QAP_DNN_TRACE": traces[-1]})
+        rc, out = run(solver, args, dict(env, QAP_DNN_TRACE=traces[-1]))
         args = flags + ["-o", state, "-t", str(slice_s), "-r", state, dat]
         k += 1
     sizes = os.path.getsize(state) if os.path.exists(state) else 0
@@ -106,9 +114,17 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--solver", default=os.path.join(ROOT, "latest", "bnbdrv"))
     p.add_argument("--slice", type=float, default=3.0, help="CPU seconds per slice")
+    p.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                   help="a [settings] key on top of tests/par/ship.par, for every run (repeat); to find "
+                        "which setting breaks a stop and resume")
     a = p.parse_args()
     solver = os.path.abspath(a.solver)
     tmp = tempfile.mkdtemp(prefix="qap-ship-")
+    global PAR, FLAGS
+    if a.set:
+        par = os.path.join(tmp, "case.par")
+        envpar.write_par(PAR, dict(kv.split("=", 1) for kv in a.set), par, solver=solver)
+        PAR, FLAGS = par, ["-p", par]
     name, ub = CASE
     dat = os.path.join(ROOT, "qaplib", name + ".dat")
 
@@ -126,8 +142,8 @@ def main():
     print(f"straight: {len(ref)} DNN nodes, {w0} warm-started, {it0:,} DNN iterations")
 
     failures = 0
-    for tag, ship in (("ship64", 64), ("ship32", 32), ("ship16", 16), ("noship", 0)):
-        rc, k, rows, out, size = sliced(solver, dat, ub, tmp, tag, ship, a.slice)
+    for tag, ship in (("ship64", 64), ("ship64store", 64), ("ship32", 32), ("ship16", 16), ("noship", 0)):
+        rc, k, rows, out, size = sliced(solver, dat, ub, tmp, tag, ship, a.slice, store=tag.endswith("store"))
         if rc != 0:
             print(f"FAIL {tag}: slice {k} exited {rc}\n{out[-2000:]}")
             failures += 1
@@ -154,9 +170,7 @@ def main():
                       + ("" if bad_tables else f", and the {len(tables)} level tables"))
         else:
             print(f"     {line}")
-    for f in os.listdir(tmp):
-        os.remove(os.path.join(tmp, f))
-    os.rmdir(tmp)
+    shutil.rmtree(tmp)
     return 1 if failures else 0
 
 

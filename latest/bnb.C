@@ -42,14 +42,31 @@ static void read_incumbent_file(QAPSolution *s, int n)
   if (!f) return;
   double obj;
   if (fscanf(f, "%lf", &obj) == 1 && obj < s->getObjective()) {
+    // "obj" alone is a value without its solution; "obj p0 .. p(n-1)" must be a
+    // permutation (a partial or invalid one is a damaged file: the value is
+    // not adopted either, since nothing says which objective it belongs to)
     std::vector<int> p(n), seen(n, 0);
-    bool perm = true;
-    for (int i = 0; i < n && perm; i++)
-      perm = fscanf(f, "%d", &p[i]) == 1 && p[i] >= 0 && p[i] < n && !seen[p[i]]++;
-    s->setObjective(obj);
-    if (perm) s->setPermutation(p.data());
-    std::cout << "incumbent from file: " << std::setprecision(17) << obj
-              << std::setprecision(6) << (perm ? "" : " (no permutation)") << std::endl;
+    int given = 0;
+    bool valid = true;
+    for (int i = 0; i < n && valid; i++) {
+      if (fscanf(f, "%d", &p[i]) != 1) break;
+      given++;
+      valid = p[i] >= 0 && p[i] < n && !seen[p[i]]++;
+    }
+    if (given == 0) {
+      s->setObjective(obj);
+      s->ifs_found = 0;   // the printed permutation would belong to an older objective
+      std::cout << "incumbent from file: " << std::setprecision(17) << obj
+                << std::setprecision(6) << " (no permutation)" << std::endl;
+    } else if (valid && given == n) {
+      s->setObjective(obj);
+      s->setPermutation(p.data());
+      s->ifs_found = 1;
+      std::cout << "incumbent from file: " << std::setprecision(17) << obj << std::setprecision(6) << std::endl;
+    } else {
+      std::cerr << "incumbent file " << bnb_incumbent_file << ": " << obj
+                << " with a partial or invalid permutation; ignored" << std::endl;
+    }
   }
   fclose(f);
 }

@@ -10,7 +10,7 @@
 #include <vector>
 
 static const char *STATE_MAGIC = "QAP-STATE";
-static const int STATE_VERSION = 8;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts, 7: no settings record (all still read)
+static const int STATE_VERSION = 9;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts, 7: no settings record, 8: no @path DNN references (all still read)
 bool state_allow_settings_change = false;   // driver.C --allow-settings-change: a settings mismatch on -r is a warning
 
 // version 7: by level, the DNN bound, its cut phase and the nodes discarded
@@ -21,6 +21,7 @@ static const char *const CUT_LEVEL_CTRS[] = {"cut_n_level", "cut_f_level"};
 #ifdef HAVE_DNN
 #include "dnn.h"
 #include <cstdint>
+#include <unistd.h>
 #include <cstdlib>
 #include "settings.h"
 
@@ -32,7 +33,7 @@ static const char *const CUT_LEVEL_CTRS[] = {"cut_n_level", "cut_f_level"};
  QAP_DNN_SHIP=16 (bf16), 32 (fp32) or 64 (the exact doubles, for tests:
  a resumed run is then the same run); otherwise, and when the parent has
  none, the token is "-". Token:
-   dnn<bits>:<m>:<scale>:<hasY>:<base64 of the upper triangles, Z then Y>
+   dnn<bits>:<m>:<scale>:<hasY>:<base64 of Z then Y: the upper triangles at 16 and 32 bits, the whole matrices at 64>
  It only moves where a child's ADMM starts: every bound stays certified.
 */
 static int dnn_ship_bits()
@@ -131,16 +132,104 @@ static std::string dnn_token(const WarmStart *w)
   const size_t n1 = (size_t)d.m * d.m + 1;
   if (d.m < 1 || d.Z.size() != n1 * n1 || !(d.scale > 0)) return "-";
   const bool hasY = d.Y.size() == n1 * n1;
+  // 64 bits ships the whole matrix: since DNN_CORE_NOSYMV (the default since
+  // Nov 8 2026) Z and Y are symmetric to rounding only, and the child's warm
+  // start reads both triangles, so an upper triangle mirrored on read is not
+  // the parent's state (the ship64 test caught it). 16 and 32 bits are lossy
+  // anyway and keep the triangle. The reader tells the layouts apart by length.
+  const bool full = bits == 64;
   std::vector<unsigned char> b;
-  b.reserve(n1 * (n1 + 1) / 2 * (hasY ? 2 : 1) * (bits / 8));
+  b.reserve((full ? n1 * n1 : n1 * (n1 + 1) / 2) * (hasY ? 2 : 1) * (bits / 8));
   for (int pass = 0; pass < (hasY ? 2 : 1); pass++) {
     const std::vector<double> &M = pass == 0 ? d.Z : d.Y;
     for (size_t i = 0; i < n1; i++)
-      for (size_t j = i; j < n1; j++) put_value(b, M[i * n1 + j], bits);
+      for (size_t j = full ? 0 : i; j < n1; j++) put_value(b, M[i * n1 + j], bits);
   }
   char head[96];
   snprintf(head, sizeof head, "dnn%d:%d:%.17g:%d:", bits, d.m, d.scale, hasY ? 1 : 0);
   return head + b64_encode(b);
+}
+
+// ---- the parent-state store (QAP_DNN_WARM_DIR; docs/parent_state_store.md)
+// With the variable set, a parent's DNN token goes to <dir>/<fnv64>.dnn once
+// and the warm line carries "@<path>" (relative to the state file's directory
+// when the store is under it, absolute otherwise); a reader takes the token
+// from that file. Two writers of the same parent write the same bytes to the
+// same name (a temporary file renamed into place), so the second is a no-op;
+// a hash collision only costs a wrong warm start's worth of iterations, never
+// a wrong bound (every bound is certified from wherever the ADMM starts).
+
+static std::string dir_of(const std::string &path)
+{
+  size_t k = path.find_last_of('/');
+  return k == std::string::npos ? std::string(".") : (k == 0 ? std::string("/") : path.substr(0, k));
+}
+
+static std::string absolute(const std::string &path)
+{
+  if (!path.empty() && path[0] == '/') return path;
+  char cwd[4096];
+  if (!getcwd(cwd, sizeof cwd)) return path;
+  return std::string(cwd) + "/" + path;
+}
+
+static std::string fnv64_hex(const std::string &s)
+{
+  uint64_t h = 1469598103934665603ULL;
+  for (size_t i = 0; i < s.size(); i++) { h ^= (unsigned char)s[i]; h *= 1099511628211ULL; }
+  char b[24];
+  snprintf(b, sizeof b, "%016llx", (unsigned long long)h);
+  return b;
+}
+
+// the token field for the warm line of a state file at `state_path`: a
+// reference into the store, or the inline token when there is no store
+static std::string dnn_field(const WarmStart *w, const std::string &state_path)
+{
+  const char *dir = setting_s("QAP_DNN_WARM_DIR");
+  if (!*dir || !w->dnn) { w->dnn_ref.clear(); return dnn_token(w); }
+  if (w->dnn_ref.empty()) {
+    const std::string tok = dnn_token(w);
+    if (tok == "-") return tok;
+    const std::string store = absolute(dir);
+    const std::string path = store + "/" + fnv64_hex(tok) + ".dnn";
+    std::ifstream probe(path.c_str());
+    if (!probe) {
+      char tmp[4600];
+      snprintf(tmp, sizeof tmp, "%s.%d.tmp", path.c_str(), (int)getpid());
+      std::ofstream o(tmp);
+      o << tok << '\n';
+      o.close();
+      if (!o || rename(tmp, path.c_str()) != 0) {
+        std::cerr << "write_state: cannot write " << path << " (QAP_DNN_WARM_DIR); the token goes inline" << std::endl;
+        remove(tmp);
+        return tok;
+      }
+    }
+    w->dnn_ref = path;
+  }
+  // relative to the state file's directory when the store is under it
+  const std::string sdir = absolute(dir_of(state_path));
+  const std::string base = sdir == "/" ? sdir : sdir + "/";
+  if (w->dnn_ref.compare(0, base.size(), base) == 0) return "@" + w->dnn_ref.substr(base.size());
+  return "@" + w->dnn_ref;
+}
+
+// the token behind a warm line's field, reading the store when it is a
+// reference; sets `ref` to the file's absolute path then, "" otherwise
+static bool dnn_field_token(const std::string &field, const std::string &state_path, std::string &tok, std::string &ref)
+{
+  ref.clear();
+  if (field.empty() || field[0] != '@') { tok = field; return true; }
+  std::string path = field.substr(1);
+  if (path.empty()) return false;
+  if (path[0] != '/') path = absolute(dir_of(state_path)) + "/" + path;
+  std::ifstream f(path.c_str());
+  if (!f) { std::cerr << "read_state: cannot open the DNN state file " << path << std::endl; return false; }
+  std::getline(f, tok);
+  if (tok.empty()) return false;
+  ref = path;
+  return true;
 }
 
 static DNNWarm *dnn_from_token(const std::string &t)
@@ -153,16 +242,22 @@ static DNNWarm *dnn_from_token(const std::string &t)
   std::vector<unsigned char> b;
   if (!b64_decode(t.c_str() + used, t.size() - used, b)) return NULL;
   const size_t n1 = (size_t)m * m + 1, tri = n1 * (n1 + 1) / 2, bytes = (size_t)bits / 8;
-  if (b.size() != tri * (hasY ? 2 : 1) * bytes) return NULL;
+  const size_t nm = hasY ? 2 : 1;
+  const bool full = b.size() == n1 * n1 * nm * bytes;   // the whole matrix (64 bits) or the upper triangle
+  if (!full && b.size() != tri * nm * bytes) return NULL;
   DNNWarm *d = new DNNWarm;
   d->m = m;
   d->scale = scale;
   const unsigned char *p = b.data();
-  for (int pass = 0; pass < (hasY ? 2 : 1); pass++) {
+  for (int pass = 0; pass < (int)nm; pass++) {
     std::vector<double> &M = pass == 0 ? d->Z : d->Y;
     M.assign(n1 * n1, 0.0);
-    for (size_t i = 0; i < n1; i++)
-      for (size_t j = i; j < n1; j++, p += bytes) M[i * n1 + j] = M[j * n1 + i] = get_value(p, bits);
+    if (full) {
+      for (size_t t = 0; t < n1 * n1; t++, p += bytes) M[t] = get_value(p, bits);
+    } else {
+      for (size_t i = 0; i < n1; i++)
+        for (size_t j = i; j < n1; j++, p += bytes) M[i * n1 + j] = M[j * n1 + i] = get_value(p, bits);
+    }
   }
   return d;
 }
@@ -254,7 +349,7 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
     f << ' ' << w->dnn_ext;   // version 4: QAP_DNN_EXT levels left below a last-level miss
     f << ' ' << (w->dnn_pool.empty() ? std::string("-") : w->dnn_pool);   // version 5: the cut pool
 #ifdef HAVE_DNN
-    f << ' ' << dnn_token(w);   // version 6: the parent's DNN state (QAP_DNN_SHIP)
+    f << ' ' << dnn_field(w, file);   // version 6: the parent's DNN state (ship.bits); version 9: or @path into the store
 #else
     f << " -";
 #endif
@@ -403,14 +498,18 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
       if (ok && version >= 6) ok = (bool)(f >> dnn);
 #ifdef HAVE_DNN
       DNNWarm *dw = NULL;
-      if (ok && dnn != "-") ok = (dw = dnn_from_token(dnn)) != NULL;
+      std::string ref;
+      if (ok && dnn != "-") {
+	std::string tok;
+	ok = dnn_field_token(dnn, file, tok, ref) && (dw = dnn_from_token(tok)) != NULL;
+      }
 #endif
       if (ok) {
 	warms.push_back(new_warm_start(wp, n, X));
 	warms.back()->dnn_ext = ext;
 	if (pool != "-") warms.back()->dnn_pool = pool;
 #ifdef HAVE_DNN
-	if (dw) { warms.back()->dnn = dw; warms.back()->dnn_free = free_dnn_state; }
+	if (dw) { warms.back()->dnn = dw; warms.back()->dnn_free = free_dnn_state; warms.back()->dnn_ref = ref; }
 #endif
       }
       delete [] wp;

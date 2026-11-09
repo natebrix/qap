@@ -1,6 +1,19 @@
 # A parent-state store for the coordinator (review item C2)
 
-Design note, Nov 8 2026. Nothing here is implemented yet.
+Design note, Nov 8 2026. **Implemented Nov 9** as designed, with these
+choices: the setting is the run-class environment variable `QAP_DNN_WARM_DIR`
+(the registry, `RUNNING.md` "Settings"); the file name is the 64-bit FNV-1a of
+the token (dedup only; a collision costs a warm start, never a bound); a
+reference is relative to the state file's directory when the store is under
+it, absolute otherwise; `parallel.py` resolves references on read, writes
+task files with them, links or copies the referenced files into a
+checkpoint's own `warm/` directory, deletes from the store at every
+checkpoint the files no open node references and no running worker can still
+be writing (older than the oldest running task's start), and has
+`--checkpoint-inline`. `make shipcheck` (`ship64store`) checks a stop and
+resume through the store is the same search node for node. The `coord/`
+coordinator does not set the variable and so keeps self-contained unit files;
+giving it a store is a separate step (its backends are S3 and local files).
 
 ## The problem
 
@@ -8,7 +21,8 @@ Since Nov 8 the solver ships each branched node's final DNN state to its
 children (`QAP_DNN_SHIP=32` is the default; `state.C`, token
 `dnn32:<m>:<scale>:<hasY>:<base64>`). At m = 40 the token is the upper
 triangles of Z and Y, 2 x 1601 x 1602 / 2 fp32 values, 10.3 MB, 13.7 MB as
-base64. The warm line carries it every time the parent is written:
+base64 (at 64 bits, the exact test setting, the whole matrices: Z and Y are
+symmetric to rounding only since `DNN_CORE_NOSYMV`). The warm line carries it every time the parent is written:
 
 - `bench/parallel.py` writes a task file for every launch. A task's nodes
   usually share a few parents, but with 349 tasks on nug30 and thousands on
