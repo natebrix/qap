@@ -1,0 +1,39 @@
+# taskset -c 3 /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/gate/b_fix/latest/bnbdrv -p /home/user/qap/.claude/worktrees/agent-abe2ac37e80fb6b2b/latest/PARAM/nug_deep_xbar9_all.par -x 1:4:1:300:1 -s /home/user/qap/.claude/worktrees/agent-abe2ac37e80fb6b2b/latest/SYM/wil50t.sym -u 48816.0 -d 0 -o /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/gate/runs/fix/r/out.state /home/user/qap/.claude/worktrees/agent-abe2ac37e80fb6b2b/qaplib/wil50t.dat
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/.claude/worktrees/agent-abe2ac37e80fb6b2b/latest/PARAM/nug_deep_xbar9_all.par
+DNN bound at depths 1-4, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, OpenBLAS (prefix 'scipy_')
+symmetry file: /home/user/qap/.claude/worktrees/agent-abe2ac37e80fb6b2b/latest/SYM/wil50t.sym
+incumbent: 48816
+max_depth has been set to 0
+state file: /tmp/claude-0/-home-user-qap/f096d970-f4ab-52d1-8c70-e0605bd8cf8a/scratchpad/gate/runs/fix/r/out.state
+input file: /home/user/qap/.claude/worktrees/agent-abe2ac37e80fb6b2b/qaplib/wil50t.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+read symmetry info from /home/user/qap/.claude/worktrees/agent-abe2ac37e80fb6b2b/latest/SYM/wil50t.sym
+  ---- RESULTS ----
+
+    Total Time: 1.08597 seconds 
+         Nodes: 1 / 0 / 0
+    root bound: 46131.5
+ fw iterations: 11350
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    1.09
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+nodes       1        0        0        0 
+time     1.09     0.00     0.00     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+
