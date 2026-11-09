@@ -105,9 +105,9 @@ double qpbnd2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   up_bound =  1.0e99;
   lo_bound = -1.0e99;
 
-  xstar = new int[X->n];
-  // init gradient G
-  G = m_get(X->m,X->n);
+  QPBWork &qw = qpb_work(X->n);
+  xstar = qw.xstar;
+  G = qw.G;   // the gradient, zeroed
 
   if(is_uniform(X)) {
     init_gradient(A,B,C,G,C_X,G_X,X->n);
@@ -143,8 +143,6 @@ double qpbnd2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
 	 s_init.elapsed(),s_fw.elapsed(),
 	 s_update.elapsed(),s_lap.elapsed());
   */
-  delete [] xstar;
-  M_FREE(G);
   M_FREE(S);  M_FREE(T);
   V_FREE(s);  V_FREE(t);
 
@@ -174,9 +172,9 @@ double qpbnd_parametric2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   up_bound =  1.0e99;
   lo_bound =  INIT_LOBND;
 
-  xstar = new int[X->n];
-  // init gradient G
-  G = m_get(X->m,X->n);
+  QPBWork &qw = qpb_work(X->n);
+  xstar = qw.xstar;
+  G = qw.G;   // the gradient, zeroed
 
   if(is_uniform(X)) {
     init_gradient(A,B,C,G,C_X,G_X,X->n);
@@ -220,12 +218,9 @@ double qpbnd_parametric2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   }
   qpbp->fw_iter += total_iter;
 
-  delete [] xstar;
   V_FREE(t);
-  V_FREE(s);  
-
-  M_FREE(G);
-  M_FREE(S);  
+  V_FREE(s);
+  M_FREE(S);
   M_FREE(T);
 
 

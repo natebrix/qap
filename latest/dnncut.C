@@ -221,6 +221,40 @@ void aggregate(const Region &S, const std::vector<double> &Y, const Lift &lift, 
     }
 }
 
+// the moments of every region in one sweep over Y (review E9, Nov 9): for each
+// pair (a, b) of region-side elements the regions holding both, so Y's block
+// (a, b) is read once and added to each of them. Per region the sums run over
+// a, then b, in ascending order, as aggregate() does when S.loc is ascending,
+// so the moments are aggregate()'s to the bit; aggregate() stays as the
+// self-test's oracle.
+void aggregate_all(const std::vector<Region> &regions, const std::vector<double> &Y, const Lift &lift,
+                   int n1, std::vector<std::vector<double>> &P, std::vector<std::vector<double>> &WW)
+{
+  const int m = lift.m, R = (int)regions.size();
+  P.assign(R, {}); WW.assign(R, {});
+  for (int s = 0; s < R; s++) { P[s].assign(m, 0.0); WW[s].assign((size_t)m * m, 0.0); }
+  std::vector<std::vector<char>> in(R, std::vector<char>(m, 0));
+  for (int s = 0; s < R; s++) for (int a : regions[s].loc) in[s][a] = 1;
+  std::vector<std::vector<int>> both((size_t)m * m);   // regions holding both a and b
+  for (int a = 0; a < m; a++)
+    for (int b = 0; b < m; b++)
+      for (int s = 0; s < R; s++) if (in[s][a] && in[s][b]) both[(size_t)a * m + b].push_back(s);
+  for (int a = 0; a < m; a++)
+    for (int i = 0; i < m; i++) {
+      const size_t r = lift(a, i);
+      const double *yr = &Y[r * n1];
+      for (int s : both[(size_t)a * m + a]) P[s][i] += yr[r];
+      for (int b = 0; b < m; b++) {
+        const std::vector<int> &regs = both[(size_t)a * m + b];
+        if (regs.empty()) continue;
+        for (int j = 0; j < m; j++) {
+          const double v = yr[lift(b, j)];
+          for (int s : regs) WW[s][(size_t)i * m + j] += v;
+        }
+      }
+    }
+}
+
 // ---- 5-point count inequalities (type 4). For T = {a..e}, the flip set F
 // and alpha, with z'_i = 1 - z_i on F and q' = sum_T z'_i, the inequality
 // (q' - alpha)(q' - alpha - 1) >= 0 reads, in the moments p_i = E z_i and
@@ -659,6 +693,10 @@ public:
   std::vector<double> Pag, Wag;    // moments of the current y, per region (W: i < j used)
   std::vector<double> CPs, CWs;    // sum_t nu_t c_t per region (the P-step's G'nu)
   std::vector<double> Csig, Dsig, Gsig, Gdsig;   // per sigma: 1/2 sum CW, sum CP; block sums of y
+  // scratch of dense_term and cert_term_at (review E10, Nov 9: no allocation per check)
+  mutable std::vector<long double> dt_cp, dt_cw, dt_cs, dt_ds;
+  mutable std::vector<std::vector<double>> dt_C, dt_D;
+  mutable std::vector<double> ct_nu;
   double beta_last = 0;
   // diagnostics of the last Y-step (trace)
   double last_viol = 0, last_dstep = 0, last_rnorm = 0;
@@ -1079,7 +1117,8 @@ public:
                   bool signed_ = false) const
   {
     const size_t mm = (size_t)m * m;
-    std::vector<long double> cp((size_t)R * m, 0.0L), cw((size_t)R * mm, 0.0L);
+    std::vector<long double> &cp = dt_cp, &cw = dt_cw;
+    cp.assign((size_t)R * m, 0.0L); cw.assign((size_t)R * mm, 0.0L);
     long double hs = 0, hab = 0, ab = 0;
     bool any = false;
     for (size_t t = 0; t < cuts.size(); t++) {
@@ -1100,9 +1139,10 @@ public:
     if (!any) { hsum = 0; abs_add = 0; return false; }
     // per sigma: 1/2 sum of the regions' W coefficients (symmetric), sum of the p ones
     const size_t ns = nsig();
-    std::vector<long double> cs(mm), ds(m);
-    std::vector<double> csd(mm), dsd(m);
-    std::vector<std::vector<double>> C(ns), D(ns);
+    std::vector<long double> &cs = dt_cs, &ds = dt_ds;
+    cs.resize(mm); ds.resize(m);
+    std::vector<std::vector<double>> &C = dt_C, &D = dt_D;
+    C.resize(ns); D.resize(ns);
     for (size_t g = 0; g < ns; g++) {
       std::fill(cs.begin(), cs.end(), 0.0L); std::fill(ds.begin(), ds.end(), 0.0L);
       for (int s : sig_reg[g])
@@ -1164,7 +1204,8 @@ public:
   int cert_term_at(int slot, double *Ladd, double &abs_add, double &hsum) override
   {
     if (slot < 0 || slot > 1 || snap_gen[slot] != gen) return -1;
-    std::vector<double> v = snap_nu[slot];
+    std::vector<double> &v = ct_nu;
+    v = snap_nu[slot];
     v.resize(cuts.size(), 0.0);
     return dense_term(snap_f[slot], v, Ladd, abs_add, hsum) ? 1 : 0;
   }
@@ -1392,9 +1433,8 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     };
     auto bound_memory = [&]() { trim(found, cp.kcuts); };
     if (regional) {
-      P.assign(regions.size(), {}); WW.assign(regions.size(), {});
+      aggregate_all(regions, Y, lift, n1, P, WW);
       for (size_t s = 0; s < regions.size(); s++) {
-        aggregate(regions[s], Y, lift, n1, P[s], WW[s]);
         double rmax = -HUGE_VAL; size_t rn = 0;
         for (int i = 0; i < m; i++)
           for (int j = i + 1; j < m; j++)
@@ -2157,11 +2197,12 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   pj.sweeps = std::max(1, cp.cp_sweeps); pj.passes = std::max(1, cp.cp_passes);
   {
     const int R = (int)regions.size();
-    std::vector<double> Pm((size_t)R * m, 0.0), Wm((size_t)R * mm, 0.0), p, W;
+    std::vector<double> Pm((size_t)R * m, 0.0), Wm((size_t)R * mm, 0.0);
+    std::vector<std::vector<double>> P, WW;
+    aggregate_all(regions, warm->Y, lift, n1, P, WW);   // one sweep over Y for every region (E9)
     for (int s = 0; s < R; s++) {
-      aggregate(regions[s], warm->Y, lift, n1, p, W);
-      std::copy(p.begin(), p.end(), Pm.begin() + (size_t)s * m);
-      std::copy(W.begin(), W.end(), Wm.begin() + s * mm);
+      std::copy(P[s].begin(), P[s].end(), Pm.begin() + (size_t)s * m);
+      std::copy(WW[s].begin(), WW[s].end(), Wm.begin() + s * mm);
     }
     pj.sep_k = std::max(0, cp.kcuts);
     if (pj.sep_k > 0) pj.separate(0, Pm, Wm);

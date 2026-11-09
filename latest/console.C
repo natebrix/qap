@@ -1,6 +1,5 @@
 #include "util.h"
 #include "linalg.h"
-#include "lap.h"
 #include "bnb.h"
 #include "console.h"
 #include "stats.h"

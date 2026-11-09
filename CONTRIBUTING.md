@@ -98,7 +98,7 @@ changes to branching, lookahead or bound strategy, also log a `large` run
 
 - Match the surrounding style: C++ in `.C` / `.h` files, built with the plain
   makefile.
-- If you change anything that feeds a bound (`fw.C`, `qpbnd*.C`, `lap.C`,
+- If you change anything that feeds a bound (`fw.C`, `qpbnd*.C`, `dlap.C`,
   `dlap.C`, `linalg.C`, `branch.C`), run the brute-force test with a few
   seeds (`--seed 2`, `--seed 3`), not just the default.
 - Don't commit build output (`*.o`, `*.a`, `bnbdrv`), `bench/results/` or

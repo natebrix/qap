@@ -22,7 +22,6 @@ static const char *qap_version_info = "[Jan 1, 2023]";
 
 
 // If we can only solve LAPs with integer input, define this
-//#define INTEGER_LAP
 
 // If the EVB3 code is available (in dir EVB3), define this
 //#define HAVE_EVB3

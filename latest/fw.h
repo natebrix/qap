@@ -58,7 +58,7 @@ Contains code to solve the quadratic program
                  [bound,up_bound].
 
   mult:          scale LAPs by this factor before solving (but only if
-                 INTEGER_LAP is defined)
+                 removed Nov 9 with the integer LAP)
 
   save_best:     if true, return the bound,X,U corresponding the largest
                  lower bound, otherwise just return the last bnd.
@@ -81,7 +81,7 @@ const int CONTINUE  =  1;
 const int MAX_ITER  =  2;
 
 #include "mat.h"
-#include "lap.h"
+#include "dlap.h"
 #include "dlap.h"
 
 void gradient(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,

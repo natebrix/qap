@@ -30,7 +30,7 @@ INCLUDES = -I$(EVB3) -I./
  
 LDLIBS = -lm
 
-OBJS = qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o \
+OBJS = qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o \
        solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o \
        sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o
 

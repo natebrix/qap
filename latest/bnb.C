@@ -1,7 +1,6 @@
 #include <cstdlib>
 #include "util.h"
 #include "linalg.h"
-#include "lap.h"
 #include "bnb.h"
 #include "stats.h"
 #include "solution.h"

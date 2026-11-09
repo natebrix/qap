@@ -26,6 +26,7 @@
 #include "linalg.h"
 #include "qpbnd.h"
 #include "qpbnd2.h"
+#include "dlap.h"
 #include "lgb_train.h"
 #include <fstream>
 #include <string>
@@ -386,8 +387,14 @@ The contents of X are modified.
 */
 void find_best_match(MAT *X, int *p)
 {
-  // might want to use FP LAP solve...
-  lap_jv(X->me,p,X->m,-100.0);
+  // maximize <X, P>: the double LAP on -X (was the integer LAP on -100 X,
+  // which truncated; review B5, Nov 9)
+  const int n = X->m;
+  std::vector<int> ip(n);
+  std::vector<double> ys(n), yt(n);
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++) X->me[i][j] = -X->me[i][j];
+  dlap(n, X->me, p, ip.data(), ys.data(), yt.data(), 1.0);
 }
 
 /*

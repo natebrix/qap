@@ -9,11 +9,12 @@
   to elimiate unnecessary O(n^3) work.
 
   4/5/00: can either use integer or fp LAP solver...#define
-          INTEGER_LAP in util.h to use integer LAP solves.
+          (the integer LAP solver was removed Nov 9; dlap.C is the solver)
 
  */
 
 #include <stdio.h>
+#include <vector>
 #include <math.h>
 
 #include "fw.h"
@@ -240,6 +241,22 @@ void gradient(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,
 static int nz_n = 0, *nz_cnt = 0, *nz_col = 0;
 static double *nz_val = 0;
 
+// Per-size workspace of fw() (review E11, Nov 9): fw() runs once per node and
+// once per child under rules 4, 7 and 9, and allocated dG, inv_xstar, ys and yt
+// on every call (m_get/m_free were 7.3% of nug20, docs/meschach_removal.md).
+// Zeroed at each entry, as m_get's storage was, so the search is unchanged.
+struct FWWork { MAT *dG = MNULL; int *inv_xstar = 0; double *ys = 0, *yt = 0; };
+static FWWork &fw_work(int n)
+{
+  static std::vector<FWWork> ws;
+  if ((int)ws.size() <= n) ws.resize(n + 1);
+  FWWork &w = ws[n];
+  if (!w.dG) { w.dG = m_get(n, n); w.inv_xstar = new int[n]; w.ys = new double[n]; w.yt = new double[n]; }
+  else m_zero(w.dG);
+  for (int i = 0; i < n; i++) { w.inv_xstar[i] = 0; w.ys[i] = 0; w.yt[i] = 0; }
+  return w;
+}
+
 static void a_nonzeros(double **a, int n)
 {
   if (n > nz_n) {
@@ -355,16 +372,6 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
   double G_D, dG_D, dG_X;
   int *inv_xstar, *xstar_old = NULL;
   double *ys, *yt;                       // dual variables of LAP
-#ifdef INTEGER_LAP
-  int **D0;
-  int *ys_int, *yt_int; 
-
-  ys_int = new int[n];  yt_int = new int[n];
-  
-  D0 = new int*[n];
-  for(j=0;j<n;j++)
-    D0[j] = new int[n];
-#endif
 
   bnd_used = -100;
 
@@ -372,10 +379,8 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
   MAT *U_old=MNULL;
 
   a_nonzeros(A->me, n);
-  dG = m_get(n,n);
-  //  xstar = new int[n];   
-  inv_xstar = new int[n];
-  ys = new double[n];   yt = new double[n];
+  FWWork &ws = fw_work(n);
+  dG = ws.dG;  inv_xstar = ws.inv_xstar;  ys = ws.ys;  yt = ws.yt;
 
   status = CONTINUE;  
   done = false;
@@ -384,14 +389,9 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
   for(ier=1;(ier<=maxit)&&(!done);ier++)
     {
       //      s_lap.go();
-#ifdef INTEGER_LAP
-      obj = lap_jv(G->me,D0,xstar,inv_xstar,ys,ys_int,yt,yt_int,
-		   n,scaling); 
-#else
       // after the first iteration, start from the previous column prices yt:
       // G only moved by alpha*dG, so they are nearly optimal
       obj = dlap(n,G->me,xstar,inv_xstar,ys,yt,augment_tol,ier > 1);
-#endif
       //      s_lap.stop();
 
       // (the search direction is D = X - diag(xstar))
@@ -405,13 +405,8 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
       // [G_X was updated at the end of the last iteration]
       // [dG_X was computed by deltaG]
       // [dG_D was computed by deltaG]
-#ifdef INTEGER_LAP
-      G_D  = mm_trace_alt(G,xstar)  -  G_X;
-      obj = obj - G_X;
-#else
       G_D  = obj  -  G_X;
       obj  = obj  -  G_X;
-#endif
 
       // If X is already the LAP vertex, the direction is zero and G_D = dG_D = 0.
       // 0/0 is NaN, which slips past every comparison below and poisons X, the
@@ -562,16 +557,7 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
 
   if(improve)   {    M_FREE(U_old); delete [] xstar_old;  } 
 
-  M_FREE(dG); 
-  delete [] inv_xstar;
-  delete [] ys; delete [] yt;
 
-#ifdef INTEGER_LAP
-  delete [] ys_int; delete [] yt_int;
-  for(j=0;j<n;j++)
-    delete [] D0[j];
-  delete [] D0;
-#endif
 }
 
 

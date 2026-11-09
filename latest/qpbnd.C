@@ -4,6 +4,8 @@
 #include "util.h"
 #include "linalg.h"
 #include <fstream>
+#include <vector>
+#include <cstring>
 
 #ifdef TIME_STUFF
 stopwatch s_init,s_fw,s_update,s_lap,s_dir;
@@ -216,6 +218,62 @@ void update_basis(VEC *w,VEC *u,VEC *g_in,VEC *h_in,VEC *s,VEC *t)
 ====================================================================== 
 */
 
+// The eigendecomposition of V'AV (and V'BV) behind W and U (review E13, Nov 9).
+// It depends on A alone, and the children of a node that branches on a facility
+// all have the parent's A less the same row and column, so a depth-first search
+// bounds them with the same A one after another, their subtrees (smaller n) in
+// between: one entry per size n, the last A seen at that size, serves every
+// sibling. Column branching does the same for B. The cached result is copied
+// out (the callers free W, U, w, u), bitwise what the computation gives.
+namespace {
+struct EigEntry { MAT *key = MNULL; VEC *vals = VNULL; MAT *vecs = MNULL; };
+std::vector<EigEntry> eig_cache_A, eig_cache_B;
+long eig_hits = 0, eig_misses = 0;
+
+bool same_matrix(const MAT *a, const MAT *b)
+{
+  if (!a || !b || a->m != b->m || a->n != b->n) return false;
+  for (unsigned i = 0; i < a->m; i++)
+    if (memcmp(a->me[i], b->me[i], a->n * sizeof(double)) != 0) return false;
+  return true;
+}
+
+// w (sorted) and W = rows of the eigenvectors of V'AV in that order
+void eig_of(MAT *A, bool descending, std::vector<EigEntry> &cache, VEC *&w, MAT *&W)
+{
+  const int n = A->m;
+  if ((int)cache.size() <= n) cache.resize(n + 1);
+  EigEntry &e = cache[n];
+  if (same_matrix(e.key, A)) {
+    eig_hits++;
+    w = v_get(n-1);  memcpy(w->ve, e.vals->ve, (n-1) * sizeof(double));
+    W = m_get(n-1,n-1);
+    for (int i = 0; i < n-1; i++) memcpy(W->me[i], e.vecs->me[i], (n-1) * sizeof(double));
+    return;
+  }
+  eig_misses++;
+  std::vector<int> order(n-1);
+  for (int k = 0; k < n-1; k++) order[k] = k;
+  MAT *A1 = m_get(n-1,n-1);
+  vtav(A,A1);
+  w = v_get(n-1);
+  my_svd(A1,w);
+  if (descending) ins_sort_descending(w->ve, order.data(), n-1);
+  else ins_sort_ascending(w->ve, order.data(), n-1);
+  W = m_get(n-1,n-1);  permrows(A1,order.data(),W);   // W[k] = A1[order[k]]
+  M_FREE(A1);
+  if (!e.key || (int)e.key->m != n) {
+    M_FREE(e.key); V_FREE(e.vals); M_FREE(e.vecs);
+    e.key = m_get(n,n); e.vals = v_get(n-1); e.vecs = m_get(n-1,n-1);
+  }
+  for (int i = 0; i < n; i++) memcpy(e.key->me[i], A->me[i], n * sizeof(double));
+  memcpy(e.vals->ve, w->ve, (n-1) * sizeof(double));
+  for (int i = 0; i < n-1; i++) memcpy(e.vecs->me[i], W->me[i], (n-1) * sizeof(double));
+}
+} // namespace
+
+void init_ST_cache_stats(long &hits, long &misses) { hits = eig_hits; misses = eig_misses; }
+
 double init_ST(MAT *A,MAT *B,MAT *C,
 	       VEC *&w,VEC *&u,MAT *&W,MAT *&U,VEC *&s,VEC *&t,
 	       MAT *&S,MAT *&T,bool need_WU)
@@ -226,35 +284,9 @@ double init_ST(MAT *A,MAT *B,MAT *C,
   MAT *S1=MNULL, *T1=MNULL;
 
   if (need_WU) {
-    MAT *A1=MNULL, *B1=MNULL;
-    int *order_w,*order_u;
-
-    /* allocate memory */
-
-    w = v_get(n-1);           u = v_get(n-1);
-    order_w = new int[n-1];   order_u = new int[n-1];
-    for (int k = 0; k < n-1; k++) order_w[k] = order_u[k] = k;
-
-    /* compute a1 = v'av and b1 = v'bv */
-    A1 = m_get(n-1,n-1);
-    vtav(A,A1);
-    
-    B1 = m_get(n-1,n-1);
-    vtav(B,B1);
-    
-    my_svd(A1,w);
-    my_svd(B1,u);
-    
-    /* now oldA1 = A1'*diag(u)*A1, oldB1 = B1'*diag(v)*B1 */
-    ins_sort_descending(w->ve, order_w, n-1);
-    ins_sort_ascending(u->ve, order_u, n-1);
-    
-    /* adjust rows of W and U appropriately: W[k] = A1[order_w[k]] */
-    W  = m_get(n-1,n-1);  permrows(A1,order_w,W);
-    U  = m_get(n-1,n-1);  permrows(B1,order_u,U);
-
-    M_FREE(A1);  M_FREE(B1); 
-    delete [] order_w;  delete [] order_u;
+    /* w descending with W, u ascending with U (the eigenvalue bound pairs them) */
+    eig_of(A, true, eig_cache_A, w, W);
+    eig_of(B, false, eig_cache_B, u, U);
   }
 
   s = v_get(n-1);  t = v_get(n-1);
@@ -431,6 +463,17 @@ void update_STG(VEC *w,VEC *u,MAT *W, MAT *U,VEC *s, VEC *t,
 ========================================================================
 */
 
+QPBWork &qpb_work(int n)
+{
+  static std::vector<QPBWork> ws;
+  if ((int)ws.size() <= n) ws.resize(n + 1, QPBWork{MNULL, 0});
+  QPBWork &w = ws[n];
+  if (!w.G) { w.G = m_get(n, n); w.xstar = new int[n]; }
+  else m_zero(w.G);
+  for (int i = 0; i < n; i++) w.xstar[i] = 0;
+  return w;
+}
+
 double qpbnd(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
 	     QPBParameters *p)
 
@@ -459,9 +502,9 @@ double qpbnd(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   eig = init_ST(A,B,C,w,u,W,U,s,t,S,T,true);
   total_iter = 0;
 
-  xstar = new int[X->n];
-  // init gradient G
-  G = m_get(X->m,X->n);
+  QPBWork &qw = qpb_work(X->n);
+  xstar = qw.xstar;
+  G = qw.G;   // the gradient, zeroed
 
   if(is_uniform(X)) {
     init_gradient(A,B,C,G,C_X,G_X,X->n);
@@ -484,8 +527,6 @@ double qpbnd(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   
   p->fw_iter += total_iter;
 
-  delete [] xstar;
-  M_FREE(G);
   M_FREE(W);  M_FREE(U);
   M_FREE(S);  M_FREE(T);
   V_FREE(w);  V_FREE(u);
@@ -586,8 +627,8 @@ inline double _qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,int *xstar,
   up_bound =  1.0e99;
   lo_bound =  INIT_LOBND;
 
-  // init gradient G
-  G = m_get(X->m, X->n);
+  // init gradient G (the per-size workspace's, zeroed)
+  G = qpb_work(X->n).G;
 
   // init_gradient() is the gradient at the uniform X only. (This used to
   // test X[0][0] == X[0][1], which a warm start from the parent's X can
@@ -647,7 +688,6 @@ inline double _qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,int *xstar,
   }
   p->fw_iter += total_iter;
   
-  M_FREE(G);
   M_FREE(W);  M_FREE(U);
   M_FREE(S);  M_FREE(T);
   V_FREE(w);  V_FREE(u);
@@ -781,7 +821,11 @@ double pbnd(MAT *A,MAT *B,MAT *C,double shift)
   for(i=0;i<n;i++)
     for(j=0;j<n;j++)
       T1->me[i][j] = 2.0*ra->ve[i]*rb->ve[j]/n + C->me[i][j];
-  bnd = lap_jv(T1->me,n,10.0);
+  {
+    std::vector<int> p(n), ip(n);
+    std::vector<double> ys(n), yt(n);
+    bnd = dlap(n, T1->me, p.data(), ip.data(), ys.data(), yt.data(), 1.0);
+  }
 
   // sum up a and b.
 
@@ -819,15 +863,6 @@ inline double _glb(MAT *A,MAT *B,MAT *C,MAT *U,int *p,double shift)
   int *ip;
   double *ys, *yt;
 
-#ifdef INTEGER_LAP
-  int **D0;
-  int *ys_int, *yt_int;
-
-  D0 = new int*[n];
-  for(i=0;i<n;i++)
-    D0[i] = new int[n];
-  ys_int = new int[n]; yt_int = new int[n];
-#endif
 
   L = m_get(n,n);
   ar_i = new double[n-1];
@@ -869,23 +904,13 @@ inline double _glb(MAT *A,MAT *B,MAT *C,MAT *U,int *p,double shift)
     }
 
   // solve LAP(L) to get bound.
-#ifdef INTEGER_LAP
-  temp = lap_jv(L->me,D0,p,ip,ys,ys_int,yt,yt_int,n,10.0) + shift;
-#else
   temp = dlap(n, L->me,p,ip,ys,yt) + shift;
-#endif
 
   reducedCosts(L->me, U->me, ys, yt, n);
 
   M_FREE(L);     M_FREE(br);
   delete [] ip;  delete [] ar_i;
   delete [] ys;  delete [] yt;
-#ifdef INTEGER_LAP
-  delete [] ys_int;  delete [] yt_int;
-  for(i=0;i<n;i++)
-    delete [] D0[i];
-  delete [] D0;
-#endif
   return temp;
 }
 

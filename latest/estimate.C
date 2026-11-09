@@ -22,8 +22,7 @@ void print_dive(std::ostream &outs,
   // terminal depth, node estimate, and time estimate for each dive
 
   int depth=0;
-  // 64-bit, as the counters are: a qs_int (int) wrapped at 2^31 (tai50b dives
-  // reach 1e10 nodes)
+  // 64-bit, as the counters are (tai50b dives reach 1e10 nodes)
   QAPStatistics::ctr_type node;
   double time;
 

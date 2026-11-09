@@ -139,6 +139,13 @@ void print_results(std::ostream &outs,QAPStatistics *stats,
       outs << "[times have been scaled by " << scale_factor << "]" << std::endl;
     }
     stats->print(outs, 1);
+    {
+      long hits = 0, misses = 0;
+      init_ST_cache_stats(hits, misses);
+      if (hits + misses > 0)
+        outs << "eigendecompositions for W and U: " << misses << " computed, " << hits
+             << " reused from the per-size cache" << std::endl;
+    }
     //solution->print(outs);
 }
 

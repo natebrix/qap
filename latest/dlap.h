@@ -20,5 +20,14 @@ double dlap(int dim, double **assigndouble,
 //double augment_tol = 1e-5);
 
 
+
+// reduced costs U = D - ys 1' - 1 yt' of a LAP solution (was in lap.h, removed Nov 9)
+inline void reducedCosts(double **D, double **U, double *ys, double *yt, int n)
+{
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < n; j++)
+      U[i][j] = D[i][j] - (yt[j] + ys[i]);
+}
+
 #endif
 

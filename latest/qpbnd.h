@@ -93,6 +93,14 @@ void find_basis(VEC *w,VEC *u,VEC *s,VEC *t);
 
 double qpbnd(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1, QPBParameters *p);
 
+// per-size workspace of the QPB bounds (review E11, Nov 9): the gradient G and
+// the LAP solution xstar, allocated once per size instead of per call; G is
+// zeroed at each request (m_get's storage was zero)
+struct QPBWork { MAT *G; int *xstar; };
+QPBWork &qpb_work(int n);
+// hits and misses of init_ST's eigendecomposition cache (review E13)
+void init_ST_cache_stats(long &hits, long &misses);
+
 double qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1, QPBParameters *p);
 
 double qp_glb_bnd(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,

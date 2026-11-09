@@ -29,9 +29,8 @@ find_suboptimal(): heuristic technique that uses branch-and-
   of nodes at each level, and total number of nodes.  Anything
   that counts nodes in bnb() should be defined as a qs_int.
 */
-typedef int qs_int; // natbr changed 6/9/2017 because of weird cygwin error
-//typedef unsigned int qs_int;
-//typedef unsigned long long qs_int;
+typedef long long qs_int;   // 64-bit (review B6, Nov 9): int wrapped at 2^31 in the
+                            // dive estimates' l_level / e_level sums on nug28-30
 
 void list_clean_up(Node *&todo,double val,QAPStatistics *s);
 void pop(Node *&stack,QAPAssignment &a,QAPStatistics *stats);

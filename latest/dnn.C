@@ -509,6 +509,7 @@ struct Work {
   int n_grow;                 // block extended with fresh vectors instead of a refresh
   unsigned grow_seed;
   double delta_rel;           // last relative Cholesky shift that worked (certify)
+  double maxL_cert = 0;       // max|L| of the objective the certificate reads (cert_poly's elimination penalty)
   // Chebyshev filter and Rayleigh-Ritz products W Y on Intel AMX (amx_gemm.h):
   // opt-in with DNN_AMX=1 when the CPU has AMX-BF16; W is split into bf16 hi
   // and lo parts once per iteration, Y per product, three tile products
@@ -788,36 +789,35 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
     F77(ssyevd)("V", "L", &K, Af, &K, w.evalsf.data(), w.eworkf.data(), &lwork,
                 w.eiwork.data(), &liwork, &info, 1, 1);
     for (int i = 0; i < K; i++) w.evals[i] = w.evalsf[i];
-    for (size_t t = 0; t < kk; t++) A[t] = Af[t];
+    // (review E5, Nov 9: F is built from the fp32 eigenvectors below, so the
+    // K^2 widening pass into A is gone)
   }
   if (info != 0) return false;
   const double *ev = w.evals.data();
+  const float *Af = single ? w.Wf.data() : NULL;
   int np = 0;
   for (int i = 0; i < K; i++) if (ev[i] > 0) np++;
   *npos = np;
   const int nneg = K - np;   // eigenvalues ascending: negatives first
   double *F = w.F.data();
   const double one = 1, zero = 0;
+  // column i of the eigenvector matrix, scaled by s, into f
+  auto scaled_col = [&](int i, double s, double *f) {
+    if (Af) { const float *v = Af + (size_t)i * K; for (int r = 0; r < K; r++) f[r] = s * (double)v[r]; }
+    else { const double *v = A + (size_t)i * K; for (int r = 0; r < K; r++) f[r] = s * v[r]; }
+  };
   if (np <= nneg && !neg_form) {
     // R = sum_{w>0} w v v'
     for (int c = 0; c < np; c++) {
       int i = nneg + c;
-      double s = sqrt(ev[i]);
-      const double *v = A + (size_t)i * K;
-      double *f = F + (size_t)c * K;
-      for (int r = 0; r < K; r++) f[r] = s * v[r];
+      scaled_col(i, sqrt(ev[i]), F + (size_t)c * K);
     }
     lapack_int k = np;
     if (k > 0) F77(dsyrk)("L", "N", &K, &k, &one, F, &K, &zero, Rout, &K, 1, 1);
     else memset(Rout, 0, (size_t)K * K * sizeof(double));
   } else {
     // R = W - sum_{w<=0} w v v' = W + sum |w| v v'
-    for (int c = 0; c < nneg; c++) {
-      double s = sqrt(-ev[c]);
-      const double *v = A + (size_t)c * K;
-      double *f = F + (size_t)c * K;
-      for (int r = 0; r < K; r++) f[r] = s * v[r];
-    }
+    for (int c = 0; c < nneg; c++) scaled_col(c, sqrt(-ev[c]), F + (size_t)c * K);
     memcpy(Rout, Win, (size_t)K * K * sizeof(double));
     lapack_int k = nneg;
     if (k > 0) F77(dsyrk)("L", "N", &K, &k, &one, F, &K, &one, Rout, &K, 1, 1);
@@ -1150,7 +1150,10 @@ static bool cert_lam(Work &w, const double *Zm, double scale, CertInfo &ci)
   double snorm = sqrt(dot4(S, S, (size_t)K * K)) * (1 + 1e-8);
   // try delta = rel * ||S||_F, starting a decade below the last value that
   // worked and growing tenfold, up to 1e-3 (single-precision eigenvectors
-  // typically need ~1e-7, double ~1e-13)
+  // typically need ~1e-7, double ~1e-13). Review E6 (Nov 9) proposed trying
+  // the last value first: measured, the bounds come out identical and the
+  // certificate time does not move, since a failing dpotrf stops at its first
+  // non-positive pivot; the decade-below probe keeps the shift tight.
   double lam = HUGE_VAL;
   // (an integer exponent: repeated *= 10 can overshoot 1e-3 and skip the last try)
   int e = (int)floor(log10(std::max(1e-14, w.delta_rel / 10)) + 0.5);
@@ -1191,6 +1194,8 @@ static bool cert_lam(Work &w, const double *Zm, double scale, CertInfo &ci)
 // (box or Gilmore-Lawler) and, in ci.margin_poly, the rounding terms of the
 // margin that do not depend on the semidefinite part. Returns the value val
 // (not yet reduced by any margin); -HUGE_VAL only on a non-finite value.
+double maxabs_of(const double *x, size_t n);   // below
+
 static double cert_poly(Work &w, const double *Zm, double scale, double sumabsL, int poly,
                         int inner_lap, double exact_above, double exact_below, CertInfo &ci)
 {
@@ -1226,14 +1231,16 @@ static double cert_poly(Work &w, const double *Zm, double scale, double sumabsL,
     bool exact = inner_lap == DNN_LAP_EXACT;
     // Eliminated assignments get a penalty P in the inner and outer LAPs. Any
     // P is valid: permutations of the node never use them, so changing their
-    // costs changes no feasible objective. P = 4 (m+1) max|M| keeps them out of
+    // costs changes no feasible objective. P >= 4 (m+1) max|M| keeps them out of
     // the LAP solutions whenever a feasible alternative exists, and is counted
     // in absM like any other entry, so the margin stays rigorous.
     double pen = 0;
     if (w.elim) {
-      double mx = 0;
-      for (size_t t = 0; t < (size_t)n1 * n1; t++) mx = std::max(mx, fabs(L[t] + scale * Zm[t]));
-      pen = 4.0 * (m + 1) * mx;
+      // P = 4 (m+1) (max|L| + scale max|Zm|) >= 4 (m+1) max|M| (review E7, Nov 9):
+      // max|L| is known once per objective (w.maxL_cert, the cut term's bound
+      // added under CP-ADMM), so only Zm is read here, a plain max pass in
+      // place of a pass forming every entry of M
+      pen = 4.0 * (m + 1) * (w.maxL_cert + scale * maxabs_of(Zm, (size_t)n1 * n1));
     }
     for (int pass = 0; pass < 2; pass++) {
       absM = 0;
@@ -1597,6 +1604,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   }
   for (size_t t = 0; t < (size_t)n1 * n1; t++)
     maxabs = std::max(maxabs, fabs(L[t]));
+  w.maxL_cert = maxabs;
   // as dnn.py: scale the objective to max |L| = 1, beta = m/3
   const double scale = std::max(1.0, maxabs), iscale = 1.0 / scale;
   // beta changes only under DNN_BETA_SCHED (bs below)
@@ -1976,7 +1984,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       double abs_add = 0;
       if (yc->cert_term(scale, beta, w.Lcp_add.data(), abs_add, cp_hsum)) {
         for (size_t t = 0; t < nn; t++) w.Lcp[t] = L[t] + w.Lcp_add[t];
-        sumabsL_c += abs_add + maxabs_of(w.Lcp_add.data(), nn);
+        const double add_max = maxabs_of(w.Lcp_add.data(), nn);
+        sumabsL_c += abs_add + add_max;
+        w.maxL_cert = maxabs + add_max;
         std::swap(w.L, w.Lcp);   // L (the pointer) still reads the plain objective
         cp_swapped = true;
       } else cp_hsum = 0;
@@ -2057,7 +2067,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       res.refinements++;
       if (l2 > lbs) { lbs = l2; ci = c2; if (w.want_red) red_cur = w.red; }
     }
-    if (cp_swapped) std::swap(w.L, w.Lcp);
+    if (cp_swapped) { std::swap(w.L, w.Lcp); w.maxL_cert = maxabs; }
     // CP-ADMM: the bound of the cut-modified objective less h'mu (rounded up by
     // the hook), rounded down; lb = lbs + shift below rounds down once more
     if (cp_swapped && lbs > -HUGE_VAL) lbs = nextafter(lbs - cp_hsum, -HUGE_VAL);
@@ -2220,7 +2230,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         if (got < 0) continue;   // not available: that check stays uncertified
         if (got > 0) {
           for (size_t t = 0; t < nn; t++) w.Lcp[t] = L[t] + w.Lcp_add[t];
-          sab += abs_add + maxabs_of(w.Lcp_add.data(), nn);
+          const double add_max = maxabs_of(w.Lcp_add.data(), nn);
+          sab += abs_add + add_max;
+          w.maxL_cert = maxabs + add_max;
           std::swap(w.L, w.Lcp);
           sw = true;
           sh = shift - hs;
@@ -2231,7 +2243,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       CertInfo ci;
       w.want_red = par.child_bounds && par.poly != DNN_POLY_BOX;
       double lbs = certify(w, Zx, scale, sab, par.poly, par.inner_lap, ea, exact_below, ci);
-      if (sw) std::swap(w.L, w.Lcp);
+      if (sw) { std::swap(w.L, w.Lcp); w.maxL_cert = maxabs; }
       if (sw && lbs > -HUGE_VAL) lbs = nextafter(lbs - hs, -HUGE_VAL);
       res.certificates++;
       if (!ci.chol_ok) res.cert_failures++;
@@ -2257,6 +2269,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
            w.prof[5], w.n_refresh, w.K, w.prof[6], w.n_sub,
            w.n_sub ? (double)w.sum_kb / w.n_sub : 0.0, w.n_sub ? (double)w.sum_nneg / w.n_sub : 0.0,
            w.prof[7]);
+  if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE)
     printf("refresh split (s): ssytrd %.3f  sstedc %.3f  sormtr %.3f\n", w.rsp[0], w.rsp[1], w.rsp[2]);
   if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE && w.n_sub > 0) {
     const double ns = w.n_sub, nr = std::max(1, w.n_sub + w.n_refresh);
