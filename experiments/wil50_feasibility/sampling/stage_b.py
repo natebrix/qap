@@ -309,6 +309,9 @@ class StageB:
         log_line(self.log_path, f"stage B: frontier {N} nodes ({'complete' if complete else 'partial'}), sample "
                                 f"{len(s)}, bounding {len(todo)} on {len(self.cpus)} slots; disk free "
                                 f"{disk_free_gb(self.run):.1f} GB")
+        if self.a.report_only:
+            # a progress report from the finished tasks; starts nothing (a run may be going on)
+            return self.finish(todo, N, complete, partial_run=True, out_name="summary_partial.md")
         # parents to rebuild
         need = sorted({x[1] for x in todo if not os.path.exists(os.path.join(self.A, "tasks", x[1], "out.full.state"))
                        and not os.path.exists(os.path.join(self.run, "regen", x[1], "out.state"))})
@@ -390,7 +393,7 @@ class StageB:
         p = os.path.join(self.run, "tasks", key, "result.json")
         return json.load(open(p)) if os.path.exists(p) else None
 
-    def finish(self, todo, N, complete, partial_run=False):
+    def finish(self, todo, N, complete, partial_run=False, out_name="summary.md"):
         k = lambda sp: sp.replace(":", "_").replace(",", "-")
         rows = []
         for h, parent, idx, sp, b, pb in todo:
@@ -523,7 +526,7 @@ class StageB:
         if partial_run:
             lines.append("(the run was stopped before the end: run the same command again to resume)")
         txt = "\n".join(lines) + "\n"
-        with open(os.path.join(self.run, "summary.md"), "w") as f:
+        with open(os.path.join(self.run, out_name), "w") as f:
             f.write(txt)
         print(txt)
         return 3 if partial_run else 0
@@ -542,6 +545,8 @@ def main():
     ap.add_argument("--phase", action="store_true", help="let the cut phase run at depth 3 as in production")
     ap.add_argument("--max-wall-h", type=float, help="drain when the projected wall of the stage exceeds this")
     ap.add_argument("--min-free-gb", type=float, default=2.0, help="drain when the disk has less free")
+    ap.add_argument("--report-only", action="store_true",
+                    help="write summary_partial.md from the finished tasks and exit (runs nothing)")
     ap.add_argument("--partial", action="store_true", help="sample an unfinished stage A (smoke tests only)")
     ap.add_argument("--slots", type=int, default=4)
     ap.add_argument("--cpus", default="0,1,2,3")
