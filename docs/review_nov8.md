@@ -37,6 +37,13 @@ objective grid is rounded up with a message (nug12 `-u 579` finds 578 again).
 
 ## B. Bugs that weaken bounds or results without invalidating them
 
+**B1 fixed Nov 8 evening**: h_i is now ||X1 u_i||^2 (row norms of U X1'). Root
+QPB rises on every instance checked (nug12 478.5 to 479.4, nug15 986.6 to 990.6,
+nug30 5,336.6 to 5,342.3) and QPB-driven trees shrink 2-16% (nug15 1,964 to
+1,647 nodes, nug17 47,528 to 41,612 in the coordinator test); the DNN-driven
+nug30 record tree is unchanged within noise (3,716 against 3,705 nodes, same
+CPU). All optima found; `bench/reference/` updated; `make test` passes.
+
 | # | where | finding | status |
 |---|---|---|---|
 | B1 | `qpbnd.C:339-347` | In `update_STG`, h is computed as the row norms of UᵀX1 but the trace term tr(X1 T1 X1ᵀ) with T1 = Uᵀdiag(t)U (eigenvectors as rows of U) needs the row norms of U·X1ᵀ. The g term for S is right. Every parametric S,T refresh after the first optimises the wrong functional; the bound stays valid (any feasible s,t is valid). A fix changes node counts, so it needs an A/B against the nug30/tho30 trees. | [v] by derivation; reviewer checked numerically. |

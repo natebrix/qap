@@ -336,13 +336,22 @@ void update_STG(VEC *w,VEC *u,MAT *W, MAT *U,VEC *s, VEC *t,
     g->ve[i] = val;
   }
 
-  //  h = diag(U'*X1'*X1*U);
-
-  M1 = my_mtrm_mlt(U,X1,M1);
+  //  h_i = coefficient of t_i in tr(X1 T1 X1'), T1 = U' diag(t) U with the
+  //  eigenvectors u_i as the ROWS of U (my_svd's convention, as mtvm_mlt
+  //  below uses it): h_i = ||X1 u_i||^2, the squared norm of row i of U X1'.
+  //  Until Nov 8 2026 this took the row norms of U' X1 instead, i.e. the
+  //  wrong orientation of U and the transpose of X1, so update_basis chose
+  //  (s, t) for the wrong functional (the bound stayed valid: any feasible
+  //  (s, t) is; see docs/review_nov8.md B1). g above is right: tr(X1' S1 X1)
+  //  = sum_i s_i ||X1' w_i||^2 and my_m_mlt(W, X1) has row i = w_i' X1.
   for(i=0;i<m;i++){
     val = 0.0;
-    for(j=0;j<M1->m;j++)
-      val += M1->me[i][j]*M1->me[i][j];
+    for(int k=0;k<m;k++){
+      double r = 0.0;
+      for(j=0;j<(unsigned)m;j++)
+	r += X1->me[k][j]*U->me[i][j];
+      val += r*r;
+    }
     h->ve[i] = val;
   }
 
