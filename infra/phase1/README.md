@@ -204,3 +204,39 @@ There is no AWS access from the cloud session, so:
 - Not tested: the Amazon Linux packages, the IAM policy (moto does not enforce
   IAM), the Spot launch and a real interruption notice. The first launch tests
   them; each failure shows in `steps.txt`, uploaded after every step.
+
+## Run on the laptop (Nov 9)
+
+The account's EC2 vCPU quota is 0 in every region tried (eu-north-1, eu-west-1,
+eu-central-1, us-east-1, us-east-2, us-west-2; Spot `L-34B43A08` and
+on-demand `L-1216C47A` both, against AWS's default of 5): a new account not yet
+cleared for EC2. The Nov 5 Spot request for 256 vCPUs was closed on Nov 8 with
+the quota unchanged, the on-demand request for 64 is still open, and a Spot
+request for 64 in eu-north-1 was filed Nov 9 (no support plan, so the case
+notes cannot be read from the CLI). `launch.sh` stops at the quota check until
+one of them is granted. So the acceptance ran on the M2 Pro laptop with the
+`local:` backend (SQLite and files in place of S3, SQS and DynamoDB), with the
+same init, coordinator and worker, `parallel.py` and `compare.py` steps as
+`node.sh` (`runs/nug30-local-a/run.sh`), 8 slots, binaries at ae992f4 with
+Accelerate:
+
+- **`nug30-local-a`, with the incumbent: PASS.** 118 one-minute units, wall
+  286 s, CPU 1,423 s, slots busy 81.6%; nodes 3,716, fathomed 3,574, FW
+  iterations 382,572, DNN nodes 3,715 and fathomed 3,574, all equal to
+  `parallel.py`'s on the same settings (CPU 1,493 s, wall 252 s), objective
+  6124 (`runs/nug30-local-a/compare.txt`).
+- **`nug30-local-b`, without the incumbent: stopped after an hour, not a
+  pass.** The solver has no root heuristic inside a branch-and-bound run (`-h`
+  runs the heuristic instead of the search) and `qapctl init` does not call
+  it, so the first 8 units started with no upper bound at all and each spent
+  its 60 CPU s enumerating leaves (5.95 million nodes before the first
+  incumbent, 7242, was merged). From then on every improvement came from the
+  depth-first dive and was verified and passed through the store to the
+  following units as designed, 56 times in the hour, 7242 down to 6336, still
+  3.5% above 6124, with 393 units merged, 95 queued, 19.8 million nodes and
+  22,649 CPU s. Reaching 6124 this way takes hours, and the `parallel.py`
+  reference would repeat the descent. The incumbent pass-through works; the
+  test as specified needs a starting incumbent. Proposed: `qapctl init` runs
+  `bnbdrv -h` once and records its solution as the run's initial incumbent,
+  then the `--no-ub` acceptance tests the pass-through from a realistic start
+  (`runs/nug30-local-b/coordinator.log`).
