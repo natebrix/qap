@@ -44,7 +44,6 @@ void my_svd(MAT *A, VEC *d);
 
 // permute rows
 void permrows(MAT *A,int *p,MAT *OUT);
-void permrows0(MAT *A,int *p,MAT *OUT);
 
 // permute cols
 void permcols(MAT *A,int *p,MAT *OUT);
@@ -54,7 +53,6 @@ MAT *my_m_mlt(MAT *A,MAT *B,MAT *OUT);
 // OUT = A'*B;
 MAT *my_mtrm_mlt(MAT *A,MAT *B,MAT *OUT);
 // OUT = A*diag(b)*A';
-MAT *mvmt_mlt(MAT *A, VEC *b, MAT *R);
 // OUT = A'*diag(b)*A;
 MAT *mtvm_mlt(MAT *A, VEC *b, MAT *R);
 

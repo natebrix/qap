@@ -129,13 +129,6 @@ void F77(dsyevd)(const char *jobz, const char *uplo, const lapack_int *n, double
                  const lapack_int *lda, double *w, double *work, const lapack_int *lwork,
                  lapack_int *iwork, const lapack_int *liwork, lapack_int *info,
                  size_t, size_t);
-void F77(dsyevr)(const char *jobz, const char *range, const char *uplo, const lapack_int *n,
-                 double *a, const lapack_int *lda, const double *vl, const double *vu,
-                 const lapack_int *il, const lapack_int *iu, const double *abstol,
-                 lapack_int *m, double *w, double *z, const lapack_int *ldz,
-                 lapack_int *isuppz, double *work, const lapack_int *lwork,
-                 lapack_int *iwork, const lapack_int *liwork, lapack_int *info,
-                 size_t, size_t, size_t);
 void F77(ssyevd)(const char *jobz, const char *uplo, const lapack_int *n, float *a,
                  const lapack_int *lda, float *w, float *work, const lapack_int *lwork,
                  lapack_int *iwork, const lapack_int *liwork, lapack_int *info,
@@ -1386,9 +1379,12 @@ double trivial_value(const MAT *A, const MAT *B, const MAT *C, int m, double shi
  of the child map to the parent's with row i and column j removed; the
  child's index 0 (the constant 1) stands for the parent's 0 and (ij)
  together, since x_ij = 1 in the child, so Z is mapped like the objective
- (<Z, Y> is the same for every permutation of the child). Only Z is
- carried over: starting Y from the parent's (conditioned on x_ij = 1)
- made the child slower in tests, starting Z alone 2-3x faster.
+ (<Z, Y> is the same for every permutation of the child). Z is always
+ carried over; ymode (QAP_DNN_WARM_Y) says whether Y is too: 0 no (the
+ child's Y starts from scratch), 1 the parent's Y restricted to the child's
+ indices, 2 (the default) the parent's Y conditioned on x_ij = 1. Early
+ tests favoured Z alone; the conditioned Y won once the rest of the recipe
+ was in place (experiments/wil50_feasibility/warm_y).
 */
 bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child, int ymode)
 {

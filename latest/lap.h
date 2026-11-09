@@ -50,8 +50,6 @@ extern cost lap_noinit(int dim,
 		       cost *u, 
 		       cost *v);
 
-extern void checklap(int dim, int **assigncost,
-                     int *rowsol, int *colsol, int *u, int *v);
 
 /* driver by NB */
 

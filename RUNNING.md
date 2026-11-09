@@ -50,7 +50,7 @@ With no flags, the solver uses:
 |---|---|---|
 | Params file | `./PARAM/<name>.par` | If this file doesn't exist, the solver stops with an error. The reader also rejects a file whose level count or layout is off (it used to run on whatever values ended up in each field). Only a few instances (nug*, kra30b, esc32d, rou15, scr15, tai17a, tai20a, ste36a, …) have their own params file, so pass `-p` for anything else. |
 | Symmetry file | `./SYM/<name>.sym` | Optional. If missing, the solver prints "assuming no symmetry" and continues. |
-| Initial upper bound | 100000 | Effectively none. The solver finds incumbents itself and prints `New objective value: …` each time it improves. |
+| Initial upper bound | none (1e100) |  The solver finds incumbents itself and prints `New objective value: …` each time it improves. |
 
 Other flags (`./bnbdrv` with no arguments prints help):
 
@@ -58,7 +58,9 @@ Other flags (`./bnbdrv` with no arguments prints help):
 |---|---|
 | `-p F` | params file |
 | `-s F` | symmetry file |
-| `-u X` | initial upper bound (incumbent) |
+| `-u X` | initial upper bound (incumbent); rounded up to an attainable objective value (even, or integer) when it is not one |
+| `-U F` | incumbent file `obj [perm]`, re-read every 50 nodes and on SIGUSR2; a lower value is adopted |
+| `-F i:j,...` | start at the node with these assignments fixed; its depth is the number of fixes, so `-d D` counts from the root, not from this node |
 | `-d X` | stop at tree depth X (overrides the params file) |
 | `-f X` | scale reported times by X |
 | `-h` | run the heuristic only (no branch and bound) |

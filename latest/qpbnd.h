@@ -96,7 +96,6 @@ double qp_glb_bnd(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
 
 double pbnd(MAT *A,MAT *B,MAT *C,double shift);
 
-void leader_matrix(MAT *A,MAT *B,MAT *C,MAT *L);
 double glbnd(MAT *A,MAT *B,MAT *C,MAT *U,double shift);
 
 

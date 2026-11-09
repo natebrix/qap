@@ -319,11 +319,9 @@ void log_matrix(BNBParameters *p, const char *data, MAT *U)
  stats contains information about the number of nodes 
  processed, see stats.h for more info.
 
- max_CPU: if using MW, code will return after max_CPU seconds
-          of CPU time.
-
- max_bnds: if using MW, code will return after max_bnds
-          bounds have been computed.
+ max_CPU, max_bnds, max_returned_depth: unused. They stopped the search
+          early in the old MW (master-worker) build, whose code paths were
+          removed in Nov 2026; -t and -d are the standalone equivalents.
 
  params: An array of BNBParameters structures.  params[i]
          contains branching rules and parameters to be used
@@ -354,7 +352,6 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
   int *p;
   int n = q->A->m, m;
   double obj, bound, rel_gap;
-  bool finishing_up, finishing_up_second_recourse;
   bool use_J,reorder;
 
   BNBParameters *param;
@@ -390,13 +387,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
   qpbp->save_best = true;
   qpbp->feasible = true;
 
-#ifdef BNB_STANDALONE
   reorder = false;
-#else
-  reorder = true;
-  finishing_up = false; 
-  finishing_up_second_recourse = false;  
-#endif
 
   X = m_get(n,n);
   U = m_get(n,n);
@@ -404,14 +395,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
   qr = new QAP(n);
 
   // *********** branch and bound *********************
-#ifdef BNB_STANDALONE
   while (stack != NULL)
-#else
-  while (         
-	(stack != NULL) &&      
-	(s->ifs_found == 0)
-	)
-#endif
     {
       // Checkpoints and the time limit are taken here, before the next node
       // is popped, so a saved stack never loses a node.
@@ -452,27 +436,6 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       pop(stack, node, stats);
       stats->startIteration(node.depth);
 
-#ifndef BNB_STANDALONE
-      if(( stats->total_time >= max_CPU ) || 
-         ( stats->node >= max_computed_bounds))
-        finishing_up = true;
-      
-      if(finishing_up && (node.depth <= max_returned_depth) ) {
-	push(stack,node,stats);
-        break;
-      }
-
-      if (finishing_up && (stats->total_time >= 2.5*max_CPU) ){
-        finishing_up_second_recourse = true;
-      }
-      
-      if(finishing_up_second_recourse && 
-	 ((node.depth <=  (max_returned_depth + 1) )
-	  || (stats->total_time >= 3.5*max_CPU))) {
-	push(stack,node,stats);
-        break;
-      }
-#endif
 
       if (node.depth > max_depth) {
 	if (save_too_deep) {
@@ -662,7 +625,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // QAP_DNN_EXT=k: below dnn_max_depth a node whose parent's DNN bound ran
       // and did not fathom keeps the DNN bound, up to k levels down; under a
       // fathomed or a QPB-only node nothing changes. The flag travels with the
-      // parent's warm start, so not across a checkpoint restore. Without it a
+      // parent's warm start and is kept in state files (version 4). Without it a
       // last-level miss hands its whole subtree to QPB alone (580,000 nodes
       // under two depth-7 misses in the laptop nug30 run; Goux's D8).
       static const int dnn_ext = getenv("QAP_DNN_EXT") ? atoi(getenv("QAP_DNN_EXT")) : 20;   // default 20 since Nov 8 2026 (was 0)
@@ -1193,136 +1156,6 @@ branch and bound algorithm.
 
  */
 
-
-/*
-  return true if the set of permutations determined by p1
-  is a subset of the set of permutations determined by p2.
-
-  e.g.  [1 - -] subset of [- - -]
-        [- - -] not subset of [1 - -]
-        ([1 - -] might be subset of [? - -])
-        [? 2 -] not a subset of [- 2 -]
-        [0 - -] not a subset of [1 - -] or [? - -]
-
-  *** FOR NOW WE WILL NOT GUARANTEE CORRECTNESS IF P1 OR P2
-      CONTAINS 'PARTIAL' ASSIGNMENTS, I.E. DISALLOWED ASSIGNMENTS ***
-
-      this means that we return false only when p1[i] has been 
-      assigned a value, and p1[i] != p2[i].
-
- */
-bool subset_permutation(int *p1, int *p2, int n)
-{
-  for(int i=0; i<n; i++) {
-
-    if(p1[i]==p2[i]) continue;
-
-    if(p2[i]>NONE)
-      return false;
-
-  }
-
-  return true;
-}
-
-void bnb_trace(QAP *q,QAPSolution *sln,
-	       BNBParameters *params,int nlevel,char *inputfile)
-{
-      /*
-
-	1) read history file.-- given permutation p.
-	   -- read thru file, line by line.
-	   1 2 - - 4, Bound = 123.456
-	   -- when p matches perm. in file, print out line.
-	   -- requires *all* nodes be saved.
-
-	2) read history file.-- given permutation p.
-	   -- read thru file, line by line.
-	   1 2 3 - 4    4 3 1 2 -
-	   -- when p matches perm. in file, read history 
-	   -- requires *leaf* nodes be saved.
-       */
-  int p1[sln->n];
-  int p2[sln->n];
-
-  std::cout << "Enter permutation #1: ";
-  read_permutation(std::cin,p1,sln->n);
-
-  std::cout << "Enter permutation #2: ";
-  read_permutation(std::cin,p2,sln->n);
-
-  write_permutation(std::cout,p1,sln->n);
-  std::cout << "\t";
-  write_permutation(std::cout,p2,sln->n);
-  std::cout << std::endl;
-
-  if(subset_permutation(p1,p2,sln->n))
-    std::cout << "Match" << std::endl;
-  else
-    std::cout << "No match" << std::endl;
-}
-
-
-void print_stack(QAP *q,Node *stack,BNBParameters *params, int nlevel,
-		 bool compute_bounds,double opt)
-{
-  Node *current;
-  int len, div = 20;
-  int i,n = q->A->m,m;
-  double bound,root_bound,*relgap;
-
-  QPBParameters *qpbp;    
-  BNBParameters *param;
-  
-  QAP *qr;
-  MAT *X,*U;
-
-  // wow, this is a waste of O(n) time...
-  len = list_length(stack);
-  relgap = new double[len];
-
-  // ************ initialization **********************
-  qpbp = new QPBParameters;  qpbp->feasible = true;
-
-  X = m_get(n,n);
-  U = m_get(n,n);
-  qr = new QAP(n);
-
-  param = params;
-
-  init_X(X,n);
-  
-  qpbp->shift = q->shift;
-  qpbp->inc = 1e10;
-  
-  qpbp->maxier = param->maxier_bnd;
-  qpbp->maxier_nofathom = param->maxier_nofathom;
-  qpbp->step = param->param_step;
-  
-  if(param->which_bound==0)
-    root_bound = qpbnd(q->A,q->B,q->C,X,U,qpbp);
-  else
-    root_bound = qpbnd_parametric(q->A,q->B,q->C,X,U,qpbp);
-  
-
-  for(i=0,current=stack; current != NULL; current = current->link,i++) {
-
-    relgap[i] = (opt - current->data.predicted_bound)/(opt - root_bound);
-    /*
-    std::cout.form("%f %f %f\n",current->data.bound,
-	      current->data.predicted_bound,relgap[i]);
-    */
-
-  }
-  /*  
-  ins_sort_descending(relgap, NULL, len);
-  for(i=0;i<div;i++) {
-    std::cout.form("%d %f\n",i,relgap[i*len/div]);
-  }
-  std::cout.form("%d %f\n",i,relgap[len-1]);
-  */
-  delete [] relgap;
-}
 
 // called by find_suboptimal()
 void pop_alt(Node *&stack,QAPAssignment &a)

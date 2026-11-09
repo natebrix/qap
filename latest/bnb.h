@@ -63,8 +63,6 @@ void benchmark(QAP *q,Node *&stack,QAPSolution *s,
 void stack_setup(Node *&stack,QAPStatistics *stats,int &id,int n);
 
 
-void print_stack(QAP *q,Node *stack, BNBParameters *params,int nlevel,
-		 bool compute_bounds,double opt);
 
 void find_suboptimal(QAP *q,Node *&stack,QAPSolution *s);
 

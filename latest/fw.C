@@ -235,126 +235,6 @@ void gradient(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,
   M_FREE(temp1);
 }
 
-/*
-============================================================
-   compute D1 = D - X
-   [currently unused]
-============================================================
- */
-void search_dir(int *d, MAT *X, MAT *D1, int n)
-{
-  register int i,j;
-  for(i=0;i<n;i++)
-    for(j=0;j<n;j++)
-      D1->me[i][j] = -X->me[i][j]; 
-
-  for(i=0;i<n;i++)
-      D1->me[i][d[i]] += 1.0;
-}
-
-/*
-============================================================
-  dG = 2(AX*_kB-SX*_k-X*_kT) + C - G_k
-
-  temp1, temp2 are global variables.
-
-  (below are several other functions that do the same thing,
-   only faster.  Eventually only one of these deltaG functions
-   will remain.  The efficiency of the code depends quite
-   heavily on this function (and the LAP solver) )
-============================================================
-void deltaG(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,
-	    MAT *G,MAT *dG,MAT *X,int *xstar,int n)
-{
-  int i,j;
-
-  // temp2 = A*diag(xstar)*B
-  permcols(A,xstar,temp1);
-  temp2 = my_m_mlt(temp1,B,temp2);
-
-  permcols(S,xstar,temp1);
-  for(i=0;i<n;i++)
-    for(j=0;j<n;j++)
-      temp2->me[i][j] -= temp1->me[i][j];
-  
-  permrows(T,xstar,temp1);
-  for(i=0;i<n;i++)
-    for(j=0;j<n;j++)
-      dG->me[i][j] = 2.0*(temp2->me[i][j] - temp1->me[i][j]) +
-	C->me[i][j] - G->me[i][j];
-
-}
-*/
-
-// no temporary storage required.
-inline void deltaG(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,
-		   MAT *G,MAT *dG,MAT *X,int *p,int *ip,
-		   double &dG_X,int n)
-{
-  register int i,j,k;
-  register double v;
-  int *ipk;
-  double *Ai, *Si, *Tpi;
-  //  double *Ci, *Gi;
-
-  dG_X = 0.0;
-  for(i=0;i<n;i++) {
-    Ai = A->me[i];    Si = S->me[i];
-    Tpi = T->me[p[i]];
-    for(j=0;j<n;j++) {
-      v = 0.0; ipk = ip;
-      for(k=0;k<n;k++) {
-	//	v += A->me[i][ip[k]]*B->me[k][j];
-	v += Ai[*ipk++]*B->me[k][j];
-      }
-      dG->me[i][j] = 2.0*(v - Si[ip[j]] - Tpi[j]) 
-	+ C->me[i][j] - G->me[i][j];
-      dG_X += X->me[i][j]*dG->me[i][j];
-    }
-  }
-}
-
-// faster? 
-inline void deltaG_alt(double **a,double **b,double **C,double **S,double **T,
-		       double **G,double **dG,double **X,int *p,int *ip,
-		       double &dG_X,int n)
-{
-  register int i,j,k;
-  register double aik, *ai, *bkj;
-  register double *dgi;
-
-  for(i=0;i<n;i++) {
-    dgi = dG[i];  ai = a[i];
-    
-    bkj = b[0];
-    aik = ai[ip[0]];
-
-    for(j=0;j<n;j++) {
-      dgi[j] = aik*(*bkj++);
-    }
-
-    for(k=1;k<n;k++) {
-      bkj = b[k];
-      aik = ai[ip[k]];
-      
-      for(j=0;j<n;j++) {
-	dgi[j] += aik*(*bkj++);
-      }
-    }
-  }
-
-  register double *Si, *Tpi;
-  dG_X = 0.0;
-  for(i=0;i<n;i++) {
-    Si = S[i];    Tpi = T[p[i]];
-    for(j=0;j<n;j++) {
-      dG[i][j] = 2.0*(dG[i][j] - Si[ip[j]] - Tpi[j]) 
-	+ C[i][j] - G[i][j];
-      dG_X += X[i][j]*dG[i][j];
-    }
-  }
-}
-
 // Nonzeros of A by row, for deltaG_alt2. A is fixed for a whole fw() call,
 // so they are built once per call. (Static work space; fw() is not re-entrant.)
 static int nz_n = 0, *nz_cnt = 0, *nz_col = 0;
@@ -489,11 +369,7 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
   bnd_used = -100;
 
   double lobnd_old;
-  MAT *best_X=MNULL, *U_old=MNULL;
-
-  if(save_best) {
-    best_X = m_copy(X,MNULL);
-  }
+  MAT *U_old=MNULL;
 
   a_nonzeros(A->me, n);
   dG = m_get(n,n);
@@ -605,7 +481,6 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
 
 	lobnd = std::min(bnd,upbnd);//	lobnd = bnd;
 	if(save_best&&(lobnd < cutoff)) {
-	  m_copy(X, best_X);
 	  reducedCosts(G->me,U->me,ys,yt,n);
 	  need_U = false;
 	}
@@ -685,7 +560,6 @@ void fw(MAT *A,MAT *B,MAT *C,MAT *S,MAT *T,MAT *G,MAT *X,MAT *U,
     bnd_used = try_to_improve(U,xstar,lobnd,U_old,xstar_old,lobnd_old,cutoff, imp_steps);
   }
 
-  if(save_best) {    M_FREE(best_X);  }
   if(improve)   {    M_FREE(U_old); delete [] xstar_old;  } 
 
   M_FREE(dG); 

@@ -45,7 +45,6 @@ using namespace std;
 //  *log_file=NULL, *command_file=NULL;
 bool run_benchmark, scale, heuristic, console, run_estimate;
 bool set_max_depth = false;
-bool print_deep_nodes = false;
 int max_depth = -1;
 double scale_factor = 1.0;
 // No incumbent by default. This used to be 100000, which is below every
@@ -71,7 +70,7 @@ extern const char *bnb_incumbent_file;
 extern volatile sig_atomic_t bnb_incumbent_poke;
 static void poke_incumbent(int) { bnb_incumbent_poke = 1; }
 char *resume_file = NULL;
-char *root_fixes = NULL;   // -F i:j,...: the search starts at this node (depth 0 = the subtree's root)
+char *root_fixes = NULL;   // -F i:j,...: the search starts at this node (its depth = the number of fixes)
 
 /*******************************************************************/
 
@@ -116,7 +115,7 @@ void print_help()
        << "\tDNN from its parent's when that missed (default 0)" << std::endl
        << "-t X\twith -o, stop after X CPU seconds, saving state (exit code 3)" << std::endl
        << "-r F\tresume from state file F instead of the root" << std::endl
-       << "-F i:j,...\tstart at the node with these assignments fixed (its depth is 0)" << std::endl
+       << "-F i:j,...\tstart at the node with these assignments fixed (depth = number of fixes)" << std::endl
        << "-w W\tat lookahead/strong levels, stop a node's FW W iterations after it\n"
        << "\tlast fixed out more children (default 0 = off)" << std::endl;
   cerr << "(The path to a QAPLIB input file must also be provided.)" << std::endl;
@@ -557,9 +556,6 @@ int main(int argc, char *argv[])
     //outf.close();
 
 
-    if((max_depth >= 0) && print_deep_nodes) {
-      print_stack(q,stack,params, c->nlevel,true,solution->getObjective());
-    }
   }
   
   branch_shutdown();

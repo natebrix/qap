@@ -33,7 +33,6 @@ typedef int boolean;
 #include <stdlib.h>
 #include <math.h>
 
-#define UNROLL_4
 cost lap(int dim, 
         cost **assigncost,
         col *rowsol, 
@@ -72,115 +71,6 @@ cost lap(int dim,
   for (i = 0; i < dim; i++)  
     matches[i] = 0;
 
-#ifdef UNROLL_1
-  // COLUMN REDUCTION 
-  //cp = &colsol[dim-1];
-  cp = colsol + dim - 1;
-  for (j = dim-1; j >= 0; j--)    // reverse order gives better results.
-  {
-    // find minimum cost over rows.
-    ap = &assigncost[0][j];
-    min = *ap;
-    //    min = assigncost[0][j]; 
-    imin = 0;
-    for (i = 1; i < dim; i++) {
-      //      ap += dim;
-      ap = &assigncost[i][j];
-      if(*ap < min) {
-	min = *ap;
-	imin = i;
-	} 
-    }
-    v[j] = min; 
-
-    if (++matches[imin] == 1) 
-    { 
-      // init assignment if minimum row assigned for first time.
-      rowsol[imin] = j; 
-      //      colsol[j] = imin; 
-      *cp = imin; 
-    }
-    else {
-      *cp = -1;   // row already assigned, column not assigned.
-    }
-    cp--;
-  }
-#endif
-#ifdef UNROLL_2
-  cost min2;  row imin2; int *ap2;
-  // COLUMN REDUCTION 
-  cp = colsol + dim - 1;
-  for (j = dim-1; j >= 1; j-=2)
-  {
-    // find minimum cost over rows.
-    ap = &assigncost[0][j];    ap2 = &assigncost[0][j-1];
-    min = *ap;                 min2 = *ap2;
-    imin = 0;                  imin2 = 0;
-    for (i = 1; i < dim; i++) {
-      ap += dim;
-      if(*ap < min) {
-	min = *ap;
-	imin = i;
-	} 
-      ap2 += dim;
-      if(*ap2 < min2) {
-	min2 = *ap2;
-	imin2 = i;
-	} 
-    }
-    v[j  ] = min; 
-    v[j-1] = min2; 
-
-    if (++matches[imin] == 1) 
-    { 
-      // init assignment if minimum row assigned for first time.
-      rowsol[imin] = j; 
-      *cp = imin; 
-    }
-    else {
-      *cp = -1;   // row already assigned, column not assigned.
-    }
-    cp--;
-    if (++matches[imin2] == 1) 
-    { 
-      // init assignment if minimum row assigned for first time.
-      rowsol[imin2] = j-1; 
-      *cp = imin2; 
-    }
-    else {
-      *cp = -1;   // row already assigned, column not assigned.
-    }
-    cp--;
-  }
-
-  //  for (; j >= 0; j--,cp--)    // reverse order gives better results.
-  if(j==0)
-  {
-    // find minimum cost over rows.
-    ap = &assigncost[0][j];
-    min = *ap;
-    //    min = assigncost[0][j]; 
-    imin = 0;
-    for (i = 1; i < dim; i++) {
-      ap += dim;
-      if(*ap < min) {
-	min = *ap;
-	imin = i;
-	} 
-    }
-    v[j] = min; 
-
-    if (++matches[imin] == 1) 
-    { 
-      // init assignment if minimum row assigned for first time.
-      rowsol[imin] = j; 
-      *cp = imin; 
-    }
-    else
-      *cp = -1;   // row already assigned, column not assigned.
-  }
-#endif
-#ifdef UNROLL_4
   cost min2;  row imin2; int *ap2;
   cost min3;  row imin3; int *ap3;
   cost min4;  row imin4; int *ap4;
@@ -294,7 +184,6 @@ cost lap(int dim,
       *cp = -1;   // row already assigned, column not assigned.
     cp--;
   }
-#endif
 
   // REDUCTION TRANSFER
   for (i = 0; i < dim; i++) 
@@ -784,66 +673,6 @@ cost lap0(int dim,
   delete[] d;
 
   return lapcost;
-}
-
-void checklap(int dim, cost **assigncost,
-              col *rowsol, row *colsol, cost *u, cost *v)
-{
-  row  i;
-  col  j;
-  cost lapcost = 0, redcost = 0;
-  boolean *matched;
-  char wait;
-  
-  matched = new boolean[dim];
-  
-  for (i = 0; i < dim; i++)  
-    for (j = 0; j < dim; j++)  
-      if ((redcost = assigncost[i][j] - u[i] - v[j]) < 0)
-      {
-        printf("negative reduced cost i %d j %d redcost %d\n", i, j, redcost);
-        break; 
-      }
-
-  for (i = 0; i < dim; i++)  
-    if ((redcost = assigncost[i][rowsol[i]] - u[i] - v[rowsol[i]]) != 0)
-    {
-      printf("non-null reduced cost i %d soli %d redcost %d\n", 
-           i, rowsol[i], redcost);
-      break; 
-    }
-  
-  for (j = 0; j < dim; j++)  
-    matched[j] = FALSE;
-    
-  for (i = 0; i < dim; i++)  
-    if (matched[rowsol[i]])
-    {
-      printf("column matched more than once - i %d soli %d\n", i, rowsol[i]);
-      break; 
-    }
-    else
-      matched[rowsol[i]] = TRUE;
-      
-    
-  for (i = 0; i < dim; i++)  
-    if (colsol[rowsol[i]] != i)
-    {
-      printf("error in row solution i %d soli %d solsoli %d\n", i, 
-	     rowsol[i], colsol[rowsol[i]]);
-      break; 
-    }
-
-  for (j = 0; j < dim; j++)  
-    if (rowsol[colsol[j]] != j)
-    {
-      printf("error in col solution j %d solj %d solsolj %d\n", j, 
-      	     colsol[j], rowsol[colsol[j]]);
-      break; 
-    }
-
-  delete[] matched;
-  return;
 }
 
 /************************** LAP DRIVER ***************************/
