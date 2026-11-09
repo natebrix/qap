@@ -99,7 +99,7 @@ static Setting TABLE[] = {
   ENVVAR("QAP_DNN_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per DNN node to this file"),
   ENVVAR("QAP_DNN_POOL_CHECK", 'i', "0", 0, 1000000, SET_DIAGNOSTIC, "check each assembled pool term on this many random permutations"),
   ENVVAR("QAP_EST_HIST", 's', "dive_history_nug25_2.txt", 0, 0, SET_DIAGNOSTIC, "estimator: the per-dive history file"),
-  ENVVAR("QAP_XBAR_DEBUG", 'i', "0", 0, 1, SET_DIAGNOSTIC, "1: print the rule 8/9 line choice per node to stderr"),
+  ENVVAR("QAP_XBAR_DEBUG", 'i', "0", 0, 2, SET_DIAGNOSTIC, "1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score"),
 };
 #undef POLICY
 #undef ENVVAR

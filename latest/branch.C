@@ -1171,6 +1171,30 @@ static bool dnn_xbar_lines(const QAPAssignment &assign, int &row_in_U, double &r
     for (int di = 0; di < m; di++) s += x[di * m + dj] * x[di * m + dj];
     if (s > col_score) { col_score = s;  col_in_U = dj; }
   }
+  // QAP_XBAR_DEBUG=2: every free line ranked by its score, once per node (the
+  // candidate lines of a branching study; experiments/tho30_solve/line_truth)
+  static const int xbar_debug = (int)setting_i("QAP_XBAR_DEBUG");
+  if (xbar_debug >= 2 && row_in_U >= 0) {
+    std::vector<std::pair<double, int>> lines;   // score, +row / -(col+1) in the node's indices
+    for (int di = 0; di < m; di++) {
+      double s = 0.0;
+      for (int dj = 0; dj < m; dj++) s += x[di * m + dj] * x[di * m + dj];
+      int r = di, ra;  get_row_in_assign(assign, r, ra);
+      lines.push_back({s, ra});
+    }
+    for (int dj = 0; dj < m; dj++) {
+      double s = 0.0;
+      for (int di = 0; di < m; di++) s += x[di * m + dj] * x[di * m + dj];
+      int c = dj, ca;  get_col_in_assign(assign, c, ca);
+      lines.push_back({s, -(ca + 1)});
+    }
+    std::sort(lines.begin(), lines.end(), [](const std::pair<double, int> &a, const std::pair<double, int> &b) {
+      return a.first > b.first; });
+    fprintf(stderr, "xbar-lines: depth %d", assign.nfix);
+    for (const auto &l : lines)
+      fprintf(stderr, " %s%d:%.4f", l.second >= 0 ? "row" : "col", l.second >= 0 ? l.second : -l.second - 1, l.first);
+    fprintf(stderr, "\n");
+  }
   return row_in_U >= 0 && col_in_U >= 0;
 }
 
