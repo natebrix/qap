@@ -8,6 +8,10 @@
  * Without an upper bound, the run must finish on the known optimum.
  * A run with frequent checkpoints is interrupted (SIGTERM) and resumed with
    --resume; its totals must still equal the serial run.
+ * With the DNN bound (state version 7: per-level DNN counts), the tree by
+   level, the DNN table's nodes and fathom and give-up rates and the fathoms
+   by cause, must equal a serial run's, and parallel.py must print those
+   tables (the solver's own, from the summed statistics).
 """
 
 import argparse
@@ -44,6 +48,17 @@ def parallel(name, jobs, *extra):
                           "--jobs", str(jobs)] + list(extra),
                          capture_output=True, text=True).stdout
     return totals(out)
+
+
+def dnn_tree(text):
+    """the totals, and the DNN and fathoms-by-cause tables without their
+    iteration and CPU columns (the tree, not the work spent on it)"""
+    d = re.search(r"DNN bound:\s*(\d+) nodes, (\d+) fathomed", text)
+    tables = []
+    for title, keep in (("DNN bound by level", 4), ("Fathoms by cause", 6)):
+        m = re.search(title + r":\n[^\n]*\n((?: ?\d+ [^\n]*\n)*)", text)
+        tables.append([l.split()[:keep] for l in m.group(1).splitlines()] if m else None)
+    return totals(text)[:2], d.groups() if d else None, tables
 
 
 def main():
@@ -92,6 +107,21 @@ def main():
               f"fw {s[1]}; resumed {q[0]}, fw {q[1]}")
         os.remove(ck)
     os.rmdir(tmp)
+    # the DNN bound, its per-level counts through state version 7
+    name, ub, x = "nug16a", 1610, "2:4:1:0:1"
+    env = dict(os.environ, QAP_DNN_SHIP="64", OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1")
+    s_out = subprocess.run([SOLVER, "-p", "PARAM/default.par", "-u", str(ub), "-x", x,
+                            os.path.join(ROOT, "qaplib", name + ".dat")],
+                           cwd=os.path.dirname(SOLVER), capture_output=True, text=True, env=env).stdout
+    q_out = subprocess.run([sys.executable, PAR, os.path.join(ROOT, "qaplib", name + ".dat"),
+                            "--jobs", str(args.jobs), "--ub", str(ub), "--extra", f"-x {x}"],
+                           capture_output=True, text=True, env=env).stdout
+    s, q = dnn_tree(s_out), dnn_tree(q_out)
+    ok = s == q and None not in s[2] and s[1] is not None
+    fails += not ok
+    print(f"{'ok  ' if ok else 'FAIL'} {name} -x {x} --ub opt: serial {s[0][0]}, DNN {s[1]}; "
+          f"parallel {q[0][0]}, DNN {q[1]}; per-level DNN and cause tables "
+          + ("equal" if s[2] == q[2] else f"differ:\n  serial   {s[2]}\n  parallel {q[2]}"))
 
     print(f"\n{'all parallel checks passed' if not fails else f'{fails} parallel check(s) FAILED'}")
     return 1 if fails else 0

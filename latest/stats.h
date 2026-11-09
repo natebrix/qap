@@ -68,6 +68,13 @@ public:
 
   void anotherNode(int depth, int strat,double factor = 1.0);
   void anotherFathom(int depth,double factor = 1.0);
+  // a node popped with bound > incumbent - DELTA (the incumbent improved
+  // since it was pushed): a fathom, counted also in pop_f_level
+  void anotherDiscard(int depth);
+  // the DNN bound ran on a node (bnb -x); gave_up: it stopped as hopeless
+  void anotherDNN(int depth, bool fathomed, bool gave_up, int iterations, double cpu);
+  // the cut phase ran on a node after a DNN miss (QAP_DNN_CUT_ZONE)
+  void anotherCut(int depth, bool fathomed, double cpu);
   void anotherEnumeration() {enumerate++;};
   void print(std::ostream& outs=std::cout,int print_level=1) const;
 
@@ -106,8 +113,9 @@ public:
   // DNN bound (bnb -x): nodes it was computed for, nodes it fathomed, CPU s
   ctr_type dnn_nodes, dnn_fathoms;
   double dnn_time;
-  // cut phase after a DNN miss (QAP_DNN_CUT_ZONE): nodes, fathoms, CPU s;
-  // not in state files (a resumed run restarts these at 0)
+  // cut phase after a DNN miss (QAP_DNN_CUT_ZONE): nodes, fathoms, CPU s
+  // (in state files from version 7, as cut_*_level; before, a resumed run
+  // restarted these at 0)
   ctr_type dnn_cut_nodes, dnn_cut_fathoms;
   double dnn_cut_time;
 
@@ -120,6 +128,20 @@ public:
   ctr_type **n_strat; // number of nodes used at each level, broken
                       // down by strategy used.
   double *t_strat;
+  // By level, from QAP-STATE 7: the DNN bound and its cut phase, and the
+  // nodes discarded when popped. Every fathom at a level has one cause, so
+  //   f_level = pop_f_level + (QPB fathoms) + dnn_f_level + cut_f_level
+  // (the DNN bound runs only where QPB misses, the cut phase only where the
+  // DNN bound misses). Not weighted in dive mode, like the DNN totals.
+  ctr_type *pop_f_level;  // discarded when popped
+  ctr_type *dnn_n_level;  // DNN bound computed
+  ctr_type *dnn_f_level;  // ... and fathomed
+  ctr_type *dnn_g_level;  // ... and given up on as hopeless (DNN_HOPELESS)
+  ctr_type *dnn_i_level;  // its ADMM iterations
+  double   *dnn_t_level;  // its CPU seconds
+  ctr_type *cut_n_level;  // cut phase run
+  ctr_type *cut_f_level;  // ... and fathomed
+  double   *cut_t_level;  // its CPU seconds
 
 #ifdef RECORD_STDDEV
   double *rg_sum;
@@ -138,6 +160,9 @@ public:
   void setPrintMode(int mode) { print_mode = mode; };
 private:
   int print_mode;
+  void alloc_dnn_levels();
+  void free_dnn_levels();
+  void print_dnn_levels() const;
   void print_default(std::ostream& outs=std::cout,int print_level=1) const;
   void print_latex(std::ostream& outs=std::cout,int print_level=1) const;
   

@@ -478,7 +478,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       if (node.bound > s->getObjective() - DELTA) {
 	//std::cout << "Fathomed due to updated incumbent (" 
 	//     << s->getObjective() << ")" << std::endl;
-	stats->anotherFathom(node.depth);
+	stats->anotherDiscard(node.depth);
 	continue;
       }
 
@@ -774,13 +774,10 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNCutResult cr_trace;
 	  bool cut_ran = false, cut_cp = false;
 	  dnn_ran = true;
-	  stats->dnn_nodes++;
-	  stats->dnn_time += r.cpu;
+	  stats->anotherDNN(node.depth, r.status == DNN_FATHOMED, r.status == DNN_HOPELESS,
+	                    r.iterations, r.cpu);
 	  node.bound = std::max(node.bound, r.lb);
-	  if (r.status == DNN_FATHOMED) {
-	    dnn_fathomed = true;
-	    stats->dnn_fathoms++;
-	  }
+	  if (r.status == DNN_FATHOMED) dnn_fathomed = true;
 	  if (!dnn_fathomed && cut_zone > 0 && node.depth <= cut_max_depth && save && save->m == m && r.lb > -HUGE_VAL &&
 	      (inc - DELTA) - r.lb <= cut_zone * std::max(1.0, fabs(inc))) {
 	    DNNCutParams cp;
@@ -878,13 +875,9 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      cut_state = wc;
 	    } else
 	      delete wc;
-	    stats->dnn_cut_nodes++;
-	    stats->dnn_cut_time += cr.cpu;
+	    stats->anotherCut(node.depth, cr.status == DNN_FATHOMED, cr.cpu);
 	    node.bound = std::max(node.bound, cr.best_lb);
-	    if (cr.status == DNN_FATHOMED) {
-	      dnn_fathomed = true;
-	      stats->dnn_cut_fathoms++;
-	    }
+	    if (cr.status == DNN_FATHOMED) dnn_fathomed = true;
 	  }
 	  if (save && !dnn_fathomed && save->m == m &&
 	      (param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD)) {

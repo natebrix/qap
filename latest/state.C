@@ -10,7 +10,12 @@
 #include <vector>
 
 static const char *STATE_MAGIC = "QAP-STATE";
-static const int STATE_VERSION = 6;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state (all still read)
+static const int STATE_VERSION = 7;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts (all still read)
+
+// version 7: by level, the DNN bound, its cut phase and the nodes discarded
+// when popped (stats.h), in this order after dnn_time
+static const char *const DNN_LEVEL_CTRS[] = {"pop_f_level", "dnn_n_level", "dnn_f_level", "dnn_g_level", "dnn_i_level"};
+static const char *const CUT_LEVEL_CTRS[] = {"cut_n_level", "cut_f_level"};
 
 #ifdef HAVE_DNN
 #include "dnn.h"
@@ -212,6 +217,15 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
 #endif
   f << "dnn_counts " << stats->dnn_nodes << ' ' << stats->dnn_fathoms << '\n';
   f << "dnn_time " << stats->dnn_time << '\n';
+  {
+    QAPStatistics::ctr_type *dc[] = {stats->pop_f_level, stats->dnn_n_level, stats->dnn_f_level,
+                                     stats->dnn_g_level, stats->dnn_i_level};
+    for (int k = 0; k < 5; k++) write_array(f, DNN_LEVEL_CTRS[k], dc[k], L);
+    write_array(f, "dnn_t_level", stats->dnn_t_level, L);
+    write_array(f, CUT_LEVEL_CTRS[0], stats->cut_n_level, L);
+    write_array(f, CUT_LEVEL_CTRS[1], stats->cut_f_level, L);
+    write_array(f, "cut_t_level", stats->cut_t_level, L);
+  }
 
   // the parents' X the open nodes start from, each written once
   std::map<const WarmStart *, int> warm_id;
@@ -279,7 +293,7 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
   int version, fn, fL, fm;
   if (!(f >> tag >> version) || tag != STATE_MAGIC || version < 1 ||
       version > STATE_VERSION)
-    return fail(file, "not a version 1-3 state file");
+    return fail(file, "not a version 1-7 state file");
   std::string t1, t2, t3;
   if (!(f >> t1 >> fn >> t2 >> fL >> t3 >> fm) || t1 != "n")
     return fail(file, "bad header");
@@ -320,6 +334,34 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
       (!(f >> tag >> stats->dnn_nodes >> stats->dnn_fathoms) || tag != "dnn_counts" ||
        !(f >> tag >> stats->dnn_time) || tag != "dnn_time"))
     return fail(file, "bad DNN counts");
+  {
+    QAPStatistics::ctr_type *dc[] = {stats->pop_f_level, stats->dnn_n_level, stats->dnn_f_level,
+                                     stats->dnn_g_level, stats->dnn_i_level};
+    if (version >= 7) {
+      for (int k = 0; k < 5; k++)
+	if (!read_array(f, DNN_LEVEL_CTRS[k], dc[k], L)) return fail(file, "bad per-level DNN counts");
+      if (!read_array(f, "dnn_t_level", stats->dnn_t_level, L) ||
+	  !read_array(f, CUT_LEVEL_CTRS[0], stats->cut_n_level, L) ||
+	  !read_array(f, CUT_LEVEL_CTRS[1], stats->cut_f_level, L) ||
+	  !read_array(f, "cut_t_level", stats->cut_t_level, L))
+	return fail(file, "bad per-level DNN counts");
+      // the cut phase's totals were not in earlier versions: rebuilt here
+      stats->dnn_cut_nodes = stats->dnn_cut_fathoms = 0;
+      stats->dnn_cut_time = 0.0;
+      for (int i = 0; i < L; i++) {
+	stats->dnn_cut_nodes += stats->cut_n_level[i];
+	stats->dnn_cut_fathoms += stats->cut_f_level[i];
+	stats->dnn_cut_time += stats->cut_t_level[i];
+      }
+    } else {            // earlier versions: no causes, the arrays start at 0
+      for (int k = 0; k < 5; k++)
+	for (int i = 0; i < L; i++) dc[k][i] = 0;
+      for (int i = 0; i < L; i++) {
+	stats->dnn_t_level[i] = stats->cut_t_level[i] = 0.0;
+	stats->cut_n_level[i] = stats->cut_f_level[i] = 0;
+      }
+    }
+  }
 
   std::vector<WarmStart *> warms;
   if (version >= 2) {

@@ -8,7 +8,7 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "bench"))
-from parallel import State  # noqa: E402  (the solver's state-file format, latest/state.h)
+from parallel import State, solver_tables  # noqa: E402  (the solver's state-file format, latest/state.h)
 
 SOLVER = os.path.join(ROOT, "latest", "bnbdrv")
 LANES = ("large", "small")

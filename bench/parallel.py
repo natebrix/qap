@@ -60,6 +60,9 @@ class State:
 
     ARRAYS = ["n_level", "f_level", "l_level", "e_level", "t_level", "n_strat",
               "t_strat", "rg_sum", "rg_sumsq"]
+    # the arrays of doubles; every other array holds counts (version 7 adds
+    # dnn_t_level and cut_t_level among the per-level DNN arrays)
+    FLOATS = ("t_level", "t_strat", "rg_sum", "rg_sumsq", "dnn_time", "dnn_t_level", "cut_t_level")
 
     def __init__(self, path):
         with open(path) as f:
@@ -78,8 +81,7 @@ class State:
         self.arrays = collections.OrderedDict()
         line = next(it)
         while line[0] not in ("warm_starts", "nodes"):
-            conv = (float if line[0] in ("t_level", "t_strat", "rg_sum", "rg_sumsq", "dnn_time")
-                    else int)
+            conv = float if line[0] in self.FLOATS else int
             self.arrays[line[0]] = [conv(x) for x in line[1:]]
             line = next(it)
         if "dnn_counts" not in self.arrays:      # versions 1 and 2
@@ -132,6 +134,38 @@ class State:
         with open(tmp, "w") as f:
             f.write("\n".join(out) + "\n")
         os.replace(tmp, path)
+
+
+def solver_tables(solver, params, state, instance):
+    """The per-level tables of the solver's own report for a state file with
+    no open nodes (bnbdrv -r prints the statistics it read and stops): the
+    level table, the strategy breakdown and the gap table, and after a DNN run
+    the DNN, cut-phase and fathoms-by-cause tables. "" if the solver fails."""
+    solver = os.path.abspath(solver)
+    try:
+        r = subprocess.run([solver, "-p", params, "-r", os.path.abspath(state), os.path.abspath(instance)],
+                           cwd=os.path.dirname(solver), capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    i = r.stdout.find("\nlevel ")
+    return r.stdout[i + 1:].rstrip() + "\n" if r.returncode == 0 and i >= 0 else ""
+
+
+def print_head(total):
+    """the head of the solver's RESULTS block, for summed statistics"""
+    node, fathom, enumerate_, fw = total.counters
+    print("  ---- RESULTS ----\n")
+    print(f"    Total Time: {total.times[0]:.6f} seconds ")
+    print(f"         Nodes: {node} / {fathom} / {enumerate_}")
+    print(f"    root bound: {total.root_bound}")
+    print(f" fw iterations: {fw}")
+    if total.arrays.get("dnn_counts", [0])[0]:
+        dc, dt = total.arrays["dnn_counts"], total.arrays["dnn_time"][0]
+        print(f"     DNN bound: {dc[0]} nodes, {dc[1]} fathomed, {dt:.2f} s")
+    if sum(total.arrays.get("cut_n_level", [])):   # state version 7
+        a = total.arrays
+        print(f"     cut phase: {sum(a['cut_n_level'])} nodes, {sum(a['cut_f_level'])} fathomed, "
+              f"{sum(a['cut_t_level']):.2f} s")
 
 
 # ---------------------------------------------------------------- main
@@ -311,21 +345,17 @@ def main():
 
     # 4. report in the solver's format
     total.obj, total.perm, total.found = best_obj, best_perm, best_found
-    node, fathom, enumerate_, fw = total.counters
-    print("  ---- RESULTS ----\n")
-    print(f"    Total Time: {total.times[0]:.6f} seconds ")
-    print(f"         Nodes: {node} / {fathom} / {enumerate_}")
-    print(f"    root bound: {total.root_bound}")
-    print(f" fw iterations: {fw}")
-    if total.arrays.get("dnn_counts", [0])[0]:
-        dc, dt = total.arrays["dnn_counts"], total.arrays["dnn_time"][0]
-        print(f"     DNN bound: {dc[0]} nodes, {dc[1]} fathomed, {dt:.2f} s")
+    total.write(os.path.join(work, "final.state"), [])
+    print_head(total)
+    # the tables, by the solver itself from the summed statistics
+    tables = solver_tables(args.solver, args.params, os.path.join(work, "final.state"), args.instance)
+    if tables:
+        print("\n" + tables, end="")
     session_cpu = total.times[0] - cpu_before
     print(f"\nparallel: {args.jobs} workers, {tasks_run} tasks, {steals} steals, wall {wall:.2f} s, "
           f"CPU {session_cpu:.2f} s (x{session_cpu / wall:.2f})"
           + (f", {total.times[0]:.2f} s including before the resume" if cpu_before else "") + ", "
           f"best objective {best_obj:.17g}")
-    total.write(os.path.join(work, "final.state"), [])
     if args.checkpoint:
         # the finished search: its statistics (per-level counts and times) with
         # no open nodes, so they survive the temporary work directory

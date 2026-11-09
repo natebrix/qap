@@ -58,10 +58,16 @@ expects), `UB` (the incumbent given to the solver), `EXTRA` (solver flags),
 
 `QAP_DNN_SHIP=64` instead of the record's 32: with 64 a node restored from a
 state file starts its DNN from its parent's exact doubles, so a tree cut into
-units at other places than `parallel.py` cuts it gives the same totals node
-for node. On nug20 with this recipe both 64 and 32 gave the coordinator and
-`parallel.py` identical totals (174 nodes, 163 fathomed, 29,550 FW iterations,
-the serial run's), but only 64 is guaranteed.
+units at other places than `parallel.py` cuts it is the same tree. On nug20
+with this recipe both 64 and 32 gave the coordinator and `parallel.py`
+identical totals (174 nodes, 163 fathomed, 29,550 FW iterations, the serial
+run's), but only 64 is meant to guarantee it. The DNN iterations can still
+differ by a few: with the per-level counts of state version 7, nug24 with this
+recipe through the coordinator (5-second units) had the serial run's tree at
+every depth but 3,165 DNN iterations against 3,175 at depth 3 and 1,406
+against 1,404 at depth 4 (Nov 9). Some setting of the recipe keeps state
+inside a process that state files do not carry (`make shipcheck`'s smaller
+set of settings is exact); `compare.py` checks the tree, not iterations.
 
 ## Running it (laptop)
 

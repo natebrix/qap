@@ -25,8 +25,8 @@ import os
 import tempfile
 import time
 
-from .common import (LANES, State, fmt_secs, new_unit, plan_split, read_instance, run_key,
-                     unit_key, verify_incumbent, write_unit_state)
+from .common import (LANES, SOLVER, State, fmt_secs, new_unit, plan_split, read_instance, run_key,
+                     solver_tables, unit_key, verify_incumbent, write_unit_state)
 
 PENDING = ("queued", "leased", "done", "returned", "failed")
 
@@ -282,6 +282,17 @@ class Coordinator:
         self.log(f"coordinator: {fmt_secs(wall)} units {counts} nodes {t.counters[0]} "
                  f"(DNN {dc[0]}, fathomed {dc[1]}) CPU {t.times[0]:.0f} s")
 
+    def _solver_tables(self, state_path):
+        """the solver's per-level tables for the merged statistics (the
+        solver reprints a state file with no open nodes); "" without a solver"""
+        sol = self.run.get("solver", {})
+        params = self._path(sol.get("params") or "params.par")
+        inst = self._path(sol.get("instance") or "instance.dat")
+        if not (self.b.get_file(run_key(self.run_id, "params.par"), params) and
+                self.b.get_file(run_key(self.run_id, "instance.dat"), inst)):
+            return ""
+        return solver_tables(SOLVER, params, state_path, inst)
+
     def finish(self):
         now = time.time()
         wall = now - self.t0
@@ -301,6 +312,13 @@ class Coordinator:
         dc = t.arrays.get("dnn_counts", [0, 0])
         if dc[0]:
             lines.append(f"     DNN bound: {dc[0]} nodes, {dc[1]} fathomed, {t.arrays['dnn_time'][0]:.2f} s")
+        if sum(t.arrays.get("cut_n_level", [])):   # state version 7
+            a = t.arrays
+            lines.append(f"     cut phase: {sum(a['cut_n_level'])} nodes, {sum(a['cut_f_level'])} fathomed, "
+                         f"{sum(a['cut_t_level']):.2f} s")
+        tables = self._solver_tables(p)
+        if tables:
+            lines += [""] + tables.rstrip("\n").split("\n")
         busy = self.busy_wall / (self.cfg["slots"] * wall) if wall > 0 else 0
         lines += ["", f"coordinator: {self.cfg['slots']} slots, {self.units_merged} units, wall {wall:.2f} s, "
                       f"CPU {t.times[0]:.2f} s (x{t.times[0] / wall if wall else 0:.2f}), slots busy {100 * busy:.1f}%, "
