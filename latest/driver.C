@@ -30,6 +30,7 @@
 
 #include <fstream>
 #include <math.h>
+#include <cmath>
 #include <time.h>
 
 #include <stdio.h>
@@ -448,6 +449,19 @@ int main(int argc, char *argv[])
   n = q->A->m;
   solution = new QAPSolution(n);
 
+  // The fathoming tolerance DELTA assumes the incumbent is an attained value:
+  // "bound > inc - DELTA" means no attainable value below inc fits. A -u off
+  // the objective grid (6125 on nug30, whose values are even) would fathom
+  // nodes holding strictly better solutions. Round it up to the grid.
+  if (std::isfinite(qap_upper_bound)) {
+    double g = DELTA >= 1.9 ? 2 * ceil(qap_upper_bound / 2) :
+               DELTA >= 0.9 ? ceil(qap_upper_bound) : qap_upper_bound;
+    if (g != qap_upper_bound) {
+      cout << "incumbent " << qap_upper_bound << " is not an attainable objective value; using "
+	   << g << std::endl;
+      qap_upper_bound = g;
+    }
+  }
   solution->setObjective(qap_upper_bound);
   
   qap_read_params(c->param_file,params, c->nlevel, c->sym_file,param_max_depth);
@@ -490,7 +504,7 @@ int main(int argc, char *argv[])
   }
   branch_init(n);
 
-  if (read_symmetry(c->sym_file)) {
+  if (read_symmetry(c->sym_file, n)) {
     cout << "read symmetry info from " << c->sym_file  << std::endl;
   }
   else {

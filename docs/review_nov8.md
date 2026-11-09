@@ -18,6 +18,16 @@ grid.
 
 ## A. Could make a proof wrong (none affects nug30, tho30, kra30, tho40 runs to date)
 
+**A1, A2 and A3 fixed Nov 8 evening** (commit after this one): `nug22.sym` repaired;
+`read_symmetry(file, n)` exits on a short file, an out-of-range entry, a
+non-increasing list or trailing tokens (all 22 shipped files still load; nug22
+`-d 2` goes from 37 to 103 nodes); the periodic `-k` checkpoint writes the `-d`
+frontier too (a mid-run checkpoint of nug22 `-d 2` holds 157 nodes, and the
+run with and without `-k` ends on the same 1,321-node frontier); a `-u` off the
+objective grid is rounded up with a message (nug12 `-u 579` finds 578 again).
+`make test` passes and the nug30 record search is node for node the same
+(3,705 / 3,563). A4 (bench.py's `.sln` reader) is still open.
+
 | # | where | finding | status |
 |---|---|---|---|
 | A1 | `latest/SYM/nug22.sym`, `branch.C:179-229` | The file lacks its `|J2| |J3|` size line, so `read_symmetry` reads |J2|=6, |J3|=17 and runs 11 tokens short; the stream fails silently and J3 holds garbage. Below every root child only locations 12-17 are branched. A nug22 run with this file explores a fraction of the tree and can report a wrong optimum. `read_symmetry` validates nothing: no stream check, no range check, no sortedness check, no record of n or of which matrix the file applies to (hence the `wil50t`/`sko42t`/`tho40t` transposed copies). | [v] file is short by 11 tokens; all 21 other files parse with 0 leftover tokens. Fix: add `2 12` to nug22.sym; make the reader fail hard on stream failure, out-of-range entries, non-ascending lists; record n in the file. |

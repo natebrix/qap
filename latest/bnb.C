@@ -428,7 +428,16 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  break;
 	}
 	if (bnb_checkpoint_every > 0 && stats->total_time >= next_checkpoint) {
+	  // the nodes set aside by -d belong to the saved state too (the stop
+	  // path above moves them for good; here they go back afterwards so
+	  // the run continues unchanged, in the same order)
+	  int moved = 0;
+	  for (Node *t = too_deep; t != NULL; t = t->link) {
+	    list_head_insert(stack, t->data);
+	    moved++;
+	  }
 	  write_state(bnb_state_file, stack, s, stats);
+	  for (; moved > 0; moved--) list_head_remove(stack);
 	  next_checkpoint = stats->total_time + bnb_checkpoint_every;
 	}
       }

@@ -28,6 +28,7 @@
 #include "qpbnd2.h"
 #include "lgb_train.h"
 #include <fstream>
+#include <string>
 #include <math.h>
 
 #define INCORRECT_WEIGHT
@@ -160,7 +161,7 @@ void branch_shutdown()
 
 /*
 ============================================================
-read_symmetry("nug12.sym");
+read_symmetry("nug12.sym", n);
 
 File format:                  |
                               |
@@ -178,58 +179,70 @@ J3                            |
 .                             |
 ============================================================
 */
-bool read_symmetry(char *filename)
+// A malformed file used to be accepted silently (nug22.sym lacked its
+// "|J2| |J3|" line until Nov 8 2026, so J3 held garbage and the search
+// branched on a fraction of the locations: a wrong proof). Every count and
+// entry is now checked, each list must be strictly increasing (branch() and
+// row_sum() merge-scan them), entries must lie in 1..n, and the file must
+// hold nothing else. Any failure stops the run: a symmetry file that cannot
+// be trusted must not be worked around by guessing.
+static void sym_fail(const char *filename, const std::string &what)
 {
-  bool found_file = false;
-  int i,j;
+  std::cerr << "symmetry file [" << filename << "]: " << what << std::endl;
+  exit(1);
+}
+
+static void read_sym_list(std::ifstream &f, const char *filename, const char *name,
+			  int *v, int dim, int n)
+{
+  for (int j = 0; j < dim; j++) {
+    if (!(f >> v[j])) sym_fail(filename, std::string("short file while reading ") + name);
+    if (v[j] < 1 || v[j] > n)
+      sym_fail(filename, std::string("entry ") + std::to_string(v[j]) + " of " + name +
+	       " is outside 1.." + std::to_string(n));
+    v[j]--;
+    if (j > 0 && v[j] <= v[j-1])
+      sym_fail(filename, std::string(name) + " is not strictly increasing");
+  }
+}
+
+static int read_sym_count(std::ifstream &f, const char *filename, const char *name, int n)
+{
+  int d;
+  if (!(f >> d)) sym_fail(filename, std::string("short file while reading ") + name);
+  if (d < 0 || d > n)
+    sym_fail(filename, std::string(name) + " = " + std::to_string(d) + " is outside 0.." + std::to_string(n));
+  return d;
+}
+
+bool read_symmetry(const char *filename, int n)
+{
   std::ifstream f;
-  
   f.open(filename);
-  if(f)
-    {
-      found_file = true;
+  if (!f) return false;   // no file: no symmetry, the caller reports it
 
-      // Read in J1 information
+  J1_dim = read_sym_count(f, filename, "|J1|", n);
+  J1 = new int[J1_dim];
+  read_sym_list(f, filename, "J1", J1, J1_dim, n);
 
-      f >> J1_dim;
+  J_dim = read_sym_count(f, filename, "the number of J2/J3 sets", n);
+  J2 = new int *[J_dim];
+  J2_dim = new int[J_dim];
+  J3 = new int *[J_dim];
+  J3_dim = new int[J_dim];
 
-      J1 = new int[J1_dim];
-      for(i=0;i<J1_dim;i++)
-	{ f >> J1[i]; J1[i]--; }
-
-      // Read in J2, J3 info
-
-      f >> J_dim;
-      
-      J2 = new int *[J_dim];
-      J2_dim = new int[J_dim];
-
-      J3 = new int *[J_dim];
-      J3_dim = new int[J_dim];
-
-      for(i=0; i<J_dim; i++) {
-	// Read the ith J2, J3
-	
-	f >> J2_dim[i];
-	f >> J3_dim[i];
-
-	J2[i] = new int[J2_dim[i]];
-	for(j=0;j<J2_dim[i];j++)
-	  { f >> J2[i][j]; J2[i][j]--; }
-
-	J3[i] = new int[J3_dim[i]];
-	for(j=0;j<J3_dim[i];j++)
-	  { f >> J3[i][j]; J3[i][j]--; }
-      }
-
-    }
-  else
-    {
-      // failed to open file
-    }
+  for (int i = 0; i < J_dim; i++) {
+    J2_dim[i] = read_sym_count(f, filename, "|J2|", n);
+    J3_dim[i] = read_sym_count(f, filename, "|J3|", n);
+    J2[i] = new int[J2_dim[i]];
+    read_sym_list(f, filename, "J2", J2[i], J2_dim[i], n);
+    J3[i] = new int[J3_dim[i]];
+    read_sym_list(f, filename, "J3", J3[i], J3_dim[i], n);
+  }
+  std::string extra;
+  if (f >> extra) sym_fail(filename, "unexpected token [" + extra + "] after the last J3 list");
   f.close();
-  
-  return found_file;
+  return true;
 }
 
 /*

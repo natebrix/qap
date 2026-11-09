@@ -204,7 +204,7 @@ void binary_branch(QAP *qap,QAPAssignment &assign,MAT *X,MAT *U,
 		   int how,bool use_J,bool reorder_children,
 		   int &loc_in_row, int &loc_kept);
 
-bool read_symmetry(char *filename);
+bool read_symmetry(const char *filename, int n);   // exits on a malformed file
 void branch_init(int n);
 void branch_shutdown();
 
