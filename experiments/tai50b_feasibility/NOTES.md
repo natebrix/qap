@@ -20,7 +20,7 @@ summarize.py depth3 458821516.05` builds the depth-3 table.
   (4.5% at the root, solved in 278,465 nodes by Fujii et al. 2021).
 - **Tuned (section 5): with the DNN through depth 9 and a 600-iteration give-up, 10 dives
   give 4.1e9 ± 3.0e9 CPU-s, about 47 days on 1,000 cores**: the depth-6-to-8 levels that
-  made the first estimate shrink 10-500x, each node costs 8x more, and level 5 now holds
+  made the first estimate shrink 500-3,500x, each node costs 8x more, and level 5 now holds
   81% of the CPU. Against the first estimate's 88-day low reading that is about 2x; against
   its 20-dive mean, 45x, most of which is one dive the tuned run did not repeat.
 - **The first Knuth estimate (20 dives, section 4) puts the tree at 1.8e11 ± 1.7e11 CPU-s on
@@ -173,7 +173,7 @@ hours per core. The nodes cost more, so the two hours gave 10 dives instead of 2
 |---|---|---|
 | nodes, mean ± SE | 1.8e10 ± 1.7e10 | **5.1e7 ± 2.2e7** |
 | CPU-s, mean ± SE | 1.8e11 ± 1.7e11 (2,110 days on 1,000 cores) | **4.1e9 ± 3.0e9 (47 days)** |
-| without the largest dive | 7.6e9 (88 days) | 9.0e8 (10 days) |
+| without the largest dive | 7.6e9 (88 days) | 1.0e9 (12 days) |
 | largest dive's share of the CPU | 96% | 77% (seed 42 dive 1: 1.1e8 nodes, 3.1e10 CPU-s) |
 | median dive | 9.2e6 nodes, 3.1e8 CPU-s | 7.6e6 nodes, 9.5e8 CPU-s |
 | CPU-s per node | 10 | 79 |
@@ -192,14 +192,14 @@ Per level (nodes, mean ± SE; reach in parentheses):
 
 Reading:
 
-- **What the tuning does is clear at the deep levels**: levels 5-8 hold 9x-3,000x fewer
+- **What the tuning does is clear at the deep levels**: levels 5-8 hold 9x-3,500x fewer
   nodes and fewer dives reach them (6 of 10 reach level 5, 2-4 of 10 levels 6-8, against
   14, 11, 7 and 7 of 20). The later give-up fathoms nodes at depths 4-5 that the
   200-iteration give-up left to branch, which is what the depth-3 sample predicted.
 - **What it costs**: 79 CPU-s per node against 10, and the median dive is 3x dearer. The
   CPU moves to level 5 (81%), where nodes that still do not fathom now run 600 iterations.
 - **The total**: 4.1e9 CPU-s, about 47 days on 1,000 cores, with one dive at 77% and 10
-  dives, so not converged either; 10 days without that dive is a low reading. Against
+  dives, so not converged either; 12 days without that dive is a low reading. Against
   section 4, the robust comparison is the deep levels, not the totals: section 4's mean is
   one dive the tuned run did not repeat, and a dive like it would still be possible here.
   The tuned figure is the better estimate of what tai50b costs with a give-up suited to it.
