@@ -1,0 +1,57 @@
+diff --git a/latest/branch.C b/latest/branch.C
+index dd6d734..1294ef5 100644
+--- a/latest/branch.C
++++ b/latest/branch.C
+@@ -1167,6 +1167,30 @@ static bool dnn_xbar_lines(const QAPAssignment &assign, int &row_in_U, double &r
+   return row_in_U >= 0 && col_in_U >= 0;
+ }
+ 
++// QAP_XBAR_DEBUG=2 (diagnostic): every free row's and column's rule-8 score
++// (the sum of squared DNN marginals, summed as in dnn_xbar_lines), by its
++// original index, to stderr
++static void xbar_print_lines(const QAPAssignment &assign)
++{
++  const int m = assign.n - assign.nfix;
++  if (dnn_xbar == NULL || dnn_xbar_m != m) return;
++  const double *x = dnn_xbar;
++  for (int i = 0, di = -1; i < assign.n; i++) {
++    if (assign.p[i] > NONE) continue;
++    di++;
++    double s = 0.0;
++    for (int dj = 0; dj < m; dj++) s += x[di * m + dj] * x[di * m + dj];
++    fprintf(stderr, "xbar9rank: depth %d row %d sumsq %.10g\n", assign.nfix, i, s);
++  }
++  for (int j = 0, dj = -1; j < assign.n; j++) {
++    if (assign.pinv[j] > NONE) continue;
++    dj++;
++    double s = 0.0;
++    for (int di = 0; di < m; di++) s += x[di * m + dj] * x[di * m + dj];
++    fprintf(stderr, "xbar9rank: depth %d col %d sumsq %.10g\n", assign.nfix, j, s);
++  }
++}
++
+ static bool select_ind_dnn_xbar(const QAPAssignment &assign, bool rows_only,
+ 				int &ind_in_U, int &ind_in_assign, bool &chose_row)
+ {
+@@ -1729,6 +1753,8 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+       row_order[dr] = 0;  col_order[dc] = 0;
+       kr = kc = xbar_lines_per_side();
+       xbar_used = true;
++      static const bool xbar_rank = setting_i("QAP_XBAR_DEBUG") >= 2;
++      if (xbar_rank) xbar_print_lines(assign);
+     }
+   }
+ 
+diff --git a/latest/settings.C b/latest/settings.C
+index 0c9f592..49a9967 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -99,7 +99,7 @@ static Setting TABLE[] = {
+   ENVVAR("QAP_DNN_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per DNN node to this file"),
+   ENVVAR("QAP_DNN_POOL_CHECK", 'i', "0", 0, 1000000, SET_DIAGNOSTIC, "check each assembled pool term on this many random permutations"),
+   ENVVAR("QAP_EST_HIST", 's', "dive_history_nug25_2.txt", 0, 0, SET_DIAGNOSTIC, "estimator: the per-dive history file"),
+-  ENVVAR("QAP_XBAR_DEBUG", 'i', "0", 0, 1, SET_DIAGNOSTIC, "1: print the rule 8/9 line choice per node to stderr"),
++  ENVVAR("QAP_XBAR_DEBUG", 'i', "0", 0, 2, SET_DIAGNOSTIC, "1: print the rule 8/9 line choice per node to stderr; 2: also every free line's rule-8 score at a rule-9 node"),
+ };
+ #undef POLICY
+ #undef ENVVAR

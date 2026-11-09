@@ -1,0 +1,214 @@
+# taskset -c 1 /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/sampling/runs/depth1_lines/bin_diag/bnbdrv -p /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/fullrun/fullrun.par -d 1 -r /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/sampling/runs/depth1_lines/d1/r.1/bin_diag/in.state -o /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/sampling/runs/depth1_lines/d1/r.1/bin_diag/out.state -s /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/latest/SYM/wil50t.sym -u 48816.0 /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/qaplib/wil50t.dat
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/fullrun/fullrun.par
+max_depth has been set to 1
+resume from: /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/sampling/runs/depth1_lines/d1/r.1/bin_diag/in.state
+state file: /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/sampling/runs/depth1_lines/d1/r.1/bin_diag/out.state
+symmetry file: /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/latest/SYM/wil50t.sym
+incumbent: 48816
+input file: /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/qaplib/wil50t.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 1-4, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 65 hash ebd9848cb3f7e0d2
+setting dnn.depths 1:4 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 300 par policy
+setting dnn.warm 1 par policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.3 par policy
+setting dnn.refresh 40 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=0.7 par policy
+setting dnn.cross 2 par policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 1 par policy
+setting ship.bits 32 par policy
+setting cut.zone 0.005 par policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 1 par policy
+setting cut.grid 5:10 par policy
+setting cut.rounds 12 par policy
+setting cut.iters 200 par policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 1000 par policy
+setting cut.warmy 1 par policy
+setting cut.damp1 0.3 par policy
+setting cut.equip "" default policy
+setting cut.cp 100:1000 par policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting pool.on 1 par policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash 3f2f813daeeb4a6b par policy
+setting DNN_R32 0 default experiment
+setting DNN_ADMM_CROSS_FIRST 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/fullrun/fullrun.par flag run
+setting QAP_DNN_TRACE /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/experiments/wil50_feasibility/sampling/runs/depth1_lines/d1/r.1/bin_diag/trace.txt env diagnostic
+setting QAP_DNN_POOL_CHECK 20 env diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_XBAR_DEBUG 2 env diagnostic
+resumed: 1 open nodes, 0 nodes and 0 s so far, incumbent 48816
+branching_weight() = 0.5
+read symmetry info from /home/user/qap/.claude/worktrees/agent-a97745aa73d020596/latest/SYM/wil50t.sym
+xbar9rank: depth 1 row 0 sumsq 0.1184539844
+xbar9rank: depth 1 row 1 sumsq 0.04028248514
+xbar9rank: depth 1 row 2 sumsq 0.06674078689
+xbar9rank: depth 1 row 3 sumsq 0.0334667129
+xbar9rank: depth 1 row 4 sumsq 0.03373580469
+xbar9rank: depth 1 row 5 sumsq 0.04073213707
+xbar9rank: depth 1 row 6 sumsq 0.07826618427
+xbar9rank: depth 1 row 7 sumsq 0.03678055115
+xbar9rank: depth 1 row 8 sumsq 0.05487839357
+xbar9rank: depth 1 row 9 sumsq 0.07551450079
+xbar9rank: depth 1 row 10 sumsq 0.04031654673
+xbar9rank: depth 1 row 11 sumsq 0.04585149939
+xbar9rank: depth 1 row 12 sumsq 0.03432381384
+xbar9rank: depth 1 row 13 sumsq 0.09948118462
+xbar9rank: depth 1 row 14 sumsq 0.03085552904
+xbar9rank: depth 1 row 15 sumsq 0.05600687627
+xbar9rank: depth 1 row 16 sumsq 0.03216115236
+xbar9rank: depth 1 row 17 sumsq 0.0529187131
+xbar9rank: depth 1 row 18 sumsq 0.04192000267
+xbar9rank: depth 1 row 19 sumsq 0.09135124981
+xbar9rank: depth 1 row 20 sumsq 0.04455569579
+xbar9rank: depth 1 row 22 sumsq 0.04730877756
+xbar9rank: depth 1 row 23 sumsq 0.06346177951
+xbar9rank: depth 1 row 24 sumsq 0.05430974087
+xbar9rank: depth 1 row 25 sumsq 0.1516966921
+xbar9rank: depth 1 row 26 sumsq 0.1215464188
+xbar9rank: depth 1 row 27 sumsq 0.04640528497
+xbar9rank: depth 1 row 28 sumsq 0.05132272657
+xbar9rank: depth 1 row 29 sumsq 0.03973655952
+xbar9rank: depth 1 row 30 sumsq 0.03129639564
+xbar9rank: depth 1 row 31 sumsq 0.05549178732
+xbar9rank: depth 1 row 32 sumsq 0.02831907888
+xbar9rank: depth 1 row 33 sumsq 0.03489000203
+xbar9rank: depth 1 row 34 sumsq 0.07017780605
+xbar9rank: depth 1 row 35 sumsq 0.0388375958
+xbar9rank: depth 1 row 36 sumsq 0.02917390529
+xbar9rank: depth 1 row 37 sumsq 0.05669523192
+xbar9rank: depth 1 row 38 sumsq 0.04948195261
+xbar9rank: depth 1 row 39 sumsq 0.03913907016
+xbar9rank: depth 1 row 40 sumsq 0.08399779463
+xbar9rank: depth 1 row 41 sumsq 0.03330961391
+xbar9rank: depth 1 row 42 sumsq 0.04201741715
+xbar9rank: depth 1 row 43 sumsq 0.03965974184
+xbar9rank: depth 1 row 44 sumsq 0.04009852738
+xbar9rank: depth 1 row 45 sumsq 0.2018712662
+xbar9rank: depth 1 row 46 sumsq 0.04438190683
+xbar9rank: depth 1 row 47 sumsq 0.06658620096
+xbar9rank: depth 1 row 48 sumsq 0.06685962023
+xbar9rank: depth 1 row 49 sumsq 0.03722504229
+xbar9rank: depth 1 col 0 sumsq 0.1929506987
+xbar9rank: depth 1 col 2 sumsq 0.06930842565
+xbar9rank: depth 1 col 3 sumsq 0.03624226772
+xbar9rank: depth 1 col 4 sumsq 0.03140243447
+xbar9rank: depth 1 col 5 sumsq 0.02888240523
+xbar9rank: depth 1 col 6 sumsq 0.02691498067
+xbar9rank: depth 1 col 7 sumsq 0.03145052502
+xbar9rank: depth 1 col 8 sumsq 0.04553711635
+xbar9rank: depth 1 col 9 sumsq 0.1511517522
+xbar9rank: depth 1 col 10 sumsq 0.08485169876
+xbar9rank: depth 1 col 11 sumsq 0.06593972111
+xbar9rank: depth 1 col 12 sumsq 0.05562421165
+xbar9rank: depth 1 col 13 sumsq 0.04818526881
+xbar9rank: depth 1 col 14 sumsq 0.04206532107
+xbar9rank: depth 1 col 15 sumsq 0.04500403094
+xbar9rank: depth 1 col 16 sumsq 0.04061602014
+xbar9rank: depth 1 col 17 sumsq 0.04141850894
+xbar9rank: depth 1 col 18 sumsq 0.04354416973
+xbar9rank: depth 1 col 19 sumsq 0.05624223722
+xbar9rank: depth 1 col 20 sumsq 0.0763913985
+xbar9rank: depth 1 col 21 sumsq 0.05548929061
+xbar9rank: depth 1 col 22 sumsq 0.05370984452
+xbar9rank: depth 1 col 23 sumsq 0.04390566822
+xbar9rank: depth 1 col 24 sumsq 0.06288949188
+xbar9rank: depth 1 col 25 sumsq 0.07784367105
+xbar9rank: depth 1 col 26 sumsq 0.05902001498
+xbar9rank: depth 1 col 27 sumsq 0.04584588633
+xbar9rank: depth 1 col 28 sumsq 0.04025190808
+xbar9rank: depth 1 col 29 sumsq 0.05384973554
+xbar9rank: depth 1 col 30 sumsq 0.05261877587
+xbar9rank: depth 1 col 31 sumsq 0.04156628432
+xbar9rank: depth 1 col 32 sumsq 0.04258481274
+xbar9rank: depth 1 col 33 sumsq 0.03927189264
+xbar9rank: depth 1 col 34 sumsq 0.04997146035
+xbar9rank: depth 1 col 35 sumsq 0.0610118167
+xbar9rank: depth 1 col 36 sumsq 0.05413472367
+xbar9rank: depth 1 col 37 sumsq 0.04507932211
+xbar9rank: depth 1 col 38 sumsq 0.04215382019
+xbar9rank: depth 1 col 39 sumsq 0.06425007709
+xbar9rank: depth 1 col 40 sumsq 0.1337445048
+xbar9rank: depth 1 col 41 sumsq 0.04840301044
+xbar9rank: depth 1 col 42 sumsq 0.03496932484
+xbar9rank: depth 1 col 43 sumsq 0.03443520892
+xbar9rank: depth 1 col 44 sumsq 0.033034971
+xbar9rank: depth 1 col 45 sumsq 0.03526117407
+xbar9rank: depth 1 col 46 sumsq 0.03949014382
+xbar9rank: depth 1 col 47 sumsq 0.04261729065
+xbar9rank: depth 1 col 48 sumsq 0.06071952533
+xbar9rank: depth 1 col 49 sumsq 0.1520448979
+xbar9: depth 1 col 0 (row 114558810.7 col 114585133.4)
+refresh split (s): ssytrd 4.395  sstedc 0.810  sormtr 0.910
+  ---- RESULTS ----
+
+    Total Time: 112.564 seconds 
+         Nodes: 1 / 0 / 0
+    root bound: 46131.5
+ fw iterations: 2525
+     DNN bound: 1 nodes, 0 fathomed, 112.318 s
+
+level    nodes	%fathom	%c.elim	    time
+ 1           1	0.0000	0.0000	  112.56
+
+Strategy breakdown:
+nodes       1        0        0        0 
+time   112.56     0.00     0.00     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           1	0.0000	1.0000	        300	   300.0	  112.32
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 1           0	       0	       0	       0	       0
+
