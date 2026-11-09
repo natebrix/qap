@@ -1266,6 +1266,9 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
                             int n_orig, const DNNCutParams &cp, DNNWarm *warm, double first_lb,
                             double first_primal)
 {
+  if (cp.pool_out && !cp.other_orig)
+    fprintf(stderr, "%s: a pool was asked for without the other side's indices (other_orig); none is exported\n",
+            "dnn_cut_rounds");
   const int m = A->m, n1 = m * m + 1;
   const Lift lift = {m, cp.side};
   std::vector<Region> regions;
@@ -1370,6 +1373,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     res.lb = -HUGE_VAL; res.primal = HUGE_VAL; res.status = -1; res.iterations = 0; res.cpu = 0;
     const bool solved = r > 0 || cp.first_iters > 0;
     if (solved) res = solve(r, r == 0 ? cp.first_iters : cp.iters);
+    if (!warm) break;   // no solve this round and no warm start: nothing to separate on
     // separate on the last primal iterate
     const std::vector<double> &Y = warm->Y;
     if (Y.size() != (size_t)n1 * n1) break;
@@ -1381,7 +1385,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
       return u.first > w.first; };
     auto trim = [&](std::vector<std::pair<double, Cut>> &v, int k) {
       if (v.size() > 4000000) {
-        size_t keep = std::max<size_t>(100000, 8 * (size_t)k);
+        size_t keep = std::min(v.size(), std::max<size_t>(100000, 8 * (size_t)k));
         std::nth_element(v.begin(), v.begin() + keep, v.end(), by_violation);
         v.resize(keep);
       }
@@ -1612,7 +1616,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     }
     // the whole pool after this round's additions, zero multipliers included (CP-ADMM study)
     if (cp.pool_all_out && regional && cp.other_orig && r == cp.pool_all_round)
-      export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_all_out, true);
+      if (cp.other_orig) export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_all_out, true);
     const double maxv8 = found8.empty() ? 0 : found8[0].first;
     const double maxv = found.empty() ? 0 : found[0].first;
     const double maxv5 = found5.empty() ? 0 : found5[0].first;
@@ -1705,14 +1709,14 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     *cp.pool_out = DNNPool();
     if (quiet_ran) {
       if (inherited || quiet_lb > first_lb)
-        export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+        if (cp.other_orig) export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
     } else if (cp.freeze_best && !best_mu.empty() && best_mu_lb > -HUGE_VAL) {
       if (inherited || best_mu_lb > first_lb) {
-        export_pool(cuts, &best_mu, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+        if (cp.other_orig) export_pool(cuts, &best_mu, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
         if (warm) *warm = best_save;
       }
     } else if (inherited)
-      export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+      if (cp.other_orig) export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
   }
   return out;
 }
@@ -1748,7 +1752,7 @@ DNNResult dnn_pool_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     p.L_add_abs = abs_add;
   }
   DNNResult r = dnn_bound(A, B, C, shift - hsum, cutoff, p, start, save);
-  if (cp.pool_out) export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+  if (cp.pool_out && cp.other_orig) export_pool(cuts, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
   return r;
 }
 
@@ -2066,7 +2070,7 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
         if (w > 1e-7 * (1 + fabs(hsum))) {
           fprintf(stderr, "dnn_cp_bound: the pool term is positive (%g) at a permutation\n", w); abort(); }
       }
-      if (!ex.empty()) export_pool(ex, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+      if (!ex.empty() && cp.other_orig) export_pool(ex, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
     }
   }
   cpp.pool_final = (int)pj.cuts.size(); cpp.sep_added = pj.n_added; cpp.sep_dropped = pj.n_dropped;
@@ -2120,6 +2124,9 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
                         int n_orig, const DNNCutParams &cp, DNNWarm *warm,
                         double first_lb, double first_primal)
 {
+  if (cp.pool_out && !cp.other_orig)
+    fprintf(stderr, "%s: a pool was asked for without the other side's indices (other_orig); none is exported\n",
+            "dnn_cut_cp");
   const int m = A->m, n1 = m * m + 1;
   const size_t nn = (size_t)n1 * n1, mm = (size_t)m * m;
   // what the CP form does not cover runs as rounds
@@ -2212,7 +2219,7 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
         if (w > 1e-7 * (1 + fabs(hsum))) {
           fprintf(stderr, "dnn_cut_cp: the pool term is positive (%g) at a permutation\n", w); abort(); }
       }
-      export_pool(ex, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
+      if (cp.other_orig) export_pool(ex, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cp.pool_out);
     }
   }
   *warm = save;
