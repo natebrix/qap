@@ -195,10 +195,24 @@ dump under `settings.sh` equal to the dump rebuilt from the cpcutt arm's
   identical children (49, 29, 29). **tho30 with the CP cut phase through depth
   2 gives 17,470 nodes (16,740 DNN-fathomed), not the 17,786 of the Nov 8
   log**, and the old binary fe14ac0 under the environment recipe gives the same
-  17,470 on this machine, so the difference predates Phase 2 (commits between
-  9d6e216 and fe14ac0: the Nov 8 default changes, the retirements, the
-  tidying) and is not a settings fault; `experiments/tho30_solve/cutd2_cp.par`
-  is the recipe as a par file. Worth a bisect before the next tho30 claim.
+  17,470 on this machine, so the difference predates Phase 2 and is not a
+  settings fault; `experiments/tho30_solve/cutd2_cp.par` is the recipe as a
+  par file. **Bisected Nov 9**: the environment recipe gives 17,470 nodes
+  (16,740 DNN-fathomed) at 347ff84, 3ecc72d, 20fecaa and at 9d6e216, the
+  commit of the Nov 8 log itself, with task splits from 391 to 523 tasks. No
+  commit changed the tho30 tree; the 17,786 of `tho30_cutd2_cp_j8_m2pro.log`
+  (554 tasks) is a property of that one run, most likely a few subtrees
+  bounded from a cold or 32-bit start at a task boundary, and 17,470 is the
+  number for the recipe.
+- **ship64 exactness (found and fixed Nov 9)**: `make shipcheck`'s ship64 case
+  had failed since 34e347c (the Nov 8 defaults), unnoticed because the check's
+  exit code was the tail's. Isolating each new default at that commit:
+  `DNN_CORE_NOSYMV=0` alone restores exactness, nothing else does. Cause: the
+  state file shipped the upper triangles of Z and Y and mirrored them on read,
+  while with NOSYMV the in-process matrices are symmetric to rounding only and
+  `dnn_warm_child` reads both triangles. Fix in `state.C`: 64 bits ships the
+  whole matrices (16 and 32 keep the triangles; the reader tells by length).
+  Serialization only, no search change.
 - **Gate, cloud box (after stage B)**: the 8 depth-2 replays with
   `sampling/validate.py` are still to run there, old binary (a667727 or
   fe14ac0) against this one, on the same machine.
@@ -282,7 +296,7 @@ they ran, and they reproduce on that commit.
   - `make test`
   - `bench.py` standard, exactly 1.000
   - nug30 with rule 9, 3,716 nodes
-  - tho30 with the CP cut phase through depth 2, 17,786 nodes
+  - tho30 with the CP cut phase through depth 2, 17,470 nodes (the Nov 8 log's 17,786 is not reproducible; see the gate results)
 - **wil50, laptop:** depth-1 stage-A tasks `r.0`, `r.10`, `r.14` and `r.20`,
   replayed from the root with old and new binaries. They must give the same
   trace lines: the bound to 1e-9, the same iterations, the same line and

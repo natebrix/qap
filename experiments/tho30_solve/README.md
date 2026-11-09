@@ -61,6 +61,14 @@ at depths 1-2. (The parallel log does not carry the per-node cut lines, so the
 identical tree is the evidence that both forms fathom the same nodes, not a
 check that the CP path ran; the CPU difference is the right sign and size.)
 
+Nov 9: the CP recipe above, rerun from the environment at 9d6e216 (the log's
+own commit) and at three later commits, gives 17,470 nodes (16,740 DNN
+fathomed, 17,463 DNN) every time, over task splits from 391 to 523 tasks; the
+17,786 of the log (554 tasks) did not reproduce and is that run's own number,
+most likely a few subtrees bounded from a cold or fp32 start at a task
+boundary (`docs/settings_plan.md`, the Phase 2 gates). 17,470 is the figure for
+this recipe; the table keeps the log's.
+
 | | rule 8 (Nov 7, above) | rule 9 | rule 8 + cut phase, depth <= 2 |
 |---|---|---|---|
 | nodes | 18,410 (17,686 fathomed) | **14,822** (14,215 fathomed) | 17,786 (17,085 fathomed) |

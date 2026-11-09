@@ -11,8 +11,10 @@
 # The DNN iterations themselves can still differ by a few even with 64: nug24
 # with this recipe (Nov 9), the coordinator with 5-second units against a
 # serial run, 3,165 against 3,175 at depth 3 and 1,406 against 1,404 at depth
-# 4, the tree identical. Some setting here keeps state inside a process that
-# the state file does not carry; make shipcheck's smaller set is exact.
+# 4, the tree identical. Explained and fixed Nov 9 (state.C): 64 shipped the
+# upper triangles of Z and Y, mirrored on read, while with DNN_CORE_NOSYMV the
+# in-process matrices are symmetric to rounding only; 64 now ships the whole
+# matrices and make shipcheck's ship64 is exact again.
 INSTANCE=qaplib/nug30.dat
 PARAMS=../infra/phase1/recipes/nug30.par   # relative to latest/: nug_deep_xbar9_all.par plus the [settings] below
 OPT=6124          # the known optimum, which the check expects
