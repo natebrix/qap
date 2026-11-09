@@ -44,6 +44,12 @@ BNBParameters *pick_param(const QAPAssignment &node,double root,double opt,
 			  int nlevel);
 
 
+// The root's QPB bound with the first level's parameters, as the search sets
+// stats->root_bound at depth 0. A -F run (driver.C) starts below the root and
+// needs it: the relative gaps that pick the parameter level and gate the DNN
+// bound are measured against it.
+double root_qpb_bound(QAP *q, BNBParameters *param);
+
 double QAPobjective(QAP *q,const QAPAssignment &a);
 double QAPobjective(QAP *q,Index *p,int m);
 void solveSize3QAP(QAP *q,const QAPAssignment &a,double &obj_save,

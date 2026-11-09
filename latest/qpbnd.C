@@ -473,12 +473,12 @@ double qpbnd(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
   }
 
   fw(A,B,C,S,T,G,X,U1,xstar,C_X,G_X,A->m,iter,total_iter,
-     p->maxier,p->maxier_nofathom,p->shift + eig,p->inc,p->feasible,
+     p->maxier,p->maxier_nofathom,p->shift + eig,p->inc - p->cutoff_slack,p->feasible,
      status,up_bound,lo_bound,p->lap_scale,p->save_best,p->improve,
      p->bound_used);
   total_iter += iter;
 
-  if(lo_bound <= p->inc)
+  if(lo_bound <= p->inc - p->cutoff_slack)
     lo_bound=compute_U(A,B,C,S,T,X,U1,A->m,p->compute_lapU,p->lapU,p->lap_scale,
 		       p->shift+eig);
   
@@ -611,7 +611,7 @@ inline double _qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,int *xstar,
     fw(A,B,C,S,T,G,X,U1,xstar,C_X,G_X,A->m,iter,total_iter,
        std::min(p->step,p->maxier - total_iter - accurate_ier),
        p->maxier_nofathom - total_iter,
-       p->shift+eig, p->inc, feasible,
+       p->shift+eig, p->inc - p->cutoff_slack, feasible,
        status, up_bound, lo_bound, p->lap_scale, false, false, 
        p->bound_used);
     total_iter += iter;
@@ -635,7 +635,7 @@ inline double _qpbnd_parametric(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,int *xstar,
     if (accurate_ier > 0) {
       lo_bound = INIT_LOBND;
       fw(A,B,C,S,T,G,X,U1,xstar,C_X,G_X,A->m,iter,total_iter,accurate_ier,
-	 1000,p->shift + eig, p->inc, feasible,
+	 1000,p->shift + eig, p->inc - p->cutoff_slack, feasible,
 	 status, up_bound, lo_bound, accurate_scaling,p->save_best,
 	 p->improve,p->bound_used,true);
       total_iter += iter;

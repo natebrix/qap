@@ -33,6 +33,9 @@ class QPBParameters
                            //  we know we can't fathom current node
   double shift;            // constant to add to bound
   double inc;              // current upper bound (incumbent)
+  double cutoff_slack;     // FW stops as FATHOM once lower bound > inc - cutoff_slack:
+                           // DELTA for a node's own bound (bnb.C fathoms at inc - DELTA),
+                           // 0 where the bound's value matters (children scored by a rule)
   double lapU;             // storage for solution of LAP(U)
   int step;                // update S and T every step iterations
   bool feasible;           // is given X doubly stochastic?
@@ -55,6 +58,7 @@ class QPBParameters
     maxier_nofathom = 100;
     shift = 0.0;
     inc = 1.0e100;
+    cutoff_slack = 0.0;
     lapU = 0.0;
     step = 30;
     feasible = true;

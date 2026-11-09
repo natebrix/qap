@@ -120,15 +120,15 @@ double qpbnd2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
 
   fw(A,B,C,S,T,G,X,U1,xstar,C_X,G_X,A->m,iter,total_iter,
      maxier-accurate_ier,maxier_nofathom-total_iter,
-     qpbp->shift+eig,qpbp->inc,qpbp->feasible,
+     qpbp->shift+eig,qpbp->inc - qpbp->cutoff_slack,qpbp->feasible,
      status, up_bound, lo_bound, qpbp->lap_scale, false, false, bnd_used);
   total_iter += iter;
 
-  if(lo_bound <= qpbp->inc) {
+  if(lo_bound <= qpbp->inc - qpbp->cutoff_slack) {
     if(accurate_ier > 0) {
       lo_bound = INIT_LOBND;     // (was -1e-99, i.e. 0: too high when bounds are negative)
       fw(A,B,C,S,T,G,X,U1,xstar,C_X,G_X,A->m,iter,total_iter,accurate_ier,1000,
-	 qpbp->shift+eig,qpbp->inc,qpbp->feasible,
+	 qpbp->shift+eig,qpbp->inc - qpbp->cutoff_slack,qpbp->feasible,
 	 status, up_bound, lo_bound, accurate_scaling,true,improve,bnd_used);
       total_iter += iter;
     }
@@ -191,7 +191,7 @@ double qpbnd_parametric2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
     fw(A,B,C,S,T,G,X,U1,xstar,C_X,G_X,A->m,iter,total_iter,
        std::min(qpbp->step,qpbp->maxier - total_iter-accurate_ier),
        qpbp->maxier_nofathom-total_iter,
-       qpbp->shift+eig,qpbp->inc,qpbp->feasible,
+       qpbp->shift+eig,qpbp->inc - qpbp->cutoff_slack,qpbp->feasible,
        status, up_bound, lo_bound, qpbp->lap_scale, false, false, bnd_used);
     total_iter += iter;
 
@@ -209,7 +209,7 @@ double qpbnd_parametric2(MAT *A,MAT *B,MAT *C,MAT *X,MAT *U1,
     if(accurate_ier > 0) {
       lo_bound = INIT_LOBND;
       fw(A,B,C,S,T,G,X,U1,xstar,C_X,G_X,A->m,iter,total_iter,accurate_ier,1000,
-	 qpbp->shift+eig, qpbp->inc,qpbp->feasible,
+	 qpbp->shift+eig, qpbp->inc - qpbp->cutoff_slack,qpbp->feasible,
 	 status, up_bound, lo_bound, accurate_scaling,true,qpbp->improve,
 	 bnd_used);
       total_iter += iter;

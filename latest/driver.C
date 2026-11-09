@@ -634,6 +634,13 @@ int main(int argc, char *argv[])
 	}
 	stack->data.fix(fi, fj);
       }
+      // The relative gaps that pick the parameter level and gate the DNN
+      // bound are measured against the root's bound, which this run never
+      // computes in its search: compute it here, as a full run would at
+      // depth 0 (it was left at 0 before Nov 9, so a -F run picked its
+      // parameters as if every node were far from the root).
+      stats->set_root_bound(root_qpb_bound(q, params));
+      cout << "root bound " << stats->root_bound << " (for the relative gaps of a -F run)" << std::endl;
     }
   }
   branch_init(n);

@@ -902,6 +902,7 @@ void bnb_console(QAP *q, Node *&stack,
 
       qpbp->shift = qr->shift;
       qpbp->inc = sln->getObjective();
+      qpbp->cutoff_slack = DELTA;
 
       qpbp->maxier = param->maxier_bnd;
       qpbp->maxier_nofathom = param->maxier_nofathom;

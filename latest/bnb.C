@@ -230,6 +230,33 @@ void solveSize3QAP(QAP *q,const QAPAssignment &a,double &obj_save,
 
 ============================================================
  */
+double root_qpb_bound(QAP *q, BNBParameters *param)
+{
+  const int n = q->A->m;
+  QAPAssignment root(n);
+  QAP *qr = new QAP(n);
+  reduceQAP(q, qr, root);
+  MAT *X = m_get(n, n), *U = m_get(n, n);
+  QPBParameters qpbp;
+  qpbp.shift = qr->shift;
+  qpbp.inc = 1.0e100;          // no early exit: the full iteration budget, as at the root of a run
+  qpbp.maxier = param->maxier_bnd;
+  qpbp.maxier_nofathom = param->maxier_nofathom;
+  qpbp.step = param->param_step;
+  qpbp.save_best = true;
+  qpbp.feasible = true;
+  qpbp.improve = false;
+  double bound;
+  init_X(X, n);
+  if (param->which_bound == PB_BND || param->which_bound == QP_BND)
+    bound = qpbnd(qr->A, qr->B, qr->C, X, U, &qpbp);
+  else
+    bound = qpbnd_parametric(qr->A, qr->B, qr->C, X, U, &qpbp);
+  m_free(X); m_free(U);
+  delete qr;
+  return bound;
+}
+
 BNBParameters *pick_param(const QAPAssignment &node,double root,double opt,
 			  BNBParameters *params,int &i,double &rel_gap,
 			  int nlevel)
@@ -447,8 +474,11 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 
       // It may happen that the incumbent value was updated
       // since this node was put on the stack.  Check to see if the
-      // new incumbent value is low enough to fathom this node.
-      if (node.bound > s->getObjective() - DELTA) {
+      // new incumbent value is low enough to fathom this node: by the
+      // bound it inherited or by the one its parent predicted for it
+      // (parent bound + U_ij, a valid lower bound; branch.C fathomed on it
+      // against the incumbent of that time).
+      if (std::max(node.bound, node.predicted_bound) > s->getObjective() - DELTA) {
 	//std::cout << "Fathomed due to updated incumbent (" 
 	//     << s->getObjective() << ")" << std::endl;
 	stats->anotherDiscard(node.depth);
@@ -544,6 +574,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 
       qpbp->shift = qr->shift;
       qpbp->inc = s->getObjective();
+      qpbp->cutoff_slack = DELTA;   // this node is fathomed at inc - DELTA: FW may stop there
 
       qpbp->maxier = param->maxier_bnd;
       qpbp->maxier_nofathom = param->maxier_nofathom;
@@ -632,10 +663,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       static const int dnn_ext = (int)setting_i("dnn.ext");
       const int dnn_ext_in = node.warm ? node.warm->dnn_ext : 0;
 #ifdef HAVE_DNN
-      if (bound <= s->getObjective() - DELTA && m >= 2 && s->getObjective() < 1e99 &&
+      // node.bound, not the raw QPB value: a node the inherited or predicted
+      // bound already fathoms needs no DNN solve
+      if (node.bound <= s->getObjective() - DELTA && m >= 2 && s->getObjective() < 1e99 &&
 	  node.depth >= dnn_min_depth && (node.depth <= dnn_max_depth || dnn_ext_in > 0)) {
 	const double inc = s->getObjective();
-	const double gap = (inc - bound) / std::max(inc - stats->root_bound, 1e-9);
+	const double gap = (inc - node.bound) / std::max(inc - stats->root_bound, 1e-9);
 	if (gap <= dnn_max_gap) {
 	  DNNParams dp;
 	  // giving up early on a node that would fathom costs its whole subtree
@@ -903,12 +936,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 
       /*
       */
-      if (bound  <= s->getObjective() - DELTA && !dnn_fathomed) {
+      if (node.bound <= s->getObjective() - DELTA && !dnn_fathomed) {
 	
 	// kids = the number of child nodes formed,
 	// kid[0]..kid[kids-1] hold the child nodes.
 	
 	qpbp->inc = s->getObjective();
+	qpbp->cutoff_slack = 0;   // the children's bounds are scores here, not fathom tests
 	qpbp->maxier = param->maxier_br;
 	qpbp->maxier_nofathom = param->maxier_br;
 	qpbp->step = param->param_step;
