@@ -269,6 +269,64 @@ form facility 21's matched sample. No parent state is kept (`--tau 0`). A run
 drains (exit 4) if its projection exceeds 9 h of wall, and the chain then
 stops. `compare_lines.py` writes the comparison (`results/root_lines.md`).
 
+### Results: facility 21 against 45 and 25 (`results/root_lines.md`, Nov 8-9)
+
+Runs:
+- facility 45: Nov 8 13:23-20:22, interrupted by a container restart at 13:52 (4 tasks in flight lost and rerun, about 9 CPU minutes; 27 kept), 77,450 CPU s;
+- facility 25: Nov 8 20:22 to Nov 9 01:51, 76,836 CPU s.
+
+The same binary and environment as stage A, 5.5-5.6 h of wall each. [m]
+unless marked.
+
+**Depth 1.** Our 15 first solves per line (300 iterations, cold DNN) agree with
+the laptop's 300-iteration cold solves of the same children (`165780c`,
+`children_i300`) to 0.5 units child for child. They are 50-70 below its
+1,500-iteration values. The lines cost over the 15 children, sum
+47^(gap/130), ranks the three lines as the laptop does:
+
+| facility | ours, 300 it | laptop, 300 it | laptop, 1,500 it |
+|---|---|---|---|
+| 45 | 6.96e7 (1.00x) | 6.93e7 (1.00x) | 1.27e7 (1.00x) |
+| 21 | 7.85e7 (1.13x) | 7.81e7 (1.13x) | 1.48e7 (1.17x) |
+| 25 | 3.07e8 (4.42x) | 3.06e8 (4.42x) | 6.72e7 (5.28x) |
+
+**Depth 2** (200 of 635 nodes per line: the same seeded task ids in every run;
+for facility 21 also the whole population):
+
+| line | fathomed | of which in the first solve | more than 244 short (no phase, no pool for the children) | expected frontier (± 1 SE) [e] | lines cost of the level (95% bootstrap) | CPU s per node |
+|---|---|---|---|---|---|---|
+| 21, all 635 | 331 (52.1%) | 57 | 115 (18.1%) | 14,192 (exact) | 5.7e6 (3.5e6-8.3e6) | 400 |
+| 21, matched 200 | 102 (51.0%) | 14 | 40 (20%) | 14,491 ± 876 | 6.4e6 (3.3e6-1.0e7) | 393 |
+| 45, 200 | 113 (56.5%) | 30 | 33 (16.5%) | 12,814 ± 866 | 6.3e6 (1.7e6-1.3e7) | 379 |
+| 25, 200 | 37 (18.5%) | 0 | 94 (47%) | 24,206 ± 694 | 6.8e6 (3.9e6-1.1e7) | 376 |
+
+Shortfall histograms are in `results/root_lines.md`, with the same bins as
+`summarize_a.py`. In all four rows nothing ends between 150 and 244, since a
+phase either fathoms or stops below 150.
+
+- **45 against 21: no difference beyond the sampling noise at depth 2.** 45
+  fathoms 5.5 points more than 21's matched sample (about 1.1 sigma). Its
+  expected frontier is 10% smaller (1.4 sigma) and its share beyond the zone is
+  the same. The 1.13x depth-1 edge would at most shave a tenth off the
+  frontier.
+- **25 is clearly worse, as the depth-1 score said.** It fathoms 18.5%, and
+  none in a first solve. Its frontier is 1.7x facility 21's, and 2.6x as many
+  of its depth-2 nodes end beyond the zone, so their children start without a
+  pool.
+- **The lines cost of the depth-2 level does not separate the three lines.**
+  It is dominated by the 2% of nodes 400-450 short (47^3.3 = 3.5e5 each),
+  equally frequent in all three. Flooring a miss at 1 + children changes
+  nothing. The counts (fathomed, beyond the zone, frontier) are the measures
+  that move.
+- **The line at each depth-1 node** (`results/root_lines.md`, last table):
+  under 21, the xbar lines are column 0 (8 nodes) or row 45 (2); the rows-only
+  nodes use rows 45 and 31. Under 45 it is row 21 at 10 of 15 nodes; under 25,
+  row 45 at all 10 xbar nodes and row 21 at the 5 rows-only nodes. Facilities
+  21 and 45 pair up at depths 0-1 in every line. The spread of a line's
+  depth-2 children is widest at the corner and edge cells: under 21, cell 10's
+  children are 19-458 short (median 269) and cell 14's 19-80, and 44 of its 49
+  children fathom.
+
 ## Stage B (`stage_b.py`): built and smoke-tested, not run
 
 - **The sample.** The 400 frontier nodes with the smallest
