@@ -3,7 +3,13 @@
 Offline studies, in Python, of a doubly nonnegative (DNN) SDP bound: the
 facially reduced ZKRW / Oliveira-Wolkowicz-Xu relaxation, solved by ADMM. The
 bound is certified, i.e. computed from a dual-feasible point, and every
-reported value is valid. The code and full reports for each study are in its
+reported value is valid. The certificate's form (a multiplier Z, a polyhedral
+minimum of <L + Z, Y>) is Oliveira-Wolkowicz-Xu's; its Gilmore-Lawler
+polyhedral part, the face-negative multiplier taken from the R-step without a
+second eigendecomposition, and the explicit rounding margins are, to our
+knowledge, new here (the provenance note in `latest/dnn.C`, section 2, has the
+references; the certificate's remaining headroom is measured in
+`../wil50_feasibility/roadmap/certificate/REPORT.md`). The code and full reports for each study are in its
 directory. The scripts were run from a scratch directory, so their paths
 need adjusting before they will run here.
 

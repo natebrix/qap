@@ -43,6 +43,28 @@
     sooner. Every LAP value used is the objective of a dual-feasible
     point, so an inexact inner solve (DNN_LAP_REDUCE) is still valid.
 
+ Provenance of the certificate (noted Nov 8 2026). The form of the bound,
+    a dual multiplier Z with V'ZV <= 0 and the minimum of <L + Z, Y> over a
+    polyhedral set containing the feasible Y (the box), is Oliveira,
+    Wolkowicz and Xu, "ADMM for the SDP relaxation of the QAP", Math. Prog.
+    Comp. 2018, reused by Graham, Hu, Im, Li and Wolkowicz (INFORMS J.
+    Comput. 2022). Bounding lambda_max by a Cholesky test is Rump (2006), in
+    the tradition of Jansson, Chaykin and Keil's rigorous SDP bounds (SIAM J.
+    Numer. Anal. 2007). The Gilmore-Lawler bound (1962) as a dual-feasible
+    point of the level-1 RLT relaxation is Adams and Johnson (1994), and
+    Hahn and Grant's dual ascent. What we believe is new here: the
+    polyhedral set above (the RLT-1 column-block structure) evaluated by a
+    Gilmore-Lawler computation on the residual M = L + Z, with every LAP
+    value dual-feasible so inexact inner solves stay valid; the multiplier
+    Z' = Z + beta (Y - VRV') that is negative semidefinite on the face by
+    construction, with no second eigendecomposition; and the explicit
+    floating-point margins in place of interval arithmetic. A literature
+    check on Nov 8 (three searches) found no earlier Gilmore-Lawler
+    evaluation inside an SDP dual certificate; it was not an exhaustive
+    review. The certificate study (experiments/wil50_feasibility/roadmap/
+    certificate) shows the remaining freedom at a fixed iterate is a skew
+    transfer, exploited by the opt-in Hahn-Grant polish (DNN_CERTX=32).
+
  3. R-step eigensolver. dnn.py takes a full double eigendecomposition
     of W = V'(Y + Z/beta)V every iteration; it is most of the cost, and
     W has hundreds of eigenvalues of each sign, so a partial spectrum
