@@ -101,14 +101,14 @@ writes the fp32 copy of W only when it stays valid; the cut separator's five
 candidate lists use a partial sort bounded by the cuts that can be taken plus
 the pool size, so the selection is unchanged (nug30 with the cut phase at depth
 <= 2: rounds 2,703 / 2,599 and CP 2,619 / 2,518 nodes before and after, same
-CPU). E2, E5-E7, E9-E13 open.
+CPU). E2 measured and closed Nov 9 (not adopted); E5-E7, E9-E13 open.
 
 Per DNN iteration at K = (m-1)²+1 ≤ 2,402 the cost is three K×K×kb `sgemm` (Chebyshev filter and Rayleigh-Ritz), the `dsyrk` forming R (about K²·nneg), and a full `ssyevd` refresh amortised over 20 iterations; the O(m^5) transforms and the O(m^4) Y/Z steps are an order of magnitude below. Against that:
 
 | # | where | finding | expected gain |
 |---|---|---|---|
 | E1 | `dnn.C:1104-1117` | `R = W + FFᵀ` is formed by `dsyrk` in fp64 from fp32 eigenvectors; `DNN_R32_NONCERT=1` does it in fp32 on the 19 of 20 non-certificate iterations and is already in the record recipe. Make it the default. | already taken in the recipe; a default, not a new win |
-| E2 | `dnn.C:924-959` | The refresh runs `ssyevd` on all K eigenpairs though only nneg + guard low ones and the top one are used; `DNN_CORE_REFRESH_PARTIAL` hand-chains `ssytrd` + `sstedc` (all K tridiagonal vectors) + `sormtr`. `ssyevr`/`sstemr` with RANGE='I' does strictly less. Trade: bitwise reproducibility against `ssyevd`. | 5-10% per iteration [r] |
+| E2 | `dnn.C:924-959` | The refresh runs `ssyevd` on all K eigenpairs though only nneg + guard low ones and the top one are used; `DNN_CORE_REFRESH_PARTIAL` hand-chains `ssytrd` + `sstedc` (all K tridiagonal vectors) + `sormtr`. `ssyevr`/`sstemr` with RANGE='I' does strictly less. Trade: bitwise reproducibility against `ssyevd`. | 5-10% per iteration [r]. **Measured Nov 9, not adopted**: on Accelerate `sstedc` on all K vectors is a tenth to a quarter of the refresh and MRRR (`sstemr`) or `sstebz`+`sstein` on the kb + 1 selected pairs cost 4 to 14x more; `ssytrd` is 67 to 80% of the refresh. `experiments/eigensolver/README.md`, Nov 9 addendum. |
 | E3 | `dnn.C:869-874` | With `tight_lam = 0` the Weyl update materialises W − Wprev, takes its norm and copies, three K² memory passes per iteration; `QAP_DNN_TIGHT_LAM=2` (in the recipe) replaces them. Make it the default; if the Weyl path stays, fuse the three passes. | in the recipe already |
 | E4 | `dnn.C:2146-2147, 723-731` | In the default configuration `forward` writes Wf next to W and then marks it stale because W is symmetrised afterwards, so `proj_psd_subspace` converts W to Wf again: one wasted K² fp32 store per iteration. | a few ms per iteration at K≈2,100 [v] |
 | E5 | `dnn.C:796-801` | `DNN_EIG_SINGLE`: the fp32 eigenvector matrix is widened to K² doubles only to build F; build F from the fp32 matrix as the subspace path does. | one K² pass, SINGLE mode only [r] |

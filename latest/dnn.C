@@ -494,6 +494,7 @@ struct Work {
   std::vector<float> Xs, Ys, Ts, Hs;
   std::vector<float> vtop, vtmp;   // top eigenvector estimate (tight_lam)
   std::vector<float> trd_e, trd_tau;   // ssytrd's off-diagonal and reflector scalars (the partial refresh)
+  double rsp[3] = {0, 0, 0};           // refresh split, s: ssytrd, sstedc, sormtr (verbose >= 2)
   std::vector<double> Wprev;
   int kb, since_refresh;
   bool have_basis;
@@ -920,12 +921,19 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       // eigenvalues and vectors bit for bit), with the back-transformation applied
       // to the nneg + guard lowest eigenvectors and the top one only, which is all
       // the tracker reads; the other K - kb columns of ssyevd's 2 K^3 flops are
-      // never formed (about a third of the refresh at K = 2117).
+      // never formed (about a third of the refresh at K = 2117). Review E2 (Nov 9,
+      // experiments/eigensolver/README.md) tried the selected eigenpairs by MRRR
+      // (ssterf + sstemr) and by bisection + inverse iteration (sstebz + sstein) in
+      // place of sstedc: on Accelerate both cost 4 to 14x sstedc's time, and ssytrd
+      // is 67 to 80% of the refresh anyway, so the divide and conquer stays.
       {
         float *Zt = w.Ts.data(), *e = w.trd_e.data(), *tau = w.trd_tau.data();   // Ts is free until form R
+        double tr = thread_cpu();
         F77(ssytrd)("L", &K, X, &K, theta.data(), e, tau, w.eworkf.data(), &lwork, &info, 1);
+        w.rsp[0] += thread_cpu() - tr; tr = thread_cpu();
         if (info == 0) F77(sstedc)("I", &K, theta.data(), e, Zt, &K, w.eworkf.data(), &lwork,
                                    w.eiwork.data(), &liwork, &info, 1);
+        w.rsp[1] += thread_cpu() - tr; tr = thread_cpu();
         if (info == 0) {
           nneg = 0;
           while (nneg < K && theta[nneg] < 0) nneg++;
@@ -936,6 +944,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
             F77(sormtr)("L", "L", "N", &K, &one, X, &K, tau, Zt + (size_t)(K - 1) * K, &K,
                         w.eworkf.data(), &lwork, &info, 1, 1, 1);
           }
+          w.rsp[2] += thread_cpu() - tr;
           if (info == 0) {
             if (tight_lam > 0) memcpy(w.vtop.data(), Zt + (size_t)(K - 1) * K, K * sizeof(float));
             memcpy(X, Zt, (size_t)kb * K * sizeof(float));
@@ -2248,6 +2257,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
            w.prof[5], w.n_refresh, w.K, w.prof[6], w.n_sub,
            w.n_sub ? (double)w.sum_kb / w.n_sub : 0.0, w.n_sub ? (double)w.sum_nneg / w.n_sub : 0.0,
            w.prof[7]);
+    printf("refresh split (s): ssytrd %.3f  sstedc %.3f  sormtr %.3f\n", w.rsp[0], w.rsp[1], w.rsp[2]);
   if (par.verbose >= 2 && par.eig_mode == DNN_EIG_SUBSPACE && w.n_sub > 0) {
     const double ns = w.n_sub, nr = std::max(1, w.n_sub + w.n_refresh);
     printf("step split (ms per subspace step): weyl %.1f  convert %.1f  pack %.1f  W*Y %.1f  cheb %.1f  cholqr %.1f  rr-gemm %.1f  rr-eig %.1f  x-upd %.1f\n",

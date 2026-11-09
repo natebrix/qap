@@ -201,3 +201,32 @@ the Weyl update of the filter's upper end by N shifted power steps on the
 tracked top eigenvector. With `QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2` the bound
 fathoms in the same iterations as degree 4 at 85% of the per-iteration cost:
 see `../wil50_feasibility/solvers/accel/README.md`.
+
+## Addendum (Nov 9 2026): the selected-eigenpair refresh, measured (review E2)
+
+Review item E2 (`docs/review_nov8.md`) proposed computing only the eigenpairs
+the tracker reads at a full refresh, the nneg + guard lowest and the top one,
+instead of `sstedc`'s all-K tridiagonal eigenvectors, by `ssyevr`-style MRRR.
+Tried on this laptop (M2 Pro, Accelerate, `VECLIB_MAXIMUM_THREADS=1`) with
+`dnntest -r 20 -k 10 -v -v` on three roots, the refresh's three steps timed
+apart; "vectors" is the tridiagonal eigenvector step, with `ssytrd` before it
+and one `sormtr` over the kb (+1) columns after it in every variant:
+
+| root | K | refreshes | ssytrd | vectors: sstedc, all K | ssterf + sstemr (MRRR), kb + 1 | sstebz + sstein, kb + 1 | sormtr |
+|---|---|---|---|---|---|---|---|
+| nug30 | 842 | 8 | 0.155 s | 0.058 s | 0.034 + 0.369 s | 0.034 + 0.309 s | 0.019 s |
+| tho40 | 1,522 | 3 | 0.252 s | 0.058 s | 0.033 + 0.318 s | 0.033 + 0.618 s | 0.024 s |
+| wil50 | 2,402 | 2 | 0.552 s | 0.081 s | 0.039 + 0.410 s | 0.040 + 1.140 s | 0.046 s |
+
+Accelerate's divide and conquer on all K vectors is 7 to 40 ms per refresh,
+a tenth to a quarter of the refresh; its MRRR is 4 to 7x slower than that and
+bisection with inverse iteration 5 to 14x. The Householder reduction `ssytrd`
+is 67 to 80% of the refresh and no selective eigensolver avoids it. So the
+Nov 8 partial refresh (`ssytrd`, `sstedc`, partial `sormtr`) stays, bitwise as
+it was; `dnntest -v -v` now prints the three steps' times ("refresh split").
+The bounds under MRRR agreed with the divide and conquer's to 1e-6 relative
+on nug20 to tho30 nodes (`make dnncheck` passed under it), so the method was
+sound, only slower here. On the cloud box's reference LAPACK the ratios may
+differ, but `ssytrd` dominates there as well; a cheaper refresh would have to
+avoid the reduction (fewer scheduled refreshes, or none while the tracker's
+Weyl test holds), not select eigenpairs after it.
