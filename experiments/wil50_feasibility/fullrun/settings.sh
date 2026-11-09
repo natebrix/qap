@@ -25,6 +25,12 @@ FULLRUN_UB=48816
 export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_EXT=20
 export DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40
 export QAP_DNN_WARM_Y=2 QAP_DNN_POOL=1 QAP_DNN_POOL_CHECK=20
+# Pinned Nov 9: 34e347c (Nov 8) changed these two defaults (ADMM beta 0.3 ->
+# 0.21, give-up confirmation zone 0 -> 0.003). The gated cpcutt arm and the
+# sampling plan's stages A and B ran the old values with neither variable set.
+# Adopting the new values for wil50 is an A/B, not a default change
+# (docs/settings_plan.md, step 0).
+export QAP_DNN_BETA=0.3 QAP_DNN_GU_ZONE=0
 # the cut phase: regional triangles on the 5:10 grid of the second matrix,
 # in CP form (QAP_DNN_CUT_CP: separate 1000 every 100 iterations inside one
 # CP-ADMM solve; roadmap/admm/cpadmm/README.md, "In the search" and "Side 1")

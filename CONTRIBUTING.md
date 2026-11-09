@@ -103,3 +103,38 @@ changes to branching, lookahead or bound strategy, also log a `large` run
   seeds (`--seed 2`, `--seed 3`), not just the default.
 - Don't commit build output (`*.o`, `*.a`, `bnbdrv`), `bench/results/` or
   `bench/.worktrees/`. `.gitignore` already excludes them.
+
+## Where settings live
+
+Every setting has one home, decided by what it describes:
+
+| channel | holds | examples |
+|---|---|---|
+| command line | the run's identity and I/O: anything that differs between two runs of the same configuration | instance, `-u`, `-s`, `-p`, `-r`/`-o`, `-k`/`-t`, `-F`, `-d`, worker identity |
+| `.par` file | all search policy: anything that changes how the solver searches, keyed by gap and depth where it varies | branching rule, FW iterations, NBEST, the DNN bound's depths and parameters, the cut phase |
+| environment | experiments in flight and diagnostics only | an A/B switch not yet adopted; `QAP_DNN_TRACE` |
+| compile time | only what is never meant to vary | array limits, format versions |
+
+The rules that follow from it:
+
+- **Production runs set no `QAP_*`/`DNN_*` variable.** A production configuration
+  is a committed par file. The launchers check this.
+- **A knob that wins its A/B graduates.** In the commit that adopts it, it
+  becomes a par key or the default, and its environment variable is removed.
+  Every new environment variable goes into the settings registry with a
+  default, a range and a one-line description.
+- **Changing a default is a search change.** The `PARAM/default.par` rule above
+  applies: its own commit, a fresh baseline, and every committed golden
+  settings dump updated in the same commit, so no launcher's settings change
+  silently.
+- **Every run records its resolved settings,** in its log and in its state
+  file. A resume with different settings is refused unless it's asked for
+  explicitly.
+- **An unknown setting is an error, not a warning:** an unknown variable, par
+  key or flag, or a value that doesn't parse.
+
+The registry, the startup dump, the state-file record and the unknown-name
+check are being built (`docs/settings_plan.md`, Phase 1); moving policy out of
+the environment and the `-x`/`-w` flags into the par file is Phase 2. Until
+those land, a launcher must set every `QAP_*`/`DNN_*` variable it depends on
+explicitly, never rely on a default, and save its environment beside the run.
