@@ -4,10 +4,10 @@ tho40 (Thonemann and Bölte, 5 x 8 grid, QAPLIB best known 240,516, never
 proven optimal) sized with the production solver, by tracing every node the
 search bounds and fitting subtree size to the bound gap on the subtrees it
 finished. Fujii, Ito, Kim, Kojima, Shinano and Toh (arXiv:2101.09629) estimate
-3.7e7 nodes for tho40 with their rule P. The estimate here is **1.6e6 to
-4.0e6 nodes**, about 2e6 to 6e6 CPU s on this laptop's cores: 3 to 9 days at
-8 workers, an hour or two on 1,000 cores. tho40 is solvable with the resources
-the wil50 plan assumes, with a wide margin.
+3.7e7 nodes for tho40 with their rule P. The estimate here, after the depth-2
+sweep below, is **6e5 to 3e6 nodes**, about 1e6 to 4e6 CPU s on this laptop's
+cores: 1.3 to 6 days at 8 workers, 15 to 70 minutes on 1,000 cores. tho40 is
+solvable with the resources the wil50 plan assumes, with a wide margin.
 
 ## Files
 
@@ -108,6 +108,59 @@ Caveats, in order of weight:
   studies in `../wil50_feasibility/tuning/lines/` suggest a shortlist-by-child-
   bounds choice could be worth 2-5x more.
 
+## The depth-2 sweep (later on Nov 8): the extrapolation at the top removed
+
+The production solver started at each of the 12 depth-1 nodes (`bnbdrv -F 26:c
+-d 2`, the record environment, rule 9), so every depth-2 node gets the bound
+the search would give it: the depth-1 node solved cold as in production, its
+children warm from its shipped state, the line chosen by rule 9 at the node.
+12 runs, 8 at a time, 17 min of wall (`depth2/d2_26_<c>.{trace,log}`,
+`depth2/one.sh`; `depth2/tho40_depth2.trace` is the concatenation). On the 32
+depth-2 nodes the 5 h search had also bounded, the sweep's bounds agree to
+within 0.2 units, so the two traces are the same kind of number and are read
+together (`estimate.py` takes `a.trace+b.trace`; `EXHAUSTIVE=1` tells it that
+depth 1's children lists are complete).
+
+404 depth-2 nodes, not 468: the four parents on the grid's middle row
+(cells 16-19) keep one reflection, and the solver's symmetry reduction gives
+them 23 children each, the other eight 39. Lines: rule 9 took cell 7 under
+26:0, cell 0 under the other seven off-axis parents, and facility 15 or 5
+across the cells under the middle-row parents. One depth-2 node fathoms.
+
+| parent 26:c | children | median gap | max gap |
+|---|---|---|---|
+| c = 0 | 39 | 1.89% | 3.13% |
+| 1, 8 | 39 | 2.33-2.53% | 3.55-3.67% |
+| 2, 3, 9, 10, 11 | 39 | 2.86-3.24% | 4.02-4.38% |
+| 16, 17, 18, 19 (middle row) | 23 | 3.13-3.68% | 4.03-4.63% |
+
+Across all 404: median gap 2.87%, 10th-90th percentile 1.39-3.92%, max 4.63%.
+
+With the sweep folded in, nothing above depth 2 is extrapolated, and the three
+calibrations move together:
+
+| calibration | estimate (search trace + sweep) | from the 404 depth-2 bounds alone |
+|---|---|---|
+| tho40's own finished subtrees | 6.1e5 | 5.4e5 |
+| tho30's tree | 1.7e6 | 1.7e6 |
+| nug30's tree | 2.9e6 | 2.9e6 |
+
+The spread that remains is the slope of log10(size) against gap at depth 2
+applied at gaps of 3-4%, above any finished depth-2 subtree on any of the
+three instances (tho40's own depth-2 fit rests on 3 nodes at 0.4-0.7%; tho30's
+covers 0-2%). The nug30 calibration no longer sits 100x above the others, as it
+did when it had to extrapolate from the depth-1 gaps of 5-6%: that gap had
+been the weakest step, and the sweep removed it. Range: **6e5 to 3e6 nodes**,
+**0.9e6 to 4e6 CPU s** at 1.39 s per node; 1.3 to 6 days on this laptop with 8
+workers fully used, 15 to 70 minutes on 1,000 cores. Fujii et al.'s 3.7e7 is
+12x to 60x above.
+
+What would tighten it further: finishing a handful of depth-2 subtrees at
+gaps of 3-4% to pin the slope where it is applied. The sweep shows a typical
+such node costs 10^3.5 to 10^4.3 nodes by the three fits, 1 to 7 CPU-hours
+each, so three or four of them at 8 workers is an evening; the depth-first
+search did this for the small ones only.
+
 ## Running it again
 
 ```sh
@@ -116,6 +169,9 @@ QAP_DNN_TRACE=$PWD/experiments/tho40_estimate/traces/tho40.trace \
 python3 bench/parallel.py qaplib/tho40t.dat --jobs 8 --ub 240516 \
     --params PARAM/nug_deep_xbar9_all.par --extra "-x 1:7:1:200:1" \
     --checkpoint tho40.ckpt --checkpoint-every 3600
-python3 -I experiments/tho40_estimate/estimate.py predict traces/tho40.trace 40 12 traces/tho40.trace 40 12
-python3 -I experiments/tho40_estimate/estimate.py predict traces/tho30.trace 30 10 traces/tho40.trace 40 12
+# the depth-2 sweep: one depth-limited production run per depth-1 node
+printf '%s\n' 0 1 2 3 8 9 10 11 16 17 18 19 | xargs -P 8 -n 1 experiments/tho40_estimate/depth2/one.sh
+cd experiments/tho40_estimate; T=traces/tho40.trace+depth2/tho40_depth2.trace
+EXHAUSTIVE=1 python3 -I estimate.py predict $T 40 12 $T 40 12          # self-calibrated
+EXHAUSTIVE=1 python3 -I estimate.py predict traces/tho30.trace 30 10 $T 40 12   # tho30-calibrated
 ```

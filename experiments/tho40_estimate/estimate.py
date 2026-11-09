@@ -15,8 +15,12 @@ import sys, re, math, collections
 import numpy as np
 
 def read_trace(path):
+    """One trace file, or several joined with '+' (e.g. the search's trace plus a
+    depth-limited sweep); a node bounded in both keeps the better bound."""
     nodes = {}
-    for l in open(path):
+    lines = []
+    for p in path.split('+'): lines += open(p).readlines()
+    for l in lines:
         m = re.match(r'pid \d+ depth (\d+) fixes((?: \d+:\d+)*) \| first lb ([-\d.]+) .*? \| cut (\d)(?: best ([-\d.]+))?.*\| cutoff ([-\d.]+) fathomed (\d)', l)
         if not m: continue
         depth = int(m.group(1)); fixes = frozenset(m.group(2).split())
@@ -37,8 +41,12 @@ def read_trace(path):
         if v['parent'] is not None: nodes[v['parent']]['children'].append(f)
     return nodes
 
-def nchildren(n, depth, root_children):
-    return root_children if depth == 0 else n - depth
+EXHAUSTIVE_DEPTHS = set()   # depths at which the trace holds every child of every node (a -d sweep)
+
+def nchildren(n, depth, root_children, node=None):
+    if depth == 0: return root_children
+    if node is not None and depth in EXHAUSTIVE_DEPTHS: return len(node['children'])   # symmetry can reduce the count
+    return n - depth
 
 def complete_sizes(nodes, n, root_children, finished=False):
     """Bottom-up subtree size; a node is 'complete' if fathomed or all its
@@ -50,7 +58,7 @@ def complete_sizes(nodes, n, root_children, finished=False):
         v = nodes[f]
         if v['fath']:
             v['size'] = 1; v['complete'] = True; continue
-        kids = v['children']; nk = nchildren(n, v['depth'], root_children)
+        kids = v['children']; nk = nchildren(n, v['depth'], root_children, v)
         missing = nk - len(kids)
         v['size'] = 1 + sum(nodes[k]['size'] for k in kids) + (missing if finished else 0)
         v['complete'] = finished or (missing == 0 and all(nodes[k]['complete'] for k in kids))
@@ -99,7 +107,7 @@ def predict(nodes, n, root_children, model, coef, label=''):
         if v['complete']: v['est'] = v['size']; continue
         g = max(0.0, v['cutoff'] - v['lb']) / v['cutoff'] * 100
         m = max(1.0, model_size(model, coef, v['depth'], g))
-        kids = v['children']; nk = nchildren(n, v['depth'], root_children)
+        kids = v['children']; nk = nchildren(n, v['depth'], root_children, v)
         missing = nk - len(kids)
         per_child = max(0.0, (m - 1) / nk)
         v['est'] = 1 + sum(nodes[k]['est'] for k in kids) + missing * per_child
@@ -118,6 +126,10 @@ def predict(nodes, n, root_children, model, coef, label=''):
     traced = len(nodes)
     model_only = 1 + sum(max(1.0, model_size(model, coef, nodes[f]['depth'], max(0.0, nodes[f]['cutoff'] - nodes[f]['lb']) / nodes[f]['cutoff'] * 100)) for f in roots)
     print(f"-- predict {label}: traced {traced}, depth-1 roots {len(roots)}, estimate {tot:.3e} nodes (model alone from depth 1: {model_only:.3e})")
+    d2 = [v for v in nodes.values() if v['depth'] == 2]
+    if d2:
+        m2 = 1 + len(roots) + missing_roots + sum(max(1.0, model_size(model, coef, 2, max(0.0, v['cutoff'] - v['lb']) / v['cutoff'] * 100)) for v in d2)
+        print(f"   model alone from the {len(d2)} depth-2 nodes: {m2:.3e}")
     # per-depth summary of what the estimate rests on
     byd = collections.defaultdict(lambda: [0, 0, 0])
     for v in nodes.values():
@@ -126,6 +138,8 @@ def predict(nodes, n, root_children, model, coef, label=''):
     return tot
 
 if __name__ == '__main__':
+    import os
+    if os.environ.get('EXHAUSTIVE'): EXHAUSTIVE_DEPTHS.update(int(x) for x in os.environ['EXHAUSTIVE'].split(','))
     cmd = sys.argv[1]
     if cmd == 'fit':
         tr, n, rc = sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
