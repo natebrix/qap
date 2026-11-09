@@ -23,7 +23,7 @@ FULLRUN_UB=48816
 
 # the DNN bound (the base of every pipeline_ab arm)
 export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_EXT=20
-export DNN_AMX=1 DNN_CHOLQR_PASSES=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40
+export DNN_AMX=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40
 export QAP_DNN_WARM_Y=2 QAP_DNN_POOL=1 QAP_DNN_POOL_CHECK=20
 # Pinned Nov 9: 34e347c (Nov 8) changed these two defaults (ADMM beta 0.3 ->
 # 0.21, give-up confirmation zone 0 -> 0.003). The gated cpcutt arm and the
@@ -40,9 +40,12 @@ export QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3
 export QAP_DNN_CUT_CP=100:1000
 # the parent's state in state files, fp32 for the non-certificate iterations,
 # the warm-call beta schedule, the crossing certificate, the core switches
-export QAP_DNN_SHIP=32 DNN_R32_NONCERT=1
+export QAP_DNN_SHIP=32
 export DNN_BETA_SCHED=two,f=1.6667,t=60,w=0.25,wc=0.7 DNN_ADMM_CROSS=2
-export DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 DNN_CORE_REFRESH_PARTIAL=1
+export DNN_CORE_LAZYCERT=1
+# DNN_CHOLQR_PASSES=1, DNN_R32_NONCERT=1, DNN_CORE_NOSYMV=1, DNN_NOSYMW=1 and
+# DNN_CORE_REFRESH_PARTIAL=1 are the solver's only behaviour since Nov 9 (the
+# variables were removed with the losing paths, docs/settings_plan.md step 1).
 # one thread per solver process
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1
 
@@ -52,8 +55,7 @@ fullrun_check() {
   [ -f "$FULLRUN_INSTANCE" ] || { echo "fullrun: $FULLRUN_INSTANCE is missing (sym/make_sym.py --transpose)"; ok=1; }
   [ -f "$FULLRUN_SYM" ] || { echo "fullrun: $FULLRUN_SYM is missing (sym/README.md)"; ok=1; }
   [ -x "$b" ] || { echo "fullrun: $b is missing: make solver"; return 1; }
-  for s in QAP_DNN_CUT_CP QAP_DNN_CUT_DAMP1 QAP_DNN_SHIP DNN_R32_NONCERT DNN_BETA_SCHED DNN_ADMM_CROSS \
-           DNN_CORE_LAZYCERT DNN_CORE_NOSYMV DNN_NOSYMW DNN_CORE_REFRESH_PARTIAL; do
+  for s in QAP_DNN_CUT_CP QAP_DNN_CUT_DAMP1 QAP_DNN_SHIP DNN_BETA_SCHED DNN_ADMM_CROSS DNN_CORE_LAZYCERT; do
     grep -aq "$s" "$b" || { echo "fullrun: $b does not know $s: git pull, make solver"; ok=1; }
   done
   return $ok

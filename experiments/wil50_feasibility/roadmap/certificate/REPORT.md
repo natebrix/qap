@@ -258,3 +258,13 @@ paper was re-read or downloaded.)
   crossed the cutoff by 0.0026 units (48,814.0526 against 48,814.0500). That
   is three orders of magnitude above the allowance, but it is the kind of
   margin a final audit should recompute.
+
+## Code status (Nov 9)
+
+The `DNN_CERTX` experiment that produced these numbers (the variant
+certificates, the Hahn-Grant polish, the line search, the averaged
+multipliers) was removed from `latest/dnn.C` on Nov 9, ahead of the settings
+registry (`docs/settings_plan.md`, step 1): no production recipe used it, and
+its best variant, the skew polish (mode 32), was worth about 1.04x in
+iterations to fathom. The code is in the history before that commit; the
+logs in `logs/` and this report stand on their own.

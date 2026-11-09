@@ -84,7 +84,7 @@ removed; `make test` passes and nug30 is node for node the same, 3,716 nodes
 / 3,574 fathoms). The CERTX experiment stays in `dnn.C`: mode 32 (the skew
 polish) is the one remaining certificate lever, and the code shares the
 file-local `Work` struct, so moving it means exposing that struct in a
-header for a cosmetic gain.
+header for a cosmetic gain. **Superseded Nov 9**: `docs/settings_plan.md` step 1 asked for its removal before the settings registry, so the CERTX experiment (about 530 lines, 14 `DNN_CERTX*` variables) and the six measured-out switches (`DNN_NOSYMW`, `DNN_CORE_NOSYMV`, `DNN_CHOLQR_PASSES`, `DNN_R32_NONCERT`, `DNN_GUARD_DIV`, `DNN_CORE_REFRESH_PARTIAL`) are gone, their winning paths unconditional. B3 and B4 below were CERTX-only and are closed by that.
 
 - **The DNN_CERTX experiment** (~650 lines in `dnn.C:1462-1790, 2417-2622`) and the superseded switches whose measurements are in (`DNN_NOSYMW`, `DNN_CORE_NOSYMV`, `DNN_CHOLQR_PASSES`, `DNN_R32_NONCERT`, `DNN_GUARD_DIV`, `DNN_CORE_REFRESH_PARTIAL`, the ~35 `getenv` reads in `bnb.C:1080-1180`): fold the record recipe into defaults, retire the losers, move the CERTX code to its own translation unit or keep only mode 32. The recipe today is 20 environment variables that every launcher must reproduce.
 - **Env switches read inconsistently** in `dnn.C`: a dozen are latched once per process in function-local statics, others re-read every call; `dnn.h` says "no global state". One per-call struct (as `CertXEnv` and `BetaSched` already are) would settle it.

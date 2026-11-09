@@ -350,16 +350,20 @@ changed, old -> new, for anyone whose A/B control was "unset":
 
 | variable | old default | new default | variable | old default | new default |
 |---|---|---|---|---|---|
-| `QAP_DNN_GAMMA1` | 0 | 1.0 | `DNN_CHOLQR_PASSES` | 2 | 1 |
-| `QAP_DNN_GAMMA` | 1.6 | 1.0 | `DNN_R32_NONCERT` | 0 | 1 |
+| `QAP_DNN_GAMMA1` | 0 | 1.0 | `DNN_CHOLQR_PASSES` | 2 | 1, then removed Nov 9 |
+| `QAP_DNN_GAMMA` | 1.6 | 1.0 | `DNN_R32_NONCERT` | 0 | 1, then removed Nov 9 |
 | `QAP_DNN_CHEB` | 2 | 3 | `DNN_ADMM_CROSS` | 0 | 2 |
 | `QAP_DNN_TIGHT_LAM` | 0 | 2 | `DNN_CORE_LAZYCERT` | 0 | 1 |
-| `QAP_DNN_BETA` | 0.3 | 0.21 | `DNN_CORE_NOSYMV` | 0 | 1 |
-| `QAP_DNN_REFRESH` | 20 | 120 | `DNN_NOSYMW` | 0 | 1 |
-| `QAP_DNN_WARM_Y` | 0 | 2 | `DNN_CORE_REFRESH_PARTIAL` | 0 | 1 |
+| `QAP_DNN_BETA` | 0.3 | 0.21 | `DNN_CORE_NOSYMV` | 0 | 1, then removed Nov 9 |
+| `QAP_DNN_REFRESH` | 20 | 120 | `DNN_NOSYMW` | 0 | 1, then removed Nov 9 |
+| `QAP_DNN_WARM_Y` | 0 | 2 | `DNN_CORE_REFRESH_PARTIAL` | 0 | 1, then removed Nov 9 |
 | `QAP_DNN_EXT` | 0 | 20 | `DNN_BETA_SCHED` | unset (off) | `w=0.36` (`""` turns it off) |
 | `QAP_DNN_GU_ZONE` | 0 | 0.003 | `QAP_DNN_SHIP` | 0 | 32 |
 
+"Removed Nov 9": the variable and its losing code path are gone
+(`docs/settings_plan.md`, step 1), so the winning behaviour is unconditional
+and setting the variable does nothing (until Phase 1 makes unknown names an
+error). `DNN_GUARD_DIV` (20) and the `DNN_CERTX*` experiment went the same way.
 The `QAP_DNN_*` defaults apply to the search (`bnbdrv -x`); the `DNN_*` ones
 live in `dnn.C` and so also apply to `dnntest`, whose cold solves are
 unaffected by `DNN_BETA_SCHED=w=...` (a warm-child factor). The cut phase
@@ -426,8 +430,8 @@ items (defaults in parentheses; experiment reports in
 - `QAP_DNN_WARM_Y=2`: a child starts from its parent's final Y, conditioned
   on its new assignment, as well as its Z (0: Z only; `warm_y/`). With it, a
   child's `-x ...:W` warm start carries the primal too.
-- `DNN_CHOLQR_PASSES=1`: one CholQR pass in the subspace step (2;
-  `roadmap/node_speed.md`).
+- One CholQR pass in the subspace step (was `DNN_CHOLQR_PASSES`, default 2;
+  `roadmap/node_speed.md`). Unconditional since Nov 9.
 - `QAP_DNN_SHIP=32`: carry the parent's ADMM state in state files, as
   above (0).
 - `DNN_AMX=1`: Intel AMX bf16 kernels for the subspace products, on CPUs
@@ -465,21 +469,22 @@ items (defaults in parentheses; experiment reports in
   keep `w` or `wc`. Under test Nov 6 as `0.25:60:0.7` (`pipeline_ab/` arm
   `wtwo`): children fathom as at 0.25, and a miss hands its cut phase a state
   closer to 0.7's.
-- `DNN_R32_NONCERT=1` (unset): R's rank term in fp32 except on certificate
-  iterations (`speed/r32_noncert/`). 4.2% less per wil50 iteration without
+- R's rank term in fp32 except on certificate iterations (was
+  `DNN_R32_NONCERT=1`; unconditional since Nov 9; `speed/r32_noncert/`). 4.2% less per wil50 iteration without
   AMX, 2.5% on nug30; about 1% with `DNN_AMX=1` (the `fast` arm above).
 - `DNN_CORE_LAZYCERT=1` (unset): Rump's Cholesky test of the certificate only
   at checks that can decide something (the first, any whose polyhedral value
   could clear the cutoff, the last iteration, and the stopping check and the
   stored best at the exit); the same fathom decisions and returned lb by
   construction (`speed/nov6_core/`).
-- `DNN_CORE_REFRESH_PARTIAL=1` (unset): the subspace tracker's full
-  eigendecomposition back-transforms only the columns it reads (bit-identical
-  eigenvectors, about a third of the refresh saved; `speed/nov6_core/`).
-- `DNN_CORE_NOSYMV=1` (unset; with `DNN_NOSYMW=1`): no symmetrisation pass
-  after the expand transform; the iterate is symmetric to rounding only and
-  the certificate evaluates the symmetric part exactly (`speed/nov6_core/`).
-  Changes the trajectory at the rounding level.
+- The subspace tracker's full eigendecomposition back-transforms only the
+  columns it reads (was `DNN_CORE_REFRESH_PARTIAL=1`; unconditional since
+  Nov 9; bit-identical eigenvectors, about a third of the refresh saved;
+  `speed/nov6_core/`).
+- No symmetrisation pass after the expand and forward transforms (was
+  `DNN_CORE_NOSYMV=1` with `DNN_NOSYMW=1`; unconditional since Nov 9); the
+  iterate is symmetric to rounding only and the certificate evaluates the
+  symmetric part exactly (`speed/nov6_core/`).
 - `DNN_CORE_AMX_IB/KB/NT/ORDER` (unset): the AMX kernel's blocking, W load
   hint and product order, for microbenchmarks; every setting gives the same
   product bit for bit (`speed/nov6_core/`).

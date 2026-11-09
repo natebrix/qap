@@ -211,8 +211,8 @@ struct DNNParams {
                        // best certificate's outer assignment problem (0)
   DNNYCuts *ycuts;     // CP-ADMM (see DNNYCuts): cuts in the Y-step, certified with
                        // their multipliers at every check. NULL: off (default). Not
-                       // with prototype_cert, the accelerations, DNN_CERTX or the
-                       // child bounds (DNN_ERROR); DNN_FUSE and DNN_CORE_LAZYCERT
+                       // with prototype_cert, the accelerations or the child
+                       // bounds (DNN_ERROR); DNN_FUSE and DNN_CORE_LAZYCERT
                        // are ignored (every check certifies)
   int verbose;       // 1: print the certified bound at every check, 2: also a
                        // CPU profile at the end

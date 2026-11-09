@@ -63,7 +63,8 @@
     evaluation inside an SDP dual certificate; it was not an exhaustive
     review. The certificate study (experiments/wil50_feasibility/roadmap/
     certificate) shows the remaining freedom at a fixed iterate is a skew
-    transfer, exploited by the opt-in Hahn-Grant polish (DNN_CERTX=32).
+    transfer; a Hahn-Grant polish of it bought about 1.04x in iterations to
+    fathom (the DNN_CERTX experiment, removed Nov 9; the report has the numbers).
 
  3. R-step eigensolver. dnn.py takes a full double eigendecomposition
     of W = V'(Y + Z/beta)V every iteration; it is most of the cost, and
@@ -107,7 +108,6 @@
 #include <vector>
 #include <algorithm>
 #include <string>
-#include <atomic>
 
 /*
  LAPACK / BLAS. DNN_BLAS_PREFIX is prepended to the Fortran names
@@ -134,7 +134,7 @@ void F77(ssyevd)(const char *jobz, const char *uplo, const lapack_int *n, float 
                  lapack_int *iwork, const lapack_int *liwork, lapack_int *info,
                  size_t, size_t);
 // the pieces of ssyevd, for a refresh that back-transforms only the columns the
-// tracker reads (DNN_CORE_REFRESH_PARTIAL)
+// tracker reads (the partial refresh)
 void F77(ssytrd)(const char *uplo, const lapack_int *n, float *a, const lapack_int *lda,
                  float *d, float *e, float *tau, float *work, const lapack_int *lwork,
                  lapack_int *info, size_t);
@@ -492,7 +492,7 @@ struct Work {
   // subspace tracking of the negative eigenspace of W (DNN_EIG_SUBSPACE)
   std::vector<float> Xs, Ys, Ts, Hs;
   std::vector<float> vtop, vtmp;   // top eigenvector estimate (tight_lam)
-  std::vector<float> trd_e, trd_tau;   // ssytrd's off-diagonal and reflector scalars (DNN_CORE_REFRESH_PARTIAL)
+  std::vector<float> trd_e, trd_tau;   // ssytrd's off-diagonal and reflector scalars (the partial refresh)
   std::vector<double> Wprev;
   int kb, since_refresh;
   bool have_basis;
@@ -684,17 +684,16 @@ void symmetrize(double *X, int n)
 */
 // rows_done: the row phase (A + coef B, Householder block, rotation) is already in w.T
 // (left there by the Y/Z step under DNN_FUSE=1). Wf_out: also write W in single
-// precision, so the eigensolver's conversion pass is saved. DNN_NOSYMW=1 skips the
-// final symmetrisation of W (W is symmetric to rounding by construction; the
-// eigensolver reads one triangle or multiplies by the full matrix, and R is
-// symmetrised again in expand).
-// force_sym: symmetrise whatever DNN_NOSYMW says (the certificate's transform under
-// DNN_CORE_NOSYMV, whose multiplier is symmetric only to rounding).
+// precision, so the eigensolver's conversion pass is saved. W is not symmetrised
+// (it is symmetric to rounding by construction; the eigensolver reads one
+// triangle or multiplies by the full matrix; unconditional since Nov 9).
+// force_sym: symmetrise anyway (the certificate's transform, whose multiplier is
+// symmetric only to rounding).
 void forward(Work &w, const double *A, double *Wout, const double *B = NULL,
              double coef = 0, bool rows_done = false, float *Wf_out = NULL, bool force_sym = false)
 {
-  static const int nosym_env = getenv("DNN_NOSYMW") ? atoi(getenv("DNN_NOSYMW")) : 1;   // on since Nov 8 2026
-  const int nosym = force_sym ? 0 : nosym_env;
+  const bool nosym = !force_sym;   // symmetrise only for the certificate (force_sym); the
+                                   // iterate is symmetric to rounding (speed/nov6_core, Nov 8)
   const int n1 = w.n1, K = w.K, ll = w.ll;
   double *T = w.T.data();
   if (!rows_done)
@@ -748,17 +747,13 @@ void expand(Work &w, const double *R, double *Mout)
   }
   rows_rot(w, Mout);
   rows_D(w, Mout);
-  // DNN_CORE_NOSYMV=1 (experiments/wil50_feasibility/speed/nov6_core): skip the
-  // symmetrisation (a read and write of the n1 x n1 matrix). The transform of a
-  // symmetric R is symmetric to rounding, so Y, Z and the certificate multiplier
-  // become symmetric to rounding only; the certificate then reads both arrow
+  // No symmetrisation pass (a read and write of the n1 x n1 matrix; measured in
+  // experiments/wil50_feasibility/speed/nov6_core, unconditional since Nov 9).
+  // The transform of a symmetric R is symmetric to rounding, so Y, Z and the
+  // certificate multiplier are symmetric to rounding only; the certificate then reads both arrow
   // entries of M (cert_poly) and symmetrises its own transform (cert_lam), which
   // keeps it a bound for sym(Zc), and <Zc, Y> = <sym(Zc), Y> for every symmetric Y.
-  static const int nosymv = getenv("DNN_CORE_NOSYMV") ? atoi(getenv("DNN_CORE_NOSYMV")) : 1;   // on since Nov 8 2026
-  if (!nosymv) symmetrize(Mout, n1);
 }
-
-static bool nosymv_on() { static const int v = getenv("DNN_CORE_NOSYMV") ? atoi(getenv("DNN_CORE_NOSYMV")) : 1; return v > 0; }
 
 /*
  R = P_psd(W) for symmetric K x K W (row-major = column-major). Uses
@@ -919,14 +914,13 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
                  info = 0;
       double tf0 = thread_cpu();
       memcpy(X, Wf, kk * sizeof(float));
-      // DNN_CORE_REFRESH_PARTIAL=1 (experiments/wil50_feasibility/speed/nov6_core):
+      // The refresh (experiments/wil50_feasibility/speed/nov6_core, Nov 8):
       // ssyevd's three steps called one by one (ssytrd, sstedc, sormtr: the same
       // eigenvalues and vectors bit for bit), with the back-transformation applied
       // to the nneg + guard lowest eigenvectors and the top one only, which is all
       // the tracker reads; the other K - kb columns of ssyevd's 2 K^3 flops are
       // never formed (about a third of the refresh at K = 2117).
-      static const int refpart = getenv("DNN_CORE_REFRESH_PARTIAL") ? atoi(getenv("DNN_CORE_REFRESH_PARTIAL")) : 1;   // on since Nov 8 2026
-      if (refpart) {
+      {
         float *Zt = w.Ts.data(), *e = w.trd_e.data(), *tau = w.trd_tau.data();   // Ts is free until form R
         F77(ssytrd)("L", &K, X, &K, theta.data(), e, tau, w.eworkf.data(), &lwork, &info, 1);
         if (info == 0) F77(sstedc)("I", &K, theta.data(), e, Zt, &K, w.eworkf.data(), &lwork,
@@ -946,9 +940,6 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
             memcpy(X, Zt, (size_t)kb * K * sizeof(float));
           }
         }
-      } else {
-        F77(ssyevd)("V", "L", &K, X, &K, theta.data(), w.eworkf.data(), &lwork,
-                    w.eiwork.data(), &liwork, &info, 1, 1);
       }
       w.prof[5] += thread_cpu() - tf0; w.n_refresh++;
       if (info != 0) return false;
@@ -956,7 +947,6 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       while (nneg < K && theta[nneg] < 0) nneg++;
       kb = std::min<lapack_int>(K, nneg + guard);
       w.lam_hi = theta[K - 1] + 1e-6 * (fabs(theta[K - 1]) + fabs(theta[0]));
-      if (tight_lam > 0 && !refpart) memcpy(w.vtop.data(), X + (size_t)(K - 1) * K, K * sizeof(float));
       w.since_refresh = 0;
       w.have_basis = true;
       break;
@@ -978,13 +968,12 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       w.sp[4] += (thread_cpu() - tc0) * 1e3;
       std::swap(Y, Yp);
     }
-    // Y now holds the filtered block (in Ys or Xs); orthonormalize by CholQR2
-    // (DNN_CHOLQR_PASSES: 1 saves a pass, node_speed.md trim d; default 2)
-    static const int cholqr_passes = getenv("DNN_CHOLQR_PASSES") ? std::max(1, atoi(getenv("DNN_CHOLQR_PASSES"))) : 1;   // 1 since Nov 8 2026 (was 2)
+    // Y now holds the filtered block (in Ys or Xs); orthonormalize by one CholQR
+    // pass (a second pass was measured not worth it: node_speed.md trim d, Nov 8)
     float *G = w.Hs.data();
     bool ok = true;
     tc0 = thread_cpu();
-    for (int pass = 0; pass < cholqr_passes && ok; pass++) {
+    do {
       lapack_int info = 0;
       if (w.use_amx >= 2) {
         // G = Y'Y on AMX (symmetric, so row-major is column-major), Cholesky, then
@@ -1003,7 +992,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
         if (info != 0) { ok = false; break; }
         F77(strsm)("R", "U", "N", "N", &K, &kb, &one, G, &kb, Y, &K, 1, 1, 1, 1);
       }
-    }
+    } while (0);
     w.sp[5] += (thread_cpu() - tc0) * 1e3;
     if (!ok) { w.ref_fail++; full = true; continue; }
     // Rayleigh-Ritz: H = Y' W Y, X = Y Q
@@ -1059,18 +1048,18 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   if (full) w.theta_top = theta[kb - 1];
   *npos = K - nneg;
 
-  // R = W - sum_{theta<0} theta x x'. DNN_R32=1 (node_speed.md trim b): the
-  // rank-nneg term in fp32 (ssyrk on the fp32 eigenvectors, which is their
-  // precision anyway), added to W in fp64; the default keeps dsyrk.
-  // DNN_R32_NONCERT=1: fp32 only when !cert_step. The certificate multiplier
+  // R = W - sum_{theta<0} theta x x'. The rank-nneg term is formed in fp32
+  // (ssyrk on the fp32 eigenvectors, which is their precision anyway) and added
+  // to W in fp64, except on certificate iterations, which keep dsyrk
+  // (node_speed.md trim b, speed/r32_noncert; unconditional since Nov 9).
+  // DNN_R32=1 forces fp32 on certificate iterations too. The certificate multiplier
   // Zc = Z + beta (Y - VRV') reads its own iteration's R and no earlier one
   // (V'ZcV = beta (W - R)), so only certificate iterations need W - R =
   // -fl64(FF') negative semidefinite; elsewhere R is just the ADMM step.
   static const int r32 = getenv("DNN_R32") ? atoi(getenv("DNN_R32")) : 0;
-  static const int r32_noncert = getenv("DNN_R32_NONCERT") ? atoi(getenv("DNN_R32_NONCERT")) : 1;   // on since Nov 8 2026
   double tr0 = thread_cpu();
   lapack_int k = nneg;
-  if ((r32 || (r32_noncert && !cert_step)) && k > 0) {
+  if ((r32 || !cert_step) && k > 0) {   // fp32 except on certificate iterations (speed/r32_noncert)
     float *Ff = w.Hs.data(), *Rf = w.Ts.data();   // free after the filter step (K x K each)
     for (int i = 0; i < nneg; i++) {
       const float sq = (float)sqrt(-(double)theta[i]);
@@ -1124,7 +1113,7 @@ struct CertInfo {
   double sdp_penalty;        // its semidefinite part, (m+1) * scale * lambda bound
   bool chol_ok;
   double poly_reduce, poly;  // diagnostics (unscaled)
-  double lam = HUGE_VAL;     // the rigorous lambda_max bound used (scaled units; DNN_CERTX)
+  double lam = HUGE_VAL;     // the rigorous lambda_max bound used (scaled units)
   double margin_poly = 0;    // the margin's rounding terms (polyhedral part and L), without sdp_penalty
 };
 
@@ -1145,7 +1134,7 @@ static bool cert_lam(Work &w, const double *Zm, double scale, CertInfo &ci)
   ci.chol_ok = false;
   ci.sdp_penalty = 0;
   double *S = w.W.data();
-  forward(w, Zm, S, NULL, 0, false, NULL, nosymv_on());
+  forward(w, Zm, S, NULL, 0, false, NULL, true);
   // (1 + 1e-8): rounding of the sums of squares, with room for any m that fits in memory
   double znorm = sqrt(dot4(Zm, Zm, (size_t)n1 * n1)) * (1 + 1e-8);
   double snorm = sqrt(dot4(S, S, (size_t)K * K)) * (1 + 1e-8);
@@ -1263,7 +1252,7 @@ static double cert_poly(Work &w, const double *Zm, double scale, double sumabsL,
           // the two arrow entries M_(ij),0 and M_0,(ij) separately: equal (and the
           // sums below exactly those of 2 M_(ij),0) when M is symmetric, and a valid
           // row-by-row evaluation of <M, yy'> when it is symmetric to rounding only
-          // (DNN_CORE_NOSYMV)
+          // (no symmetrisation pass after the transforms)
           const double d0 = lr[0] + scale * zr[0], d0t = L[r] + scale * Zm[r], dd = lr[r] + scale * zr[r];
           absM += fabs(d0) + fabs(d0t) + fabs(dd) + fabsl(inner);
           cm[i * m + j] = (double)((long double)d0 + d0t + dd + inner);
@@ -1456,336 +1445,6 @@ bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child, int ymode)
 }
 
 /*
- Experimental certificate variants (experiments/wil50_feasibility/roadmap/
- certificate). Opt-in with the environment variable DNN_CERTX=<bitmask>;
- when it is unset none of this runs and no number changes. Every variant is
- a lower bound of the same kind as certify()'s, from the same iterate, with
- the same rounding allowances, and the iterates are never changed: the
- variants are printed ("certx" lines) and the first check at which each
- crosses the cutoff is reported, so that they can be compared at equal
- iterations. Bits:
-   1  exact inner LAPs on the standard multiplier Zc
-   2  Hahn-Grant skew polishing of M = L + scale Zc (DNN_CERTX_PASSES passes)
-   4  line search on Zc + t (Z - Zc), Z the multiplier after the Z-step
-      (t on a grid; lambda_max bounded by Lanczos + Rump's Cholesky test)
-   8  the average of the last DNN_CERTX_AVG certificate multipliers Zc
-  16  dump M = L + scale Zc at the last evaluated check (DNN_CERTX_DUMP=prefix)
-  32  the same polishing with row-column reductions for the inner blocks
-      (DNN_CERTX_RPASSES passes, O(m^4) each) and one exact pass at the end
-  64  warm polishing: the skew matrix K accumulated by earlier checks of this
-      call is added to M (GL_exact(M + K) is a certificate for any skew K),
-      then DNN_CERTX_WPASSES (2) exact passes from there update K
- 128  the post-step multiplier Z with its face part projected in double,
-      Z - V P_psd(V'ZV) V' (one dsyevd), with the exact GL
- Evaluated at every DNN_CERTX_EVERY-th check (5), and at every check once the
- running best is within DNN_CERTX_WINDOW (80) of the cutoff, and at the last
- iteration. DNN_CERTX_CALLS=<bitmask> restricts it to those dnn_bound calls of
- the process (bit k = call k; default all). DNN_CERTX_USE=1 lets the best
- variant replace the standard value (changes the run; off by default), and
- the polish then stops as soon as it crosses the cutoff. DNN_CERTX_QUIET=1
- prints nothing (for search runs). A search configuration that uses the
- polish only near the cutoff: DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1
- DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=<W> [DNN_CERTX_RPASSES=<k>].
- Modes 2, 32 and 34 alone reuse the standard certificate's lambda bound
- (no second Cholesky), as a production version would.
-*/
-struct CertXEnv {
-  int mode = 0, passes = 8, rpasses = 12, wpasses = 2, navg = 4, every = 5, use = 0, quiet = 0;
-  long calls = -1;
-  double window = 80;
-  std::string dump;
-  CertXEnv()
-  {
-    if (const char *e = getenv("DNN_CERTX")) mode = atoi(e);
-    if (const char *e = getenv("DNN_CERTX_PASSES")) passes = std::max(1, atoi(e));
-    if (const char *e = getenv("DNN_CERTX_RPASSES")) rpasses = std::max(1, atoi(e));
-    if (const char *e = getenv("DNN_CERTX_WPASSES")) wpasses = std::max(1, atoi(e));
-    if (const char *e = getenv("DNN_CERTX_AVG")) navg = std::max(2, std::min(16, atoi(e)));
-    if (const char *e = getenv("DNN_CERTX_EVERY")) every = std::max(1, atoi(e));
-    if (const char *e = getenv("DNN_CERTX_WINDOW")) window = atof(e);
-    if (const char *e = getenv("DNN_CERTX_CALLS")) calls = atol(e);
-    if (const char *e = getenv("DNN_CERTX_USE")) use = atoi(e);
-    if (const char *e = getenv("DNN_CERTX_DUMP")) dump = e;
-    if (const char *e = getenv("DNN_CERTX_QUIET")) quiet = atoi(e);   // 1: no certx output (search runs)
-  }
-};
-static const CertXEnv &certx_env() { static CertXEnv e; return e; }
-
-// Gilmore-Lawler value of a full lifted matrix M (unscaled, n1 x n1, rows
-// used as in certify), and the magnitude sum for certify's margin formula.
-static long double gl_full(Work &w, const double *M, bool exact, long double &absM)
-{
-  const int m = w.m, n1 = w.n1;
-  double *sub = w.sub.data(), *cm = w.cmat.data();
-  absM = 0;
-  for (int i = 0; i < m; i++)
-    for (int j = 0; j < m; j++) {
-      const int r = 1 + i * m + j;
-      const double *mr = M + (size_t)r * n1;
-      int kk = 0;
-      for (int k = 0; k < m; k++) {
-        if (k == i) continue;
-        int cb = 1 + k * m, ss = 0;
-        for (int l = 0; l < m; l++) {
-          if (l == j) continue;
-          const double x = mr[cb + l];
-          sub[kk * (m - 1) + ss++] = x;
-          absM += fabs(x);
-        }
-        kk++;
-      }
-      long double inner = exact ? w.hung.solve(m - 1, sub, m - 1)
-                                : lap_reduce(m - 1, sub, m - 1, w.colmin.data());
-      const double d0 = mr[0], d0t = M[r], dd = mr[r];   // M_(ij),0, M_0,(ij), diagonal
-      absM += fabs(d0) + fabs(d0t) + fabs(dd) + fabsl(inner);
-      cm[i * m + j] = (double)((long double)d0 + d0t + dd + inner);
-    }
-  long double val = M[0] + w.hung.solve(m, cm, m);
-  for (int t = 0; t < m * m; t++) absM += fabs(cm[t]);
-  absM += fabs(M[0]);
-  return val;
-}
-
-/*
- Hahn-Grant / Adams-Johnson dual ascent on M (no eliminations). R starts as
- M. Each pass: exact LAP on every block row (ij) of R (k != i, l != j),
- leaving the reduced block (>= 0); outer LAP on c_ij = R_0,ij + R_ij,0 +
- R_ij,ij + LAP_ij; the pass adds R_00 + LAP(c) to the bound B and leaves
- R_00 = linear = diagonal = 0; the reduced outer costs are spread evenly over
- their block row (a lifted permutation with x_ij = 1 uses exactly m-1 entries
- of it); then each non-gangster pair R_ab, R_ba is replaced by its average
- (a skew-symmetric change, which no symmetric Y sees). For every lifted
- permutation y, <M, yy'> = B + <R, yy'> >= B in exact arithmetic of the
- computed numbers; err bounds the rounding of the passes. vals[p] = B after
- pass p+1 (the first equals the exact GL value), errs[p] the allowance.
-*/
-static void hg_polish(Work &w, const double *M, int passes, std::vector<double> &R,
-                      std::vector<long double> &vals, std::vector<double> &errs,
-                      long double *absM1 = NULL, int exact_from = 0, double *Kacc = NULL,
-                      double stop_val = HUGE_VAL)
-{
-  // passes p >= exact_from solve the inner LAPs exactly; earlier ones use the
-  // row-then-column reduction (also dual feasible, O(m^2) a block).
-  // Kacc (optional, n1 x n1): accumulates the skew-symmetric part of the
-  // transfers. With exact LAPs, GL is invariant to the other changes (the
-  // reductions and the spreading are face terms of the form GL's own LAPs
-  // absorb), so GL_exact(M + Kacc) >= the value reached here; a later check
-  // can start from M' + Kacc (bit 64 of DNN_CERTX).
-  const int m = w.m, n1 = w.n1, m1 = m - 1;
-  R.assign(M, M + (size_t)n1 * n1);
-  vals.clear(); errs.clear();
-  long double absM = 0;   // certify's magnitude sum for pass 1 (= the exact GL of M)
-  std::vector<double> c((size_t)m * m), u(m1), v(m1), U(m), Vv(m);
-  double *sub = w.sub.data();
-  long double B = 0;
-  double err = 0;
-  for (int p = 0; p < passes; p++) {
-    double maxR = 0, maxd = 0, maxRn = 0, maxc = 0, maxUV = 0;
-    for (int i = 0; i < m; i++)
-      for (int j = 0; j < m; j++) {
-        const int r = 1 + i * m + j;
-        double *rr = R.data() + (size_t)r * n1;
-        int kk = 0;
-        for (int k = 0; k < m; k++) {
-          if (k == i) continue;
-          int cb = 1 + k * m, ss = 0;
-          for (int l = 0; l < m; l++) {
-            if (l == j) continue;
-            sub[kk * m1 + ss++] = rr[cb + l];
-            maxR = std::max(maxR, fabs(rr[cb + l]));
-            if (p == 0) absM += fabs(rr[cb + l]);
-          }
-          kk++;
-        }
-        const bool ex = p >= exact_from;
-        long double lv = 0;
-        if (ex) {
-          lv = w.hung.solve(m1, sub, m1);   // = sum u + sum v (repaired)
-          for (int a = 0; a < m1; a++) u[a] = w.hung.u[a + 1];
-        } else {
-          // row then column reduction: u = row minima, v below; lv = sum u + sum v
-          for (int a = 0; a < m1; a++) {
-            double mn = HUGE_VAL;
-            for (int b = 0; b < m1; b++) mn = std::min(mn, sub[a * m1 + b]);
-            u[a] = mn;
-          }
-        }
-        for (int a = 0; a < m1; a++) maxd = std::max(maxd, fabs(u[a]));
-        for (int b = 0; b < m1; b++) {
-          double mn = HUGE_VAL;
-          for (int a = 0; a < m1; a++) mn = std::min(mn, sub[a * m1 + b] - u[a]);
-          v[b] = mn; maxd = std::max(maxd, fabs(mn));
-        }
-        if (!ex) {
-          for (int a = 0; a < m1; a++) lv += u[a];
-          for (int b = 0; b < m1; b++) lv += v[b];
-        }
-        if (p == 0) absM += fabs(rr[0]) + fabs(R[r]) + fabs(rr[r]) + fabsl(lv);
-        kk = 0;
-        for (int k = 0; k < m; k++) {
-          if (k == i) continue;
-          int cb = 1 + k * m, ss = 0;
-          for (int l = 0; l < m; l++) {
-            if (l == j) continue;
-            rr[cb + l] = (sub[kk * m1 + ss] - u[kk]) - v[ss];   // >= 0
-            ss++;
-          }
-          kk++;
-        }
-        c[i * m + j] = (double)((long double)rr[0] + R[r] + rr[r] + lv);
-        maxc = std::max(maxc, fabs(c[i * m + j]));
-      }
-    long double ov = w.hung.solve(m, c.data(), m);
-    if (p == 0) {
-      for (int t = 0; t < m * m; t++) absM += fabs(c[t]);
-      absM += fabs(R[0]);
-      if (absM1) *absM1 = absM;
-    }
-    for (int a = 0; a < m; a++) { U[a] = w.hung.u[a + 1]; maxUV = std::max(maxUV, fabs(U[a])); }
-    for (int b = 0; b < m; b++) {
-      double mn = HUGE_VAL;
-      for (int a = 0; a < m; a++) mn = std::min(mn, c[a * m + b] - U[a]);
-      Vv[b] = mn; maxUV = std::max(maxUV, fabs(mn));
-    }
-    B += (long double)R[0] + ov;
-    R[0] = 0;
-    for (int r = 1; r < n1; r++) { R[r] = 0; R[(size_t)r * n1] = 0; R[(size_t)r * n1 + r] = 0; }
-    for (int i = 0; i < m; i++)
-      for (int j = 0; j < m; j++) {
-        const double cr = (c[i * m + j] - U[i]) - Vv[j];   // >= 0
-        const double s = cr / m1;
-        if (s == 0) continue;
-        double *rr = R.data() + (size_t)(1 + i * m + j) * n1;
-        for (int k = 0; k < m; k++) {
-          if (k == i) continue;
-          for (int l = 0; l < m; l++) if (l != j) rr[1 + k * m + l] += s;
-        }
-      }
-    // average each non-gangster pair (the gangster entries are never read)
-    for (int a = 1; a < n1; a++) {
-      const int i = (a - 1) / m, j = (a - 1) % m;
-      double *ra = R.data() + (size_t)a * n1;
-      for (int b = a + 1; b < n1; b++) {
-        const int k = (b - 1) / m, l = (b - 1) % m;
-        if (k == i || l == j) continue;
-        double &x = ra[b], &y = R[(size_t)b * n1 + a];
-        const double s = 0.5 * (x + y);
-        if (Kacc) {
-          // the skew part of this pass: K_ab += (R_ba - R_ab)/2, K_ba = -K_ab exactly
-          double &ka = Kacc[(size_t)a * n1 + b];
-          ka += 0.5 * (y - x);
-          Kacc[(size_t)b * n1 + a] = -ka;
-        }
-        x = y = s;
-        maxRn = std::max(maxRn, fabs(s));
-      }
-    }
-    // rounding of this pass for one lifted permutation: m(m-1) block entries
-    // (reduction 2 roundings, spread 1, average 2, each relative to operands
-    // bounded by maxR, maxd, maxRn) and m linear terms (c, outer reduction),
-    // doubled for safety
-    err += 2.0 * U_ROUND * ((double)m * m1 * (2 * maxR + 4 * maxd + 6 * maxRn) +
-                            (double)m * (8 * maxc + 4 * maxUV) + 4 * fabsl(B));
-    vals.push_back(B);
-    errs.push_back(err);
-    // early exit once the value net of this pass's margins clears stop_val
-    // (the caller's cutoff less the margins that do not depend on the passes)
-    if ((double)B - err - 8.0 * (m + 2) * U_ROUND * (double)absM > stop_val) break;
-  }
-}
-
-// lambda_max(S) <= delta + c by Rump's Cholesky test on delta I - S (as in
-// certify); HUGE_VAL when the factorization fails. Clobbers w.W2.
-static double rump_bound(Work &w, const double *S, double delta)
-{
-  const lapack_int K = w.K;
-  double *A = w.W2.data();
-  long double tr = 0;
-  double maxdiag = 0;
-  for (size_t i = 0; i < (size_t)K * K; i++) A[i] = -S[i];
-  for (int i = 0; i < K; i++) {
-    A[(size_t)i * K + i] += delta;
-    tr += A[(size_t)i * K + i];
-    maxdiag = std::max(maxdiag, fabs(A[(size_t)i * K + i]));
-  }
-  lapack_int info = 0;
-  F77(dpotrf)("L", &K, A, &K, &info, 1);
-  if (info != 0) return HUGE_VAL;
-  double g = (K + 1) * U_ROUND / (1 - (K + 1) * U_ROUND);
-  double trA = (double)tr * (1 + 1e-12) + 1e-300;
-  double c = (g / (1 - g)) * trA / (1 - K * g / (1 - g)) * 1.25
-             + 4.0 * K * (2.0 * (K + 1) + maxdiag) * DBL_TRUE_MIN;
-  return delta + c + U_ROUND * maxdiag;
-}
-
-// Largest eigenvalue estimate of symmetric S (K x K) by Lanczos with full
-// reorthogonalisation (steps), and bisection on the tridiagonal matrix.
-static double lanczos_top(int K, const double *S, int steps)
-{
-  steps = std::min(steps, K);
-  std::vector<double> Q((size_t)(steps + 1) * K), al(steps), be(steps + 1, 0), wv(K);
-  unsigned s = 987654321u;
-  double nrm = 0;
-  for (int i = 0; i < K; i++) { s = s * 1664525u + 1013904223u; Q[i] = (double)(s >> 8) / (1 << 24) - 0.5; nrm += Q[i] * Q[i]; }
-  nrm = sqrt(nrm);
-  for (int i = 0; i < K; i++) Q[i] /= nrm;
-  int nst = 0;
-  for (int k = 0; k < steps; k++) {
-    const double *q = Q.data() + (size_t)k * K;
-    for (int i = 0; i < K; i++) wv[i] = dot4(S + (size_t)i * K, q, K);
-    al[k] = dot4(wv.data(), q, K);
-    for (int r = 0; r < 2; r++)   // full reorthogonalisation, twice
-      for (int t = 0; t <= k; t++) {
-        const double *qt = Q.data() + (size_t)t * K;
-        double h = dot4(wv.data(), qt, K);
-        for (int i = 0; i < K; i++) wv[i] -= h * qt[i];
-      }
-    double b = sqrt(dot4(wv.data(), wv.data(), K));
-    nst = k + 1;
-    if (b < 1e-14 * (fabs(al[k]) + 1e-300)) break;
-    be[k + 1] = b;
-    double *qn = Q.data() + (size_t)(k + 1) * K;
-    for (int i = 0; i < K; i++) qn[i] = wv[i] / b;
-  }
-  // largest eigenvalue of the nst x nst tridiagonal (al, be[1..]) by bisection
-  double lo = HUGE_VAL, hi = -HUGE_VAL;
-  for (int k = 0; k < nst; k++) {
-    double r = (k > 0 ? fabs(be[k]) : 0) + (k + 1 < nst ? fabs(be[k + 1]) : 0);
-    lo = std::min(lo, al[k] - r); hi = std::max(hi, al[k] + r);
-  }
-  for (int it = 0; it < 200 && hi - lo > 1e-15 * (fabs(lo) + fabs(hi)); it++) {
-    double x = 0.5 * (lo + hi), d = 1;
-    int cnt = 0;   // eigenvalues above x
-    for (int k = 0; k < nst; k++) {
-      d = al[k] - x - (k > 0 ? be[k] * be[k] / d : 0);
-      if (d == 0) d = 1e-300;
-      if (d > 0) cnt++;
-    }
-    if (cnt > 0) lo = x; else hi = x;
-  }
-  return hi;
-}
-
-// a rigorous lambda_max bound for V'ZmV (scaled units): Lanczos estimate, then
-// Rump's test at growing shifts above it; HUGE_VAL if every try fails
-static double cert_lambda(Work &w, const double *Zm)
-{
-  const int m = w.m;
-  const int K = w.K;
-  double *S = w.W.data();
-  forward(w, Zm, S);
-  const double znorm = sqrt(dot4(Zm, Zm, (size_t)w.n1 * w.n1)) * (1 + 1e-8);
-  const double snorm = sqrt(dot4(S, S, (size_t)K * K)) * (1 + 1e-8);
-  const double th = lanczos_top(K, S, 40);
-  double gap = std::max(1e-3 * fabs(th), 1e-9 * snorm) + 1e-14 * znorm + 1e-300;
-  for (int tries = 0; tries < 8; tries++, gap *= 8) {
-    double lam = rump_bound(w, S, std::max(th, 0.0) + gap);
-    if (lam < HUGE_VAL) return lam + 64.0 * m * U_ROUND * znorm;
-  }
-  return HUGE_VAL;
-}
-
-/*
  DNN_BETA_SCHED (experiments/wil50_feasibility/speed/beta_sched): opt-in
  schedules of the ADMM penalty. Unset, beta is par.beta * m/3 for the whole
  call and nothing below runs. beta changes only at the top of an iteration
@@ -1864,14 +1523,11 @@ struct BetaSched {
   }
 };
 
-static std::atomic<int> dnn_call_counter(0);   // DNN_CERTX_CALLS: index of this dnn_bound call in the process
-
 DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
                     double cutoff, const DNNParams &par, const DNNWarm *start,
                     DNNWarm *save)
 {
   DNNResult res;
-  const int call_idx = dnn_call_counter++;
   res.lb = -HUGE_VAL; res.primal = HUGE_VAL; res.status = DNN_ERROR;
   res.iterations = 0; res.cpu = 0; res.certificates = 0; res.cert_failures = 0;
   res.refinements = 0;
@@ -2014,27 +1670,12 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     Zt.assign(Z, Z + (size_t)n1 * n1);
   }
 
-  // DNN_CERTX (experimental certificate variants, see above): off unless set
-  const CertXEnv &cxe = certx_env();
-  const bool cx_on = cxe.mode != 0 && !par.elim && par.poly == DNN_POLY_GL && !par.prototype_cert &&
-                     (cxe.calls < 0 || (call_idx < 62 && ((cxe.calls >> call_idx) & 1)));
-  std::vector<std::vector<double>> cx_ring;   // the last navg certificate multipliers (bit 8)
-  int cx_ring_n = 0, cx_ring_pos = 0;
-  std::vector<double> cx_M, cx_M2, cx_M3, cx_Zt, cx_R, cx_K;
-  // std, exact, hg, ls, avg, hgr, hgw, proj: first check above the cutoff, best value
-  int cx_first[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
-  double cx_best[8] = {-HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL};
-  double cx_cpu = 0;
-  if (cx_on && !cxe.quiet) printf("certx call %d m %d mode %d passes %d rpasses %d avg %d every %d window %g use %d\n", call_idx,
-                    m, cxe.mode, cxe.passes, cxe.rpasses, cxe.navg, cxe.every, cxe.window, cxe.use);
-
   // DNN_FUSE=1: the Y/Z step writes the next forward's row phase into T while the row
   // is in cache, and forward writes Wf with W (node_speed.md trim f); not with the
   // accelerations, which rewrite Y and Z after the step
   static const int fuse_env = getenv("DNN_FUSE") ? atoi(getenv("DNN_FUSE")) : 0;
   const bool fuse_ok = fuse_env > 0 && par.anderson == 0 && par.halpern == 0 && !m_on && !par.ycuts;
-  // subspace block guard = K / DNN_GUARD_DIV (20; node_speed.md trim c tries 40)
-  static const int guard_div = getenv("DNN_GUARD_DIV") ? std::max(1, atoi(getenv("DNN_GUARD_DIV"))) : 20;
+  const int guard_div = 20;   // subspace block guard = K / 20 (node_speed.md trim c: 40 was no better)
   // DNN_BETA_SCHED (see BetaSched): off unless set
   BetaSched bs;
   const bool warm_call = start && start->Z.size() == (size_t)n1 * n1;
@@ -2042,7 +1683,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // CP-ADMM (par.ycuts): cuts projected in the Y-step, certified with their
   // multipliers at every check (see DNNYCuts)
   DNNYCuts *const yc = par.ycuts;
-  if (yc && (accel || par.prototype_cert || cx_on || par.child_bounds)) {
+  if (yc && (accel || par.prototype_cert || par.child_bounds)) {
     res.status = DNN_ERROR; res.cpu = thread_cpu() - t0; return res;
   }
   double cp_cpu = 0;   // CPU seconds in the hook's projection
@@ -2098,7 +1739,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // their own cut term (roadmap/admm/cpadmm, "In the search")
   static const int lazy_env = getenv("DNN_CORE_LAZYCERT") ? atoi(getenv("DNN_CORE_LAZYCERT")) : 1;   // on since Nov 8 2026
   static const int cp_lazy_env = getenv("DNN_CP_LAZYCERT") ? atoi(getenv("DNN_CP_LAZYCERT")) : 0;
-  const bool lazy_ok = lazy_env > 0 && !par.prototype_cert && !cx_on && par.stall_window == 0 &&
+  const bool lazy_ok = lazy_env > 0 && !par.prototype_cert && par.stall_window == 0 &&
                        !par.child_bounds && (!par.ycuts || cp_lazy_env > 0);
   std::vector<double> lz_Z;                 // the stored multiplier with the best polyhedral estimate
   bool lz_have = false, lz_exit = false;    // stored; the run stopped on a check that skipped the test
@@ -2141,7 +1782,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     double tp = thread_cpu(), tq;
     if (par.anderson > 0) aa.begin(Y, Z, ibeta);
     forward(w, Y, w.W.data(), Z, ibeta, w.t_rows_ready,
-            par.eig_mode == DNN_EIG_SUBSPACE ? w.Wf.data() : NULL);   // Wf with W (used when DNN_NOSYMW=1)
+            par.eig_mode == DNN_EIG_SUBSPACE ? w.Wf.data() : NULL);   // Wf with W (forward writes it unless force_sym)
     tq = thread_cpu(); w.prof[0] += tq - tp; tp = tq;
     const double gamma1 = it <= wd_k ? gamma1_par * wd_fac : gamma1_par;
     const double gamma = it <= wd_k ? gamma_par * wd_fac : gamma_par;
@@ -2411,212 +2052,6 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     // CP-ADMM: the bound of the cut-modified objective less h'mu (rounded up by
     // the hook), rounded down; lb = lbs + shift below rounds down once more
     if (cp_swapped && lbs > -HUGE_VAL) lbs = nextafter(lbs - cp_hsum, -HUGE_VAL);
-    if (cx_on) {
-      // experimental certificate variants at this iterate (DNN_CERTX; see above)
-      const double tx0 = thread_cpu();
-      const size_t nn = (size_t)n1 * n1;
-      if (cxe.mode & 8) {
-        if ((int)cx_ring.size() < cxe.navg) cx_ring.emplace_back(nn);
-        std::copy(Zc, Zc + nn, cx_ring[cx_ring_pos].begin());
-        cx_ring_pos = (cx_ring_pos + 1) % cxe.navg;
-        cx_ring_n = std::min(cx_ring_n + 1, cxe.navg);
-      }
-      const double run_best = std::max(best, lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL);
-      const bool due = res.certificates % cxe.every == 0 || it == par.max_iter ||
-                       (std::isfinite(cutoff) && run_best > -HUGE_VAL && cutoff - run_best <= cxe.window);
-      if (due) {
-        const double dr_save = w.delta_rel;
-        double u_[8] = {lbs, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL, -HUGE_VAL};   // unshifted
-        double tm[7] = {0, 0, 0, 0, 0, 0, 0}, t_best = 0;
-        std::vector<long double> hv, hv2, hv3;
-        std::vector<double> he, he2, he3;
-        double mg_hg = 0, mg_hgr = 0, mg_hgw = 0;
-        CertInfo cx;
-        double tq = thread_cpu();
-        // the polishings alone (modes 2, 32, 64 and their sums): reuse the standard
-        // certificate's lambda bound (the same Zc), so they cost only their LAP passes
-        const bool lean = (cxe.mode & ~(2 | 32 | 64)) == 0;
-        if (lean) cx = ci;
-        else u_[1] = certify(w, Zc, scale, (double)sumabsL, par.poly, DNN_LAP_EXACT, exact_above, exact_below, cx);
-        tm[0] = thread_cpu() - tq;
-        if ((cxe.mode & 64) && cx.chol_ok) {
-          tq = thread_cpu();
-          if (cx_K.empty()) cx_K.assign(nn, 0.0);
-          cx_M3.resize(nn);
-          double mx3 = 0;
-          for (size_t t = 0; t < nn; t++) {
-            cx_M3[t] = (L[t] + scale * Zc[t]) + cx_K[t];
-            mx3 = std::max(mx3, fabs(cx_M3[t]));
-          }
-          long double absW = 0;
-          static const int wtest = getenv("DNN_CERTX_WTEST") ? atoi(getenv("DNN_CERTX_WTEST")) : 0;
-          if (wtest) {
-            // check of the invariance claim at one check: K from a cold polish of M,
-            // then GL_exact(M + K) against the polish's own value
-            std::fill(cx_K.begin(), cx_K.end(), 0.0);
-            for (size_t t = 0; t < nn; t++) cx_M3[t] = L[t] + scale * Zc[t];
-            std::vector<long double> hvt; std::vector<double> het;
-            hg_polish(w, cx_M3.data(), cxe.wpasses, cx_R, hvt, het, NULL, 0, cx_K.data());
-            for (size_t t = 0; t < nn; t++) cx_M3[t] += cx_K[t];
-            long double ab;
-            const long double g = gl_full(w, cx_M3.data(), true, ab);
-            printf("certx-wtest it %d polish %.6f GL_exact(M+K) %.6f diff %.3e\n", it,
-                   (double)hvt.back() + shift, (double)g + shift, (double)(g - hvt.back()));
-            std::fill(cx_K.begin(), cx_K.end(), 0.0);
-            for (size_t t = 0; t < nn; t++) cx_M3[t] = L[t] + scale * Zc[t];
-          }
-          hg_polish(w, cx_M3.data(), cxe.wpasses, cx_R, hv3, he3, &absW, 0, cx_K.data());
-          // certify's margin with pass 1's magnitudes (M + K formed), the second
-          // rounding of forming M + K for the (m+1)^2 entries a permutation reads
-          mg_hgw = 8.0 * (m + 2) * U_ROUND * (double)absW + (m + 2) * U_ROUND * (double)sumabsL +
-                   cx.sdp_penalty + 2.0 * U_ROUND * (m + 1) * (m + 1) * mx3;
-          for (size_t p = 0; p < hv3.size(); p++) {
-            const double v = (double)hv3[p] - he3[p] - mg_hgw;
-            if (std::isfinite(v)) u_[6] = std::max(u_[6], v);
-          }
-          tm[5] = thread_cpu() - tq;
-        }
-        if (cx.chol_ok && (cxe.mode & (2 | 16 | 32))) {
-          cx_M.resize(nn);
-          for (size_t t = 0; t < nn; t++) cx_M[t] = L[t] + scale * Zc[t];
-        }
-        if ((cxe.mode & 2) && cx.chol_ok) {
-          tq = thread_cpu();
-          long double absM1 = 0;
-          // with DNN_CERTX_USE, stop as soon as the cutoff is crossed
-          const double stop_val = (cxe.use && std::isfinite(cutoff))
-            ? cutoff - shift + (m + 2) * U_ROUND * (double)sumabsL + cx.sdp_penalty + 1e-9 * (1 + fabs(cutoff))
-            : HUGE_VAL;
-          hg_polish(w, cx_M.data(), cxe.passes, cx_R, hv, he, &absM1, 0, NULL, stop_val);
-          // pass 1 is the exact GL value of the same M: certify's margin formula
-          // (forming M, the GL sums, L) with pass 1's magnitudes, the semidefinite
-          // term, plus the passes' own rounding (he)
-          mg_hg = 8.0 * (m + 2) * U_ROUND * (double)absM1 + (m + 2) * U_ROUND * (double)sumabsL +
-                  cx.sdp_penalty;
-          for (size_t p = 0; p < hv.size(); p++) {
-            const double v = (double)hv[p] - he[p] - mg_hg;
-            if (std::isfinite(v)) u_[2] = std::max(u_[2], v);
-          }
-          tm[1] = thread_cpu() - tq;
-        }
-        if ((cxe.mode & 32) && cx.chol_ok) {
-          tq = thread_cpu();
-          long double absR = 0;
-          const double stop_val = (cxe.use && std::isfinite(cutoff))
-            ? cutoff - shift + (m + 2) * U_ROUND * (double)sumabsL + cx.sdp_penalty + 1e-9 * (1 + fabs(cutoff))
-            : HUGE_VAL;
-          hg_polish(w, cx_M.data(), cxe.rpasses + 1, cx_R, hv2, he2, &absR, cxe.rpasses, NULL, stop_val);
-          mg_hgr = 8.0 * (m + 2) * U_ROUND * (double)absR + (m + 2) * U_ROUND * (double)sumabsL +
-                   cx.sdp_penalty;
-          for (size_t p = 0; p < hv2.size(); p++) {
-            const double v = (double)hv2[p] - he2[p] - mg_hgr;
-            if (std::isfinite(v)) u_[5] = std::max(u_[5], v);
-          }
-          tm[4] = thread_cpu() - tq;
-        }
-        if (cxe.mode & 4) {
-          tq = thread_cpu();
-          static const double grid[] = {0.01, 0.03, 0.1, 0.3, 1.0};
-          cx_Zt.resize(nn); cx_M2.resize(nn);
-          const double *Zn = Z;   // the multiplier after this iteration's Z-step
-          for (double tt : grid) {
-            for (size_t q = 0; q < nn; q++) cx_Zt[q] = Zc[q] + tt * (Zn[q] - Zc[q]);
-            const double lam = cert_lambda(w, cx_Zt.data());
-            if (lam == HUGE_VAL) continue;
-            for (size_t q = 0; q < nn; q++) cx_M2[q] = L[q] + scale * cx_Zt[q];
-            long double absM;
-            const long double val = gl_full(w, cx_M2.data(), true, absM);
-            const double v = (double)val - (8.0 * (m + 2) * U_ROUND * (double)absM +
-                                            (m + 2) * U_ROUND * (double)sumabsL + (m + 1) * scale * lam);
-            if (par.verbose >= 2)
-              printf("certx-ls it %d t %.3f value %.4f poly %.4f sdp %.4f\n", it, tt, v + shift,
-                     (double)val + shift, (m + 1) * scale * lam);
-            if (std::isfinite(v) && v > u_[3]) { u_[3] = v; t_best = tt; }
-          }
-          tm[2] = thread_cpu() - tq;
-        }
-        if ((cxe.mode & 8) && cx_ring_n >= 2) {
-          tq = thread_cpu();
-          cx_Zt.resize(nn);
-          std::fill(cx_Zt.begin(), cx_Zt.end(), 0.0);
-          for (int r = 0; r < cx_ring_n; r++) {
-            const double *zr = cx_ring[r].data();
-            for (size_t q = 0; q < nn; q++) cx_Zt[q] += zr[q];
-          }
-          const double f = 1.0 / cx_ring_n;
-          for (size_t q = 0; q < nn; q++) cx_Zt[q] *= f;
-          CertInfo ca;
-          u_[4] = certify(w, cx_Zt.data(), scale, (double)sumabsL, par.poly, DNN_LAP_EXACT, exact_above,
-                          exact_below, ca);
-          tm[3] = thread_cpu() - tq;
-        }
-        if (cxe.mode & 128) {
-          // the post-step multiplier Z (box side exact) with its face part projected
-          // onto the negative semidefinite cone in double: Zp = Z - V P_psd(V'ZV) V'
-          // (the prototype's certificate, here with the exact GL); w.R and VRV are
-          // free until the next R-step, as in the refinement above
-          tq = thread_cpu();
-          cx_Zt.resize(nn);
-          forward(w, Z, w.W.data());
-          int np2;
-          if (proj_psd(w, w.W.data(), w.R.data(), &np2)) {
-            expand(w, w.R.data(), VRV);
-            for (size_t q = 0; q < nn; q++) cx_Zt[q] = Z[q] - VRV[q];
-            CertInfo cp2;
-            u_[7] = certify(w, cx_Zt.data(), scale, (double)sumabsL, par.poly, DNN_LAP_EXACT, exact_above,
-                            exact_below, cp2);
-          }
-          tm[6] = thread_cpu() - tq;
-        }
-        if ((cxe.mode & 16) && !cxe.dump.empty() && cx.chol_ok) {
-          // M = L + scale Zc and what is needed to turn a polyhedral value into a bound
-          std::string pm = cxe.dump + ".M.bin", pt = cxe.dump + ".meta";
-          if (FILE *f = fopen(pm.c_str(), "wb")) { fwrite(cx_M.data(), sizeof(double), nn, f); fclose(f); }
-          if (FILE *f = fopen(pt.c_str(), "w")) {
-            fprintf(f, "m %d\nit %d\nscale %.17g\nshift %.17g\ncutoff %.17g\nmargin %.17g\nsdp_penalty %.17g\n"
-                    "exact %.17g\nstd %.17g\nsumabsL %.17g\n", m, it, scale, shift, cutoff, cx.margin,
-                    cx.sdp_penalty, u_[1], lbs, (double)sumabsL);
-            fclose(f);
-          }
-        }
-        w.delta_rel = dr_save;
-        if (!cxe.quiet) {
-        const double primal = dot4(L, Y, nn) + shift;
-        printf("certx it %5d std %.4f exact %.4f hg", it, u_[0] + shift, u_[1] + shift);
-        for (size_t p = 0; p < hv.size(); p++)
-          if (p == 0 || p == 1 || p == 3 || p + 1 == hv.size())
-            printf(" %zu:%.4f", p + 1, (double)hv[p] - he[p] - mg_hg + shift);
-        printf(" ls %.4f (t %.2f) avg%d %.4f primal %.4f cutoff %.4f cpu %.2f/%.2f/%.2f/%.2f",
-               u_[3] + shift, t_best, cx_ring_n, u_[4] + shift, primal, cutoff, tm[0], tm[1], tm[2], tm[3]);
-        if (!hv2.empty()) {
-          // reduce passes 1, 2, 4, the last, and the final exact pass
-          printf(" hgr");
-          for (size_t p = 0; p < hv2.size(); p++)
-            if (p == 0 || p == 1 || p == 3 || p + 2 == hv2.size() || p + 1 == hv2.size())
-              printf(" %zu:%.4f", p + 1, (double)hv2[p] - he2[p] - mg_hgr + shift);
-          printf(" cpu %.2f", tm[4]);
-        }
-        if (!hv3.empty()) {
-          printf(" hgw");
-          for (size_t p = 0; p < hv3.size(); p++)
-            printf(" %zu:%.4f", p + 1, (double)hv3[p] - he3[p] - mg_hgw + shift);
-          printf(" cpuw %.2f", tm[5]);
-        }
-        if (cxe.mode & 128) printf(" proj %.4f cpup %.2f", u_[7] + shift, tm[6]);
-        printf("\n");
-        }
-        double vmax = -HUGE_VAL;
-        for (int v = 0; v < 8; v++) {
-          if (u_[v] > -HUGE_VAL) {
-            cx_best[v] = std::max(cx_best[v], u_[v] + shift);
-            vmax = std::max(vmax, u_[v]);
-            if (cx_first[v] < 0 && u_[v] + shift > cutoff) cx_first[v] = it;
-          }
-        }
-        if (cxe.use && vmax > lbs) lbs = vmax;   // DNN_CERTX_USE: the best valid value counts
-      }
-      cx_cpu += thread_cpu() - tx0;
-    }
     if (lbs > -HUGE_VAL) {
       double lb = nextafter(lbs + shift, -HUGE_VAL);   // covers the addition's rounding
       if (m_on && best > -HUGE_VAL &&
@@ -2804,15 +2239,6 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   }
   if (par.verbose && cross_max > 0)
     printf("admm cross: %d extra certificates\n", cross_extra);
-  if (cx_on && !cxe.quiet) {
-    printf("certx-summary call %d status %s iters %d cutoff %.4f first std %d exact %d hg %d ls %d avg %d hgr %d"
-           " hgw %d proj %d best std %.4f exact %.4f hg %.4f ls %.4f avg %.4f hgr %.4f hgw %.4f proj %.4f"
-           " cpu_certx %.2f\n",
-           call_idx, dnn_status_name(status), res.iterations, cutoff, cx_first[0], cx_first[1], cx_first[2],
-           cx_first[3], cx_first[4], cx_first[5], cx_first[6], cx_first[7], cx_best[0], cx_best[1], cx_best[2],
-           cx_best[3], cx_best[4], cx_best[5], cx_best[6], cx_best[7], cx_cpu);
-    fflush(stdout);
-  }
   if (par.verbose >= 2)
     printf("profile (s): forward %.3f  eig %.3f  expand %.3f  Y/Z-step %.3f  certify %.3f\n",
            w.prof[0], w.prof[1], w.prof[2], w.prof[3], w.prof[4]);
