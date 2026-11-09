@@ -137,9 +137,12 @@ nug17 2.7x; total CPU rises somewhat under full load, so expect less than
 N-fold on shared machines.
 
 Known optimal solutions are in `QAPSOLN/<name>.sln`. The first line is `n` and
-the optimal objective, and the second line is the permutation. A few files are
-broken: kra30a, kra30b, esc32d, tai25a and tho30 contain `<value> ??` (kra32's was fixed on Nov 8 from a tabu solution checked against the data file),
-and nug27's claims an optimum of 5. The tools treat those optima as unknown.
+the optimal objective, and the second line is the permutation (absent for
+esc32d, kra30a, kra30a-old, kra30b, kra30b-old, tai25a and tho30, whose files
+held `<value> ??`; they, nug27, nug28 and nug30, which lacked n on the first
+line, were repaired on Nov 8 2026, and kra32's was rebuilt from a tabu
+solution checked against the data file). `bench.py` reads only a first line
+of exactly `n optimum` and treats anything else as unknown.
 
 Three data files are scaled variants, not the QAPLIB originals: `qaplib/kra30a.dat`,
 `kra30b.dat` and `kra32.dat` have the flow and distance matrices swapped and every

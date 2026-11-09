@@ -78,11 +78,20 @@ def read_optimum(name):
     if not os.path.exists(path):
         return None, None
     with open(path) as f:
-        tok = f.read().split()
+        first = [l.split() for l in f.read().splitlines() if l.strip()]
+    # the first line is "n optimum"; anything else (an optimum alone, a "??")
+    # is unusable. Until Nov 8 2026 the whole file was split and tok[1] taken
+    # as the optimum, so "6124" followed by a permutation gave n = 6124 and an
+    # optimum of 14, which --ub opt then passed to the solver: a false "ok".
     try:
-        return int(tok[0]), int(float(tok[1]))
-    except (ValueError, IndexError):  # a few files hold "<value> ??" instead
+        if not first or len(first[0]) != 2:
+            return None, None
+        n, opt = int(first[0][0]), int(float(first[0][1]))
+    except ValueError:
         return None, None
+    if not 3 <= n <= 256:
+        return None, None
+    return n, opt
 
 
 def suite_path(suite):
