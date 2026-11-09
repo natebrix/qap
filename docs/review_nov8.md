@@ -91,6 +91,13 @@ experiment and the dead code are still in place.
 
 ## E. Linear algebra and efficiency
 
+**E4 and E8 done Nov 8 evening** (with E1 and E3 already defaults): `forward`
+writes the fp32 copy of W only when it stays valid; the cut separator's five
+candidate lists use a partial sort bounded by the cuts that can be taken plus
+the pool size, so the selection is unchanged (nug30 with the cut phase at depth
+<= 2: rounds 2,703 / 2,599 and CP 2,619 / 2,518 nodes before and after, same
+CPU). E2, E5-E7, E9-E13 open.
+
 Per DNN iteration at K = (m-1)²+1 ≤ 2,402 the cost is three K×K×kb `sgemm` (Chebyshev filter and Rayleigh-Ritz), the `dsyrk` forming R (about K²·nneg), and a full `ssyevd` refresh amortised over 20 iterations; the O(m^5) transforms and the O(m^4) Y/Z steps are an order of magnitude below. Against that:
 
 | # | where | finding | expected gain |

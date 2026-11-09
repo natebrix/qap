@@ -1028,8 +1028,12 @@ public:
               if (v > 1e-4) found.push_back({v, t});
             }
     }
-    std::sort(found.begin(), found.end(), [](const std::pair<double, Cut> &u, const std::pair<double, Cut> &w) {
-      return u.first > w.first; });
+    // only the sep_k most violated candidates not already in the pool are
+    // taken below, so the first sep_k + |pool| in violation order suffice: a
+    // partial sort of up to ~1M candidates instead of a full one
+    const size_t want = std::min(found.size(), std::max<size_t>(1, (size_t)sep_k + cuts.size()));
+    std::partial_sort(found.begin(), found.begin() + want, found.end(),
+                      [](const std::pair<double, Cut> &u, const std::pair<double, Cut> &w) { return u.first > w.first; });
     // room: cuts whose nu has been 0 for drop_after Y-steps leave; under the cap the
     // zero-multiplier cuts leave too, the longest at zero first, as far as needed
     std::vector<char> keep(cuts.size(), 1);
@@ -1048,7 +1052,8 @@ public:
     if (any) compact(keep);
     const int room = pool_cap > 0 ? std::max(0, pool_cap - (int)cuts.size()) : sep_k;
     int added = 0;
-    for (auto &f : found) {
+    for (size_t q = 0; q < want; q++) {
+      auto &f = found[q];
       if (added >= std::min(sep_k, room)) break;
       if (keys.count(cut_key(f.second))) continue;
       pool.push_back(f.second);
@@ -1542,11 +1547,19 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
           }
         }
     }
-    std::sort(found.begin(), found.end(), by_violation);
-    std::sort(found5.begin(), found5.end(), by_violation);
-    auto add_from = [&](std::vector<std::pair<double, Cut>> &v, int k) {
+    // add_from takes the k most violated candidates not already in the pool,
+    // so the first k + |pool| in violation order are all it can read: a partial
+    // sort in place of the full one (the candidate lists run to millions)
+    auto top = [&](std::vector<std::pair<double, Cut>> &v, int k) {
+      const size_t want = std::min(v.size(), std::max<size_t>(1, (size_t)std::max(k, 0) + cuts.size()));   // >= 1: v[0] stays the maximum for the report
+      std::partial_sort(v.begin(), v.begin() + want, v.end(), by_violation);
+      return want;
+    };
+    const size_t want = top(found, cp.kcuts), want5 = top(found5, cp.kcuts5);
+    auto add_from = [&](std::vector<std::pair<double, Cut>> &v, int k, size_t lim) {
       int added = 0;
-      for (auto &f : v) {
+      for (size_t q = 0; q < lim; q++) {
+        auto &f = v[q];
         if (added >= k) break;
         const Cut &c = f.second;
         std::vector<int> key = {c.type, c.a, c.b, c.c, c.s, c.d, c.e, c.mask, c.alpha};
@@ -1559,11 +1572,12 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
       return added;
     };
     const bool adding = cp.add_until <= 0 || r <= cp.add_until;
-    const int added = add_from(found, adding ? cp.kcuts : 0), added5 = add_from(found5, adding ? cp.kcuts5 : 0);
+    const int added = add_from(found, adding ? cp.kcuts : 0, want), added5 = add_from(found5, adding ? cp.kcuts5 : 0, want5);
     // local-7 cuts: one per (region, 7-subset) in the pool; the candidate's data moves into l7
-    std::sort(found7.begin(), found7.end(), by_violation);
+    const size_t want7 = top(found7, cp.kcuts7);
     int added7 = 0;
-    for (auto &f : found7) {
+    for (size_t q = 0; q < want7; q++) {
+      auto &f = found7[q];
       if (added7 >= (adding ? cp.kcuts7 : 0)) break;
       const L7Cut &c = cand7[f.second.a];
       std::vector<int> key = {6, f.second.s, c.f[0], c.f[1], c.f[2], c.f[3], c.f[4], c.f[5], c.f[6]};
@@ -1575,9 +1589,10 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
       added7++;
     }
     // box cuts: one per (region, b, Q) in the pool; the candidate's data moves into boxes
-    std::sort(found8.begin(), found8.end(), by_violation);
+    const size_t want8 = top(found8, cp.kbox);
     int added8 = 0;
-    for (auto &f : found8) {
+    for (size_t q = 0; q < want8; q++) {
+      auto &f = found8[q];
       if (added8 >= (adding ? cp.kbox : 0)) break;
       const BoxCut &c = cand8[f.second.a];
       std::vector<int> key = {8, f.second.s, c.b};

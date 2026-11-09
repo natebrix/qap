@@ -720,14 +720,14 @@ void forward(Work &w, const double *A, double *Wout, const double *B = NULL,
   w.t_rows_ready = false;   // T is consumed (or overwritten) by this call
   rows_D(w, T);
   rows_rot(w, T);
-  if (Wf_out) {
+  if (Wf_out && nosym) {   // with the symmetrisation below Wf would be stale, so it is not written then
     for (int s = 0; s < K; s++) {
       const double *row = T + (size_t)w.kept[s] * n1;
       double *wo = Wout + (size_t)s * K;
       float *wf = Wf_out + (size_t)s * K;
       for (int t = 0; t < K; t++) { const double v = row[w.kept[t]]; wo[t] = v; wf[t] = (float)v; }
     }
-    w.wf_ready = !(!nosym);   // with the symmetrisation below Wf would be stale: only valid when it is skipped
+    w.wf_ready = true;
   } else {
     for (int s = 0; s < K; s++) {
       const double *row = T + (size_t)w.kept[s] * n1;
