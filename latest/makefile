@@ -13,7 +13,9 @@ CF = -O3 -march=native -ffp-contract=off
 # -Wno-register: some loops still declare `register` variables, which C++17
 # dropped; g++ only warns, clang++ (make CPP=clang++) stops without this.
 # It changes no generated code.
-CFLAGS = $(CF) -Wno-register -MMD -MP
+# -std=gnu++17: the code uses C++17 (if-statement initializers, settings.C);
+# older g++ defaults to gnu++14 and clang++ warns at every use without this.
+CFLAGS = $(CF) -std=gnu++17 -Wno-register -MMD -MP
 
 # The DNN bound (dnn.C; bnbdrv -x) needs LAPACK, found as described at
 # the dnntest target below. Build without it: make DNN=0.

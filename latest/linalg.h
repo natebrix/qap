@@ -38,7 +38,7 @@ inline double mm_trace_alt(MAT *X,int *p)
 }
 
 void nice_m_output(MAT *A);
-void my_nice_m_output(MAT *X,char *title,int m,int n);
+void my_nice_m_output(MAT *X,const char *title,int m,int n);
 
 void my_svd(MAT *A, VEC *d);
 

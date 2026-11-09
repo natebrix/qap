@@ -26,7 +26,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENV = {"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1",
        "QAP_DNN_GAMMA1": "1.0", "QAP_DNN_GAMMA": "1.0", "QAP_DNN_CHEB": "3", "QAP_DNN_TIGHT_LAM": "2",
-       "QAP_DNN_REFRESH": "40", "DNN_CHOLQR_PASSES": "1", "QAP_DNN_WARM_Y": "2", "QAP_DNN_EXT": "20",
+       "QAP_DNN_REFRESH": "40", "QAP_DNN_WARM_Y": "2", "QAP_DNN_EXT": "20",
        "QAP_DNN_CUT_ZONE": "0.005", "QAP_DNN_CUT_GRID": "4:5", "QAP_DNN_CUT_SIDE": "0",
        "QAP_DNN_CUT_FREEZE": "1500", "QAP_DNN_POOL": "1", "QAP_DNN_POOL_CHECK": "20"}
 CASE = ("nug20", 2570)

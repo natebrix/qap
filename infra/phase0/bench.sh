@@ -87,7 +87,7 @@ step "gates: $(tr '\n' ' ' < "$OUT/gates.txt")"
 run_node() {   # node line, cpu, directory, [extra flags]
   local k=$1 cpu=$2 dir=$3 spec
   spec=$(sed -n "${k}p" "$NODES" | awk '{print $1}')
-  env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 DNN_CHOLQR_PASSES=1 DNN_AMX=1 \
+  env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 DNN_AMX=1 \
     taskset -c "$cpu" latest/dnntest -T 1 -d 3 -L 2 -r 40 -g 1.0 -G 1.0 -H 300 -i "${4:-2500}" -u 48816 -v \
     -x "$spec" qaplib/wil50.dat > "$dir/node_$k.log" 2>&1
 }

@@ -78,7 +78,7 @@ std::ostream& operator <<(std::ostream& outs, const QAPSolution &s)
   for(int i=0;i<s.n;i++)
     outs << s.perm[i] << " ";
   outs << std::endl;
-
+  return outs;
 }
 
 void QAPSolution::print(std::ostream& outs)

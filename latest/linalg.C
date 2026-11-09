@@ -162,7 +162,7 @@ void nice_m_output(MAT *A)
 
 ========================================================================
 */
-void my_nice_m_output(MAT *X,char *title,int m,int n)
+void my_nice_m_output(MAT *X,const char *title,int m,int n)
 {
   int i,j;
   printf("   %s  = \n",title);

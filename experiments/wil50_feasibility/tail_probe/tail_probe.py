@@ -45,7 +45,7 @@ from parallel import State  # noqa: E402
 BASE_ENV = {
     "QAP_DNN_GAMMA1": "1.0", "QAP_DNN_GAMMA": "1.0", "QAP_DNN_EXT": "20",
     "QAP_DNN_CUT_ZONE": "0.003", "QAP_DNN_CUT_GRID": "5:10", "QAP_DNN_CUT_SIDE": "0", "QAP_DNN_CUT_FREEZE": "1500",
-    "DNN_AMX": "1", "DNN_CHOLQR_PASSES": "1", "QAP_DNN_CHEB": "3", "QAP_DNN_TIGHT_LAM": "2", "QAP_DNN_REFRESH": "40",
+    "DNN_AMX": "1", "QAP_DNN_CHEB": "3", "QAP_DNN_TIGHT_LAM": "2", "QAP_DNN_REFRESH": "40",
     "QAP_DNN_WARM_Y": "2", "QAP_DNN_POOL": "1", "QAP_DNN_POOL_CHECK": "20",
     "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1"}
 FULL = {"QAP_DNN_CUT_ZONE": "0.005", "QAP_DNN_CUT_WARMY": "1", "QAP_DNN_CUT_ROUNDS": "12", "QAP_DNN_CUT_ITERS": "200",
@@ -63,18 +63,18 @@ ARMS = {"base": {}, "baseship": {"QAP_DNN_SHIP": "16"}, "full": FULL,
         # the Nov 5-6 production settings (../pipeline_ab/run_pair.sh's fast and wlowc):
         # fp32 rank term off certificate iterations, the two-phase cold beta, and the
         # warm-call beta at 0.7 (fast) or 0.25 for children with cut rounds at 0.7 (wlowc)
-        "fast": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.7"),
-        "wlowc": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.25,wc=0.7"),
+        "fast": dict(FULL, DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.7"),
+        "wlowc": dict(FULL, DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.25,wc=0.7"),
         # wtwo: fast's children on the two-phase warm beta (pipeline_ab run_pair.sh wtwo, Nov 6)
-        "wtwo": dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.7", DNN_ADMM_WARM_BETA="0.25:60:0.7")}
+        "wtwo": dict(FULL, DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.7", DNN_ADMM_WARM_BETA="0.25:60:0.7")}
 # the Nov 7 pair in the production configuration (../pipeline_ab/run_pair.sh's
 # bestcoret and cpcutt; ../roadmap/admm/cpadmm/README.md, "Side 1"): bestcore (wlowc
 # + the crossing certificate + the three core switches) and cpcut (bestcore with the
 # cut phase in CP form), both with the regions on side 1, for the transposed instance:
 # run with --instance qaplib/wil50t.dat and the node's spec transposed (i:j -> j:i);
 # the symmetry file is found by name (./SYM/wil50t.sym, the tasks run in latest/)
-BESTCORE = dict(FULL, DNN_R32_NONCERT="1", DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.25,wc=0.7", DNN_ADMM_CROSS="2",
-                DNN_CORE_LAZYCERT="1", DNN_CORE_NOSYMV="1", DNN_NOSYMW="1", DNN_CORE_REFRESH_PARTIAL="1")
+BESTCORE = dict(FULL, DNN_BETA_SCHED="two,f=1.6667,t=60,w=0.25,wc=0.7", DNN_ADMM_CROSS="2",
+                DNN_CORE_LAZYCERT="1")
 ARMS["bestcoret"] = dict(BESTCORE, QAP_DNN_CUT_SIDE="1")
 ARMS["cpcutt"] = dict(BESTCORE, QAP_DNN_CUT_SIDE="1", QAP_DNN_CUT_CP="100:1000")
 

@@ -452,56 +452,42 @@ inline void addPenalties(MAT *C, const QAPAssignment &a)
  add linear term due to fixing variables
 ============================================================
  */
-inline void addLinearTerm(QAP *q, QAP *q1,const QAPAssignment &a)
+// The shift and the linear term of a reduced problem, as lower bounds on
+// the sums of products (LowerSum, exact for integer data of moderate size):
+// every bound on the subproblem inherits their rounding, and bnb.C fathoms
+// on the child bounds branch.C predicts through reduceC as well as on the
+// node bound through reduceQAP, so both take this one routine (review D:
+// the old reduceC used plain double sums). q1->C must already hold the
+// free rows and columns of C.
+static void reduceShiftAndC(QAP *q, QAP *q1, const QAPAssignment &a)
 {
-  int i,ii,j,jj,k;
-
-  for(k=0;k<a.n;k++)
-    {
-      if(a.p[k]>NONE) {
-	for(ii=-1,i=0;i<a.n;i++)
-	  {
-	    if(a.p[i]<=NONE) {
-	      ii++; // the ii_th free row.
-	      for(jj=-1,j=0;j<a.n;j++)
-		{
-		  if(a.pinv[j]<=NONE) {
-		    jj++;// the ii_th free column
-		    q1->C->me[ii][jj] += 
-		      q->A->me[i][k]*q->B->me[j][a.p[k]] +
-		      q->A->me[k][i]*q->B->me[a.p[k]][j];
-		  }
-		}
-	    }
-	  }
-      }
+  const int n = a.n;
+  LowerSum shift;
+  for (int i = 0; i < n; i++)
+    if (a.p[i] > NONE) {
+      shift.add(q->C->me[i][a.p[i]]);
+      for (int j = 0; j < n; j++)
+	if (a.p[j] > NONE) shift.add_product(q->A->me[i][j], q->B->me[a.p[i]][a.p[j]]);
     }
+  q1->shift = shift.lower();
+  for (int ii = -1, i = 0; i < n; i++) {
+    if (a.p[i] > NONE) continue;
+    ii++;   // the ii_th free row
+    for (int jj = -1, j = 0; j < n; j++) {
+      if (a.pinv[j] > NONE) continue;
+      jj++;   // the jj_th free column
+      LowerSum c;
+      c.add(q1->C->me[ii][jj]);
+      for (int k = 0; k < n; k++)
+	if (a.p[k] > NONE) {
+	  c.add_product(q->A->me[i][k], q->B->me[j][a.p[k]]);
+	  c.add_product(q->A->me[k][i], q->B->me[a.p[k]][j]);
+	}
+      q1->C->me[ii][jj] = c.lower();
+    }
+  }
 }
 
-/*
-============================================================
- compute constant term due to fixing variables
-============================================================
- */
-inline void computeShift(QAP *q, QAP *q1,const QAPAssignment &a)
-{
-  int i,j;
-  // compute shift
-      
-  for(i=0;i<a.n;i++)
-    {
-      if(a.p[i]>NONE) {
-	
-	q1->shift += q->C->me[i][a.p[i]];
-	for(j=0;j<a.n;j++)
-	  {
-	    if(a.p[j]>NONE) {
-	      q1->shift += q->A->me[i][j]*q->B->me[a.p[i]][a.p[j]];
-	    }
-	  }
-      }
-    }
-}
 
 /*
 ============================================================
@@ -547,53 +533,13 @@ void reduceQAP(QAP *q,QAP *q1,const QAPAssignment &a)
 
   if(a.nfix>0)
     {
-      // compute shift. The shift and the linear terms below are sums of
-      // products that can cancel, and every bound on the subproblem inherits
-      // their rounding: compute lower bounds on them (LowerSum, exact for
-      // integer data of moderate size).
-      LowerSum shift;
-      for(i=0;i<n;i++)
-	{
-	  if(a.p[i]>NONE) {
-
-	    shift.add(q->C->me[i][a.p[i]]);
-	    for(j=0;j<n;j++)
-	      {
-		if(a.p[j]>NONE) {
-		  shift.add_product(q->A->me[i][j], q->B->me[a.p[i]][a.p[j]]);
-		}
-	      }
-	  }
-	}
-      q1->shift = shift.lower();
-      
-      // get q1 = (A1,B1,C1)
+      // get q1 = (A1,B1,C1), then the shift and the linear term
       M_FREE(q1->A);M_FREE(q1->B);M_FREE(q1->C);
 
       q1->A = submatrix(q->A,a.p,a.p,m,n);
       q1->B = submatrix(q->B,a.pinv,a.pinv,m,n);
       q1->C = submatrix(q->C,a.p,a.pinv,m,n);
-      // add linear term due to fixing variables
-      for(ii=-1,i=0;i<n;i++)
-	{
-	  if(a.p[i]<=NONE) {
-	    ii++; // the ii_th free row.
-	    for(jj=-1,j=0;j<n;j++)
-	      {
-		if(a.pinv[j]<=NONE) {
-		  jj++;// the jj_th free column
-		  LowerSum c;
-		  c.add(q1->C->me[ii][jj]);
-		  for(k=0;k<n;k++)
-		    if(a.p[k]>NONE) {
-		      c.add_product(q->A->me[i][k], q->B->me[j][a.p[k]]);
-		      c.add_product(q->A->me[k][i], q->B->me[a.p[k]][j]);
-		    }
-		  q1->C->me[ii][jj] = c.lower();
-		}
-	      }
-	  }
-	}
+      reduceShiftAndC(q,q1,a);
     }
   else
     {
@@ -658,9 +604,8 @@ void reduceC(QAP *q, QAP *q1,const QAPAssignment &a)
   M_FREE(q1->C);
   if(a.nfix>0)
     {
-      computeShift(q,q1,a);
       q1->C = submatrix(q->C,a.p,a.pinv,m,n);
-      addLinearTerm(q,q1,a);
+      reduceShiftAndC(q,q1,a);
     }
   else
     {

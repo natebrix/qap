@@ -49,6 +49,7 @@
 
 #include <vector>
 #include <string>
+#include <cmath>
 #include "mat.h"
 
 enum DNNStatus {
@@ -232,6 +233,8 @@ struct DNNResult {
   int halpern_restarts;   // anchor restarts (par.halpern), memory resets (par.anderson)
                           // or momentum restarts (par.momentum)
   double margin;       // largest safety margin subtracted from a certified value
+  DNNResult() : lb(-HUGE_VAL), primal(HUGE_VAL), status(DNN_ERROR), iterations(0), cpu(0),
+                certificates(0), cert_failures(0), refinements(0), halpern_restarts(0), margin(0) {}
   // With par.child_bounds, unless fathomed: child_lb[i * m + j] is a certified
   // lower bound (shift included) on the node with its facility i at location j
   // (local indices, as reduceQAP numbers them), from the certificate that gave

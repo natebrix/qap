@@ -552,6 +552,15 @@ std::vector<Region> prefix_regions(int m)
   return out;
 }
 
+// the regions of a cut phase: the grid's prefixes when a grid is given, else the
+// prefixes of the free elements (bnb.C sets cp.prefix when it gives no grid)
+static std::vector<Region> cut_regions(const DNNCutParams &cp, const std::vector<int> &free_orig, int n_orig, int m)
+{
+  if (cp.grid_rows > 0) return grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
+  if (cp.prefix) return prefix_regions(m);
+  return std::vector<Region>();
+}
+
 // ---- CP-ADMM (DNNYCuts in dnn.h; experiments/wil50_feasibility/roadmap/admm/cpadmm)
 //
 // A regional cut is lin(Y) <= h with lin(Y) = sum_i cp_i p_i + sum_{i<j} cw_ij W_ij
@@ -1260,10 +1269,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   const int m = A->m, n1 = m * m + 1;
   const Lift lift = {m, cp.side};
   std::vector<Region> regions;
-  if (!cp.atomic) {
-    if (cp.grid_rows > 0) regions = grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
-    else if (cp.prefix) regions = prefix_regions(m);
-  }
+  if (!cp.atomic) regions = cut_regions(cp, free_orig, n_orig, m);
   const bool regional = !cp.atomic;
   if (cp.verbose >= 2)
     for (auto &R : regions) printf("  region %-8s capacity %zu\n", R.name.c_str(), R.loc.size());
@@ -1989,9 +1995,7 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   const int m = A->m, n1 = m * m + 1;
   if (cp.atomic || (cp.side != 0 && cp.side != 1)) { fprintf(stderr, "dnn_cp_bound: regional cuts only (side 0 or 1)\n"); return bad; }
   const Lift lift = {m, cp.side};
-  std::vector<Region> regions;
-  if (cp.grid_rows > 0) regions = grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
-  else if (cp.prefix) regions = prefix_regions(m);
+  std::vector<Region> regions = cut_regions(cp, free_orig, n_orig, m);
   std::vector<Cut> cuts;
   std::vector<BoxCut> boxes;
   std::vector<L7Cut> l7;
@@ -2124,9 +2128,7 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     return dnn_cut_rounds(A, B, C, shift, cutoff, base, free_orig, n_orig, cp, warm, first_lb, first_primal);
   const double t0 = CutProjector::tcpu();
   const Lift lift = {m, cp.side};
-  std::vector<Region> regions;
-  if (cp.grid_rows > 0) regions = grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
-  else if (cp.prefix) regions = prefix_regions(m);
+  std::vector<Region> regions = cut_regions(cp, free_orig, n_orig, m);
   DNNCutResult out;
   out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
   out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0; out.cp_form = 0;
