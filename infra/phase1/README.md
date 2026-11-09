@@ -90,7 +90,8 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
 - **Options:** `--type c7g.4xlarge` (16 Graviton3 cores; any type whose
   family ends in `g`, `gd` or `gn` gets the arm64 image), `--region eu-north-1`,
   `--on-demand`, `--worker-only` (more capacity for a run another instance
-  coordinates; at most one coordinating instance per run), `--no-reference`,
+  coordinates; at most one coordinating instance per run), `--private` (no
+  public status), `--no-reference`,
   `--gates "..."` or `--gates none`, `--limit 120` (minutes).
 - **Time [e]:** 5-10 minutes of setup and build, about 5 of gates, then the
   run: under a minute for nug17; for nug30 on 16 Graviton3 cores perhaps
@@ -105,8 +106,8 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
     `qap-runs` and `qap-units` (on-demand capacity);
   - an IAM role and instance profile `qap-phase1-instance`, which may only make
     the calls `coord/backend.py` makes on those (read and write `runs/`, read
-    `src/`, send, receive and delete on the two queues, items on the two
-    tables) and nothing else;
+    `src/`, write `public/runs/`, send, receive and delete on the two queues,
+    items on the two tables) and nothing else;
   - a security group `qap-phase1` in the default VPC, with no inbound rules.
 - **Without an incumbent** (`--no-ub`): a better solution found inside a unit
   reaches the other units when that unit returns and is merged (the
@@ -128,7 +129,36 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
   instances. `--all` also deletes the security group, the profile and the
   role; `--all --storage` deletes the queues, the tables and the bucket too,
   after asking (every coordinator run in the region, including any made by
-  hand with `qapctl`).
+  hand with `qapctl`). The CloudFront distribution of `publish_setup.sh` stays:
+  disable and delete it in the CloudFront console (a deletion waits for the
+  disabled distribution to deploy).
+
+## The public status, for brixius-web
+
+Every 5 minutes, and once at the end, the coordinator publishes the run under
+`public/runs/RUN/` in the bucket (`coord/publish.py`): `status.json` (status,
+units, incumbent, CPU, open nodes by depth), `totals.state` (the merged
+statistics, state version 7: every per-level table, the DNN ones too),
+`report.txt` (the solver's report for them) and `history.json` (one sample per
+publish). `--private` on a new run publishes nothing; `--publish-every` in a
+recipe's `COORD` changes the interval (0: only at the end).
+
+The bucket stays private. Once per account and region:
+
+```
+infra/phase1/publish_setup.sh --dry-run    # the calls it would make
+infra/phase1/publish_setup.sh              # prints the URL base
+```
+
+It creates a CloudFront distribution that serves `public/` and nothing else
+(origin path `/public`, an origin access control, and a bucket policy that lets
+only that distribution read `public/*`), so
+`https://<domain>/runs/RUN/status.json` is the run's status. The objects carry
+`Cache-Control: max-age=60`. A new distribution takes 5 to 15 minutes to
+deploy; it stays within CloudFront's free tier at a dashboard's traffic.
+`python3 -m coord.qapctl publish RUN --backend ...` publishes at once (a run
+started before the distribution existed has its bundle already: the
+distribution only serves it).
 
 ## Output
 

@@ -18,7 +18,8 @@ Each tick:
      the longest-running unit to return its open nodes (control.json, read by
      the worker's heartbeat, which sends the solver SIGUSR1), the
      equivalent of parallel.py's steal, but without a global barrier;
-  5. write status.json; when no unit is pending, the final report.
+  5. write status.json; every publish_every seconds the public status
+     (publish.py); when no unit is pending, the final report.
 """
 import json
 import os
@@ -27,6 +28,7 @@ import time
 
 from .common import (LANES, SOLVER, State, fmt_secs, new_unit, plan_split, read_instance, run_key,
                      solver_tables, unit_key, verify_incumbent, write_unit_state)
+from .publish import Publisher
 
 PENDING = ("queued", "leased", "done", "returned", "failed")
 
@@ -46,6 +48,7 @@ class Coordinator:
         self._load_totals()
         self.last_status = 0
         self.t0 = self.run.get("started_at") or time.time()
+        self.publisher = Publisher(self)
 
     def _path(self, name):
         return os.path.join(self.tmp, name)
@@ -288,21 +291,16 @@ class Coordinator:
         sol = self.run.get("solver", {})
         params = self._path(sol.get("params") or "params.par")
         inst = self._path(sol.get("instance") or "instance.dat")
-        if not (self.b.get_file(run_key(self.run_id, "params.par"), params) and
-                self.b.get_file(run_key(self.run_id, "instance.dat"), inst)):
-            return ""
+        for key, path in ((run_key(self.run_id, "params.par"), params), (run_key(self.run_id, "instance.dat"), inst)):
+            if not os.path.exists(path) and not self.b.get_file(key, path):
+                return ""
         return solver_tables(SOLVER, params, state_path, inst)
 
-    def finish(self):
-        now = time.time()
-        wall = now - self.t0
+    def report(self, state_path, wall):
+        """the solver's RESULTS block for the merged statistics written at
+        state_path: the head, the solver's own tables, the coordinator's line"""
         t = self.totals
         inc = self.run.get("incumbent", {})
-        if inc.get("perm"):
-            t.obj, t.perm = inc["obj"], [str(x) for x in inc["perm"]]
-        p = self._path("final.state")
-        t.write(p, [])
-        self.b.put_file(run_key(self.run_id, "final.state"), p)
         node, fathom, enum, fw = t.counters
         lines = ["  ---- RESULTS ----", "",
                  f"    Total Time: {t.times[0]:.6f} seconds ",
@@ -316,19 +314,36 @@ class Coordinator:
             a = t.arrays
             lines.append(f"     cut phase: {sum(a['cut_n_level'])} nodes, {sum(a['cut_f_level'])} fathomed, "
                          f"{sum(a['cut_t_level']):.2f} s")
-        tables = self._solver_tables(p)
+        tables = self._solver_tables(state_path)
         if tables:
             lines += [""] + tables.rstrip("\n").split("\n")
         busy = self.busy_wall / (self.cfg["slots"] * wall) if wall > 0 else 0
         lines += ["", f"coordinator: {self.cfg['slots']} slots, {self.units_merged} units, wall {wall:.2f} s, "
                       f"CPU {t.times[0]:.2f} s (x{t.times[0] / wall if wall else 0:.2f}), slots busy {100 * busy:.1f}%, "
                       f"best objective {inc.get('obj', t.obj):.17g}"]
-        report = "\n".join(lines)
+        return "\n".join(lines)
+
+    def finish(self):
+        now = time.time()
+        wall = now - self.t0
+        t = self.totals
+        inc = self.run.get("incumbent", {})
+        if inc.get("perm"):
+            t.obj, t.perm = inc["obj"], [str(x) for x in inc["perm"]]
+        p = self._path("final.state")
+        t.write(p, [])
+        self.b.put_file(run_key(self.run_id, "final.state"), p)
+        report = self.report(p, wall)
         self.b.put_bytes(run_key(self.run_id, "results.txt"), (report + "\n").encode())
         self.run = self.b.update_run(self.run_id, {"status": "finished", "finished_at": now, "wall_s": wall})
         # the last status.json says finished, with the final totals (a run
         # shorter than status_every would otherwise leave its first one)
-        self.status(self.b.count_by_status(self.run_id), force=True)
+        counts = self.b.count_by_status(self.run_id)
+        self.status(counts, force=True)
+        try:
+            self.publisher.publish(counts, final=True)
+        except Exception as e:
+            self.log(f"coordinator: publishing the final status failed: {e!r}")
         self.log(report)
         return report
 
@@ -340,6 +355,11 @@ class Coordinator:
         counts = self.b.count_by_status(self.run_id)
         self.balance(counts)
         self.status(counts, force=merged > 0 and self.cfg.get("status_on_merge", False))
+        if self.publisher.due():
+            try:
+                self.publisher.publish(counts)
+            except Exception as e:      # the public status must never stop a run
+                self.log(f"coordinator: publishing the status failed: {e!r}")
         return counts
 
     def loop(self, poll=2.0, max_wall=None):
@@ -361,7 +381,8 @@ class Coordinator:
             time.sleep(poll)
 
 
-def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, frontier_depth=0, log=print):
+def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, frontier_depth=0, log=print,
+             visibility="public"):
     """the frontier pass, run here (as bench/parallel.py does): the root, or the
     -F node, expanded to frontier_depth; its open nodes become the first units"""
     import shutil
@@ -391,6 +412,7 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
         inc["perm"] = [int(x) for x in st.perm]
     backend.put_bytes(run_key(run_id, "incumbent.json"), json.dumps(inc).encode())
     backend.put_run(run_id, {"run_id": run_id, "status": "running", "created": time.time(), "incumbent": inc,
+                             "visibility": visibility,
                              "config": cfg, "solver": {"flags": flags, "env": env, "ub": ub,
                                                        "params": os.path.basename(params),
                                                        "instance": os.path.basename(instance)}})

@@ -23,7 +23,8 @@
 # (for uploads before boto3 is installed), QAP_RECIPE (a name in recipes/;
 # needed only to create the run), QAP_ROLE, QAP_NO_UB=1 (no incumbent),
 # QAP_REFERENCE (default 1), QAP_GATES (default below; "none" skips them),
-# QAP_SLOTS (default: the physical cores).
+# QAP_SLOTS (default: the physical cores), QAP_VISIBILITY (public or private:
+# the coordinator's public status, coord/publish.py; for a new run only).
 #
 # Local test (any Linux; no dnf, no shutdown): QAP_LOCAL=1, QAP_BACKEND pointing
 # at a moto server (aws:B?region=eu-north-1&endpoint=http://127.0.0.1:PORT),
@@ -197,7 +198,7 @@ if [ "$ST" = none ]; then
   args=(--instance "$INSTANCE" --params "$PARAMS" --slots "$SLOTS" "--extra=$EXTRA")
   for kv in $ENV; do args+=(--env "$kv"); done
   [ -n "$UB" ] && args+=(--ub "$UB")
-  args+=($COORD)
+  args+=(--visibility "${QAP_VISIBILITY:-public}" $COORD)
   step "init: run $RUN from recipes/$QAP_RECIPE.sh$([ -n "$UB" ] && echo ", incumbent $UB" || echo ", no incumbent"): the frontier pass"
   if ! $PY -m coord.qapctl init "$RUN" --backend "$BK" "${args[@]}" > "$OUT/init.log" 2>&1; then
     step "init FAILED (out/init.log)"; exit 1

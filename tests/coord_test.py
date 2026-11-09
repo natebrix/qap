@@ -25,6 +25,12 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
              queues, so each run's worker also receives the other's messages;
              both must reproduce the serial totals
 
+Every scenario also checks the public status (coord/publish.py), published
+every second: status.json final, with the run's totals; totals.state the same
+statistics; report.txt the solver's report; history.json growing in time
+(across a coordinator restart too). noub runs with --visibility private and
+must publish nothing.
+
   python3 tests/coord_test.py [--instance nug17 --opt 1732] [--only kill9,drain] [--python PY]
 """
 import argparse
@@ -41,7 +47,38 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 FAST = ["--ckpt-upload", "0.5", "--budget", "0.3", "--target-unit-cpu", "0.5", "--steal-after", "0.5", "--heartbeat", "0.5",
-        "--checkpoint-every", "0.2", "--poll", "0.3", "--status-every", "5", "--slots", "3"]
+        "--checkpoint-every", "0.2", "--poll", "0.3", "--status-every", "5", "--slots", "3", "--publish-every", "1"]
+
+
+def public_problems(r, private=False):
+    """what is wrong with a finished run's public status (coord/publish.py)"""
+    import json
+    from coord.backend import open_backend
+    from coord.common import State
+    b = open_backend(r.backend)
+    key = lambda name: f"public/runs/{r.run_id}/{name}"
+    status = b.get_bytes(key("status.json"))
+    if private:
+        return [] if status is None and not b.list(f"public/runs/{r.run_id}/") else ["a private run published"]
+    if status is None:
+        return ["no public status.json"]
+    s, problems = json.loads(status), []
+    want = totals(r.results())
+    if not (s["status"] == "finished" and s["final"]):
+        problems.append(f"status {s['status']}, final {s['final']}")
+    got = (s["nodes"]["evaluated"], s["nodes"]["fathomed"], s["nodes"]["enumerated"])
+    if got != want[0] or s["fw_iterations"] != want[1] or s["nodes"]["open"] != 0:
+        problems.append(f"status.json nodes {got} fw {s['fw_iterations']} open {s['nodes']['open']}")
+    tmp = os.path.join(r.tmp, "public-totals.state")
+    if not b.get_file(key("totals.state"), tmp) or tuple(State(tmp).counters[:3]) != want[0]:
+        problems.append("totals.state does not hold the run's totals")
+    report = (b.get_bytes(key("report.txt")) or b"").decode()
+    if totals(report)[:2] != want[:2] or "\nlevel " not in report:
+        problems.append("report.txt is not the run's report with the solver's tables")
+    h = json.loads(b.get_bytes(key("history.json")) or b"[]")
+    if len(h) < 2 or h[-1]["nodes"] != want[0][0] or any(x["wall_s"] > y["wall_s"] for x, y in zip(h, h[1:])):
+        problems.append(f"history.json: {len(h)} samples, not ending on the totals or not in time order")
+    return problems
 
 
 def totals(text):
@@ -141,6 +178,7 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         r.ctl("aws-setup", *r.args)
     else:
         extra = ["--budget", "4", "--target-unit-cpu", "4", "--steal-after", "3"] if name == "kill9ckpt" else []
+        extra += ["--visibility", "private"] if name == "noub" else []
         r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra)
     try:
         r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
@@ -189,6 +227,7 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         r.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
                    "returned": sum(u.get("outcome") == "returned" for u in units),
                    "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
+        r.public = public_problems(r, private=name == "noub")
         return totals(r.results()), r
     finally:
         r.cleanup()
@@ -231,10 +270,13 @@ def main():
         t0 = time.time()
         got, r = scenario(name, a.python, base, a.instance, a.opt, endpoint)
         ok = got[2] == a.opt if name == "noub" else (got[0] == ref[0] and got[1] == ref[1] and got[2] == a.opt)
+        public = getattr(r, "public", [])
+        ok = ok and not public
         bad += not ok
         print(f"{name:10s} {'ok ' if ok else 'BAD'} nodes {got[0]} fw {got[1]} best {got[2]}  ({time.time() - t0:.0f} s)"
               + f"  units {r.stats['units']}, retried {r.stats['retried']} ({r.stats['resumed']} from a checkpoint), "
               f"returned {r.stats['returned']}"
+              + (f"  public status: {'; '.join(public)}" if public else "")
               + ("" if ok else f"  logs in {r.tmp}"))
     if server:
         server.kill()

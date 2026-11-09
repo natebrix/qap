@@ -94,7 +94,9 @@ class LocalBackend:
         assert p.startswith(os.path.join(self.root, "store")), key
         return p
 
-    def put_bytes(self, key, data):
+    def put_bytes(self, key, data, content_type=None, cache_control=None):
+        # content_type and cache_control matter only to a store served over
+        # HTTP (the AWS backend's public/ prefix); a directory ignores them
         p = self._path(key)
         os.makedirs(os.path.dirname(p), exist_ok=True)
         tmp = p + f".tmp{os.getpid()}"
@@ -363,8 +365,13 @@ class AwsBackend:
     def _key(self, key):
         return f"{self.prefix}/{key}" if self.prefix else key
 
-    def put_bytes(self, key, data):
-        self.s3.put_object(Bucket=self.bucket, Key=self._key(key), Body=data)
+    def put_bytes(self, key, data, content_type=None, cache_control=None):
+        extra = {}
+        if content_type:
+            extra["ContentType"] = content_type
+        if cache_control:
+            extra["CacheControl"] = cache_control
+        self.s3.put_object(Bucket=self.bucket, Key=self._key(key), Body=data, **extra)
 
     def put_file(self, key, path):
         self.s3.upload_file(path, self.bucket, self._key(key))

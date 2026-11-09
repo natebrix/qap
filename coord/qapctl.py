@@ -9,6 +9,7 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
   python3 -m coord.qapctl coordinator RUN --backend B
   python3 -m coord.qapctl worker RUN --backend B --slots 4
   python3 -m coord.qapctl status RUN --backend B
+  python3 -m coord.qapctl publish RUN --backend B     (the public status now; publish.py)
   python3 -m coord.qapctl pause|resume RUN --backend B
   python3 -m coord.qapctl local RUN --backend local:DIR ...   (init, then the
         coordinator here and one worker process with --slots slots)
@@ -22,7 +23,8 @@ new unit when splitting returned nodes, default 1800), --reserve (keep this
 many x slots units queued, default 2), --steal-after (s a unit must have run
 before an idle slot may ask it to return, default 30), --checkpoint-every
 (the solver's -k, default 60), --lease (s, default 1800), --heartbeat (s,
-default 60).
+default 60). The public status (coord/publish.py): --publish-every (s, default
+300; 0: only at the end), --visibility public|private (private: never).
 """
 import argparse
 import json
@@ -51,13 +53,13 @@ def cfg_from(a):
             "steal_after": a.steal_after, "checkpoint_every": a.checkpoint_every, "lease_s": a.lease,
             "heartbeat_s": a.heartbeat, "max_attempts": a.max_attempts, "trace": a.trace,
             "large_depth": a.large_depth, "status_every": a.status_every, "poll_s": a.poll,
-            "ckpt_upload_s": a.ckpt_upload}
+            "ckpt_upload_s": a.ckpt_upload, "publish_every": a.publish_every}
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
-                                       "aws-setup", "requeue-leased"])
+                                       "aws-setup", "requeue-leased", "publish"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
     p.add_argument("--instance")
@@ -79,6 +81,10 @@ def main(argv=None):
     p.add_argument("--ckpt-upload", type=float, default=300, help="s between uploads of a running unit's checkpoint")
     p.add_argument("--large-depth", type=int, default=4)
     p.add_argument("--status-every", type=float, default=30)
+    p.add_argument("--publish-every", type=float, default=300,
+                   help="s between public status bundles (coord/publish.py); 0: only at the end")
+    p.add_argument("--visibility", choices=["public", "private"], default="public",
+                   help="private: publish no public status for this run")
     p.add_argument("--poll", type=float, default=2.0)
     p.add_argument("--trace", action="store_true", help="QAP_DNN_TRACE per unit, uploaded with the result")
     p.add_argument("--workdir")
@@ -97,7 +103,7 @@ def main(argv=None):
     if a.command in ("init", "local"):
         env = dict(kv.split("=", 1) for kv in a.env)
         init_run(b, a.run, a.instance, a.params, shlex.split(a.extra), env, a.ub, cfg_from(a),
-                 a.solver, a.frontier_depth, log=log)
+                 a.solver, a.frontier_depth, log=log, visibility=a.visibility)
         if a.command == "init":
             return 0
         # one worker process with all the slots, the coordinator here
@@ -129,6 +135,13 @@ def main(argv=None):
         s = b.get_bytes(run_key(a.run, "status.json"))
         print(s.decode() if s else json.dumps(b.get_run(a.run), indent=1))
         print("units:", b.count_by_status(a.run))
+        return 0
+    if a.command == "publish":
+        c = Coordinator(b, a.run, log=log)
+        if c.publisher.publish(b.count_by_status(a.run), final=c.run.get("status") == "finished"):
+            log(f"run {a.run}: public status written under public/runs/{a.run}/")
+        else:
+            log(f"run {a.run} is private: nothing published")
         return 0
     if a.command == "requeue-leased":
         Coordinator(b, a.run, log=log).requeue_leased()
