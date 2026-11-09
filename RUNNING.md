@@ -178,6 +178,38 @@ After that come a per-depth table (nodes, fraction fathomed, fraction of
 columns eliminated, time), a breakdown of which params level handled each
 depth, and relative-gap statistics.
 
+When the DNN bound ran (`-x`), three more tables follow (Nov 9, state version
+7, which saves their counts). From nug24 with the nug30 recipe:
+
+```
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           6	0.5000	0.5000	       1193	   198.8	   11.12
+ 2          69	0.9275	0.0725	       3017	    43.7	   26.47
+ 3         110	0.9727	0.0273	       3175	    28.9	   22.76
+ 4          63	1.0000	0.0000	       1404	    22.3	    8.00
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           3	       0	       3	       0	       0
+ ...
+```
+
+`DNN bound by level`: the nodes the DNN bound ran on, the fractions it
+fathomed and gave up on as hopeless (the `-x` give-up rule), its ADMM
+iterations and CPU seconds. `Cut phase by level` (only with
+`QAP_DNN_CUT_ZONE`): nodes, fraction fathomed, CPU. `Fathoms by cause` splits
+each depth's fathoms: by QPB, by the DNN bound, by the cut phase, and nodes
+popped after the incumbent improved past their bound (`qpb` is what is left
+after the other three; a run resumed from a state file before version 7 has no
+causes for its first part). Runs without `-x` print exactly what they did.
+
+`bnbdrv -p P -r F instance` on a state file with no open nodes prints its
+statistics as a finished run's report and stops. `bench/parallel.py` and the
+coordinator (`coord/`) use it to print the solver's own tables after their
+summed RESULTS head.
+
 ### Params file format
 
 Each value goes on its own line, and anything after the value is a comment.

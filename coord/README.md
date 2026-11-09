@@ -86,6 +86,14 @@ CPU and wall ratios against the parallel.py run (1.29x, 1.28x) are mostly a
 faster host after a container restart (1.23x per iteration on identical
 nodes).
 
+The public status (`publish.py`): every `--publish-every` seconds (300) and
+at the end, the coordinator writes `public/runs/RUN/status.json`, `totals.state`
+(the merged statistics, every per-level table of the solver's report),
+`report.txt` (that report) and `history.json` (one sample per publish), for
+brixius-web's live run page; `--visibility private` publishes nothing, and
+`qapctl publish RUN` publishes at once. `infra/phase1/publish_setup.sh` serves
+`public/` through CloudFront with the bucket kept private.
+
 On EC2, `infra/phase1/` (README.md there) runs a run on one instance: the
 launcher, the instance script with a Spot-notice watcher that drains the
 worker, and the acceptance check against `bench/parallel.py`.

@@ -1,0 +1,136 @@
+"""The public status of a run (docs/distributed/plan.md section 7.1), which
+brixius-web reads. Every publish_every seconds (init --publish-every, default
+300) and once at the end, the coordinator writes under public/runs/<run>/ in
+the store:
+
+  status.json    what the run is doing: status, units, incumbent, CPU, and
+                 the open nodes by depth (as handed out in queued and running
+                 units); the names of the other three files
+  totals.state   the merged statistics (QAP-STATE 7, no open nodes): every
+                 per-level table of the solver's report, the DNN ones too
+  report.txt     the solver's report for them: the RESULTS head, the
+                 solver's own tables, the coordinator's line
+  history.json   one sample per publish, for charts over time
+
+status.json goes last, so a reader that sees a new one finds the others at
+least as new. Nothing in the bundle names the bucket, an instance or a
+credential. A run created with --visibility private publishes nothing. The
+store keeps the history privately as well (runs/<run>/history.json), so a
+restarted coordinator goes on with it. With the AWS backend the objects carry
+a content type and Cache-Control max-age=60 for CloudFront
+(infra/phase1/publish_setup.sh serves public/ and nothing else).
+"""
+import json
+import os
+import time
+from datetime import datetime, timezone
+
+from .common import run_key
+
+PUBLIC = "public/runs"
+MAX_HISTORY = 2000          # thinned to every other sample beyond this
+CACHE = "max-age=60"
+OPEN_STATUSES = ("queued", "leased", "failed")
+
+
+def public_key(run_id, name):
+    return f"{PUBLIC}/{run_id}/{name}"
+
+
+def iso(t):
+    return datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if t else None
+
+
+def open_by_depth(backend, run_id, levels):
+    """open nodes by depth: the nodes handed out in units not yet finished
+    (a running unit's are counted as handed out, not as it has left them)"""
+    out = [0] * (levels + 1)
+    for status in OPEN_STATUSES:
+        for u in backend.units_by_status(run_id, status):
+            by_depth = u.get("by_depth")
+            if by_depth:
+                for d, count in by_depth.items():
+                    out[min(int(d), levels)] += count
+            else:                              # units made before by_depth existed
+                out[min(u.get("depth_min", 0), levels)] += u.get("nodes", 0)
+    return out
+
+
+class Publisher:
+    def __init__(self, coord):
+        self.c = coord
+        self.last = 0.0
+        data = coord.b.get_bytes(run_key(coord.run_id, "history.json"))
+        self.history = json.loads(data) if data else []
+
+    def due(self, now=None):
+        every = self.c.cfg.get("publish_every", 300)
+        return every > 0 and (now or time.time()) - self.last >= every
+
+    def private(self):
+        return self.c.run.get("visibility", "public") == "private"
+
+    def publish(self, counts, final=False):
+        """write the bundle; False (and nothing written) for a private run"""
+        c, b, run_id = self.c, self.c.b, self.c.run_id
+        if self.private():
+            return False
+        now = time.time()
+        self.last = now
+        t = c.totals
+        inc = c.run.get("incumbent", {})
+        if inc.get("perm"):
+            t.obj, t.perm = inc["obj"], [str(x) for x in inc["perm"]]
+        totals_path = c._path("public-totals.state")
+        t.write(totals_path, [])
+        wall = now - c.t0
+        report = c.report(totals_path, wall)
+        node, fathom, enum, fw = t.counters
+        open_d = open_by_depth(b, run_id, t.levels)
+        dc = t.arrays.get("dnn_counts", [0, 0])
+        sol = c.run.get("solver", {})
+        obj = inc.get("obj")
+        status = {
+            "schema": 1,
+            "run": run_id,
+            "status": c.run.get("status"),
+            "final": final,
+            "generated_at": iso(now),
+            "started_at": iso(c.t0),
+            "finished_at": iso(c.run.get("finished_at")) if final else None,
+            "wall_s": round(wall, 1),
+            "instance": os.path.splitext(sol.get("instance") or "")[0] or None,
+            "n": t.n,
+            "solver": {"params": sol.get("params"), "flags": sol.get("flags", []), "env": sol.get("env", {}),
+                       "ub": sol.get("ub"), "commit": os.environ.get("QAP_COMMIT") or None},
+            "incumbent": {"objective": obj if obj is not None and obj < 1e99 else None,
+                          "version": inc.get("version", 0), "found_at": iso(inc.get("found_at")),
+                          "found_by_search": obj is not None and obj < 1e99 and
+                          (sol.get("ub") is None or obj < sol["ub"])},
+            "root_bound": float(t.root_bound),
+            "nodes": {"evaluated": node, "fathomed": fathom, "enumerated": enum, "open": sum(open_d),
+                      "open_by_depth": open_d},
+            "fw_iterations": fw,
+            "dnn": {"nodes": dc[0], "fathomed": dc[1], "cpu_s": t.arrays.get("dnn_time", [0.0])[0]},
+            "cpu_s": t.times[0],
+            "units": counts,
+            "slots": c.cfg["slots"],
+            "busy_fraction": round(c.busy_wall / (c.cfg["slots"] * wall), 4) if wall > 0 else 0,
+            "files": {"totals": "totals.state", "report": "report.txt", "history": "history.json"},
+        }
+        self.history.append({"t": iso(now), "wall_s": round(wall, 1), "nodes": node, "fathomed": fathom,
+                             "open": sum(open_d), "cpu_s": round(t.times[0], 1),
+                             "dnn_nodes": dc[0], "dnn_fathomed": dc[1],
+                             "incumbent": status["incumbent"]["objective"], "units_merged": c.units_merged})
+        if len(self.history) > MAX_HISTORY:   # keep the newest half whole, thin the older half
+            half = len(self.history) // 2
+            self.history = self.history[:half:2] + self.history[half:]
+        history = json.dumps(self.history).encode()
+        b.put_bytes(run_key(run_id, "history.json"), history)
+        with open(totals_path, "rb") as f:
+            b.put_bytes(public_key(run_id, "totals.state"), f.read(), "text/plain; charset=utf-8", CACHE)
+        b.put_bytes(public_key(run_id, "report.txt"), (report + "\n").encode(), "text/plain; charset=utf-8", CACHE)
+        b.put_bytes(public_key(run_id, "history.json"), history, "application/json", CACHE)
+        b.put_bytes(public_key(run_id, "status.json"), json.dumps(status, indent=1).encode(),
+                    "application/json", CACHE)
+        return True

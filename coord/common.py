@@ -8,7 +8,7 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "bench"))
-from parallel import State  # noqa: E402  (the solver's state-file format, latest/state.h)
+from parallel import State, solver_tables  # noqa: E402  (the solver's state-file format, latest/state.h)
 
 SOLVER = os.path.join(ROOT, "latest", "bnbdrv")
 LANES = ("large", "small")
@@ -104,8 +104,12 @@ def plan_split(nodes, totals, cfg, queued):
 
 def new_unit(run_id, uid, parent, nodes, cfg, now=None):
     depths = [node_depth(x) for x in nodes]
+    by_depth = {}
+    for d in depths:
+        by_depth[str(d)] = by_depth.get(str(d), 0) + 1
     return {"uid": uid, "run": run_id, "parent": parent, "status": "queued", "attempt": 0,
             "nodes": len(nodes), "depth_min": min(depths), "depth_max": max(depths),
+            "by_depth": by_depth,   # the open nodes it was handed, by depth (the public status)
             "min_bound": min(node_bound(x) for x in nodes),
             "lane": "large" if min(depths) <= cfg.get("large_depth", 4) else "small",
             "budget": cfg["budget"], "in_key": unit_key(run_id, uid, "in.state"),

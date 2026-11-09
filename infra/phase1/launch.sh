@@ -16,6 +16,8 @@
 #   --on-demand     on-demand instead of Spot (about 3-4x the price; no interruptions)
 #   --worker-only   a worker for RUN, which another instance coordinates
 #   --no-reference  skip the bench/parallel.py run and the comparison at the end
+#   --private       publish no public status for a new run (coord/publish.py;
+#                   publish_setup.sh serves it to brixius-web)
 #   --gates G       the make targets checked before any unit runs (default in node.sh)
 #   --limit M       the instance shuts itself down after M minutes whatever happens
 #   --dry-run       print the AWS calls that change something, make none of them
@@ -31,7 +33,7 @@ set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
 R=$(cd "$D/../.." && pwd)
 RUN=""; RECIPE=""; NO_UB=0; TYPE=c7g.4xlarge; REGION=eu-north-1; MARKET=spot; ROLE=all
-REFERENCE=1; GATES=""; LIMIT=120; DRY=0
+REFERENCE=1; GATES=""; LIMIT=120; DRY=0; VIS=public
 while [ $# -gt 0 ]; do
   case $1 in
     --recipe) RECIPE=$2; shift 2 ;;
@@ -41,15 +43,16 @@ while [ $# -gt 0 ]; do
     --on-demand) MARKET=on-demand; shift ;;
     --worker-only) ROLE=worker; shift ;;
     --no-reference) REFERENCE=0; shift ;;
+    --private) VIS=private; shift ;;
     --gates) GATES=$2; shift 2 ;;
     --limit) LIMIT=$2; shift 2 ;;
     --dry-run) DRY=1; shift ;;
-    -h|--help) sed -n 2,29p "$0"; exit 0 ;;
+    -h|--help) sed -n 2,31p "$0"; exit 0 ;;
     -*) echo "unknown argument $1"; exit 2 ;;
     *) [ -z "$RUN" ] || { echo "one RUN only ($RUN, $1)"; exit 2; }; RUN=$1; shift ;;
   esac
 done
-[ -n "$RUN" ] || { sed -n 2,29p "$0"; exit 2; }
+[ -n "$RUN" ] || { sed -n 2,31p "$0"; exit 2; }
 [[ $RUN =~ ^[A-Za-z0-9_-]{1,60}$ ]] || { echo "RUN may have letters, digits, - and _ only"; exit 2; }
 [[ $LIMIT =~ ^[0-9]+$ ]] || { echo "--limit is in whole minutes"; exit 2; }
 command -v aws > /dev/null || { echo "the AWS CLI is not installed (brew install awscli)"; exit 1; }
@@ -125,6 +128,7 @@ POLICY="{\"Version\":\"2012-10-17\",\"Statement\":[
  {\"Effect\":\"Allow\",\"Action\":\"s3:GetObject\",\"Resource\":\"arn:aws:s3:::qap-coord-$ACCT-*/src/*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\",\"s3:AbortMultipartUpload\"],
   \"Resource\":\"arn:aws:s3:::qap-coord-$ACCT-*/runs/*\"},
+ {\"Effect\":\"Allow\",\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::qap-coord-$ACCT-*/public/runs/*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"sqs:ReceiveMessage\",\"sqs:SendMessage\",\"sqs:DeleteMessage\",\"sqs:ChangeMessageVisibility\",
   \"sqs:GetQueueUrl\",\"sqs:GetQueueAttributes\"],\"Resource\":\"arn:aws:sqs:*:$ACCT:qap-units-*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:PutItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],
@@ -172,7 +176,7 @@ UD=$L/userdata_$ROLE.sh
 cat > "$UD" << EOF
 #!/bin/bash
 export AWS_DEFAULT_REGION=$REGION QAP_RUN=$RUN QAP_BACKEND='aws:$B?region=$REGION' QAP_BUCKET=$B QAP_ROLE=$ROLE
-export QAP_RECIPE=$RECIPE QAP_NO_UB=$NO_UB QAP_REFERENCE=$REFERENCE QAP_COMMIT=$COMMIT${GATES:+ QAP_GATES='$GATES'}
+export QAP_RECIPE=$RECIPE QAP_NO_UB=$NO_UB QAP_REFERENCE=$REFERENCE QAP_COMMIT=$COMMIT QAP_VISIBILITY=$VIS${GATES:+ QAP_GATES='$GATES'}
 shutdown -h +$LIMIT
 mkdir -p /opt/qap && cd /opt/qap
 for i in 1 2 3 4 5 6; do aws s3 cp --only-show-errors s3://$B/$SRC src.tgz && break; sleep 10; done

@@ -9,7 +9,9 @@ configuration (parent-Y warm start, cut phase, pool inheritance), on nug20.
 It is solved straight through, then in CPU slices (-t SLICE -o STATE, then
 -r STATE) with QAP_DNN_SHIP=64: every node's DNN trace (bound, primal, status,
 iterations, warm start, pool, cut phase) must equal the straight run's, so a
-resumed search is the same search. Slices with QAP_DNN_SHIP=32 and 16 and
+resumed search is the same search, and so must the per-level DNN, cut-phase and
+fathom-cause tables the last slice prints (state version 7 carries them
+through every resume; CPU columns aside). Slices with QAP_DNN_SHIP=32 and 16 and
 without shipping are reported for comparison: their warm-started node count
 and DNN iterations.
 """
@@ -76,6 +78,18 @@ def sliced(solver, dat, ub, tmp, tag, ship, slice_s):
     return rc, k, read_trace(traces), out, sizes
 
 
+def level_tables(out):
+    """the DNN, cut-phase and fathoms-by-cause tables of a run's output,
+    without their CPU columns (the last column of the first two)"""
+    tables = {}
+    for title in ("DNN bound by level", "Cut phase by level", "Fathoms by cause"):
+        m = re.search(title + r":\n[^\n]*\n((?: ?\d+ [^\n]*\n)*)", out)
+        if m:
+            rows = [l.split() for l in m.group(1).splitlines()]
+            tables[title] = [r[:-1] if title != "Fathoms by cause" else r for r in rows]
+    return tables
+
+
 def totals(rows):
     it = sum(int(re.search(r"iters (\d+)", r).group(1)) for r in rows.values())
     cut = sum(int(m.group(1)) for r in rows.values() for m in [re.search(r"rounds \d+ iters (\d+)", r)] if m)
@@ -99,6 +113,10 @@ def main():
         print(f"FAIL {name}: straight run exited {rc}\n{out[-2000:]}")
         return 1
     ref = read_trace([straight_trace])
+    ref_tables = level_tables(out)
+    if "DNN bound by level" not in ref_tables or "Fathoms by cause" not in ref_tables:
+        print(f"FAIL {name}: the straight run printed no DNN or fathom-cause table")
+        return 1
     it0, w0 = totals(ref)
     print(f"straight: {len(ref)} DNN nodes, {w0} warm-started, {it0:,} DNN iterations")
 
@@ -113,6 +131,13 @@ def main():
         line = f"{tag}: {k} slices, {len(rows)} DNN nodes, {w} warm-started, {it:,} DNN iterations"
         if ship == 64:
             diff = [n for n in set(ref) | set(rows) if ref.get(n) != rows.get(n)]
+            tables = level_tables(out)
+            bad_tables = [t for t in set(ref_tables) | set(tables) if ref_tables.get(t) != tables.get(t)]
+            if bad_tables:
+                failures += 1
+                print(f"FAIL {tag}: the last slice's {', '.join(sorted(bad_tables))} differ from the straight run's")
+                for t in sorted(bad_tables):
+                    print(f"  {t}:\n    straight: {ref_tables.get(t)}\n    sliced:   {tables.get(t)}")
             if diff or k < 3:
                 failures += 1
                 print(f"FAIL {line}; {len(diff)} nodes differ from the straight run"
@@ -120,7 +145,8 @@ def main():
                 for n in sorted(diff)[:5]:
                     print(f"  [{n}]\n    straight: {ref.get(n)}\n    sliced:   {rows.get(n)}")
             else:
-                print(f"ok   {line}: every node identical to the straight run")
+                print(f"ok   {line}: every node identical to the straight run"
+                      + ("" if bad_tables else f", and the {len(tables)} level tables"))
         else:
             print(f"     {line}")
     for f in os.listdir(tmp):

@@ -3,11 +3,16 @@
 # nug_deep_xbar9_all.par, DNN at depths 1-7) with one change: QAP_DNN_SHIP=64
 # instead of 32. With 64 a node restored from a state file starts its DNN from
 # its parent's exact doubles, so the coordinator's tree, cut into units at
-# other places than bench/parallel.py's, gives the same totals node for node
-# (RUNNING.md, make shipcheck). 32 rounds that state to fp32, which can change
-# a node's DNN iterations and, at the cutoff's edge, whether it is fathomed;
-# on nug20 (174 nodes, Nov 8) the counts still agreed with both. 64 costs
-# larger state files, not correctness.
+# other places than bench/parallel.py's, is the same tree: the same nodes,
+# fathoms and give-ups at every depth, which compare.py checks. 32 rounds that
+# state to fp32, which can change a node's DNN iterations and, at the cutoff's
+# edge, whether it is fathomed; on nug20 (174 nodes, Nov 8) the counts still
+# agreed with both. 64 costs larger state files, not correctness.
+# The DNN iterations themselves can still differ by a few even with 64: nug24
+# with this recipe (Nov 9), the coordinator with 5-second units against a
+# serial run, 3,165 against 3,175 at depth 3 and 1,406 against 1,404 at depth
+# 4, the tree identical. Some setting here keeps state inside a process that
+# the state file does not carry; make shipcheck's smaller set is exact.
 INSTANCE=qaplib/nug30.dat
 PARAMS=PARAM/nug_deep_xbar9_all.par
 OPT=6124          # the known optimum, which the check expects
