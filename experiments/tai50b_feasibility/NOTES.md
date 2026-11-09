@@ -18,7 +18,12 @@ summarize.py depth3 458821516.05` builds the depth-3 table.
   sko49 none of 12 depth-3 nodes fathomed.
 - So the relative root gap overstates how hard the top of the tree is, as it did for tai40b
   (4.5% at the root, solved in 278,465 nodes by Fujii et al. 2021).
-- **But the Knuth estimate (20 dives, section 4) puts the tree at 1.8e11 ± 1.7e11 CPU-s on
+- **Tuned (section 5): with the DNN through depth 9 and a 600-iteration give-up, 10 dives
+  give 4.1e9 ± 3.0e9 CPU-s, about 47 days on 1,000 cores**: the depth-6-to-8 levels that
+  made the first estimate shrink 500-3,500x, each node costs 8x more, and level 5 now holds
+  81% of the CPU. Against the first estimate's 88-day low reading that is about 2x; against
+  its 20-dive mean, 45x, most of which is one dive the tuned run did not repeat.
+- **The first Knuth estimate (20 dives, section 4) puts the tree at 1.8e11 ± 1.7e11 CPU-s on
   this Xeon (about 5.8 years on 1,000 cores), from one dive carrying 96% of it; without
   that dive, 7.6e9 CPU-s (88 days).** Either way that is far above Fujii et al.'s 5.5e7
   nodes (rule M), and above wil50's roadmap center. The tail comes from depths 7-8, where
@@ -153,3 +158,52 @@ Reading:
 - Against Fujii et al.'s 5.5e7 nodes (rule M, Newton-bracketing bounds, no QPB): their
   nodes are all DNN-bounded, so the counts don't compare directly; their tai40b took
   1.8e8 core-seconds (278,465 nodes, 1.05e5 s on 1,728 cores).
+
+## 5. Tuned: DNN through depth 9, give-up 600 (`estimate/x9_600/`, 10 dives, Nov 8)
+
+Section 4's run with one change, `-x 1:9:1:600:1` in place of `-x 1:7:1:200:1`
+(`X=1:9:1:600:1 TAG=x9_600 estimate/run_est.sh SEED`), the same seeds, sampler and two
+hours per core. The nodes cost more, so the two hours gave 10 dives instead of 20. Logs in
+`estimate/x9_600/logs/`; `python3 -I estimate/pool.py estimate/x9_600` rebuilds
+`dives.csv`, `levels.csv` and `dive_levels.csv` there (it reads `s41/est.out` and
+`s42/est.out`; for section 4's run copy `estimate/logs/est_s*.out` and `dives_s*.txt` to
+`estimate/base/s*/est.out` and `dives.txt` first).
+
+| | section 4 (`-x 1:7:1:200:1`, 20 dives) | tuned (`-x 1:9:1:600:1`, 10 dives) |
+|---|---|---|
+| nodes, mean ± SE | 1.8e10 ± 1.7e10 | **5.1e7 ± 2.2e7** |
+| CPU-s, mean ± SE | 1.8e11 ± 1.7e11 (2,110 days on 1,000 cores) | **4.1e9 ± 3.0e9 (47 days)** |
+| without the largest dive | 7.6e9 (88 days) | 1.0e9 (12 days) |
+| largest dive's share of the CPU | 96% | 77% (seed 42 dive 1: 1.1e8 nodes, 3.1e10 CPU-s) |
+| median dive | 9.2e6 nodes, 3.1e8 CPU-s | 7.6e6 nodes, 9.5e8 CPU-s |
+| CPU-s per node | 10 | 79 |
+| CPU by level | 5: 2%, 6: 5%, 7: 21%, **8: 71%** | 4: 11%, **5: 81%**, 6-8: 8% |
+
+Per level (nodes, mean ± SE; reach in parentheses):
+
+| level | section 4 | tuned |
+|---|---|---|
+| 3 | 1.7e5 ± 5.5e4 (19) | 9.7e4 ± 4.6e4 (10) |
+| 4 | 3.1e6 ± 1.3e6 (16) | 1.9e6 ± 8.8e5 (9) |
+| 5 | 1.4e8 ± 1.2e8 (14) | 1.6e7 ± 1.1e7 (6) |
+| 6 | 4.0e8 ± 3.3e8 (11) | 1.2e5 ± 1.1e5 (2) |
+| 7 | 4.2e8 ± 4.1e8 (7) | 7.5e5 ± 5.0e5 (4) |
+| 8 | 1.7e10 ± 1.7e10 (7) | 3.2e7 ± 2.2e7 (2) |
+
+Reading:
+
+- **What the tuning does is clear at the deep levels**: levels 5-8 hold 9x-3,500x fewer
+  nodes and fewer dives reach them (6 of 10 reach level 5, 2-4 of 10 levels 6-8, against
+  14, 11, 7 and 7 of 20). The later give-up fathoms nodes at depths 4-5 that the
+  200-iteration give-up left to branch, which is what the depth-3 sample predicted.
+- **What it costs**: 79 CPU-s per node against 10, and the median dive is 3x dearer. The
+  CPU moves to level 5 (81%), where nodes that still do not fathom now run 600 iterations.
+- **The total**: 4.1e9 CPU-s, about 47 days on 1,000 cores, with one dive at 77% and 10
+  dives, so not converged either; 12 days without that dive is a low reading. Against
+  section 4, the robust comparison is the deep levels, not the totals: section 4's mean is
+  one dive the tuned run did not repeat, and a dive like it would still be possible here.
+  The tuned figure is the better estimate of what tai50b costs with a give-up suited to it.
+- **Next levers, from where the CPU now is**: a depth-dependent give-up (600 where it buys
+  fathoms, less at depth 5 where 81% of the CPU now goes, or the gap-ratio give-up
+  `QAP_DNN_GAP_RATIO`), and branching lines chosen for this instance's heavy flows. More
+  dives, from an exact depth-2 frontier, before relying on the total.
