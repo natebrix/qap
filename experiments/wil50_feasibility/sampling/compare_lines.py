@@ -81,8 +81,17 @@ def wilson(k, n, z=1.0):
     return (max(0.0, c - h), min(1.0, c + h))
 
 
-def lines_cost(nodes):
-    return [47 ** (max(short(d), 0.0) / 130) for d in nodes]
+def lines_cost(nodes, floor=False):
+    """47^(max(gap, 0)/130) per node (a fathomed node counts 1); floor: a miss
+    counts at least itself and its children (1 + children), which the
+    exponential model understates for misses a few units short"""
+    out = []
+    for d in nodes:
+        v = 47 ** (max(short(d), 0.0) / 130)
+        if floor and d["n_children"]:
+            v = max(v, 1.0 + d["n_children"])
+        out.append(v)
+    return out
 
 
 def boot(vals, pop, seed=1, B=4000):
@@ -108,10 +117,13 @@ def depth2_block(name, nodes, pop, lines):
     se = statistics.pstdev(kids) / math.sqrt(n) * math.sqrt(max(0, pop - n) / max(1, pop - 1)) if n > 1 else 0
     lc = lines_cost(nodes)
     blo, bhi = boot(lc, pop)
+    lf = lines_cost(nodes, floor=True)
+    flo, fhi = boot(lf, pop)
     c = [cpu_of(d) for d in nodes]
     ph = sum(1 for d in nodes if d["trace"] and d["trace"][0]["cut"])
     lines.append(f"| {name} | {n} of {pop} | {f} ({f / n:.3f}; 1-sigma {lo:.3f}-{hi:.3f}) | {ph} | "
                  f"{pop * mk:,.0f} ± {pop * se:,.0f} | {pop * statistics.mean(lc):.3g} ({blo:.3g}-{bhi:.3g}) | "
+                 f"{pop * statistics.mean(lf):.3g} ({flo:.3g}-{fhi:.3g}) | "
                  f"{statistics.mean(x[0] for x in c):.0f} + {statistics.mean(x[1] for x in c):.0f} = "
                  f"{statistics.mean(x[2] for x in c):.0f} |")
     return hist(nodes)
@@ -184,7 +196,8 @@ def main():
           "node's shortfall after its first solve and cut phase (a fathomed node counts 1), with a 95% bootstrap "
           "interval (4,000 resamples); expected frontier: 635 x the mean children (± 1 SE).", "",
           "| line | depth-2 nodes | fathomed (fraction) | cut phases | expected frontier | lines cost (95%) | "
-          "CPU s per node: first solve + phase = all |", "|---|---|---|---|---|---|---|"]
+          "lines cost, a miss at least 1 + children (95%) | CPU s per node: first solve + phase = all |",
+          "|---|---|---|---|---|---|---|---|"]
     hists = {}
     for F in sorted(runs):
         docs, cfg = runs[F]
