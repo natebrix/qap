@@ -665,7 +665,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // parent's warm start, so not across a checkpoint restore. Without it a
       // last-level miss hands its whole subtree to QPB alone (580,000 nodes
       // under two depth-7 misses in the laptop nug30 run; Goux's D8).
-      static const int dnn_ext = getenv("QAP_DNN_EXT") ? atoi(getenv("QAP_DNN_EXT")) : 0;
+      static const int dnn_ext = getenv("QAP_DNN_EXT") ? atoi(getenv("QAP_DNN_EXT")) : 20;   // default 20 since Nov 8 2026 (was 0)
       const int dnn_ext_in = node.warm ? node.warm->dnn_ext : 0;
 #ifdef HAVE_DNN
       if (bound <= s->getObjective() - DELTA && m >= 2 && s->getObjective() < 1e99 &&
@@ -676,8 +676,16 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNParams dp;
 	  // giving up early on a node that would fathom costs its whole subtree
 	  dp.hopeless_after = dnn_hopeless_after;
-	  // prototype switches (experiments/eigensolver): Peaceman-Rachford first
-	  // dual step and Chebyshev filter degree of the subspace eigensolver
+	  // The search's defaults are the nug30 record recipe of Nov 7 2026
+	  // (experiments/nug30_solve/README.md; RUNNING.md "The nug30 record
+	  // setting"): until Nov 8 each of these had to be set in the environment
+	  // (the old defaults, for reproducing earlier controls: gamma1 0, gamma
+	  // 1.6, cheb 2, tight_lam 0, gu_zone 0, beta 0.3, refresh 20, warm_y 0,
+	  // ext 0). The environment still overrides every one of them.
+	  dp.gamma1 = 1.0; dp.gamma = 1.0; dp.cheb_degree = 3; dp.tight_lam = 2;
+	  dp.hopeless_zone = 0.003; dp.beta = 0.21; dp.refresh = 120;
+	  // Peaceman-Rachford first dual step and Chebyshev filter degree of the
+	  // subspace eigensolver (experiments/eigensolver)
 	  if (const char *e = getenv("QAP_DNN_GAMMA1")) dp.gamma1 = atof(e);
 	  if (const char *e = getenv("QAP_DNN_GAMMA")) dp.gamma = atof(e);
 	  if (const char *e = getenv("QAP_DNN_CHEB")) dp.cheb_degree = atoi(e);
@@ -687,13 +695,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // gap-ratio give-up rule (experiments/wil50_feasibility/tuning), opt-in
 	  if (const char *e = getenv("QAP_DNN_GAP_RATIO")) dp.hopeless_gap_ratio = atof(e);
 	  // a give-up within this fraction of the cutoff must be confirmed 100
-	  // iterations later (Goux's D6), opt-in
+	  // iterations later (Goux's D6); 0.003 by default
 	  if (const char *e = getenv("QAP_DNN_GU_ZONE")) dp.hopeless_zone = atof(e);
 	  // fast ADMM momentum with Goux's safeguards (restart factor), opt-in
 	  if (const char *e = getenv("QAP_DNN_MOMENTUM")) dp.momentum = atof(e);
-	  // ADMM penalty factor (0.3 = default; Goux: x 0.7 with momentum)
+	  // ADMM penalty factor (0.21 = Goux's 0.3 x 0.7; dnn.py's is 1)
 	  if (const char *e = getenv("QAP_DNN_BETA")) dp.beta = atof(e);
-	  // full eigendecomposition every this many iterations (20; Goux: 120)
+	  // full eigendecomposition every this many iterations (120, Goux's)
 	  if (const char *e = getenv("QAP_DNN_REFRESH")) dp.refresh = atoi(e);
 	  // cut phase (QAP_DNN_CUT_ZONE, experiments/wil50_feasibility/stronger_bounds):
 	  // when the uncut bound ends within this fraction of |incumbent| of the
@@ -714,11 +722,11 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD || cut_zone > 0) ? new DNNWarm : NULL;
 	  const DNNWarm *sp = NULL;
 	  int di, dj;
-	  // QAP_DNN_WARM_Y=2 (experiments/wil50_feasibility/warm_y): the child also
-	  // starts from the parent's final Y conditioned on its new assignment (1:
-	  // restricted); 0 (default) the parent's Z only. Falls back to Z only when
-	  // the parent's Y is missing.
-	  static const int warm_y = getenv("QAP_DNN_WARM_Y") ? atoi(getenv("QAP_DNN_WARM_Y")) : 0;
+	  // QAP_DNN_WARM_Y=2 (default; experiments/wil50_feasibility/warm_y): the
+	  // child also starts from the parent's final Y conditioned on its new
+	  // assignment (1: restricted); 0 the parent's Z only. Falls back to Z
+	  // only when the parent's Y is missing.
+	  static const int warm_y = getenv("QAP_DNN_WARM_Y") ? atoi(getenv("QAP_DNN_WARM_Y")) : 2;
 	  if (dnn_warm && node.warm && node.warm->dnn &&
 	      ((DNNWarm *)node.warm->dnn)->m == m + 1 && warm_child_offsets(node, di, dj)) {
 	    const DNNWarm &pw = *(DNNWarm *)node.warm->dnn;

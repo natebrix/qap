@@ -700,7 +700,7 @@ void symmetrize(double *X, int n)
 void forward(Work &w, const double *A, double *Wout, const double *B = NULL,
              double coef = 0, bool rows_done = false, float *Wf_out = NULL, bool force_sym = false)
 {
-  static const int nosym_env = getenv("DNN_NOSYMW") ? atoi(getenv("DNN_NOSYMW")) : 0;
+  static const int nosym_env = getenv("DNN_NOSYMW") ? atoi(getenv("DNN_NOSYMW")) : 1;   // on since Nov 8 2026
   const int nosym = force_sym ? 0 : nosym_env;
   const int n1 = w.n1, K = w.K, ll = w.ll;
   double *T = w.T.data();
@@ -761,11 +761,11 @@ void expand(Work &w, const double *R, double *Mout)
   // become symmetric to rounding only; the certificate then reads both arrow
   // entries of M (cert_poly) and symmetrises its own transform (cert_lam), which
   // keeps it a bound for sym(Zc), and <Zc, Y> = <sym(Zc), Y> for every symmetric Y.
-  static const int nosymv = getenv("DNN_CORE_NOSYMV") ? atoi(getenv("DNN_CORE_NOSYMV")) : 0;
+  static const int nosymv = getenv("DNN_CORE_NOSYMV") ? atoi(getenv("DNN_CORE_NOSYMV")) : 1;   // on since Nov 8 2026
   if (!nosymv) symmetrize(Mout, n1);
 }
 
-static bool nosymv_on() { static const int v = getenv("DNN_CORE_NOSYMV") ? atoi(getenv("DNN_CORE_NOSYMV")) : 0; return v > 0; }
+static bool nosymv_on() { static const int v = getenv("DNN_CORE_NOSYMV") ? atoi(getenv("DNN_CORE_NOSYMV")) : 1; return v > 0; }
 
 /*
  R = P_psd(W) for symmetric K x K W (row-major = column-major). Uses
@@ -932,7 +932,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       // to the nneg + guard lowest eigenvectors and the top one only, which is all
       // the tracker reads; the other K - kb columns of ssyevd's 2 K^3 flops are
       // never formed (about a third of the refresh at K = 2117).
-      static const int refpart = getenv("DNN_CORE_REFRESH_PARTIAL") ? atoi(getenv("DNN_CORE_REFRESH_PARTIAL")) : 0;
+      static const int refpart = getenv("DNN_CORE_REFRESH_PARTIAL") ? atoi(getenv("DNN_CORE_REFRESH_PARTIAL")) : 1;   // on since Nov 8 2026
       if (refpart) {
         float *Zt = w.Ts.data(), *e = w.trd_e.data(), *tau = w.trd_tau.data();   // Ts is free until form R
         F77(ssytrd)("L", &K, X, &K, theta.data(), e, tau, w.eworkf.data(), &lwork, &info, 1);
@@ -987,7 +987,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
     }
     // Y now holds the filtered block (in Ys or Xs); orthonormalize by CholQR2
     // (DNN_CHOLQR_PASSES: 1 saves a pass, node_speed.md trim d; default 2)
-    static const int cholqr_passes = getenv("DNN_CHOLQR_PASSES") ? std::max(1, atoi(getenv("DNN_CHOLQR_PASSES"))) : 2;
+    static const int cholqr_passes = getenv("DNN_CHOLQR_PASSES") ? std::max(1, atoi(getenv("DNN_CHOLQR_PASSES"))) : 1;   // 1 since Nov 8 2026 (was 2)
     float *G = w.Hs.data();
     bool ok = true;
     tc0 = thread_cpu();
@@ -1074,7 +1074,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   // (V'ZcV = beta (W - R)), so only certificate iterations need W - R =
   // -fl64(FF') negative semidefinite; elsewhere R is just the ADMM step.
   static const int r32 = getenv("DNN_R32") ? atoi(getenv("DNN_R32")) : 0;
-  static const int r32_noncert = getenv("DNN_R32_NONCERT") ? atoi(getenv("DNN_R32_NONCERT")) : 0;
+  static const int r32_noncert = getenv("DNN_R32_NONCERT") ? atoi(getenv("DNN_R32_NONCERT")) : 1;   // on since Nov 8 2026
   double tr0 = thread_cpu();
   lapack_int k = nneg;
   if ((r32 || (r32_noncert && !cert_step)) && k > 0) {
@@ -1837,7 +1837,8 @@ struct BetaSched {
   BetaSched()
   {
     const char *e = getenv("DNN_BETA_SCHED");
-    if (!e || !*e) return;
+    if (!e) e = "w=0.36";      // the record recipe's warm-child beta, default since Nov 8 2026; DNN_BETA_SCHED="" turns it off
+    if (!*e) return;
     std::string s = e;
     for (size_t pos = 0; pos <= s.size();) {
       size_t end = s.find(',', pos);
@@ -1950,7 +1951,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // most n extra certificates per interval. An extra check tests the fathom only:
   // the give-up and stall rules see the regular checks alone, so with the switch
   // a node can only fathom earlier, never decide anything else differently.
-  const int cross_max = getenv("DNN_ADMM_CROSS") ? atoi(getenv("DNN_ADMM_CROSS")) : 0;
+  const int cross_max = getenv("DNN_ADMM_CROSS") ? atoi(getenv("DNN_ADMM_CROSS")) : 2;   // 2 since Nov 8 2026 (was 0)
   // DNN_ADMM_CROSS_FIRST=k (with DNN_ADMM_CROSS, warm-started calls only): one more
   // extra certificate at iteration k < check_every, so that the first regular check
   // already has two points and can predict a crossing in its own first interval
@@ -2099,7 +2100,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // (par.ycuts) only with DNN_CP_LAZYCERT=1 as well: the skipped checks keep their
   // multipliers in the hook (DNNYCuts::snapshot), and the exit certifies them with
   // their own cut term (roadmap/admm/cpadmm, "In the search")
-  static const int lazy_env = getenv("DNN_CORE_LAZYCERT") ? atoi(getenv("DNN_CORE_LAZYCERT")) : 0;
+  static const int lazy_env = getenv("DNN_CORE_LAZYCERT") ? atoi(getenv("DNN_CORE_LAZYCERT")) : 1;   // on since Nov 8 2026
   static const int cp_lazy_env = getenv("DNN_CP_LAZYCERT") ? atoi(getenv("DNN_CP_LAZYCERT")) : 0;
   const bool lazy_ok = lazy_env > 0 && !par.prototype_cert && !cx_on && par.stall_window == 0 &&
                        !par.child_bounds && (!par.ycuts || cp_lazy_env > 0);

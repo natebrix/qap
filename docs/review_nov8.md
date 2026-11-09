@@ -76,6 +76,11 @@ wall-limited-and-resumed nug20 runs give the serial totals exactly
 
 ## D. Tidying (highest value first)
 
+**The first item done Nov 8 evening**: the record recipe is the default
+(`RUNNING.md`, "The nug30 record setting", has the old -> new table); nug30
+with no variables set reproduces the record tree node for node. The CERTX
+experiment and the dead code are still in place.
+
 - **The DNN_CERTX experiment** (~650 lines in `dnn.C:1462-1790, 2417-2622`) and the superseded switches whose measurements are in (`DNN_NOSYMW`, `DNN_CORE_NOSYMV`, `DNN_CHOLQR_PASSES`, `DNN_R32_NONCERT`, `DNN_GUARD_DIV`, `DNN_CORE_REFRESH_PARTIAL`, the ~35 `getenv` reads in `bnb.C:1080-1180`): fold the record recipe into defaults, retire the losers, move the CERTX code to its own translation unit or keep only mode 32. The recipe today is 20 environment variables that every launcher must reproduce.
 - **Env switches read inconsistently** in `dnn.C`: a dozen are latched once per process in function-local statics, others re-read every call; `dnn.h` says "no global state". One per-call struct (as `CertXEnv` and `BetaSched` already are) would settle it.
 - **Duplicated blocks**: the Rump constant (`dnn.C:1180-1186` vs `1718-1722`), the Gilmore-Lawler loop three times (`cert_poly`, `gl_full`, `hg_polish`); in `dnncut.C` the 18-line export block (`2031-2051` vs `2177-2199`), the scale loop (`2002-2010` vs `cp_lifted_scale`), regions construction three times, four cut-key encodings, and two parameter structs for the same projector (`DNNCPParams` vs `DNNCutParams`); `lap()` vs `lap0()` in `lap.C`; `_glb0`/`leader_matrix` in `qpbnd.C`; two reductions of differing rigour in `assign.C` (`reduceQAP` with LowerSum vs `reduceC`/`computeShift` with plain doubles).

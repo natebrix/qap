@@ -297,7 +297,37 @@ against 5.8; depth 4: 1.2 against 3.5).
 **The nug30 record setting** (Nov 7: 1,370 CPU s and 3 min 16 s on the
 M2 Pro with 8 workers; the Nov 5 subset of it, without the last line of
 switches, took 3,270 CPU s and 14 min 9 s on 4 cores of a 2.1 GHz Xeon; how
-each switch got there is in `experiments/nug30_solve/README.md`):
+each switch got there is in `experiments/nug30_solve/README.md`) **is the
+solver's default since Nov 8 2026**: with no `QAP_DNN_*`/`DNN_*` variable set,
+
+```sh
+python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
+    --params PARAM/nug_deep_xbar9_all.par --extra "-x 1:7:1:200:1" \
+    --checkpoint nug30.ckpt --checkpoint-every 300
+```
+
+gives the record tree (3,716 nodes with rule 9, verified node for node
+against the explicit environment). The environment still overrides every
+switch, and setting the recipe explicitly is harmless. The defaults that
+changed, old -> new, for anyone whose A/B control was "unset":
+
+| variable | old default | new default | variable | old default | new default |
+|---|---|---|---|---|---|
+| `QAP_DNN_GAMMA1` | 0 | 1.0 | `DNN_CHOLQR_PASSES` | 2 | 1 |
+| `QAP_DNN_GAMMA` | 1.6 | 1.0 | `DNN_R32_NONCERT` | 0 | 1 |
+| `QAP_DNN_CHEB` | 2 | 3 | `DNN_ADMM_CROSS` | 0 | 2 |
+| `QAP_DNN_TIGHT_LAM` | 0 | 2 | `DNN_CORE_LAZYCERT` | 0 | 1 |
+| `QAP_DNN_BETA` | 0.3 | 0.21 | `DNN_CORE_NOSYMV` | 0 | 1 |
+| `QAP_DNN_REFRESH` | 20 | 120 | `DNN_NOSYMW` | 0 | 1 |
+| `QAP_DNN_WARM_Y` | 0 | 2 | `DNN_CORE_REFRESH_PARTIAL` | 0 | 1 |
+| `QAP_DNN_EXT` | 0 | 20 | `DNN_BETA_SCHED` | unset (off) | `w=0.36` (`""` turns it off) |
+| `QAP_DNN_GU_ZONE` | 0 | 0.003 | `QAP_DNN_SHIP` | 0 | 32 |
+
+The `QAP_DNN_*` defaults apply to the search (`bnbdrv -x`); the `DNN_*` ones
+live in `dnn.C` and so also apply to `dnntest`, whose cold solves are
+unaffected by `DNN_BETA_SCHED=w=...` (a warm-child factor). The cut phase
+(`QAP_DNN_CUT_*`, `QAP_DNN_POOL_CP`, `DNN_CP_LAZYCERT`) stays opt-in. The
+previous form of this block, for the record:
 
 ```sh
 export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 \
@@ -305,9 +335,6 @@ export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 \
        QAP_DNN_EXT=20 QAP_DNN_GU_ZONE=0.003 QAP_DNN_SHIP=32 DNN_R32_NONCERT=1 \
        DNN_ADMM_CROSS=2 DNN_CORE_LAZYCERT=1 DNN_CORE_NOSYMV=1 DNN_NOSYMW=1 \
        DNN_CORE_REFRESH_PARTIAL=1 DNN_BETA_SCHED=w=0.36
-python3 bench/parallel.py qaplib/nug30.dat --jobs 8 --ub 6124 \
-    --params PARAM/nug_deep_xbar_all.par --extra "-x 1:7:1:200:1" \
-    --checkpoint nug30.ckpt --checkpoint-every 300
 ```
 
 It is tuned on nug30. Rule 8 lost 37% on nug28, so for other sizes

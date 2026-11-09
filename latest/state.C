@@ -30,7 +30,7 @@ static const int STATE_VERSION = 6;   // 1: no warm starts, 2: no DNN counts, 3:
 */
 static int dnn_ship_bits()
 {
-  static const int b = getenv("QAP_DNN_SHIP") ? atoi(getenv("QAP_DNN_SHIP")) : 0;
+  static const int b = getenv("QAP_DNN_SHIP") ? atoi(getenv("QAP_DNN_SHIP")) : 32;   // 32 since Nov 8 2026 (was 0: no DNN state shipped)
   return (b == 16 || b == 32 || b == 64) ? b : 0;
 }
 
