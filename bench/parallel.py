@@ -86,7 +86,11 @@ class State:
         t = next(it)
         self.times = [float(x) for x in t[1:3]]
         self.arrays = collections.OrderedDict()
+        self.settings = None            # version 8: "settings <hash> [NAME=VALUE ...]", kept verbatim
         line = next(it)
+        if line[0] == "settings":
+            self.settings = line[1:]
+            line = next(it)
         while line[0] not in ("warm_starts", "nodes"):
             conv = float if line[0] in self.FLOATS else int
             self.arrays[line[0]] = [conv(x) for x in line[1:]]
@@ -126,6 +130,8 @@ class State:
                f"root_bound {self.root_bound}",
                "counters " + " ".join(map(str, self.counters)),
                "times " + " ".join(repr(x) for x in self.times)]
+        if self.settings is not None:
+            out.append("settings " + " ".join(self.settings))
         for k, v in self.arrays.items():
             out.append(" ".join([k] + [repr(x) if isinstance(x, float) else str(x) for x in v]))
         ids = {}
@@ -150,7 +156,8 @@ def solver_tables(solver, params, state, instance):
     the DNN, cut-phase and fathoms-by-cause tables. "" if the solver fails."""
     solver = os.path.abspath(solver)
     try:
-        r = subprocess.run([solver, "-p", params, "-r", os.path.abspath(state), os.path.abspath(instance)],
+        # statistics only, so the policy flags the run used need not be repeated: --allow-settings-change
+        r = subprocess.run([solver, "--allow-settings-change", "-p", params, "-r", os.path.abspath(state), os.path.abspath(instance)],
                            cwd=os.path.dirname(solver), capture_output=True, text=True, timeout=300)
     except (OSError, subprocess.SubprocessError):
         return ""

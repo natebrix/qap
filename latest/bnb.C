@@ -68,6 +68,7 @@ int dnn_warm = 0;                    // start a child's DNN from its parent's (1
 static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
 #endif
 #include <math.h>
+#include "settings.h"
 //#include <time.h>
 
 void list_clean_up(Node *&todo, double val, QAPStatistics *s);
@@ -628,7 +629,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // parent's warm start and is kept in state files (version 4). Without it a
       // last-level miss hands its whole subtree to QPB alone (580,000 nodes
       // under two depth-7 misses in the laptop nug30 run; Goux's D8).
-      static const int dnn_ext = getenv("QAP_DNN_EXT") ? atoi(getenv("QAP_DNN_EXT")) : 20;   // default 20 since Nov 8 2026 (was 0)
+      static const int dnn_ext = (int)setting_i("QAP_DNN_EXT");
       const int dnn_ext_in = node.warm ? node.warm->dnn_ext : 0;
 #ifdef HAVE_DNN
       if (bound <= s->getObjective() - DELTA && m >= 2 && s->getObjective() < 1e99 &&
@@ -639,33 +640,27 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNParams dp;
 	  // giving up early on a node that would fathom costs its whole subtree
 	  dp.hopeless_after = dnn_hopeless_after;
-	  // The search's defaults are the nug30 record recipe of Nov 7 2026
-	  // (experiments/nug30_solve/README.md; RUNNING.md "The nug30 record
-	  // setting"): until Nov 8 each of these had to be set in the environment
-	  // (the old defaults, for reproducing earlier controls: gamma1 0, gamma
-	  // 1.6, cheb 2, tight_lam 0, gu_zone 0, beta 0.3, refresh 20, warm_y 0,
-	  // ext 0). The environment still overrides every one of them.
-	  dp.gamma1 = 1.0; dp.gamma = 1.0; dp.cheb_degree = 3; dp.tight_lam = 2;
-	  dp.hopeless_zone = 0.003; dp.beta = 0.21; dp.refresh = 120;
+	  // The DNN parameters come from the settings registry (settings.C), whose
+	  // defaults are the nug30 record recipe of Nov 7 2026 (experiments/
+	  // nug30_solve/README.md; RUNNING.md "The nug30 record setting"; the old
+	  // defaults, for reproducing earlier controls: gamma1 0, gamma 1.6, cheb 2,
+	  // tight_lam 0, gu_zone 0, beta 0.3, refresh 20, warm_y 0, ext 0).
 	  // Peaceman-Rachford first dual step and Chebyshev filter degree of the
-	  // subspace eigensolver (experiments/eigensolver)
-	  if (const char *e = getenv("QAP_DNN_GAMMA1")) dp.gamma1 = atof(e);
-	  if (const char *e = getenv("QAP_DNN_GAMMA")) dp.gamma = atof(e);
-	  if (const char *e = getenv("QAP_DNN_CHEB")) dp.cheb_degree = atoi(e);
-	  // tight lam_hi for the filter (experiments/wil50_feasibility/solvers/accel):
-	  // with QAP_DNN_CHEB=3 the strength of degree 4 at 85% of the cost
-	  if (const char *e = getenv("QAP_DNN_TIGHT_LAM")) dp.tight_lam = atoi(e);
-	  // gap-ratio give-up rule (experiments/wil50_feasibility/tuning), opt-in
-	  if (const char *e = getenv("QAP_DNN_GAP_RATIO")) dp.hopeless_gap_ratio = atof(e);
-	  // a give-up within this fraction of the cutoff must be confirmed 100
-	  // iterations later (Goux's D6); 0.003 by default
-	  if (const char *e = getenv("QAP_DNN_GU_ZONE")) dp.hopeless_zone = atof(e);
-	  // fast ADMM momentum with Goux's safeguards (restart factor), opt-in
-	  if (const char *e = getenv("QAP_DNN_MOMENTUM")) dp.momentum = atof(e);
-	  // ADMM penalty factor (0.21 = Goux's 0.3 x 0.7; dnn.py's is 1)
-	  if (const char *e = getenv("QAP_DNN_BETA")) dp.beta = atof(e);
-	  // full eigendecomposition every this many iterations (120, Goux's)
-	  if (const char *e = getenv("QAP_DNN_REFRESH")) dp.refresh = atoi(e);
+	  // subspace eigensolver (experiments/eigensolver); tight lam_hi for the
+	  // filter (wil50_feasibility/solvers/accel); the gap-ratio give-up rule
+	  // (wil50_feasibility/tuning); a give-up within GU_ZONE of the cutoff
+	  // confirmed 100 iterations later (Goux's D6); fast ADMM momentum with
+	  // Goux's safeguards; the ADMM penalty (0.21 = Goux's 0.3 x 0.7; dnn.py's
+	  // is 1); a full eigendecomposition every REFRESH iterations.
+	  dp.gamma1 = setting_d("QAP_DNN_GAMMA1");
+	  dp.gamma = setting_d("QAP_DNN_GAMMA");
+	  dp.cheb_degree = (int)setting_i("QAP_DNN_CHEB");
+	  dp.tight_lam = (int)setting_i("QAP_DNN_TIGHT_LAM");
+	  dp.hopeless_gap_ratio = setting_d("QAP_DNN_GAP_RATIO");
+	  dp.hopeless_zone = setting_d("QAP_DNN_GU_ZONE");
+	  dp.momentum = setting_d("QAP_DNN_MOMENTUM");
+	  dp.beta = setting_d("QAP_DNN_BETA");
+	  dp.refresh = (int)setting_i("QAP_DNN_REFRESH");
 	  // cut phase (QAP_DNN_CUT_ZONE, experiments/wil50_feasibility/stronger_bounds):
 	  // when the uncut bound ends within this fraction of |incumbent| of the
 	  // cutoff, regional triangle cuts from the node's own iterate, rounds of
@@ -675,11 +670,11 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // of side QAP_DNN_CUT_SIDE (0: the first matrix; wil50 5:10, nug30 5:6
 	  // on side 1). Every value is certified; the children keep the uncut
 	  // multiplier.
-	  static const double cut_zone = getenv("QAP_DNN_CUT_ZONE") ? atof(getenv("QAP_DNN_CUT_ZONE")) : 0;
+	  static const double cut_zone = setting_d("QAP_DNN_CUT_ZONE");
 	  // QAP_DNN_CUT_MAXDEPTH: run the cut phase only at nodes of at most this
 	  // depth (default: every DNN depth); on nug30 the depth-2 phases pay and
 	  // the depth-3 ones do not (experiments/wil50_feasibility/tuning, refine/)
-	  static const int cut_max_depth = getenv("QAP_DNN_CUT_MAXDEPTH") ? atoi(getenv("QAP_DNN_CUT_MAXDEPTH")) : 1 << 30;
+	  static const int cut_max_depth = (int)setting_i("QAP_DNN_CUT_MAXDEPTH");
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
 	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD || cut_zone > 0) ? new DNNWarm : NULL;
@@ -689,7 +684,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // child also starts from the parent's final Y conditioned on its new
 	  // assignment (1: restricted); 0 the parent's Z only. Falls back to Z
 	  // only when the parent's Y is missing.
-	  static const int warm_y = getenv("QAP_DNN_WARM_Y") ? atoi(getenv("QAP_DNN_WARM_Y")) : 2;
+	  static const int warm_y = (int)setting_i("QAP_DNN_WARM_Y");
 	  if (dnn_warm && node.warm && node.warm->dnn &&
 	      ((DNNWarm *)node.warm->dnn)->m == m + 1 && warm_child_offsets(node, di, dj)) {
 	    const DNNWarm &pw = *(DNNWarm *)node.warm->dnn;
@@ -711,10 +706,10 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // files (the DNN state does not). QAP_DNN_POOL_CHECK=K checks each
 	  // assembled term on K random permutations; QAP_DNN_TRACE=file appends a
 	  // line per DNN node.
-	  static const int dnn_pool = getenv("QAP_DNN_POOL") ? atoi(getenv("QAP_DNN_POOL")) : 0;
-	  static const int pool_check = getenv("QAP_DNN_POOL_CHECK") ? atoi(getenv("QAP_DNN_POOL_CHECK")) : 0;
-	  static const char *dnn_trace = getenv("QAP_DNN_TRACE");
-	  static const int cut_side = getenv("QAP_DNN_CUT_SIDE") ? atoi(getenv("QAP_DNN_CUT_SIDE")) : 0;
+	  static const int dnn_pool = (int)setting_i("QAP_DNN_POOL");
+	  static const int pool_check = (int)setting_i("QAP_DNN_POOL_CHECK");
+	  static const char *dnn_trace = *setting_s("QAP_DNN_TRACE") ? setting_s("QAP_DNN_TRACE") : NULL;
+	  static const int cut_side = (int)setting_i("QAP_DNN_CUT_SIDE");
 	  std::vector<int> free_orig, other_orig, fixed_at(n, -1);
 	  for (int a = 0; a < n; a++) {
 	    if ((cut_side == 0 ? node.p[a] : node.pinv[a]) == NONE) free_orig.push_back(a);
@@ -730,7 +725,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // pool inside the PRSM's Y-step from nu = mu / (scale beta) instead of frozen
 	  // at mu in the objective; it hands on (and a cut phase starts from) the cuts
 	  // with nu > 0 at its final mu_D. Either side; off by default
-	  static const int pool_cp = getenv("QAP_DNN_POOL_CP") ? atoi(getenv("QAP_DNN_POOL_CP")) : 0;
+	  static const int pool_cp = (int)setting_i("QAP_DNN_POOL_CP");
 	  bool pool_cp_ran = false;
 	  DNNResult r;
 	  if (have_pool) {
@@ -761,28 +756,29 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  if (!dnn_fathomed && cut_zone > 0 && node.depth <= cut_max_depth && save && save->m == m && r.lb > -HUGE_VAL &&
 	      (inc - DELTA) - r.lb <= cut_zone * std::max(1.0, fabs(inc))) {
 	    DNNCutParams cp;
-	    if (const char *e = getenv("QAP_DNN_CUT_GRID")) sscanf(e, "%d:%d", &cp.grid_rows, &cp.grid_cols);
-	    if (const char *e = getenv("QAP_DNN_CUT_SIDE")) cp.side = atoi(e);
-	    if (const char *e = getenv("QAP_DNN_CUT_ROUNDS")) cp.rounds = atoi(e);
-	    if (const char *e = getenv("QAP_DNN_CUT_ITERS")) cp.iters = atoi(e);
-	    if (const char *e = getenv("QAP_DNN_CUT_K")) cp.kcuts = atoi(e);
-	    if (const char *e = getenv("QAP_DNN_CUT_K5")) cp.kcuts5 = atoi(e);   // 5-point count inequalities per round (0)
-	    if (const char *e = getenv("QAP_DNN_CUT_K7")) cp.kcuts7 = atoi(e);   // local-7 inequalities per round (0)
-	    if (const char *e = getenv("QAP_DNN_CUT_SUB7")) cp.sub7 = atoi(e);   // random 7-subsets per region and round (1000)
+	    // every value from the settings registry (settings.C has the ranges
+	    // and one-line descriptions; the defaults are DNNCutParams's)
+	    if (const char *e = setting_s("QAP_DNN_CUT_GRID"); *e) sscanf(e, "%d:%d", &cp.grid_rows, &cp.grid_cols);
+	    cp.side = (int)setting_i("QAP_DNN_CUT_SIDE");
+	    cp.rounds = (int)setting_i("QAP_DNN_CUT_ROUNDS");
+	    cp.iters = (int)setting_i("QAP_DNN_CUT_ITERS");
+	    cp.kcuts = (int)setting_i("QAP_DNN_CUT_K");
+	    cp.kcuts5 = (int)setting_i("QAP_DNN_CUT_K5");   // 5-point count inequalities per round (0)
+	    cp.kcuts7 = (int)setting_i("QAP_DNN_CUT_K7");   // local-7 inequalities per round (0)
+	    cp.sub7 = (int)setting_i("QAP_DNN_CUT_SUB7");   // random 7-subsets per region and round (1000)
 	    // box (count) inequalities per round, QAP_DNN_CUT_KBOX=K[:QMAX] (0)
-	    if (const char *e = getenv("QAP_DNN_CUT_KBOX")) {
+	    if (const char *e = setting_s("QAP_DNN_CUT_KBOX"); *e) {
 	      cp.kbox = atoi(e);
 	      if (const char *c = strchr(e, ':')) cp.box_qmax = atoi(c + 1);
 	    }
-	    if (const char *e = getenv("QAP_DNN_CUT_DELTA")) cp.delta = atof(e);
+	    cp.delta = setting_d("QAP_DNN_CUT_DELTA");
 	    // stop rule: after QAP_DNN_CUT_STALL rounds (3), stop when the gap
 	    // exceeds 3x the gain of the last that many rounds (0 = off)
-	    cp.stall_rounds = 3;
-	    if (const char *e = getenv("QAP_DNN_CUT_STALL")) cp.stall_rounds = atoi(e);
+	    cp.stall_rounds = (int)setting_i("QAP_DNN_CUT_STALL");
 	    // primal gate (wil50_feasibility/trims): QAP_DNN_CUT_PGATE=R:M stops the
 	    // phase after round R when its best primal is more than M below the
 	    // cutoff (0 = off; the replay on 88 logged phases supports 4:20)
-	    if (const char *e = getenv("QAP_DNN_CUT_PGATE")) {
+	    if (const char *e = setting_s("QAP_DNN_CUT_PGATE"); *e) {
 	      cp.pgate_rounds = atoi(e);
 	      if (const char *c = strchr(e, ':')) cp.pgate_margin = atof(c + 1);
 	    }
@@ -792,20 +788,18 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // the cap), and a quiet round of QAP_DNN_CUT_FREEZE iterations (600;
 	    // 0 = off) with the multipliers frozen when the phase ends unfathomed
 	    // with its primal above the cutoff, so the certificate catches up
-	    cp.cap_at_cutoff = 0;
-	    cp.freeze_iters = 600; cp.freeze_if_primal_above = 1;
-	    if (const char *e = getenv("QAP_DNN_CUT_NOCAP")) cp.cap_at_cutoff = atoi(e) ? 0 : 1;
-	    if (const char *e = getenv("QAP_DNN_CUT_FREEZE")) cp.freeze_iters = atoi(e);
+	    cp.cap_at_cutoff = setting_i("QAP_DNN_CUT_NOCAP") ? 0 : 1;
+	    cp.freeze_iters = (int)setting_i("QAP_DNN_CUT_FREEZE"); cp.freeze_if_primal_above = 1;
 	    // QAP_DNN_CUT_WARMY=1 (roadmap/convergence2): every cut round and the
 	    // quiet round restart from the previous round's Y as well as its Z
 	    // (dnncuts -warmY; same_node_continuation). Off by default: today each
 	    // round restarts from Y = e0 e0', and the certificate spends the first
 	    // part of every round rebuilding it
-	    if (const char *e = getenv("QAP_DNN_CUT_WARMY")) cp.warm_primal = atoi(e) ? 1 : 0;
+	    cp.warm_primal = setting_i("QAP_DNN_CUT_WARMY") ? 1 : 0;
 	    // QAP_DNN_CUT_DAMP1=F[:G]: the first Polyak step of a phase that
 	    // starts from an inherited pool is F times the usual one, its later
 	    // steps G times (1 = off; pipeline_ab/README.md)
-	    if (const char *e = getenv("QAP_DNN_CUT_DAMP1")) {
+	    if (const char *e = setting_s("QAP_DNN_CUT_DAMP1"); *e) {
 	      cp.damp1 = atof(e);
 	      if (const char *c = strchr(e, ':')) cp.damp_rest = atof(c + 1);
 	    }
@@ -813,7 +807,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // whose uncut value is more than G below the cutoff cannot fathom (no
 	    // phase has gained more than 143) and runs only to equip the children
 	    // with a pool: at most R Polyak rounds (default 3). Off by default.
-	    if (const char *e = getenv("QAP_DNN_CUT_EQUIP")) {
+	    if (const char *e = setting_s("QAP_DNN_CUT_EQUIP"); *e) {
 	      double gap_min = atof(e); int eq_rounds = 3;
 	      if (const char *c = strchr(e, ':')) eq_rounds = atoi(c + 1);
 	      if (gap_min > 0 && eq_rounds > 0 && (inc - DELTA) - r.lb > gap_min && eq_rounds < cp.rounds) cp.rounds = eq_rounds;
@@ -835,14 +829,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // iterations. QAP_DNN_CUT_CP_SWEEPS=S[:P]: Dykstra sweeps and passes per
 	    // iteration (1:1). Off by default; regional triangles on either side
 	    // (atomic cuts would run the rounds; bnbdrv never sets them)
-	    if (const char *e = getenv("QAP_DNN_CUT_CP"))
+	    if (const char *e = setting_s("QAP_DNN_CUT_CP"); *e)
 	      if (sscanf(e, "%d:%d", &cp.cp_every, &cp.cp_k) == 2 && cp.cp_every > 0 && cp.cp_k > 0) {
 	        cut_cp = true;
-	        if (const char *f = getenv("QAP_DNN_CUT_CP_ITERS")) cp.cp_iters = atoi(f);
-	        if (const char *f = getenv("QAP_DNN_CUT_CP_SWEEPS")) {
-	          cp.cp_sweeps = atoi(f);
-	          if (const char *c = strchr(f, ':')) cp.cp_passes = atoi(c + 1);
-	        }
+	        cp.cp_iters = (int)setting_i("QAP_DNN_CUT_CP_ITERS");
+	        const char *f = setting_s("QAP_DNN_CUT_CP_SWEEPS");
+	        cp.cp_sweeps = atoi(f);
+	        if (const char *c = strchr(f, ':')) cp.cp_passes = atoi(c + 1);
 	      }
 	    DNNWarm *wc = new DNNWarm(*save);
 	    DNNCutResult cr = cut_cp ? dnn_cut_cp(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp,
@@ -957,9 +950,9 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // (QAP_EST_XBAR_MIX, default 0.1; the uniform part keeps every
 	    // child's probability positive, so the estimate stays unbiased).
 	    static const double est_xbar_pow =
-	      getenv("QAP_EST_XBAR") ? atof(getenv("QAP_EST_XBAR")) : 0.0;
+	      setting_d("QAP_EST_XBAR");
 	    static const double est_xbar_mix =
-	      getenv("QAP_EST_XBAR_MIX") ? atof(getenv("QAP_EST_XBAR_MIX")) : 0.1;
+	      setting_d("QAP_EST_XBAR_MIX");
 	    std::vector<double> prob(kids, 0.0);
 	    bool by_xbar = false;
 #ifdef HAVE_DNN

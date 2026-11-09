@@ -77,6 +77,8 @@
 #include "assign.h"
 #include "util.h"
 #include "dnn.h"
+#include "settings.h"
+#include <iostream>
 
 static void usage()
 {
@@ -300,6 +302,7 @@ int main(int argc, char **argv)
 
   for (int a = 1; a < argc; a++) {
     std::string o = argv[a];
+    if (o == "--print-settings") { settings_dump(std::cout); return 0; }
     bool more = a + 1 < argc;
     if (o == "-x" && more) fixes = argv[++a];
     else if (o == "-K" && more) child = argv[++a];
@@ -353,6 +356,7 @@ int main(int argc, char **argv)
     else file = argv[a];
   }
   if (!file) usage();
+  settings_dump(std::cout);   // the DNN_* settings this run resolved (settings.h)
   dnn_set_blas_threads(threads);
 
   QAP *q = readQAPLIB(file);

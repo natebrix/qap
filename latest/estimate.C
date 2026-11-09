@@ -3,11 +3,11 @@
 
 #include <fstream>
 #include <cstdlib>
+#include "settings.h"
 
 // One line per printed dive: depth, node estimate, time estimate.
 // QAP_EST_HIST overrides the file name (default kept for old scripts).
-static const char *dive_hist_file =
-  getenv("QAP_EST_HIST") ? getenv("QAP_EST_HIST") : "dive_history_nug25_2.txt";
+static const char *dive_hist_file() { return setting_s("QAP_EST_HIST"); }
 
 void standard_errs(double n_mean,double n_sumsq,
 		   double t_mean,double t_sumsq,
@@ -69,11 +69,11 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
 
   // QAP_EST_SEED: seed rand() so that parallel estimator processes take
   // different dives; unset keeps the old fixed sequence.
-  if (getenv("QAP_EST_SEED")) {
-    srand((unsigned)strtoul(getenv("QAP_EST_SEED"), NULL, 10));
-    std::cout << "Estimator seed = " << getenv("QAP_EST_SEED") << std::endl;
+  if (const char *e = setting_s("QAP_EST_SEED"); *e) {
+    srand((unsigned)strtoul(e, NULL, 10));
+    std::cout << "Estimator seed = " << e << std::endl;
   }
-  std::cout << "Dive history file = " << dive_hist_file << std::endl;
+  std::cout << "Dive history file = " << dive_hist_file() << std::endl;
 
   params->score_exponent = ep->score_exponent;
   std::cout << "Scoring exponent = " << params->score_exponent << std::endl;
@@ -165,7 +165,7 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
 
     if(i % ep->print_every == 0) {
 
-      dive_hist.open(dive_hist_file,std::ofstream::app);
+      dive_hist.open(dive_hist_file(),std::ofstream::app);
       print_dive(dive_hist,top_stats,path_stats,ep->time_scale);
       dive_hist.close();
     }

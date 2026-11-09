@@ -30,6 +30,7 @@
 #include <fstream>
 #include <string>
 #include <math.h>
+#include "settings.h"
 
 #define INCORRECT_WEIGHT
 #define BRANCH_USES_QPBND
@@ -1167,7 +1168,8 @@ static bool select_ind_dnn_xbar(const QAPAssignment &assign, bool rows_only,
   double best;
   if (rows_only || sr >= sc) { chose_row = true;  ind_in_U = dr;  best = sr;  get_row_in_assign(assign, dr, ind_in_assign); }
   else                       { chose_row = false; ind_in_U = dc;  best = sc;  get_col_in_assign(assign, dc, ind_in_assign); }
-  if (getenv("QAP_XBAR_DEBUG") && ind_in_U >= 0)
+  static const bool xbar_debug = setting_i("QAP_XBAR_DEBUG") > 0;
+  if (xbar_debug && ind_in_U >= 0)
     fprintf(stderr, "xbar: depth %d %s %d sumsq %.4f\n", assign.nfix, chose_row ? "row" : "col", ind_in_assign, best);
   return ind_in_U >= 0;
 }
@@ -1847,7 +1849,8 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
     get_col_in_assign(assign,col_in_U,ind_in_assign);
     //printf("%2d %2d %2d %2d 1\n",m,use_best,ind_in_U,col_order[ind_in_U]);
   }
-  if (xbar_used && getenv("QAP_XBAR_DEBUG"))
+  static const bool xbar_debug = setting_i("QAP_XBAR_DEBUG") > 0;
+  if (xbar_used && xbar_debug)
     fprintf(stderr, "xbar9: depth %d %s %d (row %.1f col %.1f)\n", assign.nfix,
 	    chose_row ? "row" : "col", ind_in_assign, best_row_sum, best_col_sum);
 

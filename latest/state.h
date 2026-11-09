@@ -12,15 +12,18 @@
  It is plain text, so other tools (bench/parallel.py) can split a
  state into tasks and merge the statistics of finished ones.
 
- Format (version 7; versions 1-6, which lack the warm starts, the DNN
- counts, dnn_ext, the cut pools, the DNN state or the per-level DNN counts,
- are still read):
-   QAP-STATE 7
+ Format (version 8; versions 1-7, which lack the warm starts, the DNN
+ counts, dnn_ext, the cut pools, the DNN state, the per-level DNN counts or
+ the settings record, are still read):
+   QAP-STATE 8
    n <n> levels <stats.n> strategies <stats.m>
    incumbent <obj> <found> <perm[0..n-1]>
    root_bound <value>
    counters <node> <fathom> <enumerate> <fw_iter>
    times <total_time> <bound_time>
+   settings <hash> [NAME=VALUE ...]   (version 8: settings_record() in settings.h;
+                                       read_state refuses a file whose hash differs
+                                       from this run's unless --allow-settings-change)
    n_level ... / f_level ... / l_level ... / e_level ...  (stats.n+1 each)
    t_level ...                                            (stats.n+1)
    n_strat ...                                            ((stats.n+1)*stats.m)

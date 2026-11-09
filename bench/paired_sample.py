@@ -105,7 +105,8 @@ def main():
         res = []
         for par, template in zip(args.params, templates):
             template.write(task, [st.nodes[i]])
-            out = subprocess.run([solver, "-p", par, "-u", str(args.ub), "-r", task, inst],
+            # several params files on one frontier is a deliberate settings change
+            out = subprocess.run([solver, "--allow-settings-change", "-p", par, "-u", str(args.ub), "-r", task, inst],
                                  cwd=sdir, capture_output=True, text=True).stdout
             t = totals(out)
             if t is None:

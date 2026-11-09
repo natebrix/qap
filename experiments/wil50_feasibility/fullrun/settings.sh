@@ -49,14 +49,24 @@ export DNN_CORE_LAZYCERT=1
 # one thread per solver process
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1
 
-# true when the files exist and the binary knows every switch above
+# true when the files exist and the binary's resolved settings under this
+# environment equal the committed golden dump (settings.golden: the
+# `settings`/`setting` lines of `bnbdrv --print-settings`, docs/settings_plan.md
+# Phase 1). Any difference fails, a changed default included. Regenerate the
+# golden only in a commit that means to change the full run's settings:
+#   (. fullrun/settings.sh; latest/bnbdrv --print-settings | grep -E '^settings? ' > fullrun/settings.golden)
+# The launcher's own -p and -x are not in the golden (they show as defaults);
+# a launcher that passes them should diff its own dump the same way.
 fullrun_check() {
-  local b=${1:-$FULLRUN_ROOT/latest/bnbdrv} s ok=0
+  local b=${1:-$FULLRUN_ROOT/latest/bnbdrv} golden=$FULLRUN_ROOT/experiments/wil50_feasibility/fullrun/settings.golden ok=0
   [ -f "$FULLRUN_INSTANCE" ] || { echo "fullrun: $FULLRUN_INSTANCE is missing (sym/make_sym.py --transpose)"; ok=1; }
   [ -f "$FULLRUN_SYM" ] || { echo "fullrun: $FULLRUN_SYM is missing (sym/README.md)"; ok=1; }
   [ -x "$b" ] || { echo "fullrun: $b is missing: make solver"; return 1; }
-  for s in QAP_DNN_CUT_CP QAP_DNN_CUT_DAMP1 QAP_DNN_SHIP DNN_BETA_SCHED DNN_ADMM_CROSS DNN_CORE_LAZYCERT; do
-    grep -aq "$s" "$b" || { echo "fullrun: $b does not know $s: git pull, make solver"; ok=1; }
-  done
+  [ -f "$golden" ] || { echo "fullrun: $golden is missing"; return 1; }
+  if ! diff <("$b" --print-settings 2>/dev/null | grep -E '^settings? ') "$golden" >/dev/null; then
+    echo "fullrun: $b's settings differ from $golden:"
+    diff <("$b" --print-settings 2>/dev/null | grep -E '^settings? ') "$golden" | sed 's/^/  /'
+    ok=1
+  fi
   return $ok
 }

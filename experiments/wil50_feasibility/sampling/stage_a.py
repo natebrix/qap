@@ -40,6 +40,7 @@ import json
 import os
 import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -108,6 +109,12 @@ class StageA:
         write_json(os.path.join(self.run, "env.json"),
                    {k: v for k, v in sorted(self.env.items()) if k.startswith(("QAP_", "DNN_", "OMP_", "OPENBLAS_",
                                                                               "VECLIB_"))})
+        # the solver's own view of those settings (docs/settings_plan.md, Phase 1):
+        # every registry entry with its value and source, as the run's log prints it
+        dump = subprocess.run([self.binary, "--print-settings"], env=self.env, capture_output=True, text=True,
+                              cwd=os.path.dirname(self.binary)).stdout
+        with open(os.path.join(self.run, "settings.txt"), "w") as f:
+            f.write("".join(l for l in dump.splitlines(True) if l.startswith(("settings ", "setting "))))
         self.cpus = [int(x) for x in a.cpus.split(",")][:a.slots]
         self.cond = threading.Condition()
         self.tasks = {}          # id -> {id, depth, parent, index}

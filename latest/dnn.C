@@ -108,6 +108,7 @@
 #include <vector>
 #include <algorithm>
 #include <string>
+#include "settings.h"
 
 /*
  LAPACK / BLAS. DNN_BLAS_PREFIX is prepended to the Fortran names
@@ -576,8 +577,8 @@ struct Work {
     kb = since_refresh = 0;
     have_basis = false;
     lam_hi = theta_top = 0;
-    if (const char *e = getenv("DNN_AMX"))
-      if (atoi(e) > 0 && !use_amx && amx_available() && amx_ctx_init(&amx, K, K) == 0) use_amx = atoi(e);   // 1: W*Y; 2: also CholQR and Rayleigh-Ritz
+    if (const int e = (int)setting_i("DNN_AMX"); e > 0)
+      if (!use_amx && amx_available() && amx_ctx_init(&amx, K, K) == 0) use_amx = e;   // 1: W*Y; 2: also CholQR and Rayleigh-Ritz
     amx_packed = false;
   }
 };
@@ -1056,7 +1057,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   // Zc = Z + beta (Y - VRV') reads its own iteration's R and no earlier one
   // (V'ZcV = beta (W - R)), so only certificate iterations need W - R =
   // -fl64(FF') negative semidefinite; elsewhere R is just the ADMM step.
-  static const int r32 = getenv("DNN_R32") ? atoi(getenv("DNN_R32")) : 0;
+  static const int r32 = (int)setting_i("DNN_R32");
   double tr0 = thread_cpu();
   lapack_int k = nneg;
   if ((r32 || !cert_step) && k > 0) {   // fp32 except on certificate iterations (speed/r32_noncert)
@@ -1491,8 +1492,7 @@ struct BetaSched {
   int t = 60, force = 0, every = 40, maxchg = 4, freeze = 200, nodes = 0;   // nodes: 0 all, 1 cold, 2 warm
   BetaSched()
   {
-    const char *e = getenv("DNN_BETA_SCHED");
-    if (!e) e = "w=0.36";      // the record recipe's warm-child beta, default since Nov 8 2026; DNN_BETA_SCHED="" turns it off
+    const char *e = setting_s("DNN_BETA_SCHED");   // default w=0.36, the record recipe's warm-child beta; "" turns it off
     if (!*e) return;
     std::string s = e;
     for (size_t pos = 0; pos <= s.size();) {
@@ -1603,12 +1603,12 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // most n extra certificates per interval. An extra check tests the fathom only:
   // the give-up and stall rules see the regular checks alone, so with the switch
   // a node can only fathom earlier, never decide anything else differently.
-  const int cross_max = getenv("DNN_ADMM_CROSS") ? atoi(getenv("DNN_ADMM_CROSS")) : 2;   // 2 since Nov 8 2026 (was 0)
+  const int cross_max = (int)setting_i("DNN_ADMM_CROSS");
   // DNN_ADMM_CROSS_FIRST=k (with DNN_ADMM_CROSS, warm-started calls only): one more
   // extra certificate at iteration k < check_every, so that the first regular check
   // already has two points and can predict a crossing in its own first interval
   // (in the production search a third of the fathoms come at the second check)
-  const int cross_first = cross_max > 0 && getenv("DNN_ADMM_CROSS_FIRST") ? atoi(getenv("DNN_ADMM_CROSS_FIRST")) : 0;
+  const int cross_first = cross_max > 0 ? (int)setting_i("DNN_ADMM_CROSS_FIRST") : 0;
   int cross_at = -1, cross_n = 0, cross_extra = 0;
   std::vector<std::pair<int, double>> cr_hist;   // (iteration, running best) at every check
 
@@ -1673,7 +1673,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // DNN_FUSE=1: the Y/Z step writes the next forward's row phase into T while the row
   // is in cache, and forward writes Wf with W (node_speed.md trim f); not with the
   // accelerations, which rewrite Y and Z after the step
-  static const int fuse_env = getenv("DNN_FUSE") ? atoi(getenv("DNN_FUSE")) : 0;
+  static const int fuse_env = (int)setting_i("DNN_FUSE");
   const bool fuse_ok = fuse_env > 0 && par.anderson == 0 && par.halpern == 0 && !m_on && !par.ycuts;
   const int guard_div = 20;   // subspace block guard = K / 20 (node_speed.md trim c: 40 was no better)
   // DNN_BETA_SCHED (see BetaSched): off unless set
@@ -1708,7 +1708,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // for a node's own solve, low early so that warm children fathom fast, higher
   // after T so that a miss hands its cut phase a state like today's (Nov 6).
   if (warm_call && !accel && !par.cut_round) {
-    const char *e = getenv("DNN_ADMM_WARM_BETA");
+    const char *e = setting_s("DNN_ADMM_WARM_BETA");
     double f1 = 0, f2 = 0; int t = 0, force = 0;
     if (e && *e && sscanf(e, "%lf:%d:%lf:%d", &f1, &t, &f2, &force) >= 3 && f1 > 0 && f2 > 0 && t > 0) {
       bs.kind = 1; bs.f = f1; bs.t = t; bs.f2 = f2; bs.force = force; bs.w = 0;
@@ -1722,7 +1722,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // are unaffected (the R-step multiplier does not depend on the dual steps).
   double wd_fac = 1; int wd_k = 0;
   if (warm_call && !accel) {
-    const char *e = getenv("DNN_ADMM_WARM_DAMP");
+    const char *e = setting_s("DNN_ADMM_WARM_DAMP");
     double d = 0; int k = 0;
     if (e && *e && sscanf(e, "%lf:%d", &d, &k) == 2 && d > 0 && k > 0) { wd_fac = d; wd_k = k; }
   }
@@ -1737,8 +1737,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // (par.ycuts) only with DNN_CP_LAZYCERT=1 as well: the skipped checks keep their
   // multipliers in the hook (DNNYCuts::snapshot), and the exit certifies them with
   // their own cut term (roadmap/admm/cpadmm, "In the search")
-  static const int lazy_env = getenv("DNN_CORE_LAZYCERT") ? atoi(getenv("DNN_CORE_LAZYCERT")) : 1;   // on since Nov 8 2026
-  static const int cp_lazy_env = getenv("DNN_CP_LAZYCERT") ? atoi(getenv("DNN_CP_LAZYCERT")) : 0;
+  static const int lazy_env = (int)setting_i("DNN_CORE_LAZYCERT");
+  static const int cp_lazy_env = (int)setting_i("DNN_CP_LAZYCERT");
   const bool lazy_ok = lazy_env > 0 && !par.prototype_cert && par.stall_window == 0 &&
                        !par.child_bounds && (!par.ycuts || cp_lazy_env > 0);
   std::vector<double> lz_Z;                 // the stored multiplier with the best polyhedral estimate

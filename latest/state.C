@@ -10,7 +10,8 @@
 #include <vector>
 
 static const char *STATE_MAGIC = "QAP-STATE";
-static const int STATE_VERSION = 7;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts (all still read)
+static const int STATE_VERSION = 8;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts, 7: no settings record (all still read)
+bool state_allow_settings_change = false;   // driver.C --allow-settings-change: a settings mismatch on -r is a warning
 
 // version 7: by level, the DNN bound, its cut phase and the nodes discarded
 // when popped (stats.h), in this order after dnn_time
@@ -21,6 +22,7 @@ static const char *const CUT_LEVEL_CTRS[] = {"cut_n_level", "cut_f_level"};
 #include "dnn.h"
 #include <cstdint>
 #include <cstdlib>
+#include "settings.h"
 
 /*
  Version 6: a warm start may carry the parent's final DNN state (DNNWarm:
@@ -35,8 +37,12 @@ static const char *const CUT_LEVEL_CTRS[] = {"cut_n_level", "cut_f_level"};
 */
 static int dnn_ship_bits()
 {
-  static const int b = getenv("QAP_DNN_SHIP") ? atoi(getenv("QAP_DNN_SHIP")) : 32;   // 32 since Nov 8 2026 (was 0: no DNN state shipped)
-  return (b == 16 || b == 32 || b == 64) ? b : 0;
+  static const int b = (int)setting_i("QAP_DNN_SHIP");
+  if (b != 0 && b != 16 && b != 32 && b != 64) {
+    std::cerr << "settings: QAP_DNN_SHIP=" << b << " is not 0, 16, 32 or 64" << std::endl;
+    exit(2);
+  }
+  return b;
 }
 
 static void free_dnn_state(void *p) { delete (DNNWarm *)p; }
@@ -201,6 +207,7 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
   f << "counters " << stats->node << ' ' << stats->fathom << ' '
     << stats->enumerate << ' ' << stats->fw_iter << '\n';
   f << "times " << stats->total_time << ' ' << stats->bound_time << '\n';
+  f << "settings " << settings_record() << '\n';   // version 8: the hash of the policy settings and those set away from their defaults
   write_array(f, "n_level", stats->n_level, L);
   write_array(f, "f_level", stats->f_level, L);
   write_array(f, "l_level", stats->l_level, L);
@@ -293,7 +300,7 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
   int version, fn, fL, fm;
   if (!(f >> tag >> version) || tag != STATE_MAGIC || version < 1 ||
       version > STATE_VERSION)
-    return fail(file, "not a version 1-7 state file");
+    return fail(file, "not a version 1-8 state file");
   std::string t1, t2, t3;
   if (!(f >> t1 >> fn >> t2 >> fL >> t3 >> fm) || t1 != "n")
     return fail(file, "bad header");
@@ -313,6 +320,16 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
     return fail(file, "bad counters");
   if (!(f >> tag >> stats->total_time >> stats->bound_time) || tag != "times")
     return fail(file, "bad times");
+  if (version >= 8) {
+    std::string rec;
+    if (!(f >> tag) || tag != "settings" || !std::getline(f, rec)) return fail(file, "bad settings record");
+    rec.erase(0, rec.find_first_not_of(" \t"));
+    std::string why;
+    if (!settings_check_record(rec, why)) {
+      if (!state_allow_settings_change) return fail(file, (why + "; --allow-settings-change to resume anyway").c_str());
+      std::cerr << "read_state: [" << file << "] warning: " << why << " (allowed)" << std::endl;
+    }
+  }
   if (!read_array(f, "n_level", stats->n_level, L) ||
       !read_array(f, "f_level", stats->f_level, L) ||
       !read_array(f, "l_level", stats->l_level, L) ||

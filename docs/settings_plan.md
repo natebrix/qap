@@ -66,6 +66,21 @@ The problems:
 
 ## Phase 1: provenance (about a day)
 
+**Status, Nov 9 (laptop)**: done, with three deviations. (a) The unknown-name
+check covers the solver's own prefixes `QAP_DNN_`, `QAP_EST_`, `QAP_XBAR_` and
+`DNN_`, not every `QAP_*` name: the launchers use `QAP_ROLE`, `QAP_BUCKET`,
+`QAP_BACKEND`, `QAP_RUN` and a dozen more for themselves, and those reach the
+solver's environment. (b) The golden dump (`fullrun/settings.golden`) is taken
+from the environment alone; the launcher's `-p`/`-x` show as defaults in it and
+a launcher that passes them diffs its own dump. (c) `sampling/stage_a.py`
+writes the dump as `settings.txt` beside `env.json` rather than in its place,
+since other tools read `env.json`. The hash covers the `experiment` class as
+well as `policy` (both change the search); `par.hash`, the params file's
+content hash, is a policy entry, so a different par file on `-r` is refused
+too. Gate: `make test`, the regression check at 0%, nug30 3,716 nodes, and the
+dump under `settings.sh` equal to the dump rebuilt from the cpcutt arm's
+`env.txt` plus the two pins.
+
 1. **A settings registry.** Add one table, in a new `latest/settings.{h,C}`.
    Each entry has:
    - the name

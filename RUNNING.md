@@ -74,6 +74,57 @@ Other flags (`./bnbdrv` with no arguments prints help):
 | `-r F` | resume from state file F instead of the root |
 | `-x D1:D2[:G[:H[:W]]]` | DNN bound (latest/dnn.C) on nodes QPB does not fathom at depths D1-D2 with relative gap (inc - QPB)/(inc - root QPB) at most G (default 1); H: give up on a node after H iterations when hopeless (default 0, never); W=1: start a node's ADMM from its parent's final multiplier when the parent's DNN bound missed (default 0; on nug25 -x 2:5:1:300 it cut iterations per fathomed node ~40% but DNN CPU only 4%). Needs LAPACK (see below) |
 | `-w W` | Frank-Wolfe patience at lookahead/strong levels (default 0 = off; see `bench/LOG.csv`) |
+| `--print-settings` | print the resolved settings (below) and exit; needs no instance. With `-p F` the params file's hash is included, with `-x`/`-w` their values |
+| `--allow-settings-change` | with `-r`: resume a state file written under other settings (a warning instead of a refusal) |
+
+A flag without its argument, a number that does not parse (`-u 3O00`), an
+unknown option, two instance files, `-F` with `-r`, and `-t` or `-k` without
+`-o` are errors (exit 1): the run stops instead of doing something other than
+what was asked.
+
+### Settings
+
+Every setting the solver reads from the environment, plus the policy flags
+`-x` and `-w` and the params file, is an entry of one table
+(`latest/settings.C`: name, type, default, range, class, one line of
+description; `docs/settings_plan.md` is the plan, `CONTRIBUTING.md` "Where
+settings live" the rule). The table is read once at startup, so every reader
+sees the same value. Each run prints the resolved table after it has read the
+params file, as the dump `bnbdrv --print-settings` gives on its own:
+
+```
+settings 61 hash cceb954b0d66ef6f
+setting QAP_DNN_EXT 20 env policy
+setting QAP_DNN_BETA 0.3 env policy
+...
+setting dnn.depths 1:4 flag policy
+setting par.hash 3f2a9c... par policy
+```
+
+One line per entry: name, value (`""` when empty), source (`default`, `env`,
+`flag`, `par`) and class. The classes: `policy` and `experiment` change the
+search (the latter is an A/B still in flight); `run` is this run's identity
+(a seed, the params file's path); `diagnostic` is output only. The hash
+covers every policy and experiment entry, defaults included, so a changed
+default changes it.
+
+- **An unknown name is an error.** A variable in the environment whose name
+  starts with `QAP_DNN_`, `QAP_EST_`, `QAP_XBAR_` or `DNN_` and is not in the
+  table stops the run with exit code 2 and names it, as does a value that
+  does not parse or is out of range. `QAP_ALLOW_UNKNOWN=1` makes unknown names
+  a warning, for bisecting old commits. Other `QAP_*` names (`QAP_ROLE`,
+  `QAP_BUCKET`, ...) belong to the launchers and are not checked.
+- **State files carry the record** (`QAP-STATE 8`: the hash and the entries
+  set away from their defaults). `-r` refuses a file whose hash differs from
+  the run's own settings, printing both records, unless
+  `--allow-settings-change` is given. Version 7 and older files have no
+  record and load as before. `bench/parallel.py` keeps the line verbatim in
+  the task files it writes, so its workers are checked too.
+- **Launchers check a golden dump.** `fullrun/settings.sh`'s `fullrun_check`
+  diffs the binary's dump under that environment against the committed
+  `fullrun/settings.golden`; any difference, a changed default included,
+  fails it. The sampling launcher writes the dump to `settings.txt` beside
+  each run's `env.json`.
 
 ### Long runs: checkpoint and resume
 
@@ -89,7 +140,9 @@ precision,
 so a resumed run makes exactly the same decisions: the final node counts, FW
 iterations and per-level tables equal an uninterrupted run
 (`tests/resume_test.py`). A SIGUSR1 to a run started with `-o` also saves the
-state and stops it at the next node.
+state and stops it at the next node. Since version 8 the file also records
+the settings the run resolved ("Settings" above), and `-r` refuses a file
+written under other settings unless `--allow-settings-change` is given.
 
 With the DNN bound (`-x`), a branched node's final ADMM state (Z and Y), from
 which its children start, is held in memory only. It goes into the state file

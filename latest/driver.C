@@ -24,6 +24,8 @@
 #include "bnb.h"
 #include "estimate.h"
 #include "state.h"
+#include "settings.h"
+#include <cerrno>
 #ifdef HAVE_EVB3
 #include "evb3.h"
 #endif
@@ -143,23 +145,75 @@ static char *new_string(const char *s)
   return t;
 }
 
+static bool print_settings_only = false;
+extern bool state_allow_settings_change;   // state.C: --allow-settings-change
+
+// Option arguments (review C5): a flag without its argument, a number that
+// does not parse, and an unknown option are errors, so that a run never
+// silently does something other than what was asked.
+static const char *need_arg(int &i, int argc, char *argv[])
+{
+  if (i + 1 >= argc) {
+    cerr << argv[i] << " needs an argument (./bnbdrv with no arguments prints help)" << std::endl;
+    exit(1);
+  }
+  return argv[++i];
+}
+
+static long arg_int(const char *flag, const char *s)
+{
+  errno = 0;
+  char *end = NULL;
+  const long v = strtol(s, &end, 10);
+  if (!*s || *end || errno) {
+    cerr << flag << ": " << s << " is not an integer" << std::endl;
+    exit(1);
+  }
+  return v;
+}
+
+static double arg_num(const char *flag, const char *s)
+{
+  errno = 0;
+  char *end = NULL;
+  const double v = strtod(s, &end);
+  if (!*s || *end || errno || !std::isfinite(v)) {
+    cerr << flag << ": " << s << " is not a number" << std::endl;
+    exit(1);
+  }
+  return v;
+}
+
 void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 {
   int i = 1;
 
   while(i < argc) {
+    const char *a = argv[i];
 
-    if((argv[i][0] == '-')&&(strlen(argv[1])>1)) {
-      
-      switch(argv[i][1]) {
-      case 'a': // auto console
-	i++;
+    if (strcmp(a, "--print-settings") == 0) {        // dump the settings and exit (needs no instance)
+      print_settings_only = true;
+      i++;
+      continue;
+    }
+    if (strcmp(a, "--allow-settings-change") == 0) {  // -r with settings other than the file's
+      state_allow_settings_change = true;
+      i++;
+      continue;
+    }
+
+    if (a[0] == '-' && a[1] != '\0' && a[2] == '\0') {
+
+      switch(a[1]) {
+      case 'a': { // auto console
+	const char *v = need_arg(i, argc, argv);
 	if (!c->command_file) {
-	  c->command_file = new_string(argv[i]);
+	  c->command_file = new_string(v);
 	}
 	cout << "command file: " << c->command_file << std::endl;
 	break;
-	
+      }
+
       case 'b': // benchmark
 	run_benchmark = true;
 	cout << "benchmark ON, branch and bound OFF" << std::endl;
@@ -171,8 +225,7 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	break;
 
       case 'd': // depth
-	i++;
-	max_depth = atoi(argv[i]);
+	max_depth = (int)arg_int("-d", need_arg(i, argc, argv));
 	set_max_depth = true;
 	cout << "max_depth has been set to " << max_depth << std::endl;
 	break;
@@ -183,8 +236,7 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	break;
 
       case 'f': // statistics scaling factor
-	i++;
-	scale_factor = atof(argv[i]);
+	scale_factor = arg_num("-f", need_arg(i, argc, argv));
 	cout << "scale times by: " << scale_factor << std::endl;
 	break;
 
@@ -193,78 +245,74 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	heuristic = true;
 	break;
 
-      case 'l': // log file
-	i++;
+      case 'l': { // log file
+	const char *v = need_arg(i, argc, argv);
 	if (!c->log_file) {
-	  c->log_file = new_string(argv[i]);
+	  c->log_file = new_string(v);
 	}
 	cout << "log file: " << c->log_file << std::endl;
 	break;
-	
-      case 'p': // parameters file
-	i++;
+      }
+
+      case 'p': { // parameters file
+	const char *v = need_arg(i, argc, argv);
 	if(!c->param_file)
-	  c->param_file = new_string(argv[i]);
+	  c->param_file = new_string(v);
 	cout << "parameters file: " << c->param_file << std::endl;
 	break;
+      }
 
-      case 's': // symmetry file
-	i++;
+      case 's': { // symmetry file
+	const char *v = need_arg(i, argc, argv);
 	if(!c->sym_file)
-	  c->sym_file = new_string(argv[i]);
+	  c->sym_file = new_string(v);
 	cout << "symmetry file: " << c->sym_file << std::endl;
 	break;
+      }
 
       case 'u': // upper bound
-	i++;
-	qap_upper_bound = atof(argv[i]);
+	qap_upper_bound = arg_num("-u", need_arg(i, argc, argv));
 	cout << "incumbent: " << qap_upper_bound << std::endl;
 	break;
 
       case 'o': // write state here (checkpoints, time limit, end of run)
-	i++;
-	bnb_state_file = new_string(argv[i]);
+	bnb_state_file = new_string(need_arg(i, argc, argv));
 	cout << "state file: " << bnb_state_file << std::endl;
 	break;
 
       case 'U': // incumbent file, re-read at node boundaries (SIGUSR2: at once)
-	i++;
-	bnb_incumbent_file = new_string(argv[i]);
+	bnb_incumbent_file = new_string(need_arg(i, argc, argv));
 	signal(SIGUSR2, poke_incumbent);
 	cout << "incumbent file: " << bnb_incumbent_file << std::endl;
 	break;
 
       case 'k': // checkpoint every X CPU seconds
-	i++;
-	bnb_checkpoint_every = atof(argv[i]);
+	bnb_checkpoint_every = arg_num("-k", need_arg(i, argc, argv));
 	cout << "checkpoint every " << bnb_checkpoint_every << " s" << std::endl;
 	break;
 
       case 't': // stop after X CPU seconds, saving state
-	i++;
-	bnb_time_limit = atof(argv[i]);
+	bnb_time_limit = arg_num("-t", need_arg(i, argc, argv));
 	cout << "time limit " << bnb_time_limit << " s" << std::endl;
 	break;
 
       case 'r': // resume from a state file
-	i++;
-	resume_file = new_string(argv[i]);
+	resume_file = new_string(need_arg(i, argc, argv));
 	cout << "resume from: " << resume_file << std::endl;
 	break;
 
       case 'F': // start at the node with these assignments fixed (i:j = first index i to second index j)
-	i++;
-	root_fixes = new_string(argv[i]);
+	root_fixes = new_string(need_arg(i, argc, argv));
 	cout << "root fixes: " << root_fixes << std::endl;
 	break;
 
-      case 'x': // DNN bound at depths dmin..dmax: -x dmin:dmax[:maxgap[:hopeless[:warm]]]
-	i++;
+      case 'x': { // DNN bound at depths dmin..dmax: -x dmin:dmax[:maxgap[:hopeless[:warm]]]
+	const char *v = need_arg(i, argc, argv);
 #ifdef HAVE_DNN
 	{
 	  // dmin:dmax[:maxgap[:hopeless[:warm]]]; an empty field keeps its default
 	  char *f[5] = {NULL, NULL, NULL, NULL, NULL};
-	  char *arg = new_string(argv[i]);
+	  char *arg = new_string(v);
 	  int n = 0;
 	  for (char *p = arg; n < 5; n++) {
 	    f[n] = p;
@@ -273,16 +321,27 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	    *colon = '\0';
 	    p = colon + 1;
 	  }
-	  if (n >= 1 && *f[0]) dnn_min_depth = atoi(f[0]);
-	  if (n >= 2 && *f[1]) dnn_max_depth = atoi(f[1]);
-	  if (n >= 3 && *f[2]) dnn_max_gap = atof(f[2]);
-	  if (n >= 4 && *f[3]) dnn_hopeless_after = atoi(f[3]);
-	  if (n >= 5 && *f[4]) dnn_warm = atoi(f[4]);
+	  if (n >= 1 && *f[0]) dnn_min_depth = (int)arg_int("-x", f[0]);
+	  if (n >= 2 && *f[1]) dnn_max_depth = (int)arg_int("-x", f[1]);
+	  if (n >= 3 && *f[2]) dnn_max_gap = arg_num("-x", f[2]);
+	  if (n >= 4 && *f[3]) dnn_hopeless_after = (int)arg_int("-x", f[3]);
+	  if (n >= 5 && *f[4]) dnn_warm = (int)arg_int("-x", f[4]);
 	  delete [] arg;
-	  if (n < 2 || dnn_max_depth < 0) {
-	    cerr << "-x needs dmin:dmax[:maxgap[:hopeless[:warm]]], e.g. -x 2:3" << std::endl;
+	  if (n < 2 || n > 5 || dnn_max_depth < 0 || dnn_min_depth < 0 || dnn_min_depth > dnn_max_depth ||
+	      strchr(v, ':') == NULL || (n == 5 && strchr(strchr(strchr(strchr(strchr(v, ':') + 1, ':') + 1, ':') + 1, ':') + 1, ':'))) {
+	    cerr << "-x needs dmin:dmax[:maxgap[:hopeless[:warm]]] with dmin <= dmax, e.g. -x 2:3" << std::endl;
 	    exit(1);
 	  }
+	  // the policy flags are settings too (settings.C: the dump and the state file's record)
+	  char buf[64];
+	  snprintf(buf, sizeof buf, "%d:%d", dnn_min_depth, dnn_max_depth);
+	  settings_set("dnn.depths", buf, SRC_FLAG);
+	  snprintf(buf, sizeof buf, "%.17g", dnn_max_gap);
+	  settings_set("dnn.maxgap", buf, SRC_FLAG);
+	  snprintf(buf, sizeof buf, "%d", dnn_hopeless_after);
+	  settings_set("dnn.giveup", buf, SRC_FLAG);
+	  snprintf(buf, sizeof buf, "%d", dnn_warm);
+	  settings_set("dnn.warm", buf, SRC_FLAG);
 	  // one core per solver process. Accelerate (macOS) has no such call;
 	  // it reads VECLIB_MAXIMUM_THREADS when it is loaded, so that must be
 	  // set in the environment (bench/parallel.py sets it for its workers).
@@ -294,40 +353,61 @@ void process_command_line(int argc, char *argv[], ConsoleParameters *c)
 	       << ", relative gap <= " << dnn_max_gap << ", give up after "
 	       << dnn_hopeless_after << " iterations (0 = never), "
 	       << (dnn_warm ? "warm-started from the parent, " : "")
-	       << "extended " << (getenv("QAP_DNN_EXT") ? getenv("QAP_DNN_EXT") : "20") << " levels below a last-level miss, "
-	       << "give-ups within " << (getenv("QAP_DNN_GU_ZONE") ? getenv("QAP_DNN_GU_ZONE") : "0.003") << " of the cutoff confirmed, "
+	       << "extended " << setting_s("QAP_DNN_EXT") << " levels below a last-level miss, "
+	       << "give-ups within " << setting_s("QAP_DNN_GU_ZONE") << " of the cutoff confirmed, "
 	       << dnn_lapack_name() << std::endl;
 	}
 #else
-	cerr << "-x: this bnbdrv was built without the DNN bound (make DNN=0)" << std::endl;
+	cerr << "-x: this build has no DNN bound (make with HAVE_DNN)" << std::endl;
 	exit(1);
 #endif
 	break;
+      }
 
       case 'w': // Frank-Wolfe patience once a node cannot be fathomed
-	i++;
-	fw_nofathom_patience = atoi(argv[i]);
+	fw_nofathom_patience = (int)arg_int("-w", need_arg(i, argc, argv));
+	settings_set("fw.patience", argv[i], SRC_FLAG);
 	cout << "FW patience after cannot-fathom: " << fw_nofathom_patience << std::endl;
 	break;
 
       default:
-	// unrecognized option
-	cout << "ignoring unrecognized option " << argv[i] << std::endl;
-	break;
+	cerr << "unknown option " << a << " (./bnbdrv with no arguments prints help)" << std::endl;
+	exit(1);
       }
 
+    }
+    else if (a[0] == '-' && a[1] != '\0') {
+      cerr << "unknown option " << a << " (./bnbdrv with no arguments prints help)" << std::endl;
+      exit(1);
     }
     else   // must be the input file
       {
 	if (!c->input_file) {
-	  c->input_file = new_string(argv[i]);
+	  c->input_file = new_string(a);
 	  cout << "input file: " << c->input_file << std::endl;
+	}
+	else {
+	  cerr << "two input files given: " << c->input_file << " and " << a << std::endl;
+	  exit(1);
 	}
       }
 
     i++;
   }
 
+  // combinations that cannot mean what was asked
+  if (root_fixes && resume_file) {
+    cerr << "-F and -r together: a state file already fixes its nodes' assignments" << std::endl;
+    exit(1);
+  }
+  if (bnb_time_limit > 0 && !bnb_state_file) {
+    cerr << "-t without -o: the time limit would stop the run with nowhere to save its state" << std::endl;
+    exit(1);
+  }
+  if (bnb_checkpoint_every > 0 && !bnb_state_file) {
+    cerr << "-k without -o: checkpoints need a state file" << std::endl;
+    exit(1);
+  }
 }
 
 // try to get name of file, stripping away path to the file, e.g.
@@ -418,6 +498,16 @@ int main(int argc, char *argv[])
   driver_init();
   process_command_line(argc, argv, c);
 
+  if (print_settings_only) {
+    // the resolved settings (environment, flags, the par file if given), then exit
+    if (c->param_file) {
+      settings_set("par.file", c->param_file, SRC_FLAG);
+      settings_set("par.hash", settings_hash_file(c->param_file), SRC_PAR);
+    }
+    settings_dump(cout);
+    return 0;
+  }
+
   if (!c->input_file) {
     print_help();
     return -1;
@@ -441,9 +531,12 @@ int main(int argc, char *argv[])
     set_sym_file(c->input_file, c->sym_file);
   }
   
+  const bool param_file_given = c->param_file != NULL;
   if (!c->param_file) {
     set_param_file(c->input_file, c->param_file);
   }
+  settings_set("par.file", c->param_file, param_file_given ? SRC_FLAG : SRC_DEFAULT);
+  settings_set("par.hash", settings_hash_file(c->param_file), SRC_PAR);
   
   n = q->A->m;
   solution = new QAPSolution(n);
@@ -464,6 +557,7 @@ int main(int argc, char *argv[])
   solution->setObjective(qap_upper_bound);
   
   qap_read_params(c->param_file,params, c->nlevel, c->sym_file,param_max_depth);
+  settings_dump(cout);   // every setting with its value and source (settings.h)
 
   if (!set_max_depth) {
     max_depth = param_max_depth;
@@ -488,8 +582,9 @@ int main(int argc, char *argv[])
   else {
     stack_setup(stack,stats,id,n);
     if (root_fixes) {
-      // the subtree below a node: its depth is 0 here, so -x and -d count
-      // from it (dnntest -x uses the same i:j spelling)
+      // the subtree below a node: its depth is the number of fixes (fix()
+      // counts them), so -x and -d count from the root, not from this node
+      // (dnntest -x uses the same i:j spelling)
       for (char *tok = strtok(root_fixes, ","); tok; tok = strtok(NULL, ",")) {
 	int fi, fj;
 	if (sscanf(tok, "%d:%d", &fi, &fj) != 2 || fi < 0 || fi >= n || fj < 0 || fj >= n ||
