@@ -38,6 +38,7 @@ Resumable (a task with result.json is not rerun); SIGTERM drains.
 """
 import argparse
 import concurrent.futures as cf
+import hashlib
 import json
 import math
 import os
@@ -96,7 +97,10 @@ class StageB:
         self.draining = False
         self.procs = {}
         self.depth = self.acfg["depth"] + 1
+        self.sha = hashlib.sha256(open(self.binary, "rb").read()).hexdigest()
+        self.t0 = time.time()
         cfg = {"stage_a": self.A, "n": a.n, "seed": self.acfg["seed"], "converge": a.converge, "phase": a.phase,
+               "binary": self.binary, "binary_sha256": self.sha,
                "xspec_giveup": self.x_giveup, "xspec_converge": self.x_conv,
                "giveup_overrides": {} if a.phase else {"QAP_DNN_CUT_MAXDEPTH": "2"},
                "converge_overrides": {"QAP_DNN_CUT_ZONE": "0"}, "commit": self.acfg["commit"]}
@@ -106,6 +110,11 @@ class StageB:
             for k in ("stage_a", "n", "seed", "phase", "xspec_giveup", "xspec_converge"):
                 if old[k] != cfg[k]:
                     raise SystemExit(f"{p}: {k} was {old[k]!r}, now {cfg[k]!r}; use another --run")
+            if old.get("binary_sha256") not in (None, self.sha):
+                raise SystemExit(f"{p}: the binary's sha256 was {old['binary_sha256']}, now {self.sha}; use another --run")
+            if old.get("binary_sha256") is None:
+                # a run from before the sha was recorded (the smoke test): its tasks ran this same file
+                cfg["binary_sha256_recorded_later"] = time.strftime("%F %T")
         write_json(p, cfg)
 
     # ------------------------------------------------------------ the sample
@@ -128,6 +137,12 @@ class StageB:
     def sample(self):
         rows, complete = self.frontier()
         s = rows[:self.a.n]
+        old = os.path.join(self.run, "sample.tsv")
+        if os.path.exists(old):
+            prev = [l.rstrip("\n").split("\t") for l in open(old) if l[0].isdigit()]
+            new = [[str(r), f"{x[0]:.12f}", x[1], str(x[2]), x[3], repr(x[4]), repr(x[5])] for r, x in enumerate(s)]
+            if prev != new[:len(prev)]:
+                raise SystemExit(f"{old}: the sample differs from this run's earlier one; use another --run")
         with open(os.path.join(self.run, "sample.tsv"), "w") as f:
             f.write(f"# {len(rows)} frontier nodes ({'complete' if complete else 'PARTIAL'}), seed "
                     f"{self.acfg['seed']}, the {len(s)} smallest hashes\n")
@@ -218,6 +233,10 @@ class StageB:
             with self.cpu_lock:
                 cpu = self.free_cpus.pop(0)
             try:
+                if not self.draining and disk_free_gb(self.run) < self.a.min_free_gb:
+                    self.draining = True
+                    log_line(self.log_path, f"stage B: only {disk_free_gb(self.run):.1f} GB free "
+                                            f"(< {self.a.min_free_gb}); draining")
                 if self.draining:
                     return label, None
                 return label, fn(cpu)
@@ -240,7 +259,41 @@ class StageB:
                         log_line(self.log_path, f"{label}: {tr['status']} lb {tr['lb']:.2f} ({tr['short']:.1f} short) "
                                                 f"{tr['iters']} it cpu {r['stats']['times'][0]:.0f} s warm {tr['warm']} "
                                                 f"pool {tr['pool']}")
+                    self.guard()
         return results
+
+    def guard(self):
+        """the stop rule: the projected wall of the whole stage B (this session's
+        elapsed wall plus the remaining CPU on the slots) above --max-wall-h drains
+        the run; logged after every task, in status.json too"""
+        tdir = os.path.join(self.run, "tasks")
+        g, v = [], []
+        for t in os.listdir(tdir):
+            r = self.load(t)
+            if r and t.startswith("g_"):
+                g.append(r["stats"]["times"][0])
+            elif r and t.startswith("v_"):
+                v.append(r["stats"]["times"][0])
+        if not g:
+            return
+        n_conv = min(self.a.converge, self.a.n)
+        mg = sum(g) / len(g)
+        mv = sum(v) / len(v) if v else 1267.0          # the smoke test's converge until one is measured here
+        rem = max(0, self.a.n - len(g)) * mg + max(0, n_conv - len(v)) * mv
+        el = (time.time() - self.t0) / 3600
+        wall = el + rem / len(self.cpus) / 0.99 / 3600
+        doc = {"updated": time.strftime("%F %T"), "giveups_done": len(g), "giveup_mean_cpu": mg,
+               "converges_done": len(v), "converge_mean_cpu": mv, "remaining_cpu": rem,
+               "session_elapsed_h": el, "projected_wall_h": wall, "disk_free_gb": disk_free_gb(self.run)}
+        write_json(os.path.join(self.run, "status.json"), doc)
+        log_line(self.log_path, f"projection: {len(g)} give-ups done ({mg:.0f} s each), {len(v)} converges "
+                                f"({mv:.0f} s each{'' if v else ', assumed'}); remaining {rem:,.0f} CPU s; wall "
+                                f"{el:.2f} h so far + {wall - el:.2f} h = {wall:.2f} h; disk free "
+                                f"{doc['disk_free_gb']:.1f} GB")
+        if (self.a.max_wall_h and not self.draining and len(g) >= 40 and wall > self.a.max_wall_h):
+            self.draining = True
+            log_line(self.log_path, f"stage B: the projected wall {wall:.1f} h exceeds --max-wall-h "
+                                    f"{self.a.max_wall_h}; draining")
 
     def signal(self, *_):
         if not self.draining:
@@ -263,6 +316,9 @@ class StageB:
         log_line(self.log_path, f"stage B: frontier {N} nodes ({'complete' if complete else 'partial'}), sample "
                                 f"{len(s)}, bounding {len(todo)} on {len(self.cpus)} slots; disk free "
                                 f"{disk_free_gb(self.run):.1f} GB")
+        if self.a.report_only:
+            # a progress report from the finished tasks; starts nothing (a run may be going on)
+            return self.finish(todo, N, complete, partial_run=True, out_name="summary_partial.md")
         # parents to rebuild
         need = sorted({x[1] for x in todo if not os.path.exists(os.path.join(self.A, "tasks", x[1], "out.full.state"))
                        and not os.path.exists(os.path.join(self.run, "regen", x[1], "out.state"))})
@@ -344,14 +400,26 @@ class StageB:
         p = os.path.join(self.run, "tasks", key, "result.json")
         return json.load(open(p)) if os.path.exists(p) else None
 
-    def finish(self, todo, N, complete, partial_run=False):
+    def finish(self, todo, N, complete, partial_run=False, out_name="summary.md"):
         k = lambda sp: sp.replace(":", "_").replace(",", "-")
         rows = []
         for h, parent, idx, sp, b, pb in todo:
-            g, v = self.load("g_" + k(sp)), self.load("v_" + k(sp))
+            g = self.load("g_" + k(sp))
             if g is None:
                 continue
-            rows.append({"spec": sp, "parent": parent, "inherited": b, "giveup": g, "converge": v})
+            rows.append({"spec": sp, "parent": parent, "inherited": b, "giveup": g, "converge": None})
+        # the converged set is the --converge misses farthest at the give-up point (as go() chose them);
+        # a converge result of any other node (an earlier run's) is listed apart, not used for classes
+        miss = sorted((r for r in rows if r["giveup"]["trace"] and not r["giveup"]["trace"]["fathomed"]),
+                      key=lambda r: -r["giveup"]["trace"]["short"])
+        far = {r["spec"] for r in miss[:self.a.converge]}
+        extra_conv = []
+        for r in rows:
+            v = self.load("v_" + k(r["spec"]))
+            if v and r["spec"] in far:
+                r["converge"] = v
+            elif v:
+                extra_conv.append((r["spec"], v))
         cutoff = next((r["giveup"]["trace"]["cutoff"] for r in rows if r["giveup"]["trace"]), None)
         lines = [f"# Stage B: {len(rows)} of {len(todo)} sampled nodes bounded (frontier {N} nodes, "
                  f"{'complete' if complete else 'PARTIAL'}; seed {self.acfg['seed']}; sample of {self.a.n})",
@@ -404,8 +472,46 @@ class StageB:
             pct = lambda p: q[min(len(q) - 1, int(p * len(q)))]
             lines += ["", f"Give-up shortfall of the {len(q)} misses: min {q[0]:.1f}, 10% {pct(.1):.1f}, median "
                           f"{pct(.5):.1f}, 90% {pct(.9):.1f}, max {q[-1]:.1f}"]
-        lines += ["", f"CPU: give-up {cpu_g:.0f} s on {n} nodes ({cpu_g / n if n else 0:.0f} s each), converge "
-                      f"{cpu_v:.0f} s on {sum(1 for r in rows if r['converge'])} nodes"]
+        # the give-up shortfall histogram (every sampled node)
+        edges = [0, 50, 100, 150, 210, 300, 350, 400, 450, 500, 1e9]
+        names = ["0-50", "50-100", "100-150", "150-210", "210-300", "300-350", "350-400", "400-450", "450-500", ">= 500"]
+        fat = sum(1 for r in rows if r["giveup"]["trace"] is None or r["giveup"]["trace"]["fathomed"])
+        cnt = [sum(1 for x in shorts if edges[i] <= x < edges[i + 1]) for i in range(len(names))]
+        lines += ["", "Give-up shortfall histogram (the first solve, warm, at most 300 iterations when hopeless):", "",
+                  "| fathomed | " + " | ".join(names) + " |", "|---|" + "---|" * len(names),
+                  f"| {fat} | " + " | ".join(str(x) for x in cnt) + " |"]
+        # converged against give-up
+        cv = [(r["giveup"]["trace"]["short"], r["converge"]["trace"]["short"], r) for r in rows
+              if r["converge"] and r["converge"]["trace"] and r["giveup"]["trace"]]
+        if cv:
+            gains = sorted(a - b for a, b, _ in cv)
+            pg = lambda p: gains[min(len(gains) - 1, int(p * len(gains)))]
+            def klass(x):
+                for name, lo, hi in STRATA[1:]:
+                    if (lo == 0 and x < hi) or (lo is not None and lo <= x < hi):
+                        return name
+            moved = sum(1 for a, b, _ in cv if klass(a) != klass(b))
+            lines += ["", f"Converged against give-up on the {len(cv)} converged nodes (give-up shortfall "
+                          f"{min(a for a, _, _ in cv):.1f}-{max(a for a, _, _ in cv):.1f}): the converge gains "
+                          f"min {gains[0]:.1f}, 10% {pg(.1):.1f}, median {pg(.5):.1f}, 90% {pg(.9):.1f}, max "
+                          f"{gains[-1]:.1f} units; {moved} change class; "
+                          f"{sum(1 for _, _, r in cv if r['converge']['trace']['fathomed'])} fathom"]
+        # CPU per step
+        gc = sorted(r["giveup"]["stats"]["times"][0] for r in rows)
+        vc = sorted(r["converge"]["stats"]["times"][0] for r in rows if r["converge"])
+        med = lambda xs: xs[len(xs) // 2] if xs else 0.0
+        hop = [r["giveup"]["stats"]["times"][0] for r in rows if r["giveup"]["trace"]
+               and r["giveup"]["trace"]["status"] == "hopeless"]
+        fth = [r["giveup"]["stats"]["times"][0] for r in rows if r["giveup"]["trace"]
+               and r["giveup"]["trace"]["fathomed"]]
+        lines += ["", f"CPU: give-up {cpu_g:,.0f} s on {n} nodes (mean {cpu_g / n if n else 0:.0f}, median "
+                      f"{med(gc):.0f}; fathomed {sum(fth) / len(fth) if fth else 0:.0f} s, hopeless "
+                      f"{sum(hop) / len(hop) if hop else 0:.0f} s); converge {cpu_v:,.0f} s on {len(vc)} nodes (mean "
+                      f"{cpu_v / len(vc) if vc else 0:.0f}, median {med(vc):.0f})"]
+        for sp, v in extra_conv:
+            if v["trace"]:
+                lines.append(f"Converge outside the farthest {self.a.converge} (an earlier run's; not used for the "
+                             f"classes): {sp} {v['trace']['short']:.1f} short after {v['trace']['iters']} iterations")
         extra = [("cold / -F", self.load("c_" + k(sp)), self.load("F_" + k(sp)), sp) for _, _, _, sp, _, _ in
                  todo[:self.a.check_F]]
         for name, c, F, sp in extra:
@@ -427,7 +533,7 @@ class StageB:
         if partial_run:
             lines.append("(the run was stopped before the end: run the same command again to resume)")
         txt = "\n".join(lines) + "\n"
-        with open(os.path.join(self.run, "summary.md"), "w") as f:
+        with open(os.path.join(self.run, out_name), "w") as f:
             f.write(txt)
         print(txt)
         return 3 if partial_run else 0
@@ -444,6 +550,10 @@ def main():
     ap.add_argument("--check-F", type=int, default=0)
     ap.add_argument("--calibrate", help="a -F spec run cold through both steps (node 5: 49:23,15:37,5:6)")
     ap.add_argument("--phase", action="store_true", help="let the cut phase run at depth 3 as in production")
+    ap.add_argument("--max-wall-h", type=float, help="drain when the projected wall of the stage exceeds this")
+    ap.add_argument("--min-free-gb", type=float, default=2.0, help="drain when the disk has less free")
+    ap.add_argument("--report-only", action="store_true",
+                    help="write summary_partial.md from the finished tasks and exit (runs nothing)")
     ap.add_argument("--partial", action="store_true", help="sample an unfinished stage A (smoke tests only)")
     ap.add_argument("--slots", type=int, default=4)
     ap.add_argument("--cpus", default="0,1,2,3")

@@ -327,7 +327,7 @@ phase either fathoms or stops below 150.
   children are 19-458 short (median 269) and cell 14's 19-80, and 44 of its 49
   children fathom.
 
-## Stage B (`stage_b.py`): built and smoke-tested, not run
+## Stage B (`stage_b.py`): design and smoke test
 
 - **The sample.** The 400 frontier nodes with the smallest
   `unit_hash(20261107, node)`, from stage A's records (`sample.tsv`). The seed
@@ -406,3 +406,90 @@ against the plan's 6.6e4 + 1e5. The converges are 70-87% of it: bnbdrv has no
 switch for the DNN's iteration limit (4,000), so a converge cannot stop at
 1,500. On the one warm miss the converge gained 4.8 units, so converging only
 the nodes within about 30 of a stratum boundary would cut most of it [e].
+
+## Stage B on wil50t: facility 21's frontier (Nov 9, 01:57-10:11 UTC)
+
+`stage_b.py --n 400 --converge 80 --check-F 3 --calibrate 49:23,15:37,5:6
+--max-wall-h 14 --min-free-gb 2`, 4 pinned slots, in `runs/stageB`. The smoke
+test's 4 nodes were reused: same binary (sha256 `e25b0286...`, stage A's
+private copy, unmodified since Nov 7 18:05; the four private copies of the
+build are identical), same seed (20261107), and the sample checked equal to
+the smoke test's committed `sample.tsv`. 8.23 h of wall, including about 25
+minutes with 3 slots idle while the last of 9 rebuilt parents (`r.7.1`, whose
+cut phase ran to its 3,400-iteration limit) finished, before any give-up
+started. All 9 rebuilt parents matched stage A's record. [m:
+`results/stageB/summary.md`, with every node's row]
+
+**Classes** (the 80 converged nodes by their converged shortfall, the other
+misses by the give-up shortfall, an upper bound on it; 1-sigma Wilson
+intervals):
+
+| class | nodes of 400 | fraction | 1-sigma |
+|---|---|---|---|
+| fathomed in the first solve | 297 | 0.743 | 0.720-0.764 |
+| near (< 150) | 69 | 0.172 | 0.154-0.192 |
+| 150-210 | 19 | 0.048 | 0.038-0.059 |
+| 210-300 | 11 | 0.028 | 0.020-0.037 |
+| tail (>= 300) | 4 | 0.010 | 0.006-0.016 |
+
+- **Give-up shortfall** of the 103 misses: min 0.4, 10% 14.3, median 85.6, 90%
+  226.8, max 342.8. Histogram: fathomed 297; 0-50: 23; 50-100: 33; 100-150: 10;
+  150-210: 21; 210-300: 11; 300-350: 5; beyond 350: none.
+- **Converged against give-up** (the 80 farthest misses, give-up shortfall
+  50.1-342.8, 4,000 warm iterations, no cut phase): the converge gains 3.4-7.5
+  units (median 5.3). 5 nodes change class, none fathoms. The four tail nodes
+  end 312.2-338.4 short. The fifth node of the give-up's 300-350 bin ends 296.6
+  short.
+- **CPU**: give-up 13,747 s on 400 nodes (mean 34, median 11; fathomed 13 s,
+  hopeless 95 s); converge 96,248 s on 80 nodes (mean 1,203, median 1,210).
+  Total 112,403 CPU s with the rebuilds.
+- **Restart checks**: on the first 3 sampled nodes, no warm start against -F:
+  48,828.0264 (98 iterations), 48,814.5773 (240) and 48,817.8362 (140), equal
+  in both. Node 5's calibration as in the smoke test.
+- **The warm, pooled first solve does most of the work.** 297 of 400 fathom in
+  it (13 CPU s on average). 62% of the frontier are children of stalled
+  depth-2 phases and inherit a pool. The 16 random-line depth-3 nodes of
+  `../tuning/giveup/all32.txt` had 2 fathomed and 2 of 16 in the tail (329-405
+  short).
+
+**The tree estimate** (`tree_estimate.py`, `results/stageB/tree_estimate.md`;
+estimates [e] on measured inputs). Total DNN nodes = 651 (depths 0-2) + 14,192
+frontier nodes x the mean subtree of a frontier node over the 400 sampled. A
+node's subtree size is interpolated log-linearly in its shortfall between the
+measured subtrees in the production configuration or the nearest one measured:
+node 10 (158.2 short, 94 DNN nodes under cpcutt), node 5 (315.7 short, 1,198,
+cpcutt, the matched probe's estimate) and node 1 (404.8 short, 14,262 under
+the Nov 5 `full` setting x node 5's cpcutt/full ratio = 13,245). A node that
+fathoms counts 1. The alternative is the per-level model alone, 47^(s/130).
+
+| size model | mean subtree per frontier node (95% bootstrap) | total DNN nodes | per depth-3 orbit | tail share | CPU s at 22.5 s per DNN node |
+|---|---|---|---|---|---|
+| anchors (central) | 34.6 (19.5-52.6) | 4.9e5 (2.8e5-7.5e5) | 16.6 | 0.44 (0.12-0.66) | 1.1e7 |
+| per-level model | 209 (74-386) | 3.0e6 (1.1e6-5.5e6) | 100 | 0.71 (0.29-0.89) | 6.7e7 |
+
+- **Depth-3 nodes per orbit: 0.48** (14,192 frontier nodes against 29,580
+  orbits).
+- By class (anchors): fathomed 2% of the total, near 6%, 150-210 18%, 210-300
+  30%, **tail 44%** (4 nodes, 312-338 short, about 1,500 DNN nodes each).
+- Against `../roadmap/tree_size.md`: 1.0e4-6e4 DNN nodes per depth-3 orbit,
+  3e8-1.8e9 in all, 85-91% from the tail. The difference is three measured
+  effects multiplied together:
+  - the frontier is 0.48x;
+  - the tail fraction is 1.0%, not the random-line sample's 12.5%, and its
+    nodes are 312-338 short, not 405;
+  - the production configuration's subtrees are 20-50x smaller than the Oct 29
+    anchors (node 10: 2,193 DNN nodes then, 94 under cpcutt).
+- **What the interval leaves out.** The bootstrap covers sampling only. The
+  anchors carry their own error: node 5's estimate has an SE of about 35%,
+  node 1's is scaled from another setting, and all three are cold `-F`
+  subtrees of other nodes. A frontier node starts warm with its parent's pool
+  and state, so the anchors likely overstate its subtree. More important,
+  **no sampled node is beyond 343 short**. Zero of 400 puts a 95% upper bound
+  of 0.75% (106 frontier nodes) on the fraction beyond that, and at node 1's
+  13,000 DNN nodes each that would add up to 1.4e6, three times the central
+  total. This is stage D's question (the tail dives), and it is where the
+  estimate is weakest.
+- In CPU: 1.1e7 (anchors) to 6.7e7 (per-level) CPU s, plus up to 3e7 for the
+  unobserved far tail [e]. That is hours to about a day on 1,000 cores, not the
+  21-30 days of `../roadmap/README.md` section 3. Stages C (end to end by
+  stratum) and D (tail dives) are the measurements that would confirm it.

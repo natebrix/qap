@@ -216,6 +216,7 @@ dump under `settings.sh` equal to the dump rebuilt from the cpcutt arm's
 - **Gate, cloud box (after stage B)**: the 8 depth-2 replays with
   `sampling/validate.py` are still to run there, old binary (a667727 or
   fe14ac0) against this one, on the same machine.
+  Run Nov 9, a667727 against c378cad: `experiments/wil50_feasibility/sampling/results/phase2_gate_wil50.md` (every DNN result identical; the QPB values differ, by 18ebd58 alone).
 
 
 1. **Keyed settings in the par file.** Add an optional section after the
