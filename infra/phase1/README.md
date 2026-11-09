@@ -240,3 +240,13 @@ Accelerate:
   `bnbdrv -h` once and records its solution as the run's initial incumbent,
   then the `--no-ub` acceptance tests the pass-through from a realistic start
   (`runs/nug30-local-b/coordinator.log`).
+- **`nug20-local-noub`, the no-incumbent check moved to nug20: PASS.** The
+  nug30 recipe's settings on nug20 with no upper bound: 40 units, wall 95 s,
+  CPU 415 s; five improving solutions found inside units (2602, 2600, 2594,
+  2574, 2570), each verified by the coordinator and passed to the following
+  units, and the run finished on 2570, the optimum. `parallel.py` without an
+  incumbent also finished on 2570 with a different tree (25,101 nodes against
+  23,310), as expected when incumbents arrive in a timing-dependent order
+  (`runs/nug20-local-noub/compare.txt`). The nug30 variant without an
+  incumbent is dropped: a real run always starts from the QAPLIB best known
+  solution, and the pass-through it was meant to exercise is shown here.
