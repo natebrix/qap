@@ -49,6 +49,13 @@ objective grid is rounded up with a message (nug12 `-u 579` finds 578 again).
 
 ## C. Robustness and operations
 
+**C1 and C3 fixed Nov 8 evening**: `bench/parallel.py` checkpoints without
+stopping anyone (pool + running tasks' input nodes + finished tasks' totals),
+SIGTERM/SIGINT write a fresh checkpoint before killing the workers, and
+`--wall-limit S` drains and exits 3. Interrupted-and-resumed and
+wall-limited-and-resumed nug20 runs give the serial totals exactly
+(526,810 nodes, 15,351,033 FW iterations); `make test` passes. C2 and C4 open.
+
 | # | where | finding | status |
 |---|---|---|---|
 | C1 | `bench/parallel.py:259-273` | The checkpoint barrier: at each interval the coordinator signals every worker, launches nothing until all have exited, then writes. With long tasks (tho40) the running count drains 7, 6, ..., 0 before every checkpoint: 29% CPU utilisation over 5 h. The fix is a barrier-free checkpoint: the pool plus the input node lists of running tasks is a valid state at any instant (a resume redoes at most the in-flight tasks). The same should back the SIGTERM path, which today SIGKILLs workers and points at a stale checkpoint. | [v]. Highest-value operational fix before any multi-day run. |

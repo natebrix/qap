@@ -121,9 +121,15 @@ pool is empty, the busiest worker is sent SIGUSR1 and its remaining nodes are
 split among the idle ones. Statistics are summed and printed in the solver's
 own format (`Total Time` is CPU summed over workers). With a fixed upper bound
 such as the optimum, node and FW totals are identical to a serial run
-(`tests/parallel_test.py`). `--checkpoint F` periodically stops all workers and
-merges every open node into F, an ordinary state file: `--resume F` continues
-it, or `bnbdrv -r F` finishes it serially. `bench.py run --jobs N` runs each
+(`tests/parallel_test.py`). `--checkpoint F` periodically rewrites F, an
+ordinary state file holding every open node (the pool plus the nodes the
+running tasks were given) and the totals of the finished tasks, without
+stopping any worker; `--resume F` continues it (redoing at most the tasks that
+were in flight), or `bnbdrv -r F` finishes it serially. SIGTERM writes F the
+same way before stopping the workers, and `--wall-limit S` stops the workers
+at their next node after S seconds, writes F and exits 3. (Before Nov 8 2026
+a checkpoint stopped every worker and launched nothing until the last had
+exited, which on long-task instances such as tho40 idled 70% of the machine.) `bench.py run --jobs N` runs each
 instance this way; compare such runs with `compare --time wall`.
 
 On this 4-vCPU container nug16a ran 3.2x faster in wall time with 4 workers and

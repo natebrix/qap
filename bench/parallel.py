@@ -17,11 +17,18 @@ Uses the solver's state files (latest/state.h):
  3. New tasks start from the best incumbent found so far.
  4. Statistics from all pieces are summed and printed in the solver's own
     RESULTS format (bench.py parses it).
- 5. With --checkpoint F, every --checkpoint-every seconds all workers are
-    stopped and their nodes merged into F, an ordinary state file holding
-    every open node and the totals so far. --resume F continues from it (or
-    finish it serially: bnbdrv -r F). When the search finishes, F gets the
-    final totals (per-level statistics included) with no open nodes.
+ 5. With --checkpoint F, every --checkpoint-every seconds F is rewritten as
+    an ordinary state file holding every open node and the totals so far,
+    without stopping anyone: the open nodes are the pool plus the nodes the
+    running tasks were given, and the totals count finished tasks only, so a
+    --resume F redoes at most the tasks that were in flight and loses
+    nothing. (Until Nov 8 2026 a checkpoint stopped every worker first and
+    launched nothing until the last had exited; with long tasks that idled
+    most of the machine: 29% utilisation on tho40.) SIGTERM/SIGINT write F
+    the same way before the workers are killed. --wall-limit S asks every
+    worker to stop at its next node once S seconds have passed, writes F
+    when they have, and exits with code 3. When the search finishes, F gets
+    the final totals (per-level statistics included) with no open nodes.
 
 With a fixed upper bound (e.g. the known optimum) the work done on a node
 does not depend on which process does it, so node, fathom and FW totals are
@@ -161,6 +168,9 @@ def main():
                    help="wall seconds between checkpoints (default 600)")
     p.add_argument("--resume", help="continue from a checkpoint written by --checkpoint "
                    "(skips the frontier pass)")
+    p.add_argument("--wall-limit", type=float, default=0,
+                   help="after this many wall seconds, stop the workers at their next node, "
+                        "write the checkpoint and exit 3 (default: none)")
     p.add_argument("--workdir", help="keep task files here (default: a temp dir, removed)")
     args = p.parse_args()
 
@@ -198,7 +208,7 @@ def main():
           f"{args.jobs} workers", flush=True)
 
     # 2-3. workers
-    running = {}                    # pid -> [task path, start time, stop requested?, Popen]
+    running = {}                    # pid -> [task path, start time, stop requested?, Popen, its nodes]
     task_id = 0
     tasks_run = steals = 0
 
@@ -223,14 +233,14 @@ def main():
         log.close()
         # keep the Popen object: if it is garbage-collected, subprocess reaps
         # the child itself and os.waitpid below never sees it
-        running[proc.pid] = [path, time.perf_counter(), False, proc]
+        running[proc.pid] = [path, time.perf_counter(), False, proc, nodes]
 
     def steal():
         """Ask the longest-running worker that has run --steal-after seconds to
         save its remaining nodes and stop (SIGUSR1)."""
         nonlocal steals
         now = time.perf_counter()
-        cand = [(t0, pid) for pid, (path, t0, asked, proc) in running.items()
+        cand = [(t0, pid) for pid, (path, t0, asked, proc, _) in running.items()
                 if not asked and now - t0 >= args.steal_after]
         if not cand:
             return False
@@ -240,7 +250,22 @@ def main():
         steals += 1
         return True
 
+    def write_checkpoint(why):
+        """The state at this instant, without stopping anyone: every open node
+        (the pool, then the nodes each running task was given) and the totals
+        of the finished tasks. A resume redoes the in-flight tasks."""
+        open_nodes = list(pool)
+        for v in running.values():
+            open_nodes.extend(v[4])
+        total.obj, total.perm, total.found = best_obj, best_perm, best_found
+        total.write(os.path.abspath(args.checkpoint), open_nodes)
+        print(f"parallel: checkpoint ({why}) with {len(open_nodes)} open nodes "
+              f"({len(running)} tasks in flight), {total.counters[0]} nodes so far -> {args.checkpoint}",
+              flush=True)
+
     def stop_workers(signum, frame):
+        if args.checkpoint:
+            write_checkpoint(f"signal {signum}")
         for v in running.values():
             v[3].kill()
         for v in running.values():
@@ -251,35 +276,37 @@ def main():
     signal.signal(signal.SIGINT, stop_workers)
 
     next_checkpoint = time.perf_counter() + args.checkpoint_every
-    checkpointing = False
+    draining = False                # --wall-limit reached: no new tasks, workers stopping
 
     while pool or running:
-        # Parallel checkpoint: stop every worker (each saves its nodes), merge,
-        # write one state file holding the totals and every open node, go on.
-        if args.checkpoint and not checkpointing and time.perf_counter() >= next_checkpoint:
-            checkpointing = True
+        now = time.perf_counter()
+        if args.checkpoint and now >= next_checkpoint:
+            write_checkpoint("periodic")
+            next_checkpoint = now + args.checkpoint_every
+        if args.wall_limit and not draining and now - wall0 >= args.wall_limit:
+            draining = True
+            print(f"parallel: wall limit {args.wall_limit:.0f} s reached; stopping {len(running)} "
+                  f"workers at their next node", flush=True)
             for pid, v in running.items():
                 if not v[2]:
                     os.kill(pid, signal.SIGUSR1)
                     v[2] = True
-        if checkpointing and not running:
-            total.obj, total.perm, total.found = best_obj, best_perm, best_found
-            total.write(os.path.abspath(args.checkpoint), list(pool))
-            print(f"parallel: checkpoint with {len(pool)} open nodes, {total.counters[0]} "
-                  f"nodes so far -> {args.checkpoint}", flush=True)
-            checkpointing = False
-            next_checkpoint = time.perf_counter() + args.checkpoint_every
-        while pool and len(running) < args.jobs and not checkpointing:
+        if draining and not running:
+            if args.checkpoint:
+                write_checkpoint("wall limit")
+            sys.exit(3)
+        while pool and len(running) < args.jobs and not draining:
             launch(args.jobs - len(running))
         if not running:
             continue
         # idle slots and nothing queued: take work back from a busy worker
         idle = args.jobs - len(running)
         asked = sum(1 for v in running.values() if v[2])
-        while not checkpointing and idle > asked and steal():
+        while not draining and idle > asked and steal():
             asked += 1
-        # wait for a worker to finish (poll only while a steal is still owed)
-        if idle > asked or (args.checkpoint and not checkpointing):
+        # wait for a worker to finish (poll only while a steal is owed or a
+        # checkpoint or wall limit is due)
+        if idle > asked or args.checkpoint or args.wall_limit:
             pid, status = os.waitpid(-1, os.WNOHANG)
             if pid == 0:
                 time.sleep(0.02)
@@ -302,7 +329,6 @@ def main():
             pool.extend(st.nodes)          # unfinished nodes go back to the pool
         os.remove(path)
         os.remove(path + ".log")
-        # progress without stopping anyone (a checkpoint idles the early finishers)
         dc = total.arrays.get("dnn_counts", [0, 0])
         print(f"parallel: {tasks_run} tasks done, {total.counters[0]} nodes ({dc[0]} DNN, {dc[1]} DNN-fathomed), "
               f"{len(pool)} open, {len(running)} running, CPU {total.times[0]:.0f} s", flush=True)
