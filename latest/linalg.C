@@ -313,53 +313,6 @@ MAT *my_mtrm_mlt(MAT *A,MAT *B,MAT *OUT)
 	return OUT;
 }
 
-/*
-========================================================================
-
- R = mtvm_mlt(A,b,R);
-
- Computes A'*diag(b)*A, where b is a vector.
-
- If R is not allocated to be of an appropriate size, it is resized
- automatically.
-
-========================================================================
-*/
-MAT *mtvm_mlt0(MAT *A, VEC *b, MAT *R)
-{
-  int i,j;
-  MAT *temp=MNULL;
-
-  temp = m_get(A->m,A->n);
-  for(i=0;i<temp->m;i++)
-    for(j=0;j<temp->n;j++)
-      temp->me[i][j] = b->ve[i]*A->me[i][j];
-  R = my_mtrm_mlt(A,temp,R);
-  M_FREE(temp);
-  return R;
-}
-
-// Computes A'*diag(b)*A, where b is a vector.
-MAT *mtvm_mlt1(MAT *A, VEC *b, MAT *R)
-{
-  double v;
-  int i,j,k;
-  
-  if(R==NULL)
-    R = m_get(A->n,A->n);
-
-  for(i=0;i<A->n;i++) {
-    for(j=0;j<A->n;j++) {
-      v = 0.0;
-      for(k=0;k<A->m;k++) {
-	v += b->ve[k]*A->me[k][i]*A->me[k][j];
-      }
-      R->me[i][j] = v;
-    }
-  }
-  return R;
-}
-
 // compute R = A'*diag(R)*A
 // result is a symmetric matrix.
 MAT *mtvm_mlt(MAT *A, VEC *b, MAT *R)
@@ -396,16 +349,6 @@ MAT *mtvm_mlt(MAT *A, VEC *b, MAT *R)
 
 
 // permute rows of A, storing them in OUT.
-void permrows0(MAT *A,int *p,MAT *OUT)
-{
-  unsigned int i,j;
-
-  for(i=0;i<A->m;i++)
-    for(j=0;j<A->n;j++)
-      OUT->me[i][j] = A->me[p[i]][j];
-}
-
-// permute rows of A, storing them in OUT.
 void permrows(MAT *A,int *p,MAT *OUT)
 {
   register double *op, *op2;
@@ -417,16 +360,6 @@ void permrows(MAT *A,int *p,MAT *OUT)
     for(j=0;j<A->n;j++)
       *op++ = *op2++;
   }
-}
-
-// permute cols of A, storing them in OUT.
-void permcols_old(MAT *A,int *p,MAT *OUT)
-{
-  unsigned int i,j;
-
-  for(i=0;i<A->m;i++)
-    for(j=0;j<A->n;j++)
-      OUT->me[i][p[j]] = A->me[i][j];
 }
 
 // permute cols of A, storing them in OUT.

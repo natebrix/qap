@@ -111,12 +111,10 @@ exists in the problem.
 */
 void branch_init(int n)
 {
-#ifdef BNB_STANDALONE
   if(!use_weighted_branching) 
     std::cout << "[not using weight for branching] " << std::endl;
   else
     std::cout << "branching_weight = " << branching_weight << std::endl;
-#endif
   J_dim = 0; // only one J2 set
 
   J1 = NULL;
@@ -462,17 +460,6 @@ void mean_center(MAT *U, MAT *Uc) {
   }
 }
 
-//  data.apply(lambda r: np.minimum(1, r['u_raw'] / (r['inc'] - r['bound'] - r['u_raw'])), axis=1)
-void bound_ratio(MAT *U, MAT *Uc, double bound, double inc) {
-  int di,dj;
-  double u_mean = 0.0;
-  for (di = 0; di < U->m; di++) {
-    for (dj = 0; dj < U->n; dj++) {
-      Uc->me[di][dj] = fmin(1.0, U->me[di][dj] / (inc - bound));
-    }
-  }
-}
-
 void stretch(double *u_small, int n_small, double *u_big, int n_big)
 {
   // can I stretch in one pass?
@@ -519,24 +506,6 @@ void force_to_size(double *u_from, int n_from, double *u_to, int n_to)
 // - better training data
 // - just do a damn regression
 
-// this is like max sum.
-double oldboost_(double * u) {
-  double s = 0;
-  for (int i = 0; i < n_feat; i++) {
-    s += u[i];
-  }
-  return s;
-}
-
-double boost_(double * u) {
-  double s = 0;
-  for (int i = 0; i < n_feat; i++) {
-    // s += ((n_feat-i) / n_feat) * u[i];
-    s += lgb_coeff[i] * u[i];
-  }
-  return s;
-}
-
 double row_variance(MAT *U, int i) {
   int n = U->m;
   double s = 0;
@@ -567,19 +536,6 @@ double col_variance(MAT *U, int j) {
   return s;
 }
 
-
-double boost_r(double *u)
-{
-  //double c[16] = {0.0, 1.732157722488658, -1.648380178590576, -0.4665378793256804, 2.711946522941094, -4.288019243038716, 3.4277313643352585, -0.8209745637586882, -0.7141166537123252, 0.4300637229535143, 0.16052640683785357, -0.6166859405461684, 0.4364596320372438, 1.0571357531010204, -0.7094573991793847, -0.27175106778390024};
-  //double c[16] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-  double c[16] = {1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 5, 5, 5, 7, 10, 10};
-  double s = 0;
-  for (int i = 0; i < n_feat; i++) {
-    // s += ((n_feat-i) / n_feat) * u[i];
-    s += c[i] * u[i];
-  }
-  return s;
-}
 
 void select_index_lgb(const QAPAssignment &assign, bool can_branch_on_cols,
 		      int *J3, int J3_dim,
@@ -902,142 +858,6 @@ inline void row_rank_sum(const QAPAssignment &assign,QPBParameters *qpbp,
   rank_descending(u_row_sum,row_order,m);
 }
 
-inline void scores(const QAPAssignment &assign,
-		   double bound,QPBParameters *qpbp,
-		   int *J3,int J3_dim,MAT *U,MAT *S)
-{
-  int i,di,j,dj,J3_count;
-  double d;
-  double u_max,u_min,u_range;
-
-  u_min = U->me[0][0];
-  u_max = U->me[0][0];
-  for(i=0;i<U->m;i++)
-    for(j=0;j<U->n;j++)
-      {
-	if(U->me[i][j] > u_max)
-	  u_max = U->me[i][j];
-	else if(U->me[i][j] < u_min)
-	  u_min = U->me[i][j];
-      }
-  if(bound + u_max > qpbp->inc)
-    u_max = qpbp->inc - bound;
-  u_max = qpbp->inc - bound;
-
-  u_range = u_max - u_min;
-
-  di = -1;
-  for(i=0;i<assign.n;i++)
-    {
-      if(assign.p[i] > NONE) continue;
-      di++; // working on row di of U.
-
-      dj = -1; J3_count = 0;
-      for(j=0; (j<assign.n)&&(J3_count < J3_dim); j++) {
-	
-	// skip over columns not in J3.
-	if(assign.pinv[j] <= NONE) dj++;
-	if(j != J3[J3_count]) continue;
-	J3_count++;
-
-	// skip over columns that have already been assigned
-	if(assign.pinv[j] > NONE) continue;
-
-	// ignore disallowed assignments.
-	if(assign.disallowed(i,j)) continue;
-
-	//	S->me[di][dj] = pow(U->me[di][dj],1.5);
-	d = (U->me[di][dj] - u_min)/u_range;
-
-	//	if(d>1) d=1.15;
-	S->me[di][dj] = pow(d,3.0);
-
-      }
-    }
-}
-
-#include "sa_qap.h"
-inline void scores_expensive(QAP *qap,const QAPAssignment &assign,
-			     double bound,QPBParameters *qpbp,int use_best,
-			     int *J3,int J3_dim,MAT *U,MAT *S)
-{
-  int m = assign.n - assign.nfix;
-  int i,di,j,dj,J3_count;
-  double d;
-  int *p;
-  double *u_row_sum,*u_col_sum;
-  int *row_rank, *col_rank;
-
-  double s_max=-1e10, s_min=1e10;
-
-  QAP *qr = new QAP(m-1);
-  p = new int[m-1];
-
-  row_col_rank_sum(assign,qpbp,J3,J3_dim,U,false,
-		   u_row_sum,u_col_sum,row_rank,col_rank,m);
-
-  //  use_best = 100;
-
-  di = -1;
-  for(i=0;i<assign.n;i++)
-    {
-      if(assign.p[i] > NONE) continue;
-      di++; // working on row di of U.
-
-      // get qr->A  
-      assign.p[i] = 0;
-      reduceA(qap->A,qr->A,assign.p,m-1,assign.n);
-      assign.p[i] = NONE;
-
-      dj = -1; J3_count = 0;
-      for(j=0; (j<assign.n)&&(J3_count < J3_dim); j++) {
-	
-	// skip over columns not in J3.
-	if(assign.pinv[j] <= NONE) dj++;
-	if(j != J3[J3_count]) continue;
-	J3_count++;
-
-	// skip over columns that have already been assigned
-	if(assign.pinv[j] > NONE) continue;
-
-	if((row_rank[di] >= use_best)&&(col_rank[dj] >= use_best)) continue;
-
-	// ignore disallowed assignments.
-	if(assign.disallowed(i,j)) continue;
-	/*	
-	*/
-	assign.p[i] = j;
-	assign.pinv[j] = i;
-
-	// get qr->B
-	reduceB(qap->B,qr->B,assign.pinv,m-1,assign.n);
-	// get qr->C
-	reduceC(qap,qr,assign);
-
-	assign.p[i] = NONE;
-	assign.pinv[j] = NONE;
-
-	sa_qap(qr->A->me,qr->B->me,m-1,p,d,1000);
-
-	S->me[di][dj] = d;
-
-	if(d > s_max)  s_max = d;
-	if(d < s_min)  s_min = d; 
-
-      }
-    }
-
-  for(i=0;i<S->m;i++)
-    for(j=0;j<S->n;j++)
-      if(S->me[i][j] > 0.0)
-	S->me[i][j] = pow((S->me[i][j] - s_min)/(s_max - s_min),1.5);
-
-  delete [] p;
-  delete qr;
-  delete [] u_row_sum;  delete [] u_col_sum;
-  delete [] row_rank;   delete [] col_rank;
-}
-
 /*
 ============================================================ 
 
@@ -1160,93 +980,6 @@ void select_ind_max_sum(QAP *qap,const QAPAssignment &assign,
 
   delete [] u_row_sum;
   delete [] u_col_sum;
-}
-
-/*
-============================================================ 
- select_row_max_score()
-
- Choose the row i with largest \sum_{j=1}^n U_{ij}.
-============================================================ 
- */
-void select_row_max_score(QAP *qap,const QAPAssignment &assign,
-			int *J3, int J3_dim,MAT *X,MAT *U,
-			double bound,QPBParameters *qpbp,int use_best,
-			bool weighted,int &row_in_U,int &row_in_assign)
-{
-  int m = U->n;
-  double *u_score,best_score;
-  MAT *S; // holds scores
-
-  u_score = new_zero<double>(m);
-  S = m_get(U->m,U->n);
-
-  if(0) {
-    scores(assign,bound,qpbp,J3,J3_dim,U,S);
-  }
-  else {
-    scores_expensive(qap,assign,bound,qpbp,use_best,J3,J3_dim,U,S);
-  }
-
-  row_sum(assign,J3,J3_dim,S,u_score);
-
-  find_max(u_score,best_score,row_in_U,m);
-  get_row_in_assign(assign,row_in_U,row_in_assign);
-
-  delete [] u_score;
-  M_FREE(S);
-}
-
-/*
-============================================================ 
- select_ind_max_score()
-
- Choose the row i with largest \sum_{j=1}^n U_{ij},
- or choose row j with largest \sum_{i=1}^n U_{ij},
- whichever is best.
-============================================================ 
- */
-void select_ind_max_score(QAP *qap,const QAPAssignment &assign,
-			int *J3, int J3_dim,MAT *X,MAT *U,
-			double bound,QPBParameters *qpbp,int use_best,
-			bool weighted,int &ind_in_U,int &ind_in_assign,
-			bool &chose_row)
-{
-  int row_in_U, col_in_U;
-  int m = U->n;
-  double *u_row_score,best_row_score;
-  double *u_col_score,best_col_score;
-  MAT *S; // holds scores
-
-  S = m_get(U->m,U->n);
-  u_row_score = new_zero<double>(m);
-  u_col_score = new_zero<double>(m);
-
-  if(0) {
-    scores(assign,bound,qpbp,J3,J3_dim,U,S);
-  }
-  else {
-    scores_expensive(qap,assign,bound,qpbp,use_best,J3,J3_dim,U,S);
-  }
-  row_col_sums(assign,J3,J3_dim,S,u_row_score,u_col_score);
-
-  find_max(u_row_score,best_row_score,row_in_U,m);
-  find_max(u_col_score,best_col_score,col_in_U,m);
-
-  if(best_row_score >= best_col_score) {
-    chose_row = true;
-    ind_in_U = row_in_U;
-    get_row_in_assign(assign,row_in_U,ind_in_assign);
-  }
-  else {
-    chose_row = false;
-    ind_in_U = col_in_U;
-    get_col_in_assign(assign,col_in_U,ind_in_assign);
-  }
-
-  delete [] u_row_score;
-  delete [] u_col_score;
-  M_FREE(S);
 }
 
 /*
@@ -1736,231 +1469,6 @@ void select_row_max_sum_using_B(QAP *qap, QAPAssignment &assign,
   }
 }
 
-// returns the max row sum. The row that attains it is in row_in_X.
-//
-// qap should be the original QAP you want to solve.
-// assign should be the current node.
-// X and U should match the size of assign.
-void select_row_max_sum_buff(QAP *qap, QAPAssignment &assign,
-			       int *J3, int J3_dim, MAT *U,
-			       double bound, QPBParameters *qpbp, int use_best,
-			       int depth, int &row_in_U, int &row_in_assign)
-{
-  int which_bound = QP_BND_PARAM;
-  int use_best_down = 500; // should not consult U for sub calls
-      
-  int i,j,di,dj,J3_count;
-  int m = U->n, n = assign.n;
-  double *u_sum, best_sum;
-  int *order;
-  QAPAssignment child;
-  bool weighted = false;
-
-  // base case
-  if (depth <= 1) {
-    //U1 = m_resize(U1, m, m);
-    //if (assign.n - assign.nfix != m) {
-    //  printf("ERROR %d %d %d\n", assign.n, assign.nfix, m); // todo
-    //}
-    select_row_max_sum_using_B(qap, assign, J3, J3_dim, U,
-				      bound, qpbp, use_best,
-				      false, which_bound,
-				      row_in_U, row_in_assign);
-    // note: in theory I can set U_ij to the min of U1_row_in_U.
-  }
-  else {
-    MAT *U1 = NULL;
-    U1 = m_resize(U1, m-1, m-1);
-
-    //    for (i = 0; i < U->m; i++) {
-    //  for (j = 0; j < U->n; j++) {
-    //	U->me[i][j] = 0;
-    //      }
-    //    }
-    
-    row_rank_sum(assign,qpbp,J3,J3_dim,U,weighted,u_sum,order,m);
-    
-    di = -1;
-    for (i=0; i<assign.n; i++) {
-      if(assign.p[i] > NONE) continue;
-      di++; // working on row di of D.
-      
-      if (order[di] >= use_best) continue;
-      
-      dj = -1; J3_count = 0;
-      for (j=0; (j<assign.n) && (J3_count < J3_dim); j++) {
-	// skip over columns not in J3.
-	if (assign.pinv[j] <= NONE) dj++;
-	if (j != J3[J3_count]) continue;
-	J3_count++;
-	
-	// skip over columns that have already been assigned
-	if (assign.pinv[j] > NONE) continue;
-	
-	// ignore disallowed assignments.
-	if (assign.disallowed(i,j)) continue;
-	
-	child = assign;  	child.fix(i,j);	  
-	
-	//printf("recurse depth = %d, (%d, %d)\n", depth, i, j);
-	int r_u, r_a;
-	select_row_max_sum_buff(qap, child, J3, J3_dim,
-				U1, bound, qpbp, use_best_down,
-				depth-1, r_u, r_a);
-
-	// choose the min in the best row.
-	double best = 1e16;
-	for (int k=0; k<U1->n; k++) {
-	  if ((U1->me[r_u][k] > 0) && (best > U1->me[r_u][k])) {
-	    best = U1->me[r_u][k];
-	  }
-	}
-	/*
-	double best = 0;
-	int count = 0;
-	for (int k=0; k<U1->n; k++) {
-	  if (U1->me[r_u][k] > 0) {
-	    best += U1->me[r_u][k];
-	    count++;
-	  }
-	}
-	best /= count;
-	*/
-	//printf("before %f    after %f\n", U->me[i][j], best);
-	U->me[i][j] = best;
-      }
-    }
-    //nice_matrix_print(U->me, U->m, U->n);
-    select_row_max_sum(qap, assign, J3, J3_dim, U, bound, qpbp,
-		       weighted, row_in_U, row_in_assign);
-    delete [] u_sum;  delete [] order;
-    M_FREE(U1);
-  }
-}
-
-// same as previous, except the reduced B matrices (and corresponding
-// information for dual init. procedure) are cached rather than
-// recomputed.  Additional memory cost is 2*n^3 + n^2.
-void select_row_max_sum_using_B_new(QAP *qap,QAPAssignment &assign,
-				    int *J3, int J3_dim,MAT *X,MAT *U,
-				    double bound,QPBParameters *qpbp,
-				    int use_best,
-				    bool weighted,int which_bound,
-				    int &row_in_U,int &row_in_assign)
-{
-  int i,j,k,di,dj,J3_count,bi;
-  int m = U->n, n = assign.n;
-  double *u_sum,best_sum;
-  int *order;
-
-  //
-  row_rank_sum(assign,qpbp,J3,J3_dim,U,weighted,u_sum,order,m);
-
-  QAPAssignment child;
-  MAT *X1 = MNULL, *U1 = MNULL;
-  QAP *qr = new QAP(m-1);
-
-  X1 = m_resize(X1,m-1,m-1);
-  U1 = m_resize(U1,m-1,m-1);
-
-  MAT *Wa = MNULL;  VEC *wa = VNULL;
-  MAT **Wbs = NULL;  VEC **wbs = NULL;  MAT **Bs = NULL;
-  int wb_sz;
-
-  if(is_qpbnd(which_bound)) {
-    wa = v_get(m-1);      
-    Wa = m_get(m-1,m-1);  
-
-    reduced_B(qap,assign,J3,J3_dim,Bs,Wbs,wbs,wb_sz,m);
-  }
-
-  // Do a few iterations of qpbnd() for the best use_best rows
-  // of the current QAP, as determined by U.
-
-  di = -1;
-  for(i=0;i<assign.n;i++)
-    {
-      if(assign.p[i] > NONE) continue;
-      di++; // working on row di of D.
-
-      if(order[di] >= use_best) continue;
-
-      // get qr->A  
-      assign.p[i] = 0; assign.nfix++;
-      reduceA(qap->A,qr->A,assign.p,m-1,assign.n);
-      assign.p[i] = NONE; assign.nfix--;
-
-      if(is_qpbnd(which_bound)) 
-	init_w0(qr->A,wa,Wa,0);
-
-      dj = -1; J3_count = 0; bi = -1;
-      for(j=0; (j<assign.n)&&(J3_count < J3_dim); j++) {
-	
-	// skip over columns not in J3.
-	if(assign.pinv[j] <= NONE) dj++;
-	if(j != J3[J3_count]) continue;
-	J3_count++;
-
-	// skip over columns that have already been assigned
-	if(assign.pinv[j] > NONE) continue;
-
-	bi++;  // next entry of cached B's
-
-	// ignore disallowed assignments.
-	if(assign.disallowed(i,j)) continue;
-	
-	child = assign;  	child.fix(i,j);	  
-
-	// already have qr->B, it is in Bs[bi]
-	// already have wb, Wb
-
-	// get qr->C
-	reduceC(qap,qr,child);
-
-	init_X(X1,qr->A->m);
-
-	qpbp->shift = qr->shift;
-	qpbp->feasible = true;
-	qpbp->lap_scale = 1.0;
-	qpbp->improve = false;
-
-	if(is_qpbnd(which_bound)) {
-#ifdef BRANCH_USES_QPBND
-	  U->me[di][dj] = qpbnd2(qr->A,Bs[bi],qr->C,X1,U1,
-				 wa,wbs[bi],Wa,Wbs[bi],qpbp) - bound;
-#else
-	  U->me[di][dj] = qpbnd_parametric2(qr->A,qr->B,qr->C,X1,U1,
-					    wa,wb,Wa,Wb,qpbp) - bound;
-#endif
-	}
-	else {
-	  U->me[di][dj] = glbnd(qr->A,qr->B,qr->C,U1,qpbp->shift) - bound;
-	}
-      }
-    }
-
-  select_row_max_sum(qap,assign,J3,J3_dim,U,bound,qpbp,weighted,
-    		     row_in_U,row_in_assign);
-
-
-  // Free memory
-  delete qr;
-  delete [] u_sum;  delete [] order;
-
-  M_FREE(X1);  M_FREE(U1);
-  if(is_qpbnd(which_bound)) {
-    M_FREE(Wa);    V_FREE(wa);
-    for(k=0;k<wb_sz;k++) {
-      M_FREE(Bs[k]);
-      M_FREE(Wbs[k]);
-      V_FREE(wbs[k]);
-    }
-    delete [] Bs;
-    delete [] Wbs;
-    delete [] wbs;
-  }
-}
-
 /*
 ============================================================ 
   "lookahead strategy"
@@ -2361,27 +1869,6 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
     delete [] wbs;
   }
 }
-
-void select_ind_buff(QAP *qap,QAPAssignment &assign,
-		     int *J3, int J3_dim, int J3_default, MAT *X,MAT *U,
-		     double bound,QPBParameters *qpbp,int use_best,
-		     bool weighted, int which_bound, int depth,
-		     int &ind_in_U,int &ind_in_assign,
-		     bool &chose_row)
-{
-  if(J3_dim == J3_default_dim) {
-    // todo col support
-    select_row_max_sum_buff(qap, assign, J3, J3_dim, U, bound, qpbp,
-			    use_best, depth, ind_in_U, ind_in_assign);
-    chose_row = true;
-  }
-  else {
-    select_row_max_sum_buff(qap, assign, J3, J3_dim, U, bound, qpbp,
-			    use_best, depth, ind_in_U, ind_in_assign);
-    chose_row = true;
-  }
-}
-
 
 /*
 ============================================================ 

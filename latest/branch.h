@@ -128,19 +128,19 @@ Summarizing:
 At the beginning of the program, we read in a "symmetry file" to
 initialize J1,J2,J3.  Sometimes there are several J2,J3 sets.
 
-The format is 
+The format (whitespace-separated, 1-based indices, each list strictly
+increasing; read_symmetry in branch.C exits on anything else) is
 ---------------------
 |J1|
 J1
-number of J2,J3 sets
-
-first |J2|
-first J2
-second |J3|
-second J3
+number of (J2,J3) sets
+|J2| |J3|       <- first set
+J2
+J3
+|J2| |J3|       <- second set
 ...
 ---------------------
-The symmetry files end in .sym.
+The symmetry files end in .sym (SYM/nug22.sym is a two-set example).
 
 ============================================================
 */

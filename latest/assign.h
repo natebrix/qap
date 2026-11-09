@@ -95,7 +95,7 @@ struct WarmStart
   void (*dnn_free)(void *);
   // > 0: the children may take the DNN bound below the last DNN depth, this
   // many more levels (bnb.C, QAP_DNN_EXT): set when the parent's DNN bound ran
-  // and did not fathom. Not kept in state files either.
+  // and did not fathom. Kept in state files (version 4).
   int dnn_ext;
   // The parent's cut pool for its children (bnb.C QAP_DNN_POOL; DNNPool in
   // dnncut.h, dnn_pool_encode: one whitespace-free token), empty if none.

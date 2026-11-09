@@ -127,7 +127,8 @@ struct DNNCutParams {
   int grid_rows, grid_cols;  // regions: the prefixes of this grid over the
                       // original indices of `side`; 0: none
   int side;           // 0: regions over the first index (A), 1: the second (B)
-  bool prefix;        // regions: prefixes of the free elements (validation)
+  bool prefix;        // regions: prefixes of the free elements; what bnb.C uses
+                      // when no grid is given (grid_rows == 0)
   bool atomic;        // atomic triangle cuts instead of regional ones
   int cap_at_cutoff;  // 1: Polyak target = min(cutoff, best + delta) (default); 0: best +
                       // delta, so the step does not vanish within 0.01 of the cutoff

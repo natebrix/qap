@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define UNROLL_4
 double dlap(int dim, 
 	    double **assigncost,
 	    int *rowsol, 
@@ -72,112 +71,6 @@ double dlap(int dim,
   for (i = 0; i < dim; i++)  
     matches[i] = 0;
 
-#ifdef UNROLL_1
-  // COLUMN REDUCTION 
-  //cp = &colsol[dim-1];
-  cp = colsol + dim - 1;
-  for (j = dim-1; j >= 0; j--)    // reverse order gives better results.
-  {
-    // find minimum double over rows.
-    ap = &assigncost[0][j];
-    min = *ap;
-    //    min = assigncost[0][j]; 
-    imin = 0;
-    for (i = 1; i < dim; i++) {
-      //      ap += dim;
-      ap = &assigncost[i][j];
-      if(*ap < min) {
-	min = *ap;
-	imin = i;
-	} 
-    }
-    v[j] = min; 
-
-    if (++matches[imin] == 1) 
-    { 
-      // init assignment if minimum row assigned for first time.
-      rowsol[imin] = j; 
-      //      colsol[j] = imin; 
-      *cp = imin; 
-    }
-    else
-      *cp = -1;   // row already assigned, column not assigned.
-    cp--;
-  }
-#endif
-#ifdef UNROLL_2
-  double min2;  int imin2; double *ap2;
-  // COLUMN REDUCTION 
-  cp = colsol + dim - 1;
-  for (j = dim-1; j >= 1; j-=2)
-  {
-    // find minimum double over rows.
-    ap = &assigncost[0][j];    ap2 = &assigncost[0][j-1];
-    min = *ap;                 min2 = *ap2;
-    imin = 0;                  imin2 = 0;
-    for (i = 1; i < dim; i++) {
-      ap += dim;
-      if(*ap < min) {
-	min = *ap;
-	imin = i;
-	} 
-      ap2 += dim;
-      if(*ap2 < min2) {
-	min2 = *ap2;
-	imin2 = i;
-	} 
-    }
-    v[j  ] = min; 
-    v[j-1] = min2; 
-
-    if (++matches[imin] == 1) 
-    { 
-      // init assignment if minimum row assigned for first time.
-      rowsol[imin] = j; 
-      *cp = imin; 
-    }
-    else
-      *cp = -1;   // row already assigned, column not assigned.
-    cp--;
-    if (++matches[imin2] == 1) 
-    { 
-      // init assignment if minimum row assigned for first time.
-      rowsol[imin2] = j-1; 
-      *cp = imin2; 
-    }
-    else
-      *cp = -1;   // row already assigned, column not assigned.
-    cp--;
-  }
-
-  //  for (; j >= 0; j--,cp--)    // reverse order gives better results.
-  if(j==0)
-  {
-    // find minimum double over rows.
-    ap = &assigncost[0][j];
-    min = *ap;
-    //    min = assigncost[0][j]; 
-    imin = 0;
-    for (i = 1; i < dim; i++) {
-      ap += dim;
-      if(*ap < min) {
-	min = *ap;
-	imin = i;
-	} 
-    }
-    v[j] = min; 
-
-    if (++matches[imin] == 1) 
-    { 
-      // init assignment if minimum row assigned for first time.
-      rowsol[imin] = j; 
-      *cp = imin; 
-    }
-    else
-      *cp = -1;   // row already assigned, column not assigned.
-  }
-#endif
-#ifdef UNROLL_4
   double min2;  int imin2; double *ap2;
   double min3;  int imin3; double *ap3;
   double min4;  int imin4; double *ap4;
@@ -291,7 +184,6 @@ double dlap(int dim,
       *cp = -1;   // row already assigned, column not assigned.
     cp--;
   }
-#endif
 
   // REDUCTION TRANSFER
   for (i = 0; i < dim; i++) 

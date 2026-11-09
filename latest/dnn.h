@@ -32,7 +32,9 @@
      if (r.status == DNN_FATHOMED) ...  // r.lb > cutoff: prune
      node.bound = max(node.bound, r.lb) // r.lb is valid in every case
 
- Memory: about 100 m^4 bytes (75 MB at m = 28), allocated per call.
+ Memory: about 150 m^4 bytes, allocated per call (peak RSS over the
+ baseline, measured Nov 2026: 23 MB at m = 20, 34 MB at m = 22; so about
+ 90 MB at m = 28, 120 MB at m = 30 and 0.9 GB at m = 50).
 
  dnn_bound has no global state and allocates its own workspace, so it
  is reentrant (one call per thread; set the BLAS to one thread, see
