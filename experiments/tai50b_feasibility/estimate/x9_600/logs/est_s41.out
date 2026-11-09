@@ -1,0 +1,234 @@
+[Jan 1, 2023]
+vm
+estimator ON, branch and bound OFF
+parameters file: PARAM/nug_deep_xbar_all.par
+DNN bound at depths 1-9, relative gap <= 1, give up after 600 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+incumbent: 4.58822e+08
+input file: /home/claude/qap/experiments/tai50b_feasibility/estimate/../../../qaplib/tai50b.dat
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	8	150/100/25	30	30	
+0.12	4	8	150/100/12	3	30	
+0	6	8	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+branching_weight = 0.5
+couldn't find [./SYM/tai50b.sym], assuming no symmetry
+start dives at 1, 10000 trials, print every 1/1, score exp = 1.500000
+throw out dives with depth >= 1000
+!! ESTIMATE !! 
+Estimator seed = 41
+Dive history file = /home/claude/qap/experiments/tai50b_feasibility/estimate/x9_600/s41/dives.txt
+Scoring exponent = 1.5
+
+    Total Time: 31.7514 seconds 
+         Nodes: 1 / 0 / 0
+    root bound: 2.89435e+08
+ fw iterations: 52600
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   31.75
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+nodes       1        0        0        0 
+time    31.75     0.00     0.00     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+
+sum = 37.0767
+stack = 50
+Sun Nov  8 16:38:17 [     1 dives         1640495 nodes   25408893.55 seconds 0 ignored]
+
+    Total Time: 2.54089e+07 seconds 
+         Nodes: 1640495 / 1620808 / 0
+    root bound: 2.89435e+08
+ fw iterations: 82079810
+     DNN bound: 4 nodes, 1 fathomed, 955.762 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   31.75
+ 1          49	0.0000	0.0000	15138.52
+ 2        8059	0.0000	0.0000	2766947.06
+ 3       11578	0.0000	0.0000	3404258.92
+ 4     1620808	1.0000	N/A	19222517.31
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 49 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 8059 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 11578 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1620808 
+nodes      50        0  1640445        0 
+time 15170.27     0.00 25393723.28     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.832292	-nan
+ 2| 0.113746	-nan
+ 3| 0.039490	-nan
+ 4| 0.032838	-nan
+
+Sun Nov  8 16:59:14 [     2 dives        25856086 nodes  1698059348.75 seconds 0 ignored]
+
+    Total Time: 1.69806e+09 seconds 
+         Nodes: 25856086 / 24094273 / 0
+    root bound: 2.89435e+08
+ fw iterations: 1292993420
+     DNN bound: 9 nodes, 2 fathomed, 2201.19 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   31.75
+ 1          49	0.0000	0.0000	15320.82
+ 2        6709	0.0000	0.0000	2248612.05
+ 3       86539	0.0000	0.0000	26840009.68
+ 4     2478919	0.3269	0.0000	412972841.82
+ 5    23283869	1.0000	N/A	1255982532.62
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 49 
+ 2 |   0.0000   0.3995   0.6005   0.0000  | 6709 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 86539 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 2478919 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 23283869 
+nodes      50     2680 25853356        0 
+time 15352.58 865138.52 1697178857.65     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.831506	-nan
+ 2| 0.124025	0.012496
+ 3| 0.066589	0.007256
+ 4| 0.030003	0.001975
+ 5| 0.021669	-nan
+
+Sun Nov  8 17:14:16 [     3 dives        17285010 nodes  1132732744.56 seconds 0 ignored]
+
+    Total Time: 1.13273e+09 seconds 
+         Nodes: 17285010 / 16109930 / 0
+    root bound: 2.89435e+08
+ fw iterations: 864395022
+     DNN bound: 13 nodes, 3 fathomed, 3093.74 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   31.75
+ 1          50	0.0000	0.0000	15627.71
+ 2        4609	0.0000	0.0000	1540854.31
+ 3       58075	0.0000	0.0000	17998939.55
+ 4     1699694	0.3456	0.0000	275855602.82
+ 5    15522579	1.0000	N/A	837321688.42
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 50 
+ 2 |   0.0000   0.3875   0.6125   0.0000  | 4609 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 58075 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1699694 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 15522579 
+nodes      51     1786 17283171        0 
+time 15659.46 576759.01 1132140326.09     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.823533	-nan
+ 2| 0.123820	0.012287
+ 3| 0.066725	0.007420
+ 4| 0.031336	0.008131
+ 5| 0.021669	-nan
+
+Sun Nov  8 17:42:06 [     4 dives        50051178 nodes  1183209335.06 seconds 0 ignored]
+
+    Total Time: 1.18321e+09 seconds 
+         Nodes: 50051178 / 48279870 / 0
+    root bound: 2.89435e+08
+ fw iterations: 2502681160
+     DNN bound: 21 nodes, 4 fathomed, 4745.56 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   31.75
+ 1          51	0.0000	0.0000	15946.91
+ 2        3518	0.0000	0.0000	1173465.93
+ 3       44195	0.0000	0.0000	13664712.46
+ 4     1275714	0.3453	0.0000	207123911.95
+ 5    11644073	0.9998	0.0000	628446342.75
+ 6        7229	0.0000	0.0000	1248936.89
+ 7      878973	0.0000	0.0000	135783438.98
+ 8    36197422	1.0000	N/A	195752547.46
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 51 
+ 2 |   0.0000   0.3809   0.6191   0.0000  | 3518 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 44195 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1275714 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 11644073 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 7229 
+ 7 |   0.0000   0.0000   0.0000   1.0000  | 878973 
+ 8 |   0.0000   0.0000   0.0000   1.0000  | 36197422 
+nodes      52     1340 12973389 37076395 
+time 15978.66 432569.26 851224800.71 331535986.44 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.812245	-nan
+ 2| 0.123635	0.012282
+ 3| 0.067003	0.007712
+ 4| 0.031371	0.008234
+ 5| 0.021679	0.000750
+ 6| 0.073604	-nan
+ 7| 0.056853	-nan
+ 8| 0.024494	-nan
+
+Sun Nov  8 18:03:04 [     5 dives        40499533 nodes  951397954.56 seconds 0 ignored]
+
+    Total Time: 9.51398e+08 seconds 
+         Nodes: 40499532 / 39075239 / 0
+    root bound: 2.89435e+08
+ fw iterations: 2025085470
+     DNN bound: 26 nodes, 5 fathomed, 5991.17 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   31.75
+ 1          50	0.0000	0.0000	15962.51
+ 2        2942	0.0000	0.0000	986411.13
+ 3       36493	0.0000	0.0000	11262330.16
+ 4     1026543	0.3433	0.0000	167178734.21
+ 5     9766602	0.9998	0.0000	505726546.14
+ 6        5783	0.0000	0.0000	999149.51
+ 7      703178	0.0000	0.0000	108626751.18
+ 8    28957937	1.0000	N/A	156602037.97
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 50 
+ 2 |   0.0000   0.3644   0.6356   0.0000  | 2942 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 36493 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1026543 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 9766602 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 5783 
+ 7 |   0.0000   0.0000   0.0000   1.0000  | 703178 
+ 8 |   0.0000   0.0000   0.0000   1.0000  | 28957937 
+nodes      51     1072 10837291 29661115 
+time 15994.26 346055.41 685807115.74 265228789.15 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.825403	-nan
+ 2| 0.123301	0.012095
+ 3| 0.067044	0.007594
+ 4| 0.031453	0.008279
+ 5| 0.022333	0.003057
+ 6| 0.073606	-nan
+ 7| 0.056853	-nan
+ 8| 0.024494	-nan
+
