@@ -493,3 +493,23 @@ fathoms counts 1. The alternative is the per-level model alone, 47^(s/130).
   unobserved far tail [e]. That is hours to about a day on 1,000 cores, not the
   21-30 days of `../roadmap/README.md` section 3. Stages C (end to end by
   stratum) and D (tail dives) are the measurements that would confirm it.
+
+## Depth-1 lines at r.1 and r.5 (`depth1_lines.py`, Nov 9)
+
+`depth1_lines.py` and `depth1_lines_score.py`; results in
+`results/depth1_lines.md`. The test ran at the two weakest depth-1 nodes,
+`21:1` (541 short) and `21:10` (570 short), on HEAD fe31484's binary.
+
+- **Reruns under HEAD.** The root and both nodes were rerun first. The root's
+  QPB bound is now 46,131.508, but the nodes' DNN bounds and their children's
+  first solves equal a667727's to the printed digit.
+- **The comparison.** Rule 9's line (col 0 at both nodes) against the next
+  three lines by rule 8's score. Each line's 49 depth-2 children were built by
+  one rewrite from the node's warm start and bounded to their first DNN solve,
+  with no cut phase. The rewrite reproduces rule 9's children bit for bit.
+- **No clear winner by the 1.5x rule.** Row 45 is rule 8's top line, and the
+  row that rule 9's lookahead rejected by 0.02% of its score. It is better on
+  every subtree-type score at both nodes: lines cost 1.8-2.0x, expected
+  subtree 1.2-1.85x. But it has no first-solve fathom against col 0's 2, and
+  the 95% lower ends of its expected-subtree margins are 1.08-1.24.
+- **Cost:** 53,529 CPU s, 4.06 h of wall on 4 CPUs.
