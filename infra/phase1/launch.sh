@@ -76,7 +76,8 @@ if [ "$Q" != "?" ] && [ "${Q%.*}" -lt "$VCPU" ]; then
   echo "the $MARKET vCPU quota in $REGION ($Q) is below one $TYPE ($VCPU vCPUs). Check the request:"
   echo "  aws service-quotas list-requested-service-quota-change-history --service-code ec2 --region $REGION"
   echo "or try another --region, --type, or --on-demand if that quota is higher"
-  exit 1
+  [ "$DRY" = 1 ] || exit 1
+  say "dry run: going on to show the rest (a real launch stops here)"
 fi
 
 # --- the coordinator's storage (idempotent; the same definitions as the moto tests)
