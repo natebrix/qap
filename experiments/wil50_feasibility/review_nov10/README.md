@@ -10,11 +10,9 @@ the cheap tests on the cloud box (4 Xeon cores with AMX, one process per
 core). Sections 2 and 3 hold what was measured; section 4 ranks what is left.
 `[m]` is measured here, `[r]` is from the record, `[e]` is my estimate.
 
-**Status: in progress.** Sections 1, 2.1 (session 1), 2.2-2.4, 3.1, 3.2, 5 and
-6 are final. Session 2 of section 2.1 (the cut phase's stall window and
-sweep count) is running; the cut-phase findings, the bound-side findings and
-the ranked list (sections 3.3, 3.4 and 4) follow when it and a wider-zone
-test finish.
+**Status: in progress.** Everything is final except the zone test (section
+3.4), a second parent for section 3.5, and the ranked list (section 4),
+which follow when the zone test finishes.
 
 **So far.**
 - The ADMM iteration and the typical leaf are tuned out: nothing tried is
@@ -25,6 +23,11 @@ test finish.
 - A warm solve that will miss can stop at iteration 110 instead of 300,
   worth up to 6% on the tail class, if cold solves keep their 300 (sections
   2.3 and 3.2).
+- In the cut phase only three Dykstra sweeps per iteration help: +7.7 units
+  where the phase stops, 1.027x on node 10's subtree (section 3.3).
+- One union node fathoms a line's strong children four times cheaper than
+  one by one, but the strong leaves are the cheap ones: about 1.08x (section
+  3.5).
 
 ## 1. Where the time goes
 
@@ -58,7 +61,8 @@ near their floor.
 
 ## 2. What was measured
 
-Everything here is at production settings on HEAD's binary. Iteration counts
+Everything here is at production settings on the binary built at `bfe38d4`
+(before 6335dea's change to rule 9). Iteration counts
 are deterministic; CPU ratios are same-session (arms side by side, one per
 core).
 
@@ -80,7 +84,32 @@ Session 1 (`runs/s1_*`):
   214, misses the zone, and its phase is replaced by six phases one level
   down. A lower floor must not apply to cold solves.
 
-Session 2 (`cut.stall` 2 and 5, `cut.cp_sweeps = 3:1`) is running.
+Session 2, the cut phase (`runs/s2_*`; this session's CPU is 6% above session
+1's for the same work, so each session has its own baseline):
+
+| arm | nodes / fathomed | phases (fathomed) | iterations (first + phase) | DNN CPU | against baseline |
+|---|---|---|---|---|---|
+| baseline | 94 / 92 | 2 (0) | 6,429 (4,359 + 2,070) | 2,055 s | |
+| three Dykstra sweeps per iteration (`cut.cp_sweeps = 3:1`) | 94 / 92 | 2 (0) | 6,094 (4,064 + 2,030) | 2,002 s | 1.055x iterations, 1.027x CPU |
+| stall window 400 instead of 600 (`cut.stall = 2`) | 94 / 92 | 3 (1) | 6,618 (5,259 + 1,359) | 2,066 s | 0.971x, 0.995x |
+| stall window 1,000 (`cut.stall = 5`) | 94 / 92 | 2 (0) | 7,200 (4,110 + 3,090) | 2,330 s | 0.893x, 0.882x |
+
+The two phases of each arm, in units short of the cutoff:
+
+| arm | root: iterations, CPU | root ends | pooled miss `45:49`: first solve, phase end (iterations) |
+|---|---|---|---|
+| stall window 400 | 780, 285 s | 83.6 | 44.5, 33.8 (400) |
+| baseline | 1,110, 402 s | 73.8 | 39.5, 23.9 (960) |
+| stall window 1,000 | 1,690, 607 s | 65.4 | 34.9, 20.7 (1,400) |
+| three sweeps | 1,110, 429 s | 66.1 | 34.5, 20.7 (920) |
+
+- Three sweeps reach the long window's bound in the baseline's iterations:
+  +7.7 units for 7% more phase CPU.
+- On the 92 leaves, three sweeps save 295 iterations, all of them in the 13
+  slow leaves (1,827 to 1,515); the other 79 are unchanged (1,932 and 1,949).
+  The long window saves 249 the same way and spends 1,020 more in the phases.
+- With the short window one marginal leaf (`0:49`, 354 iterations in the
+  baseline) misses by 2.3 and needs a phase of its own.
 
 ### 2.2 A warm child's certificate, iteration by iteration
 
@@ -186,9 +215,95 @@ whether a phase at a 244-300 parent would pay.
 - This needs a warm-only floor (a few lines and a settings key) and a
   tail-subtree A/B. Not built here.
 
-### 3.3 The cut phase, 3.4 Bound strength, and 4. Ranked list
+### 3.3 The cut phase: a flat optimum on node 10, and one cheap gain
 
-To come with session 2 and the zone test.
+The phase became one CP-ADMM solve on Nov 7. Its stall rule and its beta
+factor (`wc=0.7`) came over from the Polyak rounds and were not varied in
+the search since; three sweeps were measured on node 13's frozen pool (+6.2
+at 1,000 iterations) and never run in the search (`roadmap/admm/cpadmm/`).
+
+- **Three Dykstra sweeps per iteration: +7.7 units where the root's phase
+  stops, 1.027x on the subtree** (section 2.1, session 2). No node changes
+  outcome on this subtree, so what shows is only the 13 slow leaves getting
+  17% shorter. Under the tree model 7.7 units are worth 1.13-1.25x where
+  nodes do change outcome [e]; one 94-node subtree cannot show that.
+- **The stall window is at a flat optimum.** A shorter window saves phase
+  iterations and pays them back in the leaves; a longer one costs more than
+  it returns.
+- **A pooled miss's own phase buys little.** `45:49` arrives 39.5 short with
+  the root's pool, and its phase ends 23.9 short after 960 iterations, 15%
+  of the subtree. Without the root's pool the same node needs 1,540
+  iterations to end 26.2 short (session 1's last arm), so the cuts reach the
+  same place either way and a pool only moves the work. Cutting that phase
+  to 400 iterations moves the cost to its children about one for one (the
+  short-window arm).
+
+### 3.4 Bound strength: no cut family is left at degree 2
+
+- **The triangle pool's reach ends below the cutoff at depth 3**: node 13
+  certifies 48,771.7 after 3,000 CP iterations, 42 short, nearly flat [r].
+  The record's synthesis finds no further family at degree 2 (section 5),
+  and I found none.
+- **Box cuts inside the CP phase are the one untried combination, and I rate
+  it unlikely.** The pool format carries boxes and the CP phase has no
+  multiplier step for them to disturb, which is what killed them in the
+  Polyak rounds. But the +17 they showed was measured on top of an
+  unconverged triangle iterate (48,714 certified, where the triangles alone
+  later reach 48,772 in CP form), and by round 12 of the pool test the
+  Lagrangian with boxes was no higher than without [r]. The cheap first
+  step is to separate boxes at a CP phase's final iterate on nodes 10 and
+  13: if the violations are small there, the family is closed for good.
+- So what a node gets from the cuts is set by two things that can still
+  move: how converged its phase is when it stops (three sweeps, section
+  3.3) and which nodes run a phase at all (the zone, below).
+
+(The zone test is running; its findings go here.)
+
+### 3.5 A search-side candidate: one node for a line's strong children
+
+A union node is the parent with all but a chosen set of one line's children
+forbidden (`DNNParams::elim`), warm-started from the parent's own state. It
+is a solve of the parent's size, and if it crosses the cutoff every child in
+the set is fathomed. The record closed this as region branching on one
+nug30 node, solved cold at a far miss (`experiments/region_branching/`), and
+noted that the wil50 check was never run. This is that check, warm, at a
+parent whose children all fathom.
+
+Probe (`union/`, a scratch pass `-G` in the test driver, the solver
+untouched): parent `26:27,8:38,34:28` on `wil50.dat`, 72 short at its
+give-up, line row 37. Its 47 children all fathom alone, in 1,439 iterations
+and 474 s. "Strong" is by how the children did alone:
+
+| set | as one union node | members alone | CPU, union / alone |
+|---|---|---|---|
+| 2 strongest | fathoms, 22 it, 8.5 s | 40 it, 13.7 s | 0.62 |
+| 4 strongest | fathoms, 29 it, 10.9 s | 80 it, 27.2 s | 0.40 |
+| 8 strongest | fathoms, 39 it, 13.4 s | 160 it, 55.1 s | 0.24 |
+| 16 strongest | gives up 1.5 short at 330 it, 118 s | 325 it, 112 s | fails |
+| 4 marginal (alone: 25-28 it, under 3 above the cutoff) | fathoms, 121 it, 42.8 s | 105 it, 35.5 s | 1.21 |
+| 2 slowest | fathoms, 140 it, 50.2 s | 129 it, 39.7 s | 1.27 |
+| 8 slowest | gives up 28.5 short at 300 it, 108 s | 442 it, 139 s | fails |
+
+- **A union is about as strong as its weakest member, a little less.** That
+  is the record's finding for blocks, and it holds here.
+- **Among strong members it converges almost as fast as one child**: 22, 29
+  and 39 iterations for 2, 4 and 8 of them.
+- **So it pays for exactly the children that fathom with room to spare**:
+  here the 8 that are 19 or more above the cutoff at iteration 20, four
+  times cheaper as one node. One marginal member is enough to sink a set.
+- **The prize is small, because the strong leaves are the cheap ones.** On
+  node 10's two lines 16 and 21 of the 46 leaves stop 23 or more above the
+  cutoff. Those 37 leaves are 19% of the leaf CPU and 11% of the subtree
+  [m], so union nodes are worth about 1.08x there once the unions' own cost
+  is paid [e]. The marginal leaves that carry the cost cannot be grouped.
+- **What it needs.** A way to pick the strong children before bounding them
+  (the parent's marginals, or the union's own first 20 iterations; being checked), nodes that carry eliminations in `bnb.C` and in
+  the state file, and a test with a pool, which the test driver cannot do.
+  A few days of work.
+
+## 4. What is left, ranked
+
+(To come with the zone test.)
 
 ## 5. Checked against the record and closed
 
