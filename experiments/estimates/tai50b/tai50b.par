@@ -1,0 +1,67 @@
+0    has the location of a symmetry file been provided?
+-1    restriction on tree depth (-1 means none)
+4    number of branching rules
+
+0.20 use this rule when gap is worse than...
+2    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 30    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+4    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than... (all nodes thru depth 6 use rule 8)
+6    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+ 2    branching rule at bottom of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+[settings]
+# tai50b's current settings (experiments/estimates/README.md): the tuned estimate of
+# Nov 8 (tai50b_feasibility/NOTES.md section 5: -x 1:9:1:600:1 on the nug30 record
+# values) as keys, with rule 9 (nug_deep_xbar9_all.par), which the record names; that
+# run used rule 8 (nug_deep_xbar_all.par, its log header). No symmetry, no cut phase
+# (no grid). The estimator's dive sampler: est.xbar = 1, est.xbar_mix = 0.3.
+dnn.gamma1 = 1.0
+dnn.gamma = 1.0
+dnn.cheb = 3
+dnn.tight_lam = 2
+dnn.beta = 0.21
+dnn.refresh = 120
+dnn.warm_y = 2
+dnn.ext = 20
+dnn.gu_zone = 0.003
+ship.bits = 64
+dnn.cross = 2
+dnn.lazycert = 1
+dnn.beta_sched = w=0.36
+dnn.depths = 1:9
+dnn.maxgap = 1
+dnn.giveup = 600
+dnn.warm = 1
+est.xbar = 1
+est.xbar_mix = 0.3

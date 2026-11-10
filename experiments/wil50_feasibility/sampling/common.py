@@ -17,7 +17,10 @@ sys.path.insert(0, os.path.join(R, "bench"))
 from parallel import State, Warm  # noqa: E402,F401  (the solver's state-file format, latest/state.h)
 import envpar  # noqa: E402  (settings overrides into a params file's [settings] section)
 
-SETTINGS = os.path.join(R, "experiments", "wil50_feasibility", "fullrun", "settings.sh")
+# SAMPLING_SETTINGS / SAMPLING_PARAMS: another instance's settings file and params file
+# (experiments/estimates/INSTANCE/settings.sh, which defines the same FULLRUN_* names and
+# fullrun_check); unset, the full wil50 run's
+SETTINGS = os.environ.get("SAMPLING_SETTINGS") or os.path.join(R, "experiments", "wil50_feasibility", "fullrun", "settings.sh")
 # the full run's params file (fullrun/README.md): nug_deep_xbar9_all.par (rule 9, lookahead
 # between the two DNN-marginal lines, through depth 6, rule 2 below) with every solver
 # setting in its [settings] section, the depth spec included (dnn.depths = 1:4, the DNN
@@ -25,7 +28,7 @@ SETTINGS = os.path.join(R, "experiments", "wil50_feasibility", "fullrun", "setti
 # levels below a miss: from depth 3 down exactly the absolute depths of the measured
 # node-10 arms; dnn.giveup = 300; dnn.warm = 1). Until Nov 9 the settings were the
 # environment of settings.sh and the depth spec the flag -x 1:4:1:300:1.
-PARAMS = os.path.join(R, "experiments", "wil50_feasibility", "fullrun", "fullrun.par")
+PARAMS = os.environ.get("SAMPLING_PARAMS") or os.path.join(R, "experiments", "wil50_feasibility", "fullrun", "fullrun.par")
 XSPEC = ""   # no -x: the params file carries the depth spec (a value here overrides it)
 SOLVER_PREFIXES = ("QAP_", "DNN_")
 THREAD_VARS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS")
@@ -148,10 +151,15 @@ def write_one(src_path, index, out_path, warm="keep"):
     warm = keep (its warm start as written), nodnn (without the DNN state) or
     none (no warm start at all, the node as -F starts it)"""
     st = State(src_path)
-    if st.magic[1] not in ("6", "7", "8"):   # the warm line carries the DNN state from 6; 7 adds
-        raise ValueError(f"{src_path}: state version {st.magic[1]}, expected 6-8")   # tables, 8 the settings record
+    # the warm line carries the DNN state from 6; 7 adds tables, 8 the settings record, 9 lets
+    # the DNN state be a reference into a parent-state store ("@warm/<hash>.dnn") instead of
+    # inline, which the solver writes only under QAP_DNN_WARM_DIR (these scripts never set it)
+    if st.magic[1] not in ("6", "7", "8", "9"):
+        raise ValueError(f"{src_path}: state version {st.magic[1]}, expected 6-9")
     st.zero_stats()
     text, w = st.nodes[index]
+    if warm == "keep" and w is not None and w.text.rpartition(" ")[2].startswith("@"):
+        raise ValueError(f"{src_path}: node {index}'s DNN state is a store reference; run without QAP_DNN_WARM_DIR")
     if warm == "nodnn":
         w = strip_dnn(w)
     elif warm == "none":
@@ -179,7 +187,8 @@ def run_bnbdrv(binary, args, env, log_path, trace_path=None, cpu=None, procs=Non
     """bnbdrv ARGS in latest/ (where PARAM/ and SYM/ resolve), pinned to `cpu`,
     one thread (the settings set the thread variables), its own session; the DNN
     trace to trace_path. procs: a dict the caller uses to signal running solvers."""
-    cmd = (["taskset", "-c", str(cpu)] if cpu is not None else []) + [binary] + list(args)
+    # pinned where taskset exists (Linux); macOS has no CPU pinning for user processes
+    cmd = (["taskset", "-c", str(cpu)] if cpu is not None and shutil.which("taskset") else []) + [binary] + list(args)
     e = dict(env)
     if trace_path:
         e["QAP_DNN_TRACE"] = trace_path

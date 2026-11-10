@@ -1,0 +1,13 @@
+# the coordinator's stores, work directories and private binaries (subtree.sh)
+*/subtrees/*/backend/
+*/subtrees/*/work/
+*/subtrees/*/bin/
+# the traced search's checkpoint and parent-state store, and the depth-0 state (trace_estimate.sh)
+*/trace/search.ckpt*
+*/trace/warm/
+*/trace/work/
+*/trace/depth2/root.state
+# the sampling plan's run directories (sko49/run_stages.sh): big state files
+*/stage*/tasks/*/*.state
+*/stage*/tasks/*/*.state.gz
+*/stage*/*.state
