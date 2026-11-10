@@ -41,4 +41,4 @@ echo "$(date '+%F %T') tai50b: ${#seeds[@]} estimator processes (seeds ${seeds[*
 wait
 all=$(cd "$D" && ls -d s* | sed 's/^s//' | sort -n | tr '\n' ' ')
 python3 -I experiments/tai50b_feasibility/estimate/pool.py "$D" $all | tee "$D/pool.txt"
-echo; echo "To share: git add experiments/estimates/tai50b && git commit -m 'tai50b dives' && git push"
+echo; echo "To share (est.out and dives.txt are ignored while running): git add -f experiments/estimates/tai50b/dives && git commit -m 'tai50b dives' && git push"
