@@ -162,3 +162,29 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
 wil50's anchors first: they move the instance we are going to run. Then
 tai50b overnight, tho40 and sko42 as one evening each, and sko49's stages A
 and B as one night.
+
+## Cold against warm: a220 as production would bound it (cloud box, Nov 10)
+
+Every measured subtree behind wil50's estimate started cold from `-F`: no
+parent DNN state and no inherited pool. Under `cut.zone = 0.0075`, the
+parents of three of the four nodes measured so far (a220, a251, and the
+laptop's 13:1,21:0,45:2) are 299-361 short and now run a cut phase, so in the
+production search those nodes start warm and pooled.
+
+a220 run as production would, `wil50/warm/` (`run_warm_a220.sh`):
+1. its ancestors bounded by stage A's own tasks under `fullrun.par`
+   (`stage_a.py --only r,r.12,r.12.22`);
+2. the parent 21:22,31:23: first solve 299.2 short, then its cut phase to
+   190.6 short (800 iterations), 28 children, a220 among them;
+3. a220's one-node state from the parent's state, then its whole subtree with
+   `bench/parallel.py --resume` on 4 cores. `--allow-settings-change` is
+   needed because stage A records its copy of `fullrun.par`: the settings
+   are identical value for value, and only the params file's hash differs.
+
+| a220 | first solve | DNN nodes | iterations | DNN CPU |
+|---|---|---|---|---|
+| warm, pooled (this run) | 136.4 short, phase to 110.4 | 232 | 18,029 | 5,871 s (cloud box) |
+| warm, no pool (stage B, zone 0.005) | 226.8 short | | | |
+| cold `-F` (laptop, `wil50/subtrees/a220/`) | | | | |
+
+The cold row comes from the laptop's `run_anchors.sh`.
