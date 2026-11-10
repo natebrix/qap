@@ -112,6 +112,15 @@ The two phases of each arm, in units short of the cutoff:
   The long window saves 249 the same way and spends 1,020 more in the phases.
 - With the short window one marginal leaf (`0:49`, 354 iterations in the
   baseline) misses by 2.3 and needs a phase of its own.
+- **Laptop replicate, Nov 10 (`runs/l_sweeps1`, `runs/l_sweeps3`,
+  `runs/l_sweeps_cmp.txt`):** the same subtree under `fullrun.par` (zone
+  0.0075, which changes nothing here: the root is 214 short, inside both
+  zones), binary 7ab4a52, M2 Pro with Accelerate, one core per arm side by
+  side. Iterations reproduce the Xeon's (6,428 against 6,096, 1.054x; the
+  same 13 slow leaves, 1,825 to 1,517; the root's phase +7.7 units), but
+  the CPU is a wash: 685 s against 686 s (0.998x). The three sweeps cost 28 s
+  more in the two phases (+11%, against +7% on the Xeon) and save 28 s on the
+  leaves. Below the 1.03x adopt line on this machine; not adopted.
 
 ### 2.2 A warm child's certificate, iteration by iteration
 
@@ -383,7 +392,7 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 | # | what | evidence | expected | cost | next step and kill line |
 |---|---|---|---|---|---|
 | 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | the complete subtree of a 325-short node: 1.110x in DNN CPU, 1.149x in iterations, no fathom lost [m]; passes this table's own line (1.05x, no fathom lost) | 1.05-1.1x on the tree [e]: it acts on subtrees under nodes in the band | a settings line | **adopted Nov 10** (`fullrun.par`); a tail node (400+ short) at 0.0075 and 0.009 would say whether to go wider |
-| 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
+| 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r]; laptop replicate 1.054x iterations, 0.998x CPU (section 2.1) [m] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
 | 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m] | up to 1.06x on the tail class, nothing near the cutoff [e] | a settings key and a few lines; the zone test on the rule's predicted value | tail subtree A/B; kill under 1.02x |
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
 | 5 | the early certificate at iteration 5 of warm solves | 1.016x on the subtree [m] | 1.016x | promote `DNN_ADMM_CROSS_FIRST` from an experiment name to a settings key | none; take it with the next settings change |
