@@ -295,7 +295,7 @@ Stopped after 16 minutes for the full-subtree test below, so the same 13 and
 Full subtree of the 325-short node (`zone/subtree/`): `run_pair.sh cpcutt`
 with `PAB_EXTRA_T="-F 13:1,21:0,45:2 ..."`, the production zone against
 `PAB_CUT_ZONE=0.0075` (366 units). **Not completed here.** The subtree is far
-larger than this box could finish: the production arm stood at 911 nodes and
+larger than this box could finish: the production arm stood at 912 nodes and
 6.8 CPU-hours and the wide arm at 705 nodes and 5.0 CPU-hours, with 14 of the
 47 children reached in neither. What follows is the 28 children whose whole
 subtrees are complete in both arms (`subtree.py`, `compare_partial.txt`):
