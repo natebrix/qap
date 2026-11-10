@@ -30,6 +30,8 @@ PAR_R8 = os.path.join(HERE, "..", "cutd2_cp.par")        # the record recipe (ru
 PAR_R9 = os.path.join(HERE, "cutd2_cp_r9.par")           # the same with rule 9, for its line choice
 UB = 149936
 N = 30
+RANK_X = "1:7:1:200:1"   # the -x of the ranking run (empty: the par's own dnn.* settings)
+# every one of these is overridden by --dat/--par/--par-rank/--ub/--n/--rank-x (e.g. tho40t at depth 3)
 ENV = dict(os.environ, VECLIB_MAXIMUM_THREADS="1")
 
 
@@ -46,8 +48,8 @@ def parse_fix(s):
 def ranking(node):
     """The node's lines by marginal score and rule 9's choice (the solver's own prints)."""
     env = dict(ENV, QAP_XBAR_DEBUG="2")
-    rc, out, err = run([BNBDRV, "-p", PAR_R9, "-u", str(UB), "-F", node, "-d", str(node.count(":") + 1),
-                        "-x", "1:7:1:200:1", DAT], env=env)
+    rc, out, err = run([BNBDRV, "-p", PAR_R9, "-u", str(UB), "-F", node, "-d", str(node.count(":") + 1)]
+                       + (["-x", RANK_X] if RANK_X else []) + [DAT], env=env)
     if rc != 0:
         sys.exit("ranking run failed (rc=%d):\n%s\n%s" % (rc, out[-2000:], err[-2000:]))
     depth = node.count(",") + 1
@@ -214,8 +216,9 @@ def save(path, rec):
 
 
 def summary(recs, outdir):
-    out = ["# Line score against subtree truth, tho30 depth-1 nodes (%s)\n" % time.strftime("%Y-%m-%d"),
-           "Recipe `../cutd2_cp.par`; (a) cold first solve of every child, give-up 300, no cut phase, "
+    out = ["# Line score against subtree truth, %s depth-%d nodes (%s)\n"
+           % (os.path.basename(DAT).replace(".dat", ""), recs[0]["node"].count(":"), time.strftime("%Y-%m-%d")),
+           "Recipe `%s`; (a) cold first solve" % os.path.relpath(PAR_R8, ROOT) + " of every child, give-up 300, no cut phase, "
            "shortfall = cutoff - lb summed over the children where positive; (b) every child's subtree "
            "to completion with `-F`, summed plus 1. Ranks: 1 = best (smallest).\n"]
     for rec in recs:
@@ -256,18 +259,32 @@ def summary(recs, outdir):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--node", action="append", required=True, help="depth-1 node as i:j (repeatable)")
+    ap.add_argument("--node", action="append", required=True, help="node as i:j[,i:j...] (repeatable)")
     ap.add_argument("--lines", type=int, default=8, help="candidate lines per node (default 8)")
     ap.add_argument("--jobs", type=int, default=8)
     ap.add_argument("--out", default=os.path.join(HERE, "results"))
     ap.add_argument("--summary-only", action="store_true", help="rewrite summary.md from the saved results")
+    ap.add_argument("--dat", help="instance (default qaplib/tho30.dat)")
+    ap.add_argument("--par", help="the recipe par for (a) and (b) (default ../cutd2_cp.par)")
+    ap.add_argument("--par-rank", help="the par whose rule 9 choice is taken (default cutd2_cp_r9.par; use --par when the recipe is rule 9 already)")
+    ap.add_argument("--ub", type=int, help="upper bound (default 149936)")
+    ap.add_argument("--n", type=int, help="instance size (default 30)")
+    ap.add_argument("--rank-x", help="-x for the ranking run (default 1:7:1:200:1; '' for none)")
     a = ap.parse_args()
+    global DAT, PAR_R8, PAR_R9, UB, N, RANK_X
+    if a.dat: DAT = os.path.abspath(a.dat)
+    if a.par: PAR_R8 = os.path.abspath(a.par)
+    if a.par_rank: PAR_R9 = os.path.abspath(a.par_rank)
+    elif a.par: PAR_R9 = PAR_R8
+    if a.ub: UB = a.ub
+    if a.n: N = a.n
+    if a.rank_x is not None: RANK_X = a.rank_x
     os.makedirs(a.out, exist_ok=True)
     recs = []
     with ThreadPoolExecutor(max_workers=a.jobs) as pool:
         for node in a.node:
             if a.summary_only:
-                with open(os.path.join(a.out, node.replace(":", "-") + ".json")) as f: recs.append(json.load(f))
+                with open(os.path.join(a.out, node.replace(":", "-").replace(",", "_") + ".json")) as f: recs.append(json.load(f))
             else:
                 recs.append(study(node, a.lines, a.jobs, a.out, pool))
     summary(recs, a.out)

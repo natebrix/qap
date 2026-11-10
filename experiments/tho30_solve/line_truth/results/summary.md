@@ -1,6 +1,6 @@
 # Line score against subtree truth, tho30 depth-1 nodes (2026-11-09)
 
-Recipe `../cutd2_cp.par`; (a) cold first solve of every child, give-up 300, no cut phase, shortfall = cutoff - lb summed over the children where positive; (b) every child's subtree to completion with `-F`, summed plus 1. Ranks: 1 = best (smallest).
+Recipe `experiments/tho30_solve/cutd2_cp.par`; (a) cold first solve of every child, give-up 300, no cut phase, shortfall = cutoff - lb summed over the children where positive; (b) every child's subtree to completion with `-F`, summed plus 1. Ranks: 1 = best (smallest).
 
 ## Node 5:2 (rule 9 chose col0)
 
