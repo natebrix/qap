@@ -20,15 +20,15 @@ core). Sections 2 and 3 hold what was measured; section 4 ranks what is left.
 - **(b) No stronger bound is on offer at degree 2; what can move is how the
   cuts are spent.** A node ends in the same place whether it finds the cuts
   itself or inherits them, to within a few units (section 3.3). So a phase
-  at a far parent can replace about twenty at its children: at a node 325
-  short, the 28 children whose subtrees finished in both arms cost 1.6x less
-  with the same five branching (section 3.5; the whole subtree was too large
-  to finish here).
+  at a far parent can replace about twenty at its children: a wider zone
+  (`cut.zone = 0.0075`) makes the complete subtree of a 325-short node 1.11x
+  cheaper in DNN CPU with no fathom lost (section 3.5). The heavy branchers
+  below it do not move.
 - **Where the time goes.** On node 10: leaves 56%, cut phases 35%, give-ups
   9%. Half of the leaf work is in the 14% of leaves that end within 3 units
   of the cutoff (section 1).
-- **Size.** Nothing here is worth 1.5x. Section 4 ranks eight items, from a few
-  percent to perhaps 1.3x. The larger factor is more likely in the line
+- **Size.** Nothing here is worth 1.5x. Section 4 ranks eight items of a few
+  percent to about 1.1x each. The larger factor is more likely in the line
   choice at depths 1-2 than in the bound.
 
 ## 1. Where the time goes
@@ -292,40 +292,47 @@ Stopped after 16 minutes for the full-subtree test below, so the same 13 and
   below should not change; what changes is that the cuts are found once at
   the parent instead of once per child.
 
-Full subtree of the 325-short node (`zone/subtree/`): `run_pair.sh cpcutt`
-with `PAB_EXTRA_T="-F 13:1,21:0,45:2 ..."`, the production zone against
-`PAB_CUT_ZONE=0.0075` (366 units). **Not completed here.** The subtree is far
-larger than this box could finish: the production arm stood at 912 nodes and
-6.8 CPU-hours and the wide arm at 705 nodes and 5.0 CPU-hours, with 14 of the
-47 children reached in neither. What follows is the 28 children whose whole
-subtrees are complete in both arms (`subtree.py`, `compare_partial.txt`):
+**Full subtree of the 325-short node, complete (laptop, Nov 10):**
+`run_pair.sh cpcutt` with `PAB_EXTRA_T="-F 13:1,21:0,45:2 ..."`, the
+production zone against `PAB_CUT_ZONE=0.0075` (366 units), M2 Pro, 3 slots
+per arm, both arms at once, binary c389ddc (`pipeline_ab/runs_zone005/`,
+`runs_zone0075/`, `zone_subtree.txt`; their `summary.txt` headers say
+"node-10 subtree", which is the harness's fixed text):
 
-| the 28 children and everything under them | zone 0.005 | zone 0.0075 |
-|---|---|---|
-| fathom in the first solve / in their own phase / branch | 12 / 11 / 5 | 18 / 5 / 5 |
-| nodes | 393 | 258 |
-| iterations | 38,426 | 23,005 |
-| DNN CPU | 11,270 s | 6,973 s |
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | DNN CPU | wall |
+|---|---|---|---|---|---|
+| zone 0.005 | 3,374 / 3,299 | 139 (65) | 298,281 (181,761 + 116,520) | 41,718 s | 15,245 s |
+| zone 0.0075 | 2,971 / 2,905 | 121 (55) | 259,707 (163,079 + 96,628) | 37,587 s | 13,462 s |
+| ratio | 1.136x | | 1.149x | **1.110x** | 1.132x |
 
-- **1.67x in iterations and 1.62x in CPU on these 28**, and 1.58x in CPU
-  net of the parent's phase when scaled to all 47 children.
-- **The same five children branch in both arms, and each ends a little
-  higher with the inherited pool**: `49:49` 1.0 short against 1.9, `33:49`
-  64.4 against 69.8, `22:49` 44.2 against 47.8, `32:49` 31.2 against 34.7,
-  `24:49` 42.4 against 45.6. They have had the parent's 750 iterations on
-  the cuts as well as their own. At `33:49` that changes what happens below:
-  47 nodes against 182.
-- **Not compared: the heavy branchers.** Three children that end 104-148
-  short after their own phase (`26:49`, `19:49`, `8:49`) are open in one arm
-  or both, with 65 to 312 nodes under each so far. They also end 7-10 units
-  higher in the wide arm. 14 children were reached in neither arm.
-- **So the children's level and the medium branchers gain 1.6x; what the
-  whole subtree gains depends on the heavy branchers** and is left to a
-  complete run (the commands are at the end of this file).
+- **1.110x in DNN CPU end to end, the root's 750-iteration phase included.
+  No fathom is lost**: of the 2,747 nodes in both trees, none fathoms under
+  0.005 and branches under 0.0075; two go the other way.
+- **Where it comes from**, of the 38,574 iterations saved:
+  - the children themselves, 11,074: 25 of 47 fathom in the first solve
+    against 16, and 5 need a phase of their own against 14;
+  - two medium branchers whose subtree shrinks to its first level,
+    18,936: `18:49` and `33:49` end 5 units higher with the inherited pool
+    (67.6 against 72.6 short, 64.4 against 69.7) and their 47 children all
+    fathom, 47 nodes each against 227 and 182;
+  - one heavy brancher, about 5,500: `6:49`, 446 nodes against 534.
+- **The heavy branchers barely move.** 17 children branch in both arms, the
+  same 17. Three of them (`6:49`, `19:49`, `26:49`, 104-152 short after their
+  own phase) carry 52% of the subtree's iterations under the production zone, and 14 of the 17 have the
+  same node count in both arms. The pool brings them 4-14 units higher, which
+  at that distance changes nothing below.
+- **The 28-children figure of the partial run (1.62x) was the optimistic
+  half**, as that run's caveat said: it held the children the wide zone
+  helps most and left out the heavy branchers.
+- **Cross-check against this box.** Every node the cloud runs bounded (912
+  and 705) is in the laptop's trees with the same outcome. First-solve
+  iterations agree on 87-88% of those nodes and the totals within 0.04%;
+  the rest differ by a check or two, floating point between OpenBLAS with
+  AMX and Accelerate. Misses agree within 0.72 units.
 - **One phase creeps to the iteration limit in both arms.** `49:49`'s phase
-  runs all 3,400 iterations, about 1,090 s, and ends 1-2 short. The stall
-  rule does not fire while the gap is small; a predictive stop like the
-  first solve's would (section 4, item 6).
+  runs all 3,400 iterations and ends 1-2 short. The stall rule does not fire
+  while the gap is small; a predictive stop like the first solve's would
+  (section 4, item 6).
 
 ### 3.6 A search-side candidate: one node for a line's strong children
 
@@ -375,7 +382,7 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 
 | # | what | evidence | expected | cost | next step and kill line |
 |---|---|---|---|---|---|
-| 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | at a 325-short node, 1.62x in DNN CPU on the 28 of 47 children whose subtrees finished in both arms, with the same children branching and ending 1-5 units higher; the heavy branchers not compared [m] | 1.2-1.5x on such a subtree, 1.1-1.3x on the tree [e] | a settings line | the complete subtree at both zones (commands at the end); adopt at 1.05x in DNN CPU with no fathom lost |
+| 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | the complete subtree of a 325-short node: 1.110x in DNN CPU, 1.149x in iterations, no fathom lost [m]; passes this table's own line (1.05x, no fathom lost) | 1.05-1.1x on the tree [e]: it acts on subtrees under nodes in the band | a settings line in `fullrun.par`, with `settings.golden` regenerated | your call (it changes the full run); a tail node (400+ short) at 0.0075 and 0.009 would say whether to go wider |
 | 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
 | 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m] | up to 1.06x on the tail class, nothing near the cutoff [e] | a settings key and a few lines; the zone test on the rule's predicted value | tail subtree A/B; kill under 1.02x |
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
@@ -387,8 +394,9 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 Not worth doing, measured here: a lower warm beta, damped dual steps at a
 warm start, a shorter or longer stall window (sections 2.1 and 2.2).
 
-**Where the next factor is.** Nothing above is worth 1.5x. Together the
-items are perhaps 1.3-1.4x if they stack. The
+**Where the next factor is.** Nothing above is worth 1.5x. The one item
+measured end to end came in at 1.11x; together the items are perhaps
+1.2-1.3x if they stack. The
 bound's reach is set by the degree-2 relaxation and the triangles, and the
 ADMM that computes it is near its floor. The line choice at depths 1-2 is
 the more likely place for a larger factor: the tho30 and tho40 line-truth
@@ -457,7 +465,9 @@ phases, and region branching only on nug30, cold, at a far miss.
   chosen settings on `base.par` (the node-10 arm's settings file);
   `first_level/` has the four traces and `compare.txt` (`zcmp.py`);
   `subtree.py` compares two arms of a subtree run child by child, each
-  child with its whole subtree.
+  child with its whole subtree; `subtree/` holds this box's partial traces
+  of the two arms and their comparison. The complete runs are the laptop's,
+  in `../pipeline_ab/runs_zone005/` and `runs_zone0075/`.
 
 To run the full-subtree zone A/B (laptop, from the repository root, the two
 `run_pair.sh` lines at the same time in two terminals; each takes half the
