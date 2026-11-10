@@ -84,3 +84,9 @@ is the same story as nug30 at depth 2 (break-even there, a loss here): the
 rounds form on side 1 spends more at depths 1-2 than it saves below. The tho30 loss does not
 read across to wil50: there the phase fathomed 274 of the 635 depth-2 nodes in
 stage A, each one a 48-child subtree. Not tried: rule 9 with the cut phase.
+
+Nov 9, later: with rule 9's `branch.xbar_lines` wired to admit the top-k rows
+and columns by marginal score (6335dea), the rule 9 + CP recipe
+(`line_truth/cutd2_cp_r9.par`) gives 14,256 nodes at k = 1 and **11,205 nodes,
+3,942 CPU s at k = 8**, the new tho30 best; nug30 gets worse at every k > 1
+(`../xbar_lines_sweep/README.md`).
