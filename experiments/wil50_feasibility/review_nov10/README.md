@@ -382,7 +382,7 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 
 | # | what | evidence | expected | cost | next step and kill line |
 |---|---|---|---|---|---|
-| 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | the complete subtree of a 325-short node: 1.110x in DNN CPU, 1.149x in iterations, no fathom lost [m]; passes this table's own line (1.05x, no fathom lost) | 1.05-1.1x on the tree [e]: it acts on subtrees under nodes in the band | a settings line in `fullrun.par`, with `settings.golden` regenerated | your call (it changes the full run); a tail node (400+ short) at 0.0075 and 0.009 would say whether to go wider |
+| 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | the complete subtree of a 325-short node: 1.110x in DNN CPU, 1.149x in iterations, no fathom lost [m]; passes this table's own line (1.05x, no fathom lost) | 1.05-1.1x on the tree [e]: it acts on subtrees under nodes in the band | a settings line | **adopted Nov 10** (`fullrun.par`); a tail node (400+ short) at 0.0075 and 0.009 would say whether to go wider |
 | 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
 | 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m] | up to 1.06x on the tail class, nothing near the cutoff [e] | a settings key and a few lines; the zone test on the rule's predicted value | tail subtree A/B; kill under 1.02x |
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
@@ -444,9 +444,10 @@ phases, and region branching only on nug30, cold, at a far miss.
 2. **A coordinator run with `-F` failed at HEAD.** The solver rejects `-F`
    with `-r` since f67e0d7 and the worker passed both. Fixed in bfe38d4
    (`coord/worker.py`, with a `fixes` scenario in `tests/coord_test.py`).
-3. From the depth-1 line test: `fullrun_check` fails at HEAD because
-   `settings.golden` predates `QAP_DNN_WARM_DIR`, and `sampling/common.py`'s
-   `write_one` rejects QAP-STATE 9.
+3. From the depth-1 line test: `fullrun_check` failed at HEAD because
+   `settings.golden` predated `QAP_DNN_WARM_DIR` (fixed on Nov 10 with the
+   zone change, `fullrun/README.md`), and `sampling/common.py`'s `write_one`
+   rejects QAP-STATE 9 (open).
 4. **`run_pair.sh` has a zone variable for the CP arms**, `PAB_CUT_ZONE`
    (default 0.005, the settings file unchanged by default), added for
    section 3.5's subtree test.

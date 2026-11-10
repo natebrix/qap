@@ -50,6 +50,10 @@
 # defaults and the gated arm and stages A and B ran the old values.
 # Change only in a commit that means to change the full run, and regenerate
 # settings.golden in it (settings.sh, fullrun_check).
+# cut.zone = 0.0075 since Nov 10 (0.005 before; stages A and B ran 0.005): a
+# node up to 366 short runs a phase before it branches, so its children inherit
+# a pool. 1.110x in DNN CPU on the complete subtree of a 325-short node, no
+# fathom lost (review_nov10/README.md, section 3.5).
 dnn.gamma1 = 1.0
 dnn.gamma = 1.0
 dnn.ext = 20
@@ -63,7 +67,7 @@ dnn.beta = 0.3
 dnn.gu_zone = 0
 cut.grid = 5:10
 cut.side = 1
-cut.zone = 0.005
+cut.zone = 0.0075
 cut.warmy = 1
 cut.rounds = 12
 cut.iters = 200

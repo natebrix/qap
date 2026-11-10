@@ -11,7 +11,8 @@
 # arm of pipeline_ab/run_pair.sh, which measured 1.760x in DNN CPU on the
 # matched nodes of the node-10 subtree and 2.20x end to end against bestcoret,
 # pipeline_ab/runs_cpt/, Nov 7; decided Nov 7: the cut phase in CP form; plus
-# the depth spec -x 1:4:1:300:1 of the sampling plan). This file keeps what is
+# the depth spec -x 1:4:1:300:1 of the sampling plan; cut.zone = 0.0075 since
+# Nov 10, README.md). This file keeps what is
 # not a setting: the instance, its symmetry file, the upper bound, the thread
 # variables (docs/settings_plan.md, Phase 2, item 7). It exports no policy
 # QAP_*/DNN_* variable: the solver rejects the pre-Phase-2 names.
