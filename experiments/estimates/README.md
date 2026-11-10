@@ -90,8 +90,11 @@ experiments/estimates/trace_estimate.sh sko42 6
   - a two-minute search stopped at the wall limit with its checkpoint;
   - the depth-0 pass listed the 12 depth-1 nodes, and the root line is still
     facility 26 at 2 lines;
-  - the first depth-1 node's sweep runs (16 of its 39 children bounded in
-    the first 20 minutes, one process, on the cloud box).
+  - the first depth-1 node's sweep bounded 33 of its 39 children before the
+    smoke test's own 25-minute limit stopped it (one process on the cloud
+    box, which shared its cores with two other smoke tests). The Nov 8 sweep
+    took 17 minutes of wall for all 12 depth-1 nodes on the laptop, 8 at a
+    time.
 - **sko42 doubles as a check.** Its optimum is known and Fujii et al. solved
   it with 6.0e6 nodes (rule M). If the estimate puts it in reach, solving it
   tests the estimate and the solver.
