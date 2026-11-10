@@ -164,13 +164,16 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
   | window | dives | nodes | CPU-s | largest dive | without it |
   |---|---|---|---|---|---|
   | 301-304 | 21 | 7.6e9 ± 7.2e9 | 3.1e10 ± 2.7e10 (360 days on 1,000 cores) | 86% of the CPU (seed 303 dive 3, to level 10, 1.5e11 nodes) | 4.1e8 nodes, 4.5e9 CPU-s (52 days) |
+  | 305-308 | 19 | 8.2e9 ± 7.8e9 | 1.0e11 ± 9.9e10 (1,200 days) | 96% (seed 308 dive 3, to level 7, 1.5e11 nodes, 1.9e12 CPU-s) | |
+  | **pooled** | **40** | **7.9e9 ± 5.2e9** | **6.5e10 ± 4.9e10 (757 days)** | the two above: 72% and 21%, 93% together | without both: 3.9e8 nodes, 4.6e9 ± 2.0e9 CPU-s (54 days) |
 
-  The median dive is 1.0e7 nodes and 1.7e8 CPU-s. The 4.1 CPU-s per node
-  is the largest dive's level 10, which QPB bounds alone (1.8 CPU-s a
-  node); level 9, under the DNN, costs 108 CPU-s a node. Without its
-  largest dive the window agrees with the Nov 8 tuned run (4.1e9 ± 3.0e9
-  CPU-s, 10 dives, 77% in one); with it, the total is set by one dive, as
-  on Nov 8, and more windows follow.
+  The median dive is 8.4e6 nodes and 4.9e8 CPU-s. Level 10, which QPB
+  bounds alone, costs 1.8 CPU-s a node; level 9, under the DNN, costs 108.
+  Two dives in 40 reach a subtree of about 1.5e11 nodes, one at level 10 and
+  one at level 7. Without them the 38 others agree with the Nov 8 tuned run
+  (4.1e9 ± 3.0e9 CPU-s, 10 dives, 77% in one) and with each other; with
+  them the total is set by the rare dive, so the pooled mean rises as dives
+  are added and is not yet an estimate of the tree. More windows follow.
 
 ## Suggested order
 
