@@ -46,6 +46,7 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+FIXES = ["-F", "0:0"]   # the "fixes" scenario's subtree
 FAST = ["--ckpt-upload", "0.5", "--budget", "0.3", "--target-unit-cpu", "0.5", "--steal-after", "0.5", "--heartbeat", "0.5",
         "--checkpoint-every", "0.2", "--poll", "0.3", "--status-every", "5", "--slots", "3", "--publish-every", "1"]
 
@@ -89,9 +90,9 @@ def totals(text):
             float(b.group(1)) if b else None)
 
 
-def serial(inst, opt):
-    r = subprocess.run([os.path.join(ROOT, "latest", "bnbdrv"), "-p", "PARAM/default.par", "-u", str(opt),
-                        os.path.join(ROOT, "qaplib", inst + ".dat")], cwd=os.path.join(ROOT, "latest"),
+def serial(inst, opt, flags=()):
+    r = subprocess.run([os.path.join(ROOT, "latest", "bnbdrv"), "-p", "PARAM/default.par", "-u", str(opt)]
+                       + list(flags) + [os.path.join(ROOT, "qaplib", inst + ".dat")], cwd=os.path.join(ROOT, "latest"),
                        capture_output=True, text=True)
     return totals(r.stdout)
 
@@ -179,6 +180,9 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
     else:
         extra = ["--budget", "4", "--target-unit-cpu", "4", "--steal-after", "3"] if name == "kill9ckpt" else []
         extra += ["--visibility", "private"] if name == "noub" else []
+        # fixes: a subtree run, -F in the solver flags (the units resume state
+        # files, which the solver does not take together with -F)
+        extra += ["--extra", " ".join(FIXES)] if name == "fixes" else []
         r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra)
     try:
         r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
@@ -238,7 +242,7 @@ def main():
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,crash_marked,crash_applied,crash_saving,"
-                                      "drain,noub,aws,tworuns")
+                                      "drain,noub,fixes,aws,tworuns")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args()
     ref = serial(a.instance, int(a.opt))
@@ -269,7 +273,13 @@ def main():
                 continue
         t0 = time.time()
         got, r = scenario(name, a.python, base, a.instance, a.opt, endpoint)
-        ok = got[2] == a.opt if name == "noub" else (got[0] == ref[0] and got[1] == ref[1] and got[2] == a.opt)
+        if name == "fixes":
+            # the subtree under FIXES against the serial run with the same -F
+            # (the bound is the incumbent passed with -u: the subtree may not hold the optimum)
+            sub = serial(a.instance, int(a.opt), FIXES)
+            ok = got[0] == sub[0] and got[1] == sub[1]
+        else:
+            ok = got[2] == a.opt if name == "noub" else (got[0] == ref[0] and got[1] == ref[1] and got[2] == a.opt)
         public = getattr(r, "public", [])
         ok = ok and not public
         bad += not ok

@@ -115,7 +115,14 @@ class Worker:
         inc_data, inc_tag = self.b.get_if_changed(run_key(self.run_id, "incumbent.json"), None)
         inc = json.loads(inc_data) if inc_data else {}
         self._write_inc(incf, inc)
-        cmd = [self.solver, "-p", self.params] + list(self.sol["flags"])
+        # a unit resumes a state file, which already fixes its nodes'
+        # assignments: the run's -F belongs to init_run's frontier only (the
+        # solver rejects -F together with -r)
+        flags = list(self.sol["flags"])
+        while "-F" in flags:
+            k = flags.index("-F")
+            del flags[k:k + 2]
+        cmd = [self.solver, "-p", self.params] + flags
         ub = min(x for x in (self.sol.get("ub"), inc.get("obj")) if x is not None) \
             if (self.sol.get("ub") is not None or inc.get("obj") is not None) else None
         if ub is not None and ub < 1e99:
