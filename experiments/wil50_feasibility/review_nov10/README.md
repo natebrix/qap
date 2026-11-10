@@ -363,11 +363,12 @@ phases, and region branching only on nug30, cold, at a far miss.
 
 ## 6. Harness findings
 
-1. **`pipeline_ab/run_pair.sh` does not pin `dnn.beta` and `dnn.gu_zone`.**
-   Since 34e347c changed the registry defaults, an arm at HEAD runs 0.21 and
+1. **`pipeline_ab/run_pair.sh` did not pin `dnn.beta` and `dnn.gu_zone`.**
+   Since 34e347c changed the registry defaults, an arm at HEAD ran 0.21 and
    0.003, not the full run's 0.3 and 0. Every arm in this review exported
-   `QAP_DNN_BETA=0.3 QAP_DNN_GU_ZONE=0` first. Two exports in `arm_env`
-   would fix it; not done here.
+   `QAP_DNN_BETA=0.3 QAP_DNN_GU_ZONE=0` first. Fixed on Nov 10: `arm_env`
+   now exports both, and the settings file it builds for `cpcutt` equals the
+   one this review's baseline ran.
 2. **A coordinator run with `-F` failed at HEAD.** The solver rejects `-F`
    with `-r` since f67e0d7 and the worker passed both. Fixed in bfe38d4
    (`coord/worker.py`, with a `fixes` scenario in `tests/coord_test.py`).
