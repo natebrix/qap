@@ -1198,6 +1198,31 @@ static bool dnn_xbar_lines(const QAPAssignment &assign, int &row_in_U, double &r
   return row_in_U >= 0 && col_in_U >= 0;
 }
 
+// Every free row and column ranked by its marginal score (rank 0 = the
+// largest), in the node's reduced indices, for the lookahead's row_order and
+// col_order; false when there are no marginals for this node.
+static bool dnn_xbar_line_orders(const QAPAssignment &assign, int *row_order, int *col_order)
+{
+  const int m = assign.n - assign.nfix;
+  if (dnn_xbar == NULL || dnn_xbar_m != m) return false;
+  const double *x = dnn_xbar;
+  std::vector<double> rs(m, 0.0), cs(m, 0.0);
+  for (int di = 0; di < m; di++)
+    for (int dj = 0; dj < m; dj++) {
+      const double v = x[di * m + dj] * x[di * m + dj];
+      rs[di] += v;  cs[dj] += v;
+    }
+  std::vector<int> by(m);
+  for (int d = 0; d < m; d++) by[d] = d;
+  // descending score, ties by index: with xbar_lines = 1 this is exactly the
+  // marginal row and column dnn_xbar_lines() picks (first maximum)
+  std::sort(by.begin(), by.end(), [&](int a, int b) { return rs[a] != rs[b] ? rs[a] > rs[b] : a < b; });
+  for (int k = 0; k < m; k++) row_order[by[k]] = k;
+  std::sort(by.begin(), by.end(), [&](int a, int b) { return cs[a] != cs[b] ? cs[a] > cs[b] : a < b; });
+  for (int k = 0; k < m; k++) col_order[by[k]] = k;
+  return true;
+}
+
 static bool select_ind_dnn_xbar(const QAPAssignment &assign, bool rows_only,
 				int &ind_in_U, int &ind_in_assign, bool &chose_row)
 {
@@ -1752,12 +1777,10 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
   }
   bool xbar_used = false;
   if (xbar_lines) {
-    // rule 9: the only candidates are the marginal row and the marginal
-    // column (rule 8's two lines); the children's bounds choose between them
-    int dr, dc;  double sr, sc;
-    if (dnn_xbar_lines(assign, dr, sr, dc, sc)) {
-      for (int d = 0; d < m; d++) { row_order[d] = m;  col_order[d] = m; }
-      row_order[dr] = 0;  col_order[dc] = 0;
+    // rule 9: the candidates are the branch.xbar_lines rows and columns with
+    // the largest marginal scores (1: rule 8's two lines); the children's
+    // bounds choose among them
+    if (dnn_xbar_line_orders(assign, row_order, col_order)) {
       kr = kc = xbar_lines_per_side();
       xbar_used = true;
     }
