@@ -15,19 +15,18 @@
 set -u
 R=$(cd "$(dirname "$0")/../../.." && pwd); cd "$R" || exit 1
 SET=experiments/wil50_feasibility/fullrun/settings.sh
-declare -A SPEC SHORT
-SPEC[a220]=21:22,31:23,40:15; SHORT[a220]=220.2
-SPEC[a251]=8:9,21:11,45:40;   SHORT[a251]=251.1
-SPEC[a325]=6:49,21:0,45:1;    SHORT[a325]=324.6
+# (functions, not associative arrays: macOS's /bin/bash is 3.2)
+spec()  { case $1 in a220) echo 21:22,31:23,40:15;; a251) echo 8:9,21:11,45:40;; a325) echo 6:49,21:0,45:1;; esac; }
+short() { case $1 in a220) echo 220.2;; a251) echo 251.1;; a325) echo 324.6;; esac; }
 names=${*:-a220 a251 a325}
 for n in $names; do
-  [ -n "${SPEC[$n]:-}" ] || { echo "unknown node $n (a220, a251, a325)"; exit 2; }
-  EST_RUNS=experiments/estimates/wil50/subtrees experiments/estimates/subtree.sh "$SET" "$n" "${SPEC[$n]}" || exit 1
+  [ -n "$(spec "$n")" ] || { echo "unknown node $n (a220, a251, a325)"; exit 2; }
+  EST_RUNS=experiments/estimates/wil50/subtrees experiments/estimates/subtree.sh "$SET" "$n" "$(spec "$n")" || exit 1
   [ -f experiments/estimates/wil50/subtrees/$n/trace.txt ] || exit 1   # drained: stop here
 done
 args=()
 for n in a220 a251 a325; do
-  [ -f experiments/estimates/wil50/subtrees/$n/results.txt ] && args+=("experiments/estimates/wil50/subtrees/$n=${SHORT[$n]}")
+  [ -f experiments/estimates/wil50/subtrees/$n/results.txt ] && args+=("experiments/estimates/wil50/subtrees/$n=$(short "$n")")
 done
 python3 experiments/estimates/wil50/refit.py "${args[@]}" | tee experiments/estimates/wil50/refit.txt
 echo
