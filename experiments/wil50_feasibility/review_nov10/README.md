@@ -10,9 +10,9 @@ the cheap tests on the cloud box (4 Xeon cores with AMX, one process per
 core). Sections 2 and 3 hold what was measured; section 4 ranks what is left.
 `[m]` is measured here, `[r]` is from the record, `[e]` is my estimate.
 
-**Status: in progress.** Everything is final except the zone test (section
-3.4), a second parent for section 3.5, and the ranked list (section 4),
-which follow when the zone test finishes.
+**Status: in progress.** Everything is final except the full-subtree zone
+test (section 3.5) and the ranked list (section 4), which follow when that
+test finishes.
 
 **So far.**
 - The ADMM iteration and the typical leaf are tuned out: nothing tried is
@@ -27,7 +27,7 @@ which follow when the zone test finishes.
   where the phase stops, 1.027x on node 10's subtree (section 3.3).
 - One union node fathoms a line's strong children four times cheaper than
   one by one, but the strong leaves are the cheap ones: about 1.08x (section
-  3.5).
+  3.6).
 
 ## 1. Where the time goes
 
@@ -262,9 +262,37 @@ at 1,000 iterations) and never run in the search (`roadmap/admm/cpadmm/`).
   move: how converged its phase is when it stops (three sweeps, section
   3.3) and which nodes run a phase at all (the zone, below).
 
-(The zone test is running; its findings go here.)
+### 3.5 The cut zone at far nodes: one phase at the parent for many at the children
 
-### 3.5 A search-side candidate: one node for a line's strong children
+Production runs a phase at a node within 244 units of the cutoff after its
+first solve (`cut.zone = 0.005`). A node farther out branches without one,
+and each child that then lands inside the zone runs its own phase from
+scratch. The record's wide-zone test was at one node 455 short with
+Polyak-rounds phases, a wash (`tail_probe/`); the band between 244 and about
+400 was not tested, and not in CP form.
+
+First-level test (`zone/first_level/`, wil50t, the node-10 arm's settings):
+two depth-3 nodes from stage B's frontier, bounded cold, then their children's
+first solves, with the parent's phase (zone 0.009) and without (0.005).
+Stopped after 16 minutes for the full-subtree test below, so the same 13 and
+11 children are in both arms:
+
+| parent | its phase | children that fathom in the first solve, without / with | first-solve iterations, without / with | where both miss, the pool is worth |
+|---|---|---|---|---|
+| `13:1,21:0,45:2`, 325 short | +124 in 750 iterations, 277 s | 5 / 10 of 13 | 2,839 / 1,424 | +57 to +71 |
+| `0:0,21:1,45:30`, 362 short | +132 in 730 iterations, 274 s | 2 / 7 of 11 | 2,884 / 1,841 | +53 to +67 |
+
+- **Without the parent's phase most children miss by 15-150 and each needs
+  a phase of its own**; with it most of them fathom in the first solve and
+  the rest miss by 8-94.
+- **One 740-iteration phase stands in for about twenty.** Section 3.3 found
+  that a pool moves the work without extending the reach, so the node count
+  below should not change; what changes is that the cuts are found once at
+  the parent instead of once per child.
+
+(The complete subtree of the 325-short node under zone 0.005 and 0.0075 is running.)
+
+### 3.6 A search-side candidate: one node for a line's strong children
 
 A union node is the parent with all but a chosen set of one line's children
 forbidden (`DNNParams::elim`), warm-started from the parent's own state. It
@@ -312,7 +340,7 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 
 | # | what | evidence | expected | cost | next step and kill line |
 |---|---|---|---|---|---|
-| 1 | a wider cut zone, so that far nodes that will branch run a phase and pass their pool on | being measured (section 3.4) | | a settings line | |
+| 1 | a wider cut zone, so that far nodes that will branch run a phase and pass their pool on | first level: 10 of 13 and 7 of 11 children fathom in the first solve against 5 and 2 [m]; the full subtree is being measured (section 3.5) | | a settings line | |
 | 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
 | 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m] | up to 1.06x on the tail class, nothing near the cutoff [e] | a settings key and a few lines; the zone test on the rule's predicted value | tail subtree A/B; kill under 1.02x |
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
