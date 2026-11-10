@@ -794,3 +794,13 @@ rests on a few changed outcomes (three here), one of them the known marginal
 node `0:25 ...`. The subtree itself differs between the two orientations
 (location 45 or 49 at node 10), so the two results are two subtrees'
 evidence, not one subtree measured twice.
+
+## Nov 10: the harness pins `dnn.beta` and `dnn.gu_zone`
+
+`run_pair.sh` now exports `QAP_DNN_BETA=0.3` and `QAP_DNN_GU_ZONE=0` for
+every arm, as `../fullrun/fullrun.par` does. 34e347c (Nov 8) made the nug30
+recipe's 0.21 and 0.003 the registry defaults, so an arm run at HEAD without
+the exports got those instead of the 0.3 and 0 that every result above ran.
+No result in this file is affected: none was recorded between Nov 8 and this
+change. With the two values `cpcutt` at bfe38d4 gives 6,429 iterations
+against the Nov 7 record's 6,426 (`../review_nov10/`).

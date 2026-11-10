@@ -1,0 +1,86 @@
+--- a/latest/dnntest.C
++++ b/latest/dnntest.C
+@@ -113,6 +113,7 @@
+ 
+ static std::string ladd_spec, dumpy;   // -Ladd file[:const], -dumpY prefix
+ static std::string child_passes = "c,z";   // -Q: the child's starts
++static std::string g_groups;   // -G "i:j,i:j;...": union nodes (scratch probe)
+ static int parent_iters = 0;   // -J: the parent's own iteration budget, no give-up (0: as the children)
+ static int round_warm = 0;     // -Wr 16|32: round the parent's saved Y and Z to bf16 or fp32
+                                // before the children start from them (a shipped warm start)
+@@ -195,7 +196,7 @@
+   DNNParams ppar = par;
+   if (parent_iters > 0 && !child.empty()) { ppar.max_iter = parent_iters; ppar.hopeless_after = 0; }
+   DNNResult r = dnn_bound(qr.A, qr.B, qr.C, qr.shift - ext_const, cutoff, ppar, NULL,
+-                          (child.empty() && !print_xbar && dumpy.empty()) ? NULL : &warm);
++                          (child.empty() && !print_xbar && dumpy.empty() && g_groups.empty()) ? NULL : &warm);
+   if (!dumpy.empty() && !warm.Y.empty()) {
+     std::string path = dumpy + ".Y.bin";
+     FILE *f = fopen(path.c_str(), "wb");
+@@ -239,6 +240,58 @@
+     (void)n1;
+   }
+   fflush(stdout);
++  if (!g_groups.empty() && r.status != DNN_ERROR && !warm.Y.empty()) {
++    // -G "i:j,i:j;i:j,...": union nodes. A group is a set of children on one line
++    // (a common row or a common column); its union node is this node with every
++    // other free cell of that line eliminated, warm-started from this node's own
++    // final state (same size).
++    const int m = n - node.nfix;
++    std::vector<int> lr(n, -1), lc(n, -1);
++    for (int t = 0, k = 0; t < n; t++) if (node.p[t] == NONE) lr[t] = k++;
++    for (int t = 0, k = 0; t < n; t++) if (node.pinv[t] == NONE) lc[t] = k++;
++    int gi = 0;
++    for (size_t gpos = 0; gpos < g_groups.size();) {
++      size_t gend = g_groups.find(';', gpos);
++      if (gend == std::string::npos) gend = g_groups.size();
++      const std::string grp = g_groups.substr(gpos, gend - gpos);
++      gpos = gend + 1;
++      std::vector<std::pair<int, int> > mem;
++      for (size_t pos = 0; pos < grp.size();) {
++        size_t end = grp.find(',', pos);
++        if (end == std::string::npos) end = grp.size();
++        int i, j;
++        if (sscanf(grp.substr(pos, end - pos).c_str(), "%d:%d", &i, &j) != 2 || i < 0 || i >= n ||
++            j < 0 || j >= n || lr[i] < 0 || lc[j] < 0) { printf("bad group '%s'\n", grp.c_str()); return false; }
++        mem.push_back(std::make_pair(i, j));
++        pos = end + 1;
++      }
++      if (mem.size() < 2) { printf("group '%s' needs two members or more\n", grp.c_str()); return false; }
++      bool same_row = true, same_col = true;
++      for (size_t t = 0; t < mem.size(); t++) { same_row &= mem[t].first == mem[0].first; same_col &= mem[t].second == mem[0].second; }
++      if (same_row == same_col) { printf("group '%s' is not on one line\n", grp.c_str()); return false; }
++      std::vector<unsigned char> gm((size_t)m * m, 0);
++      if (par.elim) for (size_t t = 0; t < gm.size(); t++) gm[t] = par.elim[t];
++      if (same_row) {
++        const int il = lr[mem[0].first];
++        for (int j = 0; j < m; j++) gm[(size_t)il * m + j] = 1;
++        for (size_t t = 0; t < mem.size(); t++) gm[(size_t)il * m + lc[mem[t].second]] = 0;
++      } else {
++        const int jl = lc[mem[0].second];
++        for (int i = 0; i < m; i++) gm[(size_t)i * m + jl] = 1;
++        for (size_t t = 0; t < mem.size(); t++) gm[(size_t)lr[mem[t].first] * m + jl] = 0;
++      }
++      DNNParams pg = par;
++      pg.elim = gm.data();
++      pg.warm_primal = true;
++      gi++;
++      printf("GROUP-PASS %d size=%zu line=%s members=%s\n", gi, mem.size(), same_row ? "row" : "col", grp.c_str());
++      fflush(stdout);
++      DNNResult rg = dnn_bound(qr.A, qr.B, qr.C, qr.shift - ext_const, cutoff, pg, &warm);
++      printf("RESULT group=%d m=%d lb=%.17g primal=%.17g status=%s iters=%d cpu=%.3f size=%zu\n", gi, m,
++             rg.lb, rg.primal, dnn_status_name(rg.status), rg.iterations, rg.cpu, mem.size());
++      fflush(stdout);
++    }
++  }
+   if (child.empty() || r.status == DNN_ERROR) return r.status != DNN_ERROR;
+ 
+   if (round_warm == 16 || round_warm == 32) {
+@@ -359,6 +412,7 @@
+     if (o == "-p" && more) { par_file = argv[++a]; continue; }
+     if (o == "-x" && more) fixes = argv[++a];
+     else if (o == "-K" && more) child = argv[++a];
++    else if (o == "-G" && more) g_groups = argv[++a];
+     else if (o == "-Q" && more) child_passes = argv[++a];
+     else if (o == "-J" && more) parent_iters = atoi(argv[++a]);
+     else if (o == "-Wr" && more) round_warm = atoi(argv[++a]);

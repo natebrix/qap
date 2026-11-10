@@ -51,7 +51,8 @@
 #   cpcut  bestcore with the cut phase in CP form (QAP_DNN_CUT_CP=100:1000,
 #          roadmap/admm/cpadmm/README.md "In the search"): one CP-ADMM solve with the
 #          pool in the PRSM's Y-step and 1,000 new triangles separated every 100
-#          iterations, the rounds' budget (12 x 200 + 1,000) and the stall rule per check
+#          iterations, the rounds' budget (12 x 200 + 1,000) and the stall rule per check.
+#          PAB_CUT_ZONE (default 0.005) is the cut zone of the cpcut arms and cpcutt
 #   cpcut2 cpcut + a pooled child's first solve in CP form (QAP_DNN_POOL_CP=1)
 #   cpcutl cpcut + the lazy certificate inside the CP solve (DNN_CP_LAZYCERT=1, with
 #          bestcore's DNN_CORE_LAZYCERT=1): Rump's test only at checks that can decide,
@@ -121,6 +122,9 @@ arm_env() {
   local arm=$1
   set -- "$(base_arm "$1")"
   export QAP_DNN_GAMMA1=1.0 QAP_DNN_GAMMA=1.0 QAP_DNN_EXT=20
+  # pinned as in fullrun/fullrun.par: 34e347c (Nov 8) made the nug30 recipe's 0.21 and
+  # 0.003 the registry defaults, and every arm on record ran 0.3 and 0
+  export QAP_DNN_BETA=0.3 QAP_DNN_GU_ZONE=0
   export QAP_DNN_CUT_ZONE=0.003 QAP_DNN_CUT_GRID=$GRID QAP_DNN_CUT_SIDE=0 QAP_DNN_CUT_FREEZE=1500
   export DNN_AMX=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40
   export QAP_DNN_WARM_Y=2 QAP_DNN_POOL=1 QAP_DNN_POOL_CHECK=20
@@ -155,7 +159,7 @@ arm_env() {
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 \
                   DNN_CORE_LAZYCERT=1 ;;
-    cpcut|cpcut2|cpcutl) export QAP_DNN_CUT_ZONE=0.005 QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
+    cpcut|cpcut2|cpcutl) export QAP_DNN_CUT_ZONE=${PAB_CUT_ZONE:-0.005} QAP_DNN_CUT_WARMY=1 QAP_DNN_CUT_ROUNDS=12 QAP_DNN_CUT_ITERS=200 \
                   QAP_DNN_CUT_FREEZE=1000 QAP_DNN_CUT_DAMP1=0.3 QAP_DNN_SHIP=${SHIP_BITS:-32} \
                   DNN_BETA_SCHED=two,f=1.6667,t=60,w=${PAB_WARM_W:-0.25},wc=0.7 DNN_ADMM_CROSS=2 \
                   DNN_CORE_LAZYCERT=1 \
