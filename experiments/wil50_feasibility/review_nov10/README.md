@@ -53,7 +53,7 @@ Two facts about the leaves decide what is worth doing there:
   leaf stops within 3 units of the cutoff: its bound converges to a value
   barely above it. [m]
 - **A leaf's fixed cost is 1.4 s, 18% of a 20-iteration leaf** (CPU = 1.40 s
-  + 0.3154 s per iteration over stage B's 242 pooled leaves) [r].
+  + 0.3154 s per iteration, my fit over stage B's 242 pooled leaves).
 
 So half of the leaf work is a few marginal leaves, which a slightly stronger
 bound would shorten, and the other half is short solves that are already
@@ -161,7 +161,10 @@ of the Nov 6 warm set at `w=0.25` (`giveup_sim.py`):
 | 110 | 1,170 | 0 | 12-29 lower (8 of 9) |
 
 The same floors on the six cold parents would stop them 150-200 units lower
-at 110, which is the loss of section 2.1's last arm.
+at 110, which is the loss of section 2.1's last arm. With the rule's window
+cut from 50 to 30 iterations it fires at 70 and still loses no fathom here
+(790 iterations on the 9 misses), but this set has only three slow fathoms
+(120-150 iterations), too few to trust a shorter window.
 
 ### 2.4 The zone boundary in stage B (tally, no new runs)
 
@@ -225,8 +228,10 @@ at 1,000 iterations) and never run in the search (`roadmap/admm/cpadmm/`).
 - **Three Dykstra sweeps per iteration: +7.7 units where the root's phase
   stops, 1.027x on the subtree** (section 2.1, session 2). No node changes
   outcome on this subtree, so what shows is only the 13 slow leaves getting
-  17% shorter. Under the tree model 7.7 units are worth 1.13-1.25x where
-  nodes do change outcome [e]; one 94-node subtree cannot show that.
+  17% shorter. The gain thins out below the root: +5.0 at the pooled miss's
+  first solve and +3.2 after its phase. Under the tree model 3-8 units are
+  worth 1.05-1.25x where nodes do change outcome [e]; one 94-node subtree
+  cannot show that.
 - **The stall window is at a flat optimum.** A shorter window saves phase
   iterations and pays them back in the leaves; a longer one costs more than
   it returns.
@@ -303,7 +308,29 @@ and 474 s. "Strong" is by how the children did alone:
 
 ## 4. What is left, ranked
 
-(To come with the zone test.)
+By expected effect on the run's CPU. "Subtree" is node 10's.
+
+| # | what | evidence | expected | cost | next step and kill line |
+|---|---|---|---|---|---|
+| 1 | a wider cut zone, so that far nodes that will branch run a phase and pass their pool on | being measured (section 3.4) | | a settings line | |
+| 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
+| 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m] | up to 1.06x on the tail class, nothing near the cutoff [e] | a settings key and a few lines; the zone test on the rule's predicted value | tail subtree A/B; kill under 1.02x |
+| 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
+| 5 | the early certificate at iteration 5 of warm solves | 1.016x on the subtree [m] | 1.016x | promote `DNN_ADMM_CROSS_FIRST` from an experiment name to a settings key | none; take it with the next settings change |
+| 6 | box cuts at the CP phase's final iterate | untried, and the evidence is weak (section 3.4) | 0 to +10 units [e] | an hour with `dnncuts` | close if the largest violation is under 0.05 |
+| 7 | branching marginals from the phase's final iterate (`bnb.C` takes `dnn_xbar` from the first solve before the phase's state replaces it) | not measured | unknown | two lines and a key | node 10: if the line changes, run both subtrees |
+
+Not worth doing, measured here: a lower warm beta, damped dual steps at a
+warm start, a shorter or longer stall window (sections 2.1 and 2.2).
+
+**Where the next factor is.** Nothing above is worth 1.5x. Each item moves
+a few percent, and together they are perhaps 1.2-1.3x if they stack. The
+bound's reach is set by the degree-2 relaxation and the triangles, and the
+ADMM that computes it is near its floor. The line choice at depths 1-2 is
+the more likely place for a larger factor: the tho30 and tho40 line-truth
+studies find the best line at 0.6-0.8x of rule 9's nodes, and at 21:1 row
+45 scores 1.6-1.9x on the modelled subtree
+(`sampling/results/depth1_lines.md`).
 
 ## 5. Checked against the record and closed
 
