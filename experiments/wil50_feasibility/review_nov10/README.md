@@ -19,15 +19,16 @@ core). Sections 2 and 3 hold what was measured; section 4 ranks what is left.
   1,690 (section 3.3).
 - **(b) No stronger bound is on offer at degree 2; what can move is how the
   cuts are spent.** A node ends in the same place whether it finds the cuts
-  itself or inherits them (section 3.3). So a phase at a far parent can
-  replace about twenty at its children: at a node 325 short the children's
-  level costs half as much with the same outcomes (section 3.5; the full
-  subtree is still running).
+  itself or inherits them, to within a few units (section 3.3). So a phase
+  at a far parent can replace about twenty at its children: at a node 325
+  short, the 28 children whose subtrees finished in both arms cost 1.6x less
+  with the same five branching (section 3.5; the whole subtree was too large
+  to finish here).
 - **Where the time goes.** On node 10: leaves 56%, cut phases 35%, give-ups
   9%. Half of the leaf work is in the 14% of leaves that end within 3 units
   of the cutoff (section 1).
-- **Size.** Nothing here is worth 1.5x. Section 4 ranks eight items of a few
-  percent to about 1.2x each. The larger factor is more likely in the line
+- **Size.** Nothing here is worth 1.5x. Section 4 ranks eight items, from a few
+  percent to perhaps 1.3x. The larger factor is more likely in the line
   choice at depths 1-2 than in the bound.
 
 ## 1. Where the time goes
@@ -292,28 +293,39 @@ Stopped after 16 minutes for the full-subtree test below, so the same 13 and
   the parent instead of once per child.
 
 Full subtree of the 325-short node (`zone/subtree/`): `run_pair.sh cpcutt`
-with `PAB_EXTRA_T="-F 13:1,21:0,45:2 ..."`, two slots per arm, the production
-zone against `PAB_CUT_ZONE=0.0075` (366 units). **Interim, 61 minutes in,
-both arms still running**: 16 of the 47 children are done in both arms.
+with `PAB_EXTRA_T="-F 13:1,21:0,45:2 ..."`, the production zone against
+`PAB_CUT_ZONE=0.0075` (366 units). **Not completed here.** The subtree is far
+larger than this box could finish: the production arm stood at 911 nodes and
+6.8 CPU-hours and the wide arm at 705 nodes and 5.0 CPU-hours, with 14 of the
+47 children reached in neither. What follows is the 28 children whose whole
+subtrees are complete in both arms (`subtree.py`, `compare_partial.txt`):
 
-| the 16 children | zone 0.005 | zone 0.0075 |
+| the 28 children and everything under them | zone 0.005 | zone 0.0075 |
 |---|---|---|
-| fathom in the first solve / in their own phase / branch | 6 / 8 / 2 | 11 / 3 / 2 |
-| iterations, first solves + own phases | 11,667 | 7,636 |
-| the same without `49:49` (below) | 7,967 | 3,936 |
-| the parent's phase | none | 750 |
+| fathom in the first solve / in their own phase / branch | 12 / 11 / 5 | 18 / 5 / 5 |
+| nodes | 393 | 258 |
+| iterations | 38,426 | 23,005 |
+| DNN CPU | 11,270 s | 6,973 s |
 
-- **The outcomes are the same child for child.** The same two children
-  branch in both arms, and they end in the same place: `33:49` 69.8 and 64.4
-  short, `49:49` 1.9 and 1.0 short. This is section 3.3's finding again.
-- **The cost of the children's level halves** on the 15 other children, for
-  one 750-iteration phase at the parent. Below the two branchers the arms do
-  the same work, so the subtree as a whole gains less: about 1.2x [e] until
-  the run completes.
-- **One marginal phase is a sixth of either arm's work so far.** `49:49`'s
-  phase runs to the 3,400-iteration limit in both arms and ends 1-2 short.
-  The stall rule does not fire while the gap is small; a predictive stop
-  like the first solve's would (section 4, item 6).
+- **1.67x in iterations and 1.62x in CPU on these 28**, and 1.58x in CPU
+  net of the parent's phase when scaled to all 47 children.
+- **The same five children branch in both arms, and each ends a little
+  higher with the inherited pool**: `49:49` 1.0 short against 1.9, `33:49`
+  64.4 against 69.8, `22:49` 44.2 against 47.8, `32:49` 31.2 against 34.7,
+  `24:49` 42.4 against 45.6. They have had the parent's 750 iterations on
+  the cuts as well as their own. At `33:49` that changes what happens below:
+  47 nodes against 182.
+- **Not compared: the heavy branchers.** Three children that end 104-148
+  short after their own phase (`26:49`, `19:49`, `8:49`) are open in one arm
+  or both, with 65 to 312 nodes under each so far. They also end 7-10 units
+  higher in the wide arm. 14 children were reached in neither arm.
+- **So the children's level and the medium branchers gain 1.6x; what the
+  whole subtree gains depends on the heavy branchers** and is left to a
+  complete run (the commands are at the end of this file).
+- **One phase creeps to the iteration limit in both arms.** `49:49`'s phase
+  runs all 3,400 iterations, about 1,090 s, and ends 1-2 short. The stall
+  rule does not fire while the gap is small; a predictive stop like the
+  first solve's would (section 4, item 6).
 
 ### 3.6 A search-side candidate: one node for a line's strong children
 
@@ -363,12 +375,12 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 
 | # | what | evidence | expected | cost | next step and kill line |
 |---|---|---|---|---|---|
-| 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | at a 325-short node the children's level costs half as much with the same outcomes, for one 750-iteration phase [m, interim]; the pool is worth +53 to +71 at a child's first solve [m] | about 1.2x on such a subtree, 1.1x on the tree [e] | a settings line | finish the subtree test; then node 5's subtree at both zones; adopt at 1.05x in DNN CPU with no fathom lost |
+| 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | at a 325-short node, 1.62x in DNN CPU on the 28 of 47 children whose subtrees finished in both arms, with the same children branching and ending 1-5 units higher; the heavy branchers not compared [m] | 1.2-1.5x on such a subtree, 1.1-1.3x on the tree [e] | a settings line | the complete subtree at both zones (commands at the end); adopt at 1.05x in DNN CPU with no fathom lost |
 | 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
 | 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m] | up to 1.06x on the tail class, nothing near the cutoff [e] | a settings key and a few lines; the zone test on the rule's predicted value | tail subtree A/B; kill under 1.02x |
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
 | 5 | the early certificate at iteration 5 of warm solves | 1.016x on the subtree [m] | 1.016x | promote `DNN_ADMM_CROSS_FIRST` from an experiment name to a settings key | none; take it with the next settings change |
-| 6 | a predictive stop for phases that creep toward the cutoff | one phase runs to the 3,400 limit and ends 1-2 short, a sixth of the zone test's work so far [m]; 15 of stage A's 463 depth-2 phases end at the limit, 11% of their CPU [r] | about 1.02x [e] | a rule in `dnn_cut_cp` | replay on phase histories first: it must not stop the phases that fathom late |
+| 6 | a predictive stop for phases that creep toward the cutoff | one phase in the zone test runs to the 3,400 limit and ends 1-2 short, 1,090 s [m]; 15 of stage A's 463 depth-2 phases end at the limit, 11% of their CPU [r] | about 1.02x [e] | a rule in `dnn_cut_cp` | replay on phase histories first: it must not stop the phases that fathom late |
 | 7 | box cuts at the CP phase's final iterate | untried, and the evidence is weak (section 3.4) | 0 to +10 units [e] | an hour with `dnncuts` | close if the largest violation is under 0.05 |
 | 8 | branching marginals from the phase's final iterate (`bnb.C` takes `dnn_xbar` from the first solve before the phase's state replaces it) | not measured | unknown | two lines and a key | node 10: if the line changes, run both subtrees |
 
