@@ -51,5 +51,6 @@ For reference, tho30's earlier best is rule 9 alone, Nov 8: 14,822 nodes,
 - Practical: keep `branch.xbar_lines = 1` as the default (the nug30 record
   stands). For tho30-like instances, 2 is most of the gain at a fifth of the
   extra lookahead; 8 is the best measured. For tho40 (5 x 8), which of the
-  two regimes applies is not known; a depth-limited A/B at k = 1 and 2 on a
-  few depth-2 subtrees is the cheap way to find out before a long run.
+  two regimes applies was not known from this sweep; the A/B in
+  `tho40_ab/` (three depth-3 subtrees, 1 vs 2 lines) answers it: tho40 is in
+  tho30's regime, 20% fewer nodes at 2 lines, no subtree worse.
