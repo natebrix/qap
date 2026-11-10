@@ -29,6 +29,7 @@ else
 fi
 SLOTS=${4:-$P}
 RUNS=${EST_RUNS:-$(dirname "$SETF")/subtrees}
+mkdir -p "$RUNS"; RUNS=$(cd "$RUNS" && pwd)   # absolute: the coordinator runs the solver from its own directory
 A=$RUNS/$NAME; B=local:$A/backend; RUN=$NAME
 mkdir -p "$A/bin"
 [ -x "$A/bin/bnbdrv" ] || { cp latest/bnbdrv "$A/bin/bnbdrv"; echo "$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- latest || echo ' (latest/ modified)')" > "$A/bin/commit.txt"; }
