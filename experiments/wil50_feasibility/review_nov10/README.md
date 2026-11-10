@@ -444,7 +444,22 @@ phases, and region branching only on nug30, cold, at a far miss.
 - `zone/`: section 3.5. `run_set.sh` bounds a node and its children with
   chosen settings on `base.par` (the node-10 arm's settings file);
   `first_level/` has the four traces and `compare.txt` (`zcmp.py`);
-  `subtree/` has the two arms of the full-subtree test.
+  `subtree.py` compares two arms of a subtree run child by child, each
+  child with its whole subtree.
+
+To run the full-subtree zone A/B (laptop, from the repository root, the two
+`run_pair.sh` lines at the same time in two terminals; each takes half the
+performance cores, and an interrupted arm resumes with the same command):
+
+```
+git pull origin cognac && make solver
+P="-F 13:1,21:0,45:2 -x 0:4:1:300:1 -s $PWD/latest/SYM/wil50t.sym"
+D=$PWD/experiments/wil50_feasibility/pipeline_ab
+PAB_RUNS=$D/runs_zone005 PAB_EXTRA_T="$P" $D/run_pair.sh cpcutt
+PAB_RUNS=$D/runs_zone0075 PAB_EXTRA_T="$P" PAB_CUT_ZONE=0.0075 $D/run_pair.sh cpcutt
+python3 experiments/wil50_feasibility/review_nov10/zone/subtree.py \
+    zone005=$D/runs_zone005/cpcutt/trace.txt zone0075=$D/runs_zone0075/cpcutt/trace.txt
+```
 - `union/`: section 3.6. `union_pass.patch` adds the `-G` pass to
   `latest/dnntest.C` (not applied in the tree); `run_u1.sh` runs it,
   `groups.py` picks the sets, `ucmp.py` compares, `results_f9.txt` is the
