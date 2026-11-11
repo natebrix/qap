@@ -1,0 +1,55 @@
+  ---- RESULTS ----
+
+    Total Time: 62995.950454 seconds 
+         Nodes: 3935 / 3846 / 0
+    root bound: 46131.507862715953
+ fw iterations: 341391
+     DNN bound: 3935 nodes, 3776 fathomed, 36158.61 s
+     cut phase: 159 nodes, 70 fathomed, 26129.42 s
+
+level    nodes	%fathom	%c.elim	    time
+ 3           1	0.0000	0.0000	  127.12
+ 4          47	0.8085	0.0000	 3927.35
+ 5         414	0.9420	0.0000	12060.05
+ 6        1080	0.9704	0.0000	18402.26
+ 7        1408	0.9865	0.0000	19579.43
+ 8         817	0.9951	0.0000	 8250.77
+ 9         168	1.0000	N/A	  643.39
+
+Strategy breakdown:
+nodes       0        1     1541     2393 
+time     0.00   127.12 34389.66 28473.60 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 3           1	0.0000	1.0000	        300	   300.0	   30.21
+ 4          47	0.6383	0.3617	       8081	   171.9	 1355.31
+ 5         414	0.9034	0.0966	      35242	    85.1	 5621.99
+ 6        1080	0.9528	0.0472	      63826	    59.1	 9377.39
+ 7        1408	0.9744	0.0256	      76890	    54.6	12960.28
+ 8         817	0.9829	0.0171	      45263	    55.4	 6182.18
+ 9         168	1.0000	0.0000	       6467	    38.5	  631.24
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 3           1	0.0000	   96.79
+ 4          17	0.4706	 2539.79
+ 5          40	0.4000	 6312.86
+ 6          51	0.3725	 8797.80
+ 7          36	0.4722	 6409.93
+ 8          14	0.7143	 1972.24
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 3           0	       0	       0	       0	       0
+ 4          38	       0	      30	       8	       0
+ 5         390	       0	     374	      16	       0
+ 6        1048	       0	    1029	      19	       0
+ 7        1389	       0	    1372	      17	       0
+ 8         813	       0	     803	      10	       0
+ 9         168	       0	     168	       0	       0
+
+coordinator: 6 slots, 132 units, wall 13019.52 s, CPU 62995.95 s (x4.84), slots busy 95.8%, best objective 48816
