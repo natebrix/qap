@@ -1,0 +1,55 @@
+  ---- RESULTS ----
+
+    Total Time: 161842.817254 seconds 
+         Nodes: 11925 / 11655 / 0
+    root bound: 46131.507862715953
+ fw iterations: 1027741
+     DNN bound: 11925 nodes, 11475 fathomed, 95153.37 s
+     cut phase: 450 nodes, 180 fathomed, 64777.61 s
+
+level    nodes	%fathom	%c.elim	    time
+ 3           1	0.0000	0.0000	  115.02
+ 4          47	0.4681	0.0000	 6665.17
+ 5        1150	0.9357	0.0000	32069.80
+ 6        3330	0.9712	0.0000	50207.86
+ 7        4224	0.9846	0.0000	52034.07
+ 8        2795	0.9968	0.0000	19127.20
+ 9         378	1.0000	N/A	 1599.09
+
+Strategy breakdown:
+nodes       0        1     4527     7397 
+time     0.00   115.02 88942.83 72760.36 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 3           1	0.0000	1.0000	        300	   300.0	   31.44
+ 4          47	0.3617	0.6383	      11496	   244.6	 2049.84
+ 5        1150	0.8922	0.1078	      87873	    76.4	14048.84
+ 6        3330	0.9495	0.0505	     201571	    60.5	28080.38
+ 7        4224	0.9735	0.0265	     225282	    53.3	33316.65
+ 8        2795	0.9946	0.0054	     126418	    45.2	16053.34
+ 9         378	1.0000	0.0000	      15105	    40.0	 1572.86
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 3           1	0.0000	   83.46
+ 4          30	0.1667	 4551.76
+ 5         124	0.4032	17661.62
+ 6         168	0.4286	21516.12
+ 7         112	0.4196	18154.46
+ 8          15	0.4000	 2810.19
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 3           0	       0	       0	       0	       0
+ 4          22	       0	      17	       5	       0
+ 5        1076	       0	    1026	      50	       0
+ 6        3234	       0	    3162	      72	       0
+ 7        4159	       0	    4112	      47	       0
+ 8        2786	       0	    2780	       6	       0
+ 9         378	       0	     378	       0	       0
+
+coordinator: 6 slots, 237 units, wall 63793.34 s, CPU 161842.82 s (x2.54), slots busy 46.6%, best objective 48816
