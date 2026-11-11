@@ -13,6 +13,9 @@
 # $EST_RUNS): trace.txt (one line per DNN-bounded node), results.txt, summary.txt.
 # ^C or kill drains (open nodes go back to the queue with their checkpoints); the
 # same command resumes.
+# EST_BACKEND: the coordinator's backend instead of local:RUNDIR/NAME/backend, e.g.
+# aws:BUCKET?region=eu-north-1 (S3, SQS, DynamoDB; coord/README.md; set up once with
+# python3 -m coord.qapctl aws-setup --backend ...). The solver still runs here.
 set -u
 [ $# -ge 3 ] || { sed -n '2,/^set -u$/p' "$0" | sed '$d'; exit 2; }
 SETF=$(cd "$(dirname "$1")" && pwd)/$(basename "$1"); NAME=$2; SPEC=$3
@@ -30,18 +33,19 @@ fi
 SLOTS=${4:-$P}
 RUNS=${EST_RUNS:-$(dirname "$SETF")/subtrees}
 mkdir -p "$RUNS"; RUNS=$(cd "$RUNS" && pwd)   # absolute: the coordinator runs the solver from its own directory
-A=$RUNS/$NAME; B=local:$A/backend; RUN=$NAME
+A=$RUNS/$NAME; B=${EST_BACKEND:-local:$A/backend}; RUN=$NAME
 mkdir -p "$A/bin"
 [ -x "$A/bin/bnbdrv" ] || { cp latest/bnbdrv "$A/bin/bnbdrv"; echo "$(git rev-parse --short HEAD)$(git diff --quiet HEAD -- latest || echo ' (latest/ modified)')" > "$A/bin/commit.txt"; }
 EXTRA="-F $SPEC${FULLRUN_SYM:+ -s $FULLRUN_SYM}"
 { echo "settings $SETF"; echo "spec $SPEC"; echo "extra $EXTRA"; env | grep -E '^(QAP_|DNN_)' | sort; } > "$A/env.txt"
 echo "$(date -u +%FT%TZ) $CPU slots $SLOTS $(cat "$A/bin/commit.txt")" >> "$A/hosts.txt"
 PY=${PYTHON:-python3}
-if [ ! -f "$A/backend/ledger.db" ]; then
+if [ ! -f "$A/backend/ledger.db" ] && [ ! -f "$A/init.done" ]; then
   $PY -m coord.qapctl init "$RUN" --backend "$B" --instance "$FULLRUN_INSTANCE" --params "$FULLRUN_PAR" \
     --ub "$FULLRUN_UB" --slots "$SLOTS" --extra "$EXTRA" --trace --solver "$A/bin/bnbdrv" \
     --budget 3600 --target-unit-cpu 1800 --steal-after 10 --lease 600 --heartbeat 60 --ckpt-upload 300 \
     --checkpoint-every 60 --status-every 60 >> "$A/coordinator.log" 2>&1 || { echo "init failed (see $A/coordinator.log)"; exit 1; }
+  echo "$B" > "$A/init.done"
 else
   $PY -m coord.qapctl requeue-leased "$RUN" --backend "$B" >> "$A/coordinator.log" 2>&1
 fi
@@ -54,9 +58,11 @@ stop() { echo "$(date '+%F %T') stopping: draining; the same command resumes"; k
 trap stop INT TERM
 while kill -0 $CPID 2>/dev/null; do wait $CPID; done
 while kill -0 $WPID 2>/dev/null; do wait $WPID; done
-if [ -f "$A/backend/store/runs/$RUN/results.txt" ]; then
+if [ "$B" = "local:$A/backend" ] && [ -f "$A/backend/store/runs/$RUN/results.txt" ]; then
   find "$A/backend/store/runs/$RUN/units" -name trace.txt -exec cat {} + > "$A/trace.txt"
   cp "$A/backend/store/runs/$RUN/results.txt" "$A/results.txt"
+  $PY "$R/experiments/estimates/subtree_summary.py" "$A" | tee "$A/summary.txt"
+elif [ "$B" != "local:$A/backend" ] && $PY "$R/experiments/estimates/subtree_fetch.py" "$B" "$RUN" "$A"; then
   $PY "$R/experiments/estimates/subtree_summary.py" "$A" | tee "$A/summary.txt"
 else
   echo "$NAME: stopped before the end; run the same command again to resume"

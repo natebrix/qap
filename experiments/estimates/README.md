@@ -92,6 +92,32 @@ experiments/estimates/wil50/run_anchors.sh a325     # or one of them
   anchors, wil50 is 2.4-4.3 times the record's estimate: about 1.2-2.1
   million DNN nodes and 7,500-13,200 core-hours.
 
+- **Through AWS's queue and store.** `subtree.sh` takes `EST_BACKEND`, a
+  coordinator backend other than its local directory: S3 for the state
+  files, two SQS queues, two DynamoDB tables (`coord/README.md`). The solver
+  still runs on the machine that starts the script. Re-running a220 this way
+  checks the AWS backend on real AWS against a known tree (232 DNN nodes);
+  until now it had only run against `moto`. It costs a few cents in requests.
+  Checked here: a nug20 subtree (`-F 0:5`, `fullrun.par`, 38 DNN nodes) on
+  the local backend and on the AWS backend against a local moto server gave
+  the same trace line for line, apart from process IDs and CPU times, and a
+  rerun of the finished AWS run took the resume path and fetched the same
+  result.
+
+  ```
+  python3 -c 'import boto3' || python3 -m pip install --user boto3
+  ACCT=$(aws sts get-caller-identity --query Account --output text)
+  export EST_BACKEND="aws:qap-coord-$ACCT-eu-north-1?region=eu-north-1"
+  python3 -m coord.qapctl aws-setup --backend "$EST_BACKEND"     # once: the bucket, queues and tables
+  EST_RUNS=experiments/estimates/wil50/subtrees experiments/estimates/subtree.sh \
+    experiments/wil50_feasibility/fullrun/settings.sh a220aws 21:22,31:23,40:15
+  ```
+
+  Removing it all: `aws s3 rb s3://qap-coord-$ACCT-eu-north-1 --force`;
+  `aws sqs delete-queue --queue-url $(aws sqs get-queue-url --queue-name Q --query QueueUrl --output text)`
+  for `Q` in `qap-units-large` and `qap-units-small`; `aws dynamodb
+  delete-table --table-name T` for `qap-runs` and `qap-units`.
+
 ### tho40 and sko42: traced search, depth-2 sweep, fit (`trace_estimate.sh`)
 
 ```
