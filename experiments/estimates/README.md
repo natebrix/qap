@@ -68,11 +68,12 @@ experiments/estimates/wil50/run_anchors.sh a325     # or one of them
   |---|---|---|---|---|---|---|
   | a220 | 220.2 | 232 | 18,852 | 3,071 s | 13.2 s | 15 min |
   | a251 | 251.1 | 3,935 | 387,735 | 62,288 s | 15.8 s | 3.6 h |
-  | a325 | 324.6 | 11,923 | 1,066,452 | 159,914 s | 13.4 s | 17.7 h, including the hours it was stopped |
+  | a325 | 324.6 | 11,923 | 1,066,452 | 159,914 s | 13.4 s | about 8 h running (17.7 h end to end) |
 
-  a251 and a325 took 5 and 3-8 times the predicted wall time. a325 was
-  drained once for the evening and stopped once by a full disk at 22:41
-  (`No space left on device` in its `worker.log`). The resume replayed the
+  a251 took 3.6 h against the predicted 40 minutes. a325 ran about 8 h
+  (6.0 h until the evening drain, then 2.1 h until the disk filled at 22:41,
+  `No space left on device` in its `worker.log`), against 2-3 h by the fit
+  and 9 h by the per-level model. The resume replayed the
   finished units, and the run went on to the end.
 
   The refit (`wil50/refit.txt`) uses seven measured subtrees, two of
