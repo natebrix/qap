@@ -166,19 +166,39 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
   | 301-304 | 21 | 7.6e9 ± 7.2e9 | 3.1e10 ± 2.7e10 (360 days on 1,000 cores) | 86% of the CPU (seed 303 dive 3, to level 10, 1.5e11 nodes) | 4.1e8 nodes, 4.5e9 CPU-s (52 days) |
   | 305-308 | 19 | 8.2e9 ± 7.8e9 | 1.0e11 ± 9.9e10 (1,200 days) | 96% (seed 308 dive 3, to level 7, 1.5e11 nodes, 1.9e12 CPU-s) | |
   | 309-312 | 24 | 2.6e9 ± 2.3e9 | 3.0e11 ± 2.9e11 (3,450 days) | 99% (seed 312 dive 5, to level 9, 5.6e10 nodes, 7.1e12 CPU-s) | |
-  | **pooled** | **64** | **5.9e9 ± 3.4e9** | **1.5e11 ± 1.1e11 (1,770 days)** | the three above: 72%, 19% and 6%, 97% together | without all three: 3.2e8 nodes, 4.2e9 ± 1.3e9 CPU-s (49 days) |
+  | 313-316 | 7 | 3.1e7 | 3.8e8 | | stopped after 33 minutes by a container restart; the finished dives are kept |
+  | 317-320 | 23 | 1.9e10 ± 1.8e10 | 1.3e11 ± 1.2e11 (1,520 days) | 90% (seed 317 dive 4, to level 9, 4.0e11 nodes, 2.7e12 CPU-s) | |
+  | **pooled** | **94** | **8.7e9 ± 4.8e9** | **1.4e11 ± 8.2e10 (1,575 days)** | 312/5 55%, 317/4 21%, 308/3 15%, 303/3 4% | without the top three: 2.3e9 nodes, 1.3e10 ± 6.6e9 CPU-s (144 days) |
 
-  The median dive is 6.4e6 nodes and 3.8e8 CPU-s. Level 10, which QPB
+  The median dive is 4.5e6 nodes and 1.4e8 CPU-s. Level 10, which QPB
   bounds alone, costs 1.8 CPU-s a node; level 9, under the DNN, 108-125.
-  Each window has had one dive 3-4 orders of magnitude above the median,
-  each larger than the last (5.6e11, 1.9e12, 7.1e12 CPU-s); seed 312's
-  spends 97% of its CPU on 5.5e10 level-9 nodes, all fathomed by the DNN.
-  Without those three, the 61 others agree with the Nov 8 tuned run
-  (4.1e9 ± 3.0e9 CPU-s, 10 dives, 77% in one) and with each other. With
-  them the total is set by the rarest dive, the pooled mean has risen with
-  each window, and it is not yet an estimate of the tree: what the dives
-  say so far is that the tree under these settings is above 1e11 CPU-s
-  (years on 1,000 cores) with no sign of a ceiling.
+  Every full window has had one dive 3-4 orders of magnitude above the
+  median (5.6e11, 1.9e12, 7.1e12, 2.7e12 CPU-s); seed 312's spends 97% of
+  its CPU on 5.5e10 level-9 nodes, all fathomed by the DNN.
+
+  **The dives cannot settle the total.** The tail of the per-dive CPU
+  estimates has a Hill index of 0.35-0.42 (the largest 5 to 30 of the 94).
+  Below 1, the sample mean is carried by the largest dive and keeps rising
+  as dives are added, until the sample reaches the part of the tree where
+  its finite size cuts the tail off; nothing in 94 dives shows where that
+  is. The mean of such a sample is, more often than not, below the true
+  mean. So what the dives establish is a floor: **under these settings
+  tai50b's tree is at least about 1e11 CPU-s on this Xeon, 3-4 years on
+  1,000 cores, and probably more.** More windows of the same dives sharpen
+  that floor and the tail index; they do not converge.
+
+  This also revises Nov 8. The tuned settings' 4.1e9 CPU-s against the base
+  settings' 1.8e11 (45x) came from 10 dives with no giant among them; with
+  94 dives the tuned settings give 1.4e11, the same order as the base.
+  Whether the tuning helps is not settled by these dives either.
+
+  The estimator samples each child with probability (1 - 0.3) x_ij / sum +
+  0.3 / kids (`latest/bnb.C`, the dive branch) and divides the dive's
+  weight by it, so the estimate stays unbiased; a dive that takes a few
+  low-marginal children gets up to 3.3 kids times the weight per level.
+  The log does not print the per-level probabilities, so whether the giant
+  dives are such paths (the marginals misleading the sampler) or high-
+  marginal paths into a large subtree is not known from these files.
 
 ## Suggested order
 
