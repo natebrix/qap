@@ -168,19 +168,20 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
   | 309-312 | 24 | 2.6e9 ± 2.3e9 | 3.0e11 ± 2.9e11 (3,450 days) | 99% (seed 312 dive 5, to level 9, 5.6e10 nodes, 7.1e12 CPU-s) | |
   | 313-316 | 7 | 3.1e7 | 3.8e8 | | stopped after 33 minutes by a container restart; the finished dives are kept |
   | 317-320 | 23 | 1.9e10 ± 1.8e10 | 1.3e11 ± 1.2e11 (1,520 days) | 90% (seed 317 dive 4, to level 9, 4.0e11 nodes, 2.7e12 CPU-s) | |
-  | **pooled** | **94** | **8.7e9 ± 4.8e9** | **1.4e11 ± 8.2e10 (1,575 days)** | 312/5 55%, 317/4 21%, 308/3 15%, 303/3 4% | without the top three: 2.3e9 nodes, 1.3e10 ± 6.6e9 CPU-s (144 days) |
+  | 321-324 | 21 | 3.2e9 ± 3.0e9 | 4.2e10 ± 3.2e10 (490 days) | 74% (seed 321 dive 5, to level 10, 6.2e10 nodes, 6.5e11 CPU-s) | 2.5e8 nodes, 1.2e10 CPU-s (134 days) |
+  | **pooled** | **115** | **7.7e9 ± 4.0e9** | **1.2e11 ± 6.8e10 (1,375 days)** | 312/5 52%, 317/4 20%, 308/3 14%, 321/5 5%, 303/3 4% | without the top three: 2.5e9 nodes, 1.8e10 ± 8.0e9 CPU-s (209 days) |
 
-  The median dive is 4.5e6 nodes and 1.4e8 CPU-s. Level 10, which QPB
-  bounds alone, costs 1.8 CPU-s a node; level 9, under the DNN, 108-125.
+  The median dive is 4.7e6 nodes and 1.5e8 CPU-s. Level 10, which QPB
+  bounds alone, costs 1.8-7.6 CPU-s a node; level 9, under the DNN, 108-125.
   Every full window has had one dive 3-4 orders of magnitude above the
-  median (5.6e11, 1.9e12, 7.1e12, 2.7e12 CPU-s); seed 312's spends 97% of
-  its CPU on 5.5e10 level-9 nodes, all fathomed by the DNN.
+  median (5.6e11, 1.9e12, 7.1e12, 2.7e12, 6.5e11 CPU-s); seed 312's spends
+  97% of its CPU on 5.5e10 level-9 nodes, all fathomed by the DNN.
 
   **The dives cannot settle the total.** The tail of the per-dive CPU
-  estimates has a Hill index of 0.35-0.42 (the largest 5 to 30 of the 94).
+  estimates has a Hill index of 0.37-0.45 (the largest 5 to 30 of the 115).
   Below 1, the sample mean is carried by the largest dive and keeps rising
   as dives are added, until the sample reaches the part of the tree where
-  its finite size cuts the tail off; nothing in 94 dives shows where that
+  its finite size cuts the tail off; nothing in 115 dives shows where that
   is. The mean of such a sample is, more often than not, below the true
   mean. So what the dives establish is a floor: **under these settings
   tai50b's tree is at least about 1e11 CPU-s on this Xeon, 3-4 years on
@@ -189,7 +190,7 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
 
   This also revises Nov 8. The tuned settings' 4.1e9 CPU-s against the base
   settings' 1.8e11 (45x) came from 10 dives with no giant among them; with
-  94 dives the tuned settings give 1.4e11, the same order as the base.
+  115 dives the tuned settings give 1.2e11, the same order as the base.
   Whether the tuning helps is not settled by these dives either.
 
   The estimator samples each child with probability (1 - 0.3) x_ij / sum +
@@ -199,6 +200,27 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
   The log does not print the per-level probabilities, so whether the giant
   dives are such paths (the marginals misleading the sampler) or high-
   marginal paths into a large subtree is not known from these files.
+
+  **Stopped, Nov 11: tai50b is out of reach under the current method.**
+  Six windows (115 dives, about 10 h of four cores) put a floor of about 1e11
+  CPU-s on the tree, and the tail says the true total is probably higher;
+  more dives of the same kind cannot lower that. Where the pooled CPU goes:
+
+  | level | ≤5 | 6 | 7 | 8 | 9 | ≥10 |
+  |---|---|---|---|---|---|---|
+  | share of CPU | 0.7% | 4.6% | 13.3% | 11.4% | 64.6% | 5.4% |
+
+  **Taking the DNN to every depth would not help.** Levels 1-9 are
+  already under the DNN and hold 95% of the CPU; QPB bounds only levels 10
+  and below, which hold 5.4%. The number of level-10 nodes is set by what
+  the DNN fathoms at level 9, so a DNN below 9 can save at most that 5.4%,
+  and less in practice, since a DNN node at level 9 costs 108-125 CPU-s
+  against QPB's 1.8-7.6. The largest dives end at level 9 or 10 (312/5 and
+  317/4 at 9, 321/5 and 303/3 at 10, 308/3 at 7). What remains open is bound
+  strength at levels 6-9, the levels that hold the cost: DNN bounds run
+  closer to convergence than a 600-iteration give-up, at a higher cost per
+  node, which Fujii et al.'s 5.5e7 nodes suggests can shrink the tree. These
+  dives do not test that, so it remains untested, not ruled out.
 
 ## Suggested order
 

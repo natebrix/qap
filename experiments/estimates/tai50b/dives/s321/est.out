@@ -1,0 +1,395 @@
+[Jan 1, 2023]
+vm
+estimator ON, branch and bound OFF
+parameters file: /home/user/qap/experiments/estimates/tai50b/tai50b.par
+incumbent: 4.58822e+08
+input file: /home/user/qap/qaplib/tai50b.dat
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 1-9, relative gap <= 1, give up after 600 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 65 hash ad5f33921992d89c
+setting dnn.depths 1:9 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 600 par policy
+setting dnn.warm 1 par policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36 par policy
+setting dnn.cross 2 par policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting pool.on 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 1 par policy
+setting est.xbar_mix 0.3 par policy
+setting par.hash 4f08b89c9d6f0be7 par policy
+setting DNN_R32 0 default experiment
+setting DNN_ADMM_CROSS_FIRST 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED 321 env run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/estimates/tai50b/tai50b.par flag run
+setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST /home/user/qap/experiments/estimates/tai50b/dives/s321/dives.txt env diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+branching_weight() = 0.5
+couldn't find [./SYM/tai50b.sym], assuming no symmetry
+start dives at 1, 10000 trials, print every 1/1, score exp = 1.500000
+throw out dives with depth >= 1000
+!! ESTIMATE !! 
+Estimator seed = 321
+Dive history file = /home/user/qap/experiments/estimates/tai50b/dives/s321/dives.txt
+Scoring exponent = 1.5
+
+    Total Time: 29.5684 seconds 
+         Nodes: 1 / 0 / 0
+    root bound: 2.8858e+08
+ fw iterations: 52600
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   29.57
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+nodes       1        0        0        0 
+time    29.57     0.00     0.00     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+
+sum = 36.755
+stack = 50
+Wed Nov 11 03:49:41 [     1 dives        36448451 nodes  340258200.19 seconds 0 ignored]
+
+    Total Time: 3.40258e+08 seconds 
+         Nodes: 36448451 / 36158335 / 0
+    root bound: 2.8858e+08
+ fw iterations: 2484080597
+     DNN bound: 5 nodes, 1 fathomed, 1079.13 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   29.57
+ 1          54	0.0000	0.0000	17217.37
+ 2         251	0.0000	0.0000	75591.58
+ 3       31101	0.0000	0.0000	7510856.51
+ 4      258709	0.0000	0.0000	56313736.75
+ 5    36158335	1.0000	N/A	276340768.42
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 54 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 251 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 31101 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 258709 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 36158335 
+nodes      55        0 36448396        0 
+time 17246.94     0.00 340240953.25     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.775708	-nan
+ 2| 0.114837	-nan
+ 3| 0.086813	-nan
+ 4| 0.034033	-nan
+ 5| 0.028512	-nan
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           1	0.0000	1.0000	        600	   600.0	  315.12
+ 2           1	0.0000	1.0000	        600	   600.0	  299.38
+ 3           1	0.0000	1.0000	        600	   600.0	  240.42
+ 4           1	0.0000	1.0000	        600	   600.0	  216.65
+ 5           1	1.0000	0.0000	         25	    25.0	    7.55
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3           0	       0	       0	       0	       0
+ 4           0	       0	       0	       0	       0
+ 5    36158335	36158334	       1	       0	       0
+
+Wed Nov 11 04:03:55 [     2 dives        18427104 nodes  200602966.70 seconds 0 ignored]
+
+    Total Time: 2.00603e+08 seconds 
+         Nodes: 18427104 / 18279460 / 0
+    root bound: 2.8858e+08
+ fw iterations: 1258353679
+     DNN bound: 8 nodes, 2 fathomed, 1924.58 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   29.57
+ 1          51	0.0000	0.0000	16560.82
+ 2        2686	0.0000	0.0000	992557.78
+ 3      215843	0.9280	0.0000	33266565.95
+ 4      129354	0.0000	0.0000	28156868.37
+ 5    18079167	1.0000	N/A	138170384.21
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 51 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 2686 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 215843 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 129354 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 18079167 
+nodes      52        0 18427050        0 
+time 16590.39     0.00 200586376.31     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.805938	-nan
+ 2| 0.117673	-nan
+ 3| 0.036118	0.014125
+ 4| 0.034034	-nan
+ 5| 0.028512	-nan
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           2	0.0000	1.0000	       1200	   600.0	  641.80
+ 2           2	0.0000	1.0000	       1270	   635.0	  670.96
+ 3           2	0.5000	0.5000	        908	   454.0	  387.62
+ 4           1	0.0000	1.0000	        600	   600.0	  216.65
+ 5           1	1.0000	0.0000	         25	    25.0	    7.55
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3      200293	  200292	       1	       0	       0
+ 4           0	       0	       0	       0	       0
+ 5    18079167	18079166	       1	       0	       0
+
+Wed Nov 11 04:25:56 [     3 dives        12369489 nodes  163564989.96 seconds 0 ignored]
+
+    Total Time: 1.63565e+08 seconds 
+         Nodes: 12369489 / 12259827 / 0
+    root bound: 2.8858e+08
+ fw iterations: 869283323
+     DNN bound: 12 nodes, 3 fathomed, 3229.94 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   29.57
+ 1          51	0.0000	0.0000	16820.06
+ 2        1909	0.0000	0.0000	701125.66
+ 3      154992	0.8615	0.0000	25439584.24
+ 4      159756	0.4602	0.0000	45293840.97
+ 5    12052778	1.0000	N/A	92113589.47
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 51 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 1909 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 154992 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 159756 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 12052778 
+nodes      52        0 12369435        0 
+time 16849.63     0.00 163548140.34     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.810255	-nan
+ 2| 0.117511	-nan
+ 3| 0.039769	0.018923
+ 4| 0.026324	0.008350
+ 5| 0.028512	-nan
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           3	0.0000	1.0000	       1800	   600.0	  962.12
+ 2           3	0.0000	1.0000	       1870	   623.3	 1002.60
+ 3           3	0.3333	0.6667	       1508	   502.7	  680.37
+ 4           2	0.5000	0.5000	       1488	   744.0	  577.29
+ 5           1	1.0000	0.0000	         25	    25.0	    7.55
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3      133528	  133527	       1	       0	       0
+ 4       73520	   73519	       1	       0	       0
+ 5    12052778	12052777	       1	       0	       0
+
+Wed Nov 11 04:46:08 [     4 dives        17203474 nodes  2305251283.23 seconds 0 ignored]
+
+    Total Time: 2.30525e+09 seconds 
+         Nodes: 17203473 / 17060063 / 0
+    root bound: 2.8858e+08
+ fw iterations: 1189592429
+     DNN bound: 16 nodes, 4 fathomed, 4429.24 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   29.57
+ 1          51	0.0000	0.0000	16547.03
+ 2        2231	0.0000	0.0000	787189.46
+ 3      176595	0.5671	0.0000	36059916.31
+ 4     7985010	0.9919	0.0000	2199302408.75
+ 5     9039583	1.0000	N/A	69085192.11
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 51 
+ 2 |   0.0000   0.3581   0.6419   0.0000  | 2231 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 176595 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 7985010 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 9039583 
+nodes      52      799 17202620        0 
+time 16576.60 261345.22 2304973361.41     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.806378	-nan
+ 2| 0.124564	0.009050
+ 3| 0.060692	0.032848
+ 4| 0.037675	0.001735
+ 5| 0.028512	-nan
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           4	0.0000	1.0000	       2400	   600.0	 1279.91
+ 2           4	0.0000	1.0000	       2470	   617.5	 1328.60
+ 3           4	0.2500	0.7500	       2108	   527.0	  960.68
+ 4           3	0.6667	0.3333	       2162	   720.7	  852.50
+ 5           1	1.0000	0.0000	         25	    25.0	    7.55
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3      100146	  100145	       1	       0	       0
+ 4     7920333	 7920331	       2	       0	       0
+ 5     9039583	 9039582	       1	       0	       0
+
+Wed Nov 11 05:20:13 [     5 dives     12463314164 nodes  132476152430.32 seconds 0 ignored]
+
+    Total Time: 1.32476e+11 seconds 
+         Nodes: 12463314164 / 12157833486 / 0
+    root bound: 2.8858e+08
+ fw iterations: 623615099467
+     DNN bound: 26 nodes, 5 fathomed, 6449.93 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   29.57
+ 1          50	0.0000	0.0000	16385.10
+ 2        1841	0.0000	0.0000	648110.41
+ 3      141970	0.5643	0.0000	29043653.76
+ 4     6391834	0.9913	0.0000	1760401657.02
+ 5     7245006	0.9982	0.0000	58172407.28
+ 6       67013	0.0000	0.0000	12672457.63
+ 7      180331	0.0000	0.0000	30619384.71
+ 8     7388154	0.0000	0.0000	1030627398.47
+ 9   297712525	0.0000	0.0000	37235225556.51
+10  12144185435	1.0000	N/A	92318725389.85
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 50 
+ 2 |   0.0000   0.3775   0.6219   0.0000  | 1841 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 141970 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 6391834 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 7245006 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 67013 
+ 7 |   0.0000   0.0000   0.0000   1.0000  | 180331 
+ 8 |   0.0000   0.0000   0.0000   1.0000  | 7388154 
+ 9 |   0.0000   0.0000   0.0000   1.0000  | 297712525 
+10 |   0.0000   0.0000   0.0000   1.0000  | 12144185435 
+nodes      51      695 13846968 12449466445 
+time 16414.67 227435.02 1860710851.09 130615197729.54 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.820011	-nan
+ 2| 0.125006	0.009180
+ 3| 0.060942	0.032960
+ 4| 0.037713	0.002327
+ 5| 0.028630	0.002751
+ 6| 0.085709	-nan
+ 7| 0.071349	-nan
+ 8| 0.065802	-nan
+ 9| 0.048174	-nan
+10| 0.037509	-nan
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           5	0.0000	1.0000	       3000	   600.0	 1598.69
+ 2           5	0.0000	1.0000	       3070	   614.0	 1653.70
+ 3           5	0.2000	0.8000	       2708	   541.6	 1241.31
+ 4           4	0.5000	0.5000	       2762	   690.5	 1102.11
+ 5           2	0.5000	0.5000	        625	   312.5	  224.25
+ 6           1	0.0000	1.0000	        600	   600.0	  188.10
+ 7           1	0.0000	1.0000	        600	   600.0	  169.74
+ 8           1	0.0000	1.0000	        600	   600.0	  139.45
+ 9           1	0.0000	1.0000	        600	   600.0	  125.02
+10           1	1.0000	0.0000	         44	    44.0	    7.55
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3       80117	   80116	       1	       0	       0
+ 4     6336266	 6336264	       2	       0	       0
+ 5     7231667	 7231666	       1	       0	       0
+ 6           0	       0	       0	       0	       0
+ 7           0	       0	       0	       0	       0
+ 8           0	       0	       0	       0	       0
+ 9           0	       0	       0	       0	       0
+10  12144185435	12144185434	       1	       0	       0
+
