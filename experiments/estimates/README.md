@@ -165,15 +165,20 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
   |---|---|---|---|---|---|
   | 301-304 | 21 | 7.6e9 ± 7.2e9 | 3.1e10 ± 2.7e10 (360 days on 1,000 cores) | 86% of the CPU (seed 303 dive 3, to level 10, 1.5e11 nodes) | 4.1e8 nodes, 4.5e9 CPU-s (52 days) |
   | 305-308 | 19 | 8.2e9 ± 7.8e9 | 1.0e11 ± 9.9e10 (1,200 days) | 96% (seed 308 dive 3, to level 7, 1.5e11 nodes, 1.9e12 CPU-s) | |
-  | **pooled** | **40** | **7.9e9 ± 5.2e9** | **6.5e10 ± 4.9e10 (757 days)** | the two above: 72% and 21%, 93% together | without both: 3.9e8 nodes, 4.6e9 ± 2.0e9 CPU-s (54 days) |
+  | 309-312 | 24 | 2.6e9 ± 2.3e9 | 3.0e11 ± 2.9e11 (3,450 days) | 99% (seed 312 dive 5, to level 9, 5.6e10 nodes, 7.1e12 CPU-s) | |
+  | **pooled** | **64** | **5.9e9 ± 3.4e9** | **1.5e11 ± 1.1e11 (1,770 days)** | the three above: 72%, 19% and 6%, 97% together | without all three: 3.2e8 nodes, 4.2e9 ± 1.3e9 CPU-s (49 days) |
 
-  The median dive is 8.4e6 nodes and 4.9e8 CPU-s. Level 10, which QPB
-  bounds alone, costs 1.8 CPU-s a node; level 9, under the DNN, costs 108.
-  Two dives in 40 reach a subtree of about 1.5e11 nodes, one at level 10 and
-  one at level 7. Without them the 38 others agree with the Nov 8 tuned run
-  (4.1e9 ± 3.0e9 CPU-s, 10 dives, 77% in one) and with each other; with
-  them the total is set by the rare dive, so the pooled mean rises as dives
-  are added and is not yet an estimate of the tree. More windows follow.
+  The median dive is 6.4e6 nodes and 3.8e8 CPU-s. Level 10, which QPB
+  bounds alone, costs 1.8 CPU-s a node; level 9, under the DNN, 108-125.
+  Each window has had one dive 3-4 orders of magnitude above the median,
+  each larger than the last (5.6e11, 1.9e12, 7.1e12 CPU-s); seed 312's
+  spends 97% of its CPU on 5.5e10 level-9 nodes, all fathomed by the DNN.
+  Without those three, the 61 others agree with the Nov 8 tuned run
+  (4.1e9 ± 3.0e9 CPU-s, 10 dives, 77% in one) and with each other. With
+  them the total is set by the rarest dive, the pooled mean has risen with
+  each window, and it is not yet an estimate of the tree: what the dives
+  say so far is that the tree under these settings is above 1e11 CPU-s
+  (years on 1,000 cores) with no sign of a ceiling.
 
 ## Suggested order
 
