@@ -31,6 +31,9 @@ for k in $(seq 0 $((JOBS - 1))); do
   s=$((S0 + k)); seeds+=("$s"); d=$D/s$s
   [ -f "$d/est.out" ] && { echo "seed $s: $d/est.out exists; skipped (pick another FIRST_SEED)"; continue; }
   mkdir -p "$d" && cp experiments/estimates/tai50b/estimate.par "$d/"
+  # the machine, since CPU seconds differ by machine (node counts pool across machines, CPU only within one)
+  { if [ "$(uname -s)" = Darwin ]; then sysctl -n machdep.cpu.brand_string; else grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ //'; fi
+    echo "$(date -u +%FT%TZ) $(git rev-parse --short HEAD) ${HOURS} h"; } > "$d/host.txt"
   ( cd "$d" && QAP_EST_SEED=$s QAP_EST_HIST=$d/dives.txt timeout -s TERM "$SECS" "$R/latest/bnbdrv" -e -p "$FULLRUN_PAR" \
       -u "$FULLRUN_UB" "$FULLRUN_INSTANCE" > "$d/est.out" 2>&1 ) &
 done
@@ -38,4 +41,4 @@ echo "$(date '+%F %T') tai50b: ${#seeds[@]} estimator processes (seeds ${seeds[*
 wait
 all=$(cd "$D" && ls -d s* | sed 's/^s//' | sort -n | tr '\n' ' ')
 python3 -I experiments/tai50b_feasibility/estimate/pool.py "$D" $all | tee "$D/pool.txt"
-echo; echo "To share: git add experiments/estimates/tai50b && git commit -m 'tai50b dives' && git push"
+echo; echo "To share (est.out and dives.txt are ignored while running): git add -f experiments/estimates/tai50b/dives && git commit -m 'tai50b dives' && git push"

@@ -156,9 +156,100 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
   took 10-25 minutes on Nov 8. HEAD's root QPB bound is 2.8858e8 against
   Nov 8's 2.8944e8: the Nov 8 change to QPB's parametric update moves the
   bound either way by instance.
+- **Cloud box windows** (seeds 301 and up, four estimators for 1.9 h each;
+  CPU-s are the cloud box's, with all four cores busy). The pool takes the
+  laptop's seeds too: their nodes pool as they are, their CPU-s are in the
+  laptop's units.
+
+  | window | dives | nodes | CPU-s | largest dive | without it |
+  |---|---|---|---|---|---|
+  | 301-304 | 21 | 7.6e9 ± 7.2e9 | 3.1e10 ± 2.7e10 (360 days on 1,000 cores) | 86% of the CPU (seed 303 dive 3, to level 10, 1.5e11 nodes) | 4.1e8 nodes, 4.5e9 CPU-s (52 days) |
+  | 305-308 | 19 | 8.2e9 ± 7.8e9 | 1.0e11 ± 9.9e10 (1,200 days) | 96% (seed 308 dive 3, to level 7, 1.5e11 nodes, 1.9e12 CPU-s) | |
+  | 309-312 | 24 | 2.6e9 ± 2.3e9 | 3.0e11 ± 2.9e11 (3,450 days) | 99% (seed 312 dive 5, to level 9, 5.6e10 nodes, 7.1e12 CPU-s) | |
+  | 313-316 | 7 | 3.1e7 | 3.8e8 | | stopped after 33 minutes by a container restart; the finished dives are kept |
+  | 317-320 | 23 | 1.9e10 ± 1.8e10 | 1.3e11 ± 1.2e11 (1,520 days) | 90% (seed 317 dive 4, to level 9, 4.0e11 nodes, 2.7e12 CPU-s) | |
+  | 321-324 | 21 | 3.2e9 ± 3.0e9 | 4.2e10 ± 3.2e10 (490 days) | 74% (seed 321 dive 5, to level 10, 6.2e10 nodes, 6.5e11 CPU-s) | 2.5e8 nodes, 1.2e10 CPU-s (134 days) |
+  | **pooled** | **115** | **7.7e9 ± 4.0e9** | **1.2e11 ± 6.8e10 (1,375 days)** | 312/5 52%, 317/4 20%, 308/3 14%, 321/5 5%, 303/3 4% | without the top three: 2.5e9 nodes, 1.8e10 ± 8.0e9 CPU-s (209 days) |
+
+  The median dive is 4.7e6 nodes and 1.5e8 CPU-s. Level 10, which QPB
+  bounds alone, costs 1.8-7.6 CPU-s a node; level 9, under the DNN, 108-125.
+  Every full window has had one dive 3-4 orders of magnitude above the
+  median (5.6e11, 1.9e12, 7.1e12, 2.7e12, 6.5e11 CPU-s); seed 312's spends
+  97% of its CPU on 5.5e10 level-9 nodes, all fathomed by the DNN.
+
+  **The dives cannot settle the total.** The tail of the per-dive CPU
+  estimates has a Hill index of 0.37-0.45 (the largest 5 to 30 of the 115).
+  Below 1, the sample mean is carried by the largest dive and keeps rising
+  as dives are added, until the sample reaches the part of the tree where
+  its finite size cuts the tail off; nothing in 115 dives shows where that
+  is. The mean of such a sample is, more often than not, below the true
+  mean. So what the dives establish is a floor: **under these settings
+  tai50b's tree is at least about 1e11 CPU-s on this Xeon, 3-4 years on
+  1,000 cores, and probably more.** More windows of the same dives sharpen
+  that floor and the tail index; they do not converge.
+
+  This also revises Nov 8. The tuned settings' 4.1e9 CPU-s against the base
+  settings' 1.8e11 (45x) came from 10 dives with no giant among them; with
+  115 dives the tuned settings give 1.2e11, the same order as the base.
+  Whether the tuning helps is not settled by these dives either.
+
+  The estimator samples each child with probability (1 - 0.3) x_ij / sum +
+  0.3 / kids (`latest/bnb.C`, the dive branch) and divides the dive's
+  weight by it, so the estimate stays unbiased; a dive that takes a few
+  low-marginal children gets up to 3.3 kids times the weight per level.
+  The log does not print the per-level probabilities, so whether the giant
+  dives are such paths (the marginals misleading the sampler) or high-
+  marginal paths into a large subtree is not known from these files.
+
+  **Stopped, Nov 11: tai50b is out of reach under the current method.**
+  Six windows (115 dives, about 10 h of four cores) put a floor of about 1e11
+  CPU-s on the tree, and the tail says the true total is probably higher;
+  more dives of the same kind cannot lower that. Where the pooled CPU goes:
+
+  | level | ≤5 | 6 | 7 | 8 | 9 | ≥10 |
+  |---|---|---|---|---|---|---|
+  | share of CPU | 0.7% | 4.6% | 13.3% | 11.4% | 64.6% | 5.4% |
+
+  **Taking the DNN to every depth would not help.** Levels 1-9 are
+  already under the DNN and hold 95% of the CPU; QPB bounds only levels 10
+  and below, which hold 5.4%. The number of level-10 nodes is set by what
+  the DNN fathoms at level 9, so a DNN below 9 can save at most that 5.4%,
+  and less in practice, since a DNN node at level 9 costs 108-125 CPU-s
+  against QPB's 1.8-7.6. The largest dives end at level 9 or 10 (312/5 and
+  317/4 at 9, 321/5 and 303/3 at 10, 308/3 at 7). What remains open is bound
+  strength at levels 6-9, the levels that hold the cost: DNN bounds run
+  closer to convergence than a 600-iteration give-up, at a higher cost per
+  node, which Fujii et al.'s 5.5e7 nodes suggests can shrink the tree. These
+  dives do not test that, so it remains untested, not ruled out.
 
 ## Suggested order
 
 wil50's anchors first: they move the instance we are going to run. Then
 tai50b overnight, tho40 and sko42 as one evening each, and sko49's stages A
 and B as one night.
+
+## Cold against warm: a220 as production would bound it (cloud box, Nov 10)
+
+Every measured subtree behind wil50's estimate started cold from `-F`: no
+parent DNN state and no inherited pool. Under `cut.zone = 0.0075`, the
+parents of three of the four nodes measured so far (a220, a251, and the
+laptop's 13:1,21:0,45:2) are 299-361 short and now run a cut phase, so in the
+production search those nodes start warm and pooled.
+
+a220 run as production would, `wil50/warm/` (`run_warm_a220.sh`):
+1. its ancestors bounded by stage A's own tasks under `fullrun.par`
+   (`stage_a.py --only r,r.12,r.12.22`);
+2. the parent 21:22,31:23: first solve 299.2 short, then its cut phase to
+   190.6 short (800 iterations), 28 children, a220 among them;
+3. a220's one-node state from the parent's state, then its whole subtree with
+   `bench/parallel.py --resume` on 4 cores. `--allow-settings-change` is
+   needed because stage A records its copy of `fullrun.par`: the settings
+   are identical value for value, and only the params file's hash differs.
+
+| a220 | first solve | DNN nodes | iterations | DNN CPU |
+|---|---|---|---|---|
+| warm, pooled (this run) | 136.4 short, phase to 110.4 | 232 | 18,029 | 5,871 s (cloud box) |
+| warm, no pool (stage B, zone 0.005) | 226.8 short | | | |
+| cold `-F` (laptop, `wil50/subtrees/a220/`) | | | | |
+
+The cold row comes from the laptop's `run_anchors.sh`.
