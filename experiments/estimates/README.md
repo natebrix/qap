@@ -59,7 +59,37 @@ experiments/estimates/wil50/run_anchors.sh a325     # or one of them
 - **Result.** `wil50/subtrees/NAME/summary.txt` and `wil50/refit.txt`: the
   estimate with every measured subtree. The cold start probably overstates a
   frontier node's subtree (a frontier node starts warm, with its parent's
-  pool), as for the record's anchors.
+  pool), as for the record's anchors. For a220 it does not: see *Cold
+  against warm* below.
+- **Results (laptop, Nov 10-11).** All three ran to the end with
+  `fullrun.par` on the 6 performance cores:
+
+  | node | shortfall | DNN nodes | DNN iterations | DNN CPU | per node | wall |
+  |---|---|---|---|---|---|---|
+  | a220 | 220.2 | 232 | 18,852 | 3,071 s | 13.2 s | 15 min |
+  | a251 | 251.1 | 3,935 | 387,735 | 62,288 s | 15.8 s | 3.6 h |
+  | a325 | 324.6 | 11,923 | 1,066,452 | 159,914 s | 13.4 s | 17.7 h, including the hours it was stopped |
+
+  a251 and a325 took 5 and 3-8 times the predicted wall time. a325 was
+  drained once for the evening and stopped once by a full disk at 22:41
+  (`No space left on device` in its `worker.log`). The resume replayed the
+  finished units, and the run went on to the end.
+
+  The refit (`wil50/refit.txt`) uses seven measured subtrees, two of
+  them ([e]) estimates themselves: log(size) = 1.742 + 0.0205 s, a factor
+  2.9 of scatter either way. In DNN nodes for the whole of wil50, at 22.5
+  CPU-s per node:
+
+  | size model | DNN nodes (95%) | core-hours |
+  |---|---|---|
+  | the record's anchors | 4.9e5 (2.8e5-7.5e5) | 3,070 |
+  | the fit | 1.2e6 (6.1e5-1.9e6) | 7,500 |
+  | the fit with its scatter (mean) | 2.1e6 (1.1e6-3.3e6) | 13,200 |
+  | per level, 47^(s/130) | 3.0e6 (1.1e6-5.5e6) | 18,600 |
+
+  The four-subtree fit gave 8.4e5, with a mean of 1.2e6. With the
+  anchors, wil50 is 2.4-4.3 times the record's estimate: about 1.2-2.1
+  million DNN nodes and 7,500-13,200 core-hours.
 
 ### tho40 and sko42: traced search, depth-2 sweep, fit (`trace_estimate.sh`)
 
@@ -250,6 +280,16 @@ a220 run as production would, `wil50/warm/` (`run_warm_a220.sh`):
 |---|---|---|---|---|
 | warm, pooled (this run) | 136.4 short, phase to 110.4 | 232 | 18,029 | 5,871 s (cloud box) |
 | warm, no pool (stage B, zone 0.005) | 226.8 short | | | |
-| cold `-F` (laptop, `wil50/subtrees/a220/`) | | | | |
+| cold `-F` (laptop, `wil50/subtrees/a220/`) | 254.1 short, phase to 115.6 | 232 | 18,852 | 3,071 s (laptop) |
 
-The cold row comes from the laptop's `run_anchors.sh`.
+**Starting warm and pooled does not change a220's tree.** Both runs give
+the same 232 DNN nodes by depth (1, 47, 184), with 227 fathomed and the same
+7 cut phases. The warm start nearly halves the root's first shortfall (136
+against 254). But its cut phase ends about where the cold one does (110
+against 116 short), in 600 iterations against 980. Over the whole subtree,
+the warm run takes 4% fewer iterations (18,029 against 18,852): 2% fewer in
+first solves and 7% fewer in cut phases. CPU does not compare: the cloud box
+spends about twice the laptop's time per iteration (0.33 s against 0.16 s).
+So, at least for this node, the cold measurements behind the refit do not
+overstate the subtree. a220 is one small subtree, though: whether the same
+holds for a deep one such as a325's 11,923 nodes is not measured.
