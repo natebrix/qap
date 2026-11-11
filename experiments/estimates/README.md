@@ -113,6 +113,17 @@ experiments/estimates/wil50/run_anchors.sh a325     # or one of them
     experiments/wil50_feasibility/fullrun/settings.sh a220aws 21:22,31:23,40:15
   ```
 
+  **On real AWS (laptop, Nov 11, `wil50/subtrees/a220aws/`): the same
+  tree.** The same 232 nodes, each with the same status, iterations,
+  cut phase and fathoming as the local run. Four nodes' first bounds differ
+  by at most 0.15, all of them fathomed either way: the coordinator split the
+  work into 47 units against 51, and where a unit boundary falls depends on
+  timing. The solver binary is the same (no change in `latest/` between the
+  two commits). The run took 1,013 s of wall time against 926 s, with the
+  slots busy 51.5% of the time against 65.3%: on this 15-minute run, the
+  queue and store round trips cost about a tenth of the wall time. No errors
+  in either log.
+
   Removing it all: `aws s3 rb s3://qap-coord-$ACCT-eu-north-1 --force`;
   `aws sqs delete-queue --queue-url $(aws sqs get-queue-url --queue-name Q --query QueueUrl --output text)`
   for `Q` in `qap-units-large` and `qap-units-small`; `aws dynamodb
