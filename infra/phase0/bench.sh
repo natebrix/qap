@@ -8,6 +8,8 @@
 # to S3 after every step, and shuts the instance down (which terminates it).
 #
 # Local test (no S3, no shutdown, any Linux): QAP_LOCAL=1 bash infra/phase0/bench.sh
+#   QAP_INSTALL=1  also install the toolchain as on EC2 (Amazon Linux 2023, as root): a host
+#                  that launch.sh did not start, e.g. a Lightsail instance (README.md)
 #   QAP_ALONE="19"  the alone nodes (default "19 21 1 11")
 #   QAP_LOADED="17 19 20 21"  the loaded nodes (default all 32)
 #   QAP_CORES=2  at most this many cores for the loaded run
@@ -18,6 +20,7 @@ OUT=$R/out
 mkdir -p "$OUT"
 exec > >(tee -a "$OUT/bench.log") 2>&1
 LOCAL=${QAP_LOCAL:-0}
+INSTALL=${QAP_INSTALL:-$((1 - LOCAL))}
 ALONE=${QAP_ALONE:-"19 21 1 11"}
 LOADED=${QAP_LOADED:-$(seq 1 32 | tr '\n' ' ')}
 GATES=${QAP_GATES:-"bruteforce resume parallel regression dnncheck"}
@@ -55,9 +58,9 @@ NC=$(echo "$CORES" | wc -l)
 lscpu > "$OUT/lscpu.txt"
 step "machine: $(tr '\n' ' ' < "$OUT/sysinfo.txt")"
 
-# --- the toolchain (Amazon Linux 2023; the local test uses what is there)
+# --- the toolchain (Amazon Linux 2023; the local test uses what is there unless QAP_INSTALL=1)
 PY=python3
-if [ "$LOCAL" != 1 ]; then
+if [ "$INSTALL" = 1 ]; then
   dnf install -y -q gcc-c++ make python3.11 python3.11-pip tar gzip util-linux > "$OUT/dnf.log" 2>&1 || { step "dnf failed"; exit 1; }
   PY=python3.11
   $PY -m pip install -q numpy scipy-openblas32 > "$OUT/pip.log" 2>&1 || { step "pip failed"; exit 1; }

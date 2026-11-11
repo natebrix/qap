@@ -79,6 +79,35 @@ git add infra/phase0/runs && git commit -m 'phase 0: ...' && git push
   profile and the role; `--all --bucket` deletes the bucket too, after
   asking.
 
+## On a Lightsail instance (no EC2 quota needed)
+
+Lightsail has its own limits, separate from the EC2 vCPU quotas. The same
+benchmark runs there by hand: `QAP_LOCAL=1` (no S3, no self-shutdown) with
+`QAP_INSTALL=1` (the Amazon Linux 2023 toolchain, as on EC2). From the
+laptop, in the repository:
+
+```
+export AWS_DEFAULT_REGION=eu-north-1 K=~/.ssh/lightsail-eu-north-1.pem
+aws lightsail download-default-key-pair --query privateKeyBase64 --output text > $K && chmod 600 $K
+aws lightsail create-instances --instance-names qap-ls1 --availability-zone eu-north-1a \
+  --blueprint-id amazon_linux_2023 --bundle-id xlarge_3_0
+aws lightsail get-instance --instance-name qap-ls1 --query 'instance.[state.name,publicIpAddress]' --output text
+IP=...    # the address, once the state is "running"
+git archive --format=tar.gz -o /tmp/qap-src.tgz HEAD Makefile latest qaplib QAPSOLN tests bench coord \
+  experiments/dnn_bound experiments/wil50_feasibility/tuning/giveup/all32.txt \
+  experiments/wil50_feasibility/speed/r32_noncert/runs infra/phase0
+scp -i $K -o StrictHostKeyChecking=accept-new /tmp/qap-src.tgz ec2-user@$IP:
+ssh -i $K ec2-user@$IP 'mkdir -p qap && cd qap && tar xzf ~/qap-src.tgz &&
+  sudo nohup env QAP_LOCAL=1 QAP_INSTALL=1 bash infra/phase0/bench.sh < /dev/null > /dev/null 2>&1 &'
+ssh -i $K ec2-user@$IP cat qap/out/steps.txt          # progress; done at "end (exit)"
+mkdir -p infra/phase0/runs/lightsail && scp -r -i $K ec2-user@$IP:qap/out infra/phase0/runs/lightsail/
+aws lightsail delete-instance --instance-name qap-ls1  # billing stops only at delete, not at stop
+```
+
+`aws lightsail get-bundles` lists the plans (`xlarge_3_0` is 4 vCPUs). The
+plans are burstable: under full load a plan drops to its baseline CPU once
+its burst credit is spent, so the loaded numbers are not EC2's.
+
 ## Output
 
 `collect.sh` writes `runs/<run>/summary.md`, one row per family:
