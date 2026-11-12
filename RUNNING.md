@@ -191,6 +191,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `cut.damp1` | par key | text | unset | text | policy | F[:G]: factor on the first (and later) Polyak steps of a phase that starts from a pool (rounds form only) |
 | `cut.equip` | par key | text | unset | text | policy | G:R: a phase more than G below the cutoff runs at most R rounds, to equip the children |
 | `cut.cp` | par key | text | unset | text | policy | k:K: the phase as one CP-ADMM solve separating K triangles every k iterations |
+| `cut.giveup` | par key | text | unset | text | policy | T:G,...: from iteration T a CP-ADMM phase stops when its gap to the cutoff is still above G (unset: the stall rule only) |
 | `cut.cp_iters` | par key | integer | `0` | 0..100000000 | policy | CP-ADMM iteration limit (0: rounds x iters + freeze) |
 | `cut.cp_sweeps` | par key | text | `1:1` | text | policy | S[:P]: Dykstra sweeps and passes per CP-ADMM iteration |
 | `cut.cp_lazycert` | par key | integer | `0` | 0..1 | policy | 1: the lazy certificate in CP-ADMM solves too |
