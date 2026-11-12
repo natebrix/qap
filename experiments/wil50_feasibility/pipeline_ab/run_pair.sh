@@ -71,6 +71,8 @@
 #   cpcuttx cpcutt with a gap schedule on the CP cut phase (cut.giveup = PAB_CUT_GIVEUP,
 #          default 200:35,300:25,400:20,600:12; review_nov10/README.md, item 6): a phase
 #          whose gap to the cutoff is still above G at iteration T stops there
+#   cpcutts cpcutt with three Dykstra sweeps per CP-ADMM iteration (cut.cp_sweeps = PAB_CP_SWEEPS,
+#           default 3:1): review_nov10 section 4 item 2, run on node 5 of the tail probe
 #   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
@@ -92,7 +94,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n '2,/^set -u$/p' "$0" | sed '$d'; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2|cpcutl|bestcoret|cpcutt|cpcuttg|cpcuttx) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2, cpcutl, bestcoret, cpcutt)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2|cpcutl|bestcoret|cpcutt|cpcuttg|cpcuttx|cpcutts) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2, cpcutl, bestcoret, cpcutt)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -121,8 +123,8 @@ INSTANCE_T=${PAB_INSTANCE_T:-qaplib/wil50t.dat}
 EXTRA_T=${PAB_EXTRA_T:--F 27:39,48:30,49:25 -x 0:4:1:300:1 -s $R/latest/SYM/wil50t.sym}
 
 # the arm whose settings a transposed arm takes
-base_arm() { case $1 in bestcoret) echo bestcore;; cpcutt|cpcuttg|cpcuttx) echo cpcut;; *) echo "$1";; esac; }
-is_transposed() { case $1 in bestcoret|cpcutt|cpcuttg|cpcuttx) return 0;; *) return 1;; esac; }
+base_arm() { case $1 in bestcoret) echo bestcore;; cpcutt|cpcuttg|cpcuttx|cpcutts) echo cpcut;; *) echo "$1";; esac; }
+is_transposed() { case $1 in bestcoret|cpcutt|cpcuttg|cpcuttx|cpcutts) return 0;; *) return 1;; esac; }
 
 arm_env() {
   local arm=$1
@@ -183,6 +185,7 @@ arm_env() {
   if is_transposed "$arm"; then export QAP_DNN_CUT_SIDE=1; fi
   if [ "$arm" = cpcuttg ]; then export QAP_DNN_GIVEUP_WARM=${PAB_GU_WARM:-150}; fi
   if [ "$arm" = cpcuttx ]; then export QAP_DNN_CUT_GIVEUP=${PAB_CUT_GIVEUP:-200:35,300:25,400:20,600:12}; fi
+  if [ "$arm" = cpcutts ]; then export QAP_DNN_CUT_CP_SWEEPS=${PAB_CP_SWEEPS:-3:1}; fi
   # PAB_TRACE_HIST=1: every arm's trace line carries the cut phase's best-by-check history (a diagnostic)
   if [ -n "${PAB_TRACE_HIST:-}" ]; then export QAP_DNN_TRACE_HIST=1; fi
 }
@@ -251,7 +254,7 @@ run_arm() {
     if [ "$arm" = cpcuttx ] && ! grep -aq "cut.giveup" latest/bnbdrv; then
       echo "cpcuttx: this bnbdrv has no cut.giveup yet: git pull, make solver, run again"; return 1
     fi
-    if { [ "$arm" = cpcutt ] || [ "$arm" = cpcuttg ] || [ "$arm" = cpcuttx ]; } && ! grep -aq "regional cuts only (side 0 or 1)" latest/bnbdrv; then
+    if { [ "$arm" = cpcutt ] || [ "$arm" = cpcuttg ] || [ "$arm" = cpcuttx ] || [ "$arm" = cpcutts ]; } && ! grep -aq "regional cuts only (side 0 or 1)" latest/bnbdrv; then
       # before the side-1 projector (roadmap/admm/cpadmm, "Side 1") a side-1 CP phase silently ran the rounds
       echo "cpcutt: this bnbdrv's CP cut phase runs the rounds on side 1: git pull, make solver, run again"; return 1
     fi
