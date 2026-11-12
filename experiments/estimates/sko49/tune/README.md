@@ -164,3 +164,33 @@ nodes in the tail, with the same k, beta and seed:
   Cr368 `30:33,41:8,46:14` and Cr385 `12:0,41:2,46:1`;
 - `probes3`, on one slot once s232 finishes: Cr283 `0:0,40:23,41:3` and Cr350
   `9:9,40:23,41:17`.
+
+## The wider-zone test (arm Cw, from Nov 12 18:46)
+
+`Cw.par` and `Cw.sh` are C with `cut.zone = 0.018`, which is 421 short. Under
+it, every depth-3 node in stage B's sample runs a cut phase: the farthest is
+409 short in its cold first solve. Under C the 57 sampled nodes beyond 234 run
+none, and they hold 81-84% of the estimate. The question is whether a phase at
+such a node pays for itself:
+- it cannot fathom the node (a phase gains about 130-160);
+- its children start from its pool;
+- children from 234 to 421 short also get a phase.
+
+`Cw.golden` comes from the run binary, the Nov 11 18:22 build (65 settings),
+as `C.golden` does.
+
+- **The prior.** On wil50 (Nov 5, `../../../wil50_feasibility/tail_probe/README.md`,
+  "fullwide against full"), the same idea on a 455-short tail node was a wash:
+  the root phase cost 800 iterations, level 4 was 8% cheaper and level 5 3%
+  dearer, with the same fathoms. That was the rounds phase at zone 0.005
+  against 0.010. sko49's CP phase on the 7 x 7 grid gains more.
+- **The runs.** Probes with the same k, beta and seed on the two nodes that
+  set the tail, against their C probes:
+  - Zp396 (`9:30,40:22,41:17`, against Cp396) on one slot from 18:46;
+  - Zp326 (`0:0,40:9,41:3`, against Cp326) from when the replicates on 3
+    slots finish.
+- **What to read.** The probe totals have SEs of 70-90%, so only a factor of
+  about 2.5 between Cw and C would show. Level 4 is less noisy: compare its
+  fathom fraction and its children's shortfalls, 16 drawn of 46 in each.
+- **Slots.** probes3 (Cr283, Cr350) was drained to free a slot for Zp396. It
+  resumes on 2 slots when the replicates finish.
