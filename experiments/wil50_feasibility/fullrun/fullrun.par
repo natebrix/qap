@@ -54,6 +54,8 @@
 # node up to 366 short runs a phase before it branches, so its children inherit
 # a pool. 1.110x in DNN CPU on the complete subtree of a 325-short node, no
 # fathom lost (review_nov10/README.md, section 3.5).
+# dnn.cross_first = 5 since Nov 12: one extra certificate at iteration 5 of a
+# warm call, 1.016x in DNN CPU on the node-10 subtree (review_nov10, 2.1).
 dnn.gamma1 = 1.0
 dnn.gamma = 1.0
 dnn.ext = 20
@@ -77,6 +79,7 @@ cut.cp = 100:1000
 ship.bits = 32
 dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
 dnn.cross = 2
+dnn.cross_first = 5
 dnn.lazycert = 1
 dnn.depths = 1:4
 dnn.maxgap = 1

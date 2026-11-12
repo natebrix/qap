@@ -45,6 +45,7 @@ static Setting TABLE[] = {
   POLICY("dnn.beta_sched", "DNN_BETA_SCHED", 's', "w=0.36", 0, 0,
          "ADMM penalty schedule, e.g. two,f=1.6667,t=60,w=0.25,wc=0.7 (\"\": off)"),
   POLICY("dnn.cross", "DNN_ADMM_CROSS", 'i', "2", 0, 100, "extra certificates at the predicted cutoff crossing (0: off)"),
+  POLICY("dnn.cross_first", "DNN_ADMM_CROSS_FIRST", 'i', "0", 0, 1000, "with dnn.cross: one more extra certificate at this iteration of a warm call (0: off)"),
   POLICY("dnn.lazycert", "DNN_CORE_LAZYCERT", 'i', "1", 0, 1, "1: Rump's test only at checks that can decide something"),
   POLICY("dnn.amx", "DNN_AMX", 'i', "0", 0, 2, "AMX bf16 kernels: 1 W*Y, 2 also CholQR and Rayleigh-Ritz (no effect without AMX)"),
   POLICY("ship.bits", "QAP_DNN_SHIP", 'i', "32", 0, 64, "the parent's DNN state in state files: 0 none, 16 bf16, 32 fp32, 64 fp64"),
@@ -88,7 +89,6 @@ static Setting TABLE[] = {
   POLICY("par.hash", NULL, 's', "", 0, 0, "FNV-1a of the params file's bytes"),
   // ---- experiments in flight (environment)
   ENVVAR("DNN_R32", 'i', "0", 0, 1, SET_EXPERIMENT, "1: R's rank term in fp32 on certificate iterations too"),
-  ENVVAR("DNN_ADMM_CROSS_FIRST", 'i', "0", 0, 1000, SET_EXPERIMENT, "one more extra certificate at this iteration of a warm call (0: off)"),
   ENVVAR("DNN_FUSE", 'i', "0", 0, 1, SET_EXPERIMENT, "1: fuse the Y/Z step with the next forward's row phase"),
   ENVVAR("DNN_ADMM_WARM_BETA", 's', "", 0, 0, SET_EXPERIMENT, "F1:T:F2[:force]: a warm call's own penalty schedule"),
   ENVVAR("DNN_ADMM_WARM_DAMP", 's', "", 0, 0, SET_EXPERIMENT, "D:K: both dual steps scaled by D for the first K iterations of a warm call"),

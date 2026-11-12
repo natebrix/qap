@@ -841,3 +841,12 @@ G. `PAB_TRACE_HIST=1` sets `QAP_DNN_TRACE_HIST=1` on every arm, which adds
   back about four fifths of the saving.
 
 The write-up is `../review_nov10/README.md`, section 2.6.
+
+## Nov 12: the harness exports `dnn.cross_first = 5`
+
+Item 5 of `../review_nov10/README.md` section 4 went into `fullrun.par` as
+`dnn.cross_first = 5` (the former experiment variable `DNN_ADMM_CROSS_FIRST`,
+now a settings key). `run_pair.sh` exports it for every arm so that an arm is
+the full run's configuration; `PAB_CROSS_FIRST=0` reproduces the records
+above, all of which ran without it (1.016x in DNN CPU on the 94-node
+subtree, section 2.1 there).

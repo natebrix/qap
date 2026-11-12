@@ -131,6 +131,9 @@ arm_env() {
   # pinned as in fullrun/fullrun.par: 34e347c (Nov 8) made the nug30 recipe's 0.21 and
   # 0.003 the registry defaults, and every arm on record ran 0.3 and 0
   export QAP_DNN_BETA=0.3 QAP_DNN_GU_ZONE=0
+  # as in fullrun/fullrun.par since Nov 12 (dnn.cross_first = 5): one extra certificate at
+  # iteration 5 of a warm call; every record before Nov 12 ran without it (PAB_CROSS_FIRST=0)
+  export DNN_ADMM_CROSS_FIRST=${PAB_CROSS_FIRST:-5}
   export QAP_DNN_CUT_ZONE=0.003 QAP_DNN_CUT_GRID=$GRID QAP_DNN_CUT_SIDE=0 QAP_DNN_CUT_FREEZE=1500
   export DNN_AMX=1 QAP_DNN_CHEB=3 QAP_DNN_TIGHT_LAM=2 QAP_DNN_REFRESH=40
   export QAP_DNN_WARM_Y=2 QAP_DNN_POOL=1 QAP_DNN_POOL_CHECK=20

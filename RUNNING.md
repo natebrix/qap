@@ -168,6 +168,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `dnn.warm_y` | par key | integer | `2` | 0..2 | policy | a child starts from its parent's Y too: 0 Z only, 1 restricted, 2 conditioned on its assignment |
 | `dnn.beta_sched` | par key | text | `w=0.36` | text | policy | ADMM penalty schedule, e.g. two,f=1.6667,t=60,w=0.25,wc=0.7 ("": off) |
 | `dnn.cross` | par key | integer | `2` | 0..100 | policy | extra certificates at the predicted cutoff crossing (0: off) |
+| `dnn.cross_first` | par key | integer | `0` | 0..1000 | policy | with dnn.cross: one more extra certificate at this iteration of a warm call (0: off) |
 | `dnn.lazycert` | par key | integer | `1` | 0..1 | policy | 1: Rump's test only at checks that can decide something |
 | `dnn.amx` | par key | integer | `0` | 0..2 | policy | AMX bf16 kernels: 1 W*Y, 2 also CholQR and Rayleigh-Ritz (no effect without AMX) |
 | `ship.bits` | par key | integer | `32` | 0..64 | policy | the parent's DNN state in state files: 0 none, 16 bf16, 32 fp32, 64 fp64 |
@@ -205,7 +206,6 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `est.xbar_mix` | par key | number | `0.1` | 0..1 | policy | estimator: uniform share mixed into the x_ij^a weights |
 | `par.hash` | the `-p` file | text | unset | text | policy | FNV-1a of the params file's bytes |
 | `DNN_R32` | environment | integer | `0` | 0..1 | experiment | 1: R's rank term in fp32 on certificate iterations too |
-| `DNN_ADMM_CROSS_FIRST` | environment | integer | `0` | 0..1000 | experiment | one more extra certificate at this iteration of a warm call (0: off) |
 | `DNN_FUSE` | environment | integer | `0` | 0..1 | experiment | 1: fuse the Y/Z step with the next forward's row phase |
 | `DNN_ADMM_WARM_BETA` | environment | text | unset | text | experiment | F1:T:F2[:force]: a warm call's own penalty schedule |
 | `DNN_ADMM_WARM_DAMP` | environment | text | unset | text | experiment | D:K: both dual steps scaled by D for the first K iterations of a warm call |

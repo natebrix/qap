@@ -1622,11 +1622,11 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // the give-up and stall rules see the regular checks alone, so with the switch
   // a node can only fathom earlier, never decide anything else differently.
   const int cross_max = (int)setting_i("dnn.cross");
-  // DNN_ADMM_CROSS_FIRST=k (with DNN_ADMM_CROSS, warm-started calls only): one more
+  // dnn.cross_first = k (with dnn.cross, warm-started calls only): one more
   // extra certificate at iteration k < check_every, so that the first regular check
   // already has two points and can predict a crossing in its own first interval
   // (in the production search a third of the fathoms come at the second check)
-  const int cross_first = cross_max > 0 ? (int)setting_i("DNN_ADMM_CROSS_FIRST") : 0;
+  const int cross_first = cross_max > 0 ? (int)setting_i("dnn.cross_first") : 0;
   int cross_at = -1, cross_n = 0, cross_extra = 0;
   std::vector<std::pair<int, double>> cr_hist;   // (iteration, running best) at every check
 
