@@ -174,6 +174,8 @@ struct DNNParams {
                        // certified lb, extrapolated generously from its recent
                        // gains, stays below the cutoff. A heuristic (it may give
                        // up on a fathomable node); lb stays valid. 0 = off (200)
+  int hopeless_after_warm;  // > 0: a warm-started call (a start state given) uses this
+                       // floor instead of hopeless_after (dnn.giveup_warm; 0: the same floor)
   double hopeless_gap_ratio;  // > 0: instead of the extrapolation, from
                        // hopeless_after on stop as HOPELESS when the gap to the
                        // cutoff (of the running best) shrank by less than this

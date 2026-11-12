@@ -65,6 +65,9 @@
 #          j:i on wil50t.dat). There is no symmetry below node 10, so bestcoret's tree is
 #          bestcore's up to the transposition's rounding. summarize.py flips their
 #          traces' fixes back to wil50.dat's, so that their nodes match the other arms'
+#   cpcuttg cpcutt with a warm-only give-up floor (dnn.giveup_warm = PAB_GU_WARM, default
+#          150, against dnn.giveup = 300 for cold nodes; review_nov10/README.md, item 3):
+#          a warm child that will miss stops 150 iterations sooner
 #   zone2, base2, ship2  replicates of zone, base and ship: the run-to-run noise of one
 #          configuration on one machine (unit splits, steals, marginal nodes)
 #
@@ -86,7 +89,7 @@ RUNS=${PAB_RUNS:-$D/runs}
 
 [ $# -ge 1 ] || { sed -n '2,/^set -u$/p' "$0" | sed '$d'; exit 2; }
 for arm in "$@"; do
-  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2|cpcutl|bestcoret|cpcutt) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2, cpcutl, bestcoret, cpcutt)"; exit 2;; esac
+  case $arm in base|zone|warmy|certx|ship|full|zone2|base2|ship2|fast|cross|wlow|wlowc|best|core|bestcore|wtwo|cpcut|cpcut2|cpcutl|bestcoret|cpcutt|cpcuttg) ;; *) echo "unknown arm '$arm' (base, zone, warmy, certx, ship, full, zone2, base2, ship2, fast, cross, wlow, wlowc, best, core, bestcore, wtwo, cpcut, cpcut2, cpcutl, bestcoret, cpcutt)"; exit 2;; esac
 done
 
 if [ "$(uname -s)" = Darwin ]; then
@@ -115,8 +118,8 @@ INSTANCE_T=${PAB_INSTANCE_T:-qaplib/wil50t.dat}
 EXTRA_T=${PAB_EXTRA_T:--F 27:39,48:30,49:25 -x 0:4:1:300:1 -s $R/latest/SYM/wil50t.sym}
 
 # the arm whose settings a transposed arm takes
-base_arm() { case $1 in bestcoret) echo bestcore;; cpcutt) echo cpcut;; *) echo "$1";; esac; }
-is_transposed() { case $1 in bestcoret|cpcutt) return 0;; *) return 1;; esac; }
+base_arm() { case $1 in bestcoret) echo bestcore;; cpcutt|cpcuttg) echo cpcut;; *) echo "$1";; esac; }
+is_transposed() { case $1 in bestcoret|cpcutt|cpcuttg) return 0;; *) return 1;; esac; }
 
 arm_env() {
   local arm=$1
@@ -172,6 +175,7 @@ arm_env() {
     certx) export QAP_DNN_CUT_ZONE=0.005 DNN_CERTX=32 DNN_CERTX_USE=1 DNN_CERTX_QUIET=1 DNN_CERTX_EVERY=1000000 DNN_CERTX_WINDOW=10 ;;
   esac
   if is_transposed "$arm"; then export QAP_DNN_CUT_SIDE=1; fi
+  if [ "$arm" = cpcuttg ]; then export QAP_DNN_GIVEUP_WARM=${PAB_GU_WARM:-150}; fi
 }
 
 run_arm() {
@@ -232,7 +236,10 @@ run_arm() {
     if is_transposed "$arm" && { [ ! -f "$inst" ] || [ ! -f latest/SYM/wil50t.sym ]; }; then
       echo "$arm: $inst or latest/SYM/wil50t.sym is missing (../sym/make_sym.py writes both)"; return 1
     fi
-    if [ "$arm" = cpcutt ] && ! grep -aq "regional cuts only (side 0 or 1)" latest/bnbdrv; then
+    if [ "$arm" = cpcuttg ] && ! grep -aq "dnn.giveup_warm" latest/bnbdrv; then
+      echo "cpcuttg: this bnbdrv has no dnn.giveup_warm yet: git pull, make solver, run again"; return 1
+    fi
+    if { [ "$arm" = cpcutt ] || [ "$arm" = cpcuttg ]; } && ! grep -aq "regional cuts only (side 0 or 1)" latest/bnbdrv; then
       # before the side-1 projector (roadmap/admm/cpadmm, "Side 1") a side-1 CP phase silently ran the rounds
       echo "cpcutt: this bnbdrv's CP cut phase runs the rounds on side 1: git pull, make solver, run again"; return 1
     fi

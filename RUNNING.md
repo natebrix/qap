@@ -154,6 +154,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `dnn.maxgap` | par key or `-x` | number | `1` | 0..inf | policy | -x third field: relative gap (inc - QPB)/(inc - root QPB) at most this |
 | `dnn.giveup` | par key or `-x` | integer | `0` | 0..100000000 | policy | -x fourth field: give up on a hopeless node after this many iterations (0: never) |
 | `dnn.warm` | par key or `-x` | integer | `0` | 0..1 | policy | -x fifth field: 1: a child's ADMM starts from its parent's final state |
+| `dnn.giveup_warm` | par key | integer | `0` | 0..100000000 | policy | a warm-started node gives up after this many iterations instead of dnn.giveup (0: the same floor; the cut phase is unaffected) |
 | `dnn.ext` | par key | integer | `20` | 0..1000 | policy | levels below the last DNN depth at which a child of a DNN miss keeps the bound |
 | `dnn.gamma1` | par key | number | `1.0` | 0..2 | policy | Peaceman-Rachford first dual step (0: none) |
 | `dnn.gamma` | par key | number | `1.0` | 0..2 | policy | ADMM dual step length |

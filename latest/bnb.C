@@ -76,6 +76,7 @@ static void read_incumbent_file(QAPSolution *s, int n)
 int dnn_min_depth = 0, dnn_max_depth = -1;
 double dnn_max_gap = 1.0;
 int dnn_hopeless_after = 0;          // DNNParams::hopeless_after; 0 = never give up
+int dnn_hopeless_after_warm = 0;     // DNNParams::hopeless_after_warm (dnn.giveup_warm); 0 = as dnn_hopeless_after
 int dnn_warm = 0;                    // start a child's DNN from its parent's (1) or not (0)
 #ifdef HAVE_DNN
 #include "dnn.h"
@@ -689,6 +690,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNParams dp;
 	  // giving up early on a node that would fathom costs its whole subtree
 	  dp.hopeless_after = dnn_hopeless_after;
+	  dp.hopeless_after_warm = dnn_hopeless_after_warm;
 	  // The DNN parameters come from the settings registry (settings.C), whose
 	  // defaults are the nug30 record recipe of Nov 7 2026 (experiments/
 	  // nug30_solve/README.md; RUNNING.md "The nug30 record setting"; the old
