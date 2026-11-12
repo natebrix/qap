@@ -1,0 +1,19 @@
+2026-11-12 08:30:53 arms: cpcutt cpcuttx | Apple M2 Pro P-cores 6 | 3 slots per arm | logs in /Users/nathan_brixius/dev/qap/experiments/wil50_feasibility/pipeline_ab/runs_cg/ARM/ | stop with: kill 67943
+envpar: kept in the environment (not settings keys): QAP_DNN_POOL_CHECK
+envpar: kept in the environment (not settings keys): QAP_DNN_POOL_CHECK
+cpcuttx: done, coordinator: 3 slots, 49 units, wall 16010.17 s, CPU 41144.60 s (x2.57), slots busy 98.6%, best objective 48816
+cpcutt: done, coordinator: 3 slots, 54 units, wall 16317.15 s, CPU 41957.55 s (x2.57), slots busy 98.3%, best objective 48816
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| cpcutt | 2971 / 2905 | 2971 / 2905 | 121 (55) | 2970 / 2970 | 260,868 (163,137 + 97,731) | 41,442 | 41,958 | 16,317 | 98.3% | 48816 |
+| cpcuttx | 3194 / 3123 | 3194 / 3123 | 172 (101) | 3193 / 3193 | 260,086 (186,655 + 73,431) | 40,666 | 41,145 | 16,010 | 98.6% | 48816 |
+  cpcutt: 2026-11-12T16:30:54Z Apple M2 Pro P-cores 6 slots 3 df4165b3
+  cpcuttx: 2026-11-12T16:30:54Z Apple M2 Pro P-cores 6 slots 3 df4165b3
+
+cpcutt: the subtree's root (depth 3): first lb 48488.86 after 300 it, phase best 48612.59 in 750 it (stalled)
+
+cpcuttx: the subtree's root (depth 3): first lb 48488.86 after 300 it, phase best 48560.52 in 200 it (stalled)
+
+To share the results: git add experiments/wil50_feasibility/pipeline_ab && git commit -m 'pipeline A/B: cpcutt cpcuttx' && git push
