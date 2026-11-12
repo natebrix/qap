@@ -221,6 +221,19 @@ All six run the same binary as the nine probes (md5 `ee4c6ebd…`). The
 With 13 anchors interp is back near iso, because the replicates are no longer
 all on one side.
 
+**Fourteen anchors (Nov 12 23:10; Cr350 still running).** Cr283 is 283.3 short
+warm and 296.4 cold. It has 591 DNN nodes and cost 20,595 CPU s (SE 5,916), to
+depth 5. Cr350 is 349.8 short warm and 360.8 cold.
+
+| index | model | CPU s | cloud core-hours (95%, sample and anchors) |
+|---|---|---|---|
+| cold | interp | 2.38e8 | 66,000 (24,000-157,000) |
+| cold | iso | 2.14e8 | 59,000 (22,000-166,000) |
+| cold | fit | 2.42e8 | 67,000 (27,000-143,000) |
+| warm | interp | 3.60e8 | 100,000 (34,000-242,000) |
+| warm | iso | 3.45e8 | 96,000 (35,000-272,000) |
+| warm | fit | 3.52e8 | 98,000 (38,000-211,000) |
+
 ## The wider-zone test (arm Cw, from Nov 12 18:46)
 
 `Cw.par` and `Cw.sh` are C with `cut.zone = 0.018`, which is 421 short. Under
@@ -309,3 +322,47 @@ as `C.golden` does.
 **A third pair (from Nov 12 21:34).** Zr368 is Cw on Cr368's node
 (`30:33,41:8,46:14`, 380.1 short cold), the dearest anchor at 1.8e6 s. It runs
 on cpu 3, which Zp396 freed. Its log is `zoneC`.
+
+**Zp326 complete (Nov 12 23:10; `anchors_Cw/Zp326`).**
+
+| level | C nodes (est.) | C CPU s per node | C CPU s | Cw nodes (est.) | Cw CPU s per node | Cw CPU s |
+|---|---|---|---|---|---|---|
+| 3 | 1 | 89 | 89 | 1 | 335 | 335 |
+| 4 | 46 | 422 | 19,417 | 46 | 285 | 13,116 |
+| 5 | 135 | 295 | 39,905 | 1,056 | 20 | 20,982 |
+| 6 | 1,588 | 49 | 77,305 | 746 | 7.0 | 5,231 |
+| 7 | 3,744 | 8.9 | 33,469 | - | - | - |
+| all | 5,514 | | 170,185 (SE 149,685) | 1,850 | | 39,663 (SE 19,782) |
+
+- **The total.** Cw is 0.23x, about 0.9 SE of the difference.
+- **The root.** Its phase took it from 349.1 to 219.6 short.
+- **Level 4.** Only 4 of the 16 draws are the same nodes in both. On those 4,
+  the first solves start 0-68 closer under Cw, and the 2 phases that run in
+  both cost 16-24% less. The depth-4 first solves have a median of 50 short
+  under Cw and 133 under C.
+- **Level 5.**
+  - Under Cw, 15 of the 16 drawn nodes fathom at their first solve (median -1
+    short, range -108 to 45).
+  - Under C, none do: all 16 run a phase (median 74 short, range 15 to 211),
+    and 5 stay open.
+
+  Per node, levels 5-6 cost 7-15x less, and the tree stops at depth 6 instead
+  of 7.
+
+**Two pairs so far.** Cw costs 0.58x and 0.23x, by the same mechanism: every
+depth-4 parent runs a phase, so its children fathom at their first solve. The
+extra phases are cheap. A phase at a depth-3 node costs about 245 s. Under
+Cw, the 23% of the 13,682 frontier nodes that are beyond 234 short would run
+one, about 7.7e5 CPU s in all, or 0.4% of the estimate.
+
+**A Cw estimate (`zoneD`, from Nov 12 23:12).** The first solve, which indexes
+the anchors, does not depend on the zone. Under Cw, a node behaves as under C
+only if it and all its descendants are within 234 short. So the anchors up to
+206 short (cold) carry over: no node drawn in their subtrees is farther than
+its root. Only those beyond 234 need Cw probes:
+- Zp326, Zp396 and Zr368 (`zoneA`-`zoneC`);
+- in `zoneD`, the other eight: Zr385, Zr350, Zr338, Zr311, Zp303, Zr283, Zp268
+  and Zp232 (on s232's node), the tail first.
+
+`zoneD` starts on cpu 0. It drains and resumes on more cpus as Cr350 (cpus 1
+and 2) and Zr368 (cpu 3) finish, so the box runs at most 4 solvers.
