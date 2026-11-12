@@ -405,3 +405,43 @@ its root. Only those beyond 234 need Cw probes:
 
 `zoneD` starts on cpu 0. It drains and resumes on more cpus as Cr350 (cpus 1
 and 2) and Zr368 (cpu 3) finish, so the box runs at most 4 solvers.
+
+**Zr368 complete (Nov 12 23:46; `anchors_Cw/Zr368`).**
+
+| level | C nodes (est.) | C CPU s per node | C CPU s | Cw nodes (est.) | Cw CPU s per node | Cw CPU s |
+|---|---|---|---|---|---|---|
+| 3 | 1 | 85 | 85 | 1 | 311 | 311 |
+| 4 | 46 | 299 | 13,748 | 46 | 287 | 13,192 |
+| 5 | 391 | 255 | 99,814 | 1,346 | 70 | 94,292 |
+| 6 | 6,721 | 52 | 348,282 | 11,559 | 17 | 199,524 |
+| 7 | 19,343 | 30 | 576,909 | 14,717 | 5.9 | 86,994 |
+| 8 | 80,923 | 9.4 | 756,791 | - | - | - |
+| all | 107,424 | | 1,795,628 (SE 1,411,379) | 27,669 | | 394,314 (SE 228,215) |
+
+- **The total.** Cw is 0.22x, about 1.0 SE of the difference.
+- **The root.** Its phase took it from 380.1 to 268.6 short.
+- **Level 4.** The first solves have a median of 73 short under Cw and 128
+  under C. 4 of the 16 draws are the same nodes in both:
+  - one has no phase under C (252 short) and stalls at 161 under Cw (256 s);
+  - the two phases that run in both cost 18-22% less under Cw and end at the
+    same shortfall;
+  - one fathoms at its first solve in both.
+- **Level 5.** Under Cw, 10 of 16 fathom at their first solve (median -0.5
+  short), against 3 of 16 under C (median 71). Per node, levels 5-7 cost
+  3.0-5.1x less, and the tree stops at depth 7 instead of 8.
+
+**Three pairs.**
+
+| node (cold) | C CPU s | Cw CPU s | Cw / C | difference in SEs | level 5 fathomed at the first solve, Cw against C |
+|---|---|---|---|---|---|
+| 0:0,40:9,41:3 (349.1) | 170,185 | 39,663 | 0.23 | 0.9 | 15 / 16 against 0 / 16 |
+| 30:33,41:8,46:14 (380.1) | 1,795,628 | 394,314 | 0.22 | 1.0 | 10 / 16 against 3 / 16 |
+| 9:30,40:22,41:17 (408.7) | 1,163,004 | 674,126 | 0.58 | 0.5 | 10 / 16 against 3 / 16 |
+| all three | 3,128,817 | 1,108,103 | 0.35 | 1.2 | 35 / 48 against 6 / 48 |
+
+- **No total is significant alone.** Probe totals are dominated by the noisy
+  node counts at the deep levels.
+- **The mechanism is consistent and strong.** At level 5, 35 of 48 draws
+  fathom at their first solve under Cw, against 6 of 48 under C. Each probe's
+  per-node cost at levels 5-7 is lower under Cw.
+- **The Cw estimate** (zoneD, running) prices this across the whole tail.
