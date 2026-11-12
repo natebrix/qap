@@ -165,6 +165,33 @@ nodes in the tail, with the same k, beta and seed:
 - `probes3`, on one slot once s232 finishes: Cr283 `0:0,40:23,41:3` and Cr350
   `9:9,40:23,41:17`.
 
+All six run the same binary as the nine probes (md5 `ee4c6ebd…`). The
+"binary" a summary names is the repository's commit at launch, not the build.
+
+**How the replicates enter (decided Nov 12 20:40, with only Cr338 in).**
+- Cr338 is 350.2 short cold and cost 27,433 CPU s (SE 5,785 s). Cp326 is
+  349.1 short and cost 170,185 s. Two nodes at the same shortfall differ 6x.
+- interp runs through both points, so the curve from 350 to 409 short drops
+  about 2.5x, and the total with it: 55,000 to 38,000 core-hours.
+- `estimate_se.py` now also prints an iso model: interp through the anchors'
+  isotonic fit (pool adjacent violators, so an anchor dearer than the next is
+  averaged with it). Its prior is that the mean cost does not fall as the
+  shortfall grows. With the nine probes it gives 56,600 core-hours, against
+  interp's 55,500.
+- With Cr338 added (cold index, Cs232 for Cp232):
+
+  | model | CPU s | cloud core-hours (95%, sample and anchors) |
+  |---|---|---|
+  | interp | 1.37e8 | 38,000 (18,000-68,000) |
+  | iso | 1.71e8 | 47,000 (17,000-83,000) |
+  | fit | 1.80e8 | 50,000 (18,000-87,000) |
+
+  The anchors are given in shortfall order. The intervals' ends move a few
+  percent with the order, which changes the resampling draws.
+
+- The final estimate reads iso and fit with all fifteen anchors. interp stays
+  in the table but is not the headline once anchors have replicates.
+
 ## The wider-zone test (arm Cw, from Nov 12 18:46)
 
 `Cw.par` and `Cw.sh` are C with `cut.zone = 0.018`, which is 421 short. Under
@@ -194,3 +221,29 @@ as `C.golden` does.
   fathom fraction and its children's shortfalls, 16 drawn of 46 in each.
 - **Slots.** probes3 (Cr283, Cr350) was drained to free a slot for Zp396. It
   resumes on 2 slots when the replicates finish.
+
+**Zp396 through level 4 (Nov 12 20:17).**
+- **The root.** Its phase took it from 408.7 to 279.0 short, in 245 s on top
+  of the 89 s solve. As expected, that is far short of fathoming, and all 46
+  children stay open.
+- **The draws differ.** Draws are systematic along the children ordered by
+  predicted bound, and the root's phase changes that order. 10 of the 16
+  children drawn at depth 4 are the same nodes in both probes. On those 10:
+  - each child's first solve starts 60-95 closer than under C;
+  - the same 4 fathom in both;
+  - C's 3 children without a phase (246-270 short) get one under Cw. It
+    stalls at 125-152 short.
+  - the 7 phases that run in both cost 22-43% less under Cw. The 3 of those
+    that stall end 1-8 closer.
+  - all 10 cost 2,855 s under Cw and 3,162 s under C, 10% less, the 3 extra
+    phases included.
+- **The other 6 draws.** Cw's 6 include two near-fathom children (7 and 63
+  short) that fathom; C's 6 fathom none. So level 4's 6/16 against 4/16 is the
+  draw, not the setting.
+- **What it means for the rest.** Each probe's open depth-4 children end where
+  they hand off to their own children:
+  - under Cw, all 10 ran a phase and end 18-153 short;
+  - under C, 7 ran a phase and end 18-103, but 5 had none and stay at 246-303.
+
+  If Cw pays, it shows at levels 5-6, which are still running. Through level 4
+  (the root and the 16 draws), Cw costs 4,991 s and C 5,265 s.
