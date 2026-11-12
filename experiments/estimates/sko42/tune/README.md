@@ -1,4 +1,4 @@
-# sko42: settings for an estimate (cloud box, Nov 11)
+# sko42: settings for an estimate (cloud box, Nov 11-12)
 
 sko42 (6 x 7 grid, QAPLIB optimum 15,812, solved by Fujii et al. with 6.0e6
 nodes) has one search on record, Nov 8 (`../../../sko42_solve/`). It used
@@ -13,7 +13,7 @@ lever measured on either.
 |---|---|---|
 | A | `A.par`, `A.sh` | `../sko42.par` as it stands: the nug30 recipe with rule 9, DNN at depths 1-7, give-up 200, no cut phase |
 | B | `B.par`, `B.sh` | wil50's full run (`../../../wil50_feasibility/fullrun/fullrun.par`) with `cut.grid = 6:7`: CP cut phase, `cut.zone = 0.0075` (119 short on sko42), DNN at depths 1-4 then 20 levels below a miss, give-up 300, the two-phase beta schedule |
-| C | `C.par`, `C.sh` | B with `cut.zone = 0.010` (158 short), tried on two anchors whose roots B branches without a phase |
+| C | `C.par`, `C.sh` | B with `cut.zone = 0.010` (158 short): **the best of the three** (below) |
 
 The rule blocks above `[settings]` are the same in both (and in
 `fullrun.par`). B differs from `fullrun.par` only in the grid line. The grid:
@@ -158,10 +158,11 @@ still: at depth 1 B is 87-175 tighter, and at depth 2 its cut phase fathoms
   node 119-158 short that runs a phase under C passes a pool to its
   children, which then fathom in their first solve where under B they
   needed a phase.
-- **Not measured: below 119 short, and depth 2.** Below 119 the arms differ
-  only in descendants 119-158 short; s20, s63 and s94 have none. At depth 2,
-  80 of stage A's first solves are 119-158 short, and C would run a phase on
-  each. Stage A under C measures that (running).
+- **Below 119 short** the arms differ only in descendants 119-158 short;
+  s20, s63 and s94 have none, so their trees under C are B's. s108 and s155
+  were not run under C: the estimate under C uses B's, an upper bound if C
+  does there what it did on the five.
+- **Depth 2** is in stage A under C (next section).
 
 ## The estimate under B (`estimate.py`)
 
@@ -210,8 +211,48 @@ What this estimate does not cover:
   measured: s94 (phase, 511 s) and s108 (branch, 494 s) cost about the same.
 - **The incumbent is the optimum,** as in every estimate here.
 
-**With C's subtrees on B's frontier.** Use C's five subtrees where they were
-measured and B's elsewhere (`estimate.py ... subtrees/Cs124=124.0 ...`): 8.0e4
-to 1.2e5 DNN nodes and 1.9-2.0e6 CPU s, 523-566 core-hours, about 13% under
-B's. That is C's subtrees under B's top of the tree. C's own top of the tree
-(its phases at depth 2) is what stage A under C measures.
+## Stages A and B under C, and the estimate under C (`sampling_C/`)
+
+The same runs as under B, with `C.sh` and `C.par`: stage A in 4 h 9 min, stage
+B in 53 min, both on 4 slots (`sampling_C/`, the same files as `sampling/`).
+
+| | B | C |
+|---|---|---|
+| depth-2 nodes bounded, fathomed | 438, 164 | 438, 165 |
+| cut phases at depth 2 | 138 | 218 |
+| CPU s at depths 0-2 | 40,762 | 58,946 |
+| frontier (depth 3) | 10,726 | 10,704 |
+| stage B: fathomed in the first solve, of 250 | 123 | 140 |
+| stage B misses: median, 95th percentile, largest (short) | 62.9, 136.4, 188.8 | 67.7, 140.1, 188.8 |
+
+- **At depth 2, C's extra phases do not pay for themselves.** 80 more phases
+  cost 18,184 CPU s, fathom one more node and remove 22 frontier nodes (about
+  4,000 s of subtree). That is about 5 core-hours, under 1% of the total.
+- **At depth 3 they do.** The pools those phases pass down let 17 of the
+  250 sampled nodes fathom in their first solve where under B they missed
+  (249 of the 250 nodes are the same: the sample is fixed by the seed). The
+  other misses keep B's shortfall (median change 0; the largest, 67.7, a
+  node that moved closer). The anchors' shortfalls are the same in both.
+
+```
+python3 experiments/estimates/sko42/tune/estimate.py --table sampling_C/stageB_summary.md --top 451 \
+  --top-cpu 58946 --front 10704 subtrees/Bs20=20.2 subtrees/Bs63=62.9 subtrees/Bs94=93.5 \
+  subtrees/Bs108=108.4 subtrees/Cs124=124.0 subtrees/Cs136=136.4 subtrees/Cs145=145.4 \
+  subtrees/Bs155=155.2 subtrees/Cs168=168.2 subtrees/Cs189=188.8
+```
+
+C's five subtrees, B's s20, s63 and s94 (the same trees under C), and B's s108
+and s155 in place of C's (upper bounds):
+
+| quantity | model | mean per frontier node | total (95%) |
+|---|---|---|---|
+| DNN nodes | interpolation | 7.4 | 79,854 (50,141-115,535) |
+| DNN nodes | fit (x48.7 per 100 short, scatter x2.9) | 10.9 | 116,853 (67,647-178,818) |
+| CPU s | interpolation | 164.6 | 1.82e6 (1.33e6-2.40e6) = 506 core-hours |
+| CPU s | fit (x11.5 per 100 short, scatter x1.6) | 179.2 | 1.98e6 (1.46e6-2.55e6) = 549 core-hours |
+
+**sko42 under C: about 8e4-1.2e5 DNN nodes and 506-549 core-hours on the
+cloud box (370-710 at the ends of the intervals), 16-18% under B's 603-668.**
+On the laptop that is about 255-275 core-hours, some 1.8-1.9 days on the 6
+performance cores. C is the setting to solve sko42 with. What the estimate
+under B does not cover (above) holds here too.
