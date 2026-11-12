@@ -255,9 +255,10 @@ as `C.golden` does.
 - **The root.** Its phase took it from 408.7 to 279.0 short, in 245 s on top
   of the 89 s solve. As expected, that is far short of fathoming, and all 46
   children stay open.
-- **The draws differ.** Draws are systematic along the children ordered by
-  predicted bound, and the root's phase changes that order. 10 of the 16
-  children drawn at depth 4 are the same nodes in both probes. On those 10:
+- **The draws differ.** Each level's random start is seeded by the probe's
+  name, and the root's phase also reorders the children by predicted bound.
+  Still, 10 of the 16 children drawn at depth 4 are the same nodes in both
+  probes (`anchors_Cw/cmp_level.py`). On those 10:
   - each child's first solve starts 60-95 closer than under C;
   - the same 4 fathom in both;
   - C's 3 children without a phase (246-270 short) get one under Cw. It
@@ -276,3 +277,35 @@ as `C.golden` does.
 
   If Cw pays, it shows at levels 5-6, which are still running. Through level 4
   (the root and the 16 draws), Cw costs 4,991 s and C 5,265 s.
+
+**Zp396 complete (Nov 12 21:32; `anchors_Cw/Zp396`).**
+
+| level | C nodes (est.) | C CPU s per node | C CPU s | Cw nodes (est.) | Cw CPU s per node | Cw CPU s |
+|---|---|---|---|---|---|---|
+| 3 | 1 | 91 | 91 | 1 | 334 | 334 |
+| 4 | 46 | 323 | 14,874 | 46 | 291 | 13,388 |
+| 5 | 680 | 306 | 208,330 | 1,273 | 89 | 112,889 |
+| 6 | 3,149 | 71 | 223,622 | 6,700 | 48 | 323,781 |
+| 7 | 18,819 | 27 | 504,884 | 19,110 | 12 | 223,733 |
+| 8 | 43,235 | 4.9 | 211,202 | - | - | - |
+| all | 65,930 | | 1,163,004 (SE 790,289) | 27,130 | | 674,126 (SE 457,027) |
+
+- **The total.** Cw is 0.58x, but that is only about 0.5 SE of the
+  difference.
+- **The mechanism is clear at level 5.**
+  - Under Cw, 10 of the 16 drawn nodes fathom at their first solve (median
+    first solve 0 short, range -9 to 119), and 6 run a phase.
+  - Under C, 3 fathom at their first solve (median 72 short, range -15 to
+    229), and 13 run a phase.
+
+  Every Cw node at depth 4 ran a phase, so its children start from a better
+  pool. Per node, levels 5-7 cost 1.5-3.5x less, and the tree stops at depth 7
+  instead of 8.
+- **Node counts are noisier.** Cw's estimate has more nodes at levels 5-6.
+- **What it would mean.** If the tail nodes all came out like this, the 81-84%
+  of the estimate beyond 305 short would drop by about 40%, and the total by
+  about a third. That is one pair. Zp326 and Zr368 test it.
+
+**A third pair (from Nov 12 21:34).** Zr368 is Cw on Cr368's node
+(`30:33,41:8,46:14`, 380.1 short cold), the dearest anchor at 1.8e6 s. It runs
+on cpu 3, which Zp396 freed. Its log is `zoneC`.
