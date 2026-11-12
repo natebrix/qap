@@ -59,7 +59,7 @@ EstimateParameters *ep = NULL;
 extern const char *bnb_state_file;
 extern double bnb_checkpoint_every;
 extern double bnb_time_limit;
-extern int dnn_min_depth, dnn_max_depth, dnn_hopeless_after, dnn_warm;
+extern int dnn_min_depth, dnn_max_depth, dnn_hopeless_after, dnn_hopeless_after_warm, dnn_warm;
 extern double dnn_max_gap;
 #ifdef HAVE_DNN
 #include "dnn.h"
@@ -458,6 +458,7 @@ static void apply_policy_settings()
     dnn_max_depth = dmax;
     dnn_max_gap = setting_d("dnn.maxgap");
     dnn_hopeless_after = (int)setting_i("dnn.giveup");
+    dnn_hopeless_after_warm = (int)setting_i("dnn.giveup_warm");
     dnn_warm = (int)setting_i("dnn.warm");
     // one core per solver process. Accelerate (macOS) has no such call;
     // it reads VECLIB_MAXIMUM_THREADS when it is loaded, so that must be

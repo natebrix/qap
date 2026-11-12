@@ -28,6 +28,7 @@ static Setting TABLE[] = {
   POLICY("dnn.maxgap", NULL, 'd', "1", 0, INF, "-x third field: relative gap (inc - QPB)/(inc - root QPB) at most this"),
   POLICY("dnn.giveup", NULL, 'i', "0", 0, 100000000, "-x fourth field: give up on a hopeless node after this many iterations (0: never)"),
   POLICY("dnn.warm", NULL, 'i', "0", 0, 1, "-x fifth field: 1: a child's ADMM starts from its parent's final state"),
+  POLICY("dnn.giveup_warm", "QAP_DNN_GIVEUP_WARM", 'i', "0", 0, 100000000, "a warm-started node gives up after this many iterations instead of dnn.giveup (0: the same floor; the cut phase is unaffected)"),
   POLICY("dnn.ext", "QAP_DNN_EXT", 'i', "20", 0, 1000, "levels below the last DNN depth at which a child of a DNN miss keeps the bound"),
   POLICY("dnn.gamma1", "QAP_DNN_GAMMA1", 'd', "1.0", 0, 2, "Peaceman-Rachford first dual step (0: none)"),
   POLICY("dnn.gamma", "QAP_DNN_GAMMA", 'd', "1.0", 0, 2, "ADMM dual step length"),

@@ -237,6 +237,7 @@ DNNParams::DNNParams()
   stall_lb = 0.05;
   stall_gap = 0.5;
   hopeless_after = 200;
+  hopeless_after_warm = 0;
   hopeless_gap_ratio = 0;
   hopeless_zone = 0;
   hopeless_delay = 100;
@@ -1696,6 +1697,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   // DNN_BETA_SCHED (see BetaSched): off unless set
   BetaSched bs;
   const bool warm_call = start && start->Z.size() == (size_t)n1 * n1;
+  // dnn.giveup_warm: a warm call may give up earlier than a cold one (review_nov10, section 2.3)
+  const int hop_after = (warm_call && par.hopeless_after_warm > 0) ? par.hopeless_after_warm : par.hopeless_after;
   const bool accel = par.anderson > 0 || par.halpern > 0 || par.momentum > 0;
   // CP-ADMM (par.ycuts): cuts projected in the Y-step, certified with their
   // multipliers at every check (see DNNYCuts)
@@ -2158,7 +2161,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     if (pres < par.tol && dy < par.tol) { status = DNN_CONVERGED; lz_exit = lazy_this; break; }
     if (par.time_limit > 0 && thread_cpu() - t0 > par.time_limit) { status = DNN_TIME_LIMIT; lz_exit = lazy_this; break; }
     besthist.push_back(best_rule);
-    if (par.hopeless_after > 0 && it >= par.hopeless_after && best_rule > -HUGE_VAL &&
+    if (hop_after > 0 && it >= hop_after && best_rule > -HUGE_VAL &&
         it >= confirm_at) {
       // extrapolate the running best certified value: with d1, d2 its gains
       // over the last two windows of ~50 iterations and r = d1/d2, a
