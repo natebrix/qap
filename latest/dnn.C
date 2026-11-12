@@ -1698,7 +1698,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   BetaSched bs;
   const bool warm_call = start && start->Z.size() == (size_t)n1 * n1;
   // dnn.giveup_warm: a warm call may give up earlier than a cold one (review_nov10, section 2.3)
-  const int hop_after = (warm_call && par.hopeless_after_warm > 0) ? par.hopeless_after_warm : par.hopeless_after;
+  // (only where a give-up rule is active at all: the cut phase's solves set hopeless_after = 0 and
+  // must never give up, warm though they are)
+  const int hop_after = (warm_call && par.hopeless_after > 0 && par.hopeless_after_warm > 0) ? par.hopeless_after_warm : par.hopeless_after;
   const bool accel = par.anderson > 0 || par.halpern > 0 || par.momentum > 0;
   // CP-ADMM (par.ycuts): cuts projected in the Y-step, certified with their
   // multipliers at every check (see DNNYCuts)
