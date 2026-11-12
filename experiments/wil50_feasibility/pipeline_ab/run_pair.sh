@@ -181,7 +181,7 @@ arm_env() {
   if [ "$arm" = cpcuttg ]; then export QAP_DNN_GIVEUP_WARM=${PAB_GU_WARM:-150}; fi
   if [ "$arm" = cpcuttx ]; then export QAP_DNN_CUT_GIVEUP=${PAB_CUT_GIVEUP:-200:35,300:25,400:20,600:12}; fi
   # PAB_TRACE_HIST=1: every arm's trace line carries the cut phase's best-by-check history (a diagnostic)
-  if [ -n "$PAB_TRACE_HIST" ]; then export QAP_DNN_TRACE_HIST=1; fi
+  if [ -n "${PAB_TRACE_HIST:-}" ]; then export QAP_DNN_TRACE_HIST=1; fi
 }
 
 run_arm() {
