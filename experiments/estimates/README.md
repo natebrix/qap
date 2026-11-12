@@ -325,6 +325,31 @@ solve.
 Fujii et al. needed 6.0e6 nodes. **C is the setting to solve sko42 with.**
 The `trace_estimate.sh sko42` run above uses `sko42/settings.sh`, that is A.
 
+## sko49: a preliminary estimate under sko42's C (cloud box, Nov 12)
+
+`sko49/tune/README.md` has the details. The settings are arm C on sko49's own
+7 x 7 grid (`sko49/tune/C.par`: `sko49.par` with `cut.zone = 0.010`, which is
+234 short here). The sampling plan is sko42's:
+- **Stage A:** 344 nodes at depths 0-2, 13,682 frontier nodes.
+- **Stage B:** 250 sampled frontier nodes, 21% fathomed in their first solve
+  (sko42: 56%), the rest up to 396 short (sko42: 189).
+- **The anchors:** nine probes (`probe.py`), one checked against a complete
+  subtree. The complete subtrees are too large here.
+
+| anchors indexed by | DNN nodes | CPU s | cloud core-hours | laptop core-hours |
+|---|---|---|---|---|
+| the probe's cold first solve | 7.4e6-9.6e6 | 2.0-2.2e8 | 56,000-61,000 | about 30,000 |
+| stage B's warm give-up (sko42's method, overstates) | 1.4e7-1.6e7 | 3.3-3.5e8 | 91,000-98,000 | about 47,000 |
+
+The Nov 6 estimate was 3.6e5 cloud core-hours, so this is 3.6-6.3x less. It
+is still not a laptop run, and it is preliminary:
+- The 19 sampled nodes beyond 305 short carry 81-84% of it.
+- The two probes that set that tail have a standard error of 70-90% each.
+- Six more probes in the tail are running.
+
+The cost is in nodes beyond the zone. Their children that come out 135-234
+short get a cut phase and never fathom (0 of 27).
+
 ## Cold against warm: a220 as production would bound it (cloud box, Nov 10)
 
 Every measured subtree behind wil50's estimate started cold from `-F`: no

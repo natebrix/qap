@@ -83,24 +83,79 @@ are beyond 1.0, reaching 1.7. On sko42 a cut phase fathomed every depth-2 node
 within 0.77 zones; here, within 0.67 (156). Those 57 nodes get no cut phase at
 depth 3, and they are where the cost will be.
 
-## Anchors (running from Nov 12 13:49)
+## Anchors (`anchors_C/`, Nov 12)
 
-Nine probes run on 3 pinned slots: `../../probe.py --k 16 --beta 0.025`, cold
+Nine probes ran on 3 pinned slots: `../../probe.py --k 16 --beta 0.025`, cold
 from `-F` as sko42's anchors were. Each is at a quantile of the 198 misses'
 give-up shortfalls:
 - 45, 97, 164, 188, 232, 268, 303, 326 and 396;
 - that is the 10th, 30th, 50th, 60th, 70th, 80th, 90th and 95th percentiles,
   and the maximum.
 
-On the fourth slot, s188's complete subtree runs (`../../subtree.sh tune/C.sh`).
-It is the probe's check on sko49. A node from 160 to 234 short is the
-cheapest one that checks anything:
-- below about 156, the cut phase at the node fathoms it, so the probe is the
-  node alone and samples nothing;
-- above the zone, the complete subtree is too large.
-
 Why probes: the record's two sko49 depth-3 subtrees, 263-304 short converged,
 were estimated at 47,000 laptop CPU s each under the Nov 5 settings
 (`../../../sko49_feasibility/vs_wil50.md`), about 25 core-hours on this box.
-sko42's largest was 1.3. A probe bounds about 24 nodes a level and weights them,
-so it costs about 100-150 nodes whatever the subtree's size.
+sko42's largest was 1.3. A probe draws 16 of a level's open nodes, bounds
+them, and weights them up, so it costs 1-80 nodes whatever the subtree's size.
+
+| probe | stage B short (warm) | first solve short (cold) | phase at the node | levels | DNN nodes (est.) | DNN CPU s (est., SE) | the probe's own CPU s |
+|---|---|---|---|---|---|---|---|
+| Cp45 | 44.9 | 56.6 | fathomed | 3 | 1 | 172 | 172 |
+| Cp97 | 96.8 | 105.9 | fathomed | 3 | 1 | 302 | 302 |
+| Cp164 | 163.9 | 171.9 | to 10.4 | 3-4 | 47 | 1,536 (22) | 1,299 |
+| Cp188 | 188.0 | 205.8 | to 55.7 | 3-4 | 47 | 1,671 (575) | 955 |
+| Cp232 | 231.5 | 245.5 | none | 3-6 | 532 | 17,471 (10,012) | 3,872 |
+| Cp268 | 267.6 | 280.1 | none | 3-5 | 176 | 10,082 (2,662) | 3,335 |
+| Cp303 | 303.1 | 318.3 | none | 3-6 | 1,177 | 48,408 (33,036) | 7,527 |
+| Cp326 | 325.5 | 349.1 | none | 3-7 | 5,514 | 170,185 (149,685) | 13,127 |
+| Cp396 | 395.7 | 408.7 | none | 3-8 | 65,930 | 1,163,004 (790,289) | 11,957 |
+
+- **The check.** s188's complete subtree (`Cs188/`, `../../subtree.sh tune/C.sh`)
+  has 47 DNN nodes and takes 1,328 s against the probe's 1,671 ± 575 s: within
+  0.6 SE. Every child of s188 fathoms, so this checks the probe's CPU, not its
+  node count, which is exact by construction. s232's complete subtree, the
+  check on a tree with several levels, is still running.
+- **The cold start.** A probe's root is solved cold from `-F`: 8-24 short
+  further than stage B's warm give-up. That matters at the zone's edge. s232
+  is 231.5 short warm, inside the zone, but its cold 245.5 is outside, so it
+  gets no phase. The estimate below indexes the anchors both ways:
+  - by the warm shortfall (sko42's method), which overstates;
+  - by the cold one, which matches the node the probe actually bounded.
+- **Where the subtrees blow up.** Beyond the zone, a node's 46 children come
+  out 85-300 short in their first solve. Below the five largest probes' roots:
+  - 77 of the 86 cut phases on nodes within 135 short fathomed;
+  - none of the 27 on nodes from 135 to 234 did: they stalled 9-121 short,
+    after 300-800 s, with 44-45 children each;
+  - 7 drawn nodes beyond 234 got no phase.
+  
+  Under s396, 12 of the 16 children drawn at depth 4 stay open, and the tree
+  reaches depth 8.
+
+## The estimate with nine probes (Nov 12)
+
+```
+python3 experiments/estimates/sko42/tune/estimate.py --table experiments/estimates/sko49/tune/sampling_C/stageB_summary.md \
+  --top 344 --top-cpu 68096 --front 13682 anchors_C/Cp45=56.6 ... anchors_C/Cp396=408.7    # or =44.9 ... =395.7
+```
+
+| anchors indexed by | model | DNN nodes | CPU s (95%, stage B's sample only) | cloud core-hours |
+|---|---|---|---|---|
+| cold first solve | interp | 7.4e6 | 2.0e8 (1.0-3.3e8) | 56,000 |
+| cold first solve | fit (x12.2 per 100 short) | 9.6e6 | 2.2e8 (1.4-3.2e8) | 61,000 |
+| warm give-up | interp | 1.4e7 | 3.5e8 (1.9-5.5e8) | 98,000 |
+| warm give-up | fit (x12.9 per 100 short) | 1.6e7 | 3.3e8 (2.1-4.8e8) | 91,000 |
+
+- **Where the cost is.** The 9 sampled nodes beyond 330 short carry 69% of
+  it, and the 19 beyond 305 carry 81-84%. The 193 below 234 carry 4%.
+- **The anchors' own error is not in the interval.** Cp326 and Cp396, which
+  set the tail's 69%, are ± 88% and ± 68%.
+- **Against the record.** The Nov 6 estimate was 6.4e8 laptop CPU s, about
+  3.6e5 cloud core-hours. This one is 3.6-6.3x less, and still out of reach of the
+  laptop: at its 2x speed, 28,000-49,000 laptop core-hours.
+
+**Replicates (running from Nov 12 17:51).** Six more probes, on other sampled
+nodes in the tail, with the same k, beta and seed:
+- `probes2`, on 3 slots: Cr311 `0:0,40:22,41:10`, Cr338 `30:25,41:8,46:35`,
+  Cr368 `30:33,41:8,46:14` and Cr385 `12:0,41:2,46:1`;
+- `probes3`, on one slot once s232 finishes: Cr283 `0:0,40:23,41:3` and Cr350
+  `9:9,40:23,41:17`.
