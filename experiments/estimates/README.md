@@ -306,7 +306,8 @@ and B as one night.
 **The comparison.** At depth 1, B's first solve is 87-175 tighter than A's.
 On five matched complete subtrees, B takes 1.15-2.8x less CPU than A. On the
 farthest of them, A was stopped with its tree still open, already at 1.9x
-B's CPU. C beat B by 24% and 36% on the two nodes tried so far.
+B's CPU. C (zone 0.010) beat B by 21-39% on all five nodes it was tried on. Its stage A,
+which measures its effect at depth 2, is running.
 
 **The estimate under B.** The wil50 sampling plan:
 - stage A: depths 0-2 bounded, 10,726 frontier nodes;

@@ -126,12 +126,12 @@ own first solve, without its parent's warm start. Stage B's shortfall is warm.
 | s63 | `21:0,22:23,36:9` | 62.9 | 69.2 | 40, 200 | 1, 1, 93 | |
 | s94 | `0:0,36:16,40:41` | 93.5 | 99.7 | 116, 588 | 1, 1, 511 | |
 | s108 | `22:9,26:35,36:10` | 108.4 | 129.4 | | 40, 4, 494 | |
-| s124 | `7:41,12:0,36:15` | 124.0 | 136.4 | 417, 1,722 | 40, 7, 609 | running |
+| s124 | `7:41,12:0,36:15` | 124.0 | 136.4 | 417, 1,722 | 40, 7, 609 | 40, 1, 373 |
 | s136 | `22:0,36:16,41:41` | 136.4 | 145.7 | | 154, 13, 2,476 | 116, 6, 1,871 |
 | s145 | `7:41,22:0,36:8` | 145.4 | 153.1 | | 78, 14, 1,744 | 78, 7, 1,109 |
 | s155 | `15:41,22:0,36:17` | 155.2 | 167.5 | | 40, 12, 992 | |
-| s168 | `7:0,22:13,36:9` | 168.2 | 188.3 | | 229, 25, 4,746 | running |
-| s189 | `7:35,15:0,36:15` | 188.8 | 205.9 | stopped open at 2,100, 8,619 | 191, 34, 4,474 | running |
+| s168 | `7:0,22:13,36:9` | 168.2 | 188.3 | | 229, 25, 4,746 | 229, 21, 3,628 |
+| s189 | `7:35,15:0,36:15` | 188.8 | 205.9 | stopped open at 2,100, 8,619 | 191, 34, 4,474 | 191, 25, 3,549 |
 
 Under A, the cold roots are looser everywhere except s20 (A gives up at 200
 iterations and uses its own beta): 89.7, 163.5, 184.0 and 264.3 short on s63,
@@ -146,14 +146,22 @@ would branch. In s189, 31 of B's 34 phases prune their node, at a median of
 still: at depth 1 B is 87-175 tighter, and at depth 2 its cut phase fathoms
 123 of 438 nodes.
 
-**C against B: zone 0.010 is 24% and 36% cheaper on the two nodes tried.**
-Their cold roots (146 and 153 short) are outside B's zone, so B branches them
-without a phase. C runs the phase. It stalls (at 65 and 69 short), but the
-children start from the tighter bound and the inherited pool, and need half
-as many phases of their own. Whether the gain holds where B already wins
-easily, and at depth 2, is not measured. At depth 2, 80 of stage A's first
-solves are 119-158 short: C would run a phase on each. C on s124, s168 and
-s189 is the next check.
+**C against B: zone 0.010 is 21-39% cheaper on all five nodes tried.**
+- **s124, s136 and s145.** Their cold roots (136-153 short) are outside B's
+  zone, so B branches them without a phase. C runs the phase, which stalls
+  (at 34, 65 and 69 short). But the children start from the tighter bound
+  and the inherited pool, and need far fewer phases of their own: 1, 6 and 7
+  against B's 7, 13 and 14.
+- **s168 and s189.** Their roots (188 and 206 short) are outside both zones,
+  and C gives the same tree as B, node for node by depth. It runs fewer
+  phases (21 and 25 against 25 and 34) for 24% and 21% less CPU. A depth-4
+  node 119-158 short that runs a phase under C passes a pool to its
+  children, which then fathom in their first solve where under B they
+  needed a phase.
+- **Not measured: below 119 short, and depth 2.** Below 119 the arms differ
+  only in descendants 119-158 short; s20, s63 and s94 have none. At depth 2,
+  80 of stage A's first solves are 119-158 short, and C would run a phase on
+  each. Stage A under C measures that (running).
 
 ## The estimate under B (`estimate.py`)
 
@@ -201,3 +209,9 @@ What this estimate does not cover:
   branches instead of running a phase. Which way that moves the total is not
   measured: s94 (phase, 511 s) and s108 (branch, 494 s) cost about the same.
 - **The incumbent is the optimum,** as in every estimate here.
+
+**With C's subtrees on B's frontier.** Use C's five subtrees where they were
+measured and B's elsewhere (`estimate.py ... subtrees/Cs124=124.0 ...`): 8.0e4
+to 1.2e5 DNN nodes and 1.9-2.0e6 CPU s, 523-566 core-hours, about 13% under
+B's. That is C's subtrees under B's top of the tree. C's own top of the tree
+(its phases at depth 2) is what stage A under C measures.
