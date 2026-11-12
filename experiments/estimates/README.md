@@ -18,7 +18,7 @@ HEAD's `bnbdrv`, checked before every run). wil50 keeps the full run's files.
 |---|---|---|---|
 | wil50 | `../wil50_feasibility/fullrun/` | the full run: CP cut phase, `cut.zone = 0.0075`, rule 9, DNN at depths 1-4 then 20 levels below a miss, give-up 300; `wil50t.dat` with its symmetry | |
 | tho40 | `tho40/` | the Nov 8 nug30 record recipe (rule 9, DNN at depths 1-7, give-up 200, no cut phase) with `branch.xbar_lines = 2`, the tho40 A/B's setting (`../xbar_lines_sweep/tho40_ab/`); `tho40t.dat` with its symmetry | 2 lines was measured on three depth-3 subtrees only |
-| sko42 | `sko42/` | the nug30 record recipe as it stands (rule 9, 1 line); `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum | everything: the one run (Nov 8) used rule 8 |
+| sko42 | `sko42/` | the nug30 record recipe as it stands (rule 9, 1 line); `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum. Measured worse than wil50's settings with the 6 x 7 grid, `sko42/tune/B.par` (below) | the recipe: the one run (Nov 8) used rule 8 |
 | sko49 | `sko49/` | wil50's full run with the grid 7 x 7; `sko49t.dat` (new in `qaplib/`, the matrices of `sko49.dat` swapped) with the 7 x 7 grid's symmetry (`latest/SYM/sko49t.sym`, 10 depth-1 orbits), so `cut.side = 1` | the CP phase and the 0.0075 zone (wil50's Nov 5 levers were 2.2x and 4.2x on two sko49 subtrees, `../sko49_feasibility/vs_wil50.md`) |
 | tai50b | `tai50b/` | the Nov 8 tuned estimate's values as keys (DNN at depths 1-9, give-up 600, the nug30 recipe otherwise) with rule 9, which its notes name; no symmetry, no cut phase (no grid); the dive sampler `est.xbar = 1`, `est.xbar_mix = 0.3` | rule 9: the Nov 8 runs used rule 8 (their log header), not rule 9 as the notes say |
 
@@ -112,6 +112,17 @@ experiments/estimates/wil50/run_anchors.sh a325     # or one of them
   EST_RUNS=experiments/estimates/wil50/subtrees experiments/estimates/subtree.sh \
     experiments/wil50_feasibility/fullrun/settings.sh a220aws 21:22,31:23,40:15
   ```
+
+  **On real AWS (laptop, Nov 11, `wil50/subtrees/a220aws/`): the same
+  tree.** The same 232 nodes, each with the same status, iterations,
+  cut phase and fathoming as the local run. Four nodes' first bounds differ
+  by at most 0.15, all of them fathomed either way: the coordinator split the
+  work into 47 units against 51, and where a unit boundary falls depends on
+  timing. The solver binary is the same (no change in `latest/` between the
+  two commits). The run took 1,013 s of wall time against 926 s, with the
+  slots busy 51.5% of the time against 65.3%: on this 15-minute run, the
+  queue and store round trips cost about a tenth of the wall time. No errors
+  in either log.
 
   Removing it all: `aws s3 rb s3://qap-coord-$ACCT-eu-north-1 --force`;
   `aws sqs delete-queue --queue-url $(aws sqs get-queue-url --queue-name Q --query QueueUrl --output text)`
@@ -284,6 +295,30 @@ experiments/estimates/tai50b/run_dives.sh 8 6 201    # a second night, new seeds
 wil50's anchors first: they move the instance we are going to run. Then
 tai50b overnight, tho40 and sko42 as one evening each, and sko49's stages A
 and B as one night.
+
+## sko42: settings and a preliminary estimate (cloud box, Nov 11-12)
+
+`sko42/tune/README.md` has the details. Three settings were tried on sko42:
+- **A**, `sko42.par` as it stands: the nug30 recipe, no cut phase.
+- **B**, wil50's full run with `cut.grid = 6:7`.
+- **C**, B with `cut.zone = 0.010`.
+
+**The comparison.** At depth 1, B's first solve is 87-175 tighter than A's.
+On five matched complete subtrees, B takes 1.15-2.8x less CPU than A. On the
+farthest of them, A was stopped with its tree still open, already at 1.9x
+B's CPU. C (zone 0.010) beat B by 21-39% on all five nodes it was tried on. Its stage A,
+which measures its effect at depth 2, is running.
+
+**The estimate under B.** The wil50 sampling plan:
+- stage A: depths 0-2 bounded, 10,726 frontier nodes;
+- stage B: 250 sampled frontier nodes, 49% fathomed in their first solve, the
+  rest at most 189 short;
+- ten complete subtrees, read by the sampled nodes' give-up shortfalls.
+
+That gives about 1e5 DNN nodes (8.5e4-1.3e5) and 2.2-2.4e6 CPU s:
+600-670 core-hours on the cloud box, about 300-335 on the laptop, some 2-2.5
+days on its 6 performance cores. Fujii et al. needed 6.0e6 nodes. The
+`trace_estimate.sh sko42` run above uses `sko42/settings.sh`, that is A.
 
 ## Cold against warm: a220 as production would bound it (cloud box, Nov 10)
 

@@ -205,11 +205,15 @@ class StageB:
             args += ["-F", F]
         else:
             write_one(src, index, inp, warm="none" if mode == "cold" else "keep")
-            args += ["-r", inp]
+            # the give-up and converge settings differ from stage A's on purpose (cut.maxdepth 2,
+            # the give-up rule), which the solver's settings check on -r refuses without this
+            args = ["--allow-settings-change"] + args + ["-r", inp]
         args.append(c["instance"])
         rc, wall = run_bnbdrv(self.binary, args, self.env, os.path.join(wd, "solver.log"), os.path.join(wd, "trace.txt"),
                               cpu=cpu, procs=self.procs, tag=key)
         if rc != 0 or not os.path.exists(out):
+            if os.path.exists(inp):
+                os.remove(inp)   # 14 MB a node on sko42; a failed sample must not fill the disk
             raise RuntimeError(f"{key}: exit {rc}")
         st = State(out)
         tr = parse_trace(os.path.join(wd, "trace.txt"))

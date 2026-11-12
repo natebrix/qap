@@ -1,0 +1,76 @@
+0    has the location of a symmetry file been provided?
+-1    restriction on tree depth (-1 means none)
+4    number of branching rules
+
+0.20 use this rule when gap is worse than...
+2    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 30    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+4    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than... (all nodes thru depth 6 use rule 8)
+6    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+ 2    branching rule at bottom of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+[settings]
+# sko42 tuning arm B (experiments/estimates/sko42/tune/README.md): wil50's full run
+# (experiments/wil50_feasibility/fullrun/fullrun.par: CP cut phase, cut.zone = 0.0075,
+# rule 9, DNN at depths 1-4 then 20 levels below a miss, give-up 300) with the grid
+# 6 x 7. On sko42t.dat the grid is the second matrix (checked: rectilinear, row-major,
+# 7 columns), so cut.side = 1 as on wil50t.
+dnn.gamma1 = 1.0
+dnn.gamma = 1.0
+dnn.ext = 20
+dnn.amx = 1
+dnn.cheb = 3
+dnn.tight_lam = 2
+dnn.refresh = 40
+dnn.warm_y = 2
+pool.on = 1
+dnn.beta = 0.3
+dnn.gu_zone = 0
+cut.grid = 6:7
+cut.side = 1
+cut.zone = 0.0075
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+cut.freeze = 1000
+cut.damp1 = 0.3
+cut.cp = 100:1000
+ship.bits = 32
+dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
+dnn.cross = 2
+dnn.lazycert = 1
+dnn.depths = 1:4
+dnn.maxgap = 1
+dnn.giveup = 300
+dnn.warm = 1
