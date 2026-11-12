@@ -205,6 +205,7 @@ struct DNNCutResult {
   int stalled;        // 1 when the stall rule stopped the rounds
   int gated;          // 1 when the primal gate stopped the rounds
   int cp_form;        // 1 when the phase ran as one CP-ADMM solve (dnn_cut_cp), 0 as rounds
+  std::vector<std::pair<int, double>> hist;   // CP form: the running best at each check (iteration, best)
 };
 
 // A, B, C, shift: the node's reduced QAP (reduceQAP). free_orig: for each local

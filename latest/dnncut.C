@@ -2238,6 +2238,7 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   out.best_lb = std::max(first_lb, res.lb);
   out.stalled = pj.stalled ? 1 : 0;
   out.status = out.best_lb > cutoff ? DNN_FATHOMED : res.status;
+  out.hist = pj.best_hist;
   for (double v : pj.nu) out.active += v > 0;
   if (cp.pool_out && cp.other_orig && out.status != DNN_FATHOMED) {
     // the children's pool: the cuts with nu > 0 at the final mu_D = scale beta nu, handed

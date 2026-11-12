@@ -760,6 +760,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  static const int dnn_pool = (int)setting_i("pool.on");
 	  static const int pool_check = (int)setting_i("QAP_DNN_POOL_CHECK");
 	  static const char *dnn_trace = *setting_s("QAP_DNN_TRACE") ? setting_s("QAP_DNN_TRACE") : NULL;
+	  static const int dnn_trace_hist = (int)setting_i("QAP_DNN_TRACE_HIST");
 	  static const int cut_side = (int)setting_i("cut.side");
 	  std::vector<int> free_orig, other_orig, fixed_at(n, -1);
 	  for (int a = 0; a < n; a++) {
@@ -937,7 +938,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      if (cut_ran) fprintf(tf, " best %.4f rounds %d iters %d cpu %.2f status %s", cr_trace.best_lb,
 	                           cr_trace.rounds, cr_trace.iterations, cr_trace.cpu, dnn_status_name(cr_trace.status));
 	      if (cut_ran && cut_cp) fprintf(tf, " cp %d active %d stalled %d", cr_trace.cp_form, cr_trace.active, cr_trace.stalled);
-	      fprintf(tf, " | cutoff %.4f fathomed %d pool_out %zu\n", inc - DELTA, dnn_fathomed ? 1 : 0, dnn_pool_out.size());
+	      fprintf(tf, " | cutoff %.4f fathomed %d pool_out %zu", inc - DELTA, dnn_fathomed ? 1 : 0, dnn_pool_out.size());
+	      if (dnn_trace_hist && cut_ran && !cr_trace.hist.empty()) {
+	        // the phase's running best at each check, for replaying stop rules offline
+	        fprintf(tf, " | hist");
+	        for (const auto &h : cr_trace.hist) fprintf(tf, " %d:%.4f", h.first, h.second);
+	      }
+	      fprintf(tf, "\n");
 	      fclose(tf);
 	    }
 	  }

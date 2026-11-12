@@ -176,6 +176,8 @@ arm_env() {
   esac
   if is_transposed "$arm"; then export QAP_DNN_CUT_SIDE=1; fi
   if [ "$arm" = cpcuttg ]; then export QAP_DNN_GIVEUP_WARM=${PAB_GU_WARM:-150}; fi
+  # PAB_TRACE_HIST=1: every arm's trace line carries the cut phase's best-by-check history (a diagnostic)
+  if [ -n "$PAB_TRACE_HIST" ]; then export QAP_DNN_TRACE_HIST=1; fi
 }
 
 run_arm() {
