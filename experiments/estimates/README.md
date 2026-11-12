@@ -338,8 +338,9 @@ checkpoint.
 - **Stage A:** 344 nodes at depths 0-2, 13,682 frontier nodes.
 - **Stage B:** 250 sampled frontier nodes, 21% fathomed in their first solve
   (sko42: 56%), the rest up to 396 short (sko42: 189).
-- **The anchors:** nine probes (`probe.py`), one checked against a complete
-  subtree. The complete subtrees are too large here.
+- **The anchors:** nine probes (`probe.py`). Two of them were checked against
+  complete subtrees, at 188 and 232 short, and came within 0.6 standard errors.
+  The far subtrees are too large to run complete.
 
 | anchors indexed by | DNN nodes | CPU s | cloud core-hours | laptop core-hours |
 |---|---|---|---|---|

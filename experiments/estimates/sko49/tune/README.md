@@ -110,11 +110,16 @@ them, and weights them up, so it costs 1-80 nodes whatever the subtree's size.
 | Cp326 | 325.5 | 349.1 | none | 3-7 | 5,514 | 170,185 (149,685) | 13,127 |
 | Cp396 | 395.7 | 408.7 | none | 3-8 | 65,930 | 1,163,004 (790,289) | 11,957 |
 
-- **The check.** s188's complete subtree (`Cs188/`, `../../subtree.sh tune/C.sh`)
-  has 47 DNN nodes and takes 1,328 s against the probe's 1,671 ± 575 s: within
-  0.6 SE. Every child of s188 fathoms, so this checks the probe's CPU, not its
-  node count, which is exact by construction. s232's complete subtree, the
-  check on a tree with several levels, is still running.
+- **The checks.** Two complete subtrees (`../../subtree.sh tune/C.sh`, one slot):
+  - **s188** (`Cs188/`): 47 DNN nodes and 1,328 s against the probe's
+    1,671 ± 575 s, within 0.6 SE. Every child of s188 fathoms, so this checks
+    the probe's CPU, not its node count, which is exact by construction.
+  - **s232** (`Cs232/`, 3.9 h): 271 DNN nodes at depths 3-6 (1, 46, 180, 44)
+    and 13,785 s, against the probe's 532 ± 485 nodes and 17,471 ± 10,012 s,
+    within 0.6 SE and 0.4 SE. 4 of the 46 depth-4 children stay open, where
+    the probe drew 1 in 16; one depth-5 node stays open, where the probe's
+    one open draw at depth 5 is weighted to about 8.
+  - Read with s232 in place of its probe, the estimate below drops by 1-4%.
 - **The cold start.** A probe's root is solved cold from `-F`: 8-24 short
   further than stage B's warm give-up. That matters at the zone's edge. s232
   is 231.5 short warm, inside the zone, but its cold 245.5 is outside, so it
