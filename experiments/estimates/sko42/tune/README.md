@@ -11,7 +11,7 @@ lever measured on either.
 
 | arm | files | what it is |
 |---|---|---|
-| A | `A.par`, `A.sh` | `../sko42.par` as it stands: the nug30 recipe with rule 9, DNN at depths 1-7, give-up 200, no cut phase |
+| A | `A.par`, `A.sh` | `../sko42.par` until Nov 12, when it became C: the nug30 recipe with rule 9, DNN at depths 1-7, give-up 200, no cut phase |
 | B | `B.par`, `B.sh` | wil50's full run (`../../../wil50_feasibility/fullrun/fullrun.par`) with `cut.grid = 6:7`: CP cut phase, `cut.zone = 0.0075` (119 short on sko42), DNN at depths 1-4 then 20 levels below a miss, give-up 300, the two-phase beta schedule |
 | C | `C.par`, `C.sh` | B with `cut.zone = 0.010` (158 short): **the best of the three** (below) |
 

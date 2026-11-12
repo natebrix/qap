@@ -18,7 +18,7 @@ HEAD's `bnbdrv`, checked before every run). wil50 keeps the full run's files.
 |---|---|---|---|
 | wil50 | `../wil50_feasibility/fullrun/` | the full run: CP cut phase, `cut.zone = 0.0075`, rule 9, DNN at depths 1-4 then 20 levels below a miss, give-up 300; `wil50t.dat` with its symmetry | |
 | tho40 | `tho40/` | the Nov 8 nug30 record recipe (rule 9, DNN at depths 1-7, give-up 200, no cut phase) with `branch.xbar_lines = 2`, the tho40 A/B's setting (`../xbar_lines_sweep/tho40_ab/`); `tho40t.dat` with its symmetry | 2 lines was measured on three depth-3 subtrees only |
-| sko42 | `sko42/` | the nug30 record recipe as it stands (rule 9, 1 line); `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum. Measured worse than wil50's settings with the 6 x 7 grid and zone 0.010, `sko42/tune/C.par` (below) | the recipe: the one run (Nov 8) used rule 8 |
+| sko42 | `sko42/` | from Nov 12, arm C of `sko42/tune/` (below): wil50's full run with the grid 6 x 7 and `cut.zone = 0.010`; `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum. Until Nov 12 it was the nug30 record recipe, kept as `sko42/tune/A.par` | C was measured on complete subtrees and by the sampling plan, not in a full search |
 | sko49 | `sko49/` | wil50's full run with the grid 7 x 7; `sko49t.dat` (new in `qaplib/`, the matrices of `sko49.dat` swapped) with the 7 x 7 grid's symmetry (`latest/SYM/sko49t.sym`, 10 depth-1 orbits), so `cut.side = 1` | the CP phase and the 0.0075 zone (wil50's Nov 5 levers were 2.2x and 4.2x on two sko49 subtrees, `../sko49_feasibility/vs_wil50.md`) |
 | tai50b | `tai50b/` | the Nov 8 tuned estimate's values as keys (DNN at depths 1-9, give-up 600, the nug30 recipe otherwise) with rule 9, which its notes name; no symmetry, no cut phase (no grid); the dive sampler `est.xbar = 1`, `est.xbar_mix = 0.3` | rule 9: the Nov 8 runs used rule 8 (their log header), not rule 9 as the notes say |
 
@@ -144,8 +144,10 @@ experiments/estimates/trace_estimate.sh sko42 6
      finished subtrees and applies it to the open nodes. Three calibrations:
      the instance's own finished subtrees and the solved tho30 and nug30
      trees.
-- **Time.** tho40 about 5.5 h. sko42 about 6.5 h: its nodes cost 3.4 s on
-  the laptop against tho40's 1.4.
+- **Time.** tho40 about 5.5 h. sko42 about 6.5 h: this was worked out under the
+  nug30 recipe, which `sko42.par` held until Nov 12. Its nodes cost 3.4 s on
+  the laptop, against tho40's 1.4. Under C a node costs more, and the
+  sampling plan puts sko42's whole tree at 1.8-1.9 laptop days (below).
 - **Result.** `INSTANCE/trace/estimate.txt`, with the traces next to it (the
   checkpoint and its `warm/` store are ignored by git). To search longer
   after it has stopped: delete `INSTANCE/trace/search.done` and run again
@@ -299,7 +301,7 @@ and B as one night.
 ## sko42: settings and a preliminary estimate (cloud box, Nov 11-12)
 
 `sko42/tune/README.md` has the details. Three settings were tried on sko42:
-- **A**, `sko42.par` as it stands: the nug30 recipe, no cut phase.
+- **A**, `sko42.par` until Nov 12 (now `tune/A.par`): the nug30 recipe, no cut phase.
 - **B**, wil50's full run with `cut.grid = 6:7`.
 - **C**, B with `cut.zone = 0.010`.
 
@@ -323,7 +325,10 @@ solve.
 | **C** | **8.0e4-1.2e5** | **1.8-2.0e6** | **506-549** (370-710 at the 95% ends) | **1.8-1.9 days** |
 
 Fujii et al. needed 6.0e6 nodes. **C is the setting to solve sko42 with.**
-The `trace_estimate.sh sko42` run above uses `sko42/settings.sh`, that is A.
+From Nov 12, `sko42.par` is C. Its golden is from HEAD's build (68 settings), so
+`make solver` first. `trace_estimate.sh sko42` now runs under C, and a `trace/` left
+over from an A run must be moved aside first: the search would resume from A's
+checkpoint.
 
 ## sko49: a preliminary estimate under sko42's C (cloud box, Nov 12)
 

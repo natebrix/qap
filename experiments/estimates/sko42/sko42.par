@@ -41,25 +41,40 @@
  5    compute B for best _ rows of U
 
 [settings]
-# sko42's current settings (experiments/estimates/README.md): the Nov 8 nug30 record
-# recipe as it stands (infra/phase1/recipes/nug30.par: rule 9, 1 line per side, DNN at
-# depths 1-7, give-up 200, no cut phase, ship.bits = 64). sko42's only run (Nov 8,
-# experiments/sko42_solve/) used the same values with rule 8 (nug_deep_xbar_all.par);
-# rule 9 is the record recipe's rule. Nothing here is tuned for sko42.
+# sko42's current settings (experiments/estimates/README.md), from Nov 12: tuning arm C,
+# experiments/estimates/sko42/tune/C.par. That is wil50's full run
+# (experiments/wil50_feasibility/fullrun/fullrun.par: CP cut phase, rule 9, DNN at depths
+# 1-4 then 20 levels below a miss, give-up 300) with the grid 6 x 7 and cut.zone = 0.010
+# (158 short on sko42). On sko42t.dat the grid is the second matrix (checked:
+# rectilinear, row-major, 7 columns), so cut.side = 1 as on wil50t.
+# On matched complete subtrees (tune/README.md), arm B (C with wil50's zone 0.0075) took
+# 1.15-2.8x less CPU than arm A, this file's settings until Nov 12 (the nug30 record
+# recipe: rule 9, DNN at depths 1-7, give-up 200, no cut phase); C took 21-39% less than B.
 dnn.gamma1 = 1.0
 dnn.gamma = 1.0
+dnn.ext = 20
+dnn.amx = 1
 dnn.cheb = 3
 dnn.tight_lam = 2
-dnn.beta = 0.21
-dnn.refresh = 120
+dnn.refresh = 40
 dnn.warm_y = 2
-dnn.ext = 20
-dnn.gu_zone = 0.003
-ship.bits = 64
+pool.on = 1
+dnn.beta = 0.3
+dnn.gu_zone = 0
+cut.grid = 6:7
+cut.side = 1
+cut.zone = 0.010
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+cut.freeze = 1000
+cut.damp1 = 0.3
+cut.cp = 100:1000
+ship.bits = 32
+dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
 dnn.cross = 2
 dnn.lazycert = 1
-dnn.beta_sched = w=0.36
-dnn.depths = 1:7
+dnn.depths = 1:4
 dnn.maxgap = 1
-dnn.giveup = 200
+dnn.giveup = 300
 dnn.warm = 1
