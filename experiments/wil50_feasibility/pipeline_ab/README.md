@@ -804,3 +804,20 @@ the exports got those instead of the 0.3 and 0 that every result above ran.
 No result in this file is affected: none was recorded between Nov 8 and this
 change. With the two values `cpcutt` at bfe38d4 gives 6,429 iterations
 against the Nov 7 record's 6,426 (`../review_nov10/`).
+
+## Nov 12 (laptop): `cpcutt cpcuttg`, the warm-only give-up floor, killed
+
+`cpcuttg` is `cpcutt` plus `dnn.giveup_warm = 150` (`PAB_GU_WARM`; the
+`arm.par` files differ by that one line). Two runs, 3 slots per arm, both arms
+at the same time:
+
+- `runs_gu/` (binary 3eb16b7, 21:18-01:00): the floor leaked into the cut
+  phase's warm solves; 87 phases ended "hopeless" at 150 iterations. Not a
+  measurement of the floor, but a strong accidental one of a phase stop:
+  1.072x in DNN CPU with 930 more nodes.
+- `runs_gu2/` (binary 490fc3c9, 00:57-04:36): the fix (714b199d) in place,
+  the floor acts on first solves only. 1.017x in iterations, 1.010x in DNN
+  CPU, 132 more nodes, no fathom lost. Under the 1.02x kill line.
+
+The write-up, with both tables and the item-6 consequence, is
+`../review_nov10/README.md`, section 2.5.

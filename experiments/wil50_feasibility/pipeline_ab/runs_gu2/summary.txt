@@ -1,0 +1,12 @@
+# pipeline A/B on the node-10 subtree
+
+| arm | nodes / fathomed | DNN nodes / DNN-fathomed | cut phases (fathomed) | warm / pooled nodes | DNN iterations (first + phase) | DNN CPU s | CPU s | wall s | busy | best |
+|---|---|---|---|---|---|---|---|---|---|---|
+| cpcutt | 2971 / 2905 | 2971 / 2905 | 121 (55) | 2970 / 2970 | 259,709 (163,082 + 96,627) | 37,293 | 37,716 | 12,984 | 99.2% | 48816 |
+| cpcuttg | 3103 / 3034 | 3103 / 3034 | 129 (60) | 3102 / 3102 | 255,416 (148,587 + 106,829) | 36,929 | 37,382 | 13,081 | 97.6% | 48816 |
+  cpcutt: 2026-11-12T08:57:53Z Apple M2 Pro P-cores 6 slots 3 490fc3c9
+  cpcuttg: 2026-11-12T08:57:53Z Apple M2 Pro P-cores 6 slots 3 490fc3c9
+
+cpcutt: the subtree's root (depth 3): first lb 48488.86 after 300 it, phase best 48612.59 in 750 it (stalled)
+
+cpcuttg: the subtree's root (depth 3): first lb 48488.86 after 300 it, phase best 48612.59 in 750 it (stalled)
