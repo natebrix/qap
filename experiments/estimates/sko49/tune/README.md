@@ -192,6 +192,35 @@ All six run the same binary as the nine probes (md5 `ee4c6ebd…`). The
 - The final estimate reads iso and fit with all fifteen anchors. interp stays
   in the table but is not the headline once anchors have replicates.
 
+**Thirteen anchors (Nov 12 21:30; Cr283 and Cr350 still running).**
+`probes2` finished; its log is `anchors_C/probe2.log`.
+
+| replicate | warm | cold | DNN nodes | DNN CPU s (SE) | depth reached |
+|---|---|---|---|---|---|
+| Cr311 | 311.5 | 326.1 | 3,211 | 93,371 (69,377) | 6 |
+| Cr338 | 337.7 | 350.2 | 1,016 | 27,433 (5,785) | 5 |
+| Cr368 | 367.5 | 380.1 | 107,424 | 1,795,628 (1,411,379) | 8 |
+| Cr385 | 385.0 | 404.7 | 11,102 | 244,929 (133,950) | 7 |
+
+- **The scatter.** Near 350 short, Cp326 and Cr338 cost 170,185 and 27,433 s.
+  From 380 to 409 short, Cr368, Cr385 and Cp396 cost 1.8e6, 2.4e5 and
+  1.2e6 s. So the cost at a given shortfall spreads over 5-7x from node to
+  node, not just from the probes' own error.
+- **iso's blocks** (cold): Cs232 and Cp268 pool at 262.8 short, Cp326 and
+  Cr338 at 349.6, and Cr368 and Cr385 at 392.4 (1.02e6 s).
+
+| index | model | DNN nodes | CPU s | cloud core-hours (95%, sample and anchors) |
+|---|---|---|---|---|
+| cold | interp | 1.0e7 | 2.38e8 | 66,000 (25,000-142,000) |
+| cold | iso | 9.2e6 | 2.20e8 | 61,000 (23,000-150,000) |
+| cold | fit | 1.1e7 | 2.58e8 | 72,000 (29,000-154,000) |
+| warm | interp | 1.7e7 | 3.60e8 | 100,000 (34,000-236,000) |
+| warm | iso | 1.6e7 | 3.51e8 | 97,000 (35,000-249,000) |
+| warm | fit | 1.7e7 | 3.76e8 | 105,000 (42,000-226,000) |
+
+With 13 anchors interp is back near iso, because the replicates are no longer
+all on one side.
+
 ## The wider-zone test (arm Cw, from Nov 12 18:46)
 
 `Cw.par` and `Cw.sh` are C with `cut.zone = 0.018`, which is 421 short. Under
