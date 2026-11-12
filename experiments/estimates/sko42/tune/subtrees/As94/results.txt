@@ -1,0 +1,33 @@
+  ---- RESULTS ----
+
+    Total Time: 590.632555 seconds 
+         Nodes: 116 / 113 / 0
+    root bound: 13995.770793474823
+ fw iterations: 10524
+     DNN bound: 116 nodes, 113 fathomed, 587.76 s
+
+level    nodes	%fathom	%c.elim	    time
+ 3           1	0.0000	0.0000	   29.33
+ 4          39	0.9487	0.0000	  371.09
+ 5          76	1.0000	N/A	  190.22
+
+Strategy breakdown:
+nodes       0        1      115        0 
+time     0.00    29.33   561.31     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 3           1	0.0000	1.0000	        200	   200.0	   29.24
+ 4          39	0.9487	0.0513	       2445	    62.7	  369.66
+ 5          76	1.0000	0.0000	       1372	    18.1	  188.86
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 3           0	       0	       0	       0	       0
+ 4          37	       0	      37	       0	       0
+ 5          76	       0	      76	       0	       0
+
+coordinator: 1 slots, 1 units, wall 598.18 s, CPU 590.63 s (x0.99), slots busy 99.9%, best objective 15812
