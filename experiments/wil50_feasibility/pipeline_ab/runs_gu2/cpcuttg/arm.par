@@ -1,0 +1,69 @@
+0    has the location of a symmetry file been provided?
+-1    restriction on tree depth (-1 means none)
+4    number of branching rules
+
+0.20 use this rule when gap is worse than...
+2    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 30    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+4    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than... (all nodes thru depth 6 use rule 8)
+6    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+ 2    branching rule at bottom of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+[settings]
+# pipeline_ab/run_pair.sh arm cpcuttg: the exports of arm_env as keys
+cut.freeze = 1000
+dnn.gamma = 1.0
+cut.grid = 5:10
+dnn.cheb = 3
+cut.iters = 200
+pool.on = 1
+dnn.giveup_warm = 150
+dnn.refresh = 40
+cut.side = 1
+cut.rounds = 12
+dnn.warm_y = 2
+dnn.beta = 0.3
+dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
+dnn.ext = 20
+dnn.gu_zone = 0
+ship.bits = 32
+dnn.gamma1 = 1.0
+cut.cp = 100:1000
+dnn.amx = 1
+cut.warmy = 1
+dnn.lazycert = 1
+dnn.tight_lam = 2
+dnn.cross = 2
+cut.damp1 = 0.3
+cut.zone = 0.0075

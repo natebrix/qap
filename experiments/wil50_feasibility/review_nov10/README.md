@@ -196,6 +196,47 @@ There is no cliff at 244: the step across the boundary (0.84 to 0.70) is
 within the sampling error of 20-31 children per bin. The sample cannot say
 whether a phase at a 244-300 parent would pay.
 
+### 2.5 The warm-only give-up floor on the node-10 subtree (Nov 12, laptop, new runs)
+
+Item 3 of section 4, built as `dnn.giveup_warm` (75fb712, 714b199d) and run
+as `run_pair.sh cpcutt cpcuttg` at production settings plus
+`dnn.giveup_warm = 150` on the second arm, binary 490fc3c9, 3 slots per arm,
+both arms at once (`../pipeline_ab/runs_gu2/`; the traces are complete).
+Ratios are base over arm, so above 1 favours the floor.
+
+| arm | nodes | cut phases (fathomed) | first-solve misses, iterations | DNN iterations (first + phase) | DNN CPU s | wall s |
+|---|---|---|---|---|---|---|
+| cpcutt | 2,971 | 121 (55) | 121, 40,620 | 259,709 (163,082 + 96,627) | 37,293 | 12,984 |
+| cpcuttg, floor 150 on warm first solves | 3,103 | 129 (60) | 129, 24,980 (113 stopped before 300) | 255,416 (148,587 + 106,829) | 36,929 | 13,081 |
+
+- **1.017x in iterations, 1.010x in DNN CPU** over the 47 children's
+  subtrees (`zone/subtree.py`), 1.007x net of the parent's phase. Under the
+  item's own kill line of 1.02x. The key stays (default 0, nothing changes),
+  `fullrun.par` does not take it.
+- **Where the saving goes.** The 129 warm misses stop at 150 instead of 300
+  and save 15,640 first-solve iterations, 6% of the total, as the replay in
+  section 2.3 predicted. Each then starts its phase from a weaker iterate: the
+  phases cost 10,200 iterations more, and 132 more nodes are bounded (+4.4%),
+  almost all under one child, `19:49` (758 nodes against 626: its branch
+  bound came out 9 units weaker at the stop and its subtree grew a level).
+  No fathom lost; the 47 children's outcomes are identical.
+- **A first run of this pair (`../pipeline_ab/runs_gu/`) measured something
+  else**: the floor leaked into the cut phase, whose solves are warm and rely
+  on the give-up rule being off (`dnncut.C` sets `hopeless_after = 0`). 87 of
+  that arm's 195 phases ended "hopeless" at 150 iterations, the root's among
+  them (48,547.7 against 48,612.6), and its children inherited weaker pools:
+  3,901 nodes, 195 phases (108 fathomed), 245,742 iterations
+  (190,859 + 54,883), 34,721 s DNN CPU against the base arm's 37,212 s in
+  that session. That is **1.072x in DNN CPU and 1.057x in iterations with 930
+  more nodes**, the phases 42,000 iterations cheaper. With the clean floor
+  worth 1.01x, the phase stop is worth about 1.06x on this subtree, three
+  times what section 4 expected of item 6. The rule that did it is the wrong
+  one (an extrapolation floor at 150, blind to how close the phase is), so it
+  is evidence for item 6, not an implementation of it: a `cut.giveup`-style
+  stop for phases that will not fathom, tested against the phases that fathom
+  late (the 55 fathoming phases here took 31,807 iterations, 580 each; the
+  65 stalled ones 61,420, 945 each).
+
 ## 3. Findings
 
 ### 3.1 The leaves: the median leaf is at its floor, the cost is in the slow tail
@@ -226,8 +267,10 @@ whether a phase at a 244-300 parent would pay.
   the CPU [e]. The 12-29 units the bound loses at the earlier stop must not
   move nodes out of the zone, so the zone test should then use the rule's
   predicted value.
-- This needs a warm-only floor (a few lines and a settings key) and a
-  tail-subtree A/B. Not built here.
+- Built after the review as `dnn.giveup_warm` and measured on the node-10
+  subtree (section 2.5): 1.010x in DNN CPU, under the kill line. The saving
+  on the misses is as replayed; the weaker iterate the phase then starts
+  from gives most of it back.
 
 ### 3.3 The cut phase: a flat optimum on node 10, and one cheap gain
 
@@ -393,10 +436,10 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 |---|---|---|---|---|---|
 | 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | the complete subtree of a 325-short node: 1.110x in DNN CPU, 1.149x in iterations, no fathom lost [m]; passes this table's own line (1.05x, no fathom lost) | 1.05-1.1x on the tree [e]: it acts on subtrees under nodes in the band | a settings line | **adopted Nov 10** (`fullrun.par`); a tail node (400+ short) at 0.0075 and 0.009 would say whether to go wider |
 | 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r]; laptop replicate 1.054x iterations, 0.998x CPU (section 2.1) [m] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
-| 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m] | up to 1.06x on the tail class, nothing near the cutoff [e] | a settings key and a few lines; the zone test on the rule's predicted value | tail subtree A/B; kill under 1.02x |
+| 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m]; **subtree A/B at 150: 1.017x iterations, 1.010x DNN CPU, no fathom lost, 132 more nodes** (section 2.5) [m] | up to 1.06x on the tail class [e]; 1.01x measured | built: `dnn.giveup_warm` (default 0) | **killed Nov 12** (under 1.02x); a tail node (400+ short) might show more, since misses are a larger share there |
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
 | 5 | the early certificate at iteration 5 of warm solves | 1.016x on the subtree [m] | 1.016x | promote `DNN_ADMM_CROSS_FIRST` from an experiment name to a settings key | none; take it with the next settings change |
-| 6 | a predictive stop for phases that creep toward the cutoff | one phase in the zone test runs to the 3,400 limit and ends 1-2 short, 1,090 s [m]; 15 of stage A's 463 depth-2 phases end at the limit, 11% of their CPU [r] | about 1.02x [e] | a rule in `dnn_cut_cp` | replay on phase histories first: it must not stop the phases that fathom late |
+| 6 | a predictive stop for phases that creep toward the cutoff, or that will not fathom at all | one phase in the zone test runs to the 3,400 limit and ends 1-2 short, 1,090 s [m]; 15 of stage A's 463 depth-2 phases end at the limit, 11% of their CPU [r]; **a floor of 150 leaked into the phases by mistake gave 1.072x DNN CPU on the subtree with 930 more nodes and the root's phase 65 units weaker** (section 2.5) [m] | about 1.06x on the subtree if a rule can stop the 65 stalled phases (945 iterations each) without touching the 55 that fathom (580 each) [e] | a `cut.giveup`-style key and a rule in `dnn_cut_cp` | **the next item to try**: replay on `runs_gu2`'s phase histories first, then the subtree A/B; kill if it loses a fathom or under 1.03x |
 | 7 | box cuts at the CP phase's final iterate | untried, and the evidence is weak (section 3.4) | 0 to +10 units [e] | an hour with `dnncuts` | close if the largest violation is under 0.05 |
 | 8 | branching marginals from the phase's final iterate (`bnb.C` takes `dnn_xbar` from the first solve before the phase's state replaces it) | not measured | unknown | two lines and a key | node 10: if the line changes, run both subtrees |
 
@@ -470,6 +513,8 @@ phases, and region branching only on nug30, cold, at a far miss.
   logs, `table.txt` is its output over the seven arms; the production arm's
   two logs are kept.
 - `giveup_sim.py`, `giveup_sim.txt`: section 2.3's replay.
+- Section 2.5's runs are the laptop's, in `../pipeline_ab/runs_gu2/` (clean)
+  and `../pipeline_ab/runs_gu/` (the floor leaked into the phases).
 - `zone_rd.py`, `zone_rd.txt`: section 2.4's tally of stage B.
 - `zone/`: section 3.5. `run_set.sh` bounds a node and its children with
   chosen settings on `base.par` (the node-10 arm's settings file);
