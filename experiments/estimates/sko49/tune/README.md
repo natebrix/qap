@@ -234,6 +234,45 @@ depth 5. Cr350 is 349.8 short warm and 360.8 cold.
 | warm | iso | 3.45e8 | 96,000 (35,000-272,000) |
 | warm | fit | 3.52e8 | 98,000 (38,000-211,000) |
 
+## The estimate with fifteen anchors (Nov 12 23:27)
+
+Cr350 finished last: 349.8 short warm and 360.8 cold. It has 6,190 DNN nodes
+and cost 195,575 CPU s (SE 87,762), to depth 6. Its log is
+`anchors_C/probe3.log` (with Cr283's).
+
+The anchors, cold first solve: Cp45 56.6, Cp97 105.9, Cp164 171.9,
+Cp188 205.8, Cs232 245.5, Cp268 280.1, Cr283 296.4, Cp303 318.3, Cr311 326.1,
+Cp326 349.1, Cr338 350.2, Cr350 360.8, Cr368 380.1, Cr385 404.7 and
+Cp396 408.7. The warm give-ups are in the tables above.
+
+```
+python3 experiments/estimates/sko49/tune/estimate_se.py --table experiments/estimates/sko49/tune/sampling_C/stageB_summary.md \
+  --top 344 --top-cpu 68096 --front 13682 anchors_C/Cp45=56.6 ... anchors_C/Cp396=408.7    # in shortfall order
+```
+
+| index | model | DNN nodes | CPU s | cloud core-hours (95%, sample and anchors) | laptop core-hours |
+|---|---|---|---|---|---|
+| cold | interp | 1.1e7 | 2.51e8 | 70,000 (25,000-153,000) | 35,000 |
+| cold | **iso** | 9.0e6 | 2.16e8 | **60,000** (23,000-150,000) | 30,000 |
+| cold | **fit** (x12.1 per 100 short) | 9.4e6 | 2.39e8 | **66,000** (28,000-131,000) | 33,000 |
+| warm | interp | 1.7e7 | 3.63e8 | 101,000 (35,000-245,000) | 50,000 |
+| warm | iso | 1.5e7 | 3.35e8 | 93,000 (35,000-251,000) | 46,000 |
+| warm | fit | 1.5e7 | 3.44e8 | 96,000 (40,000-192,000) | 48,000 |
+
+- **The headline.** The cold index with iso and fit gives 60,000-66,000 cloud
+  core-hours. The joint 95% range is 23,000-150,000.
+- **Against the nine probes.** That estimate was 56,000-61,000. The
+  replicates moved the point little, but they show the tail's scatter, which
+  is now in the range.
+- **Where the cost is** (cold; iso, then fit):
+  - the 9 sampled nodes beyond 330 short carry 73% and 53%;
+  - the 19 beyond 305, 84% and 71%;
+  - the 38 from 234 to 305, 13% and 24%;
+  - the 193 up to 234, 3% and 5%.
+- **The laptop.** It is about 2x the cloud box per DNN iteration, so 30,000
+  to 33,000 laptop core-hours: 5,000-5,500 hours, or 210-230 days, on its 6
+  P-cores.
+
 ## The wider-zone test (arm Cw, from Nov 12 18:46)
 
 `Cw.par` and `Cw.sh` are C with `cut.zone = 0.018`, which is 421 short. Under

@@ -330,7 +330,7 @@ From Nov 12, `sko42.par` is C. Its golden is from HEAD's build (68 settings), so
 over from an A run must be moved aside first: the search would resume from A's
 checkpoint.
 
-## sko49: a preliminary estimate under sko42's C (cloud box, Nov 12)
+## sko49: the estimate under sko42's C (cloud box, Nov 12)
 
 `sko49/tune/README.md` has the details. The settings are arm C on sko49's own
 7 x 7 grid (`sko49/tune/C.par`: `sko49.par` with `cut.zone = 0.010`, which is
@@ -338,23 +338,33 @@ checkpoint.
 - **Stage A:** 344 nodes at depths 0-2, 13,682 frontier nodes.
 - **Stage B:** 250 sampled frontier nodes, 21% fathomed in their first solve
   (sko42: 56%), the rest up to 396 short (sko42: 189).
-- **The anchors:** nine probes (`probe.py`). Two of them were checked against
-  complete subtrees, at 188 and 232 short, and came within 0.6 standard errors.
-  The far subtrees are too large to run complete.
+- **The anchors:** 15 probes (`probe.py`), 6 of them replicates in the tail.
+  Two were checked against complete subtrees, at 188 and 232 short, and came
+  within 0.6 standard errors. The far subtrees are too large to run complete.
+- **The models.** Replicates at the same shortfall differ 5-7x, so the
+  estimate reads two models that handle them (`sko49/tune/estimate_se.py`):
+  - iso: interpolation through the anchors' isotonic fit;
+  - fit: estimate.py's log-linear fit.
 
-| anchors indexed by | DNN nodes | CPU s | cloud core-hours | laptop core-hours |
+  The 95% ranges cover both stage B's sample and the anchors' own error.
+
+| anchors indexed by | DNN nodes | CPU s | cloud core-hours (95%) | laptop core-hours |
 |---|---|---|---|---|
-| the probe's cold first solve | 7.4e6-9.6e6 | 2.0-2.2e8 | 56,000-61,000 | about 30,000 |
-| stage B's warm give-up (sko42's method, overstates) | 1.4e7-1.6e7 | 3.3-3.5e8 | 91,000-98,000 | about 47,000 |
+| the probe's cold first solve | 9.0e6-9.4e6 | 2.2-2.4e8 | 60,000-66,000 (23,000-150,000) | 30,000-33,000 |
+| stage B's warm give-up (sko42's method, overstates) | 1.5e7 | 3.4e8 | 93,000-96,000 (35,000-251,000) | 46,000-48,000 |
 
-The Nov 6 estimate was 3.6e5 cloud core-hours, so this is 3.6-6.3x less. It
-is still not a laptop run, and it is preliminary:
-- The 19 sampled nodes beyond 305 short carry 81-84% of it.
-- The two probes that set that tail have a standard error of 70-90% each.
-- Six more probes in the tail are running.
-
-The cost is in nodes beyond the zone. Their children that come out 135-234
-short get a cut phase and never fathom (0 of 27).
+- **Against the record.** The Nov 6 estimate was 3.6e5 cloud core-hours, so
+  this is 3.8-6.0x less. It is still not a laptop run.
+- **Where the cost is.** The 19 sampled nodes beyond 305 short carry 71-84%
+  of it, and the 193 within 234 carry 3-5%.
+- **Why.** The cost is in nodes beyond the zone. Their children that come out
+  135-234 short get a cut phase and never fathom (0 of 27).
+- **A wider zone may cut it.** On two tail nodes, `cut.zone = 0.018` (421
+  short; arm Cw) cost 0.58x and 0.23x what C did:
+  - every depth-4 node then runs a phase, and its children mostly fathom at
+    their first solve;
+  - Cw probes on the 11 anchor nodes beyond 234 short are running, for a Cw
+    estimate.
 
 ## Cold against warm: a220 as production would bound it (cloud box, Nov 10)
 
