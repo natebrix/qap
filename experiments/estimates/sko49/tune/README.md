@@ -61,6 +61,44 @@ default) are newer than it.
   sko49's zone is 234 (0.010 x 23,384), and its symmetry gives 10 depth-1
   orbits.
 
+## Stage B under C (`sampling_C/stageB_*`, Nov 12)
+
+```
+SAMPLING_SETTINGS=... SAMPLING_PARAMS=... python3 experiments/wil50_feasibility/sampling/stage_b.py \
+  --stage-a <stage A dir> --run <dir> --n 250 --converge 0 --project-converge 40 --slots 4 --cpus 0,1,2,3
+```
+
+250 frontier nodes, the smallest seeded hashes, each solved warm to the give-up
+point with no cut phase at depth 3. This took 21,542 CPU s, 1.5 h on 4 slots.
+
+| | sko49 under C | sko42 under C |
+|---|---|---|
+| fathomed in the first solve | 52 of 250 (21%) | 140 of 250 (56%) |
+| the misses' give-up shortfall: min / 10% / median / 90% / max | 10 / 45 / 164 / 303 / 396 | 5 / 14 / 68 / 129 / 189 |
+| misses beyond the zone (234 / 158) | 57 (23% of the sample) | 2 |
+| CPU per hopeless give-up | 104 s | 42 s |
+
+Measured in zones, sko42's farthest miss is 1.2 zones out. Here 57 of the 250
+are beyond 1.0, reaching 1.7. On sko42 a cut phase fathomed every depth-2 node
+within 0.77 zones; here, within 0.67 (156). Those 57 nodes get no cut phase at
+depth 3, and they are where the cost will be.
+
+## Anchors (running from Nov 12 13:49)
+
+Nine probes run on 3 pinned slots: `../../probe.py --k 16 --beta 0.025`, cold
+from `-F` as sko42's anchors were. Each is at a quantile of the 198 misses'
+give-up shortfalls:
+- 45, 97, 164, 188, 232, 268, 303, 326 and 396;
+- that is the 10th, 30th, 50th, 60th, 70th, 80th, 90th and 95th percentiles,
+  and the maximum.
+
+On the fourth slot, s188's complete subtree runs (`../../subtree.sh tune/C.sh`).
+It is the probe's check on sko49. A node from 160 to 234 short is the
+cheapest one that checks anything:
+- below about 156, the cut phase at the node fathoms it, so the probe is the
+  node alone and samples nothing;
+- above the zone, the complete subtree is too large.
+
 Why probes: the record's two sko49 depth-3 subtrees, 263-304 short converged,
 were estimated at 47,000 laptop CPU s each under the Nov 5 settings
 (`../../../sko49_feasibility/vs_wil50.md`), about 25 core-hours on this box.
