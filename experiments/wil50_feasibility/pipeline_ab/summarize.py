@@ -23,8 +23,8 @@ import sys
 
 ARMS = ["base", "zone", "warmy", "certx", "ship", "full", "zone2", "base2", "ship2", "fast",
         "cross", "wlow", "wlowc", "best", "core", "bestcore", "wtwo", "cpcut", "cpcut2", "cpcutl",
-        "bestcoret", "cpcutt", "cpcuttg"]
-TRANSPOSED = {"bestcoret", "cpcutt", "cpcuttg"}   # on wil50t.dat: fixes flipped in read_trace
+        "bestcoret", "cpcutt", "cpcuttg", "cpcuttx"]
+TRANSPOSED = {"bestcoret", "cpcutt", "cpcuttg", "cpcuttx"}   # on wil50t.dat: fixes flipped in read_trace
 # kill lines (README.md): the ratio of DNN iterations an arm must reach. For
 # warmy and certx the end-to-end ratio is below the run-to-run noise of one
 # configuration (README, base vs zone), so they are judged on the matched

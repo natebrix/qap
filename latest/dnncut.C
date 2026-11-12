@@ -681,6 +681,8 @@ public:
   int stall_window = 0;
   double stall_factor = 3.0, stall_cutoff = HUGE_VAL, stall_first = -HUGE_VAL;
   bool stalled = false;
+  std::vector<std::pair<int, double>> giveup;   // cut.giveup: (T, G) pairs, see DNNCutParams
+  bool gaveup = false;
   std::vector<std::pair<int, double>> best_hist;
   int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
   std::vector<std::vector<int>> rloc;
@@ -1212,10 +1214,13 @@ public:
 
   bool stop(int it, double best) override
   {
-    if (stall_window <= 0 || !std::isfinite(stall_cutoff)) return false;
+    if ((stall_window <= 0 && giveup.empty()) || !std::isfinite(stall_cutoff)) return false;
     const double b = std::max(best, stall_first);
     best_hist.push_back({it, b});
-    if (it < stall_window) return false;
+    // cut.giveup: from iteration T a gap still above G will not close
+    for (const auto &tg : giveup)
+      if (it >= tg.first && stall_cutoff - b > tg.second) { gaveup = true; stalled = true; return true; }
+    if (stall_window <= 0 || it < stall_window) return false;
     double b0 = stall_first;   // the running best at it - W (first_lb before the first check)
     for (const auto &h : best_hist) { if (h.first > it - stall_window) break; b0 = h.second; }
     if (stall_cutoff - b > stall_factor * std::max(0.0, b - b0)) { stalled = true; return true; }
@@ -1320,7 +1325,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 
   DNNCutResult out;
   out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
-  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0; out.cp_form = 0;
+  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gaveup = 0; out.gated = 0; out.cp_form = 0;
   out.nregions = (int)regions.size();
   std::vector<double> best_hist;   // best after each round (index = round)
   if (regional && regions.empty()) return out;
@@ -2178,7 +2183,7 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   std::vector<Region> regions = cut_regions(cp, free_orig, n_orig, m);
   DNNCutResult out;
   out.first_lb = first_lb; out.best_lb = first_lb; out.status = -1;
-  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gated = 0; out.cp_form = 0;
+  out.rounds = 0; out.iterations = 0; out.cpu = 0; out.active = 0; out.stalled = 0; out.gaveup = 0; out.gated = 0; out.cp_form = 0;
   out.nregions = (int)regions.size();
   out.cp_form = 1;
   if (regions.empty()) return out;
@@ -2222,6 +2227,7 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   pj.sep_every = std::max(0, cp.cp_every); pj.sep_k = std::max(0, cp.cp_k);
   pj.stall_window = cp.stall_rounds > 0 ? cp.stall_rounds * cp.iters : 0;
   pj.stall_factor = cp.stall_factor; pj.stall_cutoff = cutoff; pj.stall_first = first_lb;
+  pj.giveup = cp.giveup;
   DNNParams par = base;
   par.ycuts = &pj;
   par.L_add = NULL; par.L_add_abs = 0;
@@ -2237,7 +2243,9 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   out.rounds = pj.n_sep;
   out.best_lb = std::max(first_lb, res.lb);
   out.stalled = pj.stalled ? 1 : 0;
+  out.gaveup = pj.gaveup ? 1 : 0;
   out.status = out.best_lb > cutoff ? DNN_FATHOMED : res.status;
+  out.hist = pj.best_hist;
   for (double v : pj.nu) out.active += v > 0;
   if (cp.pool_out && cp.other_orig && out.status != DNN_FATHOMED) {
     // the children's pool: the cuts with nu > 0 at the final mu_D = scale beta nu, handed
@@ -2266,8 +2274,8 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   *warm = save;
   out.cpu = CutProjector::tcpu() - t0;
   if (cp.verbose)
-    printf("cp phase  lb %.4f (first %.4f)  status %s  iters %d  separations %d  pool %zu  active %d  stalled %d  cpu %.1f\n",
+    printf("cp phase  lb %.4f (first %.4f)  status %s  iters %d  separations %d  pool %zu  active %d  stalled %d  gaveup %d  cpu %.1f\n",
            out.best_lb, first_lb, dnn_status_name(out.status), out.iterations, out.rounds, pj.cuts.size(), out.active,
-           out.stalled, out.cpu);
+           out.stalled, out.gaveup, out.cpu);
   return out;
 }

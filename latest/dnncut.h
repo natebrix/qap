@@ -190,6 +190,11 @@ struct DNNCutParams {
   // cp_sweeps Dykstra sweeps of cp_passes passes per iteration (1, 1). Used only
   // by dnn_cut_cp; dnn_cut_rounds ignores them
   int cp_every, cp_k, cp_iters, cp_sweeps, cp_passes;
+  // cut.giveup (CP form only): (T, G) pairs; from iteration T the phase stops when
+  // its gap to the cutoff is still above G (review_nov10/phase_stop: no fathoming
+  // phase of the node-10 subtree was above 24.5 at 200, 18.1 at 300, 13.9 at 400,
+  // 8.9 at 600). Empty: off.
+  std::vector<std::pair<int, double>> giveup;
   DNNCutParams();
 };
 
@@ -202,9 +207,11 @@ struct DNNCutResult {
   double cpu;         // CPU seconds of the cut rounds (and the uncut one when run here)
   int active;         // cuts with a positive multiplier at the end
   int nregions;
-  int stalled;        // 1 when the stall rule stopped the rounds
+  int stalled;        // 1 when the stall rule stopped the rounds (CP form: or cut.giveup, then gaveup = 1 too)
+  int gaveup;         // 1 when cut.giveup stopped the CP phase
   int gated;          // 1 when the primal gate stopped the rounds
   int cp_form;        // 1 when the phase ran as one CP-ADMM solve (dnn_cut_cp), 0 as rounds
+  std::vector<std::pair<int, double>> hist;   // CP form: the running best at each check (iteration, best)
 };
 
 // A, B, C, shift: the node's reduced QAP (reduceQAP). free_orig: for each local

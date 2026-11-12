@@ -72,6 +72,7 @@ static Setting TABLE[] = {
   POLICY("cut.damp1", "QAP_DNN_CUT_DAMP1", 's', "", 0, 0, "F[:G]: factor on the first (and later) Polyak steps of a phase that starts from a pool (rounds form only)"),
   POLICY("cut.equip", "QAP_DNN_CUT_EQUIP", 's', "", 0, 0, "G:R: a phase more than G below the cutoff runs at most R rounds, to equip the children"),
   POLICY("cut.cp", "QAP_DNN_CUT_CP", 's', "", 0, 0, "k:K: the phase as one CP-ADMM solve separating K triangles every k iterations"),
+  POLICY("cut.giveup", "QAP_DNN_CUT_GIVEUP", 's', "", 0, 0, "T:G,...: from iteration T a CP-ADMM phase stops when its gap to the cutoff is still above G (unset: the stall rule only)"),
   POLICY("cut.cp_iters", "QAP_DNN_CUT_CP_ITERS", 'i', "0", 0, 100000000, "CP-ADMM iteration limit (0: rounds x iters + freeze)"),
   POLICY("cut.cp_sweeps", "QAP_DNN_CUT_CP_SWEEPS", 's', "1:1", 0, 0, "S[:P]: Dykstra sweeps and passes per CP-ADMM iteration"),
   POLICY("cut.cp_lazycert", "DNN_CP_LAZYCERT", 'i', "0", 0, 1, "1: the lazy certificate in CP-ADMM solves too"),
@@ -98,6 +99,7 @@ static Setting TABLE[] = {
   {"par.file", NULL, NULL, 's', "", 0, 0, SET_RUN, "-p: the params file"},
   // ---- diagnostics (environment)
   ENVVAR("QAP_DNN_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per DNN node to this file"),
+  ENVVAR("QAP_DNN_TRACE_HIST", 'i', "0", 0, 1, SET_DIAGNOSTIC, "1: the trace line carries the CP cut phase's running best at each check (| hist it:best ...)"),
   ENVVAR("QAP_DNN_POOL_CHECK", 'i', "0", 0, 1000000, SET_DIAGNOSTIC, "check each assembled pool term on this many random permutations"),
   ENVVAR("QAP_EST_HIST", 's', "dive_history_nug25_2.txt", 0, 0, SET_DIAGNOSTIC, "estimator: the per-dive history file"),
   ENVVAR("QAP_XBAR_DEBUG", 'i', "0", 0, 2, SET_DIAGNOSTIC, "1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score"),

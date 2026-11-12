@@ -191,6 +191,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `cut.damp1` | par key | text | unset | text | policy | F[:G]: factor on the first (and later) Polyak steps of a phase that starts from a pool (rounds form only) |
 | `cut.equip` | par key | text | unset | text | policy | G:R: a phase more than G below the cutoff runs at most R rounds, to equip the children |
 | `cut.cp` | par key | text | unset | text | policy | k:K: the phase as one CP-ADMM solve separating K triangles every k iterations |
+| `cut.giveup` | par key | text | unset | text | policy | T:G,...: from iteration T a CP-ADMM phase stops when its gap to the cutoff is still above G (unset: the stall rule only) |
 | `cut.cp_iters` | par key | integer | `0` | 0..100000000 | policy | CP-ADMM iteration limit (0: rounds x iters + freeze) |
 | `cut.cp_sweeps` | par key | text | `1:1` | text | policy | S[:P]: Dykstra sweeps and passes per CP-ADMM iteration |
 | `cut.cp_lazycert` | par key | integer | `0` | 0..1 | policy | 1: the lazy certificate in CP-ADMM solves too |
@@ -213,6 +214,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/DNN_ variable is a warning, not an error |
 | `par.file` | `-p` | text | unset | text | run | -p: the params file |
 | `QAP_DNN_TRACE` | environment | text | unset | text | diagnostic | append a line per DNN node to this file |
+| `QAP_DNN_TRACE_HIST` | environment | integer | `0` | 0..1 | diagnostic | 1: the trace line carries the CP cut phase's running best at each check (| hist it:best ...) |
 | `QAP_DNN_POOL_CHECK` | environment | integer | `0` | 0..1000000 | diagnostic | check each assembled pool term on this many random permutations |
 | `QAP_EST_HIST` | environment | text | `dive_history_nug25_2.txt` | text | diagnostic | estimator: the per-dive history file |
 | `QAP_XBAR_DEBUG` | environment | integer | `0` | 0..2 | diagnostic | 1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score |
