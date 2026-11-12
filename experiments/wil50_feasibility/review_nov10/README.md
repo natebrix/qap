@@ -237,6 +237,63 @@ Ratios are base over arm, so above 1 favours the floor.
   late (the 55 fathoming phases here took 31,807 iterations, 580 each; the
   65 stalled ones 61,420, 945 each).
 
+### 2.6 A gap schedule that stops cut phases that will not fathom (Nov 12, laptop, replay and new runs)
+
+Item 6 of section 4, built as `cut.giveup` (f4358f66): a list of `T:G`
+pairs; from iteration T the CP phase stops when its gap to the cutoff is
+still above G. The schedule came from a replay (`phase_stop/replay.py`,
+`phase_stop/replay.txt`) of the 121 phase histories of a production run of
+the subtree with `QAP_DNN_TRACE_HIST=1` (`../pipeline_ab/runs_hist/`): no
+phase that fathomed was more than 24.5 units short at iteration 200, 18.1 at
+300, 13.9 at 400 or 8.9 at 600, while the 66 that did not fathom mostly sat
+far above. `200:35,300:25,400:20,600:12` stops 59 of the 66, loses no
+fathom, and saves 37,440 phase iterations and 6,004 s in the replay, 16% of
+the subtree's DNN CPU. Extrapolation rules (a floor at 150, a hopeless test
+on the slope) lose 9-27 of the 55 fathoms and were not run.
+
+Run as `run_pair.sh cpcutt cpcuttx` at production settings plus that
+schedule on the second arm, binary df4165b3, 3 slots per arm, both arms at
+once (`../pipeline_ab/runs_cg/`). Ratios are base over arm.
+
+| arm | nodes | cut phases (fathomed) | phases stopped by the rule | DNN iterations (first + phase) | DNN CPU s | wall s |
+|---|---|---|---|---|---|---|
+| cpcutt | 2,971 | 121 (55) | 0 | 260,868 (163,137 + 97,731) | 41,442 | 16,317 |
+| cpcuttx, `cut.giveup = 200:35,300:25,400:20,600:12` | 3,194 | 172 (101) | 67 (51 at 200, 12 at 300, 1 at 400, 3 at 600) | 260,086 (186,655 + 73,431) | 40,666 | 16,010 |
+
+- **1.001x in iterations, 1.017x in DNN CPU** over the 47 children's
+  subtrees (`zone/subtree.py`), 1.016x net of the root's phase; 1.019x on
+  the whole arm. Under the item's kill line of 1.03x, and one child's fathom
+  is lost. **Killed.** The key stays (unset, nothing changes), `fullrun.par`
+  does not take it.
+- **The saving is real and goes straight back into the children.** The 67
+  stopped phases cost 16,000 iterations where the base's 66 non-fathoming
+  phases cost 65,890: 24,300 phase iterations and 4,256 s of phase CPU
+  saved, close to the replay. But the arm bounds 223 more nodes and runs 51
+  more phases, and the first solves cost 23,500 iterations more. A phase at
+  a node that branches is not idle work: its pool is the children's warm
+  start. The root shows it: the base's phase runs 750 iterations to 201.5
+  short and leaves 1,980 cuts; the arm's stops at 200, 253.5 short, with
+  1,138. Every child then starts 20-25 units weaker (`19:49` branches 166.2
+  short instead of 141.2). Child `46:49` is the lost fathom: in the base its
+  first solve ends 22.7 short and its phase fathoms in 1,011 iterations; in
+  the arm the first solve ends 47.5 short, the phase gives up at 300 with
+  the gap at 25.2 against G = 25, and the child branches into 47 nodes
+  (1,891 iterations against 1,311).
+- **Replay against run.** The replay promised 6,004 s; the run kept 776 s.
+  The same pricing as section 2.5's leaky run, where 11,000 s of phase CPU
+  saved became 2,500 s net: on this subtree about four fifths of a
+  non-fathoming phase's cost is pool-building that the children would
+  otherwise pay for themselves. Section 3.5 found the same from the other
+  side (one phase at the parent for many at the children). A replay on
+  phase histories cannot see this, so it over-prices any phase stop by that
+  factor.
+- **What is left of the idea.** A stop only where no child can use the pool:
+  the deepest phases (depth 6-7, whose subtrees are one node) or phases at
+  the zone boundary; or a schedule that starts at 300 and leaves the root's
+  750 alone. Untested. The clean upper bound for a phase stop on this
+  subtree is the leaky run's 1.072x less the children's cost it already
+  shows, and the clean measurement is 1.017x, so it is not the next item.
+
 ## 3. Findings
 
 ### 3.1 The leaves: the median leaf is at its floor, the cost is in the slow tail
@@ -439,7 +496,7 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 | 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m]; **subtree A/B at 150: 1.017x iterations, 1.010x DNN CPU, no fathom lost, 132 more nodes** (section 2.5) [m] | up to 1.06x on the tail class [e]; 1.01x measured | built: `dnn.giveup_warm` (default 0) | **killed Nov 12** (under 1.02x); a tail node (400+ short) might show more, since misses are a larger share there |
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
 | 5 | the early certificate at iteration 5 of warm solves | 1.016x on the subtree [m] | 1.016x | promote `DNN_ADMM_CROSS_FIRST` from an experiment name to a settings key | none; take it with the next settings change |
-| 6 | a predictive stop for phases that creep toward the cutoff, or that will not fathom at all | one phase in the zone test runs to the 3,400 limit and ends 1-2 short, 1,090 s [m]; 15 of stage A's 463 depth-2 phases end at the limit, 11% of their CPU [r]; **a floor of 150 leaked into the phases by mistake gave 1.072x DNN CPU on the subtree with 930 more nodes and the root's phase 65 units weaker** (section 2.5) [m] | about 1.06x on the subtree if a rule can stop the 65 stalled phases (945 iterations each) without touching the 55 that fathom (580 each) [e] | a `cut.giveup`-style key and a rule in `dnn_cut_cp` | **the next item to try**: replay on `runs_gu2`'s phase histories first, then the subtree A/B; kill if it loses a fathom or under 1.03x |
+| 6 | a predictive stop for phases that creep toward the cutoff, or that will not fathom at all | one phase in the zone test runs to the 3,400 limit and ends 1-2 short, 1,090 s [m]; 15 of stage A's 463 depth-2 phases end at the limit, 11% of their CPU [r]; a floor of 150 leaked into the phases by mistake gave 1.072x DNN CPU on the subtree with 930 more nodes (section 2.5) [m]; **subtree A/B with `cut.giveup = 200:35,300:25,400:20,600:12`, zero fathoms lost in the replay: 1.001x iterations, 1.017x DNN CPU, 223 more nodes, one child's fathom lost** (section 2.6) [m] | about 1.06x [e]; 1.017x measured | built: `cut.giveup` (default off), `QAP_DNN_TRACE_HIST`, `phase_stop/replay.py` | **killed Nov 12** (under 1.03x, a fathom lost): a stopped phase's pool is its children's warm start, so four fifths of the saving comes back as nodes; a depth-6+ or zone-boundary variant is the remaining idea |
 | 7 | box cuts at the CP phase's final iterate | untried, and the evidence is weak (section 3.4) | 0 to +10 units [e] | an hour with `dnncuts` | close if the largest violation is under 0.05 |
 | 8 | branching marginals from the phase's final iterate (`bnb.C` takes `dnn_xbar` from the first solve before the phase's state replaces it) | not measured | unknown | two lines and a key | node 10: if the line changes, run both subtrees |
 
@@ -515,6 +572,9 @@ phases, and region branching only on nug30, cold, at a far miss.
 - `giveup_sim.py`, `giveup_sim.txt`: section 2.3's replay.
 - Section 2.5's runs are the laptop's, in `../pipeline_ab/runs_gu2/` (clean)
   and `../pipeline_ab/runs_gu/` (the floor leaked into the phases).
+- Section 2.6's replay is `phase_stop/` (`replay.py`, `replay.txt`) on
+  `../pipeline_ab/runs_hist/` (a production run with the phase histories in
+  its trace); its A/B is `../pipeline_ab/runs_cg/`.
 - `zone_rd.py`, `zone_rd.txt`: section 2.4's tally of stage B.
 - `zone/`: section 3.5. `run_set.sh` bounds a node and its children with
   chosen settings on `base.par` (the node-10 arm's settings file);

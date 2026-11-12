@@ -821,3 +821,23 @@ at the same time:
 
 The write-up, with both tables and the item-6 consequence, is
 `../review_nov10/README.md`, section 2.5.
+
+## Nov 12 (laptop): `cpcutt cpcuttx`, the cut-phase gap schedule, killed
+
+`cpcuttx` is `cpcutt` plus `cut.giveup = 200:35,300:25,400:20,600:12`
+(`PAB_CUT_GIVEUP`; the `arm.par` files differ by that one line): from
+iteration T the CP cut phase stops when its gap to the cutoff is still above
+G. `PAB_TRACE_HIST=1` sets `QAP_DNN_TRACE_HIST=1` on every arm, which adds
+`| hist it:best ...` to each trace line for the replay in
+`../review_nov10/phase_stop/`.
+
+- `runs_hist/` (binary 3c247f1d, 05:00-08:30): `cpcutt` alone with the
+  histories; the source of the schedule (no fathoming phase above 24.5 at
+  200, 18.1 at 300, 13.9 at 400, 8.9 at 600).
+- `runs_cg/` (binary df4165b3, 08:30-13:00): the pair, 3 slots per arm.
+  67 of the arm's 172 phases stopped (51 at 200). 1.001x in iterations,
+  1.017x in DNN CPU, 223 more nodes, one child's fathom lost. Killed: the
+  stopped phases' pools are the children's warm starts, and the children pay
+  back about four fifths of the saving.
+
+The write-up is `../review_nov10/README.md`, section 2.6.

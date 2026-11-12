@@ -1,0 +1,406 @@
+08:30:54 [Jan 1, 2023]
+nathan-brixiuss-MacBook-Pro.local
+parameters file: /Users/nathan_brixius/dev/qap/experiments/wil50_feasibility/pipeline_ab/runs_cg/cpcuttx/arm.par
+root fixes: 13:1,21:0,45:2
+symmetry file: /Users/nathan_brixius/dev/qap/latest/SYM/wil50t.sym
+incumbent: 48816
+max_depth has been set to 0
+state file: /var/folders/68/8jygwsqs5qj02jbg458c7t9m0000gn/T/qapinit-cpcuttx-52zfc10s/frontier.state
+input file: /Users/nathan_brixius/dev/qap/qaplib/wil50t.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 0-4, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0 of the cutoff confirmed, Accelerate
+settings 68 hash 78bb675b9bf683f7
+setting dnn.depths 0:4 flag policy
+setting dnn.maxgap 1 flag policy
+setting dnn.giveup 300 flag policy
+setting dnn.warm 1 flag policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.3 par policy
+setting dnn.refresh 40 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=0.7 par policy
+setting dnn.cross 2 par policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 1 par policy
+setting ship.bits 32 par policy
+setting cut.zone 0.0075 par policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 1 par policy
+setting cut.grid 5:10 par policy
+setting cut.rounds 12 par policy
+setting cut.iters 200 par policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 1000 par policy
+setting cut.warmy 1 par policy
+setting cut.damp1 0.3 par policy
+setting cut.equip "" default policy
+setting cut.cp 100:1000 par policy
+setting cut.giveup 200:35,300:25,400:20,600:12 par policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting pool.on 1 par policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash d0bbb76600dbc18b par policy
+setting DNN_R32 0 default experiment
+setting DNN_ADMM_CROSS_FIRST 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /Users/nathan_brixius/dev/qap/experiments/wil50_feasibility/pipeline_ab/runs_cg/cpcuttx/arm.par flag run
+setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_DNN_POOL_CHECK 20 env diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+root bound 46131.5 (for the relative gaps of a -F run)
+branching_weight() = 0.5
+read symmetry info from /Users/nathan_brixius/dev/qap/latest/SYM/wil50t.sym
+08:30:54 coordinator: run cpcuttx: frontier at depth 0 has 1 open nodes, 1 units, 3 slots
+08:30:55 coordinator: 0h00m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+08:31:55 coordinator: 0h01m00s units {'leased': 1} nodes 0 (DNN 0, fathomed 0) CPU 0 s
+08:32:56 coordinator: 0h02m01s units {'merged': 1, 'queued': 6} nodes 2 (DNN 2, fathomed 0) CPU 112 s
+08:33:56 coordinator: 0h03m01s units {'leased': 3, 'merged': 1, 'queued': 3} nodes 2 (DNN 2, fathomed 0) CPU 112 s
+08:34:56 coordinator: 0h04m01s units {'leased': 3, 'merged': 1, 'queued': 3} nodes 2 (DNN 2, fathomed 0) CPU 112 s
+08:35:57 coordinator: 0h05m01s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:36:57 coordinator: 0h06m02s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:37:57 coordinator: 0h07m02s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:38:58 coordinator: 0h08m03s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:39:58 coordinator: 0h09m03s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:40:58 coordinator: 0h10m03s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:41:58 coordinator: 0h11m03s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:42:59 coordinator: 0h12m04s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:43:59 coordinator: 0h13m04s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:44:59 coordinator: 0h14m04s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:46:00 coordinator: 0h15m05s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:47:00 coordinator: 0h16m05s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:48:00 coordinator: 0h17m05s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:49:01 coordinator: 0h18m06s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:50:01 coordinator: 0h19m06s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:51:01 coordinator: 0h20m06s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:52:02 coordinator: 0h21m06s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:53:02 coordinator: 0h22m07s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:54:02 coordinator: 0h23m07s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:55:02 coordinator: 0h24m07s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:56:03 coordinator: 0h25m07s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:57:03 coordinator: 0h26m08s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:58:03 coordinator: 0h27m08s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+08:59:03 coordinator: 0h28m08s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:00:03 coordinator: 0h29m08s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:01:04 coordinator: 0h30m09s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:02:04 coordinator: 0h31m09s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:03:05 coordinator: 0h32m09s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:04:05 coordinator: 0h33m10s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:05:05 coordinator: 0h34m10s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:06:05 coordinator: 0h35m10s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:07:06 coordinator: 0h36m11s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:08:06 coordinator: 0h37m11s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:09:06 coordinator: 0h38m11s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:10:06 coordinator: 0h39m11s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:11:07 coordinator: 0h40m11s units {'leased': 3, 'merged': 2, 'queued': 2} nodes 18 (DNN 18, fathomed 16) CPU 216 s
+09:12:07 coordinator: 0h41m12s units {'leased': 3, 'merged': 3, 'queued': 1} nodes 172 (DNN 172, fathomed 161) CPU 2162 s
+09:13:07 coordinator: 0h42m12s units {'leased': 3, 'merged': 3, 'queued': 1} nodes 172 (DNN 172, fathomed 161) CPU 2162 s
+09:14:07 coordinator: 0h43m12s units {'leased': 3, 'merged': 3, 'queued': 1} nodes 172 (DNN 172, fathomed 161) CPU 2162 s
+09:15:08 coordinator: 0h44m13s units {'leased': 3, 'merged': 4} nodes 188 (DNN 188, fathomed 176) CPU 2323 s
+09:16:08 coordinator: 0h45m13s units {'leased': 3, 'merged': 4} nodes 188 (DNN 188, fathomed 176) CPU 2323 s
+09:17:08 coordinator: 0h46m13s units {'leased': 2, 'merged': 5} nodes 204 (DNN 204, fathomed 192) CPU 2411 s
+09:18:09 coordinator: 0h47m14s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:19:10 coordinator: 0h48m15s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:20:10 coordinator: 0h49m15s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:21:10 coordinator: 0h50m15s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:22:11 coordinator: 0h51m15s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:23:11 coordinator: 0h52m16s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:24:11 coordinator: 0h53m16s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:25:11 coordinator: 0h54m16s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:26:12 coordinator: 0h55m16s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:27:12 coordinator: 0h56m17s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:28:12 coordinator: 0h57m17s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:29:12 coordinator: 0h58m17s units {'leased': 3, 'merged': 6, 'queued': 4} nodes 374 (DNN 374, fathomed 350) CPU 4643 s
+09:30:13 coordinator: 0h59m17s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:31:13 coordinator: 1h00m18s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:32:13 coordinator: 1h01m18s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:33:14 coordinator: 1h02m18s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:34:14 coordinator: 1h03m19s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:35:14 coordinator: 1h04m19s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:36:15 coordinator: 1h05m19s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:37:15 coordinator: 1h06m20s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:38:15 coordinator: 1h07m20s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:39:15 coordinator: 1h08m20s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:40:16 coordinator: 1h09m20s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:41:16 coordinator: 1h10m21s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:42:16 coordinator: 1h11m21s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:43:16 coordinator: 1h12m21s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:44:17 coordinator: 1h13m21s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:45:17 coordinator: 1h14m22s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:46:17 coordinator: 1h15m22s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:47:17 coordinator: 1h16m22s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:48:18 coordinator: 1h17m22s units {'leased': 3, 'merged': 7, 'queued': 3} nodes 430 (DNN 430, fathomed 404) CPU 5276 s
+09:49:18 coordinator: 1h18m23s units {'leased': 3, 'merged': 8, 'queued': 6} nodes 721 (DNN 721, fathomed 679) CPU 9055 s
+09:50:19 coordinator: 1h19m24s units {'leased': 3, 'merged': 8, 'queued': 6} nodes 721 (DNN 721, fathomed 679) CPU 9055 s
+09:51:19 coordinator: 1h20m24s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+09:52:19 coordinator: 1h21m24s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+09:53:20 coordinator: 1h22m25s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+09:54:20 coordinator: 1h23m25s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+09:55:20 coordinator: 1h24m25s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+09:56:20 coordinator: 1h25m25s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+09:57:21 coordinator: 1h26m25s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+09:58:21 coordinator: 1h27m26s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+09:59:21 coordinator: 1h28m26s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:00:21 coordinator: 1h29m26s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:01:22 coordinator: 1h30m26s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:02:22 coordinator: 1h31m27s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:03:22 coordinator: 1h32m27s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:04:22 coordinator: 1h33m27s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:05:23 coordinator: 1h34m27s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:06:23 coordinator: 1h35m28s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:07:24 coordinator: 1h36m29s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:08:24 coordinator: 1h37m29s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:09:24 coordinator: 1h38m29s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:10:24 coordinator: 1h39m29s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:11:25 coordinator: 1h40m30s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:12:25 coordinator: 1h41m30s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:13:25 coordinator: 1h42m30s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:14:25 coordinator: 1h43m30s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:15:26 coordinator: 1h44m30s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:16:26 coordinator: 1h45m31s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:17:26 coordinator: 1h46m31s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:18:27 coordinator: 1h47m31s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:19:27 coordinator: 1h48m32s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:20:27 coordinator: 1h49m32s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:21:27 coordinator: 1h50m32s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:22:27 coordinator: 1h51m32s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:23:28 coordinator: 1h52m33s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:24:28 coordinator: 1h53m33s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:25:28 coordinator: 1h54m33s units {'leased': 3, 'merged': 9, 'queued': 5} nodes 733 (DNN 733, fathomed 691) CPU 9145 s
+10:26:29 coordinator: 1h55m34s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:27:29 coordinator: 1h56m34s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:28:30 coordinator: 1h57m34s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:29:30 coordinator: 1h58m35s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:30:30 coordinator: 1h59m35s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:31:30 coordinator: 2h00m35s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:32:30 coordinator: 2h01m35s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:33:31 coordinator: 2h02m35s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:34:31 coordinator: 2h03m36s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:35:31 coordinator: 2h04m36s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:36:32 coordinator: 2h05m36s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:37:32 coordinator: 2h06m37s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:38:32 coordinator: 2h07m37s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:39:32 coordinator: 2h08m37s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:40:32 coordinator: 2h09m37s units {'leased': 3, 'merged': 10, 'queued': 6} nodes 1031 (DNN 1031, fathomed 975) CPU 12759 s
+10:41:34 coordinator: 2h10m39s units {'leased': 3, 'merged': 11, 'queued': 6} nodes 1270 (DNN 1270, fathomed 1198) CPU 16556 s
+10:42:34 coordinator: 2h11m39s units {'leased': 3, 'merged': 11, 'queued': 6} nodes 1270 (DNN 1270, fathomed 1198) CPU 16556 s
+10:43:34 coordinator: 2h12m39s units {'leased': 3, 'merged': 11, 'queued': 6} nodes 1270 (DNN 1270, fathomed 1198) CPU 16556 s
+10:44:35 coordinator: 2h13m40s units {'leased': 3, 'merged': 11, 'queued': 6} nodes 1270 (DNN 1270, fathomed 1198) CPU 16556 s
+10:45:35 coordinator: 2h14m40s units {'leased': 3, 'merged': 12, 'queued': 5} nodes 1371 (DNN 1371, fathomed 1294) CPU 17587 s
+10:46:35 coordinator: 2h15m40s units {'leased': 3, 'merged': 12, 'queued': 5} nodes 1371 (DNN 1371, fathomed 1294) CPU 17587 s
+10:47:36 coordinator: 2h16m41s units {'leased': 3, 'merged': 12, 'queued': 5} nodes 1371 (DNN 1371, fathomed 1294) CPU 17587 s
+10:48:36 coordinator: 2h17m41s units {'leased': 3, 'merged': 12, 'queued': 5} nodes 1371 (DNN 1371, fathomed 1294) CPU 17587 s
+10:49:36 coordinator: 2h18m41s units {'leased': 3, 'merged': 12, 'queued': 5} nodes 1371 (DNN 1371, fathomed 1294) CPU 17587 s
+10:50:36 coordinator: 2h19m41s units {'leased': 3, 'merged': 13, 'queued': 4} nodes 1430 (DNN 1430, fathomed 1351) CPU 18072 s
+10:51:37 coordinator: 2h20m42s units {'leased': 3, 'merged': 13, 'queued': 4} nodes 1430 (DNN 1430, fathomed 1351) CPU 18072 s
+10:52:37 coordinator: 2h21m42s units {'leased': 3, 'merged': 13, 'queued': 4} nodes 1430 (DNN 1430, fathomed 1351) CPU 18072 s
+10:53:37 coordinator: 2h22m42s units {'leased': 3, 'merged': 13, 'queued': 4} nodes 1430 (DNN 1430, fathomed 1351) CPU 18072 s
+10:54:37 coordinator: 2h23m42s units {'leased': 3, 'merged': 13, 'queued': 4} nodes 1430 (DNN 1430, fathomed 1351) CPU 18072 s
+10:55:38 coordinator: 2h24m42s units {'leased': 3, 'merged': 13, 'queued': 4} nodes 1430 (DNN 1430, fathomed 1351) CPU 18072 s
+10:56:38 coordinator: 2h25m43s units {'leased': 3, 'merged': 13, 'queued': 4} nodes 1430 (DNN 1430, fathomed 1351) CPU 18072 s
+10:57:38 coordinator: 2h26m43s units {'leased': 3, 'merged': 13, 'queued': 4} nodes 1430 (DNN 1430, fathomed 1351) CPU 18072 s
+10:58:39 coordinator: 2h27m44s units {'leased': 3, 'merged': 15, 'queued': 6} nodes 1700 (DNN 1700, fathomed 1600) CPU 22064 s
+10:59:39 coordinator: 2h28m44s units {'leased': 3, 'merged': 16, 'queued': 5} nodes 1710 (DNN 1710, fathomed 1610) CPU 22103 s
+11:00:40 coordinator: 2h29m44s units {'leased': 3, 'merged': 16, 'queued': 5} nodes 1710 (DNN 1710, fathomed 1610) CPU 22103 s
+11:01:40 coordinator: 2h30m45s units {'leased': 3, 'merged': 17, 'queued': 4} nodes 1720 (DNN 1720, fathomed 1619) CPU 22270 s
+11:02:40 coordinator: 2h31m45s units {'leased': 3, 'merged': 18, 'queued': 3} nodes 1730 (DNN 1730, fathomed 1629) CPU 22346 s
+11:03:41 coordinator: 2h32m45s units {'leased': 3, 'merged': 18, 'queued': 3} nodes 1730 (DNN 1730, fathomed 1629) CPU 22346 s
+11:04:41 coordinator: 2h33m46s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:05:41 coordinator: 2h34m46s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:06:42 coordinator: 2h35m46s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:07:42 coordinator: 2h36m47s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:08:42 coordinator: 2h37m47s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:09:42 coordinator: 2h38m47s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:10:43 coordinator: 2h39m47s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:11:43 coordinator: 2h40m48s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:12:43 coordinator: 2h41m48s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:13:43 coordinator: 2h42m48s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:14:44 coordinator: 2h43m48s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:15:44 coordinator: 2h44m49s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:16:44 coordinator: 2h45m49s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:17:45 coordinator: 2h46m49s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:18:45 coordinator: 2h47m50s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:19:45 coordinator: 2h48m50s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:20:45 coordinator: 2h49m50s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:21:45 coordinator: 2h50m50s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:22:46 coordinator: 2h51m50s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:23:46 coordinator: 2h52m51s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:24:46 coordinator: 2h53m51s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:25:46 coordinator: 2h54m51s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:26:47 coordinator: 2h55m52s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:27:47 coordinator: 2h56m52s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:28:47 coordinator: 2h57m52s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:29:48 coordinator: 2h58m52s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:30:48 coordinator: 2h59m53s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:31:48 coordinator: 3h00m53s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:32:49 coordinator: 3h01m53s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:33:49 coordinator: 3h02m54s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:34:49 coordinator: 3h03m54s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:35:49 coordinator: 3h04m54s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:36:50 coordinator: 3h05m54s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:37:50 coordinator: 3h06m55s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:38:50 coordinator: 3h07m55s units {'leased': 3, 'merged': 19, 'queued': 2} nodes 1744 (DNN 1744, fathomed 1643) CPU 22443 s
+11:39:50 coordinator: 3h08m55s units {'leased': 3, 'merged': 20, 'queued': 1} nodes 1849 (DNN 1849, fathomed 1745) CPU 24271 s
+11:40:50 coordinator: 3h09m55s units {'leased': 3, 'merged': 20, 'queued': 1} nodes 1849 (DNN 1849, fathomed 1745) CPU 24271 s
+11:41:51 coordinator: 3h10m56s units {'leased': 3, 'merged': 20, 'queued': 1} nodes 1849 (DNN 1849, fathomed 1745) CPU 24271 s
+11:42:51 coordinator: 3h11m56s units {'leased': 3, 'merged': 20, 'queued': 1} nodes 1849 (DNN 1849, fathomed 1745) CPU 24271 s
+11:43:51 coordinator: 3h12m56s units {'leased': 3, 'merged': 20, 'queued': 1} nodes 1849 (DNN 1849, fathomed 1745) CPU 24271 s
+11:44:51 coordinator: 3h13m56s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:45:51 coordinator: 3h14m56s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:46:52 coordinator: 3h15m57s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:47:52 coordinator: 3h16m57s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:48:52 coordinator: 3h17m57s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:49:53 coordinator: 3h18m58s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:50:53 coordinator: 3h19m58s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:51:54 coordinator: 3h20m58s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:52:54 coordinator: 3h21m59s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:53:54 coordinator: 3h22m59s units {'leased': 3, 'merged': 21} nodes 1866 (DNN 1866, fathomed 1761) CPU 24517 s
+11:54:55 coordinator: 3h24m00s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+11:55:55 coordinator: 3h25m00s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+11:56:56 coordinator: 3h26m01s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+11:57:56 coordinator: 3h27m01s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+11:58:56 coordinator: 3h28m01s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+11:59:57 coordinator: 3h29m01s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:00:57 coordinator: 3h30m02s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:01:57 coordinator: 3h31m02s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:02:57 coordinator: 3h32m02s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:03:58 coordinator: 3h33m02s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:04:58 coordinator: 3h34m03s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:05:58 coordinator: 3h35m03s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:06:59 coordinator: 3h36m03s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:07:59 coordinator: 3h37m04s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:08:59 coordinator: 3h38m04s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:09:59 coordinator: 3h39m04s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:11:00 coordinator: 3h40m04s units {'leased': 3, 'merged': 22, 'queued': 5} nodes 2207 (DNN 2207, fathomed 2086) CPU 28120 s
+12:12:00 coordinator: 3h41m05s units {'leased': 3, 'merged': 24, 'queued': 3} nodes 2315 (DNN 2315, fathomed 2189) CPU 29558 s
+12:13:01 coordinator: 3h42m06s units {'leased': 3, 'merged': 25, 'queued': 6} nodes 2616 (DNN 2616, fathomed 2479) CPU 33386 s
+12:14:01 coordinator: 3h43m06s units {'leased': 3, 'merged': 25, 'queued': 6} nodes 2616 (DNN 2616, fathomed 2479) CPU 33386 s
+12:15:01 coordinator: 3h44m06s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:16:01 coordinator: 3h45m06s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:17:02 coordinator: 3h46m07s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:18:02 coordinator: 3h47m07s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:19:02 coordinator: 3h48m07s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:20:03 coordinator: 3h49m08s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:21:03 coordinator: 3h50m08s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:22:04 coordinator: 3h51m08s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:23:04 coordinator: 3h52m09s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:24:04 coordinator: 3h53m09s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:25:05 coordinator: 3h54m09s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:26:05 coordinator: 3h55m10s units {'leased': 3, 'merged': 26, 'queued': 5} nodes 2618 (DNN 2618, fathomed 2480) CPU 33487 s
+12:27:05 coordinator: 3h56m10s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:28:06 coordinator: 3h57m11s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:29:06 coordinator: 3h58m11s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:30:06 coordinator: 3h59m11s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:31:07 coordinator: 4h00m11s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:32:07 coordinator: 4h01m12s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:33:07 coordinator: 4h02m12s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:34:08 coordinator: 4h03m12s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:35:08 coordinator: 4h04m13s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:36:08 coordinator: 4h05m13s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:37:08 coordinator: 4h06m13s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:38:09 coordinator: 4h07m13s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:39:09 coordinator: 4h08m14s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:40:09 coordinator: 4h09m14s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:41:09 coordinator: 4h10m14s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:42:10 coordinator: 4h11m14s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:43:10 coordinator: 4h12m15s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:44:10 coordinator: 4h13m15s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:45:10 coordinator: 4h14m15s units {'leased': 3, 'merged': 28, 'queued': 3} nodes 2670 (DNN 2670, fathomed 2528) CPU 34094 s
+12:46:10 coordinator: 4h15m15s units {'leased': 3, 'merged': 30, 'queued': 1} nodes 2855 (DNN 2855, fathomed 2700) CPU 36854 s
+12:47:11 coordinator: 4h16m16s units {'leased': 3, 'merged': 33, 'queued': 4} nodes 3068 (DNN 3068, fathomed 2903) CPU 39701 s
+12:48:12 coordinator: 4h17m17s units {'leased': 3, 'merged': 34, 'queued': 3} nodes 3073 (DNN 3073, fathomed 2908) CPU 39749 s
+12:49:12 coordinator: 4h18m17s units {'leased': 3, 'merged': 35, 'queued': 2} nodes 3080 (DNN 3080, fathomed 2914) CPU 39868 s
+12:50:12 coordinator: 4h19m17s units {'leased': 3, 'merged': 36, 'queued': 1} nodes 3085 (DNN 3085, fathomed 2919) CPU 39941 s
+12:51:12 coordinator: 4h20m17s units {'leased': 3, 'merged': 36, 'queued': 1} nodes 3085 (DNN 3085, fathomed 2919) CPU 39941 s
+12:52:13 coordinator: 4h21m17s units {'leased': 2, 'merged': 38} nodes 3095 (DNN 3095, fathomed 2927) CPU 40255 s
+12:53:13 coordinator: 4h22m18s units {'leased': 2, 'merged': 38} nodes 3095 (DNN 3095, fathomed 2927) CPU 40255 s
+12:54:13 coordinator: 4h23m18s units {'leased': 2, 'merged': 38} nodes 3095 (DNN 3095, fathomed 2927) CPU 40255 s
+12:55:13 coordinator: 4h24m18s units {'leased': 2, 'merged': 38} nodes 3095 (DNN 3095, fathomed 2927) CPU 40255 s
+12:56:14 coordinator: 4h25m19s units {'leased': 2, 'merged': 42} nodes 3143 (DNN 3143, fathomed 2973) CPU 40770 s
+12:57:14 coordinator: 4h26m19s units {'leased': 1, 'merged': 43} nodes 3145 (DNN 3145, fathomed 2975) CPU 40802 s
+12:57:45 coordinator: 4h26m50s units {'merged': 49} nodes 3194 (DNN 3194, fathomed 3022) CPU 41145 s
+12:57:45   ---- RESULTS ----
+
+    Total Time: 41144.595357 seconds 
+         Nodes: 3194 / 3123 / 0
+    root bound: 46131.507862715953
+ fw iterations: 316416
+     DNN bound: 3194 nodes, 3022 fathomed, 28335.23 s
+     cut phase: 172 nodes, 101 fathomed, 12330.29 s
+
+level    nodes	%fathom	%c.elim	    time
+ 3           1	0.0000	0.0000	   55.37
+ 4          47	0.6170	0.0000	 2437.85
+ 5         828	0.9638	0.0000	15467.33
+ 6        1350	0.9837	0.0000	15806.84
+ 7         968	1.0000	N/A	 7373.60
+
+Strategy breakdown:
+nodes       0        1     2225      968 
+time     0.00    55.37 33712.02  7373.60 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 3           1	0.0000	1.0000	        300	   300.0	   29.05
+ 4          47	0.5106	0.4894	       8235	   175.2	 1400.83
+ 5         828	0.8949	0.1051	      63854	    77.1	10092.78
+ 6        1350	0.9600	0.0400	      74666	    55.3	10437.43
+ 7         968	0.9928	0.0072	      39600	    40.9	 6375.15
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 3           1	0.0000	   26.21
+ 4          23	0.2174	 1016.34
+ 5          87	0.6552	 5216.03
+ 6          54	0.5926	 5174.18
+ 7           7	1.0000	  897.53
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 3           0	       0	       0	       0	       0
+ 4          29	       0	      24	       5	       0
+ 5         798	       0	     741	      57	       0
+ 6        1328	       0	    1296	      32	       0
+ 7         968	       0	     961	       7	       0
+
+coordinator: 3 slots, 49 units, wall 16010.17 s, CPU 41144.60 s (x2.57), slots busy 98.6%, best objective 48816
