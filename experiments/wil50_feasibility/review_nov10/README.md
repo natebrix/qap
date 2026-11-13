@@ -294,6 +294,49 @@ once (`../pipeline_ab/runs_cg/`). Ratios are base over arm.
   subtree is the leaky run's 1.072x less the children's cost it already
   shows, and the clean measurement is 1.017x, so it is not the next item.
 
+### 2.7 Branching marginals from the cut phase's final iterate (Nov 13, laptop, one node)
+
+Item 8 of section 4. Rules 8 and 9 score a node's rows and columns from
+`dnn_xbar`, row 0 of the final primal iterate of the node's DNN solve. When
+a cut phase runs and does not fathom, its state replaces the first solve's
+as the children's warm start, but `bnb.C` had already taken `dnn_xbar` from
+the first solve. Built as `cut.xbar` (default 0): at 1, a node that ran a
+phase takes its marginals from the phase's final iterate instead.
+
+Measured on node 10's root and its 47 children (`-F 13:1,21:0,45:2
+-x 0:3:1:300:1 -d 4 -u 48816`, production settings as `xbar/off.par`, the
+same plus `cut.xbar = 1` as `xbar/on.par`, `QAP_XBAR_DEBUG=1` printing
+each line chosen; binary 0ac188de plus the key). The root gives up at 300
+iterations, runs its phase and branches; 25 children fathom at the first
+solve, 22 run a phase, 5 of those fathom, 17 branch. So all 18 nodes that
+choose a line ran a phase, and the key changed the marginals at every one
+of them.
+
+| | off | on |
+|---|---|---|
+| line at the root (depth 3) | col 49 (col score 110,287,399.8) | col 49, the same |
+| lines at the 17 branching children | 10 x col 10, 5 x col 40, col 9, row 6 | the same at 16; one child's col 40 (108,567,250.9) becomes col 10 (108,452,595.0) |
+| fathoms, first solves / phases | 25 of 48 / 5 of 23 | 25 of 48 / 5 of 23 |
+| DNN CPU s, first solves + phases | 1,158.5 + 2,796.9 | 1,156.0 + 2,797.0 |
+
+- **The line does not change.** The phase's final iterate ranks the same lines first as the
+  first solve's at 17 of 18 nodes, and the one that
+  differs is a close call between two columns. The item's next step was to
+  run both subtrees if the root's line changed; it did not, and one
+  differing child out of 17 is not worth two subtree runs. **Closed.** The
+  key stays (default 0, nothing changes), `fullrun.par` does not take it.
+- **Why.** Rule 9 uses the marginals only to pick its candidates: the
+  `branch.xbar_lines` rows and columns with the largest sum of squared
+  marginals; the children's bounds then choose among them, and the scores
+  printed are those bounds. The phase runs on from the first solve's state
+  and tightens the dual; the primal row that ranks the lines keeps the same
+  leaders, so the same candidates are scored and the same line wins. The one
+  child that differs is where the phase's marginals promoted col 10 over col
+  40 into the candidate set.
+- Not measured: the tree below the one child whose line changes, and nodes
+  deeper than 4 (the children's lines at depth 5 and below come from solves
+  this run did not perform).
+
 ## 3. Findings
 
 ### 3.1 The leaves: the median leaf is at its floor, the cost is in the slow tail
@@ -498,7 +541,7 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 | 5 | the early certificate at iteration 5 of warm solves | 1.016x on the subtree [m] | 1.016x | `dnn.cross_first` (default 0), the former `DNN_ADMM_CROSS_FIRST` | **adopted Nov 12** (`fullrun.par`, `dnn.cross_first = 5`); measured on the 94-node subtree of section 2.1, not re-measured at the wider zone |
 | 6 | a predictive stop for phases that creep toward the cutoff, or that will not fathom at all | one phase in the zone test runs to the 3,400 limit and ends 1-2 short, 1,090 s [m]; 15 of stage A's 463 depth-2 phases end at the limit, 11% of their CPU [r]; a floor of 150 leaked into the phases by mistake gave 1.072x DNN CPU on the subtree with 930 more nodes (section 2.5) [m]; **subtree A/B with `cut.giveup = 200:35,300:25,400:20,600:12`, zero fathoms lost in the replay: 1.001x iterations, 1.017x DNN CPU, 223 more nodes, one child's fathom lost** (section 2.6) [m] | about 1.06x [e]; 1.017x measured | built: `cut.giveup` (default off), `QAP_DNN_TRACE_HIST`, `phase_stop/replay.py` | **killed Nov 12** (under 1.03x, a fathom lost): a stopped phase's pool is its children's warm start, so four fifths of the saving comes back as nodes; a depth-6+ or zone-boundary variant is the remaining idea |
 | 7 | box cuts at the CP phase's final iterate | untried, and the evidence is weak (section 3.4) | 0 to +10 units [e] | an hour with `dnncuts` | close if the largest violation is under 0.05 |
-| 8 | branching marginals from the phase's final iterate (`bnb.C` takes `dnn_xbar` from the first solve before the phase's state replaces it) | not measured | unknown | two lines and a key | node 10: if the line changes, run both subtrees |
+| 8 | branching marginals from the phase's final iterate (`bnb.C` takes `dnn_xbar` from the first solve before the phase's state replaces it) | node 10's root and its 47 children: the line is the same at 17 of the 18 nodes that branch, one child's col 40 becomes col 10 (section 2.7) [m] | none seen | built: `cut.xbar` (default 0) | **closed Nov 13**: the phase does not move the primal row the rules read; the one differing child is not worth two subtree runs |
 
 Not worth doing, measured here: a lower warm beta, damped dual steps at a
 warm start, a shorter or longer stall window (sections 2.1 and 2.2).
@@ -575,6 +618,8 @@ phases, and region branching only on nug30, cold, at a far miss.
 - Section 2.6's replay is `phase_stop/` (`replay.py`, `replay.txt`) on
   `../pipeline_ab/runs_hist/` (a production run with the phase histories in
   its trace); its A/B is `../pipeline_ab/runs_cg/`.
+- `xbar/`: section 2.7's two single-node runs (`off.par`, `on.par`, the
+  `.out` and `.err` of each, `lines.diff` of the lines chosen).
 - `zone_rd.py`, `zone_rd.txt`: section 2.4's tally of stage B.
 - `zone/`: section 3.5. `run_set.sh` bounds a node and its children with
   chosen settings on `base.par` (the node-10 arm's settings file);

@@ -930,9 +930,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  if (save && !dnn_fathomed && save->m == m &&
 	      (param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD)) {
 	    // x_ij = Y_0,(ij) of the final primal iterate (row 0 of the lifted
-	    // matrix, after the leading 1), m x m row-major in local indices
+	    // matrix, after the leading 1), m x m row-major in local indices;
+	    // cut.xbar = 1: the cut phase's final iterate when a phase ran
+	    static const int cut_xbar = (int)setting_i("cut.xbar");
+	    const DNNWarm *xs = (cut_xbar && cut_state && cut_state->m == m && (int)cut_state->Y.size() >= m * m + 1) ? cut_state : save;
 	    const int n1 = m * m + 1;
-	    dnn_xbar.assign(save->Y.begin() + 1, save->Y.begin() + n1);
+	    dnn_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
 	  }
 	  if (have_pool && dnn_pool_out.empty() && !dnn_fathomed && !pool_mid.cuts.empty())
 	    dnn_pool_out = dnn_pool_encode(pool_mid);   // no cut phase: hand on the inherited pool

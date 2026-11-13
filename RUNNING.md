@@ -196,6 +196,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `cut.cp_iters` | par key | integer | `0` | 0..100000000 | policy | CP-ADMM iteration limit (0: rounds x iters + freeze) |
 | `cut.cp_sweeps` | par key | text | `1:1` | text | policy | S[:P]: Dykstra sweeps and passes per CP-ADMM iteration |
 | `cut.cp_lazycert` | par key | integer | `0` | 0..1 | policy | 1: the lazy certificate in CP-ADMM solves too |
+| `cut.xbar` | par key | integer | `0` | 0..1 | policy | 1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's) |
 | `pool.on` | par key | integer | `0` | 0..1 | policy | 1: a node hands its cut pool to its children |
 | `pool.cp` | par key | integer | `0` | 0..1 | policy | 1: a pooled child's first solve in CP form |
 | `branch.weighted` | par key | integer | `1` | 0..1 | policy | rules 1, 3 and 4: weight the U sums by the row's gap fraction |

@@ -77,6 +77,7 @@ static Setting TABLE[] = {
   POLICY("cut.cp_iters", "QAP_DNN_CUT_CP_ITERS", 'i', "0", 0, 100000000, "CP-ADMM iteration limit (0: rounds x iters + freeze)"),
   POLICY("cut.cp_sweeps", "QAP_DNN_CUT_CP_SWEEPS", 's', "1:1", 0, 0, "S[:P]: Dykstra sweeps and passes per CP-ADMM iteration"),
   POLICY("cut.cp_lazycert", "DNN_CP_LAZYCERT", 'i', "0", 0, 1, "1: the lazy certificate in CP-ADMM solves too"),
+  POLICY("cut.xbar", "QAP_DNN_CUT_XBAR", 'i', "0", 0, 1, "1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's)"),
   POLICY("pool.on", "QAP_DNN_POOL", 'i', "0", 0, 1, "1: a node hands its cut pool to its children"),
   POLICY("pool.cp", "QAP_DNN_POOL_CP", 'i', "0", 0, 1, "1: a pooled child's first solve in CP form"),
   // ---- branching (branch.C), Frank-Wolfe (fw.C), the estimator (estimate.C)
