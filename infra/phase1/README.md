@@ -219,6 +219,12 @@ c7i.xlarge, cents each.
   iteration (0.61 against 0.59 ms), so nothing is lost by the override.
   Worth an upstream report (OpenBLAS, target NEOVERSEV1, `potrf_L` at
   mid sizes).
+- **nug30 acceptance on Graviton (`nug30-a`, c7g.4xlarge, 16 cores, the override
+  on):** six gates passed; the coordinator's tree equals `bench/parallel.py`
+  on the same instance (3,688 nodes, 3,547 fathomed, 380,512 FW iterations,
+  3,687 DNN nodes), optimum 6124, 412 units, slots busy 72%: PASS. 4,961 CPU s
+  against about 1,300 on the M2 Pro: a Graviton3 core is about a quarter of a
+  laptop core on this recipe (the N1 kernels, no SVE).
 - **`QAP_PROBE`** (`--node-env "QAP_PROBE='...'"`): a shell command `node.sh`
   runs in `latest/` after the build, its output uploaded as `out/probe.log`,
   for a diagnosis on the instance's CPU without logging in (there is no SSH
