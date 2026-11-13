@@ -19,7 +19,7 @@ HEAD's `bnbdrv`, checked before every run). wil50 keeps the full run's files.
 | wil50 | `../wil50_feasibility/fullrun/` | the full run: CP cut phase, `cut.zone = 0.0075`, rule 9, DNN at depths 1-4 then 20 levels below a miss, give-up 300; `wil50t.dat` with its symmetry | |
 | tho40 | `tho40/` | the Nov 8 nug30 record recipe (rule 9, DNN at depths 1-7, give-up 200, no cut phase) with `branch.xbar_lines = 2`, the tho40 A/B's setting (`../xbar_lines_sweep/tho40_ab/`); `tho40t.dat` with its symmetry | 2 lines was measured on three depth-3 subtrees only |
 | sko42 | `sko42/` | from Nov 12, arm C of `sko42/tune/` (below): wil50's full run with the grid 6 x 7 and `cut.zone = 0.010`; `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum. Until Nov 12 it was the nug30 record recipe, kept as `sko42/tune/A.par` | C was measured on complete subtrees and by the sampling plan, not in a full search |
-| sko49 | `sko49/` | wil50's full run with the grid 7 x 7; `sko49t.dat` (new in `qaplib/`, the matrices of `sko49.dat` swapped) with the 7 x 7 grid's symmetry (`latest/SYM/sko49t.sym`, 10 depth-1 orbits), so `cut.side = 1` | the CP phase and the 0.0075 zone (wil50's Nov 5 levers were 2.2x and 4.2x on two sko49 subtrees, `../sko49_feasibility/vs_wil50.md`) |
+| sko49 | `sko49/` | from Nov 13, arm Cw of `sko49/tune/` (below): wil50's full run with the grid 7 x 7 and `cut.zone = 0.018` (421 short); `sko49t.dat` (new in `qaplib/`, the matrices of `sko49.dat` swapped) with the 7 x 7 grid's symmetry (`latest/SYM/sko49t.sym`, 10 depth-1 orbits), so `cut.side = 1`. Until Nov 13 the zone was wil50's 0.0075 | Cw was measured by the sampling plan (probes on 11 tail nodes, against C), not on complete subtrees or in a full search |
 | tai50b | `tai50b/` | the Nov 8 tuned estimate's values as keys (DNN at depths 1-9, give-up 600, the nug30 recipe otherwise) with rule 9, which its notes name; no symmetry, no cut phase (no grid); the dive sampler `est.xbar = 1`, `est.xbar_mix = 0.3` | rule 9: the Nov 8 runs used rule 8 (their log header), not rule 9 as the notes say |
 
 A setting changes only in a commit that means to change it, with the golden
@@ -386,6 +386,11 @@ behave the same under both:
   frontier, so the estimate errs high.
 - **The laptop.** 19,000-21,000 laptop core-hours is 129-146 days on its 6
   P-cores, against 210-230 under C.
+
+From Nov 13, `sko49.par` is Cw. Its golden is from HEAD's build (68 settings),
+so `make solver` first. `run_stages.sh` now runs under Cw. Move aside any
+`stageA/`, `stageB/` or `subtrees/` left from a run under 0.0075, so the run
+starts fresh.
 
 ## Cold against warm: a220 as production would bound it (cloud box, Nov 10)
 

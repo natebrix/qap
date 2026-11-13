@@ -41,12 +41,15 @@
  5    compute B for best _ rows of U
 
 [settings]
-# sko49's current settings (experiments/estimates/README.md): the full wil50 run's
-# (experiments/wil50_feasibility/fullrun/fullrun.par: CP cut phase, cut.zone = 0.0075,
-# rule 9, DNN at depths 1-4 then 20 levels below a miss, give-up 300) with the grid
-# 7 x 7. On sko49t.dat the grid is the second matrix, so cut.side = 1 as on wil50t.
-# The record measured wil50's Nov 5 levers on two sko49 subtrees (2.2x and 4.2x,
-# sko49_feasibility/vs_wil50.md); the CP phase and the wider zone are untested on sko49.
+# sko49's current settings (experiments/estimates/README.md), from Nov 13: tuning arm Cw,
+# experiments/estimates/sko49/tune/Cw.par. That is wil50's full run
+# (experiments/wil50_feasibility/fullrun/fullrun.par: CP cut phase, rule 9, DNN at depths
+# 1-4 then 20 levels below a miss, give-up 300) with the grid 7 x 7 and cut.zone = 0.018
+# (421 short on sko49). On sko49t.dat the grid is the second matrix (checked: rectilinear,
+# row-major, 7 columns), so cut.side = 1 as on wil50t.
+# By the sampling plan (tune/README.md), arm C (sko42's zone, 0.010: 234 short here) puts
+# the tree at 60,000-66,000 cloud core-hours and Cw at 37,000-42,000, 0.62-0.63x of C.
+# Until Nov 13 this file had wil50's zone, 0.0075.
 dnn.gamma1 = 1.0
 dnn.gamma = 1.0
 dnn.ext = 20
@@ -60,7 +63,7 @@ dnn.beta = 0.3
 dnn.gu_zone = 0
 cut.grid = 7:7
 cut.side = 1
-cut.zone = 0.0075
+cut.zone = 0.018
 cut.warmy = 1
 cut.rounds = 12
 cut.iters = 200

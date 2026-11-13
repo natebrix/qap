@@ -24,9 +24,13 @@ with `cut.zone = 0.010`:
   (`../../../sko49_feasibility/NOTES.md` section 4), against 80-100 on sko42's
   6 x 7. So 0.010 is the same zone in units of the phase's gain on both
   instances, about 1.7 gains: 234 short here, 158 on sko42.
-- **Everything else** is `sko49.par` as it stands. `C.golden` differs from
-  `../settings.golden` only in the zone, the hashes, and the pool-check
-  diagnostic, which `../settings.sh` turns on and sko42's arms leave off.
+- **Everything else** is `sko49.par` as it stood on Nov 12. `C.golden`
+  differed from `../settings.golden` only in the zone, the hashes, and the
+  pool-check diagnostic, which `../settings.sh` turns on and sko42's arms leave
+  off. From Nov 13, `sko49.par` is Cw (`cut.zone = 0.018`). Its golden comes
+  from HEAD's build, which adds `dnn.giveup_warm`, `cut.giveup` and
+  `QAP_DNN_TRACE_HIST` at their defaults, and renames `DNN_ADMM_CROSS_FIRST`
+  to `dnn.cross_first`.
 
 ## Plan
 
@@ -567,3 +571,21 @@ python3 paired.py --table sampling_C/stageB_summary.md --top 344 --top-cpu 68096
 - **What to use.** Cw. Its mechanism shows in nearly every pair, its extra
   phases cost 0.4%, and without its best pair it still comes out at
   0.81-0.95x of C.
+
+## Replicates on the 380.1-short node (from Nov 13 02:49)
+
+Without the 380.1-short pair, Cw / C is 0.81-0.95, not 0.62-0.63. Both of
+its probes are noisy: C's SE is 79% of its value and Cw's 58%. So the node
+gets two more probes in each arm, with `--seed 2` (each probe's draws are
+seeded by the seed, its name and the level):
+- C: Cr368b and Cr368c on cpus 0 and 1 (`C.sh`, `C.par`);
+- Cw: Zr368b and Zr368c on cpus 2 and 3 (`Cw.sh`, `Cw.par`).
+
+All four use the run binary (md5 `ee4c6ebd…`) and k = 16, beta = 0.025, as
+before.
+
+**How they enter (decided before any finished).** Each arm's value at the
+node becomes the mean of its three probes, each an unbiased estimate of the
+same subtree's cost. `estimate_se.py` and `paired.py` read that mean as
+`anchors_C/Cr368+anchors_C/Cr368b+anchors_C/Cr368c=380.1`. Everything else is
+unchanged.

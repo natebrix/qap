@@ -3,6 +3,8 @@
 
   estimate_se.py [estimate.py's options] ANCHOR_DIR=SHORTFALL ...
 
+ANCHOR_DIR may be DIR1+DIR2+...: replicate probes of one node, taken as their mean.
+
 `../../sko42/tune/estimate.py` reads the anchors as exact and bootstraps only
 stage B's sample. On sko42 the anchors were complete subtrees; here most are
 probes (`../../probe.py`), each with a standard error of up to 90% of its value,
@@ -30,7 +32,13 @@ import estimate as E  # noqa: E402
 
 
 def anchor_se(d):
-    """(nodes, nodes SE, CPU, CPU SE) from a summary.txt; SE 0 when the line has none."""
+    """(nodes, nodes SE, CPU, CPU SE) from a summary.txt; SE 0 when the line has none.
+    DIR1+DIR2+... is one anchor: the mean of those probes of the same node."""
+    if "+" in d:
+        r = [anchor_se(x) for x in d.split("+")]
+        k = len(r)
+        return (sum(x[0] for x in r) / k, math.sqrt(sum(x[1] ** 2 for x in r)) / k,
+                sum(x[2] for x in r) / k, math.sqrt(sum(x[3] ** 2 for x in r)) / k)
     t = open(os.path.join(d, "summary.txt")).readline()
     n, cpu = E.anchor(d)
     m = re.search(r"DNN CPU [\d,.]+ s \(SE ([\d,.]+) s; nodes SE ([\d,.]+)\)", t)

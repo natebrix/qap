@@ -4,7 +4,8 @@
   paired.py [estimate.py's options] A_DIR,B_DIR=SHORTFALL ...
 
 Each argument is one anchor node probed under both arms (the same directory twice
-for an anchor whose subtree the arms treat alike). It prints both arms' iso and fit
+for an anchor whose subtree the arms treat alike; DIR1+DIR2 is the mean of replicate
+probes, as in estimate_se.py). It prints both arms' iso and fit
 totals (as estimate_se.py does) and B/A. The interval resamples stage B's sample
 and the anchor nodes with replacement, the same draws for both arms, so the
 scatter that both arms share (which nodes are dear) mostly cancels in the ratio."""
@@ -31,7 +32,7 @@ def main():
     for a in args:
         ds, _, s = a.rpartition("=")
         da, db = ds.split(",")
-        P.append((float(s), E.anchor(da)[1], E.anchor(db)[1]))
+        P.append((float(s), T.anchor_se(da)[2], T.anchor_se(db)[2]))
     S = E.sample(table)
     rng = random.Random(1)
     B = 2000
