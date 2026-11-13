@@ -113,13 +113,17 @@ if ! make solver PYTHON=$PY > "$OUT/build.log" 2>&1; then step "build FAILED (ou
 ldd latest/bnbdrv | grep -iE 'blas|lapack' > "$OUT/blas.txt"
 step "build ok: ${QAP_COMMIT:-$(git -C "$R" rev-parse --short HEAD 2> /dev/null)} $(tr '\n' ' ' < "$OUT/blas.txt")"
 : > "$OUT/gates.txt"
+# python -u: a gate's progress reaches its log (and the 5-minute upload) while it runs;
+# timeout: a hung gate is a failure after 30 minutes, not an idle instance until --limit
+# (Nov 13: tests/parallel_test.py hung on the first real c7g.xlarge with an empty log)
 for g in $GATES; do
   t0=$(date +%s)
-  if make "$g" PYTHON=$PY > "$OUT/gate_$g.log" 2>&1; then r=pass; else r=FAIL; fi
+  timeout 1800 make "$g" PYTHON="$PY -u" > "$OUT/gate_$g.log" 2>&1; rc=$?
+  case $rc in 0) r=pass ;; 124) r=TIMEOUT ;; *) r=FAIL ;; esac
   echo "$g $r $(( $(date +%s) - t0 ))s" >> "$OUT/gates.txt"
 done
 step "gates: $(tr '\n' ' ' < "$OUT/gates.txt")"
-grep -q FAIL "$OUT/gates.txt" && { step "a gate failed: stopping (out/gate_*.log)"; exit 1; }
+grep -q -E 'FAIL|TIMEOUT' "$OUT/gates.txt" && { step "a gate failed: stopping (out/gate_*.log)"; exit 1; }
 
 # --- the Spot watcher: an interruption notice drains the worker (2 minutes' warning)
 spot_watch() {
