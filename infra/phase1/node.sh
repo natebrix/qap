@@ -92,6 +92,14 @@ SLOTS=${QAP_SLOTS:-$NC}
   echo "mem_gb $(free -g | awk '/^Mem/ {print $2}')"; echo "kernel $(uname -r)"; } >> "$OUT/sysinfo.txt"
 step "machine: $(tr '\n' ' ' < "$OUT/sysinfo.txt")"
 
+# OpenBLAS on Graviton3 (Neoverse V1): its auto-selected kernels give the DNN certificate
+# -inf at m >= 9 (Nov 13, scipy-openblas32 on c7g.xlarge: nug12's root -inf against the
+# prototype's 567.98; tests/dnn_test.py fails, the parallel gate's DNN check never ends).
+# The Neoverse N1 kernels give x86's values to the digit. --node-env OPENBLAS_CORETYPE=...
+# overrides this.
+if [ "$(uname -m)" = aarch64 ] && [ -z "${OPENBLAS_CORETYPE:-}" ]; then export OPENBLAS_CORETYPE=NEOVERSEN1; fi
+echo "openblas_coretype ${OPENBLAS_CORETYPE:-auto}" >> "$OUT/sysinfo.txt"
+
 # --- the toolchain (Amazon Linux 2023, as in infra/phase0/bench.sh, plus boto3)
 if [ "$LOCAL" != 1 ]; then
   dnf install -y -q gcc-c++ make python3.11 python3.11-pip tar gzip util-linux > "$OUT/dnf.log" 2>&1 || { step "dnf failed"; exit 1; }
