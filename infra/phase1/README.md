@@ -158,6 +158,21 @@ Support case (the error message says so) before any distribution exists. The
 script now stops there; the origin access control it had created stays, unused
 and free, and a rerun after verification completes the setup.
 
+**Meanwhile, straight from S3** (Nov 13, while the Support case is open):
+`infra/phase1/public_s3.sh on` grants public read on `public/*` and nothing else
+(a bucket policy with `Principal: *` on that prefix; it turns off the two
+policy-related Block Public Access flags and leaves the two ACL ones on, which
+is all that is needed since object ownership is BucketOwnerEnforced). The base
+URL is then
+`https://qap-coord-033593658551-eu-north-1.s3.eu-north-1.amazonaws.com/public`
+(`public_s3.sh url`), so a run's record gets
+`"live": {"url": "<base>/runs/RUN/"}`. Once the distribution exists, run
+`publish_setup.sh` (it rewrites the policy to the CloudFront-only statement),
+then `public_s3.sh off` to put all four blocks back, and point new records at
+the CloudFront domain. S3 serves the objects with their `Content-Type` and
+`Cache-Control: max-age=60` as the coordinator uploaded them; no CORS is
+needed, since the run page fetches the status server-side.
+
 It creates a CloudFront distribution that serves `public/` and nothing else
 (origin path `/public`, an origin access control, and a bucket policy that lets
 only that distribution read `public/*`), so
