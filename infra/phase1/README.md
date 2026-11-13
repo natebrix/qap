@@ -164,7 +164,7 @@ and free, and a rerun after verification completes the setup.
 policy-related Block Public Access flags and leaves the two ACL ones on, which
 is all that is needed since object ownership is BucketOwnerEnforced). The base
 URL is then
-`https://qap-coord-033593658551-eu-north-1.s3.eu-north-1.amazonaws.com/public`
+`https://qap-coord-<account>-eu-north-1.s3.eu-north-1.amazonaws.com/public`
 (`public_s3.sh url`), so a run's record gets
 `"live": {"url": "<base>/runs/RUN/"}`. Once the distribution exists, run
 `publish_setup.sh` (it rewrites the policy to the CloudFront-only statement),
@@ -191,7 +191,10 @@ status, nodes, CPU, incumbent), each host's last steps, and at the end
 `runs/RUN/hosts/`: `steps.txt`, `node.log`, `coordinator.log`, `worker.log`,
 `init.log`, `reference.log`, `gate_*.log`, `sysinfo.txt`. `runs/RUN/launches.tsv`
 records each launch (role, type, market, Spot price, instance, zone, commit,
-recipe).
+recipe). `runs/RUN/bucket.txt` and `userdata_*.sh` stay on the laptop: they name
+the bucket, whose name holds the account number, so `.gitignore` keeps them out
+of the repository (removed from it Nov 14), and `collect.sh` finds the bucket
+from the signed-in account when `bucket.txt` is missing.
 
 ## On real EC2 (Nov 13, eu-north-1, on demand; the quota arrived that day)
 

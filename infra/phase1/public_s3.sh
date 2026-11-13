@@ -6,8 +6,12 @@
 #   public_s3.sh url   print the base URL the run records point at
 # Needs AWS_PROFILE set. The CloudFront statement is kept as publish_setup.sh wrote it.
 set -euo pipefail
-B=${QAP_BUCKET:-qap-coord-033593658551-eu-north-1}
 REGION=${QAP_REGION:-eu-north-1}
+# the account comes from the signed-in session, as in publish_setup.sh, so no account number is committed
+if [ -z "${QAP_BUCKET:-}" ]; then
+  ACCT=$(aws sts get-caller-identity --query Account --output text) || { echo "not signed in: aws sso login" >&2; exit 1; }
+fi
+B=${QAP_BUCKET:-qap-coord-$ACCT-$REGION}
 BASE="https://$B.s3.$REGION.amazonaws.com/public"
 cf_stmt() {
   # the existing CloudFront statement, if any, so a later publish_setup.sh run finds what it left

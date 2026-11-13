@@ -211,6 +211,8 @@ if [ "$DRY" != 1 ]; then
 fi
 [ -f "$L/launches.tsv" ] || echo -e "launched\trole\ttype\tmarket\tusd_per_hour\tinstance\taz\tcommit\trecipe" > "$L/launches.tsv"
 echo -e "$(date -u +%FT%TZ)\t$ROLE\t$TYPE\t$MARKET\t$PRICE\t$ID\t$AZ\t$COMMIT\t${RECIPE:--}$([ "$NO_UB" = 1 ] && echo ' no-ub')" >> "$L/launches.tsv"
+# bucket.txt and userdata_*.sh name the bucket, whose name holds the account number:
+# .gitignore keeps them out of the repository (collect.sh works without bucket.txt)
 echo "$REGION" > "$L/region.txt"; echo "$B" > "$L/bucket.txt"
 say "$TYPE: $ID in $AZ ($MARKET, \$$PRICE/h), shuts down by itself after $LIMIT minutes"
 say "build and gates take about 10-15 minutes. Then: infra/phase1/collect.sh $RUN"

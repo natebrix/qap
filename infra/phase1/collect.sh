@@ -8,8 +8,16 @@ set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
 RUN=${1:-$(ls -1t "$D/runs" 2> /dev/null | head -1)}
 L=$D/runs/$RUN
-[ -n "$RUN" ] && [ -f "$L/bucket.txt" ] || { echo "no run ${RUN:-} under $D/runs (launch.sh writes it)"; exit 1; }
-B=$(cat "$L/bucket.txt"); REGION=$(cat "$L/region.txt")
+[ -n "$RUN" ] && [ -f "$L/region.txt" ] || { echo "no run ${RUN:-} under $D/runs (launch.sh writes it)"; exit 1; }
+REGION=$(cat "$L/region.txt")
+# bucket.txt stays out of git (the bucket's name holds the account number); without it,
+# the bucket is the signed-in account's, as launch.sh names it
+if [ -f "$L/bucket.txt" ]; then
+  B=$(cat "$L/bucket.txt")
+else
+  ACCT=$(command aws sts get-caller-identity --query Account --output text) || { echo "not signed in: aws sso login"; exit 1; }
+  B=qap-coord-$ACCT-$REGION
+fi
 export AWS_PAGER=""
 aws() { command aws --region "$REGION" "$@"; }
 echo "instances of $RUN:"
