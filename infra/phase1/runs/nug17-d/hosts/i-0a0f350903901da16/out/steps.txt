@@ -1,0 +1,12 @@
+2026-11-13T19:38:52Z start: run nug17-d, role all, host i-0a0f350903901da16
+2026-11-13T19:38:52Z machine: instance_type c7i.xlarge az eu-north-1c lifecycle on-demand host i-0a0f350903901da16 physical_cores 2 slots 2 vcpus 4 arch x86_64 model Intel(R) Xeon(R) Platinum 8488C amx_bf16 1 mem_gb 7 kernel 6.18.62-127.179.amzn2023.x86_64 
+2026-11-13T19:39:25Z toolchain: g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5) cc: cc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5) Python 3.11.18 scipy-openblas32 /usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib boto3 1.44.2 
+2026-11-13T19:39:49Z build ok: 0918dd9f 	libscipy_openblas.so => /usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib/libscipy_openblas.so (0x00007f62ada00000) 
+2026-11-13T19:40:47Z gates: dnncheck pass 58s 
+2026-11-13T19:40:48Z init: run nug17-d from recipes/nug17.sh, incumbent 1732: the frontier pass
+2026-11-13T19:40:50Z init: frontier at depth 0 has 17 open nodes, 17 units, 2 slots
+2026-11-13T19:40:50Z coordinator and worker (2 slots) running
+2026-11-13T19:41:15Z finished:  Nodes: 41443 / 30703 / 0 coordinator: 2 slots, 26 units, wall 12.92 s, CPU 13.00 s (x1.01), slots busy 52.4%, best objective 1732 
+2026-11-13T19:41:15Z reference: bench/parallel.py --jobs 2 on the same settings
+2026-11-13T19:41:22Z check: PASS: totals equal to parallel.py and the optimum 
+2026-11-13T19:41:23Z end (exit)

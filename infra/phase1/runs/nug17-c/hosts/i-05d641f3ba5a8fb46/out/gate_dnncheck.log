@@ -1,0 +1,58 @@
+make -C latest dnntest
+make[1]: Entering directory '/opt/qap/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c dnntest.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o dnntest.o -o dnntest -lm -L/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/opt/qap/latest'
+python3.11 -u tests/dnn_test.py
+A. brute force: 2592 node bounds in 1152 dnntest runs, 48 s
+   max(lb - optimum) = 0, over nodes with m >= 2: -1.23e-13 (must be <= 0 up to 1e-9 relative)
+   bound within 1e-3 of the optimum: 2249 of 2592; fathomed at cutoff opt-1: 2275
+   nug12 [-] m=12: certified lb after 900 iterations C -inf, python 567.9802
+   nug12 [0:3,5:7] m=10: certified lb after 300 iterations C -inf, python 604.3876
+   nug12 [2:2,7:0,9:11] m=9: certified lb after 300 iterations C -inf, python 608.2250
+   nug20 [0:19,1:0] m=18: certified lb after 300 iterations C -inf, python 2579.5553
+   nug20 [1:7,19:11] m=18: certified lb after 200 iterations C -inf, python 2445.6672
+   nug20 [1:1,12:19,16:15] m=17: certified lb after 200 iterations C -inf, python 2458.4815
+B. prototype agreement: 44 checkpoint values, max relative difference inf, 24 s
+   nug20 [1:6,19:12] optimum 2570: lb -inf hopeless in 200 iterations (0.7 s), study not fathomed
+   nug20 [1:6,19:13] optimum 2588: lb 1528.978 hopeless in 920 iterations (3.1 s), study not fathomed
+   nug20 [1:7,19:11] optimum 2594: lb -inf hopeless in 310 iterations (1.1 s), study fathomed
+   nug20 [1:6,19:8] optimum 2594: lb -inf hopeless in 370 iterations (1.3 s), study fathomed
+   nug20 [0:19,1:0] optimum 2646: lb -inf hopeless in 200 iterations (0.8 s), study fathomed
+   nug20 [1:1,12:19,16:15] optimum 2584: lb -inf hopeless in 200 iterations (0.6 s), study fathomed
+   nug20 [1:6,15:4,19:10] optimum 2644: lb -inf hopeless in 200 iterations (0.6 s), study fathomed
+C. nug20 nodes with known optima: 22 s
+D. cancellation regressions: 13 cases, 0 s
+E. eliminated assignments: 160 nodes (78 with a stronger bound than without eliminations), 3 s
+FAILED: 49 problems
+  nug12 [-] it 50: C -inf python 442.326599
+  nug12 [-] it 100: C -inf python 517.497874
+  nug12 [-] it 150: C -inf python 543.104969
+  nug12 [-] it 200: C -inf python 556.612616
+  nug12 [-] it 250: C -inf python 562.813203
+  nug12 [-] it 300: C -inf python 565.546233
+  nug12 [-] it 350: C -inf python 566.778751
+  nug12 [-] it 400: C -inf python 567.317792
+  nug12 [-] it 450: C -inf python 567.584354
+  nug12 [-] it 500: C -inf python 567.734545
+  nug12 [-] it 550: C -inf python 567.825722
+  nug12 [-] it 600: C -inf python 567.882245
+  nug12 [-] it 650: C -inf python 567.918524
+  nug12 [-] it 700: C -inf python 567.942245
+  nug12 [-] it 750: C -inf python 567.957966
+  nug12 [-] it 800: C -inf python 567.968456
+  nug12 [-] it 850: C -inf python 567.975484
+  nug12 [-] it 900: C -inf python 567.980200
+  nug12 [0:3,5:7] it 50: C -inf python 518.250069
+  nug12 [0:3,5:7] it 100: C -inf python 573.607953
+  nug12 [0:3,5:7] it 150: C -inf python 592.524164
+  nug12 [0:3,5:7] it 200: C -inf python 599.492873
+  nug12 [0:3,5:7] it 250: C -inf python 602.928152
+  nug12 [0:3,5:7] it 300: C -inf python 604.387647
+  nug12 [2:2,7:0,9:11] it 50: C -inf python 567.483101
+  nug12 [2:2,7:0,9:11] it 100: C -inf python 593.007228
+  nug12 [2:2,7:0,9:11] it 150: C -inf python 603.034504
+  nug12 [2:2,7:0,9:11] it 200: C -inf python 605.588030
+  nug12 [2:2,7:0,9:11] it 250: C -inf python 607.101799
+  nug12 [2:2,7:0,9:11] it 300: C -inf python 608.225029
+make: *** [Makefile:51: dnncheck] Error 1
