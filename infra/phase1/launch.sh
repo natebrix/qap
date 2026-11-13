@@ -164,7 +164,8 @@ L=$D/runs/$RUN
 [ "$DRY" = 1 ] && L=$(mktemp -d)   # a dry run leaves no run directory
 mkdir -p "$L"
 TAR=$L/qap-$COMMIT.tar.gz
-git -C "$R" archive --format=tar.gz -o "$TAR" HEAD Makefile latest qaplib QAPSOLN tests bench coord experiments/dnn_bound infra/phase1
+git -C "$R" archive --format=tar.gz -o "$TAR" HEAD Makefile latest qaplib QAPSOLN tests bench coord experiments/dnn_bound infra/phase1 \
+  'experiments/estimates/*/*.par' experiments/wil50_feasibility/fullrun/fullrun.par   # the settings files recipes point at
 SRC=src/qap-$COMMIT.tar.gz
 say "uploading $(du -h "$TAR" | cut -f1) to s3://$B/$SRC"
 [ "$DRY" = 1 ] && echo "  [dry-run] aws s3 cp $TAR s3://$B/$SRC" >&2 || aws s3 cp --only-show-errors "$TAR" "s3://$B/$SRC"
