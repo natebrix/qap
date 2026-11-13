@@ -337,6 +337,42 @@ of them.
   deeper than 4 (the children's lines at depth 5 and below come from solves
   this run did not perform).
 
+### 2.8 Box cuts in the CP phase (Nov 13, laptop, two nodes)
+
+Item 7 of section 4, the one untried combination of section 3.4: box
+(count) inequalities inside the CP phase, where no multiplier step can
+disturb them. `dnncuts` grew a line for it (`-box K` with `-cpsep`: round 0
+separates K boxes with the triangles at the give-up point and they enter the
+CP pool; after the solve the same separator runs once more on the solve's
+final iterate and prints what it finds, adding nothing). Nodes 10 and 13 on
+`wil50t.dat`, side 1, grid 5:10, 300 give-up iterations, then one CP solve
+of 2,000 iterations separating 1,000 triangles every 100 (the production
+`cut.cp = 100:1000`), one sweep; the control is the same run without
+`-box`. Logs in `box/`.
+
+| node | give-up bound | triangles only: CP bound after 2,000 | with 200 boxes in the pool | boxes' gain | largest box violation, give-up point / final iterate | largest triangle violation, final iterate |
+|---|---|---|---|---|---|---|
+| 10 (`13:1,21:0,45:2`), 334 short | 48,479.6 | 48,622.83 | 48,622.89 | +0.06 | 0.301 / 0.143 (531 violated) | 0.020 |
+| 13 (`28:21,41:8,19:28`), 244 short | 48,570.4 | 48,753.03 | 48,753.08 | +0.05 | 0.519 / 0.184 (870 violated) | 0.021 |
+
+- **Closed.** Two hundred boxes in the CP pool move the certified bound by
+  less than a tenth of a unit at either node, on a phase gain of 143 and
+  183. The trajectories agree to 0.1 at every 500 iterations. The CPU is
+  the same (434-447 s) although the boxes bring 37,800 projector terms
+  against 4,700 for the triangles alone.
+- **The gate did not close it, the trial did.** Section 3.4 proposed closing
+  the family if the largest box violation at a phase's final iterate were
+  under 0.05; it is 0.14 and 0.18, seven to nine times the triangles' 0.02,
+  and hundreds of boxes are violated. A box is a count inequality on up to
+  24 variables, so its violation does not compare with a triangle's on the
+  same scale, and the Lagrangian says what matters: the CP phase with the
+  boxes certifies no more than without them. This agrees with the earlier
+  rounds-form finding (by round 12 the Lagrangian with boxes was no higher
+  than without), now without the multiplier step as the suspect.
+- Not measured: boxes separated inside the solve (the in-solve separator
+  takes triangles only), and more than 200 boxes. Neither is likely to
+  change a result of +0.06.
+
 ## 3. Findings
 
 ### 3.1 The leaves: the median leaf is at its floor, the cost is in the slow tail
@@ -540,7 +576,7 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
 | 5 | the early certificate at iteration 5 of warm solves | 1.016x on the subtree [m] | 1.016x | `dnn.cross_first` (default 0), the former `DNN_ADMM_CROSS_FIRST` | **adopted Nov 12** (`fullrun.par`, `dnn.cross_first = 5`); measured on the 94-node subtree of section 2.1, not re-measured at the wider zone |
 | 6 | a predictive stop for phases that creep toward the cutoff, or that will not fathom at all | one phase in the zone test runs to the 3,400 limit and ends 1-2 short, 1,090 s [m]; 15 of stage A's 463 depth-2 phases end at the limit, 11% of their CPU [r]; a floor of 150 leaked into the phases by mistake gave 1.072x DNN CPU on the subtree with 930 more nodes (section 2.5) [m]; **subtree A/B with `cut.giveup = 200:35,300:25,400:20,600:12`, zero fathoms lost in the replay: 1.001x iterations, 1.017x DNN CPU, 223 more nodes, one child's fathom lost** (section 2.6) [m] | about 1.06x [e]; 1.017x measured | built: `cut.giveup` (default off), `QAP_DNN_TRACE_HIST`, `phase_stop/replay.py` | **killed Nov 12** (under 1.03x, a fathom lost): a stopped phase's pool is its children's warm start, so four fifths of the saving comes back as nodes; a depth-6+ or zone-boundary variant is the remaining idea |
-| 7 | box cuts at the CP phase's final iterate | untried, and the evidence is weak (section 3.4) | 0 to +10 units [e] | an hour with `dnncuts` | close if the largest violation is under 0.05 |
+| 7 | box cuts at the CP phase's final iterate | nodes 10 and 13: 200 boxes in the CP pool gain +0.06 and +0.05 over 2,000 iterations; box violations at the final iterate 0.14 and 0.18 (section 2.8) [m] | 0 | `dnncuts -box` with `-cpsep` | **closed Nov 13**: the violation gate (0.05) is not met but the Lagrangian does not move |
 | 8 | branching marginals from the phase's final iterate (`bnb.C` takes `dnn_xbar` from the first solve before the phase's state replaces it) | node 10's root and its 47 children: the line is the same at 17 of the 18 nodes that branch, one child's col 40 becomes col 10 (section 2.7) [m] | none seen | built: `cut.xbar` (default 0) | **closed Nov 13**: the phase does not move the primal row the rules read; the one differing child is not worth two subtree runs |
 
 Not worth doing, measured here: a lower warm beta, damped dual steps at a
@@ -620,6 +656,8 @@ phases, and region branching only on nug30, cold, at a far miss.
   its trace); its A/B is `../pipeline_ab/runs_cg/`.
 - `xbar/`: section 2.7's two single-node runs (`off.par`, `on.par`, the
   `.out` and `.err` of each, `lines.diff` of the lines chosen).
+- `box/`: section 2.8's four `dnncuts` logs (`n10`, `n13`, with boxes;
+  `n10_nobox`, `n13_nobox`, the controls).
 - `zone_rd.py`, `zone_rd.txt`: section 2.4's tally of stage B.
 - `zone/`: section 3.5. `run_set.sh` bounds a node and its children with
   chosen settings on `base.par` (the node-10 arm's settings file);

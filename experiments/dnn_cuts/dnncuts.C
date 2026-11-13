@@ -48,6 +48,9 @@
  afterwards a quiet round of N iterations with the final multipliers frozen
  (the plain path with L_add, warm), -cpomega W over-relaxed half-space steps,
  -cpmu the start multipliers from the pool file instead of zero.
+ With -box K, the CP path also separates boxes (and triangles) on the CP
+ solve's final iterate and prints their counts and largest violations (nothing
+ is added); -dumpY writes that iterate.
  -cpsep k:K[:CAP[:DROP]] separates inside the solve: every k iterations up to K new
  violated regional triangles on that iteration's projected Y (dnn_cut_rounds'
  separator and ranking), appended with nu = 0; CAP bounds the pool, DROP drops cuts
@@ -336,6 +339,21 @@ int main(int argc, char **argv)
     printf("cp solve  lb %.10f (gain %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  certs %d failures %d  kept %d\n",
            r.lb, r.lb - r0.first_lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, r.certificates,
            r.cert_failures, kept);
+    if (cp.kbox > 0 && save.m > 0 && save.Y.size() == (size_t)(save.m * save.m + 1) * (size_t)(save.m * save.m + 1)) {
+      // the violations at the CP solve's final iterate (review_nov10 section 3.4, item 7):
+      // round 0 of the rounds form on that iterate, no solve, nothing added
+      DNNCutParams cb = cp;
+      cb.rounds = 0; cb.first_iters = 0; cb.freeze_iters = 0; cb.freeze_after = 0;
+      cb.pool_in = NULL; cb.pool_out = NULL; cb.pool_all_out = NULL;
+      printf("at the CP solve's final iterate:\n");
+      dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, cb, &save, r.lb, r.primal);
+    }
+    if (!dumpy.empty() && !save.Y.empty()) {
+      std::string path = dumpy + ".Y.bin";
+      FILE *f = fopen(path.c_str(), "wb");
+      if (f) { fwrite(save.Y.data(), sizeof(double), save.Y.size(), f); fclose(f);
+        printf("dumped the CP solve's Y (%zu doubles, m=%d) to %s\n", save.Y.size(), save.m, path.c_str()); }
+    }
     const double fin = std::max(std::max(r.lb, r0.first_lb), cpp.quiet_lb);
     printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", fin, r0.first_lb, fin - r0.first_lb);
     delete q;
