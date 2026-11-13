@@ -222,9 +222,31 @@ c7i.xlarge, cents each.
 - **nug30 acceptance on Graviton (`nug30-a`, c7g.4xlarge, 16 cores, the override
   on):** six gates passed; the coordinator's tree equals `bench/parallel.py`
   on the same instance (3,688 nodes, 3,547 fathomed, 380,512 FW iterations,
-  3,687 DNN nodes), optimum 6124, 412 units, slots busy 72%: PASS. 4,961 CPU s
-  against about 1,300 on the M2 Pro: a Graviton3 core is about a quarter of a
-  laptop core on this recipe (the N1 kernels, no SVE).
+  3,687 DNN nodes), optimum 6124, 412 units, slots busy 72%: PASS. 4,961 CPU s for 3,688 nodes
+  against the laptop's 1,423 for 3,716 (`nug30-local-a`, Accelerate): 1.35 s a
+  node against 0.38, so a Graviton3 core (N1 kernels, no SVE) is about 3.5x
+  slower than a laptop core on this recipe.
+- **The tho40 smoke subtree on both families (`tho40sub-g`, `tho40sub-i`):** the
+  coordinator gives the Nov 9 A/B's tree on each (110 nodes, 107 fathomed,
+  14,278 FW iterations), so the tho40 recipe, its symmetry file and its
+  settings file work through the store. Their first launch failed in the
+  frontier pass: the source archive lacked `experiments/estimates`, which now
+  travels with the settings files. The reference run failed on both because
+  `bench/parallel.py` passed the recipe's `-F` to its workers, which the solver
+  rejects with `-r`; it now strips it as the coordinator does (checked on a
+  nug12 subtree: 72 nodes, 28,439 FW iterations, equal to the serial run).
+  CPU per tho40 node, the price of the full run:
+
+  | machine | slots | CPU s | per node |
+  |---|---|---|---|
+  | M2 Pro, local coordinator | 4 | 127 | 1.15 s |
+  | c7i.4xlarge (Sapphire Rapids, 8 cores, 16 vCPUs) | 8 | 351 | 3.19 s |
+  | c7g.4xlarge (Graviton3, 16 cores, N1 kernels) | 16 | 797 | 7.25 s |
+
+  At the Nov 8 estimate of 0.6 to 3 million nodes: a c7i.16xlarge (32 cores,
+  $2.86/h) 17 to 83 hours and $50 to $240 [e]; a c7g.16xlarge (64 cores,
+  $2.32/h) 19 to 94 hours and $44 to $220 [e]. Either is the whole 64-vCPU
+  on-demand quota.
 - **`QAP_PROBE`** (`--node-env "QAP_PROBE='...'"`): a shell command `node.sh`
   runs in `latest/` after the build, its output uploaded as `out/probe.log`,
   for a diagnosis on the instance's CPU without logging in (there is no SSH

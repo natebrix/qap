@@ -304,6 +304,12 @@ def main():
         os.makedirs(warm_dir, exist_ok=True)
     os.makedirs(work, exist_ok=True)
     base_cmd = [solver, "-p", args.params] + args.extra.split()
+    # a worker resumes a state file whose nodes already carry the -F fixes, and
+    # the solver rejects -F together with -r: the run's -F is the frontier pass's
+    worker_base = list(base_cmd)
+    while "-F" in worker_base:
+        k = worker_base.index("-F")
+        del worker_base[k:k + 2]
     if args.ub is not None:
         base_cmd += ["-u", args.ub]
     wall0 = time.perf_counter()
@@ -358,7 +364,7 @@ def main():
         path = os.path.join(work, f"task{task_id}.state")
         template.obj, template.perm, template.found = best_obj, best_perm, best_found
         template.write(path, nodes)
-        cmd = base_cmd + ["-r", path, "-o", path, "-U", incumbent_file]
+        cmd = worker_base + ["-r", path, "-o", path, "-U", incumbent_file]
         if args.slice > 0:
             cmd += ["-t", str(args.slice)]
         log = open(path + ".log", "w")

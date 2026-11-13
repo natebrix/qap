@@ -1,0 +1,12 @@
+2026-11-13T20:22:42Z start: run tho40sub-i, role all, host i-02d7da0777763b4e8
+2026-11-13T20:22:43Z machine: instance_type c7i.4xlarge az eu-north-1c lifecycle on-demand host i-02d7da0777763b4e8 physical_cores 8 slots 8 vcpus 16 arch x86_64 model Intel(R) Xeon(R) Platinum 8488C amx_bf16 1 mem_gb 30 kernel 6.18.62-127.179.amzn2023.x86_64 
+2026-11-13T20:23:14Z toolchain: g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5) cc: cc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5) Python 3.11.18 scipy-openblas32 /usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib boto3 1.44.3 
+2026-11-13T20:23:36Z build ok: dd70e71c 	libscipy_openblas.so => /usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib/libscipy_openblas.so (0x00007f78e0400000) 
+2026-11-13T20:23:36Z gates: 
+2026-11-13T20:23:37Z init: run tho40sub-i from recipes/tho40sub.sh, incumbent 240516: the frontier pass
+2026-11-13T20:23:38Z init: frontier at depth 0 has 1 open nodes, 1 units, 8 slots
+2026-11-13T20:23:39Z coordinator and worker (8 slots) running
+2026-11-13T20:26:21Z finished:  Nodes: 110 / 107 / 0 coordinator: 8 slots, 31 units, wall 151.14 s, CPU 350.64 s (x2.32), slots busy 29.6%, best objective 240516 
+2026-11-13T20:26:21Z reference: bench/parallel.py --jobs 8 on the same settings
+2026-11-13T20:26:22Z reference run failed (out/reference.log)
+2026-11-13T20:26:22Z check: FAIL: no totals in the reference nodes: 110 (coordinator) != None (parallel.py) fathomed: 107 (coordinator) != None (parallel.py) enumerated: 0 (coordinator) != None (parallel.py) fw iterations: 14278 (coordinator) != None (parallel.py) DNN nodes: 110 (coordinator) != 0 (parallel.py) DNN fathomed: 107 (coordinator) != 0 (parallel.py) 
