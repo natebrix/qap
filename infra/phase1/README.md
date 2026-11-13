@@ -55,6 +55,8 @@ expects), `UB` (the incumbent given to the solver), `EXTRA` (solver flags),
 |---|---|---|
 | `nug17` | the smoke test: QPB only, one-second units, a few dozen of them through S3/SQS/DynamoDB | 20 s |
 | `nug30` | the acceptance run: the Nov 8 record recipe (rule 9, DNN at depths 1-7) with `ship.bits = 64` (`recipes/nug30.par`), one-minute units | 1,300 s on the M2 Pro; more on Graviton |
+| `tho40sub` | the tho40 smoke test: the depth-3 subtree 26:3,31:7,37:0 of `tho40t.dat` under `experiments/estimates/tho40/tho40.par` (110 nodes, 107 fathomed in the Nov 9 A/B), one-minute units; prices a tho40 node on the instance | 197 s on the M2 Pro |
+| `tho40` | the whole tho40 tree against the best known 240,516, 20-minute units; `--no-reference` and a `--limit` of days (the recipe's comment has the launch line) | 0.9e6 to 4e6 s on the M2 Pro (`experiments/tho40_estimate/`) |
 
 `ship.bits = 64` instead of the record's 32: with 64 a node restored from a
 state file starts its DNN from its parent's exact doubles, so a tree cut into
@@ -149,6 +151,12 @@ The bucket stays private. Once per account and region:
 infra/phase1/publish_setup.sh --dry-run    # the calls it would make
 infra/phase1/publish_setup.sh              # prints the URL base
 ```
+
+**Nov 13, on real AWS:** `CreateDistribution` was refused with "Your account must be
+verified before you can add new CloudFront resources": a new account needs an AWS
+Support case (the error message says so) before any distribution exists. The
+script now stops there; the origin access control it had created stays, unused
+and free, and a rerun after verification completes the setup.
 
 It creates a CloudFront distribution that serves `public/` and nothing else
 (origin path `/public`, an origin access control, and a bucket policy that lets

@@ -85,6 +85,10 @@ EOF
     --query 'Distribution.[Id,DomainName]' --output text)"
   [ "$DRY" = 1 ] && { DIST=dry-run; DOMAIN=dry-run.cloudfront.net; }
   rm -f "$CFG"
+  # a new account may be refused ("Your account must be verified before you can add new
+  # CloudFront resources": an AWS Support case); stop here rather than write a bucket
+  # policy for a distribution that does not exist
+  [ -n "$DIST" ] && [ "$DIST" != None ] || { echo "the distribution was not created; nothing else changed"; exit 1; }
 fi
 
 # --- the bucket policy: that distribution may read public/*, nothing else
