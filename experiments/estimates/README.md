@@ -330,7 +330,7 @@ From Nov 12, `sko42.par` is C. Its golden is from HEAD's build (68 settings), so
 over from an A run must be moved aside first: the search would resume from A's
 checkpoint.
 
-## sko49: the estimate under sko42's C (cloud box, Nov 12)
+## sko49: the estimate under sko42's C and a wider zone (cloud box, Nov 12-13)
 
 `sko49/tune/README.md` has the details. The settings are arm C on sko49's own
 7 x 7 grid (`sko49/tune/C.par`: `sko49.par` with `cut.zone = 0.010`, which is
@@ -359,12 +359,33 @@ checkpoint.
   of it, and the 193 within 234 carry 3-5%.
 - **Why.** The cost is in nodes beyond the zone. Their children that come out
   135-234 short get a cut phase and never fathom (0 of 27).
-- **A wider zone may cut it.** On two tail nodes, `cut.zone = 0.018` (421
-  short; arm Cw) cost 0.58x and 0.23x what C did:
-  - every depth-4 node then runs a phase, and its children mostly fathom at
-    their first solve;
-  - Cw probes on the 11 anchor nodes beyond 234 short are running, for a Cw
-    estimate.
+
+**A wider zone cuts it to about 0.6x (Nov 13).** Arm Cw is C with
+`cut.zone = 0.018` (`sko49/tune/Cw.par`), which is 421 short. Every depth-3
+node in the sample is within it, so every depth-4 node runs a phase, and its
+children mostly fathom at their first solve. The Cw estimate reprobes the 11
+anchor nodes beyond 234 short under Cw and keeps C's four below them, which
+behave the same under both:
+
+| anchors indexed by | DNN nodes | CPU s | cloud core-hours (95%) | laptop core-hours | Cw / C (95%, paired) |
+|---|---|---|---|---|---|
+| the probe's cold first solve | 5.0e6-6.2e6 | 1.3-1.5e8 | **37,000-42,000** (17,000-66,000) | 19,000-21,000 | 0.62-0.63 (0.32-1.16) |
+| stage B's warm give-up | 7.8e6-9.7e6 | 2.0-2.1e8 | 56,000-59,000 (27,000-93,000) | 28,000-29,000 | 0.60-0.61 (0.29-1.14) |
+
+- **The pairs.** Cw is cheaper on 8 of the 11 nodes (pooled 0.52x). The
+  mechanism shows in nearly all of them: more draws fathom at their first
+  solve, 62 of 176 at level 4 against 24, and 120 of 160 at level 5 against
+  62. The 3 pairs where Cw costs more (1.4-3.6x) differ only below level 4,
+  where a few open draws set the node counts.
+- **How sure.** In the paired resampling (`sko49/tune/paired.py`), Cw comes
+  out cheaper in 90-95% of draws. One pair carries much of the gap: without
+  the 380-short node, where C's probe cost 1.8e6 s (SE 79%), Cw / C is
+  0.81-0.95.
+- **What it leaves out.** Stages A and B ran under C. Under Cw, depth-2 nodes
+  from 234 to 421 short would also run a phase and pass a better pool to the
+  frontier, so the estimate errs high.
+- **The laptop.** 19,000-21,000 laptop core-hours is 129-146 days on its 6
+  P-cores, against 210-230 under C.
 
 ## Cold against warm: a220 as production would bound it (cloud box, Nov 10)
 
