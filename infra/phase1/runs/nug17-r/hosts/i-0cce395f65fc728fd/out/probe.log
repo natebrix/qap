@@ -1,0 +1,56 @@
+-rwxr-xr-x. 1 root root 805960 Nov 13 20:00 dnntest
+== core type
+Core: neoversev1
+RESULT node=0 m=12 lb=-inf primal=281.31831943261437 status=iter_limit iters=20 cpu=0.012 ms_per_iter=0.59 certs=2 cert_fail=2 refine=2 margin=0 fathomed=0 restarts=0
+== mode []
+it    50 lb 549.7063 (cert 549.7063, margin 0.00e+00, lazy) primal 522.7222 pres 8.09e-02 dY 7.51e-02 npos 84 cpu 0.03
+it   100 lb 564.9096 (cert 564.9096, margin 0.00e+00, lazy) primal 559.0677 pres 1.74e-02 dY 1.21e-02 npos 84 cpu 0.06
+RESULT node=0 m=12 lb=-inf primal=566.03389453984562 status=hopeless iters=200 cpu=0.116 ms_per_iter=0.58 certs=3 cert_fail=3 refine=1 margin=0 fathomed=0 restarts=0
+== mode [-f]
+it    50 lb 553.7456 (cert 553.7456, margin 0.00e+00, lazy) primal 529.3416 pres 7.22e-02 dY 5.78e-02 npos 83 cpu 0.05
+it   100 lb 565.5392 (cert 565.5392, margin 0.00e+00, lazy) primal 559.8933 pres 1.57e-02 dY 9.51e-03 npos 84 cpu 0.10
+RESULT node=0 m=12 lb=-inf primal=566.27663817838311 status=hopeless iters=200 cpu=0.189 ms_per_iter=0.95 certs=3 cert_fail=3 refine=1 margin=0 fathomed=0 restarts=0
+== mode [-e 0]
+it    50 lb 553.7456 (cert 553.7456, margin 0.00e+00, lazy) primal 529.3417 pres 7.22e-02 dY 5.78e-02 npos 83 cpu 0.07
+it   100 lb 565.5392 (cert 565.5392, margin 0.00e+00, lazy) primal 559.8932 pres 1.57e-02 dY 9.51e-03 npos 84 cpu 0.14
+RESULT node=0 m=12 lb=-inf primal=566.27662992869637 status=hopeless iters=200 cpu=0.269 ms_per_iter=1.34 certs=3 cert_fail=3 refine=0 margin=0 fathomed=0 restarts=0
+== mode [-e 1]
+it    50 lb 553.7456 (cert 553.7456, margin 0.00e+00, lazy) primal 529.3416 pres 7.22e-02 dY 5.78e-02 npos 83 cpu 0.05
+it   100 lb 565.5392 (cert 565.5392, margin 0.00e+00, lazy) primal 559.8933 pres 1.57e-02 dY 9.51e-03 npos 84 cpu 0.10
+RESULT node=0 m=12 lb=-inf primal=566.27663817838311 status=hopeless iters=200 cpu=0.190 ms_per_iter=0.95 certs=3 cert_fail=3 refine=1 margin=0 fathomed=0 restarts=0
+== mode [-P]
+it    50 lb -inf (cert -inf, margin 0.00e+00, chol FAILED) primal 567.6362 pres 8.15e-03 dY 2.04e-02 npos 82 cpu 0.07
+it   100 lb -inf (cert -inf, margin 0.00e+00, chol FAILED) primal 568.5384 pres 2.09e-03 dY 8.93e-03 npos 84 cpu 0.14
+it   300 lb -inf (cert -inf, margin 0.00e+00, chol FAILED) primal 568.0173 pres 2.07e-04 dY 4.70e-04 npos 85 cpu 0.40
+RESULT node=0 m=12 lb=-inf primal=568.01734825458561 status=iter_limit iters=300 cpu=0.404 ms_per_iter=1.35 certs=6 cert_fail=6 refine=0 margin=0 fathomed=0 restarts=0
+== OPENBLAS_CORETYPE=ARMV8
+Core: armv8
+it    50 lb 549.7063 (cert 549.7063, margin 0.00e+00, lazy) primal 522.7222 pres 8.09e-02 dY 7.51e-02 npos 84 cpu 0.03
+RESULT node=0 m=12 lb=567.62891883525515 primal=566.0340244210779 status=hopeless iters=200 cpu=0.125 ms_per_iter=0.63 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== OPENBLAS_CORETYPE=NEOVERSEN1
+Core: neoversen1
+it    50 lb 549.7063 (cert 549.7063, margin 0.00e+00, lazy) primal 522.7223 pres 8.09e-02 dY 7.51e-02 npos 84 cpu 0.03
+RESULT node=0 m=12 lb=567.62889105046429 primal=566.03398388885307 status=hopeless iters=200 cpu=0.122 ms_per_iter=0.61 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== OPENBLAS_CORETYPE=CORTEXA72
+Core: cortexa57
+it    50 lb 549.7063 (cert 549.7063, margin 0.00e+00, lazy) primal 522.7222 pres 8.09e-02 dY 7.51e-02 npos 84 cpu 0.03
+RESULT node=0 m=12 lb=567.62891883525515 primal=566.0340244210779 status=hopeless iters=200 cpu=0.125 ms_per_iter=0.62 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== m=8 node (auto kernel)
+RESULT node=0 m=8 lb=-inf primal=667.21968613056674 status=iter_limit iters=300 cpu=0.046 ms_per_iter=0.15 certs=30 cert_fail=30 refine=30 margin=0 fathomed=0 restarts=0
+== direct LAPACK at K=145 and 400 (auto kernel)
+145 scipy_dpotrf_ info 0 resid 1.14e-13
+145 scipy_spotrf_ info 0 resid 79
+145 scipy_dsyevd_ info 0 resid 5.12e-13 orth 2.89e-15
+145 scipy_ssyevd_ info 0 resid 0.000311 orth 6.95e-07
+145 dsyrk resid 0
+145 sgemv resid 1.84e-06
+145 sgemm resid 1.96e-05
+145 strtri info 0 resid 1.1e-07
+400 scipy_dpotrf_ info 0 resid 2.27e-13
+400 scipy_spotrf_ info 0 resid 0.000148
+400 scipy_dsyevd_ info 0 resid 2.73e-12 orth 3.55e-15
+400 scipy_ssyevd_ info 0 resid 0.000647 orth 1.13e-06
+400 dsyrk resid 0
+400 sgemv resid 6.91e-06
+400 sgemm resid 7.09e-05
+400 strtri info 0 resid 5.18e-08

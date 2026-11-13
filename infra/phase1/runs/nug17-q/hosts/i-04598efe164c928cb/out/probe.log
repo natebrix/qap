@@ -1,0 +1,49 @@
+-rwxr-xr-x. 1 root root 805960 Nov 13 19:57 dnntest
+== core type
+Core not found: auto
+Falling back to generic ARMV8 core
+Core: armv8
+== mode []
+it    50 lb 549.7063 (cert 549.7063, margin 0.00e+00, lazy) primal 522.7222 pres 8.09e-02 dY 7.51e-02 npos 84 cpu 0.03
+it   100 lb 564.9096 (cert 564.9096, margin 0.00e+00, lazy) primal 559.0677 pres 1.74e-02 dY 1.21e-02 npos 84 cpu 0.06
+RESULT node=0 m=12 lb=567.62891883525515 primal=566.0340244210779 status=hopeless iters=200 cpu=0.124 ms_per_iter=0.62 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== mode [-f]
+it    50 lb 553.7456 (cert 553.7456, margin 0.00e+00, lazy) primal 529.3417 pres 7.22e-02 dY 5.78e-02 npos 83 cpu 0.06
+it   100 lb 565.5392 (cert 565.5392, margin 0.00e+00, lazy) primal 559.8933 pres 1.57e-02 dY 9.51e-03 npos 84 cpu 0.12
+RESULT node=0 m=12 lb=567.75069447721967 primal=566.27675647141484 status=hopeless iters=200 cpu=0.236 ms_per_iter=1.18 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== mode [-e 0]
+it    50 lb 553.7456 (cert 553.7456, margin 0.00e+00, lazy) primal 529.3417 pres 7.22e-02 dY 5.78e-02 npos 83 cpu 0.08
+it   100 lb 565.5392 (cert 565.5392, margin 0.00e+00, lazy) primal 559.8932 pres 1.57e-02 dY 9.51e-03 npos 84 cpu 0.16
+RESULT node=0 m=12 lb=567.75075140580213 primal=566.27662992869614 status=hopeless iters=200 cpu=0.326 ms_per_iter=1.63 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== mode [-e 1]
+it    50 lb 553.7456 (cert 553.7456, margin 0.00e+00, lazy) primal 529.3417 pres 7.22e-02 dY 5.78e-02 npos 83 cpu 0.06
+it   100 lb 565.5392 (cert 565.5392, margin 0.00e+00, lazy) primal 559.8933 pres 1.57e-02 dY 9.51e-03 npos 84 cpu 0.12
+RESULT node=0 m=12 lb=567.75069447721967 primal=566.27675647141484 status=hopeless iters=200 cpu=0.236 ms_per_iter=1.18 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== mode [-P]
+it    50 lb 442.3266 (cert 442.3266, margin 2.33e-09) primal 567.6362 pres 8.15e-03 dY 2.04e-02 npos 82 cpu 0.08
+it   100 lb 517.4979 (cert 517.4979, margin 2.33e-09) primal 568.5384 pres 2.09e-03 dY 8.93e-03 npos 84 cpu 0.16
+it   300 lb 565.5462 (cert 565.5462, margin 2.33e-09) primal 568.0173 pres 2.07e-04 dY 4.70e-04 npos 85 cpu 0.48
+RESULT node=0 m=12 lb=565.5462332380929 primal=568.01734825458539 status=iter_limit iters=300 cpu=0.485 ms_per_iter=1.62 certs=6 cert_fail=0 refine=0 margin=2.33e-09 fathomed=0 restarts=0
+== OPENBLAS_CORETYPE=ARMV8
+Core: armv8
+it    50 lb 549.7063 (cert 549.7063, margin 0.00e+00, lazy) primal 522.7222 pres 8.09e-02 dY 7.51e-02 npos 84 cpu 0.03
+RESULT node=0 m=12 lb=567.62891883525515 primal=566.0340244210779 status=hopeless iters=200 cpu=0.124 ms_per_iter=0.62 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== OPENBLAS_CORETYPE=NEOVERSEN1
+Core: neoversen1
+it    50 lb 549.7063 (cert 549.7063, margin 0.00e+00, lazy) primal 522.7223 pres 8.09e-02 dY 7.51e-02 npos 84 cpu 0.03
+RESULT node=0 m=12 lb=567.62889105046429 primal=566.03398388885307 status=hopeless iters=200 cpu=0.122 ms_per_iter=0.61 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== OPENBLAS_CORETYPE=CORTEXA72
+Core: cortexa57
+it    50 lb 549.7063 (cert 549.7063, margin 0.00e+00, lazy) primal 522.7222 pres 8.09e-02 dY 7.51e-02 npos 84 cpu 0.03
+RESULT node=0 m=12 lb=567.62891883525515 primal=566.0340244210779 status=hopeless iters=200 cpu=0.125 ms_per_iter=0.62 certs=3 cert_fail=0 refine=0 margin=2.29e-09 fathomed=0 restarts=0
+== m=8 node (auto kernel)
+RESULT node=0 m=8 lb=602.74545817790579 primal=292.34733220691868 status=fathomed iters=10 cpu=0.001 ms_per_iter=0.12 certs=1 cert_fail=0 refine=0 margin=5.61e-10 fathomed=1 restarts=0
+== direct LAPACK at K=145 and 400 (auto kernel)
+145 scipy_dpotrf_ info 0 resid 1.14e-13
+145 scipy_spotrf_ info 0 resid 4.54e-05
+145 scipy_dsyevd_ info 0 resid 6.82e-13 orth 3e-15
+145 scipy_ssyevd_ info 0 resid 0.000233 orth 8.94e-07
+145 dsyrk resid 0
+Traceback (most recent call last):
+  File "<stdin>", line 23, in <module>
+TypeError: only 0-dimensional arrays can be converted to Python scalars
