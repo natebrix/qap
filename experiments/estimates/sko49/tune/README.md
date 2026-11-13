@@ -4,6 +4,16 @@ sko49 gets the settings that won on sko42 (`../../sko42/tune/README.md`), on its
 7 x 7 grid, and the same sampling plan as sko42. Below depth 3, sampled probes
 (`../../probe.py`) stand in for the complete subtrees, which are too large here.
 
+**The result (Nov 13 05:15, three probes per arm on the 380.1-short node).**
+Cold index, iso and fit models:
+- under Cw (C with `cut.zone = 0.018`; `sko49.par` from Nov 13): 37,000-41,000
+  cloud core-hours (95%: 17,000-65,000);
+- under C: 48,000-56,000 (95%: 23,000-100,000).
+
+Cw / C is 0.74-0.77 in paired resampling, cheaper in 88-95% of draws. Before
+the replicates it was 0.62-0.63: C's first probe of that node was a high draw.
+See "Replicates on the 380.1-short node" at the end.
+
 ## Settings: arm C (`C.par`, `C.sh`, `C.golden`)
 
 `C.par` is `../sko49.par` (wil50's full run with `cut.grid = 7:7`, `cut.side = 1`)
@@ -17,9 +27,13 @@ with `cut.zone = 0.010`:
   (`../../../sko49_feasibility/NOTES.md` section 4), against 80-100 on sko42's
   6 x 7. So 0.010 is the same zone in units of the phase's gain on both
   instances, about 1.7 gains: 234 short here, 158 on sko42.
-- **Everything else** is `sko49.par` as it stands. `C.golden` differs from
-  `../settings.golden` only in the zone, the hashes, and the pool-check
-  diagnostic, which `../settings.sh` turns on and sko42's arms leave off.
+- **Everything else** is `sko49.par` as it stood on Nov 12. `C.golden`
+  differed from `../settings.golden` only in the zone, the hashes, and the
+  pool-check diagnostic, which `../settings.sh` turns on and sko42's arms leave
+  off. From Nov 13, `sko49.par` is Cw (`cut.zone = 0.018`). Its golden comes
+  from HEAD's build, which adds `dnn.giveup_warm`, `cut.giveup` and
+  `QAP_DNN_TRACE_HIST` at their defaults, and renames `DNN_ADMM_CROSS_FIRST`
+  to `dnn.cross_first`.
 
 ## Plan
 
@@ -221,6 +235,61 @@ All six run the same binary as the nine probes (md5 `ee4c6ebd…`). The
 With 13 anchors interp is back near iso, because the replicates are no longer
 all on one side.
 
+**Fourteen anchors (Nov 12 23:10; Cr350 still running).** Cr283 is 283.3 short
+warm and 296.4 cold. It has 591 DNN nodes and cost 20,595 CPU s (SE 5,916), to
+depth 5. Cr350 is 349.8 short warm and 360.8 cold.
+
+| index | model | CPU s | cloud core-hours (95%, sample and anchors) |
+|---|---|---|---|
+| cold | interp | 2.38e8 | 66,000 (24,000-157,000) |
+| cold | iso | 2.14e8 | 59,000 (22,000-166,000) |
+| cold | fit | 2.42e8 | 67,000 (27,000-143,000) |
+| warm | interp | 3.60e8 | 100,000 (34,000-242,000) |
+| warm | iso | 3.45e8 | 96,000 (35,000-272,000) |
+| warm | fit | 3.52e8 | 98,000 (38,000-211,000) |
+
+## The estimate with fifteen anchors (Nov 12 23:27)
+
+(From Nov 13 05:15, with two more probes of the 380.1-short node, C is
+48,000-56,000; see "Replicates on the 380.1-short node".)
+
+Cr350 finished last: 349.8 short warm and 360.8 cold. It has 6,190 DNN nodes
+and cost 195,575 CPU s (SE 87,762), to depth 6. Its log is
+`anchors_C/probe3.log` (with Cr283's).
+
+The anchors, cold first solve: Cp45 56.6, Cp97 105.9, Cp164 171.9,
+Cp188 205.8, Cs232 245.5, Cp268 280.1, Cr283 296.4, Cp303 318.3, Cr311 326.1,
+Cp326 349.1, Cr338 350.2, Cr350 360.8, Cr368 380.1, Cr385 404.7 and
+Cp396 408.7. The warm give-ups are in the tables above.
+
+```
+python3 experiments/estimates/sko49/tune/estimate_se.py --table experiments/estimates/sko49/tune/sampling_C/stageB_summary.md \
+  --top 344 --top-cpu 68096 --front 13682 anchors_C/Cp45=56.6 ... anchors_C/Cp396=408.7    # in shortfall order
+```
+
+| index | model | DNN nodes | CPU s | cloud core-hours (95%, sample and anchors) | laptop core-hours |
+|---|---|---|---|---|---|
+| cold | interp | 1.1e7 | 2.51e8 | 70,000 (25,000-153,000) | 35,000 |
+| cold | **iso** | 9.0e6 | 2.16e8 | **60,000** (23,000-150,000) | 30,000 |
+| cold | **fit** (x12.1 per 100 short) | 9.4e6 | 2.39e8 | **66,000** (28,000-131,000) | 33,000 |
+| warm | interp | 1.7e7 | 3.63e8 | 101,000 (35,000-245,000) | 50,000 |
+| warm | iso | 1.5e7 | 3.35e8 | 93,000 (35,000-251,000) | 46,000 |
+| warm | fit | 1.5e7 | 3.44e8 | 96,000 (40,000-192,000) | 48,000 |
+
+- **The headline.** The cold index with iso and fit gives 60,000-66,000 cloud
+  core-hours. The joint 95% range is 23,000-150,000.
+- **Against the nine probes.** That estimate was 56,000-61,000. The
+  replicates moved the point little, but they show the tail's scatter, which
+  is now in the range.
+- **Where the cost is** (cold; iso, then fit):
+  - the 9 sampled nodes beyond 330 short carry 73% and 53%;
+  - the 19 beyond 305, 84% and 71%;
+  - the 38 from 234 to 305, 13% and 24%;
+  - the 193 up to 234, 3% and 5%.
+- **The laptop.** It is about 2x the cloud box per DNN iteration, so 30,000
+  to 33,000 laptop core-hours: 5,000-5,500 hours, or 210-230 days, on its 6
+  P-cores.
+
 ## The wider-zone test (arm Cw, from Nov 12 18:46)
 
 `Cw.par` and `Cw.sh` are C with `cut.zone = 0.018`, which is 421 short. Under
@@ -309,3 +378,293 @@ as `C.golden` does.
 **A third pair (from Nov 12 21:34).** Zr368 is Cw on Cr368's node
 (`30:33,41:8,46:14`, 380.1 short cold), the dearest anchor at 1.8e6 s. It runs
 on cpu 3, which Zp396 freed. Its log is `zoneC`.
+
+**Zp326 complete (Nov 12 23:10; `anchors_Cw/Zp326`).**
+
+| level | C nodes (est.) | C CPU s per node | C CPU s | Cw nodes (est.) | Cw CPU s per node | Cw CPU s |
+|---|---|---|---|---|---|---|
+| 3 | 1 | 89 | 89 | 1 | 335 | 335 |
+| 4 | 46 | 422 | 19,417 | 46 | 285 | 13,116 |
+| 5 | 135 | 295 | 39,905 | 1,056 | 20 | 20,982 |
+| 6 | 1,588 | 49 | 77,305 | 746 | 7.0 | 5,231 |
+| 7 | 3,744 | 8.9 | 33,469 | - | - | - |
+| all | 5,514 | | 170,185 (SE 149,685) | 1,850 | | 39,663 (SE 19,782) |
+
+- **The total.** Cw is 0.23x, about 0.9 SE of the difference.
+- **The root.** Its phase took it from 349.1 to 219.6 short.
+- **Level 4.** Only 4 of the 16 draws are the same nodes in both. On those 4,
+  the first solves start 0-68 closer under Cw, and the 2 phases that run in
+  both cost 16-24% less. The depth-4 first solves have a median of 50 short
+  under Cw and 133 under C.
+- **Level 5.**
+  - Under Cw, 15 of the 16 drawn nodes fathom at their first solve (median -1
+    short, range -108 to 45).
+  - Under C, none do: all 16 run a phase (median 74 short, range 15 to 211),
+    and 5 stay open.
+
+  Per node, levels 5-6 cost 7-15x less, and the tree stops at depth 6 instead
+  of 7.
+
+**Two pairs so far.** Cw costs 0.58x and 0.23x, by the same mechanism: every
+depth-4 parent runs a phase, so its children fathom at their first solve. The
+extra phases are cheap. A phase at a depth-3 node costs about 245 s. Under
+Cw, the 23% of the 13,682 frontier nodes that are beyond 234 short would run
+one, about 7.7e5 CPU s in all, or 0.4% of the estimate.
+
+**A Cw estimate (`zoneD`, from Nov 12 23:12).** The first solve, which indexes
+the anchors, does not depend on the zone. Under Cw, a node behaves as under C
+only if it and all its descendants are within 234 short. So the anchors up to
+206 short (cold) carry over: no node drawn in their subtrees is farther than
+its root. Only those beyond 234 need Cw probes:
+- Zp326, Zp396 and Zr368 (`zoneA`-`zoneC`);
+- in `zoneD`, the other eight: Zr385, Zr350, Zr338, Zr311, Zp303, Zr283, Zp268
+  and Zp232 (on s232's node), the tail first.
+
+`zoneD` starts on cpu 0. It drains and resumes on more cpus as Cr350 (cpus 1
+and 2) and Zr368 (cpu 3) finish, so the box runs at most 4 solvers.
+
+**Zr368 complete (Nov 12 23:46; `anchors_Cw/Zr368`).**
+
+| level | C nodes (est.) | C CPU s per node | C CPU s | Cw nodes (est.) | Cw CPU s per node | Cw CPU s |
+|---|---|---|---|---|---|---|
+| 3 | 1 | 85 | 85 | 1 | 311 | 311 |
+| 4 | 46 | 299 | 13,748 | 46 | 287 | 13,192 |
+| 5 | 391 | 255 | 99,814 | 1,346 | 70 | 94,292 |
+| 6 | 6,721 | 52 | 348,282 | 11,559 | 17 | 199,524 |
+| 7 | 19,343 | 30 | 576,909 | 14,717 | 5.9 | 86,994 |
+| 8 | 80,923 | 9.4 | 756,791 | - | - | - |
+| all | 107,424 | | 1,795,628 (SE 1,411,379) | 27,669 | | 394,314 (SE 228,215) |
+
+- **The total.** Cw is 0.22x, about 1.0 SE of the difference.
+- **The root.** Its phase took it from 380.1 to 268.6 short.
+- **Level 4.** The first solves have a median of 73 short under Cw and 128
+  under C. 4 of the 16 draws are the same nodes in both:
+  - one has no phase under C (252 short) and stalls at 161 under Cw (256 s);
+  - the two phases that run in both cost 18-22% less under Cw and end at the
+    same shortfall;
+  - one fathoms at its first solve in both.
+- **Level 5.** Under Cw, 10 of 16 fathom at their first solve (median -0.5
+  short), against 3 of 16 under C (median 71). Per node, levels 5-7 cost
+  3.0-5.1x less, and the tree stops at depth 7 instead of 8.
+
+**Three pairs.**
+
+| node (cold) | C CPU s | Cw CPU s | Cw / C | difference in SEs | level 5 fathomed at the first solve, Cw against C |
+|---|---|---|---|---|---|
+| 0:0,40:9,41:3 (349.1) | 170,185 | 39,663 | 0.23 | 0.9 | 15 / 16 against 0 / 16 |
+| 30:33,41:8,46:14 (380.1) | 1,795,628 | 394,314 | 0.22 | 1.0 | 10 / 16 against 3 / 16 |
+| 9:30,40:22,41:17 (408.7) | 1,163,004 | 674,126 | 0.58 | 0.5 | 10 / 16 against 3 / 16 |
+| all three | 3,128,817 | 1,108,103 | 0.35 | 1.2 | 35 / 48 against 6 / 48 |
+
+- **No total is significant alone.** Probe totals are dominated by the noisy
+  node counts at the deep levels.
+- **The mechanism is consistent and strong.** At level 5, 35 of 48 draws
+  fathom at their first solve under Cw, against 6 of 48 under C. Each probe's
+  per-node cost at levels 5-7 is lower under Cw.
+- **The Cw estimate** (zoneD) prices this across the whole tail; see below.
+
+**The other eight (`zoneD`, done Nov 13 02:31; `anchors_Cw/Z*`, log `anchors_Cw/zoneD.log`).**
+The container restarted at about 00:40 UTC on Nov 13 and killed `zoneD` at
+level 4. It resumed at 00:47 on cpus 0-3 with the same binary. `probe.py` kept
+every finished task and reran the four cut-off ones from their parents' states.
+Each task's CPU comes from its own complete run, so the results are as if
+there had been no restart.
+
+**Eleven pairs.** C's probe against Cw's on each anchor node beyond 234 short
+(for 245.5 short, C's probe Cp232; the estimate uses the complete subtree
+Cs232). "First-solve fathoms" counts the 16 draws at a level that fathom at
+their first solve, Cw against C (`anchors_Cw/pairs.py`, which reads the
+uncommitted run directories).
+
+| node (cold short) | C CPU s | Cw CPU s | Cw / C | Cw - C in SEs | level 4 first-solve fathoms | level 5 first-solve fathoms |
+|---|---|---|---|---|---|---|
+| 23:0,40:8,41:10 (245.5) | 17,471 | 5,834 | 0.33 | -1.1 | 13 against 4 | 16 against 14 |
+| 9:34,40:26,41:16 (280.1) | 10,082 | 3,492 | 0.35 | -2.2 | 12 against 4 | Cw stops at 4; C 16 |
+| 0:0,40:23,41:3 (296.4) | 20,595 | 17,974 | 0.87 | -0.3 | 7 against 3 | 15 against 15 |
+| 30:17,41:8,46:1 (318.3) | 48,408 | 36,415 | 0.75 | -0.3 | 7 against 4 | 15 against 5 |
+| 0:0,40:22,41:10 (326.1) | 93,371 | 56,366 | 0.60 | -0.5 | 7 against 2 | 13 against 1 |
+| 0:0,40:9,41:3 (349.1) | 170,185 | 39,663 | 0.23 | -0.9 | 5 against 2 | 15 against 0 |
+| 30:25,41:8,46:35 (350.2) | 27,433 | 98,222 | 3.58 | +1.2 | 5 against 2 | 12 against 15 |
+| 9:9,40:23,41:17 (360.8) | 195,575 | 267,900 | 1.37 | +0.5 | 1 against 0 | 7 against 1 |
+| 30:33,41:8,46:14 (380.1) | 1,795,628 | 394,314 | 0.22 | -1.0 | 3 against 2 | 10 against 3 |
+| 12:0,41:2,46:1 (404.7) | 244,929 | 382,100 | 1.56 | +0.6 | 2 against 1 | 7 against 5 |
+| 9:30,40:22,41:17 (408.7) | 1,163,004 | 674,126 | 0.58 | -0.5 | 0 against 0 | 10 against 3 |
+| all eleven | 3,786,681 | 1,976,406 | 0.52 | | 62 against 24 of 176 | 120 against 62 of 160 |
+
+- **The totals.** Cw is cheaper in 8 of the 11 and dearer in 3. Only one
+  difference reaches 2 SEs (280.1 short, in Cw's favour). The geometric mean
+  of the ratios is 0.66.
+- **The mechanism holds.**
+  - At level 4, more draws fathom at their first solve under Cw in 10 of the
+    11 pairs, and the other is a tie (0 and 0).
+  - At level 5, more do in 8 of the 10 pairs that have one, with a tie in 1.
+    Fewer do in 1: 350.2 short, 12 against 15.
+- **The three dearer pairs.** Levels 3-4 cost about the same in both arms
+  (15,400-16,200 CPU s under C, 14,200-15,500 under Cw), so the extra cost is
+  at levels 5-6. There a few open draws set the node counts:
+  - 350.2: C's level 5 fathoms all 16 and stops at depth 5. Under Cw, 2 stay
+    open, and level 6 comes out at 2,130 nodes and 51,446 s.
+  - 360.8: level 5 costs 121 s a node under Cw against 260 under C, but its
+    node estimate is 1,281 against 542.
+  - 404.7: Cw stops at depth 6, C at depth 7. Cw's level 6 comes out at
+    15,431 nodes, against 3,379 under C.
+
+## The estimate under Cw (Nov 13 02:40)
+
+(Superseded at 05:15 by "Replicates on the 380.1-short node" below: Cw moves
+little, C falls, and Cw / C is 0.74-0.77.)
+
+The anchors are C's four up to 206 short (cold) and the eleven Cw probes:
+Cp45, Cp97, Cp164 and Cp188, then Zp232, Zp268, Zr283, Zp303, Zr311, Zp326,
+Zr338, Zr350, Zr368, Zr385 and Zp396. The index values are C's: the cold
+first solve does not depend on the zone, and the warm give-ups come from
+stage B, which ran under C.
+
+```
+cd experiments/estimates/sko49/tune
+python3 estimate_se.py --table sampling_C/stageB_summary.md --top 344 --top-cpu 68096 --front 13682 \
+  anchors_C/Cp45=56.6 anchors_C/Cp97=105.9 anchors_C/Cp164=171.9 anchors_C/Cp188=205.8 \
+  anchors_Cw/Zp232=245.5 anchors_Cw/Zp268=280.1 ... anchors_Cw/Zp396=408.7    # in shortfall order
+```
+
+| index | model | DNN nodes | CPU s | cloud core-hours (95%, sample and anchors) | laptop core-hours | C, same model |
+|---|---|---|---|---|---|---|
+| cold | interp | 6.0e6 | 1.34e8 | 37,000 (16,000-69,000) | 19,000 | 70,000 |
+| cold | **iso** | 5.0e6 | 1.34e8 | **37,000** (17,000-64,000) | 19,000 | 60,000 |
+| cold | **fit** (x11.0 per 100 short) | 6.2e6 | 1.51e8 | **42,000** (23,000-66,000) | 21,000 | 66,000 |
+| warm | interp | 8.6e6 | 1.97e8 | 55,000 (24,000-104,000) | 27,000 | 101,000 |
+| warm | iso | 7.8e6 | 2.01e8 | 56,000 (27,000-92,000) | 28,000 | 93,000 |
+| warm | fit | 9.7e6 | 2.12e8 | 59,000 (32,000-93,000) | 29,000 | 96,000 |
+
+**Cw against C, paired.** `paired.py` takes the two arms' anchors node by node.
+Its interval resamples stage B's sample and the anchor nodes with the same
+draws for both arms, so the scatter both share (which nodes are dear) mostly
+cancels.
+
+```
+python3 paired.py --table sampling_C/stageB_summary.md --top 344 --top-cpu 68096 --front 13682 \
+  anchors_C/Cp45,anchors_C/Cp45=56.6 ... anchors_C/Cs232,anchors_Cw/Zp232=245.5 ... anchors_C/Cp396,anchors_Cw/Zp396=408.7
+```
+
+| index | model | C core-hours | Cw core-hours | Cw / C (95%, paired) | draws with Cw cheaper |
+|---|---|---|---|---|---|
+| cold | iso | 60,080 | 37,231 | 0.62 (0.32-1.16) | 90% |
+| cold | fit | 66,400 | 41,966 | 0.63 (0.40-1.07) | 95% |
+| warm | iso | 92,982 | 55,891 | 0.60 (0.29-1.14) | 93% |
+| warm | fit | 95,536 | 58,752 | 0.61 (0.37-1.08) | 95% |
+
+- **One pair carries much of the gap.** Dropping any one pair (cold) leaves
+  Cw / C at 0.56-0.68, except the 380.1-short pair (Cr368 against Zr368).
+  Without that pair it is 0.95 (iso) and 0.81 (fit), so it carries most of
+  the iso gap and half the fit gap. Cr368's own SE is 79% of its value
+  (1,795,628 +- 1,411,379).
+- **The tail is tighter under Cw.** Its dearest anchor is 674,126 s, against
+  C's 1,795,628, and the 95% range (iso and fit) narrows from 23,000-150,000
+  to 17,000-66,000.
+- **Where the cost is** (cold; iso, then fit). The shares are close to C's:
+  - the 9 sampled nodes beyond 330 short carry 69% and 51%;
+  - the 19 beyond 305, 82% and 69%;
+  - the 38 from 234 to 305, 14% and 25%;
+  - the 193 up to 234, 4% and 6%.
+- **What the estimate leaves out.**
+  - Stage A and stage B ran under C. Under Cw, stage A's depth-2 nodes from
+    234 to 421 short would also run a phase, so their depth-3 children would
+    start closer than their cold index says. Leaving that out errs high.
+  - The extra root phases, about 7.7e5 CPU s across the frontier (0.4%), are
+    in the anchors' level 3.
+  - The draws differ between arms (each probe's seed has its name), so a pair
+    compares two estimates of the same subtree, not the same nodes.
+- **The laptop.** At about 2x the cloud box per DNN iteration, the cold
+  estimate is 19,000-21,000 laptop core-hours: 3,100-3,500 hours, or 129-146
+  days, on its 6 P-cores. Under C it was 210-230 days.
+- **What to use.** Cw. Its mechanism shows in nearly every pair, its extra
+  phases cost 0.4%, and without its best pair it still comes out at
+  0.81-0.95x of C.
+
+## Replicates on the 380.1-short node (from Nov 13 02:49)
+
+Without the 380.1-short pair, Cw / C is 0.81-0.95, not 0.62-0.63. Both of
+its probes are noisy: C's SE is 79% of its value and Cw's 58%. So the node
+gets two more probes in each arm, with `--seed 2` (each probe's draws are
+seeded by the seed, its name and the level):
+- C: Cr368b and Cr368c on cpus 0 and 1 (`C.sh`, `C.par`);
+- Cw: Zr368b and Zr368c on cpus 2 and 3 (`Cw.sh`, `Cw.par`).
+
+All four use the run binary (md5 `ee4c6ebd…`) and k = 16, beta = 0.025, as
+before.
+
+**How they enter (decided before any finished).** Each arm's value at the
+node becomes the mean of its three probes, each an unbiased estimate of the
+same subtree's cost. `estimate_se.py` and `paired.py` read that mean as
+`anchors_C/Cr368+anchors_C/Cr368b+anchors_C/Cr368c=380.1`. Everything else is
+unchanged.
+
+**What came out (Nov 13 05:15).** A container restart at about 03:08 killed
+the four new probes at level 4. They resumed at 03:09 on the same binary and
+kept level 3, which was done. The probe logs are `anchors_C/rep368C.log` and
+`anchors_Cw/rep368Cw.log`.
+
+| probe | arm | DNN nodes | DNN CPU s (SE) | deepest level | first-solve fathoms, level 4 / level 5 (of 16) |
+|---|---|---|---|---|---|
+| Cr368 | C | 107,424 | 1,795,628 (1,411,379) | 8 | 2 / 3 |
+| Cr368b | C | 36,682 | 439,208 (331,364) | 8 | 1 / 6 |
+| Cr368c | C | 11,814 | 207,543 (123,614) | 7 | 2 / 6 |
+| **mean** | C | 51,973 | **814,126** (485,006) | | |
+| Zr368 | Cw | 27,669 | 394,314 (228,215) | 7 | 3 / 10 |
+| Zr368b | Cw | 7,339 | 170,539 (85,117) | 6 | 3 / 11 |
+| Zr368c | Cw | 32,057 | 508,419 (300,672) | 7 | 3 / 10 |
+| **mean** | Cw | 22,355 | **357,757** (128,983) | | |
+
+- **C's first probe was a high draw.** The two new ones cost 0.24x and 0.12x
+  of it, and C's mean at the node is 55% below it. Cw's mean is 9% below its
+  first probe.
+- **The node's ratio** goes from 0.22 to 0.44 (difference -0.9 SE). Pooled
+  over the eleven pairs it is 0.69 (1,939,849 against 2,805,179 CPU s), not
+  0.52.
+- **The mechanism holds in every probe.** At level 5, 31 of 48 Cw draws
+  fathom at their first solve, against 15 of 48 under C. At level 4 it is 9
+  against 5.
+
+**The estimate with the replicates.** The commands are the ones above, with
+`anchors_C/Cr368+anchors_C/Cr368b+anchors_C/Cr368c=380.1` in place of
+`anchors_C/Cr368=380.1` and the same for Cw (`Zr368+Zr368b+Zr368c`). The
+warm index puts it at 367.5. Cloud core-hours (95%, sample and anchors):
+
+| index | model | C | Cw | Cw / C (95%, paired) | draws with Cw cheaper |
+|---|---|---|---|---|---|
+| cold | interp | 53,000 (23,000-97,000) | 36,000 (16,000-63,000) | | |
+| cold | **iso** | **48,000** (23,000-100,000) | **37,000** (17,000-63,000) | 0.77 (0.50-1.18) | 88% |
+| cold | **fit** | **56,000** (28,000-94,000) | **41,000** (23,000-65,000) | 0.74 (0.53-1.08) | 95% |
+| warm | interp | 80,000 (33,000-166,000) | 54,000 (25,000-99,000) | | |
+| warm | iso | 79,000 (34,000-151,000) | 54,000 (27,000-89,000) | 0.68 (0.47-1.15) | 92% |
+| warm | fit | 80,000 (39,000-136,000) | 58,000 (32,000-91,000) | 0.72 (0.50-1.10) | 94% |
+
+- **The headline.** Cold, iso and fit:
+  - Cw 37,000-41,000 cloud core-hours (95%: 17,000-65,000), against
+    37,000-42,000 before the replicates;
+  - C 48,000-56,000 (23,000-100,000), against 60,000-66,000.
+
+  The fits grow x11.5 (C) and x11.0 (Cw) per 100 short. In DNN nodes, Cw is
+  4.8e6-6.0e6 and C 6.7e6-7.8e6.
+- **Cw / C** is 0.74-0.77 cold and 0.68-0.72 warm, against 0.60-0.63. The low
+  end of its 95% range rises from 0.29-0.40 to 0.47-0.53, and the high end
+  barely moves.
+- **Leaving out one pair** (cold) gives Cw / C of 0.61-0.95 (iso) and
+  0.67-0.81 (fit):
+  - The 380.1-short pair still moves it most. Without it the ratio is 0.95
+    and 0.81, as before, since dropping the pair drops all six probes.
+  - Next is the 349.1-short pair (0.85 and 0.80).
+  - Without the 404.7-short pair, where Cw costs more, it falls to 0.61 and
+    0.68.
+- **Where the cost is** (cold; iso, then fit):
+  - Cw: the 9 sampled nodes beyond 330 short carry 68% and 51%, the 19
+    beyond 305 82% and 69%, the 38 from 234 to 305 14% and 25%, and the 193
+    up to 234 5% and 6%.
+  - C: 65% and 52%, 80% and 70%, 16% and 25%, 4% and 6%.
+- **The caveats** in "The estimate under Cw" still hold. Stages A and B ran
+  under C, so the Cw estimate errs high.
+- **The laptop.** At about 2x the cloud box per DNN iteration:
+  - Cw is 18,000-21,000 laptop core-hours: 127-144 days on its 6 P-cores;
+  - C is 24,000-28,000: 165-195 days.
+- **What to use.** Still Cw, and `sko49.par` stays as it is. Cw costs about
+  three quarters of C, not the 0.6x the first probes suggested.

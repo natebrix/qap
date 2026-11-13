@@ -19,7 +19,7 @@ HEAD's `bnbdrv`, checked before every run). wil50 keeps the full run's files.
 | wil50 | `../wil50_feasibility/fullrun/` | the full run: CP cut phase, `cut.zone = 0.0075`, rule 9, DNN at depths 1-4 then 20 levels below a miss, give-up 300; `wil50t.dat` with its symmetry | |
 | tho40 | `tho40/` | the Nov 8 nug30 record recipe (rule 9, DNN at depths 1-7, give-up 200, no cut phase) with `branch.xbar_lines = 2`, the tho40 A/B's setting (`../xbar_lines_sweep/tho40_ab/`); `tho40t.dat` with its symmetry | 2 lines was measured on three depth-3 subtrees only |
 | sko42 | `sko42/` | from Nov 12, arm C of `sko42/tune/` (below): wil50's full run with the grid 6 x 7 and `cut.zone = 0.010`; `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum. Until Nov 12 it was the nug30 record recipe, kept as `sko42/tune/A.par` | C was measured on complete subtrees and by the sampling plan, not in a full search |
-| sko49 | `sko49/` | wil50's full run with the grid 7 x 7; `sko49t.dat` (new in `qaplib/`, the matrices of `sko49.dat` swapped) with the 7 x 7 grid's symmetry (`latest/SYM/sko49t.sym`, 10 depth-1 orbits), so `cut.side = 1` | the CP phase and the 0.0075 zone (wil50's Nov 5 levers were 2.2x and 4.2x on two sko49 subtrees, `../sko49_feasibility/vs_wil50.md`) |
+| sko49 | `sko49/` | from Nov 13, arm Cw of `sko49/tune/` (below): wil50's full run with the grid 7 x 7 and `cut.zone = 0.018` (421 short); `sko49t.dat` (new in `qaplib/`, the matrices of `sko49.dat` swapped) with the 7 x 7 grid's symmetry (`latest/SYM/sko49t.sym`, 10 depth-1 orbits), so `cut.side = 1`. Until Nov 13 the zone was wil50's 0.0075 | Cw was measured by the sampling plan (probes on 11 tail nodes, against C), not on complete subtrees or in a full search |
 | tai50b | `tai50b/` | the Nov 8 tuned estimate's values as keys (DNN at depths 1-9, give-up 600, the nug30 recipe otherwise) with rule 9, which its notes name; no symmetry, no cut phase (no grid); the dive sampler `est.xbar = 1`, `est.xbar_mix = 0.3` | rule 9: the Nov 8 runs used rule 8 (their log header), not rule 9 as the notes say |
 
 A setting changes only in a commit that means to change it, with the golden
@@ -330,7 +330,7 @@ From Nov 12, `sko42.par` is C. Its golden is from HEAD's build (68 settings), so
 over from an A run must be moved aside first: the search would resume from A's
 checkpoint.
 
-## sko49: a preliminary estimate under sko42's C (cloud box, Nov 12)
+## sko49: the estimate under sko42's C and a wider zone (cloud box, Nov 12-13)
 
 `sko49/tune/README.md` has the details. The settings are arm C on sko49's own
 7 x 7 grid (`sko49/tune/C.par`: `sko49.par` with `cut.zone = 0.010`, which is
@@ -338,23 +338,69 @@ checkpoint.
 - **Stage A:** 344 nodes at depths 0-2, 13,682 frontier nodes.
 - **Stage B:** 250 sampled frontier nodes, 21% fathomed in their first solve
   (sko42: 56%), the rest up to 396 short (sko42: 189).
-- **The anchors:** nine probes (`probe.py`). Two of them were checked against
-  complete subtrees, at 188 and 232 short, and came within 0.6 standard errors.
-  The far subtrees are too large to run complete.
+- **The anchors:** 15 nodes probed (`probe.py`), 6 of them replicates in the
+  tail. The 380-short node has three probes in each arm, taken as their mean.
+  Two were checked against complete subtrees, at 188 and 232 short, and came
+  within 0.6 standard errors. The far subtrees are too large to run complete.
+- **The models.** Replicates at the same shortfall differ 5-7x, so the
+  estimate reads two models that handle them (`sko49/tune/estimate_se.py`):
+  - iso: interpolation through the anchors' isotonic fit;
+  - fit: estimate.py's log-linear fit.
 
-| anchors indexed by | DNN nodes | CPU s | cloud core-hours | laptop core-hours |
+  The 95% ranges cover both stage B's sample and the anchors' own error.
+
+With the 380-short node's three probes (Nov 13 05:15):
+
+| anchors indexed by | DNN nodes | CPU s | cloud core-hours (95%) | laptop core-hours |
 |---|---|---|---|---|
-| the probe's cold first solve | 7.4e6-9.6e6 | 2.0-2.2e8 | 56,000-61,000 | about 30,000 |
-| stage B's warm give-up (sko42's method, overstates) | 1.4e7-1.6e7 | 3.3-3.5e8 | 91,000-98,000 | about 47,000 |
+| the probe's cold first solve | 6.7e6-7.8e6 | 1.7-2.0e8 | 48,000-56,000 (23,000-100,000) | 24,000-28,000 |
+| stage B's warm give-up (sko42's method, overstates) | 1.2e7 | 2.9e8 | 79,000-80,000 (34,000-151,000) | 40,000 |
 
-The Nov 6 estimate was 3.6e5 cloud core-hours, so this is 3.6-6.3x less. It
-is still not a laptop run, and it is preliminary:
-- The 19 sampled nodes beyond 305 short carry 81-84% of it.
-- The two probes that set that tail have a standard error of 70-90% each.
-- Six more probes in the tail are running.
+- **Before the replicates** it was 60,000-66,000 cold (23,000-150,000). The
+  380-short node's first probe under C cost 1.8e6 s, and its two replicates
+  4.4e5 and 2.1e5.
+- **Against the record.** The Nov 6 estimate was 3.6e5 cloud core-hours, so
+  this is 4.5-7.6x less. It is still not a laptop run.
+- **Where the cost is.** The 19 sampled nodes beyond 305 short carry 70-80%
+  of it, and the 193 within 234 carry 4-6%.
+- **Why.** The cost is in nodes beyond the zone. Their children that come out
+  135-234 short get a cut phase and never fathom (0 of 27).
 
-The cost is in nodes beyond the zone. Their children that come out 135-234
-short get a cut phase and never fathom (0 of 27).
+**A wider zone cuts it to about 0.75x (Nov 13).** Arm Cw is C with
+`cut.zone = 0.018` (`sko49/tune/Cw.par`), which is 421 short. Every depth-3
+node in the sample is within it, so every depth-4 node runs a phase, and its
+children mostly fathom at their first solve. The Cw estimate reprobes the 11
+anchor nodes beyond 234 short under Cw and keeps C's four below them, which
+behave the same under both:
+
+| anchors indexed by | DNN nodes | CPU s | cloud core-hours (95%) | laptop core-hours | Cw / C (95%, paired) |
+|---|---|---|---|---|---|
+| the probe's cold first solve | 4.8e6-6.0e6 | 1.3-1.5e8 | **37,000-41,000** (17,000-65,000) | 18,000-21,000 | 0.74-0.77 (0.50-1.18) |
+| stage B's warm give-up | 7.5e6-9.3e6 | 2.0-2.1e8 | 54,000-58,000 (27,000-91,000) | 27,000-29,000 | 0.68-0.72 (0.47-1.15) |
+
+- **The pairs.** Cw is cheaper on 8 of the 11 nodes (pooled 0.69x). The
+  mechanism shows in nearly all of them: more draws fathom at their first
+  solve, 62 of 176 at level 4 against 24, and 120 of 160 at level 5 against
+  62. The 3 pairs where Cw costs more (1.4-3.6x) differ only below level 4,
+  where a few open draws set the node counts.
+- **How sure.** In the paired resampling (`sko49/tune/paired.py`), Cw comes
+  out cheaper in 88-95% of draws.
+  - **Firming it up.** With one probe per arm, Cw / C was 0.62-0.63, and the
+    380-short node carried much of the gap. Two more probes per arm there
+    show C's first was a high draw. The node's ratio went from 0.22 to 0.44,
+    and the overall from 0.62-0.63 to 0.74-0.77.
+  - **That node still matters most.** Without it Cw / C is 0.95 (iso) and
+    0.81 (fit). Leaving out any other one pair gives 0.61-0.85.
+- **What it leaves out.** Stages A and B ran under C. Under Cw, depth-2 nodes
+  from 234 to 421 short would also run a phase and pass a better pool to the
+  frontier, so the estimate errs high.
+- **The laptop.** 18,000-21,000 laptop core-hours is 127-144 days on its 6
+  P-cores, against 165-195 under C.
+
+From Nov 13, `sko49.par` is Cw. Its golden is from HEAD's build (68 settings),
+so `make solver` first. `run_stages.sh` now runs under Cw. Move aside any
+`stageA/`, `stageB/` or `subtrees/` left from a run under 0.0075, so the run
+starts fresh.
 
 ## Cold against warm: a220 as production would bound it (cloud box, Nov 10)
 
