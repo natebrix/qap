@@ -6,7 +6,7 @@
 #   infra/phase1/launch.sh RUN [--recipe nug30] [--no-ub] [--type c7g.4xlarge]
 #                          [--region eu-north-1] [--on-demand] [--worker-only]
 #                          [--no-reference] [--gates "bruteforce ..."|none]
-#                          [--limit 120] [--dry-run]
+#                          [--limit 120] [--node-env "K=V ..."] [--dry-run]
 #
 #   RUN             a name for the run: letters, digits, - and _ (e.g. nug30-a)
 #   --recipe R      what to solve: infra/phase1/recipes/R.sh (committed). Needed
@@ -20,6 +20,8 @@
 #                   publish_setup.sh serves it to brixius-web)
 #   --gates G       the make targets checked before any unit runs (default in node.sh)
 #   --limit M       the instance shuts itself down after M minutes whatever happens
+#   --node-env E    variables exported on the instance for the build, the gates and the
+#                   solvers (e.g. "OPENBLAS_CORETYPE=ARMV8"); the recipe's ENV is for units only
 #   --dry-run       print the AWS calls that change something, make none of them
 #
 # It creates, once per account and region, and keeps for later runs: the
@@ -33,7 +35,7 @@ set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
 R=$(cd "$D/../.." && pwd)
 RUN=""; RECIPE=""; NO_UB=0; TYPE=c7g.4xlarge; REGION=eu-north-1; MARKET=spot; ROLE=all
-REFERENCE=1; GATES=""; LIMIT=120; DRY=0; VIS=public
+REFERENCE=1; GATES=""; LIMIT=120; DRY=0; VIS=public; NODE_ENV=""
 while [ $# -gt 0 ]; do
   case $1 in
     --recipe) RECIPE=$2; shift 2 ;;
@@ -46,6 +48,7 @@ while [ $# -gt 0 ]; do
     --private) VIS=private; shift ;;
     --gates) GATES=$2; shift 2 ;;
     --limit) LIMIT=$2; shift 2 ;;
+    --node-env) NODE_ENV=$2; shift 2 ;;
     --dry-run) DRY=1; shift ;;
     -h|--help) sed -n 2,31p "$0"; exit 0 ;;
     -*) echo "unknown argument $1"; exit 2 ;;
@@ -177,6 +180,7 @@ cat > "$UD" << EOF
 #!/bin/bash
 export AWS_DEFAULT_REGION=$REGION QAP_RUN=$RUN QAP_BACKEND='aws:$B?region=$REGION' QAP_BUCKET=$B QAP_ROLE=$ROLE
 export QAP_RECIPE=$RECIPE QAP_NO_UB=$NO_UB QAP_REFERENCE=$REFERENCE QAP_COMMIT=$COMMIT QAP_VISIBILITY=$VIS${GATES:+ QAP_GATES='$GATES'}
+${NODE_ENV:+export $NODE_ENV}
 shutdown -h +$LIMIT
 mkdir -p /opt/qap && cd /opt/qap
 for i in 1 2 3 4 5 6; do aws s3 cp --only-show-errors s3://$B/$SRC src.tgz && break; sleep 10; done
