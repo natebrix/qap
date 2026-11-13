@@ -96,8 +96,9 @@ step "machine: $(tr '\n' ' ' < "$OUT/sysinfo.txt")"
 # -inf at m >= 9 (Nov 13, scipy-openblas32 on c7g.xlarge: nug12's root -inf against the
 # prototype's 567.98; tests/dnn_test.py fails, the parallel gate's DNN check never ends).
 # The Neoverse N1 kernels give x86's values to the digit. --node-env OPENBLAS_CORETYPE=...
-# overrides this.
-if [ "$(uname -m)" = aarch64 ] && [ -z "${OPENBLAS_CORETYPE:-}" ]; then export OPENBLAS_CORETYPE=NEOVERSEN1; fi
+# overrides this; OPENBLAS_CORETYPE=auto leaves the choice to OpenBLAS (a diagnosis).
+if [ "${OPENBLAS_CORETYPE:-}" = auto ]; then unset OPENBLAS_CORETYPE
+elif [ "$(uname -m)" = aarch64 ] && [ -z "${OPENBLAS_CORETYPE:-}" ]; then export OPENBLAS_CORETYPE=NEOVERSEN1; fi
 echo "openblas_coretype ${OPENBLAS_CORETYPE:-auto}" >> "$OUT/sysinfo.txt"
 
 # --- the toolchain (Amazon Linux 2023, as in infra/phase0/bench.sh, plus boto3)
