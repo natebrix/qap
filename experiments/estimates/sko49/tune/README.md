@@ -4,12 +4,15 @@ sko49 gets the settings that won on sko42 (`../../sko42/tune/README.md`), on its
 7 x 7 grid, and the same sampling plan as sko42. Below depth 3, sampled probes
 (`../../probe.py`) stand in for the complete subtrees, which are too large here.
 
-**The result (Nov 13).** Cold index, iso and fit models:
-- under C: 60,000-66,000 cloud core-hours (95%: 23,000-150,000);
-- under Cw (C with `cut.zone = 0.018`): 37,000-42,000 (95%: 17,000-66,000).
+**The result (Nov 13 05:15, three probes per arm on the 380.1-short node).**
+Cold index, iso and fit models:
+- under Cw (C with `cut.zone = 0.018`; `sko49.par` from Nov 13): 37,000-41,000
+  cloud core-hours (95%: 17,000-65,000);
+- under C: 48,000-56,000 (95%: 23,000-100,000).
 
-Cw / C is 0.62-0.63 in paired resampling, cheaper in 90-95% of draws. See "The
-estimate under Cw" at the end.
+Cw / C is 0.74-0.77 in paired resampling, cheaper in 88-95% of draws. Before
+the replicates it was 0.62-0.63: C's first probe of that node was a high draw.
+See "Replicates on the 380.1-short node" at the end.
 
 ## Settings: arm C (`C.par`, `C.sh`, `C.golden`)
 
@@ -246,6 +249,9 @@ depth 5. Cr350 is 349.8 short warm and 360.8 cold.
 | warm | fit | 3.52e8 | 98,000 (38,000-211,000) |
 
 ## The estimate with fifteen anchors (Nov 12 23:27)
+
+(From Nov 13 05:15, with two more probes of the 380.1-short node, C is
+48,000-56,000; see "Replicates on the 380.1-short node".)
 
 Cr350 finished last: 349.8 short warm and 360.8 cold. It has 6,190 DNN nodes
 and cost 195,575 CPU s (SE 87,762), to depth 6. Its log is
@@ -505,6 +511,9 @@ uncommitted run directories).
 
 ## The estimate under Cw (Nov 13 02:40)
 
+(Superseded at 05:15 by "Replicates on the 380.1-short node" below: Cw moves
+little, C falls, and Cw / C is 0.74-0.77.)
+
 The anchors are C's four up to 206 short (cold) and the eleven Cw probes:
 Cp45, Cp97, Cp164 and Cp188, then Zp232, Zp268, Zr283, Zp303, Zr311, Zp326,
 Zr338, Zr350, Zr368, Zr385 and Zp396. The index values are C's: the cold
@@ -589,3 +598,73 @@ node becomes the mean of its three probes, each an unbiased estimate of the
 same subtree's cost. `estimate_se.py` and `paired.py` read that mean as
 `anchors_C/Cr368+anchors_C/Cr368b+anchors_C/Cr368c=380.1`. Everything else is
 unchanged.
+
+**What came out (Nov 13 05:15).** A container restart at about 03:08 killed
+the four new probes at level 4. They resumed at 03:09 on the same binary and
+kept level 3, which was done. The probe logs are `anchors_C/rep368C.log` and
+`anchors_Cw/rep368Cw.log`.
+
+| probe | arm | DNN nodes | DNN CPU s (SE) | deepest level | first-solve fathoms, level 4 / level 5 (of 16) |
+|---|---|---|---|---|---|
+| Cr368 | C | 107,424 | 1,795,628 (1,411,379) | 8 | 2 / 3 |
+| Cr368b | C | 36,682 | 439,208 (331,364) | 8 | 1 / 6 |
+| Cr368c | C | 11,814 | 207,543 (123,614) | 7 | 2 / 6 |
+| **mean** | C | 51,973 | **814,126** (485,006) | | |
+| Zr368 | Cw | 27,669 | 394,314 (228,215) | 7 | 3 / 10 |
+| Zr368b | Cw | 7,339 | 170,539 (85,117) | 6 | 3 / 11 |
+| Zr368c | Cw | 32,057 | 508,419 (300,672) | 7 | 3 / 10 |
+| **mean** | Cw | 22,355 | **357,757** (128,983) | | |
+
+- **C's first probe was a high draw.** The two new ones cost 0.24x and 0.12x
+  of it, and C's mean at the node is 55% below it. Cw's mean is 9% below its
+  first probe.
+- **The node's ratio** goes from 0.22 to 0.44 (difference -0.9 SE). Pooled
+  over the eleven pairs it is 0.69 (1,939,849 against 2,805,179 CPU s), not
+  0.52.
+- **The mechanism holds in every probe.** At level 5, 31 of 48 Cw draws
+  fathom at their first solve, against 15 of 48 under C. At level 4 it is 9
+  against 5.
+
+**The estimate with the replicates.** The commands are the ones above, with
+`anchors_C/Cr368+anchors_C/Cr368b+anchors_C/Cr368c=380.1` in place of
+`anchors_C/Cr368=380.1` and the same for Cw (`Zr368+Zr368b+Zr368c`). The
+warm index puts it at 367.5. Cloud core-hours (95%, sample and anchors):
+
+| index | model | C | Cw | Cw / C (95%, paired) | draws with Cw cheaper |
+|---|---|---|---|---|---|
+| cold | interp | 53,000 (23,000-97,000) | 36,000 (16,000-63,000) | | |
+| cold | **iso** | **48,000** (23,000-100,000) | **37,000** (17,000-63,000) | 0.77 (0.50-1.18) | 88% |
+| cold | **fit** | **56,000** (28,000-94,000) | **41,000** (23,000-65,000) | 0.74 (0.53-1.08) | 95% |
+| warm | interp | 80,000 (33,000-166,000) | 54,000 (25,000-99,000) | | |
+| warm | iso | 79,000 (34,000-151,000) | 54,000 (27,000-89,000) | 0.68 (0.47-1.15) | 92% |
+| warm | fit | 80,000 (39,000-136,000) | 58,000 (32,000-91,000) | 0.72 (0.50-1.10) | 94% |
+
+- **The headline.** Cold, iso and fit:
+  - Cw 37,000-41,000 cloud core-hours (95%: 17,000-65,000), against
+    37,000-42,000 before the replicates;
+  - C 48,000-56,000 (23,000-100,000), against 60,000-66,000.
+
+  The fits grow x11.5 (C) and x11.0 (Cw) per 100 short. In DNN nodes, Cw is
+  4.8e6-6.0e6 and C 6.7e6-7.8e6.
+- **Cw / C** is 0.74-0.77 cold and 0.68-0.72 warm, against 0.60-0.63. The low
+  end of its 95% range rises from 0.29-0.40 to 0.47-0.53, and the high end
+  barely moves.
+- **Leaving out one pair** (cold) gives Cw / C of 0.61-0.95 (iso) and
+  0.67-0.81 (fit):
+  - The 380.1-short pair still moves it most. Without it the ratio is 0.95
+    and 0.81, as before, since dropping the pair drops all six probes.
+  - Next is the 349.1-short pair (0.85 and 0.80).
+  - Without the 404.7-short pair, where Cw costs more, it falls to 0.61 and
+    0.68.
+- **Where the cost is** (cold; iso, then fit):
+  - Cw: the 9 sampled nodes beyond 330 short carry 68% and 51%, the 19
+    beyond 305 82% and 69%, the 38 from 234 to 305 14% and 25%, and the 193
+    up to 234 5% and 6%.
+  - C: 65% and 52%, 80% and 70%, 16% and 25%, 4% and 6%.
+- **The caveats** in "The estimate under Cw" still hold. Stages A and B ran
+  under C, so the Cw estimate errs high.
+- **The laptop.** At about 2x the cloud box per DNN iteration:
+  - Cw is 18,000-21,000 laptop core-hours: 127-144 days on its 6 P-cores;
+  - C is 24,000-28,000: 165-195 days.
+- **What to use.** Still Cw, and `sko49.par` stays as it is. Cw costs about
+  three quarters of C, not the 0.6x the first probes suggested.

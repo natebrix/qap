@@ -338,7 +338,8 @@ checkpoint.
 - **Stage A:** 344 nodes at depths 0-2, 13,682 frontier nodes.
 - **Stage B:** 250 sampled frontier nodes, 21% fathomed in their first solve
   (sko42: 56%), the rest up to 396 short (sko42: 189).
-- **The anchors:** 15 probes (`probe.py`), 6 of them replicates in the tail.
+- **The anchors:** 15 nodes probed (`probe.py`), 6 of them replicates in the
+  tail. The 380-short node has three probes in each arm, taken as their mean.
   Two were checked against complete subtrees, at 188 and 232 short, and came
   within 0.6 standard errors. The far subtrees are too large to run complete.
 - **The models.** Replicates at the same shortfall differ 5-7x, so the
@@ -348,19 +349,24 @@ checkpoint.
 
   The 95% ranges cover both stage B's sample and the anchors' own error.
 
+With the 380-short node's three probes (Nov 13 05:15):
+
 | anchors indexed by | DNN nodes | CPU s | cloud core-hours (95%) | laptop core-hours |
 |---|---|---|---|---|
-| the probe's cold first solve | 9.0e6-9.4e6 | 2.2-2.4e8 | 60,000-66,000 (23,000-150,000) | 30,000-33,000 |
-| stage B's warm give-up (sko42's method, overstates) | 1.5e7 | 3.4e8 | 93,000-96,000 (35,000-251,000) | 46,000-48,000 |
+| the probe's cold first solve | 6.7e6-7.8e6 | 1.7-2.0e8 | 48,000-56,000 (23,000-100,000) | 24,000-28,000 |
+| stage B's warm give-up (sko42's method, overstates) | 1.2e7 | 2.9e8 | 79,000-80,000 (34,000-151,000) | 40,000 |
 
+- **Before the replicates** it was 60,000-66,000 cold (23,000-150,000). The
+  380-short node's first probe under C cost 1.8e6 s, and its two replicates
+  4.4e5 and 2.1e5.
 - **Against the record.** The Nov 6 estimate was 3.6e5 cloud core-hours, so
-  this is 3.8-6.0x less. It is still not a laptop run.
-- **Where the cost is.** The 19 sampled nodes beyond 305 short carry 71-84%
-  of it, and the 193 within 234 carry 3-5%.
+  this is 4.5-7.6x less. It is still not a laptop run.
+- **Where the cost is.** The 19 sampled nodes beyond 305 short carry 70-80%
+  of it, and the 193 within 234 carry 4-6%.
 - **Why.** The cost is in nodes beyond the zone. Their children that come out
   135-234 short get a cut phase and never fathom (0 of 27).
 
-**A wider zone cuts it to about 0.6x (Nov 13).** Arm Cw is C with
+**A wider zone cuts it to about 0.75x (Nov 13).** Arm Cw is C with
 `cut.zone = 0.018` (`sko49/tune/Cw.par`), which is 421 short. Every depth-3
 node in the sample is within it, so every depth-4 node runs a phase, and its
 children mostly fathom at their first solve. The Cw estimate reprobes the 11
@@ -369,23 +375,27 @@ behave the same under both:
 
 | anchors indexed by | DNN nodes | CPU s | cloud core-hours (95%) | laptop core-hours | Cw / C (95%, paired) |
 |---|---|---|---|---|---|
-| the probe's cold first solve | 5.0e6-6.2e6 | 1.3-1.5e8 | **37,000-42,000** (17,000-66,000) | 19,000-21,000 | 0.62-0.63 (0.32-1.16) |
-| stage B's warm give-up | 7.8e6-9.7e6 | 2.0-2.1e8 | 56,000-59,000 (27,000-93,000) | 28,000-29,000 | 0.60-0.61 (0.29-1.14) |
+| the probe's cold first solve | 4.8e6-6.0e6 | 1.3-1.5e8 | **37,000-41,000** (17,000-65,000) | 18,000-21,000 | 0.74-0.77 (0.50-1.18) |
+| stage B's warm give-up | 7.5e6-9.3e6 | 2.0-2.1e8 | 54,000-58,000 (27,000-91,000) | 27,000-29,000 | 0.68-0.72 (0.47-1.15) |
 
-- **The pairs.** Cw is cheaper on 8 of the 11 nodes (pooled 0.52x). The
+- **The pairs.** Cw is cheaper on 8 of the 11 nodes (pooled 0.69x). The
   mechanism shows in nearly all of them: more draws fathom at their first
   solve, 62 of 176 at level 4 against 24, and 120 of 160 at level 5 against
   62. The 3 pairs where Cw costs more (1.4-3.6x) differ only below level 4,
   where a few open draws set the node counts.
 - **How sure.** In the paired resampling (`sko49/tune/paired.py`), Cw comes
-  out cheaper in 90-95% of draws. One pair carries much of the gap: without
-  the 380-short node, where C's probe cost 1.8e6 s (SE 79%), Cw / C is
-  0.81-0.95.
+  out cheaper in 88-95% of draws.
+  - **Firming it up.** With one probe per arm, Cw / C was 0.62-0.63, and the
+    380-short node carried much of the gap. Two more probes per arm there
+    show C's first was a high draw. The node's ratio went from 0.22 to 0.44,
+    and the overall from 0.62-0.63 to 0.74-0.77.
+  - **That node still matters most.** Without it Cw / C is 0.95 (iso) and
+    0.81 (fit). Leaving out any other one pair gives 0.61-0.85.
 - **What it leaves out.** Stages A and B ran under C. Under Cw, depth-2 nodes
   from 234 to 421 short would also run a phase and pass a better pool to the
   frontier, so the estimate errs high.
-- **The laptop.** 19,000-21,000 laptop core-hours is 129-146 days on its 6
-  P-cores, against 210-230 under C.
+- **The laptop.** 18,000-21,000 laptop core-hours is 127-144 days on its 6
+  P-cores, against 165-195 under C.
 
 From Nov 13, `sko49.par` is Cw. Its golden is from HEAD's build (68 settings),
 so `make solver` first. `run_stages.sh` now runs under Cw. Move aside any
