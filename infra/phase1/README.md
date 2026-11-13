@@ -178,6 +178,55 @@ status, nodes, CPU, incumbent), each host's last steps, and at the end
 records each launch (role, type, market, Spot price, instance, zone, commit,
 recipe).
 
+## On real EC2 (Nov 13, eu-north-1, on demand; the quota arrived that day)
+
+The first launches of `launch.sh` on EC2 proper (until then only moto and a
+logged CLI stand-in). Runs `nug17-a` to `nug17-s` in `runs/`, c7g.xlarge and
+c7i.xlarge, cents each.
+
+- **The path works.** User data, the instance role, the Amazon Linux 2023
+  toolchain, the build (one minute), uploads to the store, self-termination;
+  `nug17-d` on x86 (c7i.xlarge, 2 cores) ran the six gates and the recipe to
+  `PASS: totals equal to parallel.py and the optimum` (26 units). Two bugs on
+  the way, fixed: `--on-demand` tripped bash 3.2's `set -u` on an empty array
+  in `launch.sh`; and a gate that hangs idled the instance until `--limit`
+  with an empty, block-buffered log (`nug17-a`), so gates now run `python -u`
+  under a 30-minute `timeout` (`nug17-b`: `parallel TIMEOUT 1800s`, stopped).
+- **Graviton3's OpenBLAS kernels break the DNN certificate.** On c7g.xlarge the
+  DNN gate failed (`nug17-c`): the certified bound is `-inf` on nug12's root
+  (prototype 567.98) and on every node with m >= 9, and the parallel gate's
+  DNN check never ends because nothing fathoms. The QPB path, the state files
+  and the parallel driver passed every check on the same instance. With
+  `OPENBLAS_CORETYPE=ARMV8` (`nug17-e`) or `NEOVERSEN1` (`nug17-f`) the gate
+  passes with x86's values to the digit and nug17 runs to PASS; `node.sh` now
+  sets `NEOVERSEN1` on aarch64 (`--node-env OPENBLAS_CORETYPE=...` overrides it,
+  `auto` leaves the choice to OpenBLAS). The probes (`QAP_PROBE`, below;
+  `nug17-r`, `nug17-s`, scipy-openblas32 0.3.34, core `neoversev1`) call the
+  library directly on random SPD matrices:
+
+  | routine, auto kernels | wrong at n (residual 20 to 104, `info` 0) | right at n |
+  |---|---|---|
+  | `spotrf` lower | 48, 64, 65, 96, 128, 129, 145, 200 | 16, 32, 256, 300, 400 |
+  | `dpotrf` lower | 48, 64, 65, 96 | 16, 32, 128 to 400 |
+  | `spotrf` upper | none | all of them |
+  | `dtrsm` right side, transposed | 400 (2.79) | 64, 145 |
+  | `strsm` (both sides), `ssyrk`, `dsyrk`, `sgemm`, `sgemv`, `strtri`, `ssyevd`, `dsyevd` | none | 64 to 400 |
+
+  The solver's certificate (`dpotrf` of the shifted matrix, lower) and the
+  subspace eigensolver's CholQR (`spotrf` then `strtri`, lower) are exactly
+  the broken calls; the `-P` prototype certificate prints `chol FAILED` at
+  every check. Under the N1 kernels `dnntest` on nug12 costs the same per
+  iteration (0.61 against 0.59 ms), so nothing is lost by the override.
+  Worth an upstream report (OpenBLAS, target NEOVERSEV1, `potrf_L` at
+  mid sizes).
+- **`QAP_PROBE`** (`--node-env "QAP_PROBE='...'"`): a shell command `node.sh`
+  runs in `latest/` after the build, its output uploaded as `out/probe.log`,
+  for a diagnosis on the instance's CPU without logging in (there is no SSH
+  and the role has no SSM). `make solver` does not build `dnntest`; a probe
+  that needs it runs `make dnntest` first (`nug17-p` found out).
+- **CloudFront** refused the distribution (the account must be verified by
+  AWS Support, above); the live page waits on that, the runs do not.
+
 ## Tested here
 
 There is no AWS access from the cloud session, so:
