@@ -113,6 +113,14 @@ if ! make solver PYTHON=$PY > "$OUT/build.log" 2>&1; then step "build FAILED (ou
 ldd latest/bnbdrv | grep -iE 'blas|lapack' > "$OUT/blas.txt"
 step "build ok: ${QAP_COMMIT:-$(git -C "$R" rev-parse --short HEAD 2> /dev/null)} $(tr '\n' ' ' < "$OUT/blas.txt")"
 : > "$OUT/gates.txt"
+# QAP_PROBE (--node-env on launch.sh): a shell command run in latest/ after the build,
+# its output in out/probe.log, before the gates (a diagnosis on the instance's CPU
+# without logging in; Nov 13: the DNN certificate on Graviton)
+if [ -n "${QAP_PROBE:-}" ]; then
+  ( cd latest && timeout 1200 bash -c "$QAP_PROBE" ) > "$OUT/probe.log" 2>&1; prc=$?
+  step "probe exit $prc: $(wc -l < "$OUT/probe.log") lines in out/probe.log"
+  up > /dev/null
+fi
 # python -u: a gate's progress reaches its log (and the 5-minute upload) while it runs;
 # timeout: a hung gate is a failure after 30 minutes, not an idle instance until --limit
 # (Nov 13: tests/parallel_test.py hung on the first real c7g.xlarge with an empty log)
