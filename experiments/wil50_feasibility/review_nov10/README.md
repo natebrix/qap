@@ -373,6 +373,45 @@ of 2,000 iterations separating 1,000 triangles every 100 (the production
   takes triangles only), and more than 200 boxes. Neither is likely to
   change a result of +0.06.
 
+### 2.9 Three Dykstra sweeps in the cut phase on node 5's subtree (Nov 13, laptop, new runs)
+
+Item 2 of section 4: `cut.cp_sweeps = 3:1`, three Dykstra sweeps per
+CP-ADMM iteration of the phase instead of one. Section 2.1 measured it on
+node 10's subtree at 1.054x in iterations and 0.998x in CPU (the sweeps
+cost what they save); the item's next step was node 5's subtree, a node in
+the wider zone's band. Run as `run_pair.sh cpcutt cpcutts` at production
+settings (`PAB_CUT_ZONE=0.0075`), binary 0ac188de, 2 slots per arm, both
+arms at once (`../pipeline_ab/runs_sw2/`; a first attempt at 3 slots per
+arm, `runs_sw/`, was killed by the laptop's memory 2h39m in). Node 5 is
+`-F 49:23,15:37,5:6` on `wil50t.dat`, 363.6 short after its first solve.
+Ratios are base over arm.
+
+| arm | nodes / fathomed | cut phases (fathomed) | DNN iterations (first + phase) | phase CPU s (s per iteration) | DNN CPU s | wall s |
+|---|---|---|---|---|---|---|
+| cpcutt | 1,716 / 1,678 | 70 (32) | 155,493 (85,707 + 69,786) | 9,931 (0.142) | 20,528 | 10,653 |
+| cpcutts, `cut.cp_sweeps = 3:1` | 1,669 / 1,632 | 65 (28) | 141,769 (83,452 + 58,317) | 9,320 (0.160) | 19,891 | 10,436 |
+
+- **1.098x in iterations, 1.033x in DNN CPU** on the 47 children's subtrees
+  (`zone/subtree.py`; all 47 complete in both arms), 1.027x net of the
+  root's phase; 1.032x on the whole arm, 1.021x in wall. No fathom lost and
+  one gained: child `45:28` branches in the base (its phase ends 0.4 short
+  at the 3,400 limit, 47 nodes below it) and fathoms in the arm (2,460
+  iterations). **Adopted** on the item's line (1.03x in DNN CPU on matched
+  nodes, no fathom lost): `fullrun.par` takes `cut.cp_sweeps = 3:1`.
+- **Where it comes from.** A phase iteration costs 12% more with three
+  sweeps (0.160 s against 0.142) and the phases run 16% fewer iterations
+  (58,317 against 69,786), so the phases' CPU falls 6%. Every phase stops
+  higher: the root's goes to 208.0 short instead of 219.8 in the same 790
+  iterations, and the nine branching children start 6-7 units less short,
+  so their first solves and subtrees are shorter (1.046x in iterations on
+  the 1,425 leaves both arms fathom in the first solve, 1.007x in CPU).
+- **How sure.** The margin over the line is 0.003 of CPU on one subtree of
+  1,700 nodes, with the two arms sharing the machine; the 0.998x of node 10
+  (section 2.1) says the sweeps are a wash where the phases do not change
+  an outcome. The gain here is one child's fathom and the children's
+  shorter first solves; the loss is the per-iteration cost. The setting is
+  one line, and the record now has both subtrees.
+
 ## 3. Findings
 
 ### 3.1 The leaves: the median leaf is at its floor, the cost is in the slow tail
@@ -571,7 +610,7 @@ By expected effect on the run's CPU. "Subtree" is node 10's.
 | # | what | evidence | expected | cost | next step and kill line |
 |---|---|---|---|---|---|
 | 1 | a wider cut zone, `cut.zone = 0.0075`: nodes 244-366 short run a phase before they branch | the complete subtree of a 325-short node: 1.110x in DNN CPU, 1.149x in iterations, no fathom lost [m]; passes this table's own line (1.05x, no fathom lost) | 1.05-1.1x on the tree [e]: it acts on subtrees under nodes in the band | a settings line | **adopted Nov 10** (`fullrun.par`); a tail node (400+ short) at 0.0075 and 0.009 would say whether to go wider |
-| 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r]; laptop replicate 1.054x iterations, 0.998x CPU (section 2.1) [m] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | node 5's subtree with and without; adopt at 1.03x in DNN CPU on matched nodes with no fathom lost |
+| 2 | three Dykstra sweeps in the cut phase, `cut.cp_sweeps = 3:1` | +7.7 units where the root's phase stops for 7% more phase CPU, 1.027x on the subtree with no outcome changed [m]; +6.2 on node 13 [r]; laptop replicate 1.054x iterations, 0.998x CPU (section 2.1) [m] | 1.03x; up to 1.25x where nodes change outcome [e] | a settings line | **adopted Nov 13** (`fullrun.par`, `cut.cp_sweeps = 3:1`): node 5's subtree 1.033x in DNN CPU, 1.098x in iterations on the 47 matched children, one fathom gained, none lost (section 2.9) |
 | 3 | a give-up floor for warm solves only, 110-150 instead of 300 | replay: 9 warm misses fall from 2,740 to 1,170 iterations, no fathom lost of 15 [m]; **subtree A/B at 150: 1.017x iterations, 1.010x DNN CPU, no fathom lost, 132 more nodes** (section 2.5) [m] | up to 1.06x on the tail class [e]; 1.01x measured | built: `dnn.giveup_warm` (default 0) | **killed Nov 12** (under 1.02x); a tail node (400+ short) might show more, since misses are a larger share there |
 | 4 | one union node for a line's strong children | 8 of 47 children in 39 iterations against 160 [m] | about 1.08x [e] | a few days: eliminations in the node and the state file, a predictor | a pooled parent first; kill if the strong set is under a quarter of the leaves |
 | 5 | the early certificate at iteration 5 of warm solves | 1.016x on the subtree [m] | 1.016x | `dnn.cross_first` (default 0), the former `DNN_ADMM_CROSS_FIRST` | **adopted Nov 12** (`fullrun.par`, `dnn.cross_first = 5`); measured on the 94-node subtree of section 2.1, not re-measured at the wider zone |
@@ -658,6 +697,8 @@ phases, and region branching only on nug30, cold, at a far miss.
   `.out` and `.err` of each, `lines.diff` of the lines chosen).
 - `box/`: section 2.8's four `dnncuts` logs (`n10`, `n13`, with boxes;
   `n10_nobox`, `n13_nobox`, the controls).
+- Section 2.9's runs are the laptop's, in `../pipeline_ab/runs_sw2/`
+  (`runs_sw/`, the attempt killed by memory, is not kept in git).
 - `zone_rd.py`, `zone_rd.txt`: section 2.4's tally of stage B.
 - `zone/`: section 3.5. `run_set.sh` bounds a node and its children with
   chosen settings on `base.par` (the node-10 arm's settings file);

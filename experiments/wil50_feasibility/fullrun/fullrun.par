@@ -76,6 +76,10 @@ cut.iters = 200
 cut.freeze = 1000
 cut.damp1 = 0.3
 cut.cp = 100:1000
+# cut.cp_sweeps = 3:1 since Nov 13: three Dykstra sweeps per CP-ADMM iteration
+# (review_nov10 item 2: node 5's subtree 1.033x in DNN CPU on the matched
+# children, one fathom gained, none lost)
+cut.cp_sweeps = 3:1
 ship.bits = 32
 dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
 dnn.cross = 2

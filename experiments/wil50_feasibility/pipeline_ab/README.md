@@ -850,3 +850,18 @@ now a settings key). `run_pair.sh` exports it for every arm so that an arm is
 the full run's configuration; `PAB_CROSS_FIRST=0` reproduces the records
 above, all of which ran without it (1.016x in DNN CPU on the 94-node
 subtree, section 2.1 there).
+
+## Nov 13 (laptop): `cpcutt cpcutts`, three Dykstra sweeps on node 5, adopted
+
+Item 2 of `../review_nov10/README.md` section 4 (section 2.9 there). The
+`cpcutts` arm is `cpcutt` with `cut.cp_sweeps = 3:1` (`PAB_CP_SWEEPS`,
+default `3:1`). Node 5 (`-F 49:23,15:37,5:6`, `PAB_CUT_ZONE=0.0075`), both
+arms at once at **2 slots per arm** (`SLOTS=2`): the first attempt at 3
+slots per arm (`runs_sw/`, not committed) ran the 16 GB laptop out of memory
+2h39m in, and Claude Code's low-memory reaper killed the shell and the
+solvers with it. `runs_sw2/`: 1.032x in DNN CPU and 1.097x in iterations on
+the whole arm, 1.033x and 1.098x on the 47 matched children's subtrees, one
+fathom gained (child `45:28`), none lost; wall 10,653 s against 10,436 s.
+`fullrun.par` now carries `cut.cp_sweeps = 3:1`, and the harness's default
+matches it. For a pair expected to run over an hour on the laptop, use
+`SLOTS=2`.

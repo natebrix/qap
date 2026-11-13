@@ -1,0 +1,48 @@
+  ---- RESULTS ----
+
+    Total Time: 20121.309887 seconds 
+         Nodes: 1669 / 1632 / 0
+    root bound: 46131.507862715953
+ fw iterations: 164766
+     DNN bound: 1669 nodes, 1604 fathomed, 10571.25 s
+     cut phase: 65 nodes, 28 fathomed, 9319.54 s
+
+level    nodes	%fathom	%c.elim	    time
+ 3           1	0.0000	0.0000	  148.87
+ 4          47	0.8085	0.0000	 3074.99
+ 5         414	0.9541	0.0000	 7988.05
+ 6         855	0.9906	0.0000	 6915.65
+ 7         352	1.0000	N/A	 1992.68
+
+Strategy breakdown:
+nodes       0        1     1316      352 
+time     0.00   148.87 17978.69  1992.68 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 3           1	0.0000	1.0000	        300	   300.0	   29.98
+ 4          47	0.7234	0.2766	       5930	   126.2	  909.21
+ 5         414	0.9179	0.0821	      27369	    66.1	 3650.11
+ 6         855	0.9825	0.0175	      36192	    42.3	 4321.19
+ 7         352	0.9943	0.0057	      13661	    38.8	 1660.76
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 3           1	0.0000	  118.77
+ 4          13	0.3077	 2137.82
+ 5          34	0.4412	 4257.19
+ 6          15	0.4667	 2501.20
+ 7           2	1.0000	  304.56
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 3           0	       0	       0	       0	       0
+ 4          38	       0	      34	       4	       0
+ 5         395	       0	     380	      15	       0
+ 6         847	       0	     840	       7	       0
+ 7         352	       0	     350	       2	       0
+
+coordinator: 2 slots, 17 units, wall 10436.43 s, CPU 20121.31 s (x1.93), slots busy 97.7%, best objective 48816
