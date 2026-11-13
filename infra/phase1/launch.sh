@@ -191,7 +191,7 @@ for s in $SUBNETS; do   # the next zone if one has no capacity
     --iam-instance-profile Name=$ROLE_NAME --security-group-ids "$SG" --instance-initiated-shutdown-behavior terminate \
     --metadata-options HttpTokens=required,HttpEndpoint=enabled \
     --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=32,VolumeType=gp3,DeleteOnTermination=true}' \
-    "${MO[@]}" --user-data "file://$UD" \
+    ${MO[@]+"${MO[@]}"} --user-data "file://$UD" \
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=qap-phase1-$RUN-$ROLE},{Key=qap-phase1,Value=$RUN},{Key=qap-role,Value=$ROLE}]" \
     --query 'Instances[0].InstanceId' --output text 2> "$L/launch.err") && break
   say "$TYPE: not launched in $s ($(tail -1 "$L/launch.err")); trying the next zone"
