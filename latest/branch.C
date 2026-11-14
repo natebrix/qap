@@ -2221,6 +2221,10 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
   }
 }
 
+static bool last_line_row = true;   // branch_last_line
+static int last_line = -1;
+void branch_last_line(bool &row, int &index) { row = last_line_row; index = last_line; }
+
 void branch(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
 	    QAPAssignment *child, int &kids,
 	    double bound, QPBParameters *qpbp, BranchParameters *bp,
@@ -2234,6 +2238,8 @@ void branch(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
   //  will get row_in_assign, col_in_assign as selection
   select(qap, assign, X, U, bound, qpbp, bp,
 	 chose_row, row_in_U, row_in_assign, J3, J3_dim, J3_count);
+  last_line_row = chose_row;   // (the column loop below reuses row_in_assign)
+  last_line = row_in_assign;
 
   if (!chose_row) {
     col_in_assign = row_in_assign;

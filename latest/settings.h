@@ -21,10 +21,10 @@
                 default, or goes.
    run          this run's identity: environment (QAP_EST_SEED,
                 QAP_ALLOW_UNKNOWN) or the -p path; not recorded.
-   diagnostic   output only: environment (QAP_DNN_TRACE, ...).
+   diagnostic   output only: environment (QAP_DNN_TRACE, QAP_NODE_TRACE, ...).
 
- Unknown names are errors (exit 2): a QAP_DNN_/QAP_EST_/QAP_XBAR_/DNN_
- variable not in the table, a [settings] key not in the table, or a
+ Unknown names are errors (exit 2): a QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/
+ DNN_ variable not in the table, a [settings] key not in the table, or a
  value that does not parse or is out of range. The environment name a
  policy setting had before Phase 2 (QAP_DNN_BETA, ...) is an error whose
  message names its key. QAP_ALLOW_UNKNOWN=1 downgrades unknown and old

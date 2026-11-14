@@ -61,6 +61,16 @@ local `moto` server for tests). Both implement the same small interface
   their own sessions, and a solver that dies of a signal while draining also
   returns its checkpoint.
 
+- **Traces.** With `init --trace` every attempt uploads `trace.txt`
+  (`QAP_DNN_TRACE`, a line per DNN node) and `nodes.txt` (`QAP_NODE_TRACE`, a
+  line per node: format in `latest/bnb.C`) next to its `out.state`, and the
+  frontier pass its own under `runs/RUN/frontier/`. The whole tree is
+  `frontier/nodes.txt` plus, for each merged unit, the `nodes.txt` of the
+  attempt the ledger records: an attempt that resumes a checkpoint starts from
+  the lines that checkpoint accounts for (`ckpt.nodes.txt`) and a killed
+  solver's trace is cut to its checkpoint, so each node is in exactly one of
+  them. Other attempts' files overlap them.
+
 With a fixed incumbent the totals equal a serial run's exactly, whatever
 fails (`tests/coord_test.py`, `make coord`: nug17 with 0.3-second units,
 about 90 units a run):

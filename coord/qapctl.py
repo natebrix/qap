@@ -88,7 +88,9 @@ def main(argv=None):
     p.add_argument("--visibility", choices=["public", "private"], default="public",
                    help="private: publish no public status for this run")
     p.add_argument("--poll", type=float, default=2.0)
-    p.add_argument("--trace", action="store_true", help="QAP_DNN_TRACE per unit, uploaded with the result")
+    p.add_argument("--trace", action="store_true",
+                   help="QAP_DNN_TRACE and QAP_NODE_TRACE per unit, uploaded with the result as trace.txt and "
+                        "nodes.txt (the frontier pass's under runs/RUN/frontier/)")
     p.add_argument("--workdir")
     p.add_argument("--exit-when-idle", type=float)
     p.add_argument("--max-wall", type=float)

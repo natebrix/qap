@@ -189,6 +189,10 @@ void find_best_match(MAT *X, int *p);
 // increasing original order), or NULL when none. Set by bnb() before branch()
 // and cleared after; branch() keeps only the pointer.
 void branch_set_dnn_marginals(const double *x, int m);
+// The line the last branch() call branched on: a row (facility) when row is
+// true, else a column (location), by its original index. For bnb.C's node
+// trace (QAP_NODE_TRACE): with no children left the kids cannot tell.
+void branch_last_line(bool &row, int &index);
 void merge_U(MAT *U1, double bound1, MAT *U2, double bound2);
 
 // branching functions

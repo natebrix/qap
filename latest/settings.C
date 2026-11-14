@@ -96,11 +96,12 @@ static Setting TABLE[] = {
   // ---- this run (environment, -p)
   ENVVAR("QAP_EST_SEED", 's', "", 0, 0, SET_RUN, "estimator: seed for rand() (unset: the fixed sequence)"),
   ENVVAR("QAP_DNN_WARM_DIR", 's', "", 0, 0, SET_RUN, "parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline)"),
-  ENVVAR("QAP_ALLOW_UNKNOWN", 'i', "0", 0, 1, SET_RUN, "1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/DNN_ variable is a warning, not an error"),
+  ENVVAR("QAP_ALLOW_UNKNOWN", 'i', "0", 0, 1, SET_RUN, "1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error"),
   {"par.file", NULL, NULL, 's', "", 0, 0, SET_RUN, "-p: the params file"},
   // ---- diagnostics (environment)
   ENVVAR("QAP_DNN_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per DNN node to this file"),
   ENVVAR("QAP_DNN_TRACE_HIST", 'i', "0", 0, 1, SET_DIAGNOSTIC, "1: the trace line carries the CP cut phase's running best at each check (| hist it:best ...)"),
+  ENVVAR("QAP_NODE_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per node taken off the stack (fixes, bounds, how it ended, the branching line; bnb.C) to this file"),
   ENVVAR("QAP_DNN_POOL_CHECK", 'i', "0", 0, 1000000, SET_DIAGNOSTIC, "check each assembled pool term on this many random permutations"),
   ENVVAR("QAP_EST_HIST", 's', "dive_history_nug25_2.txt", 0, 0, SET_DIAGNOSTIC, "estimator: the per-dive history file"),
   ENVVAR("QAP_XBAR_DEBUG", 'i', "0", 0, 2, SET_DIAGNOSTIC, "1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score"),
@@ -109,7 +110,7 @@ static Setting TABLE[] = {
 #undef ENVVAR
 static const int NTABLE = (int)(sizeof TABLE / sizeof TABLE[0]);
 
-static const char *PREFIXES[] = {"QAP_DNN_", "QAP_EST_", "QAP_XBAR_", "DNN_", NULL};
+static const char *PREFIXES[] = {"QAP_DNN_", "QAP_EST_", "QAP_XBAR_", "QAP_NODE_", "DNN_", NULL};
 static const char *CLASS_NAMES[] = {"policy", "experiment", "run", "diagnostic"};
 static const char *SOURCE_NAMES[] = {"default", "env", "flag", "par"};
 

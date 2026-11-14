@@ -396,10 +396,16 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
           ["-d", str(frontier_depth), "-o", frontier, os.path.abspath(instance)]
     e = dict(os.environ)
     e.update(env)
+    traces = {"QAP_NODE_TRACE": "nodes.txt", "QAP_DNN_TRACE": "trace.txt"} if cfg.get("trace") else {}
+    for var, name in traces.items():
+        e[var] = os.path.join(tmp, name)   # the frontier's nodes are in no unit's trace
     r = subprocess.run(cmd, cwd=sdir, capture_output=True, text=True, env=e)
     if r.returncode != 0:
         raise SystemExit(f"frontier pass failed (rc={r.returncode}):\n{r.stdout[-2000:]}{r.stderr}")
     log(r.stdout.split("  ---- RESULTS ----")[0].rstrip())
+    for name in traces.values():
+        if os.path.exists(os.path.join(tmp, name)):
+            backend.put_file(run_key(run_id, "frontier", name), os.path.join(tmp, name))
     st = State(frontier)
     backend.put_file(run_key(run_id, "instance.dat"), os.path.abspath(instance))
     params_path = params if os.path.isabs(params) else os.path.join(sdir, params)

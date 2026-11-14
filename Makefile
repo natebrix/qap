@@ -9,11 +9,12 @@
 #   make dnntest       latest/dnntest, the DNN bound's driver (needs LAPACK, see latest/makefile)
 #   make dnncheck      validate the DNN bound (tests/dnn_test.py, ~2 min)
 #   make continuationcheck  same-node DNN continuation and exact-bound checks
+#   make nodetrace     the node trace (QAP_NODE_TRACE) against the statistics, parallel.py and the coordinator (~1 min)
 #   make clean
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel coord settings-doc regression clean dnntest dnncheck shipcheck
+.PHONY: all solver test bruteforce resume parallel coord settings-doc regression clean dnntest dnncheck shipcheck nodetrace
 
 all: solver
 
@@ -53,6 +54,11 @@ dnncheck: dnntest
 # the parent's DNN state through a stop and resume (state v6, QAP_DNN_SHIP), about 4 minutes
 shipcheck: solver
 	$(PYTHON) tests/ship_test.py
+
+# the node trace (QAP_NODE_TRACE, latest/bnb.C): a line per node, matching the
+# statistics, and each node once across bench/parallel.py's and the coordinator's processes
+nodetrace: solver
+	$(PYTHON) tests/node_trace_test.py
 
 clean:
 	$(MAKE) -C latest clean

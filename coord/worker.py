@@ -8,9 +8,18 @@ machine, `slots` solver processes, each slot a thread that
     lease, rewrites inc.txt and sends SIGUSR2 when a better incumbent is
     published, sends SIGUSR1 (save the open nodes, stop at the next node)
     when the coordinator asks the unit to return or the supervisor drains,
-  uploads out.state, the solver log, the node trace and result.json under the
+  uploads out.state, the solver log, the DNN trace and result.json under the
     attempt's prefix, records the outcome (conditional on still holding the
     lease) and deletes the message.
+
+With --trace the unit also gets a node trace (QAP_NODE_TRACE, latest/bnb.C,
+nodes.txt), kept as the unit's rather than the attempt's: an attempt that
+resumes a checkpoint starts from the trace that checkpoint accounts for
+(ckpt.nodes.txt, uploaded before ckpt.state), and every trace is cut to the
+lines its state file accounts for (traced_nodes), so the nodes.txt of the
+attempt the ledger records holds each node of the unit once, however many
+attempts it took. A unit's in.state has zero statistics (the coordinator
+writes it so), which makes that count the unit's own.
 
 SIGTERM or SIGINT drains: every running solver is asked to stop at its next
 node; one still inside a node after `grace` seconds is killed and its last
@@ -32,6 +41,36 @@ from .common import LANES, ROOT, SOLVER, State, run_key, unit_key
 # run's message hides it this long (and waits a poll) and leaves it for that
 # run's workers
 FOREIGN_HIDE_S = 1
+
+
+def traced_nodes(state):
+    """the node-trace lines (bnb.C, QAP_NODE_TRACE) a state file accounts for:
+    the nodes counted plus those discarded when popped (pop_f_level), which
+    the node counter leaves out; the header lines only (no warm starts read)"""
+    node = popped = 0
+    with open(state) as f:
+        for line in f:
+            w = line.split(" ", 1)[0]
+            if w == "counters":
+                node = int(line.split()[1])
+            elif w == "pop_f_level":
+                popped = sum(int(x) for x in line.split()[1:])
+            elif w in ("warm_starts", "nodes"):
+                break
+    return node + popped
+
+
+def keep_lines(src, dst, k):
+    """dst = the first k lines of src (dst may be src); the number kept"""
+    with open(src) as f:
+        lines = [l for _, l in zip(range(k), f)]
+    if lines and not lines[-1].endswith("\n"):
+        lines.pop()                     # a line the solver had not finished
+    tmp = dst + ".tmp"
+    with open(tmp, "w") as f:
+        f.writelines(lines)
+    os.replace(tmp, dst)
+    return len(lines)
 
 
 class Worker:
@@ -105,13 +144,22 @@ class Worker:
         os.makedirs(wd, exist_ok=True)
         inp, out = os.path.join(wd, "in.state"), os.path.join(wd, "out.state")
         incf, logf, tracef = os.path.join(wd, "inc.txt"), os.path.join(wd, "solver.log"), os.path.join(wd, "trace.txt")
+        nodesf = os.path.join(wd, "nodes.txt")
+        trace = bool(self.cfg.get("trace"))
         # resume from the unit's last uploaded checkpoint when an earlier
         # attempt left one (every checkpoint is a valid continuation of
         # in.state, statistics included), else from in.state
         ckpt_key = unit_key(self.run_id, uid, "ckpt.state")
+        ckpt_nodes_key = unit_key(self.run_id, uid, "ckpt.nodes.txt")
         resumed = self.b.get_file(ckpt_key, inp)
         if not resumed and not self.b.get_file(unit["in_key"], inp):
             raise RuntimeError(f"unit {uid}: no {unit['in_key']}")
+        if trace and resumed:
+            # the trace up to that checkpoint (it may run past it: it goes up first)
+            want = traced_nodes(inp)
+            have = keep_lines(nodesf, nodesf, want) if self.b.get_file(ckpt_nodes_key, nodesf) else 0
+            if have != want:
+                self.log(f"worker {self.name}: unit {uid}: {have} of the checkpoint's {want} node-trace lines")
         inc_data, inc_tag = self.b.get_if_changed(run_key(self.run_id, "incumbent.json"), None)
         inc = json.loads(inc_data) if inc_data else {}
         self._write_inc(incf, inc)
@@ -132,8 +180,9 @@ class Worker:
         env = dict(os.environ)
         env.update(self.sol.get("env", {}))
         env.update({"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1"})
-        if self.cfg.get("trace"):
+        if trace:
             env["QAP_DNN_TRACE"] = tracef
+            env["QAP_NODE_TRACE"] = nodesf
         t0 = time.time()
         with open(logf, "w") as lf:
             # its own session: a signal to the supervisor's process group (a
@@ -177,6 +226,9 @@ class Worker:
                     if m != ckpt_mtime:
                         snap = out + ".up"
                         shutil.copyfile(out, snap)
+                        if trace and os.path.exists(nodesf):
+                            keep_lines(nodesf, nodesf + ".up", traced_nodes(snap))
+                            self.b.put_file(ckpt_nodes_key, nodesf + ".up")
                         self.b.put_file(ckpt_key, snap)
                         ckpt_mtime = m
                     last_ckpt = now
@@ -230,6 +282,10 @@ class Worker:
         self.b.put_file(prefix + "/solver.log", logf)
         if os.path.exists(tracef):
             self.b.put_file(prefix + "/trace.txt", tracef)
+        if os.path.exists(nodesf):
+            if have_out:
+                keep_lines(nodesf, nodesf, traced_nodes(out))   # a killed solver's checkpoint: not the nodes after it
+            self.b.put_file(prefix + "/nodes.txt", nodesf)
         self.b.put_bytes(prefix + "/result.json", json.dumps(result).encode())
         if outcome is not None:
             ok = self.b.update_unit(self.run_id, uid, {"status": outcome, "rc": rc, "wall": wall, "cpu": cpu,

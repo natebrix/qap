@@ -99,8 +99,9 @@ sees the same value. Where a setting lives follows from its class:
   It graduates to a key or a default, or goes.
 - **run** (this run's identity): the `-p` path, `QAP_EST_SEED`,
   `QAP_ALLOW_UNKNOWN`.
-- **diagnostic** (output only): `QAP_DNN_TRACE`, `QAP_DNN_POOL_CHECK`,
-  `QAP_XBAR_DEBUG`, `QAP_EST_HIST`.
+- **diagnostic** (output only): `QAP_DNN_TRACE`, `QAP_NODE_TRACE` (a line
+  per node: format in `latest/bnb.C`), `QAP_DNN_POOL_CHECK`, `QAP_XBAR_DEBUG`,
+  `QAP_EST_HIST`.
 
 Each run prints the resolved table after it has read the params file, as the
 dump `bnbdrv --print-settings [-p file.par] [-x ...]` gives on its own:
@@ -120,7 +121,7 @@ defaults included, so a changed default changes it.
 
 - **An unknown name is an error.** A `[settings]` key not in the table, a
   variable in the environment whose name starts with `QAP_DNN_`, `QAP_EST_`,
-  `QAP_XBAR_` or `DNN_` and is not in the table, and a value that does not
+  `QAP_XBAR_`, `QAP_NODE_` or `DNN_` and is not in the table, and a value that does not
   parse or is out of range all stop the run with exit code 2 and a message
   naming it. The environment name a policy setting had before Nov 9
   (`QAP_DNN_BETA`, `DNN_BETA_SCHED`, ...) is such an error, and the message
@@ -212,10 +213,11 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `DNN_ADMM_WARM_DAMP` | environment | text | unset | text | experiment | D:K: both dual steps scaled by D for the first K iterations of a warm call |
 | `QAP_EST_SEED` | environment | text | unset | text | run | estimator: seed for rand() (unset: the fixed sequence) |
 | `QAP_DNN_WARM_DIR` | environment | text | unset | text | run | parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline) |
-| `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/DNN_ variable is a warning, not an error |
+| `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error |
 | `par.file` | `-p` | text | unset | text | run | -p: the params file |
 | `QAP_DNN_TRACE` | environment | text | unset | text | diagnostic | append a line per DNN node to this file |
 | `QAP_DNN_TRACE_HIST` | environment | integer | `0` | 0..1 | diagnostic | 1: the trace line carries the CP cut phase's running best at each check (| hist it:best ...) |
+| `QAP_NODE_TRACE` | environment | text | unset | text | diagnostic | append a line per node taken off the stack (fixes, bounds, how it ended, the branching line; bnb.C) to this file |
 | `QAP_DNN_POOL_CHECK` | environment | integer | `0` | 0..1000000 | diagnostic | check each assembled pool term on this many random permutations |
 | `QAP_EST_HIST` | environment | text | `dive_history_nug25_2.txt` | text | diagnostic | estimator: the per-dive history file |
 | `QAP_XBAR_DEBUG` | environment | integer | `0` | 0..2 | diagnostic | 1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score |

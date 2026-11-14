@@ -85,8 +85,63 @@ int dnn_warm = 0;                    // start a child's DNN from its parent's (1
 static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
 #endif
 #include <math.h>
+#include <cmath>
+#include <string>
 #include "settings.h"
 //#include <time.h>
+
+/*
+ QAP_NODE_TRACE=file (settings.C, diagnostic): one line per node taken off
+ the stack, appended where its fate is decided, so a node restored from a
+ state file is traced by the process that decides it (not the nodes -d sets
+ aside, not the estimator's dives):
+
+   node <depth> <fixes> <qpb> <dnn> <cut> <cutoff> <outcome> <rule> <line> <kids> <cpu>
+
+ fixes    facility:location pairs in the order they were made (history), "-"
+          at the root: a node's parent has its fixes less the last pair
+ qpb      the bound computed at the node (QPB, or GLB); dnn the DNN first
+          solve's bound; cut the cut phase's best; "-" where not computed
+ cutoff   incumbent - DELTA, against which the node was decided ("-": no
+          incumbent yet)
+ outcome  Q, D, C fathomed by QPB, the DNN first solve, the cut phase (as the
+          fathoms-by-cause table counts them: Q is every other fathom); P
+          discarded when popped (pop_f_level); E enumerated (three or fewer
+          free facilities); B branched
+ rule     the params level that chose the line (pick_param); line r<facility>
+          or c<location>; kids the children created; all three "-" unless B
+ cpu      CPU seconds from the pop to the line
+ The node counter counts every line but P's: lines = node + sum(pop_f_level).
+*/
+static void node_trace(const char *file, const QAPAssignment &a, char outcome,
+		       double qpb, double dnn, double cut, double cutoff, double t0,
+		       int rule = 0, bool row = true, int line = 0, int kids = 0)
+{
+  std::string fixes;
+  char b[64];
+  for (int k = 0; k < a.nfix; k++) {
+    snprintf(b, sizeof b, "%s%d:%d", k ? "," : "", (int)a.history[k], (int)a.p[a.history[k]]);
+    fixes += b;
+  }
+  char vq[32] = "-", vd[32] = "-", vc[32] = "-", vu[32] = "-", vr[16] = "-", vl[16] = "-", vk[16] = "-";
+  if (!std::isnan(qpb)) snprintf(vq, sizeof vq, "%.4f", qpb);
+  if (!std::isnan(dnn)) snprintf(vd, sizeof vd, "%.4f", dnn);
+  if (!std::isnan(cut)) snprintf(vc, sizeof vc, "%.4f", cut);
+  if (cutoff < 1e99) snprintf(vu, sizeof vu, "%.4f", cutoff);   // (1e100 or inf before an incumbent)
+  if (outcome == 'B') {
+    snprintf(vr, sizeof vr, "%d", rule);
+    snprintf(vl, sizeof vl, "%c%d", row ? 'r' : 'c', line);
+    snprintf(vk, sizeof vk, "%d", kids);
+  }
+  double cpu = (clock() - t0) / CLOCKS_PER_SEC;
+  if (cpu < 0) cpu += CLOCK_ROLLOVER;   // as stopIteration
+  // one fprintf per line, appended: processes may share the file
+  if (FILE *f = fopen(file, "a")) {
+    fprintf(f, "node %d %s %s %s %s %s %c %s %s %s %.6f\n", a.depth, fixes.empty() ? "-" : fixes.c_str(),
+	    vq, vd, vc, vu, outcome, vr, vl, vk, cpu);
+    fclose(f);
+  }
+}
 
 void list_clean_up(Node *&todo, double val, QAPStatistics *s);
 
@@ -439,6 +494,9 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
   p = new int[n];
   qr = new QAP(n);
 
+  static const char *node_trace_file = *setting_s("QAP_NODE_TRACE") ? setting_s("QAP_NODE_TRACE") : NULL;
+  const char *trace = dive ? NULL : node_trace_file;   // node_trace above
+
   // *********** branch and bound *********************
   while (stack != NULL)
     {
@@ -499,6 +557,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	//std::cout << "Fathomed due to updated incumbent (" 
 	//     << s->getObjective() << ")" << std::endl;
 	stats->anotherDiscard(node.depth);
+	if (trace) node_trace(trace, node, 'P', NAN, NAN, NAN, s->getObjective() - DELTA, stats->ier_start_time);
 	continue;
       }
 
@@ -538,6 +597,10 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	node.print(std::cout,false);
       }
       */
+
+      // three or fewer free facilities: enumerated by one of the three below
+      if (trace && node.n - node.nfix <= 3)
+	node_trace(trace, node, 'E', NAN, NAN, NAN, s->getObjective() - DELTA, stats->ier_start_time);
 
       // If the assignment corresponds to a permutation, there is no
       // need to compute a bound: just compute the objective value
@@ -668,6 +731,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // where the DNN bound does not fathom.) Skipped until there is a real
       // incumbent: against 1e100 nothing fathoms and every call runs to its limit.
       bool dnn_fathomed = false, dnn_ran = false;
+      double dnn_lb = NAN, cut_lb = NAN;   // for the node trace (NAN: not run)
+      char dnn_fate = 0;                   // 'D' or 'C' when one of them fathomed
       void *dnn_keep = NULL;   // this node's DNN state, for its children
       std::vector<double> dnn_xbar;   // its primal marginals, for rule 8
       std::string dnn_pool_out;       // its cut pool for its children (QAP_DNN_POOL)
@@ -801,10 +866,11 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  DNNCutResult cr_trace;
 	  bool cut_ran = false, cut_cp = false;
 	  dnn_ran = true;
+	  dnn_lb = r.lb;
 	  stats->anotherDNN(node.depth, r.status == DNN_FATHOMED, r.status == DNN_HOPELESS,
 	                    r.iterations, r.cpu);
 	  node.bound = std::max(node.bound, r.lb);
-	  if (r.status == DNN_FATHOMED) dnn_fathomed = true;
+	  if (r.status == DNN_FATHOMED) { dnn_fathomed = true; dnn_fate = 'D'; }
 	  if (!dnn_fathomed && cut_zone > 0 && node.depth <= cut_max_depth && save && save->m == m && r.lb > -HUGE_VAL &&
 	      (inc - DELTA) - r.lb <= cut_zone * std::max(1.0, fabs(inc))) {
 	    DNNCutParams cp;
@@ -917,7 +983,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	                                          free_orig, n, cp, wc, r.lb, r.primal)
 	                             : dnn_cut_rounds(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp,
 	                                              free_orig, n, cp, wc, r.lb, r.primal);
-	    cut_ran = true; cr_trace = cr;
+	    cut_ran = true; cr_trace = cr; cut_lb = cr.best_lb;
 	    if (dnn_pool && cr.status != DNN_FATHOMED && !pool_out.cuts.empty() && wc->m == m) {
 	      dnn_pool_out = dnn_pool_encode(pool_out);
 	      cut_state = wc;
@@ -925,7 +991,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      delete wc;
 	    stats->anotherCut(node.depth, cr.status == DNN_FATHOMED, cr.cpu);
 	    node.bound = std::max(node.bound, cr.best_lb);
-	    if (cr.status == DNN_FATHOMED) dnn_fathomed = true;
+	    if (cr.status == DNN_FATHOMED) { dnn_fathomed = true; dnn_fate = 'C'; }
 	  }
 	  if (save && !dnn_fathomed && save->m == m &&
 	      (param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD)) {
@@ -973,6 +1039,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       // ************** fathom / branch **************
 
       kids = 0;
+      char fate;   // for the node trace
 
       /*
       */
@@ -1012,6 +1079,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 #endif
 	branch(q, node, X, U, kid, kids, bound + qpbp->lapU,
 	       qpbp, bp, loc_in_row, loc_kept);
+	fate = 'B';
 #ifdef HAVE_DNN
 	branch_set_dnn_marginals(NULL, 0);
 #endif
@@ -1099,10 +1167,18 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  kid[i].set_warm(NULL);    // the stack holds the references now
       }
       else {
+	fate = dnn_fate ? dnn_fate : 'Q';
 	if(dive)
 	  stats->anotherFathom(node.depth,factor);
 	else
 	  stats->anotherFathom(node.depth);
+      }
+      if (trace) {
+	bool row;
+	int line;
+	branch_last_line(row, line);
+	node_trace(trace, node, fate, bound, dnn_lb, cut_lb, s->getObjective() - DELTA,
+		   stats->ier_start_time, strat, row, line, kids);
       }
 #ifdef HAVE_DNN
       if (dnn_keep) free_dnn_warm(dnn_keep);   // not handed to children
