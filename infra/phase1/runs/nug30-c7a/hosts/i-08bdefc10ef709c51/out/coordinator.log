@@ -1,0 +1,71 @@
+05:34:40 coordinator: 0h00m00s units {'queued': 9} nodes 1 (DNN 0, fathomed 0) CPU 2 s
+05:34:40 tree: 1 nodes, 1 of 1 shards written in 0.1 s
+05:35:11 coordinator: 0h00m31s units {'leased': 9} nodes 1 (DNN 0, fathomed 0) CPU 2 s
+05:36:13 coordinator: 0h01m33s units {'merged': 7, 'returned': 2, 'done': 39, 'leased': 16, 'queued': 28} nodes 532 (DNN 531, fathomed 502) CPU 409 s
+05:36:44 coordinator: 0h02m04s units {'merged': 73, 'queued': 15, 'done': 1, 'leased': 16} nodes 1378 (DNN 1377, fathomed 1317) CPU 1013 s
+05:37:19 coordinator: 0h02m39s units {'merged': 105, 'leased': 16, 'done': 15, 'queued': 15, 'returned': 1} nodes 1928 (DNN 1927, fathomed 1847) CPU 1440 s
+05:37:52 coordinator: 0h03m12s units {'merged': 149, 'returned': 2, 'done': 70, 'leased': 8} nodes 2441 (DNN 2440, fathomed 2341) CPU 1776 s
+05:38:42 coordinator: 0h04m02s units {'merged': 274, 'done': 77, 'leased': 8} nodes 3203 (DNN 3202, fathomed 3077) CPU 2280 s
+05:39:12 coordinator: 0h04m32s units {'merged': 358, 'leased': 1} nodes 3524 (DNN 3523, fathomed 3389) CPU 2455 s
+05:39:42 tree: 3524 nodes, 25 of 25 shards written in 0.8 s
+05:39:49 coordinator: 0h05m09s units {'merged': 359, 'done': 13, 'leased': 4} nodes 3627 (DNN 3626, fathomed 3487) CPU 2518 s
+05:40:05 coordinator: 0h05m25s units {'merged': 376} nodes 3688 (DNN 3687, fathomed 3547) CPU 2545 s
+05:40:05 tree: 3688 nodes, 2 of 26 shards written in 0.2 s
+05:40:05   ---- RESULTS ----
+
+    Total Time: 2544.941749 seconds 
+         Nodes: 3688 / 3547 / 0
+    root bound: 5342.2609646393284
+ fw iterations: 380512
+     DNN bound: 3687 nodes, 3547 fathomed, 2522.66 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    1.65
+ 1           9	0.0000	0.0000	   52.05
+ 2         225	0.7289	0.0000	  674.63
+ 3        1624	0.9698	0.0000	 1054.63
+ 4        1287	0.9868	0.0000	  580.07
+ 5         442	0.9910	0.0000	  156.06
+ 6         100	1.0000	N/A	   24.46
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 9 
+ 2 |   0.0000   0.8711   0.1289   0.0000  | 225 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 1624 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1287 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 442 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 100 
+nodes      10      196     3482        0 
+time    53.70   644.91  1844.94     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.865794	0.019082
+ 2| 0.137071	0.023564
+ 3| 0.037146	0.024313
+ 4| 0.024801	0.015878
+ 5| 0.014141	0.007600
+ 6| 0.005819	0.001871
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           9	0.0000	1.0000	       1800	   200.0	   51.12
+ 2         225	0.7289	0.2711	      23770	   105.6	  671.62
+ 3        1624	0.9698	0.0302	      43256	    26.6	 1046.34
+ 4        1287	0.9868	0.0132	      29459	    22.9	  574.83
+ 5         442	0.9910	0.0090	      10441	    23.6	  154.53
+ 6         100	1.0000	0.0000	       2183	    21.8	   24.23
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2         164	       0	     164	       0	       0
+ 3        1575	       0	    1575	       0	       0
+ 4        1270	       0	    1270	       0	       0
+ 5         438	       0	     438	       0	       0
+ 6         100	       0	     100	       0	       0
+
+coordinator: 16 slots, 376 units, wall 325.03 s, CPU 2544.94 s (x7.83), slots busy 49.9%, best objective 6124
