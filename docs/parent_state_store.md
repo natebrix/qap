@@ -12,8 +12,23 @@ checkpoint the files no open node references and no running worker can still
 be writing (older than the oldest running task's start), and has
 `--checkpoint-inline`. `make shipcheck` (`ship64store`) checks a stop and
 resume through the store is the same search node for node. The `coord/`
-coordinator does not set the variable and so keeps self-contained unit files;
-giving it a store is a separate step (its backends are S3 and local files).
+coordinator did not set the variable, and kept self-contained unit files, until
+Nov 14, when tho40-a (ship.bits = 64, 64 workers) filled its instance's 32 GB
+disk in 30 minutes: each open node carried its parent's 55 MB token. It has a
+store since (`coord/warm.py`), `runs/RUN/warm/<fnv64>.dnn` in the run's backend.
+The frontier pass and every unit attempt run with `QAP_DNN_WARM_DIR=<the state
+file's directory>/warm`, so references read `@warm/<name>`; a worker fetches the
+parents a state file names before the solver reads it and uploads those a file
+it uploads names (each once, a checkpoint's before the checkpoint), and a parent
+the store has lost costs those nodes a cold start, not the unit. The
+coordinator never reads a token: it records on each unit the parents its nodes
+start from (and, at each uploaded checkpoint, the checkpoint's), deletes every
+10 minutes the parents no unmerged unit names and no running attempt can have
+written, deletes a merged unit's state files once its totals are saved, and the
+whole store when the run finishes. `tests/node_trace_test.py coord` and
+`coordkilldnn` (ship.bits = 64 through the store; a worker killed and a unit
+resumed from a checkpoint) give the serial tree; `tests/warm_test.py` checks
+what the cleanup keeps.
 
 ## The problem
 
