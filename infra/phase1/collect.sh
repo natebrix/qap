@@ -1,6 +1,7 @@
 #!/bin/bash
 # Phase 1 (README.md): where a run stands, and its results once it is done.
-#   infra/phase1/collect.sh [RUN]     (default: the latest run under runs/)
+#   infra/phase1/collect.sh [RUN]     (default: the latest run under runs/; a run launched
+#                                     elsewhere is fetched into a new runs/RUN/)
 # Shows the run's instances, the coordinator's status.json, each host's last
 # steps, and results.txt and compare.txt when they exist. Everything it fetches
 # goes to runs/RUN/ (each host's out/ under hosts/HOST/). Safe to run at any time.
@@ -8,8 +9,12 @@ set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
 RUN=${1:-$(ls -1t "$D/runs" 2> /dev/null | head -1)}
 L=$D/runs/$RUN
-[ -n "$RUN" ] && [ -f "$L/region.txt" ] || { echo "no run ${RUN:-} under $D/runs (launch.sh writes it)"; exit 1; }
-REGION=$(cat "$L/region.txt")
+[ -n "$RUN" ] || { echo "no run under $D/runs: give its name"; exit 1; }
+[[ $RUN =~ ^[A-Za-z0-9_-]{1,60}$ ]] || { echo "RUN may have letters, digits, - and _ only"; exit 1; }
+# a run launched elsewhere (another clone, or the GitHub workflow) has no directory here
+# yet: its region is QAP_REGION's (default eu-north-1), and the store must know the run
+REGION=${QAP_REGION:-eu-north-1}
+[ -f "$L/region.txt" ] && REGION=$(cat "$L/region.txt")
 # bucket.txt stays out of git (the bucket's name holds the account number); without it,
 # the bucket is the signed-in account's, as launch.sh names it
 if [ -f "$L/bucket.txt" ]; then
@@ -17,6 +22,13 @@ if [ -f "$L/bucket.txt" ]; then
 else
   ACCT=$(command aws sts get-caller-identity --query Account --output text) || { echo "not signed in: aws sso login"; exit 1; }
   B=qap-coord-$ACCT-$REGION
+fi
+if [ ! -d "$L" ]; then
+  ST=$(python3 "$D/bk.py" "aws:$B?region=$REGION" status "$RUN" 2> /dev/null || echo none)
+  [ "$ST" != none ] || { echo "no run $RUN in s3://qap-coord-<account>-$REGION (QAP_REGION for another region)"; exit 1; }
+  mkdir -p "$L"
+  echo "$REGION" > "$L/region.txt"
+  echo "run $RUN ($ST) was launched elsewhere: its records go to $L"
 fi
 export AWS_PAGER=""
 aws() { command aws --region "$REGION" "$@"; }
