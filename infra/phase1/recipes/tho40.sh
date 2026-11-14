@@ -10,7 +10,12 @@
 INSTANCE=qaplib/tho40t.dat
 PARAMS=../experiments/estimates/tho40/tho40.par
 OPT=240516         # the value the run is expected to end on; a lower one is a new best (compare.py then says FAIL: read it)
-UB=240516          # the incumbent given to the solver
+# The incumbent given to the solver: the best known + 2, the next value on tho40's objective
+# grid (its values are even), as the 2000 nug30 solve was given the optimum + 2. The run
+# must then find a solution of 240,516 itself (status.json: found_by_search) and prove that
+# none is better. The extra tree, nodes whose bound lies within 2 of the best known, is
+# about 0.1% by the estimate's gap fit (nug12 with -u 580: 254 nodes against 241).
+UB=240518
 EXTRA="-s SYM/tho40t.sym"
 ENV=""
 # 20-minute units (about 900 nodes each at 1.4 s): with 64 slots and the default reserve

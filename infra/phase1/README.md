@@ -57,7 +57,7 @@ expects), `UB` (the incumbent given to the solver), `EXTRA` (solver flags),
 | `nug30` | the acceptance run: the Nov 8 record recipe (rule 9, DNN at depths 1-7) with `ship.bits = 64` (`recipes/nug30.par`), one-minute units | 1,300 s on the M2 Pro; more on Graviton |
 | `nug30trace` | `nug30` with `--trace`: every node's line (`QAP_NODE_TRACE`) goes to the store with its unit, the frontier's under `runs/RUN/frontier/`, for the tree viewer; launch with `--no-reference` | as `nug30` plus a few % |
 | `tho40sub` | the tho40 smoke test: the depth-3 subtree 26:3,31:7,37:0 of `tho40t.dat` under `experiments/estimates/tho40/tho40.par` (110 nodes, 107 fathomed in the Nov 9 A/B), one-minute units; prices a tho40 node on the instance | 197 s on the M2 Pro |
-| `tho40` | the whole tho40 tree against the best known 240,516, 20-minute units, with `--trace` (every node's line in the store, a few hundred MB); `--no-reference` and a `--limit` of days (the recipe's comment has the launch line) | 0.9e6 to 4e6 s on the M2 Pro (`experiments/tho40_estimate/`) |
+| `tho40` | the whole tho40 tree from an incumbent of 240,518 (the best known 240,516 + 2, so the run must find 240,516 itself), 20-minute units, with `--trace` (every node's line in the store, a few hundred MB); `--no-reference` and a `--limit` of days (the recipe's comment has the launch line) | 0.9e6 to 4e6 s on the M2 Pro (`experiments/tho40_estimate/`) |
 
 `ship.bits = 64` instead of the record's 32: with 64 a node restored from a
 state file starts its DNN from its parent's exact doubles, so a tree cut into
