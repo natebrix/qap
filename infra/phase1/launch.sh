@@ -137,7 +137,15 @@ POLICY="{\"Version\":\"2012-10-17\",\"Statement\":[
  {\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:PutItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],
   \"Resource\":[\"arn:aws:dynamodb:*:$ACCT:table/qap-runs\",\"arn:aws:dynamodb:*:$ACCT:table/qap-units\",
                \"arn:aws:dynamodb:*:$ACCT:table/qap-units/index/*\"]}]}"
-change iam put-role-policy --role-name $ROLE_NAME --policy-name qap-phase1-coord --policy-document "$POLICY" > /dev/null
+# written only when it differs from the role's current policy, so a launch that changes
+# nothing needs no IAM write (the GitHub workflow's role has none: gha_setup.sh)
+CUR=$(aws iam get-role-policy --role-name $ROLE_NAME --policy-name qap-phase1-coord --query PolicyDocument --output json 2> /dev/null || echo '{}')
+if python3 -c 'import json, sys; sys.exit(0 if json.loads(sys.argv[1]) == json.loads(sys.argv[2]) else 1)' "$CUR" "$POLICY"; then
+  :
+else
+  say "writing the instance role's policy qap-phase1-coord"
+  change iam put-role-policy --role-name $ROLE_NAME --policy-name qap-phase1-coord --policy-document "$POLICY" > /dev/null
+fi
 if ! aws iam get-instance-profile --instance-profile-name $ROLE_NAME > /dev/null 2>&1; then
   say "creating instance profile $ROLE_NAME"
   change iam create-instance-profile --instance-profile-name $ROLE_NAME > /dev/null

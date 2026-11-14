@@ -135,6 +135,48 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
   disable and delete it in the CloudFront console (a deletion waits for the
   disabled distribution to deploy).
 
+## From GitHub (Nov 14)
+
+`.github/workflows/phase1.yml` launches, collects or stops a run from GitHub
+Actions, so a run can be started and its records committed without the laptop:
+from the Actions tab, with `gh workflow run`, or from a Claude session that has
+the repository. AWS gives each job short-lived credentials through OpenID
+Connect, so no AWS key is stored anywhere.
+
+```
+gh workflow run phase1 --ref cognac -f action=launch -f run=tho40-a -f args="--recipe tho40 --on-demand --type c7g.16xlarge --no-reference --limit 4320"
+gh workflow run phase1 --ref cognac -f action=collect -f run=tho40-a
+gh workflow run phase1 --ref cognac -f action=stop -f run=tho40-a
+```
+
+- **Once, on the laptop:** `infra/phase1/gha_setup.sh` (`--dry-run` first),
+  signed in to AWS as for `launch.sh` and to GitHub with `gh`. It creates the
+  OIDC identity provider, the role `qap-gha-phase1`, the GitHub environment
+  `aws-phase1` with you as required reviewer and only `cognac` allowed, the
+  environment secret `AWS_ROLE_ARN`, and 14-day log retention. Run it again
+  after a change to it.
+- **Every job waits for your approval** (the environment's required
+  reviewer), from the Actions tab or GitHub's phone app; nothing reaches AWS
+  before that. Only a job of this repository in that environment can assume the
+  role, so a fork or a pull request cannot.
+- **What the role may do:** the calls `launch.sh`, `collect.sh` and
+  `cleanup.sh RUN` make, and nothing else. It reads the qap storage and writes
+  only `src/`; it launches instances only of the families `c6g c6i c7a c7g c7gd
+  c7i c8g`, only tagged `qap-phase1`, and terminates only those; it passes the
+  instance role but cannot change any IAM policy. So the laptop still does what
+  needs more: the first launch in an account or region (the storage, the
+  instance role, the security group), and a launch after a change to the
+  instance role's policy in `launch.sh` (which now writes that policy only
+  when it differs).
+- **What is public** (the repository is): the job's log, with the account
+  number masked, and the records `collect` and `launch` commit under
+  `runs/RUN/`. Any file there that names the account gets a placeholder
+  before the commit, and the commit stops if the number is still in it.
+- **Tested here** against stand-ins for `aws` and `gh` only (the calls in
+  order, both policies as valid JSON, the input checks, the placeholder). The
+  first real run tests the policy: a missing permission shows in the log as
+  `AccessDenied` naming the action; add it to `gha_setup.sh` and run that again.
+
 ## The public status, for brixius-web
 
 Every 5 minutes, and once at the end, the coordinator publishes the run under
