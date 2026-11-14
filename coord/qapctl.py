@@ -223,10 +223,12 @@ def write_nodes(b, run_id, out, log=print):
     records (coord/README.md, Traces: each node is in exactly one of them).
     Units not merged yet are left out and counted; 1 if the run has no trace."""
     import gzip
-    frontier = b.get_bytes(run_key(run_id, "frontier", "nodes.txt"))
-    if frontier is None:
+    run = b.get_run(run_id)
+    if run is None or not run["config"].get("trace"):
         log(f"run {run_id}: no frontier/nodes.txt (not initialized with --trace?)")
         return 1
+    # a frontier pass that bounds no node (a -F run at depth 0) leaves no trace
+    frontier = b.get_bytes(run_key(run_id, "frontier", "nodes.txt")) or b""
     units = sorted(b.all_units(run_id), key=lambda u: (u.get("merged_seq") or 0, u["uid"]))
     merged = [u for u in units if u.get("status") == "merged"]
     tmp = out + ".tmp"

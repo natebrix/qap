@@ -324,6 +324,14 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
                     meta.get("rootFixes") != FIXES[1] or meta.get("maxDepth", 0) <= 1:
                 r.public = r.public + [f"the -F run's tree: {({k: meta.get(k) for k in ('nodes', 'orphans', 'rootFixes', 'maxDepth')})}, "
                                        f"nodes {want and want[0]}"]
+            # and its whole trace (qapctl nodes, what collect.sh keeps): a line per node,
+            # though its frontier pass bounded no node and left no frontier/nodes.txt
+            whole = os.path.join(r.tmp, "nodes.txt")
+            rc = subprocess.run([sys.executable, "-m", "coord.qapctl", "nodes", r.run_id, "--backend", r.backend,
+                                 "--out", whole], cwd=ROOT, capture_output=True, text=True).returncode
+            lines = sum(1 for _ in open(whole)) if os.path.exists(whole) else None
+            if rc != 0 or want is None or lines != want[0]:
+                r.public = r.public + [f"the -F run's qapctl nodes: exit {rc}, {lines} lines, nodes {want and want[0]}"]
         if name == "normal" and not r.public:
             # a later publish of the finished run (qapctl publish, a backfill)
             # keeps its wall time and its history
