@@ -90,7 +90,9 @@ class Publisher:
             t.obj, t.perm = inc["obj"], [str(x) for x in inc["perm"]]
         totals_path = c._path("public-totals.state")
         t.write(totals_path, [])
-        wall = now - c.t0
+        # a finished run's wall time is the one finish() recorded; a later
+        # publish (qapctl publish, a backfill) must not count the time since
+        wall = c.run["wall_s"] if final and c.run.get("wall_s") is not None else now - c.t0
         report = c.report(totals_path, wall)
         node, fathom, enum, fw = t.counters
         open_d = open_by_depth(b, run_id, t.levels)
@@ -130,10 +132,18 @@ class Publisher:
         params = b.get_bytes(run_key(run_id, "params.par"))
         if params is not None:
             status["files"]["params"] = "params.par"
-        self.history.append({"t": iso(now), "wall_s": round(wall, 1), "nodes": node, "fathomed": fathom,
-                             "open": sum(open_d), "cpu_s": round(t.times[0], 1),
-                             "dnn_nodes": dc[0], "dnn_fathomed": dc[1],
-                             "incumbent": status["incumbent"]["objective"], "units_merged": c.units_merged})
+        sample = {"t": iso(now), "wall_s": round(wall, 1), "nodes": node, "fathomed": fathom,
+                  "open": sum(open_d), "cpu_s": round(t.times[0], 1),
+                  "dnn_nodes": dc[0], "dnn_fathomed": dc[1],
+                  "incumbent": status["incumbent"]["objective"], "units_merged": c.units_merged}
+        if final:
+            # a re-publish of a finished run: nothing after the finish (an
+            # earlier re-publish counted the time since), and the final sample once
+            self.history = [h for h in self.history if h["wall_s"] <= sample["wall_s"]]
+            last = self.history[-1] if self.history else None
+            if last is not None and (last["wall_s"], last["nodes"]) == (sample["wall_s"], sample["nodes"]):
+                self.history.pop()
+        self.history.append(sample)
         if len(self.history) > MAX_HISTORY:   # keep the newest half whole, thin the older half
             half = len(self.history) // 2
             self.history = self.history[:half:2] + self.history[half:]

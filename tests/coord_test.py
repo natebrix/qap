@@ -242,6 +242,23 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
                    "returned": sum(u.get("outcome") == "returned" for u in units),
                    "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
         r.public = public_problems(r, private=name == "noub")
+        if name == "normal" and not r.public:
+            # a later publish of the finished run (qapctl publish, a backfill)
+            # keeps its wall time and its history
+            import json
+            b = open_backend(r.backend)
+            key = f"public/runs/{r.run_id}/"
+            before = json.loads(b.get_bytes(key + "status.json")), json.loads(b.get_bytes(key + "history.json"))
+            time.sleep(2)
+            r.ctl("publish", r.run_id, "--backend", r.backend, log=os.path.join(r.tmp, "publish.log"))
+            r.ctl("publish", r.run_id, "--backend", r.backend, log=os.path.join(r.tmp, "publish2.log"))
+            after = json.loads(b.get_bytes(key + "status.json")), json.loads(b.get_bytes(key + "history.json"))
+            entry = [e for e in json.loads(b.get_bytes("public/runs/index.json"))["runs"] if e["run"] == r.run_id]
+            if (after[0]["wall_s"], after[0]["busy_fraction"]) != (before[0]["wall_s"], before[0]["busy_fraction"]) or \
+                    [h["wall_s"] for h in after[1]] != [h["wall_s"] for h in before[1]] or \
+                    entry[0]["wall_s"] != before[0]["wall_s"]:
+                r.public = [f"a re-publish changed the wall time: {before[0]['wall_s']} s, then {after[0]['wall_s']} s, "
+                            f"history {len(before[1])} then {len(after[1])} samples"]
         return totals(r.results()), r
     finally:
         r.cleanup()
