@@ -288,7 +288,8 @@ differently on Apple silicon (see RUNNING.md, "Correctness checks").
 ## How it was run
 
 `bench/parallel.py` with 4 workers, solver at d431c39. The known optimum
-6124 was the incumbent (`--ub 6124`), as in the 2000 solve:
+6124 was the incumbent (`--ub 6124`). The 2000 solve was given 6126, the
+optimum + 2, and found 6124 itself; this run only proves 6124 optimal:
 
 ```sh
 python3 bench/parallel.py qaplib/nug30.dat --jobs 4 --ub 6124 \

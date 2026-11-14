@@ -24,7 +24,7 @@
   - A certified DNN bound on the nodes QPB leaves open at depths 1–7, used only to fathom.
   - Geometric branching rules, later branching on the DNN marginals.
   - Warm starts and a checkpointed parallel driver.
-  - Every run starts from the known optimum (`--ub 6124`), as in 2000.
+  - Every run starts from the known optimum (`--ub 6124`). The 2000 solve started from 6126, the optimum + 2, and found 6124 itself.
 - **Best result (Nov 4).** Apple M2 Pro laptop, 8 workers: **1,838 CPU s, 322 s wall (5 min 22 s), 3,844 nodes**. 3,843 of those nodes got the DNN bound and 3,701 were fathomed by it.
   - Log: `experiments/wil50_feasibility/tuning/refine/nug30_best_nov4_ship32_j8_m2pro.log`, commit `ff7d517`.
   - Parameter file and range: `latest/PARAM/nug_deep_xbar_all.par`, `-x 1:7:1:200:1`.
