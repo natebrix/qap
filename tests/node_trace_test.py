@@ -360,6 +360,18 @@ def coord(tmp, kill):
         bad = 1
     if kill and not resumed:
         print("     (no unit resumed from a checkpoint: the carry of ckpt.nodes.txt was not exercised)")
+    # qapctl nodes assembles the same tree (what collect.sh and the tree viewer use)
+    whole = os.path.join(tmp, f"{tag}.whole.nodes.gz")
+    r = subprocess.run([sys.executable, "-m", "coord.qapctl", "nodes", tag, "--backend", be, "--out", whole],
+                       cwd=ROOT, env=ENV, capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"FAIL {tag}: qapctl nodes exited {r.returncode}: {r.stdout}{r.stderr}")
+        return 1
+    import gzip
+    plain = os.path.join(tmp, f"{tag}.whole.nodes")
+    with gzip.open(whole, "rb") as src, open(plain, "wb") as dst:
+        dst.write(src.read())
+    bad |= compare(f"{tag} qapctl nodes", read_trace(ref), read_trace(plain), "qapctl nodes --out FILE.gz")
     return bad
 
 

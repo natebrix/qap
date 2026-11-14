@@ -69,7 +69,9 @@ local `moto` server for tests). Both implement the same small interface
   attempt the ledger records: an attempt that resumes a checkpoint starts from
   the lines that checkpoint accounts for (`ckpt.nodes.txt`) and a killed
   solver's trace is cut to its checkpoint, so each node is in exactly one of
-  them. Other attempts' files overlap them.
+  them. Other attempts' files overlap them. `qapctl nodes RUN --out FILE[.gz]` writes that whole tree, and
+  `infra/phase1/collect.sh` keeps it with a finished run's records as `nodes.txt.gz`
+  when it is under 25 MB.
 
 With a fixed incumbent the totals equal a serial run's exactly, whatever
 fails (`tests/coord_test.py`, `make coord`: nug17 with 0.3-second units,

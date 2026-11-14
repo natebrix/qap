@@ -16,6 +16,8 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
   python3 -m coord.qapctl aws-setup --backend aws:...        (bucket, queues, tables)
   python3 -m coord.qapctl requeue-leased RUN --backend B     (after every worker died, e.g. a
         machine restart: their units go back to the queue at once)
+  python3 -m coord.qapctl nodes RUN --backend B --out FILE[.gz]   (a run initialized with --trace:
+        its whole node trace, the frontier's and each merged unit's, one line per node)
 
 Unit sizing and timing (init): --budget (CPU s a unit may run before it
 returns its open nodes, default 1800), --target-unit-cpu (estimated CPU per
@@ -39,7 +41,7 @@ if __package__ in (None, ""):
     __package__ = "coord"
 
 from coord.backend import open_backend  # noqa: E402
-from coord.common import ROOT, SOLVER, run_key  # noqa: E402
+from coord.common import ROOT, SOLVER, run_key, unit_key  # noqa: E402
 from coord.coordinator import Coordinator, init_run  # noqa: E402
 from coord.worker import Worker  # noqa: E402
 
@@ -59,7 +61,7 @@ def cfg_from(a):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
-                                       "aws-setup", "requeue-leased", "publish"])
+                                       "aws-setup", "requeue-leased", "publish", "nodes"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
     p.add_argument("--instance")
@@ -92,6 +94,7 @@ def main(argv=None):
                    help="QAP_DNN_TRACE and QAP_NODE_TRACE per unit, uploaded with the result as trace.txt and "
                         "nodes.txt (the frontier pass's under runs/RUN/frontier/)")
     p.add_argument("--workdir")
+    p.add_argument("--out", help="nodes: the file to write (.gz: gzipped)")
     p.add_argument("--exit-when-idle", type=float)
     p.add_argument("--max-wall", type=float)
     a = p.parse_args(argv)
@@ -147,6 +150,10 @@ def main(argv=None):
         else:
             log(f"run {a.run} is private: nothing published")
         return 0
+    if a.command == "nodes":
+        if not a.out:
+            p.error("nodes needs --out FILE")
+        return write_nodes(b, a.run, a.out, log=log)
     if a.command == "requeue-leased":
         Coordinator(b, a.run, log=log).requeue_leased()
         return 0
@@ -154,6 +161,36 @@ def main(argv=None):
         b.update_run(a.run, {"status": "paused" if a.command == "pause" else "running"})
         log(f"run {a.run}: {a.command}d")
         return 0
+
+
+def write_nodes(b, run_id, out, log=print):
+    """a --trace run's tree, one QAP_NODE_TRACE line per node (latest/bnb.C): the
+    frontier pass's lines, then each merged unit's, from the attempt the ledger
+    records (coord/README.md, Traces: each node is in exactly one of them).
+    Units not merged yet are left out and counted; 1 if the run has no trace."""
+    import gzip
+    frontier = b.get_bytes(run_key(run_id, "frontier", "nodes.txt"))
+    if frontier is None:
+        log(f"run {run_id}: no frontier/nodes.txt (not initialized with --trace?)")
+        return 1
+    units = sorted(b.all_units(run_id), key=lambda u: (u.get("merged_seq") or 0, u["uid"]))
+    merged = [u for u in units if u.get("status") == "merged"]
+    tmp = out + ".tmp"
+    lines = frontier.count(b"\n")
+    missing = []
+    with (gzip.open(tmp, "wb") if out.endswith(".gz") else open(tmp, "wb")) as f:
+        f.write(frontier)
+        for u in merged:
+            data = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "nodes.txt"))
+            if data is None:
+                missing.append(u["uid"])
+                continue
+            f.write(data)
+            lines += data.count(b"\n")
+    os.replace(tmp, out)
+    log(f"run {run_id}: {lines} node lines (frontier and {len(merged) - len(missing)} merged units) in {out}; "
+        f"{len(units) - len(merged)} units not merged{', no nodes.txt for ' + ' '.join(missing) if missing else ''}")
+    return 2 if missing else 0
 
 
 if __name__ == "__main__":

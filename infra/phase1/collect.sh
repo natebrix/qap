@@ -57,6 +57,24 @@ for h in $(aws s3 ls "s3://$B/runs/$RUN/hosts/" | awk '/PRE/ {print $2}' | tr -d
   tail -3 "$L/hosts/$h/out/steps.txt" | cut -c1-300 | sed 's/^/  /'
 done
 get results.txt && { echo; cat "$L/results.txt"; }
+# a finished --trace run: its whole node trace (qapctl nodes; the tree viewer's input) goes
+# with its records when it is small enough for git, else it stays in the store
+if [ -f "$L/results.txt" ]; then
+  NLOG=$(mktemp)
+  if (cd "$D/../.." && python3 -m coord.qapctl nodes "$RUN" --backend "aws:$B?region=$REGION" \
+        --out "$L/nodes.txt.gz") > "$NLOG" 2>&1; then
+    if [ "$(wc -c < "$L/nodes.txt.gz")" -gt 25000000 ]; then
+      rm -f "$L/nodes.txt.gz"
+      echo "node trace: over 25 MB gzipped, left in the store (qapctl nodes $RUN --out FILE)"
+    else
+      echo "node trace: $(tail -1 "$NLOG" | sed 's/^[0-9:]* //')"
+    fi
+  else
+    rm -f "$L/nodes.txt.gz"
+    grep -q "no frontier/nodes.txt" "$NLOG" || echo "node trace: $(tail -1 "$NLOG")"
+  fi
+  rm -f "$NLOG"
+fi
 get compare.txt && { echo; cat "$L/compare.txt"; }
 echo
 echo "logs: $L/hosts/*/out/ (node.log, coordinator.log, worker.log, gate_*.log)"
