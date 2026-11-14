@@ -85,7 +85,12 @@ dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
 dnn.cross = 2
 dnn.cross_first = 5
 dnn.lazycert = 1
-dnn.depths = 1:4
+# dnn.depths = 1:48 since Nov 14 (1:4 before): the DNN bound at every depth with two
+# facilities left (m >= 2 in latest/bnb.C). 1:4 with dnn.ext = 20 reached the same nodes
+# down to depth 24 (below depth 4 a node got the bound when its parent was a DNN miss)
+# and left the depths below 24 to QPB alone, where a run that must find or beat
+# the incumbent goes on its way to a leaf (experiments/estimates/README.md).
+dnn.depths = 1:48
 dnn.maxgap = 1
 dnn.giveup = 300
 dnn.warm = 1

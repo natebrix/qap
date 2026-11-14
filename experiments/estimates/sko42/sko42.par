@@ -44,7 +44,7 @@
 # sko42's current settings (experiments/estimates/README.md), from Nov 12: tuning arm C,
 # experiments/estimates/sko42/tune/C.par. That is wil50's full run
 # (experiments/wil50_feasibility/fullrun/fullrun.par: CP cut phase, rule 9, DNN at depths
-# 1-4 then 20 levels below a miss, give-up 300) with the grid 6 x 7 and cut.zone = 0.010
+# 1-4 then 20 levels below a miss until Nov 14, every depth since, give-up 300) with the grid 6 x 7 and cut.zone = 0.010
 # (158 short on sko42). On sko42t.dat the grid is the second matrix (checked:
 # rectilinear, row-major, 7 columns), so cut.side = 1 as on wil50t.
 # On matched complete subtrees (tune/README.md), arm B (C with wil50's zone 0.0075) took
@@ -74,7 +74,12 @@ ship.bits = 32
 dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
 dnn.cross = 2
 dnn.lazycert = 1
-dnn.depths = 1:4
+# dnn.depths = 1:40 since Nov 14 (1:4 before): the DNN bound at every depth with two
+# facilities left (m >= 2 in latest/bnb.C). 1:4 with dnn.ext = 20 reached the same nodes
+# down to depth 24 (below depth 4 a node got the bound when its parent was a DNN miss)
+# and left the depths below 24 to QPB alone, where a run that must find or beat
+# the incumbent goes on its way to a leaf (experiments/estimates/README.md).
+dnn.depths = 1:40
 dnn.maxgap = 1
 dnn.giveup = 300
 dnn.warm = 1

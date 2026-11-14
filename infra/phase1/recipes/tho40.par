@@ -41,19 +41,10 @@
  5    compute B for best _ rows of U
 
 [settings]
-# infra/phase1/recipes/tho40.par: the settings of the whole tho40 run (tho40.sh).
-# experiments/estimates/tho40/tho40.par with two changes:
-# - ship.bits = 32: each parent's DNN state in fp32 (upper triangles), one copy per
-#   parent in the run's store (coord/warm.py), as in the tho40ab-ship32 arm of Nov 14.
-# - dnn.depths = 1:38: the DNN bound at every depth a node has two facilities left (m >= 2
-#   in latest/bnb.C), on every node QPB does not fathom. The estimate's 1:7 with
-#   dnn.ext = 20 reaches the same nodes down to depth 27 (below depth 7 a node gets it
-#   when its parent was a DNN miss, and a node's parent either missed or did not run the
-#   bound, which below depth 7 means only a gap over dnn.maxgap) but leaves depths 28 to
-#   38 to QPB alone. With the incumbent at the best known + 2 the run must reach a leaf to
-#   find 240,516, so it goes that deep. Nothing changes above depth 28. nug15 -u 1152
-#   with 1:7 and dnn.ext = 2, then with 1:39: the same 27 nodes, 1,150 found, the DNN
-#   bound at depths 10 and 11 only in the second.
+# infra/phase1/recipes/tho40.par: the settings of the whole tho40 run (tho40.sh):
+# experiments/estimates/tho40/tho40.par with ship.bits = 32, each parent's DNN state in
+# fp32 (upper triangles), one copy per parent in the run's store (coord/warm.py), as in
+# the tho40ab-ship32 arm of Nov 14.
 # tho40's current settings (experiments/estimates/README.md): the Nov 8 nug30 record
 # recipe (infra/phase1/recipes/nug30.par: rule 9, DNN at depths 1-7, give-up 200, no cut
 # phase, ship.bits = 64) with branch.xbar_lines = 2, the setting the tho40 A/B of Nov 9
@@ -72,6 +63,11 @@ ship.bits = 32
 dnn.cross = 2
 dnn.lazycert = 1
 dnn.beta_sched = w=0.36
+# dnn.depths = 1:38 since Nov 14 (1:7 before): the DNN bound at every depth with two
+# facilities left (m >= 2 in latest/bnb.C). 1:7 with dnn.ext = 20 reached the same nodes
+# down to depth 27 (below depth 7 a node got the bound when its parent was a DNN miss)
+# and left the depths below 27 to QPB alone, where a run that must find or beat
+# the incumbent goes on its way to a leaf (experiments/estimates/README.md).
 dnn.depths = 1:38
 dnn.maxgap = 1
 dnn.giveup = 200

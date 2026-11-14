@@ -1,8 +1,9 @@
-settings 66 hash ad5f33921992d89c
-setting dnn.depths 1:9 par policy
+settings 70 hash 9c9b373125198d4c
+setting dnn.depths 1:48 par policy
 setting dnn.maxgap 1 par policy
 setting dnn.giveup 600 par policy
 setting dnn.warm 1 par policy
+setting dnn.giveup_warm 0 default policy
 setting dnn.ext 20 par policy
 setting dnn.gamma1 1.0 par policy
 setting dnn.gamma 1.0 par policy
@@ -16,6 +17,7 @@ setting dnn.refresh 120 par policy
 setting dnn.warm_y 2 par policy
 setting dnn.beta_sched w=0.36 par policy
 setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
 setting dnn.lazycert 1 par policy
 setting dnn.amx 0 default policy
 setting ship.bits 64 par policy
@@ -39,9 +41,11 @@ setting cut.warmy 0 default policy
 setting cut.damp1 "" default policy
 setting cut.equip "" default policy
 setting cut.cp "" default policy
+setting cut.giveup "" default policy
 setting cut.cp_iters 0 default policy
 setting cut.cp_sweeps 1:1 default policy
 setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
 setting pool.on 0 default policy
 setting pool.cp 0 default policy
 setting branch.weighted 1 default policy
@@ -50,9 +54,8 @@ setting branch.xbar_lines 1 default policy
 setting fw.patience 0 default policy
 setting est.xbar 1 par policy
 setting est.xbar_mix 0.3 par policy
-setting par.hash 4f08b89c9d6f0be7 par policy
+setting par.hash fd285ae1310bed8f par policy
 setting DNN_R32 0 default experiment
-setting DNN_ADMM_CROSS_FIRST 0 default experiment
 setting DNN_FUSE 0 default experiment
 setting DNN_ADMM_WARM_BETA "" default experiment
 setting DNN_ADMM_WARM_DAMP "" default experiment
@@ -60,6 +63,7 @@ setting QAP_EST_SEED "" default run
 setting QAP_DNN_WARM_DIR "" default run
 setting QAP_ALLOW_UNKNOWN 0 default run
 setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
 setting QAP_NODE_TRACE "" default diagnostic
 setting QAP_DNN_POOL_CHECK 0 default diagnostic
 setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic

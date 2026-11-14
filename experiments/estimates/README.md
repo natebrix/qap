@@ -16,11 +16,20 @@ HEAD's `bnbdrv`, checked before every run). wil50 keeps the full run's files.
 
 | instance | settings | what they are | not measured on this instance |
 |---|---|---|---|
-| wil50 | `../wil50_feasibility/fullrun/` | the full run: CP cut phase, `cut.zone = 0.0075`, rule 9, DNN at depths 1-4 then 20 levels below a miss, give-up 300; `wil50t.dat` with its symmetry | |
-| tho40 | `tho40/` | the Nov 8 nug30 record recipe (rule 9, DNN at depths 1-7, give-up 200, no cut phase) with `branch.xbar_lines = 2`, the tho40 A/B's setting (`../xbar_lines_sweep/tho40_ab/`); `tho40t.dat` with its symmetry | 2 lines was measured on three depth-3 subtrees only |
+| wil50 | `../wil50_feasibility/fullrun/` | the full run: CP cut phase, `cut.zone = 0.0075`, rule 9, DNN at every depth (1-48; until Nov 14 1-4 then 20 levels below a miss), give-up 300; `wil50t.dat` with its symmetry | |
+| tho40 | `tho40/` | the Nov 8 nug30 record recipe (rule 9, DNN at depths 1-7, give-up 200, no cut phase) with `branch.xbar_lines = 2` and, since Nov 14, DNN at every depth (1-38), the tho40 A/B's setting (`../xbar_lines_sweep/tho40_ab/`); `tho40t.dat` with its symmetry | 2 lines was measured on three depth-3 subtrees only |
 | sko42 | `sko42/` | from Nov 12, arm C of `sko42/tune/` (below): wil50's full run with the grid 6 x 7 and `cut.zone = 0.010`; `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum. Until Nov 12 it was the nug30 record recipe, kept as `sko42/tune/A.par` | C was measured on complete subtrees and by the sampling plan, not in a full search |
 | sko49 | `sko49/` | from Nov 13, arm Cw of `sko49/tune/` (below): wil50's full run with the grid 7 x 7 and `cut.zone = 0.018` (421 short); `sko49t.dat` (new in `qaplib/`, the matrices of `sko49.dat` swapped) with the 7 x 7 grid's symmetry (`latest/SYM/sko49t.sym`, 10 depth-1 orbits), so `cut.side = 1`. Until Nov 13 the zone was wil50's 0.0075 | Cw was measured by the sampling plan (probes on 11 tail nodes, against C), not on complete subtrees or in a full search |
-| tai50b | `tai50b/` | the Nov 8 tuned estimate's values as keys (DNN at depths 1-9, give-up 600, the nug30 recipe otherwise) with rule 9, which its notes name; no symmetry, no cut phase (no grid); the dive sampler `est.xbar = 1`, `est.xbar_mix = 0.3` | rule 9: the Nov 8 runs used rule 8 (their log header), not rule 9 as the notes say |
+| tai50b | `tai50b/` | the Nov 8 tuned estimate's values as keys (DNN at depths 1-9, every depth (1-48) since Nov 14, give-up 600, the nug30 recipe otherwise) with rule 9, which its notes name; no symmetry, no cut phase (no grid); the dive sampler `est.xbar = 1`, `est.xbar_mix = 0.3` | rule 9: the Nov 8 runs used rule 8 (their log header), not rule 9 as the notes say |
+
+Since Nov 14 every instance's `dnn.depths` is 1 to n - 2: the DNN bound at every depth
+with two facilities left, on every node QPB does not fathom. The ranges before (1-4, 1-7,
+1-9) with `dnn.ext = 20` reached the same nodes down to 20 levels below their last depth
+(below it a node got the bound when its parent was a DNN miss) and left the deeper ones
+to QPB alone; a full run from an incumbent it must find or beat goes that deep on its way
+to a leaf. Nothing above those depths changes, so no estimate here does. nug15 -u 1152
+with 1:7 and `dnn.ext = 2`, then 1:39: the same 27 nodes and 1,150 found, the DNN bound
+at depths 10 and 11 (5 and 4 facilities left) only in the second.
 
 A setting changes only in a commit that means to change it, with the golden
 regenerated: `(. experiments/estimates/INSTANCE/settings.sh; fullrun_dump latest/bnbdrv > "$FULLRUN_GOLDEN")`.

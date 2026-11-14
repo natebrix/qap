@@ -1,10 +1,10 @@
 # tho40: the whole tree, to prove or beat QAPLIB's best known 240,516 (Thonemann and
 # Bölte, 5 x 8 grid; never proven optimal). The settings are tho40.par here:
 # experiments/estimates/tho40/tho40.par (the Nov 8 nug30 record recipe with
-# branch.xbar_lines = 2; the Nov 8 estimate, experiments/tho40_estimate/README.md, is 6e5
-# to 3e6 nodes, 0.9e6 to 4e6 CPU s at the M2 Pro's 1.39 s per node) with ship.bits = 32
-# through the run's parent-state store and the DNN bound at every depth (dnn.depths =
-# 1:38), on tho40t.dat with the grid's symmetry (12 depth-1 orbits). tho40-a (Nov 14,
+# branch.xbar_lines = 2 and, since Nov 14, the DNN bound at every depth, dnn.depths = 1:38;
+# the Nov 8 estimate, experiments/tho40_estimate/README.md, is 6e5 to 3e6 nodes, 0.9e6 to
+# 4e6 CPU s at the M2 Pro's 1.39 s per node) with ship.bits = 32 through the run's
+# parent-state store, on tho40t.dat with the grid's symmetry (12 depth-1 orbits). tho40-a (Nov 14,
 # ship.bits = 64 inline) filled its 32 GB disk at 06:31 and was stopped. Launch with
 # --no-reference (a bench/parallel.py rerun would double the work), a --limit of days and
 # --disk 100 (infra/phase1/README.md, Disk and failures), e.g.
