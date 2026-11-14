@@ -13,6 +13,8 @@ the store:
   history.json   one sample per publish, for charts over time
   params.par     the params file the run was given (its levels and its
                  [settings]), for the run page's branching rules
+  tree/          a --trace run's tree, every merged node (coord/tree.py):
+                 meta.json and the shards that changed since the last publish
 
 status.json goes last, so a reader that sees a new one finds the others at
 least as new. Then the catalog of public runs, public/runs/index.json
@@ -32,6 +34,7 @@ import time
 from datetime import datetime, timezone
 
 from .common import run_key
+from .tree import TreePublisher, grid_of
 
 PUBLIC = "public/runs"
 CATALOG = "runs/index.json"     # the master copy; public/runs/index.json is what readers fetch
@@ -69,6 +72,16 @@ class Publisher:
         self.last = 0.0
         data = coord.b.get_bytes(run_key(coord.run_id, "history.json"))
         self.history = json.loads(data) if data else []
+        # a --trace run's tree (coord/tree.py), published with the status
+        self.tree = None
+        if coord.cfg.get("trace"):
+            n, a, b, _ = coord.inst
+            sol = coord.run.get("solver", {})
+            commit = os.environ.get("QAP_COMMIT")
+            self.tree = TreePublisher(coord.b, coord.run_id, os.path.splitext(sol.get("instance") or "")[0] or None,
+                                      n, grid_of(n, b, a),
+                                      f"coordinator run {coord.run_id}, QAP_NODE_TRACE" +
+                                      (f" (qap {commit[:7]})" if commit else ""), log=coord.log)
 
     def due(self, now=None):
         every = self.c.cfg.get("publish_every", 300)
@@ -132,6 +145,12 @@ class Publisher:
         params = b.get_bytes(run_key(run_id, "params.par"))
         if params is not None:
             status["files"]["params"] = "params.par"
+        if self.tree is not None:
+            try:
+                if self.tree.publish(final, now):
+                    status["files"]["tree"] = "tree/meta.json"
+            except Exception as e:      # the tree must never stop the status, nor the run
+                c.log(f"coordinator: publishing the tree failed: {e!r}")
         sample = {"t": iso(now), "wall_s": round(wall, 1), "nodes": node, "fathomed": fathom,
                   "open": sum(open_d), "cpu_s": round(t.times[0], 1),
                   "dnn_nodes": dc[0], "dnn_fathomed": dc[1],
@@ -169,7 +188,7 @@ def catalog_entry(status):
             "generated_at": status["generated_at"], "wall_s": status["wall_s"], "cpu_s": round(status["cpu_s"], 1),
             "nodes": status["nodes"]["evaluated"], "fathomed": status["nodes"]["fathomed"],
             "open": status["nodes"]["open"], "incumbent": inc["objective"], "found_by_search": inc["found_by_search"],
-            "slots": status["slots"]}
+            "slots": status["slots"], "tree": "tree" in status["files"]}
 
 
 def update_catalog(b, entry, verify=False, tries=3):

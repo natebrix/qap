@@ -186,7 +186,10 @@ units, incumbent, CPU, open nodes by depth), `totals.state` (the merged
 statistics, state version 7: every per-level table, the DNN ones too),
 `report.txt` (the solver's report for them), `history.json` (one sample per
 publish) and `params.par` (the params file the run was given, for the run
-page's branching rules). `--private` on a new run publishes nothing; `--publish-every` in a
+page's branching rules). A `--trace` run (the tho40 recipes) also publishes
+its tree under `tree/` (`coord/tree.py`): every node merged so far, for the
+website's tree viewer, which reads it through the site, never from the
+bucket. `--private` on a new run publishes nothing; `--publish-every` in a
 recipe's `COORD` changes the interval (0: only at the end).
 
 The bucket stays private. Once per account and region:

@@ -71,7 +71,13 @@ local `moto` server for tests). Both implement the same small interface
   solver's trace is cut to its checkpoint, so each node is in exactly one of
   them. Other attempts' files overlap them. `qapctl nodes RUN --out FILE[.gz]` writes that whole tree, and
   `infra/phase1/collect.sh` keeps it with a finished run's records as `nodes.txt.gz`
-  when it is under 25 MB.
+  when it is under 25 MB. A public `--trace` run also publishes that tree as it
+  grows (`coord/tree.py`, with each status publish): every merged node, in
+  shards under `public/runs/RUN/tree/` that brixius-web's tree viewer reads;
+  only the shards a new node changed are written again, and a restarted
+  coordinator, or `qapctl publish`, rebuilds the same tree with the same ids
+  (`tests/node_trace_test.py coord coordkill`). `python3 -m coord.tree TRACE DIR
+  --run NAME` writes a trace's tree to a directory the same way.
 
 With a fixed incumbent the totals equal a serial run's exactly, whatever
 fails (`tests/coord_test.py`, `make coord`: nug17 with 0.3-second units,

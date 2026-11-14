@@ -37,11 +37,19 @@ coord      the coordinator on the local backend with --trace, nug17 with the
 coordkill  the same with nug17 QPB in 4-second units, the worker SIGKILLed once
            a unit has uploaded a checkpoint: the new worker resumes it from the
            checkpoint's trace (ckpt.nodes.txt)
+           Both runs are public and publish every second, so the live tree
+           (coord/tree.py, public/runs/<run>/tree/) grows as units merge. Read
+           from 0.json through the boundary rows as the viewer reads it, the
+           final tree is the serial run's: every node once as a child row, its
+           parent, outcome, subtree size and fathoms. qapctl publish then
+           rebuilds it from the traces (as a restarted coordinator does) into
+           the same files: the same ids.
 
 At most two solver processes run at once.
 """
 import argparse
 import collections
+import json
 import os
 import shutil
 import signal
@@ -308,7 +316,7 @@ def coord(tmp, kill):
                                            stdout=open(os.path.join(tmp, f"{tag}.{log}.log"), "a"),
                                            stderr=subprocess.STDOUT, start_new_session=True)
     init = ["init", tag, "--backend", be, "--instance", DAT(inst), "--params", params, "--ub", str(ub),
-            "--extra", extra, "--trace", "--visibility", "private", "--slots", "2", "--lease", "4",
+            "--extra", extra, "--trace", "--publish-every", "1", "--slots", "2", "--lease", "4",
             "--ckpt-upload", "0.5", "--heartbeat", "0.5", "--checkpoint-every", "0.2", "--poll", "0.3",
             "--status-every", "5"] + timing + [f"--env={k}={v}" for k, v in env.items()]
     if ctl(*init, log="init").wait() != 0:
@@ -372,7 +380,83 @@ def coord(tmp, kill):
     with gzip.open(whole, "rb") as src, open(plain, "wb") as dst:
         dst.write(src.read())
     bad |= compare(f"{tag} qapctl nodes", read_trace(ref), read_trace(plain), "qapctl nodes --out FILE.gz")
-    return bad
+    # the live tree, as published while the run went on, then rebuilt
+    live = published_tree(b, tag)
+    bad |= published_tree_problems(f"{tag} live tree", read_trace(ref), live)
+    r = subprocess.run([sys.executable, "-m", "coord.qapctl", "publish", tag, "--backend", be],
+                       cwd=ROOT, env=ENV, capture_output=True, text=True)
+    rebuilt = published_tree(b, tag)
+    strip = lambda t: (dict(t["meta"], generatedAt=None), t["files"])
+    same = r.returncode == 0 and strip(live) == strip(rebuilt)
+    print(f"{'ok  ' if same else 'FAIL'} {tag} tree rebuilt by qapctl publish: "
+          f"{'the same meta and ' + str(len(live['files'])) + ' shards' if same else 'differs (or exited ' + str(r.returncode) + ')'}")
+    return bad | (0 if same else 1)
+
+
+def published_tree(b, tag):
+    """a run's published tree, read as the viewer reads it: 0.json, then the
+    shard of every boundary row"""
+    key = lambda name: f"public/runs/{tag}/tree/{name}"
+    meta = json.loads(b.get_bytes(key("meta.json")) or b"null")
+    files, todo = {}, [0]
+    while todo:
+        r = todo.pop()
+        data = b.get_bytes(key(f"{r}.json"))
+        if data is None:
+            files[r] = None
+            continue
+        files[r] = json.loads(data)
+        todo += [row[0] for row in files[r]["rows"] if row[20] == 1 and row[0] not in files]
+    return {"meta": meta, "files": files}
+
+
+def published_tree_problems(what, ref, tree):
+    meta, files = tree["meta"], tree["files"]
+    problems = []
+    if meta is None or files.get(0) is None:
+        problems.append("no meta.json or 0.json")
+    else:
+        rows, count = {0: files[0]["rows"][0]}, collections.Counter()
+        for r, shard in files.items():
+            if shard is None:
+                problems.append(f"no {r}.json for a boundary row")
+                continue
+            for row in shard["rows"][1:]:
+                rows[row[0]] = row
+                count[row[0]] += 1
+        if any(c > 1 for c in count.values()):
+            problems.append(f"{sum(c > 1 for c in count.values())} nodes in two shards")
+        path = {}
+        def fixes(i):
+            if i not in path:
+                row = rows[i]
+                path[i] = "-" if row[1] < 0 else ",".join(x for x in (fixes(row[1]), row[3]) if x != "-")
+            return path[i]
+        got = {fixes(i): row for i, row in rows.items()}
+        want = {r["fixes"]: r for r in ref}
+        size, fat = collections.Counter(), collections.Counter()
+        for r in ref:
+            p = pairs(r["fixes"])
+            for k in range(len(p) + 1):
+                anc = ",".join(f"{a}:{b}" for a, b in p[:k]) or "-"
+                size[anc] += 1
+                fat[anc] += r["outcome"] in "QDCP"
+        if "-" not in want:
+            size["-"] += 1                   # the root, never traced: synthesized
+        if set(got) != set(size):
+            problems.append(f"{len(set(size) - set(got))} serial nodes missing, {len(set(got) - set(size))} extra")
+        wrong = [f for f, row in got.items() if f in size and
+                 ((f in want and row[4] != want[f]["outcome"]) or row[16] != size[f] or row[17] != fat[f])]
+        if wrong:
+            problems.append(f"{len(wrong)} nodes with another outcome, subtree size or fathom count, e.g. {wrong[0]}")
+        if meta["nodes"] != len(size) or not meta["final"] or meta["orphans"] or meta["duplicates"]:
+            problems.append(f"meta: {meta['nodes']} nodes, final {meta['final']}, {meta['orphans']} orphans, "
+                            f"{meta['duplicates']} duplicates")
+    ok = not problems
+    print(f"{'ok  ' if ok else 'FAIL'} {what}: " +
+          (f"{meta['nodes']} nodes in {len(files)} shards, read from 0.json through the boundaries" if ok
+           else "; ".join(problems)))
+    return 0 if ok else 1
 
 
 def main():
