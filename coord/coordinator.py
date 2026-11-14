@@ -350,6 +350,8 @@ class Coordinator:
     # ------------------------------------------------------------ loop
     def tick(self):
         self.run = self.b.get_run(self.run_id)
+        if self.run.get("status") == "stopped":
+            return self.b.count_by_status(self.run_id)   # loop returns at its next look
         merged = self.merge_ready()
         self.repair()
         counts = self.b.count_by_status(self.run_id)
@@ -366,6 +368,9 @@ class Coordinator:
         if not self.run.get("started_at"):
             self.run = self.b.update_run(self.run_id, {"started_at": self.t0})
         while True:
+            if self.run.get("status") == "stopped":
+                self.log(f"coordinator: run {self.run_id} was stopped (qapctl stop)")
+                return None
             if self.run.get("status") == "finished":
                 return self.b.get_bytes(run_key(self.run_id, "results.txt")).decode()
             counts = self.tick()

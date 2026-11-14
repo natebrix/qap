@@ -18,6 +18,11 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
         machine restart: their units go back to the queue at once)
   python3 -m coord.qapctl nodes RUN --backend B --out FILE[.gz]   (a run initialized with --trace:
         its whole node trace, the frontier's and each merged unit's, one line per node)
+  python3 -m coord.qapctl stop RUN --backend B        (give the run up: status stopped, a final
+        public status; its coordinator and workers exit, other runs' workers delete its queued
+        units' messages. Terminate its instances apart: infra/phase1/cleanup.sh)
+  python3 -m coord.qapctl purge-states RUN --backend B   (a stopped or finished run: delete its
+        unit state files, the bulk of its store; ledger, totals, results, logs, traces stay)
 
 Unit sizing and timing (init): --budget (CPU s a unit may run before it
 returns its open nodes, default 1800), --target-unit-cpu (estimated CPU per
@@ -61,7 +66,8 @@ def cfg_from(a):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
-                                       "aws-setup", "requeue-leased", "publish", "nodes"])
+                                       "aws-setup", "requeue-leased", "publish", "nodes", "stop",
+                                       "purge-states"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
     p.add_argument("--instance")
@@ -145,7 +151,7 @@ def main(argv=None):
         return 0
     if a.command == "publish":
         c = Coordinator(b, a.run, log=log)
-        if c.publisher.publish(b.count_by_status(a.run), final=c.run.get("status") == "finished"):
+        if c.publisher.publish(b.count_by_status(a.run), final=c.run.get("status") in ("finished", "stopped")):
             log(f"run {a.run}: public status written under public/runs/{a.run}/")
         else:
             log(f"run {a.run} is private: nothing published")
@@ -154,6 +160,10 @@ def main(argv=None):
         if not a.out:
             p.error("nodes needs --out FILE")
         return write_nodes(b, a.run, a.out, log=log)
+    if a.command == "stop":
+        return stop_run(b, a.run, log=log)
+    if a.command == "purge-states":
+        return purge_states(b, a.run, log=log)
     if a.command == "requeue-leased":
         Coordinator(b, a.run, log=log).requeue_leased()
         return 0
@@ -161,6 +171,48 @@ def main(argv=None):
         b.update_run(a.run, {"status": "paused" if a.command == "pause" else "running"})
         log(f"run {a.run}: {a.command}d")
         return 0
+
+
+def stop_run(b, run_id, log=print):
+    """give up a run for good: status stopped, its wall time the last the
+    coordinator recorded, and a final public status (the catalog and the site
+    show it stopped, no longer live). Its coordinator and workers exit at their
+    next look at the run, and other runs' workers delete its queued units'
+    messages. Its instances are terminated separately (infra/phase1/cleanup.sh)."""
+    run = b.get_run(run_id)
+    if run is None:
+        log(f"no run {run_id}")
+        return 1
+    if run.get("status") == "finished":
+        log(f"run {run_id} is finished: nothing to stop")
+        return 1
+    last = json.loads(b.get_bytes(run_key(run_id, "status.json")) or b"{}")
+    fields = {"status": "stopped", "stopped_at": time.time()}
+    if run.get("status") != "stopped":   # a second stop keeps the first one's times
+        fields.update({"wall_s": last.get("wall_s"), "finished_at": last.get("updated")})
+    b.update_run(run_id, fields)
+    c = Coordinator(b, run_id, log=log)
+    if c.publisher.publish(b.count_by_status(run_id), final=True):
+        log(f"run {run_id}: stopped; final public status written under public/runs/{run_id}/")
+    else:
+        log(f"run {run_id}: stopped (private: nothing published)")
+    return 0
+
+
+def purge_states(b, run_id, log=print):
+    """delete a stopped or finished run's unit state files (in.state, each
+    attempt's out.state, checkpoints): the bulk of its store, which nothing
+    reads once the run is over. The ledger, the totals, results, logs and node
+    traces stay."""
+    run = b.get_run(run_id)
+    if run is None or run.get("status") not in ("stopped", "finished"):
+        log(f"run {run_id} is {run and run.get('status')}: purge-states is for a stopped or finished run")
+        return 1
+    keys = [k for k in b.list(run_key(run_id, "units") + "/") if k.endswith(".state") or k.endswith("ckpt.nodes.txt")]
+    for k in keys:
+        b.delete(k)
+    log(f"run {run_id}: {len(keys)} unit state files deleted")
+    return 0
 
 
 def write_nodes(b, run_id, out, log=print):

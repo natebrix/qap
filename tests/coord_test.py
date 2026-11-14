@@ -180,9 +180,64 @@ def two_runs(name, py, base, inst, opt):
             r.cleanup()
 
 
+def stopped_run(name, py, base, inst, opt):
+    """qapctl stop on a run partway (a): its coordinator and worker exit, its
+    public status and catalog entry say stopped and final, purge-states
+    deletes its unit state files. A run stopped before any worker came (c)
+    leaves its queued units' messages; a run (b) on the same queues then
+    finishes, its worker deleting them."""
+    import glob
+    import json
+    from coord.backend import open_backend
+    from coord.common import LANES
+    be = f"local:{os.path.join(base, name)}"
+    a, b, c = (Run(py, be, f"{name}_{x}", inst, opt) for x in "abc")
+    store = open_backend(be)
+    problems = []
+    try:
+        a.ctl(*a.init, log=os.path.join(a.tmp, "init.log"))
+        procs = [a.coordinator(), a.worker("w1")]
+        t_end = time.time() + 60
+        while time.time() < t_end and store.count_by_status(a.run_id).get("merged", 0) < 3:
+            time.sleep(0.05)
+        a.ctl("stop", a.run_id, *a.args, log=os.path.join(a.tmp, "stop.log"))
+        try:
+            wait_all(procs, 60)
+        except subprocess.TimeoutExpired:
+            problems.append("the stopped run's coordinator or worker did not exit")
+        s = json.loads(store.get_bytes(f"public/runs/{a.run_id}/status.json") or b"{}")
+        entry = [e for e in json.loads(store.get_bytes("public/runs/index.json"))["runs"] if e["run"] == a.run_id]
+        if (s.get("status"), s.get("final")) != ("stopped", True) or not entry or \
+                (entry[0]["status"], entry[0]["final"]) != ("stopped", True):
+            problems.append(f"public status {s.get('status')}/{s.get('final')}, catalog {entry}")
+        a.ctl("purge-states", a.run_id, *a.args, log=os.path.join(a.tmp, "stop.log"))
+        left = glob.glob(os.path.join(base, name, "store", "runs", a.run_id, "units", "**", "*.state"), recursive=True)
+        if left:
+            problems.append(f"{len(left)} state files left after purge-states")
+        c.ctl(*c.init, log=os.path.join(c.tmp, "init.log"))
+        c.ctl("stop", c.run_id, *c.args, log=os.path.join(c.tmp, "stop.log"))
+        queued = sum(store.depth(lane) for lane in LANES)
+        b.ctl(*b.init, log=os.path.join(b.tmp, "init.log"))
+        try:
+            wait_all([b.coordinator(), b.worker("w1")], 120)
+        except subprocess.TimeoutExpired:
+            problems.append("the second run did not finish")
+        depth = sum(store.depth(lane) for lane in LANES)
+        if depth or not queued:
+            problems.append(f"{depth} messages left in the queues, of the stopped runs' {queued}")
+        b.public = problems
+        b.stats = {"units": len(store.all_units(b.run_id)), "retried": 0, "returned": 0, "resumed": 0}
+        return totals(b.results()), b
+    finally:
+        for r in (a, b, c):
+            r.cleanup()
+
+
 def scenario(name, py, base, inst, opt, aws_endpoint=None):
     if name == "tworuns":
         return two_runs(name, py, base, inst, opt)
+    if name == "stopped":
+        return stopped_run(name, py, base, inst, opt)
     if name == "aws":
         backend = f"aws:qaptest/{name}?region=eu-north-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
         r = Run(py, backend, name, inst, opt)
@@ -277,7 +332,7 @@ def main():
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,crash_marked,crash_applied,crash_saving,"
-                                      "drain,noub,fixes,aws,tworuns")
+                                      "drain,noub,fixes,aws,tworuns,stopped")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args()
     ref = serial(a.instance, int(a.opt))

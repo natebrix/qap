@@ -95,6 +95,8 @@ class Publisher:
         c, b, run_id = self.c, self.c.b, self.c.run_id
         if self.private():
             return False
+        # a run stopped (qapctl stop) or finished is over whoever publishes it
+        final = final or c.run.get("status") in ("finished", "stopped")
         now = time.time()
         self.last = now
         t = c.totals

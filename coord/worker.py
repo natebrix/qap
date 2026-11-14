@@ -83,6 +83,7 @@ class Worker:
         self.log = log
         self.exit_when_idle = exit_when_idle
         self.grace = grace
+        self._others = {}   # another run's id -> (over, when looked up)
         self.workdir = os.path.abspath(workdir or os.path.join("/tmp", f"qapworker-{run_id}-{os.getpid()}"))
         os.makedirs(self.workdir, exist_ok=True)
         self.name = f"{socket.gethostname()}/{os.getpid()}"
@@ -117,6 +118,16 @@ class Worker:
     def _refresh_run(self):
         self.run = self.b.get_run(self.run_id)
         return self.run
+
+    def _run_over(self, run_id, ttl=60):
+        """another run is stopped, finished or gone (its status cached ttl seconds)"""
+        now = time.time()
+        hit = self._others.get(run_id)
+        if hit is None or now - hit[1] > ttl:
+            doc = self.b.get_run(run_id)
+            hit = (doc is None or doc.get("status") in ("stopped", "finished"), now)
+            self._others[run_id] = hit
+        return hit[0]
 
     # ------------------------------------------------------------ one unit
     def _lease(self, msg):
@@ -326,7 +337,7 @@ class Worker:
             now = time.time()
             if now - last_run_check > 10:
                 last_run_check = now
-                if self._refresh_run().get("status") == "finished":
+                if self._refresh_run().get("status") in ("finished", "stopped"):
                     return
             if self.run.get("status") == "paused":
                 time.sleep(poll)
@@ -340,9 +351,13 @@ class Worker:
                 continue
             if msg.body.get("run", self.run_id) != self.run_id:
                 # another run's unit: deleting the message would strand it (a
-                # coordinator sends a queued unit once)
-                self.b.extend(msg, FOREIGN_HIDE_S)
-                time.sleep(poll)
+                # coordinator sends a queued unit once), unless that run is over
+                # (qapctl stop: tho40-a left 139 queued units' messages, Nov 14)
+                if self._run_over(msg.body["run"]):
+                    self.b.delete_message(msg)
+                else:
+                    self.b.extend(msg, FOREIGN_HIDE_S)
+                    time.sleep(poll)
                 continue
             unit = self._lease(msg)
             if unit is None:
