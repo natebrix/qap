@@ -35,10 +35,11 @@ PENDING = ("queued", "leased", "done", "returned", "failed")
 
 
 class Coordinator:
-    def __init__(self, backend, run_id, log=print):
+    def __init__(self, backend, run_id, log=print, replay=True):
         self.b = backend
         self.run_id = run_id
         self.log = log
+        self.replay = replay   # False: the saved totals as they are (qapctl stop: no unit files fetched)
         self.run = self.b.get_run(run_id)
         if self.run is None:
             raise SystemExit(f"no run {run_id}")
@@ -77,7 +78,7 @@ class Coordinator:
         self.dirty = False
         # replay units merged after the saved totals (a crash between marking a
         # unit merged and saving the totals): their stats are not in the file
-        replay = self.b.units_merged_after(self.run_id, self.last_seq)
+        replay = self.b.units_merged_after(self.run_id, self.last_seq) if self.replay else []
         for u in sorted(replay, key=lambda d: d["merged_seq"]):
             self.log(f"coordinator: replaying unit {u['uid']} (merge {u['merged_seq']})")
             self._apply(u)

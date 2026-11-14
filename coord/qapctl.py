@@ -191,7 +191,9 @@ def stop_run(b, run_id, log=print):
     if run.get("status") != "stopped":   # a second stop keeps the first one's times
         fields.update({"wall_s": last.get("wall_s"), "finished_at": last.get("updated")})
     b.update_run(run_id, fields)
-    c = Coordinator(b, run_id, log=log)
+    # the saved totals, without replaying the merges after them: a replay fetches
+    # those units' output states, gigabytes each in a run like tho40-a
+    c = Coordinator(b, run_id, log=log, replay=False)
     if c.publisher.publish(b.count_by_status(run_id), final=True):
         log(f"run {run_id}: stopped; final public status written under public/runs/{run_id}/")
     else:
