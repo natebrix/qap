@@ -112,6 +112,14 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
     `src/`, write `public/runs/`, send, receive and delete on the two queues,
     items on the two tables) and nothing else;
   - a security group `qap-phase1` in the default VPC, with no inbound rules.
+- **Disk and failures** (after tho40-a, Nov 14, whose 32 GB disk filled in 30
+  minutes): `--disk GB` sizes the root disk (default 32; tho40 at 64 workers:
+  100). Unit attempts and parent states are deleted as soon as nothing needs
+  them (`coord/README.md`, Parent states and disk); a worker takes no unit
+  while the work disk has under `QAP_MIN_FREE_GB` (default 2) free; and when
+  the coordinator has failed 5 times the instance uploads `out/` and shuts
+  down instead of idling. A run given up for good: `qapctl stop RUN`, then
+  `qapctl purge-states RUN`.
 - **Without an incumbent** (`--no-ub`): a better solution found inside a unit
   reaches the other units when that unit returns and is merged (the
   coordinator verifies and publishes it then), so at most one unit budget

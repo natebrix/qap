@@ -58,6 +58,7 @@ import sys
 import tempfile
 import threading
 import time
+os.environ.setdefault("QAP_MIN_FREE_GB", "0.5")   # the worker's disk guard: a test machine's disk is small
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOLVER = os.path.join(ROOT, "latest", "bnbdrv")

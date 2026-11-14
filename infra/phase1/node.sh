@@ -189,6 +189,10 @@ coord_loop() {
     if [ $n -ge 5 ]; then   # nothing would merge: stop the worker too (its units go back)
       touch "$OUT/stopping"
       [ -f "$OUT/worker.pid" ] && kill -TERM "$(cat "$OUT/worker.pid")" 2> /dev/null
+      # and the instance: the marker above needs a disk with room, and tho40-a's
+      # was full (Nov 14), so its worker loop never saw it and the instance idled
+      # for hours; finish (out/ uploaded, then shutdown) needs none
+      [ "$LOCAL" = 1 ] || finish "the coordinator failed 5 times"
       return 1
     fi
     sleep 10

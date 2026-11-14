@@ -44,6 +44,7 @@ import subprocess
 import sys
 import tempfile
 import time
+os.environ.setdefault("QAP_MIN_FREE_GB", "0.5")   # the worker's disk guard: a test machine's disk is small
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)

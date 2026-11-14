@@ -6,7 +6,7 @@
 #   infra/phase1/launch.sh RUN [--recipe nug30] [--no-ub] [--type c7g.4xlarge]
 #                          [--region eu-north-1] [--on-demand] [--worker-only]
 #                          [--no-reference] [--gates "bruteforce ..."|none]
-#                          [--limit 120] [--node-env "K=V ..."] [--dry-run]
+#                          [--limit 120] [--disk 32] [--node-env "K=V ..."] [--dry-run]
 #
 #   RUN             a name for the run: letters, digits, - and _ (e.g. nug30-a)
 #   --recipe R      what to solve: infra/phase1/recipes/R.sh (committed). Needed
@@ -20,6 +20,8 @@
 #                   publish_setup.sh serves it to brixius-web)
 #   --gates G       the make targets checked before any unit runs (default in node.sh)
 #   --limit M       the instance shuts itself down after M minutes whatever happens
+#   --disk G        its root disk in GB (default 32, gp3): unit attempts and parent
+#                   states live there (tho40 at 64 workers: 100)
 #   --node-env E    variables exported on the instance for the build, the gates and the
 #                   solvers (e.g. "OPENBLAS_CORETYPE=ARMV8"); the recipe's ENV is for units only
 #   --dry-run       print the AWS calls that change something, make none of them
@@ -35,7 +37,7 @@ set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
 R=$(cd "$D/../.." && pwd)
 RUN=""; RECIPE=""; NO_UB=0; TYPE=c7g.4xlarge; REGION=eu-north-1; MARKET=spot; ROLE=all
-REFERENCE=1; GATES=""; LIMIT=120; DRY=0; VIS=public; NODE_ENV=""
+REFERENCE=1; GATES=""; LIMIT=120; DRY=0; VIS=public; NODE_ENV=""; DISK=32
 while [ $# -gt 0 ]; do
   case $1 in
     --recipe) RECIPE=$2; shift 2 ;;
@@ -48,6 +50,7 @@ while [ $# -gt 0 ]; do
     --private) VIS=private; shift ;;
     --gates) GATES=$2; shift 2 ;;
     --limit) LIMIT=$2; shift 2 ;;
+    --disk) DISK=$2; shift 2 ;;
     --node-env) NODE_ENV=$2; shift 2 ;;
     --dry-run) DRY=1; shift ;;
     -h|--help) sed -n 2,31p "$0"; exit 0 ;;
@@ -58,6 +61,7 @@ done
 [ -n "$RUN" ] || { sed -n 2,31p "$0"; exit 2; }
 [[ $RUN =~ ^[A-Za-z0-9_-]{1,60}$ ]] || { echo "RUN may have letters, digits, - and _ only"; exit 2; }
 [[ $LIMIT =~ ^[0-9]+$ ]] || { echo "--limit is in whole minutes"; exit 2; }
+[[ $DISK =~ ^[0-9]+$ ]] && [ "$DISK" -ge 16 ] && [ "$DISK" -le 2000 ] || { echo "--disk is in whole GB, 16 to 2000"; exit 2; }
 command -v aws > /dev/null || { echo "the AWS CLI is not installed (brew install awscli)"; exit 1; }
 python3 -c "import boto3" 2> /dev/null || { echo "python3 has no boto3: pip3 install boto3"; exit 1; }
 export AWS_DEFAULT_REGION=$REGION AWS_PAGER=""
@@ -203,7 +207,7 @@ for s in $SUBNETS; do   # the next zone if one has no capacity
   ID=$(change ec2 run-instances --image-id "$AMI" --instance-type "$TYPE" --count 1 --subnet-id "$s" \
     --iam-instance-profile Name=$ROLE_NAME --security-group-ids "$SG" --instance-initiated-shutdown-behavior terminate \
     --metadata-options HttpTokens=required,HttpEndpoint=enabled \
-    --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=32,VolumeType=gp3,DeleteOnTermination=true}' \
+    --block-device-mappings "DeviceName=/dev/xvda,Ebs={VolumeSize=$DISK,VolumeType=gp3,DeleteOnTermination=true}" \
     ${MO[@]+"${MO[@]}"} --user-data "file://$UD" \
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=qap-phase1-$RUN-$ROLE},{Key=qap-phase1,Value=$RUN},{Key=qap-role,Value=$ROLE}]" \
     --query 'Instances[0].InstanceId' --output text 2> "$L/launch.err") && break

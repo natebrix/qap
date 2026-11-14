@@ -121,6 +121,23 @@ class Worker:
         self.run = self.b.get_run(self.run_id)
         return self.run
 
+    def _room(self):
+        """room on the work disk for another unit (QAP_MIN_FREE_GB, default 2):
+        on a full disk a unit only fails (tho40-a, Nov 14); said once a minute"""
+        need = float(os.environ.get("QAP_MIN_FREE_GB", "2")) * 1e9
+        try:
+            free = shutil.disk_usage(self.workdir).free
+        except OSError:
+            return True
+        if free >= need:
+            return True
+        now = time.time()
+        if now - getattr(self, "_room_said", 0) > 60:
+            self._room_said = now
+            self.log(f"worker {self.name}: {free / 1e9:.1f} GB free on {self.workdir}, under "
+                     f"{need / 1e9:g} GB: taking no unit until there is room")
+        return False
+
     def _run_over(self, run_id, ttl=60):
         """another run is stopped, finished or gone (its status cached ttl seconds)"""
         now = time.time()
@@ -351,6 +368,9 @@ class Worker:
                     return
             if self.run.get("status") == "paused":
                 time.sleep(poll)
+                continue
+            if not self._room():
+                time.sleep(max(poll, 30))
                 continue
             msg = self.b.receive(list(LANES), self.cfg["lease_s"])
             if msg is None:
