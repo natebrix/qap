@@ -242,6 +242,14 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
                    "returned": sum(u.get("outcome") == "returned" for u in units),
                    "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
         r.public = public_problems(r, private=name == "noub")
+        # a worker removes each unit attempt's directory once it is over (a
+        # SIGKILLed worker cannot: kill9's and kill9ckpt's first)
+        import glob
+        sigkilled = {"w1"} if name in ("kill9", "kill9ckpt") else set()
+        left = [d for d in glob.glob(os.path.join(r.tmp, "w*", "slot*", "*"))
+                if os.path.basename(os.path.dirname(os.path.dirname(d))) not in sigkilled]
+        if left:
+            r.public = r.public + [f"{len(left)} unit directories left on a worker's disk, e.g. {left[0]}"]
         if name == "normal" and not r.public:
             # a later publish of the finished run (qapctl publish, a backfill)
             # keeps its wall time and its history

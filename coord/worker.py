@@ -139,9 +139,22 @@ class Worker:
         return doc
 
     def _run_unit(self, slot, msg, unit):
-        uid, attempt = unit["uid"], unit["attempt"]
-        wd = os.path.join(self.workdir, f"slot{slot}", f"{uid}.a{attempt}")
+        """run one unit attempt in a directory of its own, removed once the
+        attempt is over: its state files (in.state, the solver's -k checkpoints
+        in out.state and the copy uploaded from, out.state.up) are in the store
+        by then, and with the DNN state shipped they run to gigabytes (tho40-a
+        filled its 32 GB disk in 30 minutes, Nov 14). QAP_KEEP_WORKDIR=1 keeps
+        them, for a look at a failure."""
+        wd = os.path.join(self.workdir, f"slot{slot}", f"{unit['uid']}.a{unit['attempt']}")
         os.makedirs(wd, exist_ok=True)
+        try:
+            return self._attempt(slot, msg, unit, wd)
+        finally:
+            if os.environ.get("QAP_KEEP_WORKDIR") != "1":
+                shutil.rmtree(wd, ignore_errors=True)
+
+    def _attempt(self, slot, msg, unit, wd):
+        uid, attempt = unit["uid"], unit["attempt"]
         inp, out = os.path.join(wd, "in.state"), os.path.join(wd, "out.state")
         incf, logf, tracef = os.path.join(wd, "inc.txt"), os.path.join(wd, "solver.log"), os.path.join(wd, "trace.txt")
         nodesf = os.path.join(wd, "nodes.txt")
