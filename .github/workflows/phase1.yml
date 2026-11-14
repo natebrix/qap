@@ -1,0 +1,102 @@
+# Phase 1 runs from GitHub (infra/phase1/README.md, "From GitHub"): launch, collect or stop
+# a run with short-lived AWS credentials (OpenID Connect; no AWS key is stored). Every job
+# waits for approval in the environment aws-phase1 (you are its required reviewer), only
+# the cognac branch may use it, and the AWS role it assumes (infra/phase1/gha_setup.sh)
+# can do what launch.sh, collect.sh and cleanup.sh RUN do and nothing else. The account
+# number is masked in the log, and nothing that holds it is committed.
+#
+#   gh workflow run phase1 --ref cognac -f action=launch -f run=tho40-a \
+#     -f args="--recipe tho40 --on-demand --type c7g.16xlarge --no-reference --limit 4320"
+#   gh workflow run phase1 --ref cognac -f action=collect -f run=tho40-a
+#   gh workflow run phase1 --ref cognac -f action=stop -f run=tho40-a
+name: phase1
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "collect (fetch and commit the run's records), launch, or stop (terminate the run's instances)"
+        type: choice
+        options: [collect, launch, stop]
+        required: true
+      run:
+        description: "the run's name, e.g. tho40-a"
+        type: string
+        required: true
+      args:
+        description: "launch only: launch.sh options, e.g. --recipe tho40 --on-demand --type c7g.16xlarge --no-reference --limit 4320"
+        type: string
+        required: false
+        default: ""
+permissions:
+  contents: write     # collect and launch commit infra/phase1/runs/RUN
+  id-token: write     # the OIDC token AWS exchanges for the role's credentials
+concurrency:
+  group: phase1-${{ inputs.run }}
+  cancel-in-progress: false
+jobs:
+  phase1:
+    if: github.ref == 'refs/heads/cognac'
+    runs-on: ubuntu-latest
+    environment: aws-phase1
+    timeout-minutes: 30
+    env:
+      ACTION: ${{ inputs.action }}
+      RUN: ${{ inputs.run }}
+      ARGS: ${{ inputs.args }}
+      AWS_PAGER: ""
+    steps:
+      - name: Check the inputs
+        run: |
+          [[ $RUN =~ ^[A-Za-z0-9_-]{1,60}$ ]] || { echo "::error::run: letters, digits, - and _ only"; exit 1; }
+          [ "$ACTION" = launch ] || [ -z "$ARGS" ] || { echo "::error::args are for launch only"; exit 1; }
+          set -f
+          for a in $ARGS; do
+            [[ $a =~ ^[A-Za-z0-9_.:=/-]+$ ]] || { echo "::error::launch option '$a': letters, digits and _ . : = / - only"; exit 1; }
+          done
+      - uses: actions/checkout@v4
+        with:
+          ref: cognac
+          fetch-depth: 50
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --quiet boto3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: qap-phase1-${{ github.run_id }}
+          aws-region: eu-north-1
+          mask-aws-account-id: true
+      - name: Mask the account number
+        run: |
+          ACCT=$(aws sts get-caller-identity --query Account --output text)
+          echo "::add-mask::$ACCT"
+          echo "QAP_ACCT=$ACCT" >> "$GITHUB_ENV"
+      - name: ${{ inputs.action }} ${{ inputs.run }}
+        run: |
+          set -f
+          case $ACTION in
+            launch)  infra/phase1/launch.sh "$RUN" $ARGS ;;
+            collect) infra/phase1/collect.sh "$RUN" ;;
+            stop)    infra/phase1/cleanup.sh "$RUN" ;;
+          esac
+      - name: Commit the run's records
+        if: always() && inputs.action != 'stop'
+        run: |
+          D=infra/phase1/runs/$RUN
+          [ -n "${QAP_ACCT:-}" ] || { echo "no AWS session, so nothing to commit"; exit 0; }
+          [ -d "$D" ] || { echo "nothing under $D"; exit 0; }
+          # the bucket's name holds the account number: .gitignore keeps bucket.txt and
+          # userdata out, and any other file that names it gets a placeholder
+          grep -rlF "$QAP_ACCT" "$D" 2> /dev/null | while read -r f; do sed -i "s/$QAP_ACCT/<account>/g" "$f"; done
+          git add "$D"
+          if git diff --cached --quiet; then echo "no new records"; exit 0; fi
+          if git diff --cached | grep -qF "$QAP_ACCT"; then echo "::error::the account number is in the staged records; not committed"; exit 1; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "phase 1 runs/$RUN: $ACTION from GitHub Actions (run ${{ github.run_id }})"
+          for i in 1 2 3; do
+            git pull -q --no-rebase --no-edit origin cognac && git push -q origin HEAD:cognac && exit 0
+            sleep 5
+          done
+          echo "::error::could not push the records"; exit 1
