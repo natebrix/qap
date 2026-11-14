@@ -1,0 +1,16 @@
+make -C latest
+make[1]: Entering directory '/opt/qap/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/opt/qap/latest'
+python3.11 -u bench/bench.py check
+     nug12: ok       nodes=       241  time=    0.115s  wall=0.12s
+     nug14: ok       nodes=      2002  time=    1.161s  wall=1.17s
+     nug15: ok       nodes=      1639  time=    0.802s  wall=0.81s
+    nug16b: ok       nodes=      2894  time=    1.212s  wall=1.22s
+     had12: ok       nodes=       109  time=    0.080s  wall=0.09s
+     had14: ok       nodes=       352  time=    0.219s  wall=0.22s
+     had16: ok       nodes=      3177  time=    2.230s  wall=2.24s
+
+wrote bench/results/check-20261114-153308/  (7 instances, 0 not ok)
+
+regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
