@@ -15,4 +15,7 @@ EXTRA="-s SYM/tho40t.sym"
 ENV=""
 # 20-minute units (about 900 nodes each at 1.4 s): with 64 slots and the default reserve
 # of 2 x slots, 128 units stay queued; a unit's checkpoint goes up every 5 minutes
-COORD="--budget 1200 --target-unit-cpu 1200 --steal-after 300 --checkpoint-every 60 --ckpt-upload 300"
+# --trace: every node's line (QAP_NODE_TRACE) and the DNN nodes' (QAP_DNN_TRACE), per unit in the
+# store (runs/RUN/units/U/a<attempt>/nodes.txt, the frontier's in runs/RUN/frontier/), for the tree
+# viewer: a few hundred MB at the estimate's 0.6e6 to 3e6 nodes, a few % of CPU on QPB nodes
+COORD="--budget 1200 --target-unit-cpu 1200 --steal-after 300 --checkpoint-every 60 --ckpt-upload 300 --trace"
