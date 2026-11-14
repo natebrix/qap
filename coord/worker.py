@@ -35,6 +35,7 @@ import subprocess
 import threading
 import time
 
+from . import warm
 from .common import LANES, ROOT, SOLVER, State, run_key, unit_key
 
 # every run on a backend shares its queues: a worker that receives another
@@ -84,6 +85,7 @@ class Worker:
         self.exit_when_idle = exit_when_idle
         self.grace = grace
         self._others = {}   # another run's id -> (over, when looked up)
+        self._pushed = set()  # parent states this worker knows are in the store (coord/warm.py)
         self.workdir = os.path.abspath(workdir or os.path.join("/tmp", f"qapworker-{run_id}-{os.getpid()}"))
         os.makedirs(self.workdir, exist_ok=True)
         self.name = f"{socket.gethostname()}/{os.getpid()}"
@@ -178,6 +180,7 @@ class Worker:
         resumed = self.b.get_file(ckpt_key, inp)
         if not resumed and not self.b.get_file(unit["in_key"], inp):
             raise RuntimeError(f"unit {uid}: no {unit['in_key']}")
+        warm.fetch(self.b, self.run_id, inp, log=self.log)   # the parents its nodes start from
         if trace and resumed:
             # the trace up to that checkpoint (it may run past it: it goes up first)
             want = traced_nodes(inp)
@@ -204,6 +207,8 @@ class Worker:
         env = dict(os.environ)
         env.update(self.sol.get("env", {}))
         env.update({"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1"})
+        # the solver writes each parent's DNN state once, to warm/, and refers to it
+        env["QAP_DNN_WARM_DIR"] = os.path.join(wd, "warm")
         if trace:
             env["QAP_DNN_TRACE"] = tracef
             env["QAP_NODE_TRACE"] = nodesf
@@ -253,7 +258,11 @@ class Worker:
                         if trace and os.path.exists(nodesf):
                             keep_lines(nodesf, nodesf + ".up", traced_nodes(snap))
                             self.b.put_file(ckpt_nodes_key, nodesf + ".up")
+                        # its parents before it, and named on the unit, so the store keeps them
+                        refs = warm.push(self.b, self.run_id, snap, self._pushed, log=self.log)
                         self.b.put_file(ckpt_key, snap)
+                        self.b.update_unit(self.run_id, uid, {"ckpt_warm": refs},
+                                           expect={"status": "leased", "attempt": attempt})
                         ckpt_mtime = m
                     last_ckpt = now
                 data, inc_tag = self.b.get_if_changed(run_key(self.run_id, "incumbent.json"), inc_tag)
@@ -302,6 +311,7 @@ class Worker:
                   "host": self.host, "finished_at": time.time()}
         # results before the ledger: the store is the truth
         if have_out and outcome in ("done", "returned"):
+            warm.push(self.b, self.run_id, out, self._pushed, log=self.log)
             self.b.put_file(prefix + "/out.state", out)
         self.b.put_file(prefix + "/solver.log", logf)
         if os.path.exists(tracef):

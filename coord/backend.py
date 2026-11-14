@@ -155,6 +155,16 @@ class LocalBackend:
                     out.append(k)
         return sorted(out)
 
+    def list_meta(self, prefix):
+        """[(key, modified time)] under prefix"""
+        out = []
+        for k in self.list(prefix):
+            try:
+                out.append((k, os.path.getmtime(self._path(k))))
+            except FileNotFoundError:
+                pass
+        return out
+
     # queue
     def send(self, lane, body):
         with self._tx() as c:
@@ -421,6 +431,16 @@ class AwsBackend:
             for o in page.get("Contents", []):
                 k = o["Key"]
                 out.append(k[len(self.prefix) + 1:] if self.prefix else k)
+        return sorted(out)
+
+    def list_meta(self, prefix):
+        """[(key, modified time)] under prefix"""
+        out = []
+        pfx = self._key(prefix)
+        for page in self.s3.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=pfx):
+            for o in page.get("Contents", []):
+                k = o["Key"]
+                out.append((k[len(self.prefix) + 1:] if self.prefix else k, o["LastModified"].timestamp()))
         return sorted(out)
 
     # queue

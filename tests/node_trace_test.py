@@ -298,16 +298,22 @@ def compare(what, ref, got, how):
 
 # ---------------------------------------------------------------- the coordinator
 
-def coord(tmp, kill):
+def coord(tmp, kill, dnn=None):
     from coord.backend import open_backend
-    if kill:
-        tag, inst, ub, params, extra, env = "coordkill", "nug17", 1732, "PARAM/default.par", "", {}
-        timing = ["--budget", "4", "--target-unit-cpu", "4", "--steal-after", "3"]
-    else:
-        # ship.bits = 64: a node resumed from a state file starts its DNN from its parent's exact state
+    dnn = (not kill) if dnn is None else dnn
+    if dnn:
+        # ship.bits = 64: a node resumed from a state file starts its DNN from its
+        # parent's exact state, which goes through the parent-state store (coord/warm.py)
         params = os.path.join(tmp, "ship64.par")
         envpar.write_par(SHIP_PAR, {"ship.bits": "64"}, params, solver=SOLVER)
-        tag, inst, ub, extra, env = "coord", "nug17", 1732, "-x 1:3:1:20:1", {"QAP_DNN_POOL_CHECK": "20"}
+        inst, ub, extra, env = "nug17", 1732, "-x 1:3:1:20:1", {"QAP_DNN_POOL_CHECK": "20"}
+    else:
+        inst, ub, params, extra, env = "nug17", 1732, "PARAM/default.par", "", {}
+    if kill:
+        tag = "coordkilldnn" if dnn else "coordkill"
+        timing = ["--budget", "4", "--target-unit-cpu", "4", "--steal-after", "3"]
+    else:
+        tag = "coord"
         timing = ["--budget", "0.3", "--target-unit-cpu", "0.5", "--steal-after", "0.5"]
     ref = os.path.join(tmp, f"{tag}.serial.nodes")
     solve(["-p", params, "-u", str(ub)] + extra.split(), DAT(inst), os.path.join(tmp, f"{tag}.state"), ref, env)
@@ -326,6 +332,13 @@ def coord(tmp, kill):
                            log=w)
     c, w = ctl("coordinator", tag, "--backend", be, "--poll", "0.3", log="coordinator"), worker("w1")
     b = open_backend(be)
+    # the parent states in the store (coord/warm.py) while the run goes on
+    seen = {"max": 0}
+    def watch():
+        while c.poll() is None:
+            seen["max"] = max(seen["max"], len(b.list(f"runs/{tag}/warm/")))
+            time.sleep(0.2)
+    threading.Thread(target=watch, daemon=True).start()
     if kill:
         t_end = time.time() + 60            # at once, while that unit still runs
         while time.time() < t_end and not any(b.exists(f"runs/{tag}/units/{u['uid']}/ckpt.state")
@@ -360,6 +373,16 @@ def coord(tmp, kill):
             continue
         paths.append(p)
     resumed = sum(bool(u.get("resumed_from_ckpt")) for u in units)
+    if dnn:
+        # the DNN states went through the store (ship.bits = 64: the tree is the
+        # serial one only if each came back exact), and nothing is left of them
+        # or of the units' state files once the run is over
+        left = len(b.list(f"runs/{tag}/warm/")) + len([k for k in b.list(f"runs/{tag}/units/") if k.endswith(".state")])
+        ok = seen["max"] > 0 and left == 0
+        print(f"{'ok  ' if ok else 'FAIL'} {tag} parent-state store: up to {seen['max']} parent states during the run, "
+              f"{left} files left after it")
+        if not ok:
+            return 1
     how = f"frontier + {len(paths) - 1} of {len(units)} units, {sum(u['attempt'] > 1 for u in units)} retried, " \
           f"{resumed} from a checkpoint"
     bad = compare(f"{tag} {inst}{' ' + extra if extra else ''}", read_trace(ref), read_trace(*paths), how)
@@ -461,7 +484,7 @@ def published_tree_problems(what, ref, tree):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--only", default="serial,killed,parallel,coord,coordkill")
+    ap.add_argument("--only", default="serial,killed,parallel,coord,coordkill,coordkilldnn")
     ap.add_argument("--keep", action="store_true", help="keep the temporary directory")
     a = ap.parse_args()
     tmp = tempfile.mkdtemp(prefix="qap-nodetrace-")
@@ -469,7 +492,8 @@ def main():
     for part in a.only.split(","):
         t0 = time.time()
         bad += {"serial": serial, "killed": killed, "parallel": parallel, "coord": lambda t: coord(t, False),
-                "coordkill": lambda t: coord(t, True)}[part](tmp)
+                "coordkill": lambda t: coord(t, True),
+                "coordkilldnn": lambda t: coord(t, True, dnn=True)}[part](tmp)
         print(f"     ({part}: {time.time() - t0:.0f} s)", flush=True)
     if bad or a.keep:
         print(f"files in {tmp}")

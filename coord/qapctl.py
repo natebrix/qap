@@ -201,14 +201,15 @@ def stop_run(b, run_id, log=print):
 
 def purge_states(b, run_id, log=print):
     """delete a stopped or finished run's unit state files (in.state, each
-    attempt's out.state, checkpoints): the bulk of its store, which nothing
-    reads once the run is over. The ledger, the totals, results, logs and node
-    traces stay."""
+    attempt's out.state, checkpoints) and parent states (warm/): the bulk of
+    its store, which nothing reads once the run is over. The ledger, the
+    totals, results, logs and node traces stay."""
     run = b.get_run(run_id)
     if run is None or run.get("status") not in ("stopped", "finished"):
         log(f"run {run_id} is {run and run.get('status')}: purge-states is for a stopped or finished run")
         return 1
     keys = [k for k in b.list(run_key(run_id, "units") + "/") if k.endswith(".state") or k.endswith("ckpt.nodes.txt")]
+    keys += b.list(run_key(run_id, "warm") + "/")   # the parent states (coord/warm.py)
     for k in keys:
         b.delete(k)
     log(f"run {run_id}: {len(keys)} unit state files deleted")

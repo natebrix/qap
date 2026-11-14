@@ -28,6 +28,7 @@ import time
 
 from .common import (LANES, SOLVER, State, fmt_secs, new_unit, plan_split, read_instance, run_key,
                      solver_tables, unit_key, verify_incumbent, write_unit_state)
+from . import warm
 from .publish import Publisher
 
 PENDING = ("queued", "leased", "done", "returned", "failed")
@@ -45,8 +46,10 @@ class Coordinator:
         self.tmp = tempfile.mkdtemp(prefix=f"qapcoord-{run_id}-")
         inst_text = self.b.get_bytes(run_key(run_id, "instance.dat")).decode()
         self.inst = read_instance(inst_text)
+        self.spent = []   # units merged since the totals were last saved: their state files go after the save
         self._load_totals()
         self.last_status = 0
+        self.last_warm_gc = time.time()
         self.t0 = self.run.get("started_at") or time.time()
         self.publisher = Publisher(self)
 
@@ -101,6 +104,35 @@ class Coordinator:
                 pass                      # an orphan file is harmless
             self.totals_key = key
         self.dirty = False
+        self._drop_spent()
+
+    def _drop_spent(self):
+        """a merged unit's state files (its input, checkpoint and output) are
+        in the saved totals and its open nodes in the units made from them:
+        delete them (cfg keep_unit_states keeps them). Results, solver logs and
+        node traces stay."""
+        spent, self.spent = self.spent, []
+        if self.cfg.get("keep_unit_states"):
+            return
+        for u in spent:
+            for key in (u.get("in_key"), unit_key(self.run_id, u["uid"], "ckpt.state"),
+                        unit_key(self.run_id, u["uid"], "ckpt.nodes.txt"),
+                        unit_key(self.run_id, u["uid"], f"a{u['attempt']}", "out.state")):
+                if key:
+                    try:
+                        self.b.delete(key)
+                    except Exception:
+                        pass              # left for purge-states
+
+    def _warm_gc(self, force=False):
+        """every warm_gc_every seconds (default 600): the parent states nothing can need go"""
+        every = self.cfg.get("warm_gc_every", 600)
+        if not force and time.time() - self.last_warm_gc < every:
+            return
+        self.last_warm_gc = time.time()
+        kept, deleted = warm.gc(self.b, self.run_id, self.b.all_units(self.run_id))
+        if deleted:
+            self.log(f"coordinator: parent states: {deleted} deleted, {kept} kept")
 
     def _crash_point(self, where):
         """tests only (tests/coord_test.py, crash_*): QAP_COORD_CRASH=WHERE:N exits
@@ -140,7 +172,7 @@ class Coordinator:
         key = unit_key(self.run_id, u["uid"], f"a{u['attempt']}", "out.state")
         if not self.b.get_file(key, p):
             raise RuntimeError(f"unit {u['uid']} merged without {key}")
-        st = State(p)
+        st = warm.rebase(State(p), self.tmp)
         self.totals.add_stats(st)
         self.busy_wall += u.get("wall", 0.0)
         self.units_merged += 1
@@ -148,6 +180,7 @@ class Coordinator:
         if u.get("outcome") == "returned" and st.nodes:
             self._make_units(st.nodes, parent=u["uid"])
         self.last_seq = max(self.last_seq, u["merged_seq"])
+        self.spent.append(u)
         self.dirty = True
 
     def _make_units(self, nodes, parent):
@@ -171,6 +204,7 @@ class Coordinator:
             have = self.b.get_unit(self.run_id, uid)
             if have is None:
                 doc = new_unit(self.run_id, uid, parent, chunk, self.cfg)
+                doc["warm"] = warm.node_refs(chunk)   # the parent states it starts from (coord/warm.py)
                 path = self._path("in.state")
                 self.template.obj, self.template.perm, self.template.found = \
                     self.totals.obj, self.totals.perm, self.totals.found
@@ -336,6 +370,12 @@ class Coordinator:
         report = self.report(p, wall)
         self.b.put_bytes(run_key(self.run_id, "results.txt"), (report + "\n").encode())
         self.run = self.b.update_run(self.run_id, {"status": "finished", "finished_at": now, "wall_s": wall})
+        # the run is over: no node will start from a parent state again
+        for key in self.b.list(run_key(self.run_id, "warm") + "/"):
+            try:
+                self.b.delete(key)
+            except Exception:
+                pass
         # the last status.json says finished, with the final totals (a run
         # shorter than status_every would otherwise leave its first one)
         counts = self.b.count_by_status(self.run_id)
@@ -357,6 +397,10 @@ class Coordinator:
         counts = self.b.count_by_status(self.run_id)
         self.balance(counts)
         self.status(counts, force=merged > 0 and self.cfg.get("status_on_merge", False))
+        try:
+            self._warm_gc()
+        except Exception as e:          # the store must never stop a run
+            self.log(f"coordinator: the parent-state cleanup failed: {e!r}")
         if self.publisher.due():
             try:
                 self.publisher.publish(counts)
@@ -404,6 +448,7 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     traces = {"QAP_NODE_TRACE": "nodes.txt", "QAP_DNN_TRACE": "trace.txt"} if cfg.get("trace") else {}
     for var, name in traces.items():
         e[var] = os.path.join(tmp, name)   # the frontier's nodes are in no unit's trace
+    e["QAP_DNN_WARM_DIR"] = os.path.join(tmp, "warm")   # the frontier's parents, once each (coord/warm.py)
     r = subprocess.run(cmd, cwd=sdir, capture_output=True, text=True, env=e)
     if r.returncode != 0:
         raise SystemExit(f"frontier pass failed (rc={r.returncode}):\n{r.stdout[-2000:]}{r.stderr}")
@@ -411,6 +456,7 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     for name in traces.values():
         if os.path.exists(os.path.join(tmp, name)):
             backend.put_file(run_key(run_id, "frontier", name), os.path.join(tmp, name))
+    warm.push(backend, run_id, frontier, set(), log=log)
     st = State(frontier)
     backend.put_file(run_key(run_id, "instance.dat"), os.path.abspath(instance))
     params_path = params if os.path.isabs(params) else os.path.join(sdir, params)
@@ -428,7 +474,7 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
                                                        "params": os.path.basename(params),
                                                        "instance": os.path.basename(instance)}})
     c = Coordinator(backend, run_id, log=log)
-    n = c._make_units(st.nodes, parent=None)
+    n = c._make_units(warm.rebase(st, c.tmp).nodes, parent=None)
     log(f"coordinator: run {run_id}: frontier at depth {frontier_depth} has {len(st.nodes)} open nodes, "
         f"{n} units, {cfg['slots']} slots")
     shutil.rmtree(tmp)

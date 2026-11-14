@@ -305,6 +305,14 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
                 if os.path.basename(os.path.dirname(os.path.dirname(d))) not in sigkilled]
         if left:
             r.public = r.public + [f"{len(left)} unit directories left on a worker's disk, e.g. {left[0]}"]
+        # the coordinator deletes a merged unit's state files once its totals are saved, and
+        # the parent states once the run is over (coord/warm.py)
+        if r.backend.startswith("local:"):
+            store_dir = os.path.join(r.backend[len("local:"):], "store", "runs", r.run_id)
+            states = glob.glob(os.path.join(store_dir, "units", "**", "*.state"), recursive=True)
+            parents = glob.glob(os.path.join(store_dir, "warm", "*"))
+            if states or parents:
+                r.public = r.public + [f"{len(states)} unit state files and {len(parents)} parent states left in the store"]
         if name == "normal" and not r.public:
             # a later publish of the finished run (qapctl publish, a backfill)
             # keeps its wall time and its history
