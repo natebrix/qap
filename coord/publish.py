@@ -30,10 +30,11 @@ a content type and Cache-Control max-age=60 for CloudFront
 """
 import json
 import os
+import shutil
 import time
 from datetime import datetime, timezone
 
-from .common import run_key
+from .common import ROOT, run_key
 from .tree import TreePublisher, grid_of
 
 PUBLIC = "public/runs"
@@ -141,6 +142,7 @@ class Publisher:
             "slots": c.cfg["slots"],
             "busy_fraction": round(c.busy_wall / (c.cfg["slots"] * wall), 4) if wall > 0 else 0,
             "files": {"totals": "totals.state", "report": "report.txt", "history": "history.json"},
+            "host": host_health(),
         }
         # the params file the solver ran with (its levels and [settings]): the
         # branching rules a run page lists; the file is in the public repo anyway
@@ -182,6 +184,26 @@ class Publisher:
         return True
 
 
+def host_health(path=ROOT):
+    """the coordinating host's free disk (where the repository, the work
+    directories and the parent states are) and available memory, in GB: the
+    public status carries them, so a disk filling up shows before it is full
+    (tho40-a's filled in 30 minutes, Nov 14)"""
+    out = {}
+    try:
+        out["disk_free_gb"] = round(shutil.disk_usage(path).free / 1e9, 1)
+    except OSError:
+        pass
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    out["mem_available_gb"] = round(int(line.split()[1]) * 1024 / 1e9, 1)
+    except OSError:
+        pass
+    return out
+
+
 def catalog_entry(status):
     """a run's line in the catalog: what a list of runs shows, from status.json"""
     inc = status["incumbent"]
@@ -190,7 +212,7 @@ def catalog_entry(status):
             "generated_at": status["generated_at"], "wall_s": status["wall_s"], "cpu_s": round(status["cpu_s"], 1),
             "nodes": status["nodes"]["evaluated"], "fathomed": status["nodes"]["fathomed"],
             "open": status["nodes"]["open"], "incumbent": inc["objective"], "found_by_search": inc["found_by_search"],
-            "slots": status["slots"], "tree": "tree" in status["files"]}
+            "slots": status["slots"], "tree": "tree" in status["files"], "host": status.get("host")}
 
 
 def update_catalog(b, entry, verify=False, tries=3):
