@@ -248,7 +248,7 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         extra += ["--visibility", "private"] if name == "noub" else []
         # fixes: a subtree run, -F in the solver flags (the units resume state
         # files, which the solver does not take together with -F)
-        extra += ["--extra", " ".join(FIXES)] if name == "fixes" else []
+        extra += ["--extra", " ".join(FIXES), "--trace"] if name == "fixes" else []
         r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra)
     try:
         r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
@@ -314,6 +314,16 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
             parents = glob.glob(os.path.join(store_dir, "warm", "*"))
             if states or parents:
                 r.public = r.public + [f"{len(states)} unit state files and {len(parents)} parent states left in the store"]
+        if name == "fixes":
+            # a -F run's live tree: the -F node is the root, every traced node under it
+            import json
+            from coord.backend import open_backend
+            meta = json.loads(open_backend(r.backend).get_bytes(f"public/runs/{r.run_id}/tree/meta.json") or b"{}")
+            want = totals(r.results())[0]
+            if not meta or want is None or meta.get("nodes") != want[0] or meta.get("orphans") or \
+                    meta.get("rootFixes") != FIXES[1] or meta.get("maxDepth", 0) <= 1:
+                r.public = r.public + [f"the -F run's tree: {({k: meta.get(k) for k in ('nodes', 'orphans', 'rootFixes', 'maxDepth')})}, "
+                                       f"nodes {want and want[0]}"]
         if name == "normal" and not r.public:
             # a later publish of the finished run (qapctl publish, a backfill)
             # keeps its wall time and its history

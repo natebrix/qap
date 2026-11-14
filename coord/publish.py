@@ -79,10 +79,13 @@ class Publisher:
             n, a, b, _ = coord.inst
             sol = coord.run.get("solver", {})
             commit = os.environ.get("QAP_COMMIT")
+            flags = list(sol.get("flags") or [])
+            fixes = flags[flags.index("-F") + 1] if "-F" in flags[:-1] else ""
+            prefix = [tuple(int(x) for x in p.split(":")) for p in fixes.split(",") if p]
             self.tree = TreePublisher(coord.b, coord.run_id, os.path.splitext(sol.get("instance") or "")[0] or None,
                                       n, grid_of(n, b, a),
                                       f"coordinator run {coord.run_id}, QAP_NODE_TRACE" +
-                                      (f" (qap {commit[:7]})" if commit else ""), log=coord.log)
+                                      (f" (qap {commit[:7]})" if commit else ""), log=coord.log, prefix=prefix)
 
     def due(self, now=None):
         every = self.c.cfg.get("publish_every", 300)

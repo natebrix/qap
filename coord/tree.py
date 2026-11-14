@@ -56,9 +56,11 @@ class LiveTree:
     """the merged nodes, added a trace at a time (ingest), with each subtree's
     totals kept up to date and the shards a change touches remembered"""
 
-    def __init__(self):
+    def __init__(self, prefix=()):
+        # a subtree run (-F): every node's fixes start with the -F node's, which is the root
+        self.prefix = tuple(prefix)
         self.par = array("i", [-1])
-        self.dep = array("h", [0])
+        self.dep = array("h", [len(self.prefix)])
         self.fix = array("i", [-1])             # facility << 10 | location; -1 at the root
         self.rec = array("b", [0])              # the node's own line read (only the root starts without)
         self.out = array("B", [ord("B")])
@@ -70,7 +72,7 @@ class LiveTree:
         self.size = array("i", [1])
         self.fat = array("i", [0])
         self.sub = array("d", [0.0])
-        self.mx = array("h", [0])
+        self.mx = array("h", [len(self.prefix)])
         self.first = array("i", [-1])           # first child, next sibling
         self.nxt = array("i", [-1])
         self.child = {}                         # parent << 20 | facility << 10 | location -> id
@@ -92,6 +94,10 @@ class LiveTree:
         if len(f) < 12 or f[0] != b"node" or len(f[7]) != 1 or f[7][0] not in OUTCOMES:
             return
         fixes = [] if f[2] == b"-" else [tuple(int(x) for x in p.split(b":")) for p in f[2].split(b",")]
+        if self.prefix:
+            if tuple(fixes[:len(self.prefix)]) != self.prefix:
+                return                      # not in the subtree (not written by a -F run)
+            fixes = fixes[len(self.prefix):]
         if not fixes:
             if self.rec[0]:
                 self.duplicates += 1
@@ -240,10 +246,13 @@ class TreePublisher:
     """keeps a run's LiveTree up to date with the merged units and publishes
     the shards that changed, then meta.json"""
 
-    def __init__(self, b, run_id, instance, n, grid, source, log=print, threads=16):
+    def __init__(self, b, run_id, instance, n, grid, source, log=print, threads=16, prefix=()):
         self.b, self.run_id, self.log, self.threads = b, run_id, log, threads
+        self.prefix = tuple(prefix)
         self.meta = {"run": run_id, "title": run_id, "instance": instance, "n": n, "grid": grid, "format": "nodes",
-                     "source": source, "notes": None, "layout": "depth2"}
+                     "source": source, "notes": None, "layout": "depth2",
+                     # a subtree run: the -F node's fixes, the root's own (facility:location, 0-based)
+                     "rootFixes": ",".join(f"{a}:{b}" for a, b in self.prefix) or None}
         self.tree = None
         self.seq = 0
         self.missing = 0
@@ -255,10 +264,9 @@ class TreePublisher:
         """read the frontier's trace (once) and the units merged since; False
         when the run has no trace"""
         if self.tree is None:
-            frontier = self.b.get_bytes(run_key(self.run_id, "frontier", "nodes.txt"))
-            if frontier is None:
-                return False
-            self.tree = LiveTree()
+            # a frontier pass that bounded no node (a -F run at depth 0) leaves no trace
+            frontier = self.b.get_bytes(run_key(self.run_id, "frontier", "nodes.txt")) or b""
+            self.tree = LiveTree(self.prefix)
             self.tree.ingest(frontier)
         units = sorted(self.b.units_merged_after(self.run_id, self.seq), key=lambda u: u["merged_seq"])
         for u, data in zip(units, pool.map(self._fetch, units)):
