@@ -57,7 +57,7 @@ expects), `UB` (the incumbent given to the solver), `EXTRA` (solver flags),
 | `nug30` | the acceptance run: the Nov 8 record recipe (rule 9, DNN at depths 1-7) with `ship.bits = 64` (`recipes/nug30.par`), one-minute units | 1,300 s on the M2 Pro; more on Graviton |
 | `nug30trace` | `nug30` with `--trace`: every node's line (`QAP_NODE_TRACE`) goes to the store with its unit, the frontier's under `runs/RUN/frontier/`, for the tree viewer; launch with `--no-reference` | as `nug30` plus a few % |
 | `tho40sub` | the tho40 smoke test: the depth-3 subtree 26:3,31:7,37:0 of `tho40t.dat` under `experiments/estimates/tho40/tho40.par` (110 nodes, 107 fathomed in the Nov 9 A/B), one-minute units; prices a tho40 node on the instance | 197 s on the M2 Pro |
-| `tho40` | the whole tho40 tree from an incumbent of 240,518 (the best known 240,516 + 2, so the run must find 240,516 itself), 20-minute units, with `--trace` (every node's line in the store, a few hundred MB); `--no-reference` and a `--limit` of days (the recipe's comment has the launch line) | 0.9e6 to 4e6 s on the M2 Pro (`experiments/tho40_estimate/`) |
+| `tho40` | the whole tho40 tree from an incumbent of 240,518 (the best known 240,516 + 2, so the run must find 240,516 itself) under `recipes/tho40.par` (the estimate's settings with ship.bits = 32 and the DNN bound at every depth), 20-minute units, with `--trace` (every node's line in the store, a few hundred MB); `--no-reference` and a `--limit` of days (the recipe's comment has the launch line) | 0.9e6 to 4e6 s on the M2 Pro (`experiments/tho40_estimate/`) |
 
 `ship.bits = 64` instead of the record's 32: with 64 a node restored from a
 state file starts its DNN from its parent's exact doubles, so a tree cut into
@@ -153,9 +153,9 @@ the repository. AWS gives each job short-lived credentials through OpenID
 Connect, so no AWS key is stored anywhere.
 
 ```
-gh workflow run phase1 --ref cognac -f action=launch -f run=tho40-a -f args="--recipe tho40 --on-demand --type c7g.16xlarge --no-reference --limit 4320"
-gh workflow run phase1 --ref cognac -f action=collect -f run=tho40-a
-gh workflow run phase1 --ref cognac -f action=stop -f run=tho40-a
+gh workflow run phase1 --ref cognac -f action=launch -f run=tho40-b -f args="--recipe tho40 --on-demand --type c7a.16xlarge --no-reference --limit 4320 --disk 100"
+gh workflow run phase1 --ref cognac -f action=collect -f run=tho40-b
+gh workflow run phase1 --ref cognac -f action=stop -f run=tho40-b
 ```
 
 - **Once, on the laptop:** `infra/phase1/gha_setup.sh` (`--dry-run` first),
