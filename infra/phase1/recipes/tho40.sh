@@ -5,7 +5,9 @@
 # CPU s at the M2 Pro's 1.39 s per node), on tho40t.dat with the grid's symmetry (12
 # depth-1 orbits). Launch with --no-reference (a bench/parallel.py rerun would double
 # the work) and a --limit of days, e.g.
-#   infra/phase1/launch.sh tho40-a --recipe tho40 --on-demand --type c7g.16xlarge --no-reference --limit 4320
+#   infra/phase1/launch.sh tho40-a --recipe tho40 --on-demand --type c7a.16xlarge --no-reference --limit 4320
+# c7a (AMD, one worker per core, 64 on a 16xlarge): nug30 at 16 workers took 0.69 CPU s a node
+# on a c7a.4xlarge (runs/nug30-c7a), 1.35 on a c7g.4xlarge (runs/nug30-a), 0.34 on the M2 Pro.
 # Paths are relative to latest/, the solver's working directory.
 INSTANCE=qaplib/tho40t.dat
 PARAMS=../experiments/estimates/tho40/tho40.par
