@@ -35,3 +35,590 @@
 06:20:20 coordinator: 0h18m25s units {'merged': 101, 'leased': 64, 'queued': 108} nodes 2830 (DNN 2829, fathomed 2714) CPU 12882 s
 06:20:52 coordinator: 0h18m57s units {'merged': 101, 'leased': 64, 'queued': 108} nodes 2830 (DNN 2829, fathomed 2714) CPU 12882 s
 06:21:22 coordinator: 0h19m27s units {'merged': 101, 'leased': 64, 'queued': 108} nodes 2830 (DNN 2829, fathomed 2714) CPU 12882 s
+06:21:52 coordinator: 0h19m57s units {'merged': 102, 'leased': 64, 'queued': 107} nodes 2976 (DNN 2975, fathomed 2856) CPU 13544 s
+06:22:01 tree: 3194 nodes, 7 of 21 shards written in 0.3 s
+06:22:23 coordinator: 0h20m28s units {'merged': 103, 'leased': 64, 'queued': 106} nodes 3194 (DNN 3193, fathomed 3068) CPU 14401 s
+06:22:53 coordinator: 0h20m58s units {'merged': 104, 'leased': 64, 'queued': 105} nodes 3376 (DNN 3375, fathomed 3245) CPU 15186 s
+06:23:26 coordinator: 0h21m31s units {'merged': 104, 'leased': 64, 'queued': 105} nodes 3376 (DNN 3375, fathomed 3245) CPU 15186 s
+06:23:56 coordinator: 0h22m01s units {'merged': 107, 'leased': 64, 'queued': 102} nodes 3596 (DNN 3595, fathomed 3459) CPU 16149 s
+06:24:28 coordinator: 0h22m33s units {'merged': 107, 'leased': 64, 'queued': 102} nodes 3596 (DNN 3595, fathomed 3459) CPU 16149 s
+06:25:00 coordinator: 0h23m05s units {'merged': 107, 'leased': 64, 'queued': 102} nodes 3596 (DNN 3595, fathomed 3459) CPU 16149 s
+06:25:32 coordinator: 0h23m37s units {'merged': 108, 'leased': 64, 'queued': 101} nodes 3850 (DNN 3849, fathomed 3706) CPU 17223 s
+06:26:04 coordinator: 0h24m09s units {'merged': 108, 'leased': 64, 'queued': 101} nodes 3850 (DNN 3849, fathomed 3706) CPU 17223 s
+06:26:34 coordinator: 0h24m39s units {'merged': 108, 'leased': 64, 'queued': 101} nodes 3850 (DNN 3849, fathomed 3706) CPU 17223 s
+06:27:03 tree: 4357 nodes, 5 of 22 shards written in 0.3 s
+06:27:05 coordinator: 0h25m11s units {'merged': 110, 'leased': 64, 'queued': 99} nodes 4357 (DNN 4356, fathomed 4199) CPU 19521 s
+06:27:37 coordinator: 0h25m43s units {'merged': 110, 'leased': 64, 'queued': 99} nodes 4357 (DNN 4356, fathomed 4199) CPU 19521 s
+06:28:27 coordinator: 0h26m32s units {'merged': 112, 'leased': 64, 'returned': 15, 'queued': 119, 'done': 2} nodes 4832 (DNN 4831, fathomed 4660) CPU 21607 s
+06:30:28 coordinator: 0h28m33s units {'merged': 133, 'queued': 139, 'returned': 13, 'leased': 64, 'done': 2} nodes 10118 (DNN 10117, fathomed 9763) CPU 45548 s
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/qap/coord/qapctl.py", line 197, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/opt/qap/coord/qapctl.py", line 135, in main
+    out = Coordinator(b, a.run, log=log).loop(poll=a.poll, max_wall=a.max_wall)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qap/coord/coordinator.py", line 371, in loop
+    counts = self.tick()
+             ^^^^^^^^^^^
+  File "/opt/qap/coord/coordinator.py", line 353, in tick
+    merged = self.merge_ready()
+             ^^^^^^^^^^^^^^^^^^
+  File "/opt/qap/coord/coordinator.py", line 130, in merge_ready
+    self._apply(doc)
+  File "/opt/qap/coord/coordinator.py", line 149, in _apply
+    self._make_units(st.nodes, parent=u["uid"])
+  File "/opt/qap/coord/coordinator.py", line 177, in _make_units
+    write_unit_state(self.template, chunk, path)
+  File "/opt/qap/coord/common.py", line 120, in write_unit_state
+    template.write(path, nodes)
+  File "/opt/qap/bench/parallel.py", line 216, in write
+    f.write("\n".join(out) + "\n")
+OSError: [Errno 28] No space left on device
+06:31:37 coordinator: replaying unit u11.1 (merge 134)
+06:31:37 coordinator: replaying unit u3.1 (merge 135)
+06:31:37 coordinator: replaying unit u0.107 (merge 136)
+06:31:40 coordinator: replaying unit u0.108 (merge 137)
+06:31:43 coordinator: replaying unit u0.109 (merge 138)
+06:38:33 coordinator: unit u0.103.0 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.1 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.10 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.11 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.12 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.13 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.14 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.15 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.2 failed (rc -1), re-queued
+06:38:33 coordinator: unit u0.103.3 failed (rc -Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/opt/qap/coord/qapctl.py", line 197, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/opt/qap/coord/qapctl.py", line 135, in main
+    out = Coordinator(b, a.run, log=log).loop(poll=a.poll, max_wall=a.max_wall)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qap/coord/coordinator.py", line 371, in loop
+    counts = self.tick()
+             ^^^^^^^^^^^
+  File "/opt/qap/coord/coordinator.py", line 353, in tick
+    merged = self.merge_ready()
+             ^^^^^^^^^^^^^^^^^^
+  File "/opt/qap/coord/coordinator.py", line 130, in merge_ready
+    self._apply(doc)
+  File "/opt/qap/coord/coordinator.py", line 141, in _apply
+    if not self.b.get_file(key, p):
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qap/coord/backend.py", line 389, in get_file
+    with open(path, "wb") as f:
+         ^^^^^^^^^^^^^^^^
+OSError: [Errno 28] No space left on device: '/opt/qap/tmp/qapcoord-tho40-a-8r2ushmi/out.state'
+06:38:55 coordinator: replaying unit u11.15 (merge 155)
+06:39:31 coordinator: unit u0.103.10 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.11 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.12 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.13 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.14 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.15 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.4 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.5 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.6 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.7 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.8 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.103.9 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.104.0 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.104.1 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.104.2 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.104.3 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.104.4 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.104.5 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.105.0 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.106.0 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.107.0 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.108.0 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.109.0 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.0 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.1 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.100 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.101 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.102 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.103 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.104 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.105 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.106 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.107 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.108 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.109 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.110 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.111 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.112 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.113 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.12 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.13 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.14 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.15 failed (rc -1), re-queued
+06:39:31 coordinator: unit u0.111.16 failed (rc -1), re-queued
+06:39:32 coordinator: unit u0.111.17 failed (rc -1), re-queued
+06:39:32 coordinator: unit u0.111.18 failed (rc -1), re-queued
+06:39:32 coordinator: unit u0.111.19 Traceback (most recent call last):
+Exception ignored in: <_io.TextIOWrapper name='<stdout>' mode='w' encoding='utf-8'>
+Exception ignored in sys.unraisablehook: <built-in function unraisablehook>
+failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.2 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.20 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.21 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.22 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.23 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.24 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.25 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.26 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.27 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.28 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.29 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.3 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.30 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.31 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.32 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.33 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.34 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.35 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.36 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.37 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.38 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.39 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.4 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.40 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.41 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.42 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.43 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.44 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.45 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.46 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.47 failed (rc -1), re-queued
+06:39:43 coordinator: unit u0.111.48 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.49 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.5 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.50 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.51 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.52 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.53 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.54 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.55 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.56 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.57 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.58 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.6 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.60 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.61 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.62 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.63 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.64 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.65 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.66 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.67 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.68 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.69 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.70 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.71 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.72 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.73 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.74 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.75 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.76 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.77 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.78 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.79 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.80 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.81 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.82 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.83 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.84 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.85 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.86 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.87 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.88 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.89 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.90 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.91 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.92 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.93 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.94 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.95 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.96 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.97 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.98 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.111.99 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.0 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.1 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.10 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.11 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.12 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.13 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.15 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.16 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.17 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.18 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.19 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.2 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.20 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.21 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.22 failed (rc -1), re-queued
+06:39:44 coordinator: unit u0.112.23 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.24 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.25 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.27 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.28 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.29 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.30 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.31 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.32 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.33 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.34 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.35 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.36 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.37 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.38 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.39 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.4 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.40 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.41 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.42 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.43 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.44 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.45 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.46 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.47 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.48 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.49 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.50 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.51 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.52 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.53 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.54 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.55 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.56 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.57 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.58 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.6 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.61 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.62 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.63 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.64 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.65 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.66 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.67 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.68 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.69 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.7 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.70 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.71 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.72 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.73 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.74 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.75 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.76 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.77 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.78 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.79 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.8 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.80 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.82 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.83 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.84 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.85 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.86 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.87 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.88 failed (rc -1), re-queued
+06:39:45 coordinator: unit u0.112.89 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.112.9 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.112.90 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.112.91 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.112.92 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.112.93 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.112.94 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.112.95 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.0 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.1 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.10 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.11 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.12 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.13 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.14 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.15 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.16 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.17 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.18 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.19 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.2 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.20 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.21 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.22 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.23 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.24 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.25 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.26 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.27 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.28 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.29 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.3 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.30 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.31 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.32 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.33 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.34 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.35 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.36 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.37 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.38 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.39 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.4 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.40 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.41 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.42 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.43 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.44 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.45 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.46 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.47 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.48 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.49 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.5 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.50 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.51 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.52 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.53 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.54 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.55 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.56 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.57 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.58 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.59 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.6 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.60 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.61 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.62 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.63 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.64 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.65 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.7 failed (rc -1), re-queued
+06:39:46 coordinator: unit u0.113.8 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.113.9 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.0 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.1 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.10 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.11 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.12 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.13 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.14 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.15 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.16 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.17 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.18 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.19 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.2 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.20 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.21 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.22 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.23 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.24 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.25 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.26 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.27 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.28 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.29 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.3 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.30 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.31 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.32 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.33 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.34 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.35 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.36 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.37 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.38 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.39 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.4 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.40 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.41 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.42 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.43 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.44 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.45 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.46 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.47 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.48 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.49 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.5 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.50 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.51 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.52 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.6 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.7 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.8 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.114.9 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.71.0 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.75.0 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.0 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.1 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.10 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.11 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.12 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.13 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.14 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.15 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.16 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.17 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.18 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.19 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.2 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.20 failed (rc -1), re-queued
+06:39:47 coordinator: unit u0.78.21 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.22 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.23 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.24 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.25 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.26 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.27 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.28 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.29 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.3 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.30 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.31 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.32 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.33 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.34 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.35 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.36 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.37 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.38 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.4 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.5 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.6 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.7 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.8 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.78.9 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.79.0 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.80.0 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.81.0 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.0 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.1 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.10 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.11 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.12 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.13 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.14 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.15 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.16 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.17 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.18 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.19 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.2 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.20 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.21 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.22 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.23 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.24 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.25 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.26 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.27 failed (rc 0), re-queued
+06:39:48 coordinator: unit u0.82.28 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.29 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.3 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.30 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.31 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.32 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.33 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.34 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.35 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.36 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.37 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.38 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.39 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.4 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.40 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.41 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.42 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.43 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.44 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.45 failed (rc -1), re-queued
+06:39:48 coordinator: unit u0.82.46 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.47 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.48 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.49 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.5 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.50 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.51 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.52 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.53 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.54 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.55 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.56 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.57 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.58 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.59 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.6 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.60 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.61 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.62 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.7 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.8 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.82.9 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.83.0 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.86.0 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.88.0 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.90.0 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.91.0 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.92.0 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.0 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.1 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.10 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.100 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.101 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.11 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.12 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.13 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.14 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.2 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.21 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.22 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.24 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.26 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.3 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.32 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.35 failed (rc 0), re-queued
+06:39:49 coordinator: unit u0.93.36 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.37 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.38 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.39 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.4 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.40 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.41 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.42 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.43 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.44 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.45 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.46 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.47 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.48 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.49 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.5 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.50 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.51 failed (rc -1), re-queued
+06:39:49 coordinator: unit u0.93.52 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.53 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.54 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.55 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.56 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.57 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.59 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.6 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.60 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.61 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.62 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.63 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.64 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.65 failed (rc -1), re-queued
+06:39:50 coordinator: unit u0.93.66 failed (rc -1), re-queued
+06:39:50 coordinator
