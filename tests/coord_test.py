@@ -28,8 +28,9 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
 Every scenario also checks the public status (coord/publish.py), published
 every second: status.json final, with the run's totals; totals.state the same
 statistics; report.txt the solver's report; history.json growing in time
-(across a coordinator restart too). noub runs with --visibility private and
-must publish nothing.
+(across a coordinator restart too); public/runs/index.json lists the run once
+with its final totals. noub runs with --visibility private and must publish
+nothing, and is not in the catalog.
 
   python3 tests/coord_test.py [--instance nug17 --opt 1732] [--only kill9,drain] [--python PY]
 """
@@ -59,8 +60,11 @@ def public_problems(r, private=False):
     b = open_backend(r.backend)
     key = lambda name: f"public/runs/{r.run_id}/{name}"
     status = b.get_bytes(key("status.json"))
+    catalog = json.loads(b.get_bytes("public/runs/index.json") or b'{"runs": []}')["runs"]
+    entry = [c for c in catalog if c["run"] == r.run_id]
     if private:
-        return [] if status is None and not b.list(f"public/runs/{r.run_id}/") else ["a private run published"]
+        published = status is not None or b.list(f"public/runs/{r.run_id}/") or entry
+        return ["a private run published"] if published else []
     if status is None:
         return ["no public status.json"]
     s, problems = json.loads(status), []
@@ -76,6 +80,9 @@ def public_problems(r, private=False):
     report = (b.get_bytes(key("report.txt")) or b"").decode()
     if totals(report)[:2] != want[:2] or "\nlevel " not in report:
         problems.append("report.txt is not the run's report with the solver's tables")
+    if len(entry) != 1 or entry[0]["status"] != "finished" or not entry[0]["final"] or \
+            (entry[0]["nodes"], entry[0]["fathomed"]) != want[0][:2]:
+        problems.append(f"public/runs/index.json: {len(entry)} entries for the run, not its final totals")
     h = json.loads(b.get_bytes(key("history.json")) or b"[]")
     if len(h) < 2 or h[-1]["nodes"] != want[0][0] or any(x["wall_s"] > y["wall_s"] for x, y in zip(h, h[1:])):
         problems.append(f"history.json: {len(h)} samples, not ending on the totals or not in time order")

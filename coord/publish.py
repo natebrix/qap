@@ -13,7 +13,11 @@ the store:
   history.json   one sample per publish, for charts over time
 
 status.json goes last, so a reader that sees a new one finds the others at
-least as new. Nothing in the bundle names the bucket, an instance or a
+least as new. Then the catalog of public runs, public/runs/index.json
+(brixius-web's runs page): one entry per run, upserted at every publish from
+a private master copy, runs/index.json, which a run's role may read. Two runs
+publishing at once can drop each other's entry; the next publish puts it back,
+and the final one checks that its entry is there. Nothing in the bundle names the bucket, an instance or a
 credential. A run created with --visibility private publishes nothing. The
 store keeps the history privately as well (runs/<run>/history.json), so a
 restarted coordinator goes on with it. With the AWS backend the objects carry
@@ -28,6 +32,7 @@ from datetime import datetime, timezone
 from .common import run_key
 
 PUBLIC = "public/runs"
+CATALOG = "runs/index.json"     # the master copy; public/runs/index.json is what readers fetch
 MAX_HISTORY = 2000          # thinned to every other sample beyond this
 CACHE = "max-age=60"
 OPEN_STATUSES = ("queued", "leased", "failed")
@@ -133,4 +138,35 @@ class Publisher:
         b.put_bytes(public_key(run_id, "history.json"), history, "application/json", CACHE)
         b.put_bytes(public_key(run_id, "status.json"), json.dumps(status, indent=1).encode(),
                     "application/json", CACHE)
+        update_catalog(b, catalog_entry(status), verify=final)
         return True
+
+
+def catalog_entry(status):
+    """a run's line in the catalog: what a list of runs shows, from status.json"""
+    inc = status["incumbent"]
+    return {"run": status["run"], "instance": status["instance"], "n": status["n"], "status": status["status"],
+            "final": status["final"], "started_at": status["started_at"], "finished_at": status["finished_at"],
+            "generated_at": status["generated_at"], "wall_s": status["wall_s"], "cpu_s": round(status["cpu_s"], 1),
+            "nodes": status["nodes"]["evaluated"], "fathomed": status["nodes"]["fathomed"],
+            "open": status["nodes"]["open"], "incumbent": inc["objective"], "found_by_search": inc["found_by_search"],
+            "slots": status["slots"]}
+
+
+def update_catalog(b, entry, verify=False, tries=3):
+    """upsert entry into the catalog (newest start first) and publish it; with
+    verify, read it back and try again if another run's write dropped it"""
+    for _ in range(tries):
+        data = b.get_bytes(CATALOG)
+        runs = json.loads(data).get("runs", []) if data else []
+        runs = [r for r in runs if r.get("run") != entry["run"]] + [entry]
+        runs.sort(key=lambda r: (r.get("started_at") or "", r.get("run")), reverse=True)
+        body = json.dumps({"schema": 1, "generated_at": entry["generated_at"], "runs": runs}, indent=1).encode()
+        b.put_bytes(CATALOG, body)
+        b.put_bytes(f"{PUBLIC}/index.json", body, "application/json", CACHE)
+        if not verify:
+            return
+        back = b.get_bytes(CATALOG)
+        if back and any(r.get("run") == entry["run"] and r.get("final") == entry["final"]
+                        for r in json.loads(back).get("runs", [])):
+            return
