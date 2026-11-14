@@ -1,0 +1,22 @@
+make -C latest
+make[1]: Entering directory '/opt/qap/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/opt/qap/latest'
+python3.11 -u tests/coord_test.py
+serial: nodes (41443, 30703, 0), fw 2976622
+normal     ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (10 s)  units 70, retried 0 (0 from a checkpoint), returned 39
+kill9      ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (14 s)  units 81, retried 3 (0 from a checkpoint), returned 42
+kill9ckpt  ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (12 s)  units 17, retried 3 (2 from a checkpoint), returned 0
+coordkill  ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (10 s)  units 75, retried 0 (0 from a checkpoint), returned 43
+crash_marked ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (10 s)  units 72, retried 0 (0 from a checkpoint), returned 39
+crash_applied ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (10 s)  units 75, retried 0 (0 from a checkpoint), returned 41
+crash_saving ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (10 s)  units 74, retried 0 (0 from a checkpoint), returned 42
+drain      ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (14 s)  units 73, retried 0 (0 from a checkpoint), returned 41
+noub       ok  nodes (107800, 80625, 524) fw 5143517 best 1732.0  (10 s)  units 93, retried 0 (0 from a checkpoint), returned 66
+fixes      ok  nodes (1201, 831, 0) fw 162305 best 1732.0  (11 s)  units 6, retried 0 (0 from a checkpoint), returned 1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'moto'
+aws: skipped (Command '['/usr/bin/python3.11', '-c', 'import boto3, moto']' returned non-zero exit status 1.)
+tworuns    ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (31 s)  units 134, retried 0 (0 from a checkpoint), returned 83
+all coordinator scenarios passed
