@@ -5,12 +5,14 @@ the store:
 
   status.json    what the run is doing: status, units, incumbent, CPU, and
                  the open nodes by depth (as handed out in queued and running
-                 units); the names of the other three files
+                 units); the names of the other files
   totals.state   the merged statistics (QAP-STATE 7, no open nodes): every
                  per-level table of the solver's report, the DNN ones too
   report.txt     the solver's report for them: the RESULTS head, the
                  solver's own tables, the coordinator's line
   history.json   one sample per publish, for charts over time
+  params.par     the params file the run was given (its levels and its
+                 [settings]), for the run page's branching rules
 
 status.json goes last, so a reader that sees a new one finds the others at
 least as new. Then the catalog of public runs, public/runs/index.json
@@ -123,6 +125,11 @@ class Publisher:
             "busy_fraction": round(c.busy_wall / (c.cfg["slots"] * wall), 4) if wall > 0 else 0,
             "files": {"totals": "totals.state", "report": "report.txt", "history": "history.json"},
         }
+        # the params file the solver ran with (its levels and [settings]): the
+        # branching rules a run page lists; the file is in the public repo anyway
+        params = b.get_bytes(run_key(run_id, "params.par"))
+        if params is not None:
+            status["files"]["params"] = "params.par"
         self.history.append({"t": iso(now), "wall_s": round(wall, 1), "nodes": node, "fathomed": fathom,
                              "open": sum(open_d), "cpu_s": round(t.times[0], 1),
                              "dnn_nodes": dc[0], "dnn_fathomed": dc[1],
@@ -136,6 +143,8 @@ class Publisher:
             b.put_bytes(public_key(run_id, "totals.state"), f.read(), "text/plain; charset=utf-8", CACHE)
         b.put_bytes(public_key(run_id, "report.txt"), (report + "\n").encode(), "text/plain; charset=utf-8", CACHE)
         b.put_bytes(public_key(run_id, "history.json"), history, "application/json", CACHE)
+        if params is not None:
+            b.put_bytes(public_key(run_id, "params.par"), params, "text/plain; charset=utf-8", CACHE)
         b.put_bytes(public_key(run_id, "status.json"), json.dumps(status, indent=1).encode(),
                     "application/json", CACHE)
         update_catalog(b, catalog_entry(status), verify=final)

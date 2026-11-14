@@ -83,6 +83,9 @@ def public_problems(r, private=False):
     if len(entry) != 1 or entry[0]["status"] != "finished" or not entry[0]["final"] or \
             (entry[0]["nodes"], entry[0]["fathomed"]) != want[0][:2]:
         problems.append(f"public/runs/index.json: {len(entry)} entries for the run, not its final totals")
+    if s["files"].get("params") != "params.par" or \
+            b.get_bytes(key("params.par")) != b.get_bytes(f"runs/{r.run_id}/params.par"):
+        problems.append("params.par is not the params file the run was given")
     h = json.loads(b.get_bytes(key("history.json")) or b"[]")
     if len(h) < 2 or h[-1]["nodes"] != want[0][0] or any(x["wall_s"] > y["wall_s"] for x, y in zip(h, h[1:])):
         problems.append(f"history.json: {len(h)} samples, not ending on the totals or not in time order")

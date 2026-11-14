@@ -184,8 +184,9 @@ Every 5 minutes, and once at the end, the coordinator publishes the run under
 `public/runs/RUN/` in the bucket (`coord/publish.py`): `status.json` (status,
 units, incumbent, CPU, open nodes by depth), `totals.state` (the merged
 statistics, state version 7: every per-level table, the DNN ones too),
-`report.txt` (the solver's report for them) and `history.json` (one sample per
-publish). `--private` on a new run publishes nothing; `--publish-every` in a
+`report.txt` (the solver's report for them), `history.json` (one sample per
+publish) and `params.par` (the params file the run was given, for the run
+page's branching rules). `--private` on a new run publishes nothing; `--publish-every` in a
 recipe's `COORD` changes the interval (0: only at the end).
 
 The bucket stays private. Once per account and region:
