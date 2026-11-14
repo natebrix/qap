@@ -212,9 +212,8 @@ def purge_states(b, run_id, log=print):
         return 1
     keys = [k for k in b.list(run_key(run_id, "units") + "/") if k.endswith(".state") or k.endswith("ckpt.nodes.txt")]
     keys += b.list(run_key(run_id, "warm") + "/")   # the parent states (coord/warm.py)
-    for k in keys:
-        b.delete(k)
-    log(f"run {run_id}: {len(keys)} unit state files deleted")
+    b.delete_many(keys)
+    log(f"run {run_id}: {len(keys)} unit state files and parent states deleted")
     return 0
 
 

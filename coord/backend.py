@@ -143,6 +143,10 @@ class LocalBackend:
         except FileNotFoundError:
             pass
 
+    def delete_many(self, keys):
+        for k in keys:
+            self.delete(k)
+
     def list(self, prefix):
         base = os.path.join(self.root, "store")
         out = []
@@ -423,6 +427,14 @@ class AwsBackend:
 
     def delete(self, key):
         self.s3.delete_object(Bucket=self.bucket, Key=self._key(key))
+
+    def delete_many(self, keys):
+        """up to 1,000 keys a request (a key by key delete of tho40-a's states
+        took minutes from a laptop)"""
+        keys = list(keys)
+        for i in range(0, len(keys), 1000):
+            self.s3.delete_objects(Bucket=self.bucket, Delete={
+                "Objects": [{"Key": self._key(k)} for k in keys[i:i + 1000]], "Quiet": True})
 
     def list(self, prefix):
         out = []
