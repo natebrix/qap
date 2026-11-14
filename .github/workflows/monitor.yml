@@ -1,0 +1,139 @@
+# The run monitor: every 15 minutes, the QAP runs still going, from
+# nathanbrixius.com's live list (/projects/qap/runs/live.json, which the site
+# reads from the coordinator's public catalog). A run whose last status is over
+# 15 minutes old (the coordinator publishes every 5), or whose coordinating
+# host has under 5 GB of disk free, gets an issue labeled run-monitor that
+# mentions the repository's owner, so GitHub notifies them; the issue is closed
+# when the run publishes again or is no longer going (finished, or given up
+# with qapctl stop). The list itself unreadable is an issue too.
+#
+# It reads only public pages and needs no AWS access. tho40-a stopped
+# publishing at 06:27 on Nov 14 and nobody knew until 12:52; this is why.
+#
+#   gh workflow run monitor.yml -f dry_run=true     # what it would do, now
+name: run-monitor
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"   # every 15 minutes, off the hour
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "print what it would do, open and close nothing"
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+  contents: read
+
+concurrency:
+  group: run-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the live runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          LIVE_URL: https://nathanbrixius.com/projects/qap/runs/live.json
+          SITE: https://nathanbrixius.com/projects/qap
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.error, urllib.request
+
+          repo, owner, token = os.environ["REPO"], os.environ["OWNER"], os.environ["GH_TOKEN"]
+          dry = os.environ["DRY_RUN"] == "true"
+          site = os.environ["SITE"]
+          LABEL, PREFIX = "run-monitor", "[run-monitor] "
+
+          def gh(method, path, body=None):
+              req = urllib.request.Request(
+                  "https://api.github.com" + path, method=method,
+                  data=None if body is None else json.dumps(body).encode(),
+                  headers={"Authorization": "Bearer " + token, "Accept": "application/vnd.github+json",
+                           "X-GitHub-Api-Version": "2022-11-28"})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  data = r.read()
+                  return json.loads(data) if data else None
+
+          def act(what, fn):
+              print(("would: " if dry else "") + what)
+              if not dry:
+                  fn()
+
+          def ago(s):
+              return f"{s / 60:.0f} minutes" if s < 7200 else f"{s / 3600:.1f} hours"
+
+          # what is wrong, by key: a run id, or (site) / (catalog) for the list itself
+          problems, live = {}, None
+          try:
+              with urllib.request.urlopen(os.environ["LIVE_URL"], timeout=60) as r:
+                  live = json.loads(r.read())
+          except Exception as e:
+              problems["(site)"] = ("the site's live-runs list could not be read",
+                                    f"Reading {os.environ['LIVE_URL']} failed: {e!r}.")
+          if live is not None:
+              if live.get("error"):
+                  problems["(catalog)"] = ("the site could not read the coordinator's catalog",
+                                           f"The live list says: {live['error']}.")
+              for run in live["runs"]:
+                  why = []
+                  if run["stale"]:
+                      why.append("no status for " + ago(run["age_s"] or 0))
+                  if run["low_disk"]:
+                      why.append(f"{run['disk_free_gb']} GB of disk free")
+                  if why:
+                      problems[run["run"]] = (", ".join(why), (
+                          f"Run `{run['run']}` ({run['instance']}): last status {run['updated_at']}"
+                          + (f", {ago(run['age_s'])} ago" if run["age_s"] is not None else "")
+                          + (f"; its coordinating host has {run['disk_free_gb']} GB of disk free"
+                             if run["disk_free_gb"] is not None else "") + ".\n\n"
+                          f"Run page: {site}/{run['run']}\n\n"
+                          "To look closer, collect the run (the phase1 workflow's collect action) and read "
+                          "`infra/phase1/runs/RUN/hosts/*/out/` (steps.txt, coordinator.log, worker.log)."))
+
+          issues = gh("GET", f"/repos/{repo}/issues?labels={LABEL}&state=open&per_page=100") or []
+          open_by_key = {i["title"][len(PREFIX):].split(":", 1)[0]: i for i in issues if i["title"].startswith(PREFIX)}
+
+          for key, (short, detail) in problems.items():
+              if key in open_by_key:
+                  print(f"{key}: still open as #{open_by_key[key]['number']} ({short})")
+                  continue
+              def create(key=key, short=short, detail=detail):
+                  try:
+                      gh("POST", f"/repos/{repo}/labels", {"name": LABEL, "color": "b60205",
+                                                          "description": "opened by the run monitor"})
+                  except urllib.error.HTTPError:
+                      pass                                    # it exists
+                  gh("POST", f"/repos/{repo}/issues", {
+                      "title": f"{PREFIX}{key}: {short}", "labels": [LABEL],
+                      "body": f"@{owner} {detail}\n\nOpened by the run monitor "
+                              "(`.github/workflows/monitor.yml`); it closes this when the run publishes "
+                              "again or is no longer going."})
+              act(f"open an issue: {key}: {short}", create)
+
+          for key, issue in open_by_key.items():
+              if key in problems:
+                  continue
+              if key not in ("(site)", "(catalog)") and live is None:
+                  continue                                    # the list is unreadable: cannot tell
+              note = ("The live list is readable again." if key in ("(site)", "(catalog)") else
+                      "The run publishes again." if live and any(r["run"] == key for r in live["runs"]) else
+                      "The run is no longer going (finished, or given up with qapctl stop).")
+              def close(issue=issue, note=note):
+                  gh("POST", f"/repos/{repo}/issues/{issue['number']}/comments", {"body": note})
+                  gh("PATCH", f"/repos/{repo}/issues/{issue['number']}", {"state": "closed",
+                                                                         "state_reason": "completed"})
+              act(f"close #{issue['number']} ({key}): {note}", close)
+
+          runs = live["runs"] if live else []
+          print(f"{len(runs)} run(s) going: " + (", ".join(
+              f"{r['run']} ({'stale' if r['stale'] else 'fresh'}, {r['age_s']} s)" for r in runs) or "none"))
+          PY
