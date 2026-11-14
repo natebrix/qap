@@ -78,6 +78,14 @@ local `moto` server for tests). Both implement the same small interface
   coordinator, or `qapctl publish`, rebuilds the same tree with the same ids
   (`tests/node_trace_test.py coord coordkill`). `python3 -m coord.tree TRACE DIR
   --run NAME` writes a trace's tree to a directory the same way.
+- **Parent states and disk.** A node's DNN bound starts from its parent's final
+  state when it ships (`ship.bits`), and a unit's state files would carry a copy
+  per open node: `coord/warm.py` keeps one per parent in `runs/RUN/warm/`
+  instead (`docs/parent_state_store.md`). What goes when: a unit attempt's
+  directory on the worker when the attempt is over; a merged unit's state files
+  once the totals that hold it are saved; a parent when no unmerged unit can
+  start from it; the run's parents when it finishes. `qapctl stop` gives a run
+  up, `qapctl purge-states` deletes a stopped or finished run's state files.
 
 With a fixed incumbent the totals equal a serial run's exactly, whatever
 fails (`tests/coord_test.py`, `make coord`: nug17 with 0.3-second units,
