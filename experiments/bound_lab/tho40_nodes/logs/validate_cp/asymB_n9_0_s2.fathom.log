@@ -1,0 +1,17 @@
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+instance logs/validate_cp/asymB_n9_0.dat n=9 node 3:7,7:4 m=7 cutoff 1071.0000  cuts regional (prefixes), 6 regions
+cp pool logs/validate_cp/asymB_n9_0_s2.pool: 6 regions, 415 cuts (294 with mu > 0)
+round  0  lb 1071.0915 (gain 0.0000, best 0.0000)  primal 1108.9856  status fathomed  iters 38  cpu 0.0  active 0  violated 182 (max 0.0460)  added 182
+cp pool: 415 cuts kept (0 dropped), 415 in the projector, 1928 terms, 6 regions, 6 region-pair classes; sweeps 1 passes 1 omega 1
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.252 (base 0.7) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 10 beta 0.252 pres/(beta dY) 2.487 rhat 0.06916 shat 0.01147 rhat/shat 6.031 |Y| 4.894 |VRV| 4.957 |Z| 12.02
+it    10 lb 1067.7606 (cert 1067.7606, margin 7.86e-10) primal 1042.7462 pres 3.43e-01 dY 5.47e-01 npos 12 cpu 0.00
+cp it    10 cert 1067.7606456118042 hsum 23.6983 cpcpu 0.00 cuts 415 active 161 sum_nu 1.39599 viol 115 (max 1.858e-02/||G||, rnorm 7.878e-02) dstep 2.170e-02 | ms pstep 0.01 (20) hpass 0.01 (10) diag 0.0 s
+bsched it 20 beta 0.252 pres/(beta dY) 3.194 rhat 0.02272 shat 0.003455 rhat/shat 6.577 |Y| 5.864 |VRV| 5.859 |Z| 12.08
+it    20 lb 1071.4256 (cert 1071.4256, margin 7.88e-10) primal 1155.6637 pres 1.33e-01 dY 1.66e-01 npos 4 cpu 0.00
+cp it    20 cert 1071.4255815656486 hsum 22.8852 cpcpu 0.00 cuts 415 active 214 sum_nu 1.40288 viol 182 (max 2.023e-02/||G||, rnorm 1.185e-01) dstep 3.056e-02 | ms pstep 0.01 (40) hpass 0.01 (20) diag 0.0 s
+admm cross: 0 extra certificates
+cp solve  lb 1071.4255815656 (gain 0.3341)  primal 1155.6637  status fathomed  iters 20  cpu 0.0  certs 2 failures 0  kept 415
+FINAL best_lb 1071.425582 first_lb 1071.091498 gain 0.334084

@@ -1,0 +1,262 @@
+objective values are even integers: fathoming tolerance 1.95
+instance logs/validate_cp/ties_n7_0.dat n=7 node - m=7 cutoff 34.0000  cuts regional (prefixes), 6 regions
+cp pool logs/validate_cp/ties_n7_0_s0.pool: 6 regions, 418 cuts (319 with mu > 0)
+round  0  lb 33.9903 (gain 0.0000, best 0.0000)  primal 34.1264  status iter_limit  iters 200  cpu 0.0  active 0  violated 201 (max 0.0083)  added 201
+cp pool: 418 cuts kept (0 dropped), 418 in the projector, 1940 terms, 6 regions, 6 region-pair classes; sweeps 1 passes 1 omega 1
+cp-selftest (a) L_add vs assemble: max |diff| 5.684e-14 (max |entry| 1.160e+02, nonzeros 1302 vs 1302), abs 55170.35016 vs 55170.35016, h'mu 313.4611122 vs 313.4611122  ok
+cp-selftest (c) P-step moments vs aggregate(): max |diff| 5.329e-15 (max 2.024e+01)  ok
+cp-selftest (b) 60 sparse rows (3-198 nonzeros): ||G||^2 rel diff 0.000e+00, <G,Y> - h vs moments 8.258e-16, vs rviolation 1.762e-15  ok
+cp-selftest (d) a half-space pass (279 multipliers moved): kept moments vs aggregate(y_P - G'dnu) max |diff| 8.882e-15 (max 1.334e+01)  ok
+cp-selftest (e)    1 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 3.3e-16, max violation/||G|| 1.414e+00, complementarity 2.783e+00 (159 active of 418)
+cp-selftest (e)   10 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 3.7e-15, max violation/||G|| 1.843e-01, complementarity 2.457e-01 (210 active of 418)
+cp-selftest (e)  100 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 1.2e-14, max violation/||G|| 1.094e-02, complementarity 1.204e-02 (156 active of 418)
+cp-selftest (e) 1000 sweeps: Y in P 0.0e+00, Y - P(X - G'nu) 3.9e-14, max violation/||G|| 2.221e-10, complementarity 2.221e-10 (158 active of 418)
+cp-selftest (e) the projection's KKT conditions after 1000 sweeps (418 of the 418 cuts)  ok
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.252 (base 0.7) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 10 beta 0.252 pres/(beta dY) 2.791 rhat 0.04552 shat 0.004956 rhat/shat 9.185 |Y| 5.325 |VRV| 5.38 |Z| 17.22
+it    10 lb 33.8975 (cert 33.8975, margin 4.00e-11) primal 34.9372 pres 2.45e-01 dY 3.48e-01 npos 10 cpu 0.00
+cp it    10 cert 33.897516110533033 hsum 0.580664 cpcpu 0.00 cuts 418 active 197 sum_nu 0.978478 viol 122 (max 1.755e-02/||G||, rnorm 9.218e-02) dstep 1.522e-02 | ms pstep 0.01 (20) hpass 0.01 (10) diag 0.0 s
+bsched it 20 beta 0.252 pres/(beta dY) 2.981 rhat 0.02215 shat 0.002254 rhat/shat 9.826 |Y| 5.342 |VRV| 5.371 |Z| 17.23
+it    20 lb 33.9709 (cert 33.9709, margin 4.01e-11) primal 34.9612 pres 1.19e-01 dY 1.58e-01 npos 4 cpu 0.00
+cp it    20 cert 33.970949116721563 hsum 0.578405 cpcpu 0.00 cuts 418 active 233 sum_nu 0.982655 viol 142 (max 1.607e-02/||G||, rnorm 6.320e-02) dstep 2.098e-02 | ms pstep 0.01 (40) hpass 0.01 (20) diag 0.0 s
+bsched it 28 beta 0.252 pres/(beta dY) 2.411 rhat 0.01706 shat 0.002117 rhat/shat 8.056 |Y| 5.3 |VRV| 5.264 |Z| 17.24
+it    28 lb 33.9709 (cert 33.9708, margin 4.01e-11) primal 34.6839 pres 9.04e-02 dY 1.49e-01 npos 4 cpu 0.00 extra
+cp it    28 cert 33.970835586831342 hsum 0.541802 cpcpu 0.00 cuts 418 active 243 sum_nu 0.909765 viol 158 (max 5.767e-03/||G||, rnorm 3.011e-02) dstep 5.006e-03 | ms pstep 0.01 (56) hpass 0.01 (28) diag 0.0 s
+bsched it 30 beta 0.252 pres/(beta dY) 3.045 rhat 0.01602 shat 0.001591 rhat/shat 10.07 |Y| 5.341 |VRV| 5.355 |Z| 17.23
+it    30 lb 33.9764 (cert 33.9764, margin 4.01e-11) primal 34.9553 pres 8.58e-02 dY 1.12e-01 npos 4 cpu 0.00
+cp it    30 cert 33.976412349349559 hsum 0.571603 cpcpu 0.00 cuts 418 active 243 sum_nu 0.966528 viol 151 (max 9.435e-03/||G||, rnorm 4.442e-02) dstep 1.522e-02 | ms pstep 0.01 (60) hpass 0.01 (30) diag 0.0 s
+bsched it 40 beta 0.252 pres/(beta dY) 2.938 rhat 0.013 shat 0.001332 rhat/shat 9.761 |Y| 5.329 |VRV| 5.33 |Z| 17.23
+it    40 lb 33.9849 (cert 33.9849, margin 4.01e-11) primal 34.8911 pres 6.93e-02 dY 9.36e-02 npos 4 cpu 0.01
+cp it    40 cert 33.984915444449882 hsum 0.564179 cpcpu 0.00 cuts 418 active 243 sum_nu 0.951601 viol 169 (max 7.435e-03/||G||, rnorm 3.740e-02) dstep 1.276e-02 | ms pstep 0.01 (80) hpass 0.01 (40) diag 0.0 s
+bsched it 50 beta 0.252 pres/(beta dY) 2.656 rhat 0.01121 shat 0.001266 rhat/shat 8.859 |Y| 5.309 |VRV| 5.3 |Z| 17.24
+it    50 lb 33.9849 (cert 33.9830, margin 4.01e-11) primal 34.7506 pres 5.95e-02 dY 8.89e-02 npos 4 cpu 0.01
+cp it    50 cert 33.982993400354843 hsum 0.558863 cpcpu 0.00 cuts 418 active 243 sum_nu 0.940224 viol 172 (max 5.563e-03/||G||, rnorm 3.097e-02) dstep 1.062e-02 | ms pstep 0.01 (100) hpass 0.01 (50) diag 0.0 s
+bsched it 60 beta 0.252 pres/(beta dY) 2.38 rhat 0.01005 shat 0.001261 rhat/shat 7.973 |Y| 5.284 |VRV| 5.269 |Z| 17.24
+it    60 lb 33.9849 (cert 33.9832, margin 4.01e-11) primal 34.5760 pres 5.31e-02 dY 8.86e-02 npos 4 cpu 0.01
+cp it    60 cert 33.983199703547939 hsum 0.554706 cpcpu 0.00 cuts 418 active 243 sum_nu 0.931277 viol 175 (max 4.346e-03/||G||, rnorm 2.404e-02) dstep 7.922e-03 | ms pstep 0.01 (120) hpass 0.01 (60) diag 0.0 s
+bsched it 70 beta 0.252 pres/(beta dY) 2.198 rhat 0.00926 shat 0.001251 rhat/shat 7.402 |Y| 5.259 |VRV| 5.24 |Z| 17.24
+it    70 lb 33.9849 (cert 33.9820, margin 4.01e-11) primal 34.3952 pres 4.87e-02 dY 8.79e-02 npos 4 cpu 0.01
+cp it    70 cert 33.98196689486192 hsum 0.552092 cpcpu 0.00 cuts 418 active 243 sum_nu 0.925373 viol 168 (max 3.020e-03/||G||, rnorm 1.686e-02) dstep 5.206e-03 | ms pstep 0.01 (140) hpass 0.01 (70) diag 0.0 s
+bsched it 80 beta 0.252 pres/(beta dY) 2.111 rhat 0.008687 shat 0.001217 rhat/shat 7.139 |Y| 5.234 |VRV| 5.214 |Z| 17.24
+it    80 lb 33.9849 (cert 33.9822, margin 4.01e-11) primal 34.2296 pres 4.55e-02 dY 8.55e-02 npos 4 cpu 0.01
+cp it    80 cert 33.982177458730476 hsum 0.550722 cpcpu 0.00 cuts 418 active 243 sum_nu 0.922049 viol 169 (max 1.968e-03/||G||, rnorm 1.037e-02) dstep 2.772e-03 | ms pstep 0.01 (160) hpass 0.01 (80) diag 0.0 s
+bsched it 90 beta 0.252 pres/(beta dY) 2.091 rhat 0.008247 shat 0.001161 rhat/shat 7.102 |Y| 5.213 |VRV| 5.193 |Z| 17.24
+it    90 lb 33.9849 (cert 33.9823, margin 4.01e-11) primal 34.0880 pres 4.30e-02 dY 8.16e-02 npos 4 cpu 0.01
+cp it    90 cert 33.982337855774837 hsum 0.550508 cpcpu 0.00 cuts 418 active 243 sum_nu 0.921088 viol 155 (max 1.070e-03/||G||, rnorm 4.956e-03) dstep 7.967e-04 | ms pstep 0.01 (180) hpass 0.01 (90) diag 0.0 s
+bsched it 100 beta 0.252 pres/(beta dY) 2.113 rhat 0.0079 shat 0.001097 rhat/shat 7.199 |Y| 5.196 |VRV| 5.178 |Z| 17.24
+it   100 lb 33.9849 (cert 33.9830, margin 4.01e-11) primal 33.9761 pres 4.10e-02 dY 7.71e-02 npos 4 cpu 0.02
+cp it   100 cert 33.982974315524849 hsum 0.551137 cpcpu 0.00 cuts 418 active 243 sum_nu 0.921903 viol 111 (max 4.143e-04/||G||, rnorm 1.573e-03) dstep 6.938e-04 | ms pstep 0.01 (200) hpass 0.01 (100) diag 0.0 s
+bsched it 110 beta 0.252 pres/(beta dY) 2.15 rhat 0.007607 shat 0.001036 rhat/shat 7.344 |Y| 5.183 |VRV| 5.168 |Z| 17.24
+it   110 lb 33.9849 (cert 33.9827, margin 4.00e-11) primal 33.8901 pres 3.94e-02 dY 7.28e-02 npos 4 cpu 0.02
+cp it   110 cert 33.982736740866962 hsum 0.552196 cpcpu 0.00 cuts 418 active 243 sum_nu 0.923773 viol 73 (max 2.792e-04/||G||, rnorm 1.092e-03) dstep 1.815e-03 | ms pstep 0.01 (220) hpass 0.01 (110) diag 0.0 s
+bsched it 120 beta 0.252 pres/(beta dY) 2.182 rhat 0.007368 shat 0.000987 rhat/shat 7.465 |Y| 5.174 |VRV| 5.163 |Z| 17.24
+it   120 lb 33.9849 (cert 33.9825, margin 4.00e-11) primal 33.8318 pres 3.81e-02 dY 6.93e-02 npos 4 cpu 0.02
+cp it   120 cert 33.982535381104348 hsum 0.553692 cpcpu 0.00 cuts 418 active 243 sum_nu 0.926464 viol 59 (max 3.648e-04/||G||, rnorm 1.237e-03) dstep 2.297e-03 | ms pstep 0.01 (240) hpass 0.01 (120) diag 0.0 s
+bsched it 130 beta 0.252 pres/(beta dY) 2.195 rhat 0.007169 shat 0.0009535 rhat/shat 7.519 |Y| 5.17 |VRV| 5.162 |Z| 17.24
+it   130 lb 33.9849 (cert 33.9830, margin 4.00e-11) primal 33.8021 pres 3.71e-02 dY 6.70e-02 npos 4 cpu 0.02
+cp it   130 cert 33.983025544858044 hsum 0.555222 cpcpu 0.00 cuts 418 active 243 sum_nu 0.929459 viol 56 (max 4.664e-04/||G||, rnorm 1.410e-03) dstep 2.663e-03 | ms pstep 0.01 (260) hpass 0.01 (130) diag 0.0 s
+bsched it 140 beta 0.252 pres/(beta dY) 2.189 rhat 0.007009 shat 0.0009346 rhat/shat 7.5 |Y| 5.168 |VRV| 5.164 |Z| 17.24
+it   140 lb 33.9849 (cert 33.9832, margin 4.00e-11) primal 33.7947 pres 3.62e-02 dY 6.57e-02 npos 4 cpu 0.02
+cp it   140 cert 33.983208991057843 hsum 0.556739 cpcpu 0.00 cuts 418 active 243 sum_nu 0.932468 viol 57 (max 5.084e-04/||G||, rnorm 1.456e-03) dstep 2.606e-03 | ms pstep 0.01 (280) hpass 0.01 (140) diag 0.0 s
+bsched it 150 beta 0.252 pres/(beta dY) 2.169 rhat 0.006876 shat 0.0009256 rhat/shat 7.429 |Y| 5.17 |VRV| 5.168 |Z| 17.23
+it   150 lb 33.9849 (cert 33.9834, margin 4.00e-11) primal 33.8055 pres 3.56e-02 dY 6.50e-02 npos 4 cpu 0.02
+cp it   150 cert 33.983398338763777 hsum 0.558105 cpcpu 0.00 cuts 418 active 243 sum_nu 0.935247 viol 52 (max 5.274e-04/||G||, rnorm 1.411e-03) dstep 2.356e-03 | ms pstep 0.01 (300) hpass 0.01 (150) diag 0.0 s
+bsched it 160 beta 0.252 pres/(beta dY) 2.146 rhat 0.006766 shat 0.0009213 rhat/shat 7.344 |Y| 5.173 |VRV| 5.174 |Z| 17.23
+it   160 lb 33.9849 (cert 33.9834, margin 4.00e-11) primal 33.8280 pres 3.50e-02 dY 6.47e-02 npos 4 cpu 0.03
+cp it   160 cert 33.983438032314176 hsum 0.559239 cpcpu 0.00 cuts 418 active 243 sum_nu 0.937592 viol 53 (max 4.956e-04/||G||, rnorm 1.258e-03) dstep 1.899e-03 | ms pstep 0.01 (320) hpass 0.01 (160) diag 0.0 s
+bsched it 170 beta 0.252 pres/(beta dY) 2.127 rhat 0.006672 shat 0.0009179 rhat/shat 7.269 |Y| 5.178 |VRV| 5.18 |Z| 17.23
+it   170 lb 33.9849 (cert 33.9835, margin 4.00e-11) primal 33.8575 pres 3.46e-02 dY 6.45e-02 npos 4 cpu 0.03
+cp it   170 cert 33.983516630408069 hsum 0.560085 cpcpu 0.00 cuts 418 active 243 sum_nu 0.939392 viol 57 (max 4.354e-04/||G||, rnorm 1.072e-03) dstep 1.414e-03 | ms pstep 0.01 (340) hpass 0.01 (170) diag 0.0 s
+bsched it 180 beta 0.252 pres/(beta dY) 2.114 rhat 0.006593 shat 0.0009134 rhat/shat 7.218 |Y| 5.183 |VRV| 5.186 |Z| 17.23
+it   180 lb 33.9849 (cert 33.9836, margin 4.00e-11) primal 33.8900 pres 3.42e-02 dY 6.42e-02 npos 4 cpu 0.03
+cp it   180 cert 33.983584946583562 hsum 0.56065 cpcpu 0.01 cuts 418 active 243 sum_nu 0.940638 viol 65 (max 3.696e-04/||G||, rnorm 9.229e-04) dstep 9.181e-04 | ms pstep 0.01 (360) hpass 0.01 (180) diag 0.0 s
+bsched it 190 beta 0.252 pres/(beta dY) 2.108 rhat 0.006524 shat 0.0009071 rhat/shat 7.192 |Y| 5.188 |VRV| 5.191 |Z| 17.23
+it   190 lb 33.9849 (cert 33.9837, margin 4.00e-11) primal 33.9229 pres 3.39e-02 dY 6.37e-02 npos 4 cpu 0.03
+cp it   190 cert 33.983724969207415 hsum 0.560974 cpcpu 0.01 cuts 418 active 243 sum_nu 0.941412 viol 64 (max 3.014e-04/||G||, rnorm 8.433e-04) dstep 4.457e-04 | ms pstep 0.01 (380) hpass 0.01 (190) diag 0.0 s
+bsched it 200 beta 0.252 pres/(beta dY) 2.108 rhat 0.006462 shat 0.0008994 rhat/shat 7.185 |Y| 5.192 |VRV| 5.196 |Z| 17.23
+it   200 lb 33.9849 (cert 33.9838, margin 4.00e-11) primal 33.9516 pres 3.36e-02 dY 6.32e-02 npos 4 cpu 0.03
+cp it   200 cert 33.983771684191922 hsum 0.561061 cpcpu 0.01 cuts 418 active 243 sum_nu 0.941681 viol 76 (max 2.855e-04/||G||, rnorm 8.745e-04) dstep 4.114e-04 | ms pstep 0.01 (400) hpass 0.01 (200) diag 0.0 s
+bsched it 210 beta 0.252 pres/(beta dY) 2.111 rhat 0.006407 shat 0.0008912 rhat/shat 7.19 |Y| 5.196 |VRV| 5.199 |Z| 17.23
+it   210 lb 33.9849 (cert 33.9839, margin 4.00e-11) primal 33.9768 pres 3.33e-02 dY 6.26e-02 npos 4 cpu 0.03
+cp it   210 cert 33.983853115379489 hsum 0.560984 cpcpu 0.01 cuts 418 active 243 sum_nu 0.941613 viol 92 (max 2.944e-04/||G||, rnorm 1.062e-03) dstep 3.673e-04 | ms pstep 0.01 (420) hpass 0.01 (210) diag 0.0 s
+bsched it 220 beta 0.252 pres/(beta dY) 2.115 rhat 0.006358 shat 0.0008832 rhat/shat 7.199 |Y| 5.198 |VRV| 5.201 |Z| 17.23
+it   220 lb 33.9849 (cert 33.9840, margin 4.00e-11) primal 33.9953 pres 3.31e-02 dY 6.21e-02 npos 4 cpu 0.04
+cp it   220 cert 33.983972328112884 hsum 0.560786 cpcpu 0.01 cuts 418 active 243 sum_nu 0.941285 viol 127 (max 3.978e-04/||G||, rnorm 1.373e-03) dstep 5.004e-04 | ms pstep 0.01 (440) hpass 0.01 (220) diag 0.0 s
+bsched it 230 beta 0.252 pres/(beta dY) 2.118 rhat 0.006314 shat 0.000876 rhat/shat 7.208 |Y| 5.2 |VRV| 5.202 |Z| 17.23
+it   230 lb 33.9849 (cert 33.9839, margin 4.00e-11) primal 34.0082 pres 3.28e-02 dY 6.15e-02 npos 4 cpu 0.04
+cp it   230 cert 33.983935984907603 hsum 0.560511 cpcpu 0.01 cuts 418 active 243 sum_nu 0.94078 viol 140 (max 4.660e-04/||G||, rnorm 1.672e-03) dstep 6.245e-04 | ms pstep 0.01 (460) hpass 0.01 (230) diag 0.0 s
+bsched it 240 beta 0.252 pres/(beta dY) 2.12 rhat 0.006274 shat 0.0008695 rhat/shat 7.215 |Y| 5.201 |VRV| 5.203 |Z| 17.23
+it   240 lb 33.9849 (cert 33.9843, margin 4.00e-11) primal 34.0161 pres 3.26e-02 dY 6.11e-02 npos 4 cpu 0.04
+cp it   240 cert 33.98426896170011 hsum 0.56021 cpcpu 0.01 cuts 418 active 243 sum_nu 0.940209 viol 134 (max 4.956e-04/||G||, rnorm 1.860e-03) dstep 6.955e-04 | ms pstep 0.01 (480) hpass 0.01 (240) diag 0.0 s
+bsched it 250 beta 0.252 pres/(beta dY) 2.121 rhat 0.006237 shat 0.0008639 rhat/shat 7.219 |Y| 5.202 |VRV| 5.203 |Z| 17.23
+it   250 lb 33.9849 (cert 33.9843, margin 4.00e-11) primal 34.0193 pres 3.24e-02 dY 6.07e-02 npos 4 cpu 0.04
+cp it   250 cert 33.984320477086996 hsum 0.559915 cpcpu 0.01 cuts 418 active 243 sum_nu 0.939625 viol 135 (max 5.031e-04/||G||, rnorm 1.915e-03) dstep 6.916e-04 | ms pstep 0.01 (500) hpass 0.01 (250) diag 0.0 s
+bsched it 260 beta 0.252 pres/(beta dY) 2.123 rhat 0.006208 shat 0.000859 rhat/shat 7.226 |Y| 5.202 |VRV| 5.202 |Z| 17.23
+it   260 lb 33.9849 (cert 33.9845, margin 4.00e-11) primal 34.0201 pres 3.23e-02 dY 6.04e-02 npos 4 cpu 0.04
+cp it   260 cert 33.984525253292226 hsum 0.559689 cpcpu 0.01 cuts 418 active 243 sum_nu 0.939194 viol 140 (max 4.598e-04/||G||, rnorm 1.928e-03) dstep 7.827e-04 | ms pstep 0.01 (520) hpass 0.01 (260) diag 0.0 s
+bsched it 270 beta 0.252 pres/(beta dY) 2.123 rhat 0.006174 shat 0.0008543 rhat/shat 7.226 |Y| 5.201 |VRV| 5.201 |Z| 17.23
+it   270 lb 33.9849 (cert 33.9844, margin 4.00e-11) primal 34.0156 pres 3.21e-02 dY 6.00e-02 npos 4 cpu 0.04
+cp it   270 cert 33.984449373309197 hsum 0.559444 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938691 viol 135 (max 4.645e-04/||G||, rnorm 1.770e-03) dstep 4.760e-04 | ms pstep 0.01 (540) hpass 0.01 (270) diag 0.0 s
+bsched it 280 beta 0.252 pres/(beta dY) 2.123 rhat 0.006142 shat 0.0008498 rhat/shat 7.228 |Y| 5.2 |VRV| 5.2 |Z| 17.23
+it   280 lb 33.9849 (cert 33.9848, margin 4.00e-11) primal 34.0114 pres 3.19e-02 dY 5.97e-02 npos 4 cpu 0.05
+cp it   280 cert 33.984784949424885 hsum 0.559261 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938285 viol 135 (max 4.163e-04/||G||, rnorm 1.547e-03) dstep 5.202e-04 | ms pstep 0.01 (560) hpass 0.01 (280) diag 0.0 s
+bsched it 290 beta 0.252 pres/(beta dY) 2.124 rhat 0.006114 shat 0.0008454 rhat/shat 7.232 |Y| 5.199 |VRV| 5.199 |Z| 17.23
+it   290 lb 33.9850 (cert 33.9850, margin 4.00e-11) primal 34.0058 pres 3.18e-02 dY 5.94e-02 npos 4 cpu 0.05
+cp it   290 cert 33.98497740550507 hsum 0.559128 cpcpu 0.01 cuts 418 active 243 sum_nu 0.937992 viol 129 (max 3.753e-04/||G||, rnorm 1.350e-03) dstep 3.777e-04 | ms pstep 0.01 (580) hpass 0.01 (290) diag 0.0 s
+bsched it 300 beta 0.252 pres/(beta dY) 2.125 rhat 0.006087 shat 0.0008411 rhat/shat 7.236 |Y| 5.198 |VRV| 5.198 |Z| 17.23
+it   300 lb 33.9851 (cert 33.9851, margin 4.00e-11) primal 33.9996 pres 3.16e-02 dY 5.91e-02 npos 4 cpu 0.05
+cp it   300 cert 33.985148611460993 hsum 0.559047 cpcpu 0.01 cuts 418 active 243 sum_nu 0.93779 viol 125 (max 3.254e-04/||G||, rnorm 1.183e-03) dstep 3.452e-04 | ms pstep 0.01 (600) hpass 0.01 (300) diag 0.0 s
+bsched it 310 beta 0.252 pres/(beta dY) 2.126 rhat 0.006061 shat 0.0008369 rhat/shat 7.243 |Y| 5.197 |VRV| 5.197 |Z| 17.23
+it   310 lb 33.9851 (cert 33.9849, margin 4.00e-11) primal 33.9937 pres 3.15e-02 dY 5.88e-02 npos 4 cpu 0.05
+cp it   310 cert 33.984861047873473 hsum 0.559033 cpcpu 0.01 cuts 418 active 243 sum_nu 0.937737 viol 105 (max 2.854e-04/||G||, rnorm 1.000e-03) dstep 2.535e-04 | ms pstep 0.01 (620) hpass 0.01 (310) diag 0.0 s
+bsched it 320 beta 0.252 pres/(beta dY) 2.128 rhat 0.006038 shat 0.0008326 rhat/shat 7.252 |Y| 5.197 |VRV| 5.196 |Z| 17.23
+it   320 lb 33.9855 (cert 33.9855, margin 4.00e-11) primal 33.9872 pres 3.14e-02 dY 5.85e-02 npos 4 cpu 0.05
+cp it   320 cert 33.985482588980489 hsum 0.559067 cpcpu 0.01 cuts 418 active 243 sum_nu 0.937764 viol 98 (max 2.446e-04/||G||, rnorm 9.280e-04) dstep 2.721e-04 | ms pstep 0.01 (640) hpass 0.01 (320) diag 0.0 s
+bsched it 330 beta 0.252 pres/(beta dY) 2.129 rhat 0.006011 shat 0.0008286 rhat/shat 7.254 |Y| 5.196 |VRV| 5.195 |Z| 17.23
+it   330 lb 33.9855 (cert 33.9852, margin 4.00e-11) primal 33.9832 pres 3.12e-02 dY 5.82e-02 npos 4 cpu 0.05
+cp it   330 cert 33.985247068802032 hsum 0.559021 cpcpu 0.01 cuts 418 active 243 sum_nu 0.937702 viol 87 (max 2.170e-04/||G||, rnorm 8.325e-04) dstep 2.692e-04 | ms pstep 0.01 (660) hpass 0.01 (330) diag 0.0 s
+bsched it 340 beta 0.252 pres/(beta dY) 2.13 rhat 0.005986 shat 0.0008246 rhat/shat 7.259 |Y| 5.196 |VRV| 5.195 |Z| 17.23
+it   340 lb 33.9858 (cert 33.9858, margin 4.00e-11) primal 33.9831 pres 3.11e-02 dY 5.79e-02 npos 4 cpu 0.06
+cp it   340 cert 33.985827330845645 hsum 0.559113 cpcpu 0.01 cuts 418 active 243 sum_nu 0.937868 viol 78 (max 2.115e-04/||G||, rnorm 8.063e-04) dstep 2.518e-04 | ms pstep 0.01 (680) hpass 0.01 (340) diag 0.0 s
+bsched it 350 beta 0.252 pres/(beta dY) 2.132 rhat 0.005961 shat 0.0008205 rhat/shat 7.264 |Y| 5.195 |VRV| 5.195 |Z| 17.23
+it   350 lb 33.9859 (cert 33.9859, margin 4.00e-11) primal 33.9819 pres 3.10e-02 dY 5.77e-02 npos 4 cpu 0.06
+cp it   350 cert 33.985916449354136 hsum 0.559152 cpcpu 0.01 cuts 418 active 243 sum_nu 0.937947 viol 68 (max 2.056e-04/||G||, rnorm 7.474e-04) dstep 2.534e-04 | ms pstep 0.01 (700) hpass 0.01 (350) diag 0.0 s
+bsched it 360 beta 0.252 pres/(beta dY) 2.133 rhat 0.005937 shat 0.0008167 rhat/shat 7.269 |Y| 5.195 |VRV| 5.195 |Z| 17.23
+it   360 lb 33.9861 (cert 33.9861, margin 4.00e-11) primal 33.9808 pres 3.08e-02 dY 5.74e-02 npos 4 cpu 0.06
+cp it   360 cert 33.986053282091106 hsum 0.55922 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938062 viol 69 (max 1.955e-04/||G||, rnorm 7.161e-04) dstep 2.487e-04 | ms pstep 0.01 (720) hpass 0.01 (360) diag 0.0 s
+bsched it 370 beta 0.252 pres/(beta dY) 2.134 rhat 0.005914 shat 0.0008132 rhat/shat 7.273 |Y| 5.195 |VRV| 5.195 |Z| 17.23
+it   370 lb 33.9863 (cert 33.9863, margin 4.00e-11) primal 33.9804 pres 3.07e-02 dY 5.71e-02 npos 4 cpu 0.06
+cp it   370 cert 33.986314496406337 hsum 0.559274 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938171 viol 71 (max 1.892e-04/||G||, rnorm 7.005e-04) dstep 2.522e-04 | ms pstep 0.01 (740) hpass 0.01 (370) diag 0.0 s
+bsched it 380 beta 0.252 pres/(beta dY) 2.135 rhat 0.005892 shat 0.0008097 rhat/shat 7.277 |Y| 5.195 |VRV| 5.195 |Z| 17.23
+it   380 lb 33.9864 (cert 33.9864, margin 4.00e-11) primal 33.9817 pres 3.06e-02 dY 5.69e-02 npos 4 cpu 0.06
+cp it   380 cert 33.986378579848434 hsum 0.559309 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938258 viol 68 (max 1.842e-04/||G||, rnorm 6.976e-04) dstep 2.414e-04 | ms pstep 0.01 (760) hpass 0.01 (380) diag 0.0 s
+bsched it 390 beta 0.252 pres/(beta dY) 2.137 rhat 0.005871 shat 0.0008063 rhat/shat 7.282 |Y| 5.195 |VRV| 5.195 |Z| 17.23
+it   390 lb 33.9868 (cert 33.9868, margin 4.00e-11) primal 33.9833 pres 3.05e-02 dY 5.67e-02 npos 4 cpu 0.06
+cp it   390 cert 33.986797583365245 hsum 0.559328 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938311 viol 68 (max 1.846e-04/||G||, rnorm 6.974e-04) dstep 2.398e-04 | ms pstep 0.01 (780) hpass 0.01 (390) diag 0.0 s
+bsched it 400 beta 0.252 pres/(beta dY) 2.138 rhat 0.005849 shat 0.0008029 rhat/shat 7.285 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   400 lb 33.9868 (cert 33.9867, margin 4.00e-11) primal 33.9841 pres 3.04e-02 dY 5.64e-02 npos 4 cpu 0.07
+cp it   400 cert 33.986656947517162 hsum 0.559369 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938381 viol 70 (max 1.787e-04/||G||, rnorm 6.959e-04) dstep 2.305e-04 | ms pstep 0.01 (800) hpass 0.01 (400) diag 0.0 s
+bsched it 410 beta 0.252 pres/(beta dY) 2.139 rhat 0.00583 shat 0.0007997 rhat/shat 7.291 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   410 lb 33.9868 (cert 33.9866, margin 4.00e-11) primal 33.9850 pres 3.03e-02 dY 5.62e-02 npos 4 cpu 0.07
+cp it   410 cert 33.986618429408445 hsum 0.559392 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938422 viol 73 (max 1.760e-04/||G||, rnorm 6.893e-04) dstep 2.450e-04 | ms pstep 0.01 (820) hpass 0.01 (410) diag 0.0 s
+bsched it 420 beta 0.252 pres/(beta dY) 2.14 rhat 0.005808 shat 0.0007965 rhat/shat 7.292 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   420 lb 33.9870 (cert 33.9870, margin 4.00e-11) primal 33.9871 pres 3.02e-02 dY 5.60e-02 npos 4 cpu 0.07
+cp it   420 cert 33.987008138990326 hsum 0.559399 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938448 viol 74 (max 1.715e-04/||G||, rnorm 7.024e-04) dstep 2.228e-04 | ms pstep 0.01 (840) hpass 0.01 (420) diag 0.0 s
+bsched it 430 beta 0.252 pres/(beta dY) 2.141 rhat 0.005788 shat 0.0007933 rhat/shat 7.296 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   430 lb 33.9871 (cert 33.9871, margin 4.00e-11) primal 33.9880 pres 3.01e-02 dY 5.57e-02 npos 4 cpu 0.07
+cp it   430 cert 33.987121683302952 hsum 0.559403 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938457 viol 75 (max 1.759e-04/||G||, rnorm 7.074e-04) dstep 2.120e-04 | ms pstep 0.01 (860) hpass 0.01 (430) diag 0.0 s
+bsched it 440 beta 0.252 pres/(beta dY) 2.143 rhat 0.00577 shat 0.0007903 rhat/shat 7.301 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   440 lb 33.9874 (cert 33.9874, margin 4.00e-11) primal 33.9879 pres 3.00e-02 dY 5.55e-02 npos 4 cpu 0.07
+cp it   440 cert 33.987351478763763 hsum 0.559382 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938406 viol 96 (max 1.943e-04/||G||, rnorm 7.726e-04) dstep 2.196e-04 | ms pstep 0.01 (880) hpass 0.01 (440) diag 0.0 s
+bsched it 450 beta 0.252 pres/(beta dY) 2.144 rhat 0.00575 shat 0.0007872 rhat/shat 7.304 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   450 lb 33.9874 (cert 33.9874, margin 4.00e-11) primal 33.9890 pres 2.99e-02 dY 5.53e-02 npos 4 cpu 0.07
+cp it   450 cert 33.987436027993319 hsum 0.55936 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938391 viol 84 (max 1.766e-04/||G||, rnorm 7.109e-04) dstep 1.978e-04 | ms pstep 0.01 (900) hpass 0.01 (450) diag 0.0 s
+bsched it 460 beta 0.252 pres/(beta dY) 2.145 rhat 0.005733 shat 0.0007844 rhat/shat 7.308 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   460 lb 33.9876 (cert 33.9876, margin 4.00e-11) primal 33.9895 pres 2.98e-02 dY 5.51e-02 npos 4 cpu 0.08
+cp it   460 cert 33.987594212728425 hsum 0.559354 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938384 viol 80 (max 1.641e-04/||G||, rnorm 6.535e-04) dstep 1.953e-04 | ms pstep 0.01 (920) hpass 0.01 (460) diag 0.0 s
+bsched it 470 beta 0.252 pres/(beta dY) 2.146 rhat 0.005714 shat 0.0007815 rhat/shat 7.312 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   470 lb 33.9878 (cert 33.9878, margin 4.00e-11) primal 33.9894 pres 2.97e-02 dY 5.49e-02 npos 4 cpu 0.08
+cp it   470 cert 33.987762987171358 hsum 0.559372 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938376 viol 76 (max 1.709e-04/||G||, rnorm 6.947e-04) dstep 2.000e-04 | ms pstep 0.01 (940) hpass 0.01 (470) diag 0.0 s
+bsched it 480 beta 0.252 pres/(beta dY) 2.147 rhat 0.005697 shat 0.0007787 rhat/shat 7.316 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   480 lb 33.9879 (cert 33.9879, margin 4.00e-11) primal 33.9902 pres 2.96e-02 dY 5.47e-02 npos 4 cpu 0.08
+cp it   480 cert 33.987915560955081 hsum 0.559345 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938357 viol 76 (max 1.682e-04/||G||, rnorm 6.812e-04) dstep 1.921e-04 | ms pstep 0.01 (960) hpass 0.01 (480) diag 0.0 s
+bsched it 490 beta 0.252 pres/(beta dY) 2.148 rhat 0.00568 shat 0.0007761 rhat/shat 7.319 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   490 lb 33.9880 (cert 33.9880, margin 4.00e-11) primal 33.9916 pres 2.95e-02 dY 5.45e-02 npos 4 cpu 0.08
+cp it   490 cert 33.988048717595809 hsum 0.559356 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938373 viol 83 (max 1.813e-04/||G||, rnorm 7.025e-04) dstep 1.920e-04 | ms pstep 0.01 (980) hpass 0.01 (490) diag 0.0 s
+bsched it 500 beta 0.252 pres/(beta dY) 2.149 rhat 0.005664 shat 0.0007734 rhat/shat 7.323 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   500 lb 33.9881 (cert 33.9881, margin 4.00e-11) primal 33.9925 pres 2.94e-02 dY 5.43e-02 npos 4 cpu 0.08
+cp it   500 cert 33.988135986001929 hsum 0.559306 cpcpu 0.01 cuts 418 active 243 sum_nu 0.938303 viol 83 (max 1.677e-04/||G||, rnorm 6.700e-04) dstep 1.844e-04 | ms pstep 0.01 (1000) hpass 0.01 (500) diag 0.0 s
+bsched it 510 beta 0.252 pres/(beta dY) 2.151 rhat 0.00565 shat 0.0007709 rhat/shat 7.329 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   510 lb 33.9881 (cert 33.9876, margin 4.00e-11) primal 33.9888 pres 2.94e-02 dY 5.42e-02 npos 4 cpu 0.08
+cp it   510 cert 33.987585524119858 hsum 0.559387 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938355 viol 94 (max 1.707e-04/||G||, rnorm 7.127e-04) dstep 1.975e-04 | ms pstep 0.01 (1020) hpass 0.01 (510) diag 0.0 s
+bsched it 520 beta 0.252 pres/(beta dY) 2.151 rhat 0.005632 shat 0.0007682 rhat/shat 7.331 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   520 lb 33.9886 (cert 33.9886, margin 4.00e-11) primal 33.9896 pres 2.93e-02 dY 5.40e-02 npos 4 cpu 0.09
+cp it   520 cert 33.988579089343894 hsum 0.559308 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938287 viol 94 (max 1.592e-04/||G||, rnorm 6.548e-04) dstep 1.749e-04 | ms pstep 0.01 (1040) hpass 0.01 (520) diag 0.0 s
+bsched it 530 beta 0.252 pres/(beta dY) 2.152 rhat 0.005616 shat 0.0007657 rhat/shat 7.334 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   530 lb 33.9886 (cert 33.9885, margin 4.00e-11) primal 33.9902 pres 2.92e-02 dY 5.38e-02 npos 4 cpu 0.09
+cp it   530 cert 33.988474242903713 hsum 0.559321 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938302 viol 76 (max 1.555e-04/||G||, rnorm 6.373e-04) dstep 1.773e-04 | ms pstep 0.01 (1060) hpass 0.01 (530) diag 0.0 s
+bsched it 540 beta 0.252 pres/(beta dY) 2.154 rhat 0.005603 shat 0.0007633 rhat/shat 7.341 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   540 lb 33.9891 (cert 33.9891, margin 4.00e-11) primal 33.9903 pres 2.91e-02 dY 5.36e-02 npos 4 cpu 0.09
+cp it   540 cert 33.989069943105221 hsum 0.5593 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938273 viol 78 (max 1.480e-04/||G||, rnorm 6.166e-04) dstep 1.802e-04 | ms pstep 0.01 (1080) hpass 0.01 (540) diag 0.0 s
+bsched it 550 beta 0.252 pres/(beta dY) 2.155 rhat 0.005589 shat 0.0007611 rhat/shat 7.343 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   550 lb 33.9891 (cert 33.9888, margin 4.00e-11) primal 33.9893 pres 2.90e-02 dY 5.35e-02 npos 4 cpu 0.09
+cp it   550 cert 33.988755485397128 hsum 0.559295 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938232 viol 70 (max 1.574e-04/||G||, rnorm 5.962e-04) dstep 1.991e-04 | ms pstep 0.01 (1100) hpass 0.01 (550) diag 0.0 s
+bsched it 560 beta 0.252 pres/(beta dY) 2.156 rhat 0.005572 shat 0.0007586 rhat/shat 7.345 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   560 lb 33.9891 (cert 33.9890, margin 4.00e-11) primal 33.9909 pres 2.90e-02 dY 5.33e-02 npos 4 cpu 0.09
+cp it   560 cert 33.989020986820691 hsum 0.559305 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938251 viol 76 (max 1.478e-04/||G||, rnorm 5.900e-04) dstep 1.659e-04 | ms pstep 0.01 (1120) hpass 0.01 (560) diag 0.0 s
+bsched it 570 beta 0.252 pres/(beta dY) 2.156 rhat 0.005557 shat 0.0007563 rhat/shat 7.348 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   570 lb 33.9892 (cert 33.9892, margin 4.00e-11) primal 33.9895 pres 2.89e-02 dY 5.31e-02 npos 4 cpu 0.09
+cp it   570 cert 33.989224449183041 hsum 0.559295 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938234 viol 74 (max 1.408e-04/||G||, rnorm 5.788e-04) dstep 1.696e-04 | ms pstep 0.01 (1140) hpass 0.01 (570) diag 0.0 s
+bsched it 580 beta 0.252 pres/(beta dY) 2.158 rhat 0.005544 shat 0.0007541 rhat/shat 7.352 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   580 lb 33.9893 (cert 33.9893, margin 4.00e-11) primal 33.9888 pres 2.88e-02 dY 5.30e-02 npos 4 cpu 0.09
+cp it   580 cert 33.989309711889774 hsum 0.559323 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938261 viol 82 (max 1.468e-04/||G||, rnorm 6.052e-04) dstep 1.648e-04 | ms pstep 0.01 (1160) hpass 0.01 (580) diag 0.0 s
+bsched it 590 beta 0.252 pres/(beta dY) 2.158 rhat 0.00553 shat 0.0007519 rhat/shat 7.355 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   590 lb 33.9895 (cert 33.9895, margin 4.00e-11) primal 33.9887 pres 2.87e-02 dY 5.28e-02 npos 4 cpu 0.10
+cp it   590 cert 33.989504084988432 hsum 0.5593 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938259 viol 73 (max 1.379e-04/||G||, rnorm 5.685e-04) dstep 1.606e-04 | ms pstep 0.01 (1180) hpass 0.01 (590) diag 0.0 s
+bsched it 600 beta 0.252 pres/(beta dY) 2.16 rhat 0.005517 shat 0.0007498 rhat/shat 7.359 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   600 lb 33.9895 (cert 33.9895, margin 4.00e-11) primal 33.9877 pres 2.87e-02 dY 5.27e-02 npos 4 cpu 0.10
+cp it   600 cert 33.989543310955369 hsum 0.559339 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938308 viol 80 (max 1.238e-04/||G||, rnorm 5.591e-04) dstep 1.586e-04 | ms pstep 0.01 (1200) hpass 0.01 (600) diag 0.0 s
+bsched it 610 beta 0.252 pres/(beta dY) 2.16 rhat 0.005503 shat 0.0007476 rhat/shat 7.362 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   610 lb 33.9898 (cert 33.9898, margin 4.00e-11) primal 33.9891 pres 2.86e-02 dY 5.25e-02 npos 4 cpu 0.10
+cp it   610 cert 33.989775644486535 hsum 0.559332 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938309 viol 72 (max 1.328e-04/||G||, rnorm 5.446e-04) dstep 1.564e-04 | ms pstep 0.01 (1220) hpass 0.01 (610) diag 0.0 s
+bsched it 620 beta 0.252 pres/(beta dY) 2.161 rhat 0.00549 shat 0.0007455 rhat/shat 7.365 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   620 lb 33.9899 (cert 33.9899, margin 4.00e-11) primal 33.9899 pres 2.85e-02 dY 5.24e-02 npos 4 cpu 0.10
+cp it   620 cert 33.989883137120735 hsum 0.559331 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938322 viol 73 (max 1.357e-04/||G||, rnorm 5.464e-04) dstep 1.547e-04 | ms pstep 0.01 (1240) hpass 0.01 (620) diag 0.0 s
+bsched it 630 beta 0.252 pres/(beta dY) 2.162 rhat 0.005478 shat 0.0007436 rhat/shat 7.368 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   630 lb 33.9900 (cert 33.9900, margin 4.00e-11) primal 33.9903 pres 2.85e-02 dY 5.22e-02 npos 4 cpu 0.10
+cp it   630 cert 33.989994167610305 hsum 0.559337 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938326 viol 72 (max 1.347e-04/||G||, rnorm 5.427e-04) dstep 1.533e-04 | ms pstep 0.01 (1260) hpass 0.01 (630) diag 0.0 s
+bsched it 640 beta 0.252 pres/(beta dY) 2.163 rhat 0.005467 shat 0.0007417 rhat/shat 7.371 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   640 lb 33.9901 (cert 33.9901, margin 4.00e-11) primal 33.9904 pres 2.84e-02 dY 5.21e-02 npos 4 cpu 0.11
+cp it   640 cert 33.990114534782322 hsum 0.559334 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938323 viol 73 (max 1.315e-04/||G||, rnorm 5.373e-04) dstep 1.500e-04 | ms pstep 0.01 (1280) hpass 0.01 (640) diag 0.0 s
+bsched it 650 beta 0.252 pres/(beta dY) 2.164 rhat 0.005457 shat 0.0007399 rhat/shat 7.375 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   650 lb 33.9913 (cert 33.9913, margin 4.00e-11) primal 33.9915 pres 2.84e-02 dY 5.20e-02 npos 4 cpu 0.11
+cp it   650 cert 33.991274780363646 hsum 0.559315 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938292 viol 68 (max 1.365e-04/||G||, rnorm 5.645e-04) dstep 1.514e-04 | ms pstep 0.01 (1300) hpass 0.01 (650) diag 0.0 s
+bsched it 660 beta 0.252 pres/(beta dY) 2.165 rhat 0.005443 shat 0.0007379 rhat/shat 7.377 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   660 lb 33.9913 (cert 33.9903, margin 4.00e-11) primal 33.9913 pres 2.83e-02 dY 5.18e-02 npos 4 cpu 0.11
+cp it   660 cert 33.990330493161807 hsum 0.559333 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938312 viol 73 (max 1.278e-04/||G||, rnorm 5.281e-04) dstep 1.488e-04 | ms pstep 0.01 (1320) hpass 0.01 (660) diag 0.0 s
+bsched it 670 beta 0.252 pres/(beta dY) 2.166 rhat 0.005433 shat 0.0007361 rhat/shat 7.381 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   670 lb 33.9913 (cert 33.9910, margin 4.00e-11) primal 33.9923 pres 2.82e-02 dY 5.17e-02 npos 4 cpu 0.11
+cp it   670 cert 33.990990038111988 hsum 0.559307 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938267 viol 70 (max 1.370e-04/||G||, rnorm 5.441e-04) dstep 1.472e-04 | ms pstep 0.01 (1340) hpass 0.01 (670) diag 0.0 s
+bsched it 680 beta 0.252 pres/(beta dY) 2.167 rhat 0.005421 shat 0.0007343 rhat/shat 7.382 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   680 lb 33.9913 (cert 33.9906, margin 4.00e-11) primal 33.9917 pres 2.82e-02 dY 5.16e-02 npos 4 cpu 0.11
+cp it   680 cert 33.990611640007046 hsum 0.559334 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938307 viol 75 (max 1.290e-04/||G||, rnorm 5.272e-04) dstep 1.443e-04 | ms pstep 0.01 (1360) hpass 0.01 (680) diag 0.0 s
+bsched it 690 beta 0.252 pres/(beta dY) 2.168 rhat 0.005411 shat 0.0007326 rhat/shat 7.386 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   690 lb 33.9913 (cert 33.9909, margin 4.00e-11) primal 33.9910 pres 2.81e-02 dY 5.15e-02 npos 4 cpu 0.11
+cp it   690 cert 33.990893539545333 hsum 0.559333 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938305 viol 75 (max 1.209e-04/||G||, rnorm 5.165e-04) dstep 1.415e-04 | ms pstep 0.01 (1380) hpass 0.01 (690) diag 0.0 s
+bsched it 700 beta 0.252 pres/(beta dY) 2.168 rhat 0.0054 shat 0.0007309 rhat/shat 7.389 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   700 lb 33.9913 (cert 33.9909, margin 4.00e-11) primal 33.9919 pres 2.81e-02 dY 5.14e-02 npos 4 cpu 0.12
+cp it   700 cert 33.990877573569776 hsum 0.559292 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938259 viol 71 (max 1.257e-04/||G||, rnorm 5.032e-04) dstep 1.438e-04 | ms pstep 0.01 (1400) hpass 0.01 (700) diag 0.0 s
+bsched it 710 beta 0.252 pres/(beta dY) 2.175 rhat 0.005406 shat 0.0007295 rhat/shat 7.411 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   710 lb 33.9918 (cert 33.9918, margin 4.00e-11) primal 33.9914 pres 2.81e-02 dY 5.13e-02 npos 4 cpu 0.12
+cp it   710 cert 33.99176781653091 hsum 0.559338 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938303 viol 74 (max 1.146e-04/||G||, rnorm 5.188e-04) dstep 1.518e-04 | ms pstep 0.01 (1420) hpass 0.01 (710) diag 0.0 s
+bsched it 720 beta 0.252 pres/(beta dY) 2.17 rhat 0.005381 shat 0.0007277 rhat/shat 7.394 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   720 lb 33.9918 (cert 33.9912, margin 4.00e-11) primal 33.9918 pres 2.80e-02 dY 5.11e-02 npos 4 cpu 0.12
+cp it   720 cert 33.991158193683141 hsum 0.559322 cpcpu 0.02 cuts 418 active 243 sum_nu 0.93829 viol 71 (max 1.257e-04/||G||, rnorm 4.931e-04) dstep 1.447e-04 | ms pstep 0.01 (1440) hpass 0.01 (720) diag 0.0 s
+bsched it 730 beta 0.252 pres/(beta dY) 2.171 rhat 0.005369 shat 0.0007259 rhat/shat 7.396 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   730 lb 33.9918 (cert 33.9912, margin 4.00e-11) primal 33.9914 pres 2.79e-02 dY 5.10e-02 npos 4 cpu 0.12
+cp it   730 cert 33.991241948650121 hsum 0.55933 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938292 viol 72 (max 1.217e-04/||G||, rnorm 4.921e-04) dstep 1.342e-04 | ms pstep 0.01 (1460) hpass 0.01 (730) diag 0.0 s
+bsched it 740 beta 0.252 pres/(beta dY) 2.171 rhat 0.00536 shat 0.0007244 rhat/shat 7.399 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   740 lb 33.9918 (cert 33.9915, margin 4.00e-11) primal 33.9915 pres 2.78e-02 dY 5.09e-02 npos 4 cpu 0.12
+cp it   740 cert 33.991510930849671 hsum 0.559313 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938274 viol 71 (max 1.223e-04/||G||, rnorm 4.894e-04) dstep 1.366e-04 | ms pstep 0.01 (1480) hpass 0.01 (740) diag 0.0 s
+bsched it 750 beta 0.252 pres/(beta dY) 2.172 rhat 0.005351 shat 0.000723 rhat/shat 7.402 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   750 lb 33.9918 (cert 33.9913, margin 4.00e-11) primal 33.9904 pres 2.78e-02 dY 5.08e-02 npos 4 cpu 0.12
+cp it   750 cert 33.991278780234133 hsum 0.559308 cpcpu 0.02 cuts 418 active 243 sum_nu 0.93826 viol 66 (max 1.256e-04/||G||, rnorm 4.796e-04) dstep 1.360e-04 | ms pstep 0.01 (1500) hpass 0.01 (750) diag 0.0 s
+bsched it 760 beta 0.252 pres/(beta dY) 2.173 rhat 0.005342 shat 0.0007214 rhat/shat 7.404 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   760 lb 33.9918 (cert 33.9916, margin 4.00e-11) primal 33.9912 pres 2.78e-02 dY 5.07e-02 npos 4 cpu 0.13
+cp it   760 cert 33.991602777807415 hsum 0.559309 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938273 viol 68 (max 1.296e-04/||G||, rnorm 4.655e-04) dstep 1.280e-04 | ms pstep 0.01 (1520) hpass 0.01 (760) diag 0.0 s
+bsched it 770 beta 0.252 pres/(beta dY) 2.174 rhat 0.005332 shat 0.0007199 rhat/shat 7.407 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   770 lb 33.9918 (cert 33.9918, margin 4.00e-11) primal 33.9916 pres 2.77e-02 dY 5.06e-02 npos 4 cpu 0.13
+cp it   770 cert 33.99178410841867 hsum 0.559317 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938282 viol 70 (max 1.202e-04/||G||, rnorm 4.728e-04) dstep 1.274e-04 | ms pstep 0.01 (1540) hpass 0.01 (770) diag 0.0 s
+bsched it 780 beta 0.252 pres/(beta dY) 2.174 rhat 0.005324 shat 0.0007186 rhat/shat 7.409 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   780 lb 33.9918 (cert 33.9916, margin 4.00e-11) primal 33.9918 pres 2.77e-02 dY 5.05e-02 npos 4 cpu 0.13
+cp it   780 cert 33.991601203746221 hsum 0.559309 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938266 viol 70 (max 1.154e-04/||G||, rnorm 4.591e-04) dstep 1.226e-04 | ms pstep 0.01 (1560) hpass 0.01 (780) diag 0.0 s
+bsched it 790 beta 0.252 pres/(beta dY) 2.177 rhat 0.00532 shat 0.0007173 rhat/shat 7.417 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   790 lb 33.9918 (cert 33.9917, margin 4.00e-11) primal 33.9903 pres 2.76e-02 dY 5.04e-02 npos 4 cpu 0.13
+cp it   790 cert 33.991697373825957 hsum 0.559333 cpcpu 0.02 cuts 418 active 243 sum_nu 0.93829 viol 75 (max 1.250e-04/||G||, rnorm 4.969e-04) dstep 1.298e-04 | ms pstep 0.01 (1580) hpass 0.01 (790) diag 0.0 s
+bsched it 800 beta 0.252 pres/(beta dY) 2.176 rhat 0.005307 shat 0.0007158 rhat/shat 7.414 |Y| 5.196 |VRV| 5.196 |Z| 17.23
+it   800 lb 33.9920 (cert 33.9920, margin 4.00e-11) primal 33.9913 pres 2.76e-02 dY 5.03e-02 npos 4 cpu 0.13
+cp it   800 cert 33.992004818990608 hsum 0.559284 cpcpu 0.02 cuts 418 active 243 sum_nu 0.938243 viol 69 (max 1.137e-04/||G||, rnorm 4.473e-04) dstep 1.220e-04 | ms pstep 0.01 (1600) hpass 0.01 (800) diag 0.0 s
+admm cross: 1 extra certificates
+cp solve  lb 33.9920048190 (gain 0.0017)  primal 33.9913  status iter_limit  iters 800  cpu 0.1  certs 81 failures 0  kept 418
+FINAL best_lb 33.992005 first_lb 33.990340 gain 0.001665

@@ -1,0 +1,16 @@
+objective values are even integers: fathoming tolerance 1.95
+instance logs/validate_cp/nug12_swapped.dat n=12 node 3:1,4:5,6:2 m=9 cutoff 611.0000  cuts regional (grid) side 0, 5 regions
+cp pool logs/validate_cp/nug12s_node0.pool: 0 regions, 0 cuts (0 with mu > 0)
+round  0  lb 611.2609 (gain 0.0000, best 0.0000)  primal 612.8336  status fathomed  iters 39  cpu 0.0  active 0  violated 40 (max 0.0690)  added 40
+cp pool: 0 cuts kept (0 dropped), 0 in the projector, 0 terms, 5 regions, 9 region-pair classes; sweeps 1 passes 1 omega 1
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.324 (base 0.9) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 10 beta 0.324 pres/(beta dY) 2.036 rhat 0.09062 shat 0.01238 rhat/shat 7.317 |Y| 4.906 |VRV| 4.933 |Z| 17.73
+it    10 lb 610.1252 (cert 610.1252, margin 8.50e-10) primal 646.8040 pres 4.47e-01 dY 6.78e-01 npos 38 cpu 0.00
+cp it    10 cert 610.12524637085789 hsum 0 cpcpu 0.00 cuts 0 active 0 sum_nu 0 viol 0 (max 0.000e+00/||G||, rnorm 0.000e+00) dstep 0.000e+00 | ms pstep 0.01 (20) hpass 0.00 (10) diag 0.0 s
+bsched it 20 beta 0.324 pres/(beta dY) 2.12 rhat 0.03153 shat 0.005155 rhat/shat 6.116 |Y| 6.206 |VRV| 6.109 |Z| 17.91
+it    20 lb 611.7651 (cert 611.7651, margin 8.54e-10) primal 647.8135 pres 1.96e-01 dY 2.85e-01 npos 38 cpu 0.00
+cp it    20 cert 611.76508731296008 hsum 0 cpcpu 0.00 cuts 0 active 0 sum_nu 0 viol 0 (max 0.000e+00/||G||, rnorm 0.000e+00) dstep 0.000e+00 | ms pstep 0.01 (40) hpass 0.00 (20) diag 0.0 s
+admm cross: 0 extra certificates
+cp solve  lb 611.7650873130 (gain 0.5042)  primal 647.8135  status fathomed  iters 20  cpu 0.0  certs 2 failures 0  kept 0
+FINAL best_lb 611.765087 first_lb 611.260871 gain 0.504216
