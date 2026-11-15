@@ -51,7 +51,7 @@ so the first job is to score those methods on it.
     - Warm starts: the gain from shipping parent states by depth, at full scale (2x in CPU per
       node on the tho40ab subtree, `infra/phase1/runs/tho40ab-*`).
 4. **A reusable tuning set.** 6 to 10 subtrees at depth 3 or 4 across the range of gaps, each
-   with its exact size known from the trace and each sized to run in under 2 h on one c7a. A
+   with its exact size known from the trace and each sized to run in about 30 min on one c7a. A
    settings change then becomes an A/B against known numbers, as tho40ab was. tho40 runs no
    cut phase, so cut settings for wil50, sko42 and sko49 need their own subtrees.
 
