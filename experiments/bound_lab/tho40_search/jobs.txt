@@ -1,4 +1,4 @@
-# NAME ARM SPEC   (production nodes / CPU-s / root shortfall at its warm give-up in the comments)
+# NAME ARM SPEC [EXTRA]  (production nodes / CPU-s / root shortfall at its warm give-up in the comments)
 # gate: d4, 36 nodes, 406 short (run by hand first: base, z003)
 # t1: d4, 106 nodes, 330 s, 796 short
 t1 base 26:10,8:0,33:32,7:8
@@ -11,10 +11,26 @@ t2 z030 26:10,8:0,2:32,37:39
 t3 base 26:10,8:0,38:32
 t3 z010 26:10,8:0,38:32
 t3 z030 26:10,8:0,38:32
-t1 z003 26:10,8:0,33:32,7:8
-t2 z003 26:10,8:0,2:32,37:39
 # t4: d4, 688 nodes, 1952 s, 2675 short
-t4 z010 26:10,8:0,35:32,18:39
 t4 z030 26:10,8:0,35:32,18:39
-t3 z003 26:10,8:0,38:32
+# warm probes of depth-3 nodes under z030 (run.sh, NAME w*): the A/B root's state, then one child each, to depth 3 only
+wroot z030 26:10,8:0 -d 2 -o /home/user/qap/experiments/bound_lab/tho40_search/runs/wroot_z030/root.state
+# WARM-rooted complete subtrees under z030 (no -d: the node, its phase, and everything under it), to set against
+# the production trace's own (warm) subtree: w18: 1,490 nodes, 5,551 s, 4474 short;  w38 (= t3): 287, 1,000 s, 2427;
+# w30: 571, 2,122 s, 3492;  w36: 466, 1,678 s, 2909
+w18 z030 26:10,8:0,18:32
+w38 z030 26:10,8:0,38:32
+# zone 'always' (zall, cut.zone = 0.06): the A/B root (8,634 short) runs a phase too and hands its pool to its depth-3 children;
+# then w18 again, warm and pooled, against w18 z030 (no phase above it)
+wroot zall 26:10,8:0 -d 2 -o /home/user/qap/experiments/bound_lab/tho40_search/runs/wroot_zall/root.state
+path7 z030 26:2,30:0,39:39,2:32,16:24,35:16,24:8 -d 7
+w18 zall 26:10,8:0,18:32
+t4 z010 26:10,8:0,35:32,18:39
+t1 z003 26:10,8:0,33:32,7:8
+# z030 with dnn.gu_zone = 0 (par/z030g.par), on t4 against t4 z030
+t4 z030g 26:10,8:0,35:32,18:39
+t2 z003 26:10,8:0,2:32,37:39
+w30 z030 26:10,8:0,30:32
+path10 z030 26:2,30:0,39:39,2:32,16:24,35:16,24:8,34:1,33:33,37:7 -d 11
+w36 z030 26:10,8:0,36:32
 t4 base 26:10,8:0,35:32,18:39

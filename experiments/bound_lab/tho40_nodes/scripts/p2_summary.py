@@ -52,7 +52,7 @@ for tag, d, m, spec, pdnn, pshort, kids, sub, subcpu in nodes:
         if fin: r["u"] = (float(fin.group(1)), fin.group(2), int(fin.group(3)))
     out.append(r)
 g = lambda r, k, f="%.1f": (f % r[k]) if k in r and r[k] is not None and not (isinstance(r[k], float) and math.isnan(r[k])) else "-"
-print("| node | depth | m | production shortfall (subtree nodes) | plain@300 short | plain end short (its, last-300 gain) | CP: fathom at | CP value at 100/200/400/800 | CP end short (gain/200 its) | CP gain vs plain end | share of plain end shortfall | -u 240516 run |")
+print("| node | depth | m | production shortfall (subtree nodes) | plain@300 short: dnntest par / dnncuts | plain end short (its, last-300 gain) | CP: fathom at | CP shortfall at CP it 100/200/400/800 | CP end short (gain/200 its) | CP gain vs plain end | share of plain end shortfall | -u 240516 run |")
 print("|---|---|---|---|---|---|---|---|---|---|---|---|")
 for r in out:
     pl300 = CUT - r["pl300"] if "pl300" in r else None
@@ -64,10 +64,10 @@ for r in out:
     u = "%s %.2f @%d" % (r["u"][1], r["u"][0], r["u"][2]) if "u" in r else "-"
     print("| %s `%s` | %d | %d | %s (%s) | %s | %s | %s | %s | %s | %s | %s | %s |" % (
         r["tag"], r["spec"], r["d"], r["m"], r["pshort"], r["sub"],
-        "%.0f" % pl300 if pl300 is not None else "-",
+        ("%.0f" % pl300 if pl300 is not None and not math.isnan(pl300) else "-") + " / " + ("%.0f" % (CUT - r["c300"]) if "c300" in r else "-"),
         ("%.0f (%s %d, %+.0f)" % (plfin, r["plst"], r["plit"], r.get("pllast300", float("nan")))) if plfin is not None else "-",
         fath,
-        "/".join("%.0f" % (r["cp%d" % n] - CUT) if ("cp%d" % n) in r and not math.isnan(r["cp%d" % n]) else "-" for n in (100, 200, 400, 800)) if "cpfin" in r else "-",
+        "/".join("%.0f" % (CUT - r["cp%d" % n]) if ("cp%d" % n) in r and not math.isnan(r["cp%d" % n]) else "-" for n in (100, 200, 400, 800)) if "cpfin" in r else "-",
         ("%.0f (@%d, %+.0f)" % (cpfin, r["cpit"], r["cplast200"])) if cpfin is not None else "-",
         "%+.0f" % gain if gain is not None else "-",
         ("%.2f" % share) if share is not None else ("plain fathoms" if plfin is not None and plfin <= 0 else "-"), u))

@@ -18,7 +18,7 @@ for path in sys.argv[3:]:
     txt = open(path).read()
     tr = trace(path, 'cp')
     m = re.search(r'-regions regions/\S+?\.(\S+)\.txt -side (\d)', txt)
-    nr = re.search(r'(\d+) regions\n', txt)
+    nr = re.search(r', (\d+) regions', txt)
     v = re.search(r'violated (\d+) \(max (\S+)\)', txt)
     best = {}; b = -1e300
     for t in sorted(tr):
