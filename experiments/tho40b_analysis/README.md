@@ -15,6 +15,7 @@ them (`coord/export.py`).
 | `estimator_score.py` | how well a run part-way predicts its own final tree: the first fraction of the trace (merge order, what the live tree showed then) through two estimators, scored against the real total | node trace |
 | `tuning_set.py` | a tuning set: complete subtrees about one tuning run long on one instance, spread over the gaps, none inside another, as `-F` specs | node trace |
 | `giveups.py` | what the DNN give-up costs and saves: give-ups per depth, and those whose children all fathomed at once | an export directory |
+| `knuth_sim.py` | Knuth's estimator simulated on the complete tree: how many dives, and which way of choosing a child, give an estimate within a factor of the truth | node trace |
 
 ## Results on the A/B subtrees
 
@@ -61,6 +62,34 @@ likely 1e7 or more. At 3.7 CPU s per node and about 62 busy slots, 1e7 nodes
 is about a week of wall: tho40-b will reach its 72-hour `--limit` and need a
 resume launch (`infra/phase1/README.md`, Interrupted or stopped runs).
 
+**Dives instead of prefixes.** `python3 knuth_sim.py ../../infra/phase1/runs/tho40ab-32/nodes.txt.gz --reps 100`:
+Knuth's estimator (a dive moves to one child at each branched node; the
+nodes it visits, weighted by 1/probability of the path, estimate the tree) is
+unbiased for a fixed incumbent, whatever the search order, so it has no
+completion bias; what decides its use is the spread. The median and 10th-90th
+percentile of the estimate over the truth, over 100 repetitions:
+
+| children chosen | dives | nodes | CPU |
+|---|---|---|---|
+| uniformly (Knuth 1975) | 30 | 0.42 (0.20-2.82) | 0.47 (0.23-2.14) |
+| | 300 | 0.73 (0.39-1.19) | 0.80 (0.48-1.29) |
+| | 1,000 | 0.77 (0.56-1.04) | 0.82 (0.62-1.06) |
+| by their QPB gap, p ~ 10^(0.7 x gap%) | 30 | 0.71 (0.36-1.30) | 0.89 (0.57-1.33) |
+| | 300 | 0.93 (0.64-1.31) | 0.98 (0.78-1.19) |
+| | 1,000 | 0.91 (0.78-1.29) | 0.98 (0.89-1.16) |
+
+tho40ab-0 agrees (gap, 300 dives: CPU 0.94, 0.79-1.24). Uniform dives read low
+at any affordable count: the sum is carried by rare long dives that a small
+sample usually misses. Weighting children by their gap puts the CPU within
+about 20% from 300 dives. A dive costs about one DNN bound per level plus a QPB
+bound of each child it weighs: a few hundred dives are minutes on one 64-core
+instance. The solver's estimator (`bnbdrv -e`, `latest/estimate.C`) already
+weights children by their predicted bounds and the DNN marginals
+(`est.xbar_mix`); on tai50b its 115 dives were carried by one dive each window
+and gave a floor, not a total (`../estimates/README.md`). tho40-b's complete tree
+is the test that matters: whether gap weighting, with an exact depth-2
+frontier as strata, holds on a whole n = 40 tree.
+
 **A tuning set.** `python3 tuning_set.py ../../infra/phase1/runs/tho40ab-32/nodes.txt.gz --minutes 2 --n 6`
 picks six depth-3 and depth-4 subtrees of 900 to 1,700 nodes (1 to 2 min on 64
 slots). The A/B subtree itself is one 30-minute tuning run; in tho40-b's whole
@@ -80,4 +109,5 @@ python3 bound_value.py ../../infra/phase1/exports/tho40-b/nodes.txt.gz --max-dep
 python3 estimator_score.py ../../infra/phase1/exports/tho40-b/nodes.txt.gz
 python3 tuning_set.py ../../infra/phase1/exports/tho40-b/nodes.txt.gz --minutes 30 --n 8
 python3 giveups.py ../../infra/phase1/exports/tho40-b
+python3 knuth_sim.py ../../infra/phase1/exports/tho40-b/nodes.txt.gz --dives 100,300,1000,3000
 ```
