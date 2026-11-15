@@ -14,14 +14,14 @@
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel coord settings-doc regression clean dnntest dnncheck shipcheck nodetrace
+.PHONY: all solver test bruteforce resume parallel coord settings-doc regression estimate clean dnntest dnncheck shipcheck nodetrace
 
 all: solver
 
 solver:
 	$(MAKE) -C latest
 
-test: bruteforce resume parallel coord settings-doc regression
+test: bruteforce resume parallel coord settings-doc regression estimate
 
 bruteforce: solver
 	$(PYTHON) tests/brute_force.py
@@ -44,6 +44,10 @@ settings-doc: solver
 
 regression: solver
 	$(PYTHON) bench/bench.py check
+
+# the tree-size estimator (bnbdrv -e): both child weightings within 15% of nug15's count
+estimate: solver
+	$(PYTHON) tests/estimate_test.py
 
 dnntest:
 	$(MAKE) -C latest dnntest

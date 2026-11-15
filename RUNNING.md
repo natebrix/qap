@@ -220,6 +220,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `QAP_NODE_TRACE` | environment | text | unset | text | diagnostic | append a line per node taken off the stack (fixes, bounds, how it ended, the branching line; bnb.C) to this file |
 | `QAP_DNN_POOL_CHECK` | environment | integer | `0` | 0..1000000 | diagnostic | check each assembled pool term on this many random permutations |
 | `QAP_EST_HIST` | environment | text | `dive_history_nug25_2.txt` | text | diagnostic | estimator: the per-dive history file |
+| `QAP_EST_CHILD_QPB` | environment | integer | `0` | 0..1 | diagnostic | estimator: 1 weights each child a dive may take (and the first draw) by its own QPB bound, not the parent's prediction |
 | `QAP_XBAR_DEBUG` | environment | integer | `0` | 0..2 | diagnostic | 1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score |
 <!-- settings-table-end -->
 

@@ -2,6 +2,7 @@
 #include "util.h"
 
 #include <fstream>
+#include <vector>
 #include <cstdlib>
 #include "settings.h"
 
@@ -97,11 +98,31 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
   for(int k=0;k<top_stats->m;k++)
     top_stats->n_strat[sdl+1][k] = 0;
 
-  // step 2: compute sum of bounds
-  sum_of_bounds = 0.0;
+  // step 2: each node's score, and their sum. QAP_EST_CHILD_QPB=1 (as for a
+  // dive's children, bnb.C): by each node's own QPB bound, (1-mix) g^q / sum +
+  // mix / count with mix = est.xbar_mix, the nodes themselves unchanged;
+  // outside the top's and the dives' clocks. Otherwise by the predicted bound.
+  std::vector<double> first;
   for(p=stack;p!=NULL;p=p->link)
-    sum_of_bounds += score(opt,root_bound,p->data.predicted_bound,
-			   params->score_exponent);
+    first.push_back(score(opt,root_bound,p->data.predicted_bound,
+			  params->score_exponent));
+  if (setting_i("QAP_EST_CHILD_QPB") && first.size() > 1) {
+    const double mix = setting_d("est.xbar_mix");
+    int level, k = 0;
+    double rel_gap, wsum = 0.0;
+    for (p = stack; p != NULL; p = p->link, k++) {
+      BNBParameters *pp = pick_param(p->data, root_bound, opt, params, level, rel_gap, nlevel);
+      const double b = node_qpb_bound(q, p->data, pp);
+      first[k] = b < opt ? score(opt, root_bound, b, params->score_exponent) : 0.0;
+      if (!(first[k] > 0.0)) first[k] = 0.0;
+      wsum += first[k];
+    }
+    for (double &w : first)
+      w = wsum > 0.0 ? (1.0 - mix) * w / wsum + mix / first.size() : 1.0 / first.size();
+    std::cout << "QAP_EST_CHILD_QPB: the first draw's " << first.size() << " nodes scored by their own QPB bound" << std::endl;
+  }
+  sum_of_bounds = 0.0;
+  for (double w : first) sum_of_bounds += w;
   //  sum_of_bounds += 1.0;
 
   std::cout << "sum = " << sum_of_bounds << std::endl;
@@ -124,11 +145,11 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
     val = sum_of_bounds*drand();
     
     sum_so_far = 0.0; p = stack;
+    size_t pk = 0;
     do {
-      sum_so_far += score(opt,root_bound,p->data.predicted_bound,
-			  params->score_exponent);
+      sum_so_far += first[pk];
       if(sum_so_far >= val) break;
-      p = p->link;
+      p = p->link; pk++;
     } while(p->link!=NULL);
 
     // p now points to a node we want to estimate.
@@ -137,8 +158,7 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
     path->data = p->data;
     path->link = NULL;
 
-    p_score = score(opt,root_bound,path->data.predicted_bound,
-		    params->score_exponent);
+    p_score = first[pk];
     importance  = p_score / sum_of_bounds;
     
     // step 4: random walk down path of tree.

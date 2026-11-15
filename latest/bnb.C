@@ -304,10 +304,20 @@ void solveSize3QAP(QAP *q,const QAPAssignment &a,double &obj_save,
  */
 double root_qpb_bound(QAP *q, BNBParameters *param)
 {
-  const int n = q->A->m;
-  QAPAssignment root(n);
-  QAP *qr = new QAP(n);
-  reduceQAP(q, qr, root);
+  QAPAssignment root(q->A->m);
+  return node_qpb_bound(q, root, param);
+}
+
+/*
+  node_qpb_bound(q, node, param): the node's QPB bound with param's iteration
+  budget, cold and run to that budget (no early exit at an incumbent), as the
+  root's. The estimator scores children with it (QAP_EST_CHILD_QPB).
+*/
+double node_qpb_bound(QAP *q, const QAPAssignment &node, BNBParameters *param)
+{
+  QAP *qr = new QAP(q->A->m);
+  reduceQAP(q, qr, node);
+  const int n = qr->A->m;
   MAT *X = m_get(n, n), *U = m_get(n, n);
   QPBParameters qpbp;
   qpbp.shift = qr->shift;
@@ -1108,6 +1118,14 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      setting_d("est.xbar_mix");
 	    std::vector<double> prob(kids, 0.0);
 	    bool by_xbar = false;
+	    // QAP_EST_CHILD_QPB=1: score each child by its own QPB bound, not by
+	    // its predicted bound (the parent's bound plus U_ij, which underrates
+	    // how far apart siblings are): (1-mix) g^q / sum + mix/kids, mix =
+	    // est.xbar_mix, so every child keeps a positive probability and the
+	    // estimate stays unbiased. Only the probabilities change: the children
+	    // are searched as they are (their predicted bounds untouched), and the
+	    // clock of these bounds is the estimator's, not the tree's.
+	    static const long est_child_qpb = setting_i("QAP_EST_CHILD_QPB");
 #ifdef HAVE_DNN
 	    if (est_xbar_pow > 0.0 && (int)dnn_xbar.size() == m * m) {
 	      // local index of a free row/column = its rank among the free ones
@@ -1132,6 +1150,24 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      }
 	    }
 #endif
+	    if (!by_xbar && est_child_qpb && kids > 1) {
+	      const double c0 = clock();
+	      double wsum = 0.0;
+	      for (int k = 0; k < kids; k++) {
+		const double b = node_qpb_bound(q, kid[k], param);
+		// a bound at or above the incumbent: the mix share alone (the gap
+		// is negative there, and an even q would make it a large score)
+		prob[k] = b < s->getObjective() ? score(s->getObjective(), stats->root_bound, b, params->score_exponent) : 0.0;
+		if (!(prob[k] > 0.0)) prob[k] = 0.0;
+		wsum += prob[k];
+	      }
+	      for (int k = 0; k < kids; k++)
+		prob[k] = wsum > 0.0 ? (1.0 - est_xbar_mix) * prob[k] / wsum + est_xbar_mix / kids : 1.0 / kids;
+	      by_xbar = true;   // the probabilities are set
+	      const double dc = clock() - c0;
+	      stats->start_time += dc;
+	      stats->ier_start_time += dc;
+	    }
 	    if (!by_xbar) {
 	      for(sum_of_scores=0.0,i=0;i<kids;i++) {
 		prob[i] = score(s->getObjective(),stats->root_bound,
