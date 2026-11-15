@@ -19,6 +19,10 @@ Sampling rules:
             children likely to grow big are sampled more and weighted less.
             Needs every child's bound at each step of the dive: a QPB bound
             each, not a DNN bound
+  thesis    p(c) proportional to g(c)^q, g the relative gap (inc - lb)/(inc - z0) of
+            the child's bound, z0 the root's bound: Brixius's importance sampling
+            (docs/sources/nb_thesis.pdf, section 4.3, (4.3); q = 1.5 to 2 there),
+            implemented in latest/estimate.C
   oracle    p(c) proportional to the child's true subtree size: zero variance,
             the limit of a perfect predictor (a check of the code)
 
@@ -40,7 +44,12 @@ def qpb_gap_pct(t, i):
     return max(0.0, t.cutoff[i] - v) / t.cutoff[i] * 100
 
 
-def dive(t, rng, rule, b):
+def rel_gap(t, i, z0):
+    v = t.qpb[i] if not math.isnan(t.qpb[i]) else t.lb(i)
+    return max(0.0, t.cutoff[i] - v) / max(1e-9, t.cutoff[i] - z0)
+
+
+def dive(t, rng, rule, b, q=1.5):
     i = t.roots[0]
     w = 1.0
     nodes = cpu = 0.0
@@ -54,7 +63,13 @@ def dive(t, rng, rule, b):
             c = rng.randrange(len(ch))
             p = 1.0 / len(ch)
         else:
-            ws = [10 ** (b * qpb_gap_pct(t, k)) for k in ch] if rule == "gap" else [t.size[k] for k in ch]
+            if rule == "gap":
+                ws = [10 ** (b * qpb_gap_pct(t, k)) for k in ch]
+            elif rule.startswith("thesis"):
+                z0 = t.lb(t.roots[0])
+                ws = [max(rel_gap(t, k, z0), 1e-12) ** q for k in ch]
+            else:
+                ws = [t.size[k] for k in ch]
             tot = sum(ws)
             x = rng.random() * tot
             for c, wc in enumerate(ws):
@@ -73,6 +88,7 @@ def main():
     ap.add_argument("--reps", type=int, default=200)
     ap.add_argument("--b", type=float, default=0.7)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--q", type=float, nargs="*", default=[1.5, 2.0], help="the thesis rule's exponents")
     a = ap.parse_args()
     t = load(a.trace)
     if len(t.roots) != 1:
@@ -81,19 +97,20 @@ def main():
     rng = random.Random(a.seed)
     print(f"{a.trace}: {N:,} nodes, {C:,.0f} CPU s. Each cell: the median and the 10th-90th percentile of the "
           f"estimate over the truth, over {a.reps} repetitions of n dives")
-    print(f"{'rule':>8} {'dives':>6}  {'nodes: median (10%-90%)':>28}  {'CPU: median (10%-90%)':>28}  "
+    print(f"{'rule':>12} {'dives':>6}  {'nodes: median (10%-90%)':>28}  {'CPU: median (10%-90%)':>28}  "
           f"{'one dive: largest share of the sum':>34}")
-    for rule in ("uniform", "gap", "oracle"):
+    rules = [("uniform", 0), ("gap", 0)] + [(f"thesis q={q:g}", q) for q in a.q] + [("oracle", 0)]
+    for rule, q in rules:
         for n in (int(x) for x in a.dives.split(",")):
             rn, rc, top = [], [], []
             for _ in range(a.reps):
-                d = [dive(t, rng, rule, a.b) for _ in range(n)]
+                d = [dive(t, rng, rule, a.b, q) for _ in range(n)]
                 rn.append(statistics.fmean(x for x, _ in d) / N)
                 rc.append(statistics.fmean(y for _, y in d) / C)
                 top.append(max(x for x, _ in d) / sum(x for x, _ in d))
-            q = lambda v: statistics.quantiles(v, n=10)
-            qn, qc = q(rn), q(rc)
-            print(f"{rule:>8} {n:>6}  {statistics.median(rn):>8.2f} ({qn[0]:.2f}-{qn[-1]:.2f}){'':>9}"
+            pct = lambda v: statistics.quantiles(v, n=10)
+            qn, qc = pct(rn), pct(rc)
+            print(f"{rule:>12} {n:>6}  {statistics.median(rn):>8.2f} ({qn[0]:.2f}-{qn[-1]:.2f}){'':>9}"
                   f"  {statistics.median(rc):>8.2f} ({qc[0]:.2f}-{qc[-1]:.2f}){'':>9}  {statistics.median(top):>34.2f}")
 
 

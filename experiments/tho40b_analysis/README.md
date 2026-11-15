@@ -78,7 +78,26 @@ percentile of the estimate over the truth, over 100 repetitions:
 | | 300 | 0.93 (0.64-1.31) | 0.98 (0.78-1.19) |
 | | 1,000 | 0.91 (0.78-1.29) | 0.98 (0.89-1.16) |
 
-tho40ab-0 agrees (gap, 300 dives: CPU 0.94, 0.79-1.24). Uniform dives read low
+tho40ab-0 agrees (gap, 300 dives: CPU 0.94, 0.79-1.24).
+
+The gap rule is the importance sampling of Brixius's thesis (`../../docs/sources/nb_thesis.pdf`,
+section 4.3: a child chosen with probability g^q / sum g^q, g its relative gap, q
+1.5 to 2, with the top NBFS = 3 levels enumerated first and 10,000 dives; it held
+nug12-nug22 within about 10% and shaped nug25's tree), in another form. With
+today's bounds the exponent wants to be larger: siblings' QPB shortfalls differ by
+10-30%, so g^2 hardly separates them (`--q`; CPU at 1,000 dives, tho40ab-32 then
+tho40ab-0):
+
+| rule | median (10%-90%) | |
+|---|---|---|
+| thesis q = 2 | 0.86 (0.71-1.68) | 0.92 (0.70-1.56) |
+| thesis q = 5 | 0.89 (0.75-1.25) | 0.92 (0.74-1.30) |
+| thesis q = 10 | 0.96 (0.83-1.26) | 0.97 (0.81-1.17) |
+| thesis q = 20 | 0.96 (0.86-1.17) | 0.97 (0.85-1.24) |
+| gap, 10^(0.7 x gap%) | 0.97 (0.88-1.16) | 1.00 (0.88-1.14) |
+
+q chosen on the subtree, as the thesis chose it on nug25; tho40-b's whole tree is
+where to choose it for the open instances. Uniform dives read low
 at any affordable count: the sum is carried by rare long dives that a small
 sample usually misses. Weighting children by their gap puts the CPU within
 about 20% from 300 dives. A dive costs about one DNN bound per level plus a QPB
