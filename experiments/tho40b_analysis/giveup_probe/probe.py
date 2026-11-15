@@ -153,6 +153,7 @@ def run(a):
     os.makedirs(work, exist_ok=True)
     # chains: the in-state of every prefix of every sampled path, depth by depth (shared prefixes once)
     maxd = max(s["depth"] for s in smp)
+    targets = {tuple(s["fixes"]) for s in smp}
     for k in range(0, maxd):
         prefixes = sorted({tuple(s["fixes"][:k]) for s in smp if s["depth"] > k})
 
@@ -168,8 +169,15 @@ def run(a):
                     nxt = s["fixes"][k]
                     cut_to(os.path.join(d, "out.state"), nxt, os.path.join(d, "next_" + nxt.replace(":", "-") + ".state"))
             json.dump(r, open(done, "w"))
+            os.remove(os.path.join(d, "out.state"))   # 12 MB a node at n = 40: only the cut states are kept
         with ThreadPoolExecutor(a.workers) as ex:
             list(ex.map(step, prefixes))
+        # the states these nodes started from are spent, unless an arm starts from one
+        for prefix in prefixes:
+            if prefix and prefix not in targets:
+                f = os.path.join(chain_dir(work, prefix[:-1]), "next_" + prefix[-1].replace(":", "-") + ".state")
+                if os.path.exists(os.path.join(chain_dir(work, prefix), "done.json")) and os.path.exists(f):
+                    os.remove(f)
         print(f"chain depth {k}: {len(prefixes)} nodes", flush=True)
 
     jobs = [(i, arm) for arm in ("A0", "A1", "G") for i in range(len(smp))]
@@ -185,6 +193,9 @@ def run(a):
         in_state = os.path.join(chain_dir(work, prefix), "next_" + s["fixes"][-1].replace(":", "-") + ".state")
         r = solve(s["depth"], in_state, d, par_for(arm, work), allow=bool(ARMS[arm]))
         json.dump(r, open(done, "w"))
+        os.remove(os.path.join(d, "out.state"))
+        if all(os.path.exists(os.path.join(work, "arms", f"{i:03d}_{x}", "done.json")) for x in ARMS):
+            os.remove(in_state)   # the node's three arms are done
         print(f"{i:03d} {arm} d{s['depth']}: {r}", flush=True)
     with ThreadPoolExecutor(a.workers) as ex:
         list(ex.map(arm_job, jobs))
