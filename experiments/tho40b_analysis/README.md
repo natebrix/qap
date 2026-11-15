@@ -15,7 +15,8 @@ them (`coord/export.py`).
 | `estimator_score.py` | how well a run part-way predicts its own final tree: the first fraction of the trace (merge order, what the live tree showed then) through two estimators, scored against the real total | node trace |
 | `tuning_set.py` | a tuning set: complete subtrees about one tuning run long on one instance, spread over the gaps, none inside another, as `-F` specs | node trace |
 | `giveups.py` | what the DNN give-up costs and saves: give-ups per depth, and those whose children all fathomed at once | an export directory |
-| `knuth_sim.py` | Knuth's estimator simulated on the complete tree: how many dives, and which way of choosing a child, give an estimate within a factor of the truth | node trace |
+| `knuth_sim.py` | Knuth's estimator simulated on the complete tree: how many dives, and which way of choosing a child, give an estimate within a factor of the truth (`--per-root`: each of many complete subtrees scored on its own) | node trace |
+| `livetree.py` | a running run's published live tree as a node trace (crawl through the site's tree endpoint; `trace --complete-at D` keeps the complete subtrees rooted at depth D; `summary`, `levels` by depth), so the scripts here run on what is finished while the run goes on; complete subtrees lean small and easy | the site |
 | `path_check/dive.py` | whether a dive from tho40-b's incumbent (the best known + 2) toward the best known solution recovers it, with the run's settings: done Nov 15, both paths PASS (`path_check/README.md`) | `QAPSOLN/tho40.sln`, the solver |
 
 ## Results on the A/B subtrees
@@ -118,6 +119,72 @@ tree the 30-minute subtrees are the larger depth-2 nodes.
 **Give-ups.** No A/B export has DNN traces (they were not collected), so
 `giveups.py` was checked on a small traced nug17 run only; it runs on
 tho40-b's export.
+
+## Part-way, from tho40-b's live tree (Nov 15, 18:59 UTC)
+
+`livetree.py crawl tho40-b` read 1,636,040 merged nodes (25.4 h into the run, 7,802
+shards, about 12 min). Complete so far: 39 of the 141 merged depth-2 subtrees (78,938
+nodes) and 1,339 of 1,620 depth-3 ones (558,720 nodes, 2.16e6 CPU s). Complete
+subtrees are the ones that finished first, the smaller and easier, so per-node
+findings carry over and totals do not.
+
+**Where the CPU goes** (`livetree.py levels`, every merged node):
+
+| depth | nodes | fathomed by DNN | children kept of those allowed | CPU per node, s | share of CPU |
+|---|---|---|---|---|---|
+| 2 | 142 | 0.7% | 0.94 | 45.7 | 0.1% |
+| 3 | 2,853 | 43% | 0.98 | 28.7 | 1.4% |
+| 4 | 56,046 | 84% | 0.99 | 10.7 | 10.2% |
+| 5 | 321,165 | 95% | 1.00 | 5.3 | 29.2% |
+| 6 | 582,934 | 98% | 1.00 | 3.4 | 33.2% |
+| 7 | 435,567 | 99% | 1.00 | 2.5 | 18.4% |
+| 8-11 | 237,320 | 99%+ | 1.00 | 1.8 | 7.5% |
+
+QPB fathoms no node at any depth, and branching keeps every child from depth 3 down:
+91% of the CPU is DNN bounds at depths 4 to 7, almost all of them fathoming. Child
+bounds from the parent's certificate were measured on wil50 (0 of 2,209 fathom,
+`../wil50_feasibility/review_nov10/`), so the levers are the iterations a fathoming
+node takes (the DNN trace has them; the live tree does not) and a tighter bound.
+
+**A better bound**, on the 1,339 complete depth-3 subtrees
+(`bound_value.py c3.txt.gz`, then `--max-depth 4`): within 5 points of the A/B
+subtree's curve above at every d.
+
+| d (units) | nodes saved | CPU saved | better only at depths <= 4: nodes, CPU |
+|---|---|---|---|
+| 200 | 21.1% | 10.5% | 5.2%, 3.0% |
+| 500 | 45.2% | 24.2% | 12.8%, 7.8% |
+| 1,000 | 68.1% | 40.9% | 23.5%, 15.8% |
+| 2,000 | 90.5% | 68.8% | 51.6%, 42.5% |
+
+**Knuth's estimator on many subtrees** (`knuth_sim.py --per-root`): the cells are
+over every subtree x repetition, the spread one subtree's estimate has. CPU over the
+truth, median (10%-90%):
+
+| rule | dives | 26 complete depth-2 subtrees, 500 to 7,100 nodes | 65 complete depth-3 subtrees, 2,000 to 7,900 nodes |
+|---|---|---|---|
+| uniform | 300 | 0.87 (0.60-1.47) | 0.80 (0.54-1.73) |
+| | 1,000 | 0.95 (0.70-1.32) | 0.88 (0.65-1.41) |
+| gap, 10^(0.7 x gap%) | 300 | 0.99 (0.86-1.17) | 0.97 (0.82-1.19) |
+| | 1,000 | 0.99 (0.92-1.09) | 0.99 (0.90-1.11) |
+| thesis q = 2 | 300 | 0.89 (0.65-1.34) | |
+| | 1,000 | 0.95 (0.75-1.24) | |
+| thesis q = 10 | 300 | 0.98 (0.79-1.19) | 0.95 (0.76-1.27) |
+| | 1,000 | 0.99 (0.88-1.13) | 0.98 (0.85-1.15) |
+| thesis q = 20 | 1,000 | 0.97 (0.88-1.11) | |
+
+What held on the A/B subtree holds on these: q = 10 or the gap rule, about 1,000
+dives for +-15% in CPU; q = 2 needs about three times the dives for the same band.
+The node counts read lower than the CPU (the cheap deep nodes come in the rare long
+dives). The solver's estimator at q = 10 matched this simulation on the A/B subtree
+(step 1, Nov 15: the median single dive 0.075 of the truth against 0.088 simulated).
+
+**A tuning set.** Minutes-long complete subtrees are plentiful; one of 5 minutes on 64
+slots so far (`26:18,15:21,2:23,35:7`, 2,580 nodes). The 30-minute ones are the big
+depth-2 subtrees, which finish last.
+
+**Still waiting on the export:** the give-ups (the live tree has no DNN status or
+iterations), the whole-tree scores of the estimators, the 30-minute tuning set.
 
 ## On tho40-b, when it ends
 
