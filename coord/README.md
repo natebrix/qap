@@ -74,9 +74,10 @@ local `moto` server for tests). Both implement the same small interface
   when it is under 25 MB. The DNN trace is carried across checkpoints the same way
   (`ckpt.trace.txt`), uncut, and `qapctl export RUN --out DIR` (`coord/export.py`)
   writes both whole: `nodes.txt.gz` and `dnn.txt.gz`, a DNN line for each node whose DNN
-  bound ran, matched by its fixes, in the same order. The collect exports every finished
-  `--trace` run (to `infra/phase1/exports/RUN/`, out of git; the GitHub workflow keeps it
-  as the job's artifact for 90 days). A public `--trace` run also publishes that tree as it
+  bound ran, matched by its fixes, in the same order. The collect exports every
+  `--trace` run, finished or not (part-way: the units merged so far), to
+  `infra/phase1/exports/RUN/`, out of git; the GitHub workflow keeps it as the job's
+  artifact for 90 days. A public `--trace` run also publishes that tree as it
   grows (`coord/tree.py`, with each status publish): every merged node, in
   shards under `public/runs/RUN/tree/` that brixius-web's tree viewer reads;
   only the shards a new node changed are written again, and a restarted

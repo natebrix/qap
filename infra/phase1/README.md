@@ -250,11 +250,13 @@ records each launch (role, type, market, Spot price, instance, zone, commit,
 recipe). `runs/RUN/bucket.txt` and `userdata_*.sh` stay on the laptop: they name
 the bucket, whose name holds the account number, so `.gitignore` keeps them out
 of the repository (removed from it Nov 14), and `collect.sh` finds the bucket
-from the signed-in account when `bucket.txt` is missing. A finished `--trace`
-run's whole traces (`qapctl export`: `nodes.txt.gz`, `dnn.txt.gz`,
-`manifest.json`) go to `infra/phase1/exports/RUN/`, out of git; from GitHub
-Actions they are the job's artifact `traces-RUN`, kept 90 days. The store keeps
-them too.
+from the signed-in account when `bucket.txt` is missing. A `--trace` run's
+traces (`qapctl export`: `nodes.txt.gz`, `dnn.txt.gz`, `manifest.json`) go to
+`infra/phase1/exports/RUN/`, out of git; from GitHub Actions they are the job's
+artifact `traces-RUN`, kept 90 days. The store keeps them too. A collect exports
+them finished or not (since Nov 15): part-way, still running or ended by its
+`--limit` (which writes no `results.txt`), they hold the units merged so far, and
+`manifest.json` counts the units not yet merged.
 
 ## On real EC2 (Nov 13, eu-north-1, on demand; the quota arrived that day)
 
