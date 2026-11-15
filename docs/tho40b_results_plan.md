@@ -9,7 +9,9 @@ other open instances, a measured target for bound improvements, and a tested pat
 run on Spot.
 
 At 02:15 UTC on Nov 15 the run was 9.4 h in, at 559,283 nodes and 3.75 CPU s per node on c7a.
-It projects to about 3e6 nodes (2e6 to 5e6) and about 2 days of wall.
+By Nov 15 at 14:17 UTC its own projection had risen to 8.1e6 nodes, and such projections read
+low part-way: expect about a week of wall, with a resume on Spot when its 72-hour limit ends the
+first instance.
 
 ## What the run leaves us
 
@@ -54,6 +56,36 @@ so the first job is to score those methods on it.
    with its exact size known from the trace and each sized to run in about 30 min on one c7a. A
    settings change then becomes an A/B against known numbers, as tho40ab was. tho40 runs no
    cut phase, so cut settings for wil50, sko42 and sko49 need their own subtrees.
+
+## Better estimates in hours, not weeks
+
+Estimates made from a run part-way through read 2 to 5 times low until it is half done, so
+the next budget should come from Knuth-style dives: unbiased whatever the search order, and
+cheap. The solver already has them (`bnbdrv -e`), but we have used them only on tai50b.
+
+| children chosen | dives | CPU estimate over truth: median (80% band) |
+| --- | --- | --- |
+| uniformly | 300 | 0.80 (0.48 to 1.29) |
+| by their bound's gap | 300 | 0.98 (0.78 to 1.19) |
+| by their bound's gap | 1,000 | 0.98 (0.89 to 1.16) |
+
+Simulated on the tho40ab subtree's complete trace, 22,650 nodes
+(`experiments/tho40b_analysis/knuth_sim.py`).
+
+1. **Validate on tho40-b's finished tree, at no cloud cost.** Simulate dives on its trace:
+   uniform, gap-weighted, and the solver's current rule (predicted bounds and DNN marginals),
+   with and without an exact depth-2 frontier as strata. The output: the dives needed for
+   +-25% on a whole n = 40 tree.
+2. **Give the solver's estimator the winning rule,** and record each dive's weight and CPU, so
+   a pool of dives gives a confidence interval, not one number.
+3. **Re-estimate wil50, sko42, sko49 and tai50b** on one Spot instance each, for an hour or
+   two: an exact depth-2 sweep plus a few thousand dives, each about one DNN bound per level
+   plus a QPB bound of each child it weighs.
+4. **Heavy tails.** On tai50b one dive carried 52 to 99% of each window's total, so its dives
+   gave a floor. Gap weighting and stratification are the standard cures; where one dive
+   still dominates, report a floor.
+5. **Live projections stay floors.** A run's own part-way estimate is a lower bound, not a
+   forecast.
 
 ## (b) Bound improvements
 
@@ -121,7 +153,7 @@ against the finished tree.
    changing fleet).
    - Gate: tho40-b finished and its traces exported.
 2. **When tho40-b ends:** collect and export the run, keeping its traces in S3; score the
-   estimators against the complete tree; draw the bound-value curve and pick the tuning set.
+   estimators and simulated dives against the complete tree; draw the bound-value curve and pick the tuning set.
    - Gate: estimates restated for wil50, sko42, sko49 and tai50b.
 3. **Then, toward a larger run:** the bound lab on frozen near-miss nodes; the Spot test on
    several instances with injected interruptions; the quota request and budget, and the choice
