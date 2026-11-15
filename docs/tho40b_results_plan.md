@@ -142,6 +142,14 @@ launcher and coordinator fit a fleet that grows and shrinks, then proving it on 
 7. **Standard of proof.** Already recorded: the commit, the settings and a verified incumbent.
    A possible addition is an independent recheck of a random sample of fathoms and give-ups,
    agreed with the group before the run.
+8. **A dive toward the best known solution, before each launch.** A run given the best known
+   value + 2 must find the best known solution itself, and it can only if no node on the path to
+   it is fathomed. Following that path one node at a time with the run's settings checks this
+   in minutes. Done for tho40-b on Nov 15, after its launch
+   (`experiments/tho40b_analysis/path_check/`): two paths of 38 nodes, one warm-started as the
+   run does and one cold, every node branched and kept the path child, and both leaves gave
+   240,516. From depth 11 down the DNN bound equals 240,516 to four places, 0.05 under the
+   cutoff. `QAPSOLN/` now has the solution files for sko42 and wil50 as well.
 
 ## Order of work
 
