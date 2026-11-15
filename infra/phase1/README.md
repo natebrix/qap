@@ -178,8 +178,9 @@ gh workflow run phase1 --ref cognac -f action=stop -f run=tho40-b
   instance role's policy in `launch.sh` (which now writes that policy only
   when it differs).
 - **What is public** (the repository is): the job's log, with the account
-  number masked, and the records `collect` and `launch` commit under
-  `runs/RUN/`. Any file there that names the account gets a placeholder
+  number masked, the records `collect` and `launch` commit under
+  `runs/RUN/`, and a collect's trace artifact (solver output only; its manifest
+  names no bucket). Any file there that names the account gets a placeholder
   before the commit, and the commit stops if the number is still in it.
 - **Tested here** against stand-ins for `aws` and `gh` only (the calls in
   order, both policies as valid JSON, the input checks, the placeholder). The
@@ -249,7 +250,11 @@ records each launch (role, type, market, Spot price, instance, zone, commit,
 recipe). `runs/RUN/bucket.txt` and `userdata_*.sh` stay on the laptop: they name
 the bucket, whose name holds the account number, so `.gitignore` keeps them out
 of the repository (removed from it Nov 14), and `collect.sh` finds the bucket
-from the signed-in account when `bucket.txt` is missing.
+from the signed-in account when `bucket.txt` is missing. A finished `--trace`
+run's whole traces (`qapctl export`: `nodes.txt.gz`, `dnn.txt.gz`,
+`manifest.json`) go to `infra/phase1/exports/RUN/`, out of git; from GitHub
+Actions they are the job's artifact `traces-RUN`, kept 90 days. The store keeps
+them too.
 
 ## On real EC2 (Nov 13, eu-north-1, on demand; the quota arrived that day)
 

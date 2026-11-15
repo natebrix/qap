@@ -18,6 +18,8 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
         machine restart: their units go back to the queue at once)
   python3 -m coord.qapctl nodes RUN --backend B --out FILE[.gz]   (a run initialized with --trace:
         its whole node trace, the frontier's and each merged unit's, one line per node)
+  python3 -m coord.qapctl export RUN --backend B --out DIR   (a --trace run's whole node and DNN
+        traces, nodes.txt.gz and dnn.txt.gz, one line per node and per DNN solve: coord/export.py)
   python3 -m coord.qapctl stop RUN --backend B        (give the run up: status stopped, a final
         public status; its coordinator and workers exit, other runs' workers delete its queued
         units' messages. Terminate its instances apart: infra/phase1/cleanup.sh)
@@ -66,7 +68,7 @@ def cfg_from(a):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
-                                       "aws-setup", "requeue-leased", "publish", "nodes", "stop",
+                                       "aws-setup", "requeue-leased", "publish", "nodes", "export", "stop",
                                        "purge-states"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
@@ -100,7 +102,8 @@ def main(argv=None):
                    help="QAP_DNN_TRACE and QAP_NODE_TRACE per unit, uploaded with the result as trace.txt and "
                         "nodes.txt (the frontier pass's under runs/RUN/frontier/)")
     p.add_argument("--workdir")
-    p.add_argument("--out", help="nodes: the file to write (.gz: gzipped)")
+    p.add_argument("--out", help="nodes: the file to write (.gz: gzipped); export: the directory to write "
+                                 "nodes.txt.gz, dnn.txt.gz and manifest.json in (coord/export.py)")
     p.add_argument("--exit-when-idle", type=float)
     p.add_argument("--max-wall", type=float)
     a = p.parse_args(argv)
@@ -160,6 +163,11 @@ def main(argv=None):
         if not a.out:
             p.error("nodes needs --out FILE")
         return write_nodes(b, a.run, a.out, log=log)
+    if a.command == "export":
+        if not a.out:
+            p.error("export needs --out DIR")
+        from .export import export_run
+        return export_run(b, a.run, a.out, log=log)
     if a.command == "stop":
         return stop_run(b, a.run, log=log)
     if a.command == "purge-states":
@@ -210,7 +218,8 @@ def purge_states(b, run_id, log=print):
     if run is None or run.get("status") not in ("stopped", "finished"):
         log(f"run {run_id} is {run and run.get('status')}: purge-states is for a stopped or finished run")
         return 1
-    keys = [k for k in b.list(run_key(run_id, "units") + "/") if k.endswith(".state") or k.endswith("ckpt.nodes.txt")]
+    keys = [k for k in b.list(run_key(run_id, "units") + "/")
+            if k.endswith(".state") or k.endswith("ckpt.nodes.txt") or k.endswith("ckpt.trace.txt")]
     keys += b.list(run_key(run_id, "warm") + "/")   # the parent states (coord/warm.py)
     b.delete_many(keys)
     log(f"run {run_id}: {len(keys)} unit state files and parent states deleted")

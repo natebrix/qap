@@ -18,7 +18,9 @@ resumes a checkpoint starts from the trace that checkpoint accounts for
 (ckpt.nodes.txt, uploaded before ckpt.state), and every trace is cut to the
 lines its state file accounts for (traced_nodes), so the nodes.txt of the
 attempt the ledger records holds each node of the unit once, however many
-attempts it took. A unit's in.state has zero statistics (the coordinator
+attempts it took. The DNN trace (trace.txt) is carried the same way
+(ckpt.trace.txt), uncut: it may hold a node twice, solved before and after a
+checkpoint, and coord/export.py takes the last. A unit's in.state has zero statistics (the coordinator
 writes it so), which makes that count the unit's own.
 
 SIGTERM or SIGINT drains: every running solver is asked to stop at its next
@@ -194,6 +196,7 @@ class Worker:
         # in.state, statistics included), else from in.state
         ckpt_key = unit_key(self.run_id, uid, "ckpt.state")
         ckpt_nodes_key = unit_key(self.run_id, uid, "ckpt.nodes.txt")
+        ckpt_trace_key = unit_key(self.run_id, uid, "ckpt.trace.txt")
         resumed = self.b.get_file(ckpt_key, inp)
         if not resumed and not self.b.get_file(unit["in_key"], inp):
             raise RuntimeError(f"unit {uid}: no {unit['in_key']}")
@@ -204,6 +207,11 @@ class Worker:
             have = keep_lines(nodesf, nodesf, want) if self.b.get_file(ckpt_nodes_key, nodesf) else 0
             if have != want:
                 self.log(f"worker {self.name}: unit {uid}: {have} of the checkpoint's {want} node-trace lines")
+            # and the DNN trace so far, which the solver appends to: the attempt's
+            # trace.txt then holds the unit's DNN solves from its start (a node
+            # solved again after the checkpoint appears twice; coord/export.py
+            # takes the last)
+            self.b.get_file(ckpt_trace_key, tracef)
         inc_data, inc_tag = self.b.get_if_changed(run_key(self.run_id, "incumbent.json"), None)
         inc = json.loads(inc_data) if inc_data else {}
         self._write_inc(incf, inc)
@@ -275,6 +283,9 @@ class Worker:
                         if trace and os.path.exists(nodesf):
                             keep_lines(nodesf, nodesf + ".up", traced_nodes(snap))
                             self.b.put_file(ckpt_nodes_key, nodesf + ".up")
+                        if trace and os.path.exists(tracef):
+                            shutil.copyfile(tracef, tracef + ".up")
+                            self.b.put_file(ckpt_trace_key, tracef + ".up")
                         # its parents before it, and named on the unit, so the store keeps them
                         refs = warm.push(self.b, self.run_id, snap, self._pushed, log=self.log)
                         self.b.put_file(ckpt_key, snap)

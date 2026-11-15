@@ -404,6 +404,28 @@ def coord(tmp, kill, dnn=None):
     with gzip.open(whole, "rb") as src, open(plain, "wb") as dst:
         dst.write(src.read())
     bad |= compare(f"{tag} qapctl nodes", read_trace(ref), read_trace(plain), "qapctl nodes --out FILE.gz")
+    # qapctl export: the same node lines, and a DNN-trace line for each node whose DNN bound ran
+    # (matched by fixes across the unit's attempts: a resumed attempt's trace.txt starts at its
+    # checkpoint, a killed one's runs past it), in the node lines' order
+    exp = os.path.join(tmp, f"{tag}.export")
+    r = subprocess.run([sys.executable, "-m", "coord.qapctl", "export", tag, "--backend", be, "--out", exp],
+                       cwd=ROOT, env=ENV, capture_output=True, text=True)
+    from coord.export import dnn_fixes, node_fixes, node_ran_dnn
+    with gzip.open(os.path.join(exp, "nodes.txt.gz"), "rt") as f:
+        enodes = [ln.rstrip("\n") for ln in f if ln.strip()]
+    with gzip.open(os.path.join(exp, "dnn.txt.gz"), "rt") as f:
+        ednn = [ln.rstrip("\n") for ln in f if ln.strip()]
+    with gzip.open(whole, "rt") as f:
+        wnodes = [ln.rstrip("\n") for ln in f if ln.strip()]
+    want = [node_fixes(ln) for ln in enodes if node_ran_dnn(ln)]
+    got = [dnn_fixes(ln) for ln in ednn]
+    man = json.load(open(os.path.join(exp, "manifest.json")))
+    ok = r.returncode == 0 and enodes == wnodes and got == want and man["dnn_missing"] == 0 and \
+        man["node_lines"] == len(enodes) and man["dnn_lines"] == len(ednn)
+    print(f"{'ok  ' if ok else 'FAIL'} {tag} qapctl export: {len(enodes)} node lines (= qapctl nodes: "
+          f"{enodes == wnodes}), {len(ednn)} DNN lines for {len(want)} DNN nodes, in their order: {got == want}; "
+          f"exit {r.returncode}{'' if r.returncode == 0 else ': ' + r.stdout + r.stderr}")
+    bad |= 0 if ok else 1
     # the live tree, as published while the run went on, then rebuilt
     live = published_tree(b, tag)
     bad |= published_tree_problems(f"{tag} live tree", read_trace(ref), live)

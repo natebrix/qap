@@ -57,8 +57,22 @@ for h in $(aws s3 ls "s3://$B/runs/$RUN/hosts/" | awk '/PRE/ {print $2}' | tr -d
   tail -3 "$L/hosts/$h/out/steps.txt" | cut -c1-300 | sed 's/^/  /'
 done
 get results.txt && { echo; cat "$L/results.txt"; }
-# a finished --trace run: its whole node trace (qapctl nodes; the tree viewer's input) goes
-# with its records when it is small enough for git, else it stays in the store
+# a finished --trace run: its whole node and DNN traces (qapctl export, coord/export.py) go to
+# QAP_EXPORT_DIR/RUN (default infra/phase1/exports/RUN, kept out of git; the GitHub workflow
+# keeps them as the job's artifact), whatever their size
+EXPORTS=${QAP_EXPORT_DIR:-$D/exports}
+if [ -f "$L/results.txt" ]; then
+  if (cd "$D/../.." && python3 -m coord.qapctl export "$RUN" --backend "aws:$B?region=$REGION" \
+        --out "$EXPORTS/$RUN") > "$EXPORTS.$RUN.log" 2>&1; then
+    echo "traces: $(tail -1 "$EXPORTS.$RUN.log" | sed 's/^[0-9:]* //')"
+  else
+    grep -q "nothing to export" "$EXPORTS.$RUN.log" || echo "traces: $(tail -1 "$EXPORTS.$RUN.log")"
+    rm -rf "${EXPORTS:?}/$RUN"
+  fi
+  rm -f "$EXPORTS.$RUN.log"
+fi
+# and the node trace (the tree viewer's input) with its records when it is small enough
+# for git, else it stays in the store and the export
 if [ -f "$L/results.txt" ]; then
   NLOG=$(mktemp)
   if (cd "$D/../.." && python3 -m coord.qapctl nodes "$RUN" --backend "aws:$B?region=$REGION" \

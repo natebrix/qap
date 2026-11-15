@@ -73,6 +73,9 @@ jobs:
           echo "::add-mask::$ACCT"
           echo "QAP_ACCT=$ACCT" >> "$GITHUB_ENV"
       - name: ${{ inputs.action }} ${{ inputs.run }}
+        env:
+          # collect: a finished --trace run's whole traces (qapctl export), kept below as an artifact
+          QAP_EXPORT_DIR: ${{ runner.temp }}/exports
         run: |
           set -f
           case $ACTION in
@@ -80,6 +83,15 @@ jobs:
             collect) infra/phase1/collect.sh "$RUN" ;;
             stop)    infra/phase1/cleanup.sh "$RUN" ;;
           esac
+      - name: Keep the run's traces (90 days; the store keeps them too)
+        if: always() && inputs.action == 'collect'
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-${{ inputs.run }}
+          path: ${{ runner.temp }}/exports/${{ inputs.run }}/
+          if-no-files-found: ignore
+          retention-days: 90
+          compression-level: 0
       - name: Commit the run's records
         if: always() && inputs.action != 'stop'
         run: |
