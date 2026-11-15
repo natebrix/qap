@@ -105,8 +105,8 @@ launcher and coordinator fit a fleet that grows and shrinks, then proving it on 
 5. **Quota and budget.** Request Spot and on-demand vCPU quota in the chosen region, sized from
    the restated estimates. Budget alerts, and per-run cost from instance and disk tags plus a
    recorded hourly price.
-6. **Data volume.** Full traces at 1e7 nodes run to GBs. We keep both traces whole (decided
-   Nov 15), so the export and the S3 budget must allow for that.
+6. **Data volume.** Full traces at 1e7 nodes run to GBs. We keep them whole: both the node
+   and the DNN trace (decided Nov 15), so the export and the S3 budget must allow for that.
 7. **Standard of proof.** Already recorded: the commit, the settings and a verified incumbent.
    A possible addition is an independent recheck of a random sample of fathoms and give-ups,
    agreed with the group before the run.
