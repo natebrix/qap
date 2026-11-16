@@ -115,3 +115,68 @@ Relative gap information:
 
 sum = 3.06344
 stack = 8
+Mon Nov 16 13:15:49 [     1 dives               8 nodes        390.55 seconds 0 ignored]
+
+    Total Time: 390.548 seconds 
+         Nodes: 8 / 8 / 0
+    root bound: 4.10082e+08
+ fw iterations: 400
+     DNN bound: 1 nodes, 1 fathomed, 48.3561 s
+
+level    nodes	%fathom	%c.elim	    time
+10           8	1.0000	N/A	  390.55
+
+Strategy breakdown:
+nodes       0        0        0        8 
+time     0.00     0.00     0.00   390.55 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+10           1	1.0000	0.0000	        110	   110.0	   48.36
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+10           8	       7	       1	       0	       0
+
+
+    Total Time: 7131.37 seconds 
+         Nodes: 207 / 203 / 0
+    root bound: 4.10082e+08
+ fw iterations: 10377
+     DNN bound: 3 nodes, 2 fathomed, 114.67 s
+     cut phase: 1 nodes, 0 fathomed, 524.022 s
+
+level    nodes	%fathom	%c.elim	    time
+10           7	0.5714	0.0000	 2464.22
+11         199	1.0000	N/A	 4667.15
+
+Strategy breakdown:
+nodes       0        0        0      206 
+time     0.00     0.00     0.00  7131.37 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+10           2	0.5000	0.5000	        220	   110.0	   91.56
+11           1	1.0000	0.0000	         56	    56.0	   23.11
+
+Cut phase by level:
+level    nodes	%fathom	    time
+10           1	0.0000	  524.02
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+10           4	       3	       1	       0	       0
+11         199	     198	       1	       0	       0
+
+tmean = 7131.37	 nmean = 207
+tssq  = 1.9259e+08	 nssq  = 164900
+tvar  = 4.54387e+07	 nvar  = 39601
+time stddev = 6740.83, err = 4766.48
+node stddev = 199, err = 140.714
+0 dives with depth >= 1000 were thrown out.
