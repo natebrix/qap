@@ -16,13 +16,13 @@ metrics; CPU seconds are from a 4-core box that ran 3 to 4 solver processes at o
    | instance | best known (checked from `QAPSOLN/*.sln`) | published bound | gap | this root, certified | gap | share of the published gap closed |
    |---|---|---|---|---|---|---|
    | tai60b | 608,215,054 | 592,829,061 | 2.53% | **605,315,696** at 470 + 3,000 iterations [m `rootL`] | **0.48%** | **81%** |
-   | tai80b | 818,415,043 | 786,900,529 | 3.85% | **@@R80@@** at about 470 [e] + @@R80IT@@ iterations, still rising [m `root80`] | **@@R80GAP@@** | **@@R80SHARE@@** |
+   | tai80b | 818,415,043 | 786,900,529 | 3.85% | **798,336,758** at about 470 [e] + 1,000 iterations, still rising [m `root80`] | **2.45%** | **36%** |
 
    tai60b's root passes the published bound 250 iterations into the phase (592,871,409 at
    470 + 250 [m `ab_c6`]); tai80b's at phase iteration 250 (787,039,986 [m `root80`]). Neither has
    plateaued: tai60b gains 124k over its last 250 iterations (207k, 167k, 143k, 124k per 250 from
    2,000 on; by that trend about 0.8M more, a plateau near 606.1M [e]); tai80b was stopped by the
-   clock while gaining about @@R80RATE@@ per 100.
+   clock while gaining 486k per 100 (802k, 668k, 486k over its last three hundreds).
 
 2. **tai60b's tree is closer to tai30b's than to tai50b's at the top, and then it is a path with a
    fringe**, like tai50b's:
@@ -43,8 +43,8 @@ metrics; CPU seconds are from a 4-core box that ran 3 to 4 solver processes at o
    - **A survivor's children mostly die at once, but not all, and the ones that do not are again
      same-cluster ones**: under the depth-4 survivor `1:39`, 8 of 10 random children fathom in the
      first solve (27-90 iterations); the other two (0.24M and 0.62M short) carry a facility of their
-     location's cluster, and the one given a phase ends it 0.17M short at the limit
-     [m `d5p1_under_1_39`, `d5_1_39_22_48`]. tai50b's survivor had 1 of 10. So the fringe does
+     location's cluster; their phases end 0.17M and 0.02M short at the 1,000-iteration limit
+     [m `d5p1_under_1_39`, `d5_1_39_22_48`, `d5_1_39_22_9`]. tai50b's survivor had 1 of 10. So the fringe does
      compound for at least two levels.
    - **Which children survive is predictable from the near-optimal solutions**: a child survives
      when the best completion a 2-swap descent finds for it costs less than best known + the
@@ -117,8 +117,8 @@ reaches at 250 what the run with reaches at about 115.
 
 | | m = 50 (tai50b, `../regions/size50`) | m = 60 | m = 80 |
 |---|---|---|---|
-| s per iteration, first solve (cold root) | 0.53 | 1.36 (`rootL`: 470 iterations, 647 CPU-s) | about 7 (`root80`: 3,316 CPU-s for about 470 [e]) |
-| s per iteration, phase | 0.72 loaded, 0.4-0.5 idle | 1.53 (`rootL`: 3,000 in 4,649 CPU-s), 1.1-1.3 at depth 1 | 7.9-8.3 (`root80`) |
+| s per iteration, first solve (cold root) | 0.53 | 1.36 (`rootL`: 470 iterations, 647 CPU-s) | about 6.4 (`root80`: about 3,010 CPU-s for about 470 [e]) |
+| s per iteration, phase | 0.72 loaded, 0.4-0.5 idle | 1.55 (`rootL`: 3,000 in 4,649 CPU-s), 1.1-1.3 at depth 1 | 7.9-8.3 (`root80`) |
 | peak memory | | 2.5 GB | 7.3 GB in the phase |
 | root state file (`ship.bits = 64`) | 134 MB | 277 MB | not written (run stopped) |
 
@@ -144,7 +144,7 @@ bound, which I did not rerun.
 | 500 | 599,190,046 | 9,025,008 | 41% |
 | 1,000 | 602,989,748 (= `rootM`) | 5,225,306 | 66% |
 | 1,500 | 604,106,475 | 4,108,579 | 73% |
-| 2,000 | 604,674,349 | 3,540,705 | 77% |
+| 2,000 | 604,674,348 | 3,540,706 | 77% |
 | 2,500 | 605,048,662 | 3,166,392 | 79% |
 | 3,000 | **605,315,696** | **2,899,358** | **81%** |
 
@@ -212,7 +212,7 @@ cluster, whose facilities in the best known solution are 0, 19, 23, 24, 29, 32, 
 
 | child | kind | excess of its best completion (`nearopt.py`) | first solve | phase |
 |---|---|---|---|---|
-| `1:8`, `1:13`, `1:17`, `1:50`, `1:53` | random (5 of 5), other clusters | 13.6M-34.3M (`1:53`, `1:8`, `1:13`, `1:17`, `1:50`: 13.6M, 15.9M, 30.3M, 33.0M, 42.9M) | fathomed, 23-50 iterations | |
+| `1:8`, `1:13`, `1:17`, `1:50`, `1:53` | random (5 of 5), other clusters | 13.6M-42.9M (`1:53`, `1:8`, `1:13`, `1:17`, `1:50`: 13.6M, 15.9M, 30.3M, 33.0M, 42.9M) | fathomed, 23-50 iterations | |
 | `1:23`, `1:0` | same cluster | 2.86M, 2.47M | fathomed, 56 and 70 iterations | |
 | `1:32`, `1:35`, `1:36` | same cluster | 1.57M, 1.33M, 1.23M | fathomed, 87-117 iterations (by 2k-14k) | |
 | `1:29` | same cluster | 0.96M | 705,728 short | 247,676 short at the 1,000 limit, gaining 25k per 100: **branches** |
@@ -222,8 +222,8 @@ cluster, whose facilities in the best known solution are 0, 19, 23, 24, 29, 32, 
 | `1:33` (on-path) | | 0 | 1,070,271 short | stalled 733,869 short after 830 |
 
 So at depth 4 the 43 other-cluster children fathom at once [e from 5 of 5], and of the 13 same-cluster
-ones about 8 fathom in the first solve and **4-5 survive** (the on-path one included) [e from 9 first
-solves and 3 phases, all three unfathomed at the limit]. tai50b had about 15 of 46 surviving at its
+ones 8 fathom in the first solve and **about 5 survive besides the on-path one** [e: 4 of the 9 run
+miss the first solve, `1:19` (excess 0.96M) is predicted to, and 3 of 3 phases end unfathomed at the limit]. tai50b had about 15 of 46 surviving at its
 depth 4. The phases of these survivors end 0.74M to 1.2M below the upper bounds on their subtrees'
 optima (shortfall + excess), against 0.73M for the on-path node: off the path the slack is up to 1.6
 times larger.
@@ -233,7 +233,9 @@ branches on location 22, in the 12-point cluster {14..25}, whose facilities in t
 are 2, 9, 12, 13, 17, 18, 21, 25, 31, 43, 48, 54): 8 fathom in the first solve (27-90 iterations,
 20-62 CPU-s), among them one same-cluster facility (`22:17`); `22:9` ends 237,006 short and `22:48`
 624,649 short, both same-cluster. Phases: `22:48` 174,189 short at the 1,000 limit: branches
-(`d5_1_39_22_48`); `22:9` @@D5B@@.
+(`d5_1_39_22_48`); `22:9` 22,694 short at the limit, gaining 7k per 100: counted as branching here; about 300 more
+iterations would fathom it [e] (`d5_1_39_22_9`). Of the 4 survivors' phases at depths 4-5, all were still
+gaining at 1,000 iterations: a longer limit trades iterations at the node for a smaller subtree.
 
 ## 4. Why the fringe is what it is: near-optimal solutions (`nearopt.py`) [m for the counts]
 
@@ -334,14 +336,36 @@ No brute-force check was rerun here; `../regions/README.md` section 3 has those 
 
 `root.sh root80 tai80b 818415043` (`par/root80.par`: the same settings, `tai80b.comb7.txt`, `dnn.depths
 = 0:78`, `cut.cp_iters = 5000`). One core; two tai60b processes beside it. The run was stopped by
-hand at the end of the session, so its values are the certified running best at each check
+hand at phase iteration 1,000, at the end of the session, so its values are the certified running best at each check
 (`runs/root80/live.txt`), and the first solve's iteration count was never printed (about 470 [e]
-from 3,316 CPU-s at about 7 s).
+from about 3,010 CPU-s; the cold tai50b and tai60b roots both stopped at 470).
 
-@@R80TABLE@@
+| phase iterations | certified running best | short of best known | share of the published gap closed | CPU-s |
+|---|---|---|---|---|
+| 0 (first solve, about 470 [e]) | 774,516,079 | 43,898,964 | (below the published bound) | about 3,010 |
+| 100 | 781,173,418 | 37,241,625 | (below) | 3,803 |
+| 200 | 785,588,035 | 32,827,008 | (below) | 4,584 |
+| 250 | 787,039,986 | 31,375,057 | 0% | 4,996 |
+| 300 | 789,369,685 | 29,045,358 | 8% | 5,386 |
+| 400 | 791,804,155 | 26,610,888 | 16% | 6,195 |
+| 500 | 793,499,663 | 24,915,380 | 21% | 7,023 |
+| 600 | 795,282,477 | 23,132,566 | 27% | 7,856 |
+| 700 | 796,379,920 | 22,035,123 | 30% | 8,664 |
+| 800 | 797,182,337 | 21,232,706 | 33% | 9,500 |
+| 900 | 797,850,656 | 20,564,387 | 35% | 10,317 |
+| 1000 | 798,336,758 | 20,078,285 | 36% | 11,125 |
 
-The first solve gave up at 776,697,155 (41.7M short; the published converged plain bound is
-786,900,529). @@R80READ@@
+The first solve gave up at 774,516,079 (43.9M short; the published converged plain bound is
+786,900,529). The phase passes the published bound at iteration 250 and
+ends **11.4M above it: 798,336,758, a gap of 2.45% against the published 3.85%**. Gains per 100
+iterations: 2.4M-4.4M up to 400, then 1.70M, 1.78M, 1.10M, 0.80M, 0.67M, 0.49M: slowing by about 0.8 per
+hundred, so perhaps 2M more by that trend, an end near 800M [e]; tai50b and tai60b both kept creeping
+past such a reading. The share closed (36% at 1,000, against 66% for tai60b at 1,000) is what the
+two-dimensional siblings showed in `../regions` (tai35b 71%, tai40b 66% at 2,300 with one axis of
+prefixes): more half-plane directions are the thing to try. 11,125 CPU-s (3.1 core-hours) in all, 8.1 s
+per phase iteration. **A root run to 3,000 phase iterations is about 7.5 core-hours on this box and
+needs 7.3 GB** [e from m]; a depth-1 sample would cost about 15 minutes per first solve (110 iterations)
+and 2 hours per phase, which is why the tree was not touched.
 
 ## 8. Not measured
 
@@ -349,7 +373,8 @@ The first solve gave up at 776,697,155 (41.7M short; the published converged pla
   depth-3 (column-branch) sibling; the root beyond 3,000 phase iterations; the converged plain bound;
   samples warm from the 3,000-iteration root (all samples start from the 1,000-iteration one);
   `dnn.amx`; three Dykstra sweeps / extrapolation (`../cpfast`).
-- tai80b: anything but the root; other region sets; the root to a plateau.
+- tai80b: anything but the root; other region sets; the root beyond 1,000 phase iterations; the first
+  solve's iteration count (the run was stopped before it printed its trace line).
 - Whether 608,215,054 and 818,415,043 are optimal.
 
 ## Files

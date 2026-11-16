@@ -91,3 +91,67 @@ setting QAP_XBAR_DEBUG 0 default diagnostic
 resumed: 1 open nodes, 5 nodes and 6043.28 s so far, incumbent 6.08215e+08
 branching_weight() = 0.5
 couldn't find [./SYM/tai60b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 6959.88 seconds 
+         Nodes: 6 / 0 / 0
+    root bound: 4.10082e+08
+ fw iterations: 17450
+     DNN bound: 6 nodes, 0 fathomed, 1133.77 s
+     cut phase: 6 nodes, 0 fathomed, 5811.58 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	 2172.56
+ 1           1	0.0000	0.0000	 1187.77
+ 2           1	0.0000	0.0000	  970.45
+ 3           1	0.0000	0.0000	  679.64
+ 4           1	0.0000	0.0000	 1032.86
+ 5           1	0.0000	0.0000	  916.60
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 1 
+nodes       1        0        5        0 
+time  2172.56     0.00  4787.32     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.026373	0.000000
+ 2| 0.013740	0.000000
+ 3| 0.007958	0.000000
+ 4| 0.005377	0.000000
+ 5| 0.002004	0.000000
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 0           1	0.0000	1.0000	        470	   470.0	  638.93
+ 1           1	0.0000	1.0000	        110	   110.0	  133.77
+ 2           1	0.0000	1.0000	        110	   110.0	  107.96
+ 3           1	0.0000	1.0000	        110	   110.0	   92.03
+ 4           1	0.0000	1.0000	        110	   110.0	   87.10
+ 5           1	0.0000	1.0000	        110	   110.0	   73.96
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 0           1	0.0000	 1531.00
+ 1           1	0.0000	 1051.54
+ 2           1	0.0000	  860.26
+ 3           1	0.0000	  585.54
+ 4           1	0.0000	  942.89
+ 5           1	0.0000	  840.35
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3           0	       0	       0	       0	       0
+ 4           0	       0	       0	       0	       0
+ 5           0	       0	       0	       0	       0
+
+eigendecompositions for W and U: 2 computed, 0 reused from the per-size cache
