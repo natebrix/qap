@@ -282,7 +282,12 @@ cut.zone = 0.06
 Question: when should a phase stop and hand over to its pooled children? The first study's stop rule
 is the stall rule: after 600 iterations, stop when the gap exceeds 3 x the gain of the last 600. Its
 runs showed it is too patient near the cutoff (2,610 iterations to end 146 short; 3,341 to fathom from
-2,427) and, as it turned out, too impatient far from it. STOP_SUMMARY
+2,427) and, as it turned out, too impatient far from it. Result [m]: with a
+hand-over rule (a new key, patch below), `dnn.gu_zone = 0` and `dnn.giveup_warm = 100`, all under
+`cut.zone = 0.06`, the warm `18:32` subtree takes **5,523 iterations against 11,565 (`zall`) and
+13,035 (`z030`)**, and `38:32` **1,312 against 3,012 and 3,541**: 2.1-2.3x and 2.4-2.7x fewer, the
+same trees (74 nodes and 1 node). `30:32`, not run before, takes 2,005 iterations and 38 nodes where
+production took 571 nodes.
 
 ### Offline: candidate rules replayed on the recorded phases [m histories, e hand-over cost]
 
@@ -354,7 +359,10 @@ over its 690 recorded iterations. The certified values do not depend on where a 
 **Entering the phase early** (the per-node lab's finding, `../tho40_nodes/README.md`) has a key
 already: `dnn.giveup_warm = N` lets a warm-started node give up from iteration N instead of
 `dnn.giveup` = 200 (the give-up rule needs 110 iterations of history, so 100 means 110), and
-`dnn.gu_zone = 0` removes the 100-iteration confirmation near the cutoff. EARLY_TEXT
+`dnn.gu_zone = 0` removes the 100-iteration confirmation near the cutoff. Both are
+in the A/B: on `38:32` and on the 8 give-up nodes of `18:32` the first solve ends at 110 iterations
+instead of 200-220 and the phase then needs 0 to 25 iterations more, about 90 saved a node, as the
+per-node lab found.
 
 ### In the search: warm-rooted subtrees [m]
 

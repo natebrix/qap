@@ -32,13 +32,8 @@ def viol(path):
     return v
 
 
-for t in sorted(glob.glob(os.path.join(here, "logs", "s3_*_jT*.log"))):
+def table(t, x):
     name = os.path.basename(t)
-    if "_jTX" in name:
-        continue
-    x = t.replace("_jT", "_jTX")
-    if not os.path.exists(x):
-        continue
     rt, ft, ct = rounds(t)
     rx, fx, cx = rounds(x)
     print("== %s  vs  %s" % (name, os.path.basename(x)))
@@ -68,3 +63,13 @@ for t in sorted(glob.glob(os.path.join(here, "logs", "s3_*_jT*.log"))):
         print("   exchange cuts violated at TX's iterates (round: count, sum of violations): " +
               "  ".join("%d: %d, %.0f" % (r, c, s) for r, c, n, s in v))
     print()
+
+
+for t in sorted(glob.glob(os.path.join(here, "logs", "s3_*_jT*.log"))):
+    name = os.path.basename(t)
+    if "_jTX" in name:
+        continue
+    node = name[:name.index("_jT")]
+    for x in sorted(glob.glob(os.path.join(here, "logs", node + "_jTX*.log"))):
+        if "path" not in x:
+            table(t, x)
