@@ -40,23 +40,25 @@ central 500-2,500 was too high and its ">10,000" is not supported by anything th
   miss it. E2 puts it back for the one node where it is certain. **I did not bound a node on the mirror's own
   path below depth 1**, so "copy" is an assumption resting on that one phase [e].
 - **Where the cost is** (E1 by path level): the subtrees hanging off the path at depth 3 28%, depth 9 25%,
-  depth 1 13%, depth 10 11%, depth 6 6%, depth 4 5%; everything from depth 12 down 4%. The first report's
-  model put a second bulge at depths 17-30; **the dives find nothing there**: 30 near dives and 44 far dives at
-  depths 16-43 estimate 2% of the cost between them, and the slack measured on the path keeps falling
+  depth 1 13%, depth 10 11%, depth 6 6%, depth 4 5%; everything from depth 12 down 6%. The first report's
+  model put a second bulge at depths 17-30; **the dives find nothing there**: 48 near dives and 69 far dives at
+  depths 16-43 estimate 4% of the cost between them, and the slack measured on the path keeps falling
   (61k at depth 18, 37k at 30, 4k at 42).
 - **The shape.** Off the path a near node usually branches (it holds a solution within the bound's slack) and
-  the child the dive then draws fathoms: 62 of the 99 near dives that finished met a branching node, 14 of them
-  two levels running, none three. The deepest any dive went below its start is two levels.
+  the child the dive then draws fathoms: 42 of the 113 finished near dives met a branching node, 5 of them
+  two levels running, none three; no far dive did (114 node bounds: 111 fathom in the first solve, 3 in a
+  phase). The deepest any dive went below its start is two levels. A branching dive node costs 1,023
+  iterations on average (32 of the 47 ran to the 1,000-iteration phase limit).
 - **The survive rule against the dives, node by node** (235 distinct off-path nodes; s(d) = the on-path
   shortfall at that depth): right on 223. **All 24 nodes with excess below s(d) branched.** The 12 errors are
   all nodes that branched with excess above s(d): 6 of 16 between 1 and 1.6 s(d), 5 of 37 between 1.6 and 3,
-  1 of 18 between 3 and 5, none of 140 above 5. Ten of the 12 are near misses that reached the 1,000-iteration
-  phase limit 31k to 198k short, still gaining. So the rule's threshold is right for "cannot fathom" and about
-  1.5 times low for "does not fathom under `cut.cp_iters = 1000`"; a longer limit would move those ten.
+  1 of 18 between 3 and 5, none of 140 above 5. Eleven of the 12 (depths 4-16) are near misses that reached the
+  1,000-iteration phase limit 26k to 198k short; the twelfth is at depth 40. So the rule's threshold is right for "cannot fathom" and about
+  1.5 times low for "does not fathom under `cut.cp_iters = 1000`"; a longer limit may move those eleven (not tried).
 - **Path check**: 42 on-path nodes bounded (depths 1-42, incumbent at best known + 1), none fathomed, the
   largest certified value 608,210,961 at depth 42, against 608,215,054. No dive bounded an on-path node (they
   start off the path), so the chain is the whole check.
-- **Solver faults**: 0 pool retries and 0 cold retries in 276 dive node bounds and the 24 new chain nodes
+- **Solver faults**: 0 pool retries and 0 cold retries in the 274 traced dive node bounds and the 24 new chain nodes
   (`pool_retry.patch` in the build; counted from the `retry:` lines of every `err.txt`).
 - **tai80b: not continued.** No core was free: four cores ran the dives and the chain throughout, and under the
   container's 14.3 GB a tai80b root (7.3 GB) would have displaced two of them. Its bound stands at
@@ -77,9 +79,11 @@ central 500-2,500 was too high and its ">10,000" is not supported by anything th
   excess; not committed, rebuilt by `strata.py`). 0 to 19 near nodes and 9 to 58 far nodes per level.
 - **Dives** (`run_dive.sh`: `bnbdrv -e -r STATE`, start level = the stratum's depth, exponent 1.5, `est.xbar =
   1`, `est.xbar_mix = 0.3`, one seed per process; `worker.sh` + `jobs.txt`: four workers on a queue, each job a
-  set, a seed and a number of dives, so that no dive is cut by a clock). 99 jobs, 242 finished dives, 276 node
-  bounds. Far sets: 3 dives each (2 below depth 32; `far36`, `far39`, `far42` none: their nodes are counted
-  at one node each). Near sets: 2 to 8 dives each.
+  set, a seed and a number of dives, so that no dive is cut by a clock). 99 jobs, 242 finished dives, 274 node
+  bounds in the DNN traces. Far sets: 3 dives each. Near sets: 2 to 8 dives each. 15 far dives at depths 33-42
+  have an estimate and no trace line (their node fathomed before the DNN bound); in those eight processes
+  `dive_est.py` pairs estimates with traces in order and may be off by one, and `far36`, `far39`, `far42`
+  (no trace at all) are counted at one node per start node. Together they are under 0.1% of the cost.
 - **The estimate** (`dive_est.py` -> `logs/dive_est.txt`): root (`rootM`: 1,470 iterations, 2,170 CPU-s) +
   for every level D the on-path node (measured) + the mean over the dives of the far and of the near set
   (each finished dive is an unbiased estimate of the nodes and CPU-s of all subtrees of its set). Iterations
@@ -122,8 +126,9 @@ The near sets (all sets: `logs/dive_est.txt`):
 | `near41` | 1 | 3 | 3 / 0 / 0 | 41 | 1 ± 0 | 112 | 1 ± 0 |
 | `near42` | 3 | 3 | 3 / 0 / 0 | 42 | 2 ± 0 | 258 | 2 ± 0 |
 
-Far sets: 40 sets, 3 dives each as said; of their 123 node bounds 118 fathom in the first solve and 5 in
-a phase, none branched; each set's estimate is its number of nodes (10 to 58) at 2 to 4,000 CPU-s in all.
+Far sets: 43 (40 with traced dives), 3 dives each; of their 114 traced node bounds 111 fathom in the first
+solve and 3 in a phase, none branched; each set's estimate is about its number of nodes (10 to 58), 2 to
+4,000 CPU-s per set.
 
 By level, E1, the levels above 4,000 CPU-s (all levels: `logs/dive_est.txt`):
 
@@ -155,7 +160,7 @@ The model check:
 
 - **Few dives where the cost is.** `near3` (19 start nodes, 28% of E1) has 4 dives, `near9` 8, `near10` 8,
   `near1`/`nearx1` 2 and 6, `near4` 5, `near6` 4. Single dives of one set range from 7 to 22,254 nodes (`near10`)
-  and from 375 to 544,984 CPU-s (`near9`). The standard errors in the table are 30% to 95% of the means.
+  and from 6,009 to 544,984 CPU-s (`near9`). The standard errors in the table are 30% to 95% of the means.
 - **Paths under survivors are under-sampled** (the mirror's case, above). E2 corrects it at depth 1 only. The
   14 nodes below 0.5 s(d) that the dives met at depths 3-10 are the same kind in smaller: each has its own
   narrow path for the few levels until the slack falls below its excess. A dive samples that path one child
@@ -173,7 +178,7 @@ The model check:
   root; a run would start from a longer one.
 - **Node cost against the model's**: the model's 463 core-hours is 1.8 times E2 at 1.5 times the nodes; its
   prices (910 iterations for a branching node, 510 for a phase fathom, 45 for a first-solve fathom) are about
-  right for the first two (branching dive nodes: 1,110; phase fathoms: 235-459) and its count of branching
+  right for the first two (branching dive nodes: 1,023; phase fathoms: 235-459) and its count of branching
   nodes is higher than what the dives saw below depth 12.
 
 ### Not done
