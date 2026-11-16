@@ -82,6 +82,13 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
 
   // step 1: run branch and bound code on the given problem,
   // returning all nodes of level start_dive_level.
+  // With -e -r F the nodes step 1 bounds (F's nodes shallower than start_dive_level) take their
+  // strategy (pick_param) and the DNN gap filter from the root bound, which bnb sets only at a
+  // depth-0 node: F's must be in place before the call, not after it (review finding 2, Nov 16;
+  // before, those nodes were bounded with root bound 0, so every gap looked small and they got the
+  // deepest level's strategy: nug15 from a depth-0 state, strategy 2 at all six depth-1 nodes where
+  // the run uses 0 and 1, weaker bounds and other branching lines; tests/estimate_test.py checks it).
+  if (!std::isnan(est_resume_root_bound)) top_stats->root_bound = est_resume_root_bound;
 
   bnb(q,stack,s,top_stats,0,0,params,nlevel,ep->start_dive_level-1,false,-1);
 

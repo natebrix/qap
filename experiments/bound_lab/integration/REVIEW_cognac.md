@@ -36,6 +36,10 @@ outside the repository); two of its claims re-read here against the code. With t
    (checked here: the assignment follows the call). Resumed nodes shallower than `start_dive_level` are
    bounded in step 1 with root bound 0, which affects `pick_param`'s level and the DNN max-gap filter.
    tai50b's dives start at level 1, so they are unaffected. Fix: set `top_stats->root_bound` before the call.
+   **Fixed in cognac (Nov 16):** set before the call. It mattered more than "the level and the filter":
+   on nug15 from a depth-0 state, all six depth-1 nodes of step 1 took strategy 2 (the deepest level's)
+   where the run uses 0 and 1, with weaker bounds and other branching lines. `tests/estimate_test.py`
+   now checks that step 1 bounds a state's nodes as a plain resume does.
 3. **More silent off-paths of `dnn.dscale`** than finding 10 lists: m < 3, the prototype certificate, and
    `set_scaling` returning false (`dnn.C:559, 586`, a Householder vector formed without the sign choice
    that avoids cancellation). Only `-v` reports it.
