@@ -115,3 +115,78 @@ Relative gap information:
 
 sum = 5.85538
 stack = 10
+Mon Nov 16 10:06:53 [     1 dives              30 nodes      21551.07 seconds 0 ignored]
+
+    Total Time: 21551.1 seconds 
+         Nodes: 30 / 20 / 0
+    root bound: 4.10082e+08
+ fw iterations: 28724
+     DNN bound: 2 nodes, 0 fathomed, 138.249 s
+     cut phase: 2 nodes, 1 fathomed, 1355.06 s
+
+level    nodes	%fathom	%c.elim	    time
+ 6          10	0.0000	0.0000	 8988.82
+ 7          20	1.0000	N/A	12562.25
+
+Strategy breakdown:
+nodes       0        0       10       20 
+time     0.00     0.00  8988.82 12562.25 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 6           1	0.0000	1.0000	        110	   110.0	   69.37
+ 7           1	0.0000	1.0000	        110	   110.0	   68.88
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 6           1	0.0000	  812.32
+ 7           1	1.0000	  542.74
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 6           0	       0	       0	       0	       0
+ 7          20	      19	       0	       1	       0
+
+
+    Total Time: 37946 seconds 
+         Nodes: 949 / 939 / 0
+    root bound: 4.10082e+08
+ fw iterations: 74986
+     DNN bound: 4 nodes, 1 fathomed, 229.304 s
+     cut phase: 3 nodes, 1 fathomed, 2130.63 s
+
+level    nodes	%fathom	%c.elim	    time
+ 6          10	0.0000	0.0000	 8879.11
+ 7         939	1.0000	N/A	29066.91
+
+Strategy breakdown:
+nodes       0        0       10      939 
+time     0.00     0.00  8879.11 29066.91 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 6           2	0.0000	1.0000	        220	   110.0	  136.61
+ 7           2	0.5000	0.5000	        144	    72.0	   92.69
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 6           2	0.0000	 1587.89
+ 7           1	1.0000	  542.74
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 6           0	       0	       0	       0	       0
+ 7         939	     937	       1	       1	       0
+
+tmean = 37946	 nmean = 949
+tssq  = 3.41739e+09	 nssq  = 3.49406e+06
+tvar  = 2.68794e+08	 nvar  = 846430
+time stddev = 16395, err = 11593
+node stddev = 920.016, err = 650.55
+0 dives with depth >= 1000 were thrown out.
