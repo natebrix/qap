@@ -5,7 +5,7 @@
 """
 import os, re, sys, glob, collections
 H = os.path.dirname(os.path.abspath(__file__))
-ORDER = ["base", "base2", "z003", "z003b", "z002", "z010", "z030", "z060", "sko", "d1", "g1", "g2", "g2b", "g4", "g5", "basea", "g2a", "g2s"]
+ORDER = ["base", "base2", "z003", "z003b", "z002", "z010", "z030", "z060", "sko", "d1", "g1", "g2", "g2b", "g4", "g5", "basea", "skob", "g2a", "g2s"]
 
 def load(arm):
     d = os.path.join(H, "runs", arm)
