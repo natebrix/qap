@@ -12,3 +12,4 @@ for s in reh LA0 $(cd runs && ls -d LA_* LB* 2>/dev/null); do
 done
 python3 estimate.py > logs/estimate.txt 2>&1; cat logs/estimate.txt
 python3 validity.py > logs/validity.txt
+python3 webcheck.py > /dev/null; python3 webcost.py > /dev/null

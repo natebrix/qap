@@ -7,9 +7,10 @@ Estimated by Knuth dives (bnbdrv -e -r STATE, one finished dive per line of dive
 the nodes / CPU-s of all subtrees rooted at STATE's nodes):
   LA_offD   the off-path children at depth D of the spine node at depth D-1 (D = 2..8)
   LA_tail8  all children (depth 9) of the spine node at depth 8
-  LB, LB2   the depth-2 children of the sampled B nodes that branched (two groups of parents)
+  LB, LB2, LB_near   the depth-2 children of the sampled B nodes that branched (LB: 31:4, 31:15, 31:32, 31:43;
+            LB2: 31:5, 31:11; LB_near: 31:4, 31:15 again, alone)
   T_A = sum_D mean(LA_offD) + 7 spine nodes + mean(LA_tail8)
-  T_i (a B parent) = mean over its set's dives of (dive estimate x [the dive started under i])
+  T_i (a B parent) = mean over the dives of the sets that cover i of (dive estimate x [the dive started under i])
 
 E1 (the sampling design alone):   51 + T_A + (49/17) sum_{i in B sample} T_i
 E2 (post-stratified by landscape.py: the depth-1 children holding a solution within 1M of the best known value,
@@ -23,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import nodes as N, dives as DV
 H = os.path.dirname(os.path.abspath(__file__))
 cpu = lambda d: d["fcpu"] + d["ccpu"]
+COVER = {"LB": ["31:4", "31:15", "31:32", "31:43"], "LB2": ["31:5", "31:11"], "LB_near": ["31:4", "31:15"], "LB_43": ["31:43"]}   # the parents of each B set's start nodes
 TWIN, NEAR = ["31:32"], ["31:43"]            # in the sample; landscape: twins 31:0, 31:32; near 31:43, 31:42
 
 def dive_rows(setname):
@@ -58,10 +60,13 @@ def main():
 
     def parts(la, lb, k):            # k = 1 nodes, 2 CPU-s
         TA = sum(st.mean(r[k] for r in x) for x in la.values() if x) + (len(spine) if k == 1 else sum(cpu(d) for d in spine))
-        share = {}
-        for x in lb.values():
-            for r in x: share[r[0]] = share.get(r[0], 0.0) + r[k] / len(x)
-        return TA, share
+        # a parent's T_i from each set that covers it, averaged over the sets by their numbers of dives
+        num, den = {}, {}
+        for name, x in lb.items():
+            if not x: continue
+            for b in COVER[name]:
+                num[b] = num.get(b, 0.0) + sum(r[k] for r in x if r[0] == b); den[b] = den.get(b, 0) + len(x)
+        return TA, {b: num[b] / den[b] for b in num}
     def est(la, lb, Bs, B2s):
         out = []
         for k in (1, 2):
@@ -103,9 +108,14 @@ def main():
     for x in la_sets: add(x, 3.0)
     # the B sets by level are not split by parent: LB (31:4, 31:15, 31:32, 31:43) enters with the weight that
     # reproduces E2's total for its parents, LB2 (31:5, 31:11) with 45/15
-    tb = sum(shc.get(b, 0.0) for b in Bfix if b in ("31:4", "31:15", "31:32", "31:43"))
-    wb = (2 * sum(shc.get(b, 0.0) for b in NEAR) + 45.0 / len(B2) * sum(shc.get(b, 0.0) for b in ("31:4", "31:15"))) / tb if tb else 0.0
-    add("LB", wb); add("LB2", 45.0 / len(B2))
+    # the B sets' per-level tables are not split by parent: they enter in proportion, scaled so that their
+    # sum is E2's total for the B parents (so the split by depth below depth 2 is approximate for B)
+    def settot(name):
+        p = f"{H}/runs/{name}/levels.csv"
+        return sum(float(r["cpu_mean"]) for r in csv.DictReader(open(p))) if os.path.exists(p) else 0.0
+    want = 2 * sum(shc.get(b, 0.0) for b in NEAR) + 45.0 / len(B2) * sum(shc.get(b, 0.0) for b in B2)
+    have = sum(settot(x) for x in lb)
+    for x in lb: add(x, want / have if have else 0.0)
     tn = sum(v[0] for v in lev.values()); tc = sum(v[1] for v in lev.values())
     print("\nE2 by depth [e] (depths 0, 1 and the spine measured):\n\n| depth | nodes | CPU-s | share of CPU |\n|---|---|---|---|")
     for dpt in sorted(lev): print(f"| {dpt} | {lev[dpt][0]:,.0f} | {lev[dpt][1]:,.0f} | {100 * lev[dpt][1] / tc:.1f}% |")
