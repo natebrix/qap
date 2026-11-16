@@ -1,4 +1,4 @@
-settings 71 hash 9c9b373125198d4c
+settings 80 hash 21460fc0443e48b7
 setting dnn.depths 1:48 par policy
 setting dnn.maxgap 1 par policy
 setting dnn.giveup 600 par policy
@@ -16,6 +16,9 @@ setting dnn.beta 0.21 par policy
 setting dnn.refresh 120 par policy
 setting dnn.warm_y 2 par policy
 setting dnn.beta_sched w=0.36 par policy
+setting dnn.dscale 0 default policy
+setting dnn.dscale0 1 default policy
+setting dnn.dscale_until 0 default policy
 setting dnn.cross 2 par policy
 setting dnn.cross_first 0 default policy
 setting dnn.lazycert 1 par policy
@@ -25,6 +28,7 @@ setting cut.zone 0 default policy
 setting cut.maxdepth 1073741824 default policy
 setting cut.side 0 default policy
 setting cut.grid "" default policy
+setting cut.regions "" default policy
 setting cut.rounds 12 default policy
 setting cut.iters 300 default policy
 setting cut.k 1000 default policy
@@ -42,8 +46,13 @@ setting cut.damp1 "" default policy
 setting cut.equip "" default policy
 setting cut.cp "" default policy
 setting cut.giveup "" default policy
+setting cut.giveup_depth 0 default policy
 setting cut.cp_iters 0 default policy
+setting cut.handover "" default policy
 setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_extrap "" default policy
+setting cut.cp_wc_gap 0 default policy
+setting cut.cp_wc_deficit 0 default policy
 setting cut.cp_lazycert 0 default policy
 setting cut.xbar 0 default policy
 setting pool.on 0 default policy

@@ -115,6 +115,11 @@ struct DNNYCuts {
   virtual void snapshot(int slot, double scale, double beta) { (void)slot; (void)scale; (void)beta; }
   virtual int cert_term_at(int slot, double *Ladd, double &abs_add, double &hsum)
   { (void)slot; (void)Ladd; (void)abs_add; (void)hsum; return -1; }
+  // DNNParams::cp_extrap (bound_lab/cpfast): op 0 keeps the multipliers as the checkpoint;
+  // op 1 keeps them as the guard copy and extrapolates nu <- max(0, nu + gamma (nu -
+  // checkpoint)); op 2 restores the guard copy. Any nu >= 0 certifies, so this only
+  // moves the iteration. Default: nothing
+  virtual void extrap(int op, double gamma) { (void)op; (void)gamma; }
 };
 
 struct DNNParams {
@@ -212,6 +217,13 @@ struct DNNParams {
                        // spectral/acceleration history or stopping-rule counters.
   int child_bounds;    // 1: also return child bounds (DNNResult::child_lb) from the
                        // best certificate's outer assignment problem (0)
+  // CP-ADMM only (ycuts): every cp_extrap iterations (0: off) the state is extrapolated
+  // along its own trajectory: x <- x + cp_extrap_gamma (x - x_ck), x_ck the state half a
+  // period earlier; x = the cut multipliers (cp_extrap_mode 1), with Z (2), with Z and Y (3).
+  // Guard: when the certified value cp_extrap_guard iterations later is below the value of
+  // the check before the jump, the state of before the jump is restored and gamma halved.
+  int cp_extrap, cp_extrap_guard, cp_extrap_mode;
+  double cp_extrap_gamma;
   DNNYCuts *ycuts;     // CP-ADMM (see DNNYCuts): cuts in the Y-step, certified with
                        // their multipliers at every check. NULL: off (default). Not
                        // with prototype_cert, the accelerations or the child

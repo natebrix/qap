@@ -30,6 +30,9 @@ DNNCutParams::DNNCutParams()
   pool_in = NULL; pool_out = NULL; other_orig = NULL; fixed_at = NULL; pool_check = 0;
   pool_all_round = -1; pool_all_out = NULL;
   cp_every = 0; cp_k = 0; cp_iters = 0; cp_sweeps = 1; cp_passes = 1;
+  cp_extrap = 0; cp_extrap_gamma = 1.0; cp_extrap_guard = 30; cp_extrap_mode = 2;
+  cp_wc_gap = 0; cp_wc_deficit = 0;
+  ho_n0 = ho_a = ho_b = 0; ho_phi = 1.5; ho_w = 0; ho_p = 2; ho_kappa = 0;
 }
 
 namespace {
@@ -590,6 +593,31 @@ std::vector<Region> prefix_regions(int m)
 // prefixes of the free elements (bnb.C sets cp.prefix when it gives no grid)
 static std::vector<Region> cut_regions(const DNNCutParams &cp, const std::vector<int> &free_orig, int n_orig, int m)
 {
+  if (!cp.regions.empty()) {
+    // arbitrary regions in original indices (cp.regions), mapped to the free elements;
+    // as grid_regions: no empty, full, duplicate or complementary sets
+    std::vector<Region> out;
+    if (cp.grid_rows > 0) out = grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
+    std::vector<int> local(n_orig, -1);
+    for (size_t t = 0; t < free_orig.size(); t++) local[free_orig[t]] = (int)t;
+    std::set<std::vector<int>> seen;
+    for (auto &r : out) {
+      seen.insert(r.loc);
+      std::vector<char> in(m, 0); for (int a : r.loc) in[a] = 1;
+      std::vector<int> comp; for (int a = 0; a < m; a++) if (!in[a]) comp.push_back(a);
+      seen.insert(comp);
+    }
+    for (size_t s = 0; s < cp.regions.size(); s++) {
+      std::vector<char> in(m, 0);
+      for (int x : cp.regions[s]) if (x >= 0 && x < n_orig && local[x] >= 0) in[local[x]] = 1;
+      std::vector<int> loc, comp;
+      for (int a = 0; a < m; a++) (in[a] ? loc : comp).push_back(a);
+      if (loc.empty() || comp.empty() || seen.count(loc) || seen.count(comp)) continue;
+      seen.insert(loc);
+      out.push_back({"set" + std::to_string(s), loc});
+    }
+    return out;
+  }
   if (cp.grid_rows > 0) return grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
   if (cp.prefix) return prefix_regions(m);
   return std::vector<Region>();
@@ -683,6 +711,9 @@ public:
   bool stalled = false;
   std::vector<std::pair<int, double>> giveup;   // cut.giveup: (T, G) pairs, see DNNCutParams
   bool gaveup = false;
+  // cut.handover (DNNCutParams): ho_w > 0 replaces the stall rule; ho_kids = m, ho_unit = 0.1% of |cutoff|
+  int ho_w = 0, ho_kids = 0, ho_t0 = -1;
+  double ho_n0 = 0, ho_a = 0, ho_b = 0, ho_phi = 1.5, ho_unit = 1, ho_p = 2, ho_kappa = 0;
   std::vector<std::pair<int, double>> best_hist;
   int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
   std::vector<std::vector<int>> rloc;
@@ -1212,14 +1243,57 @@ public:
     return dense_term(snap_f[slot], v, Ladd, abs_add, hsum) ? 1 : 0;
   }
 
+  // DNNParams::cp_extrap: the checkpoint and the guard copy of nu (in units of mu / scale =
+  // beta nu, so that a change of beta in between does not matter; cuts separated since count
+  // from zero; a compaction since cancels the step)
+  std::vector<double> ex_ck, ex_sg;
+  int ex_ck_gen = -1, ex_sg_gen = -1;
+  void extrap(int op, double gamma) override
+  {
+    const double b = beta_last > 0 ? beta_last : 1.0;
+    if (op == 0) { ex_ck.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_ck[t] = b * nu[t]; ex_ck_gen = gen; }
+    else if (op == 1) {
+      ex_sg.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_sg[t] = b * nu[t];
+      ex_sg_gen = gen;
+      if (ex_ck_gen != gen) return;
+      for (size_t t = 0; t < nu.size(); t++) {
+        const double c = t < ex_ck.size() ? ex_ck[t] : 0.0, v = b * nu[t];
+        nu[t] = std::max(0.0, v + gamma * (v - c)) / b;
+      }
+      rebuild_sums();
+    } else if (op == 2 && ex_sg_gen == gen) {
+      for (size_t t = 0; t < nu.size(); t++) nu[t] = (t < ex_sg.size() ? ex_sg[t] : 0.0) / b;
+      rebuild_sums();
+    }
+  }
+
   bool stop(int it, double best) override
   {
-    if ((stall_window <= 0 && giveup.empty()) || !std::isfinite(stall_cutoff)) return false;
+    if ((stall_window <= 0 && giveup.empty() && ho_w <= 0) || !std::isfinite(stall_cutoff)) return false;
     const double b = std::max(best, stall_first);
     best_hist.push_back({it, b});
     // cut.giveup: from iteration T a gap still above G will not close
     for (const auto &tg : giveup)
       if (it >= tg.first && stall_cutoff - b > tg.second) { gaveup = true; stalled = true; return true; }
+    if (ho_w > 0) {
+      // cut.handover: finishing the phase at its present rate against handing over to the children
+      // not before 200, nor before the running best has been moving for W iterations: a phase at a
+      // new penalty starts flat (30 to 200 iterations from an inherited pool); one that has not moved
+      // by 400 is handed over
+      if (ho_t0 < 0 && b > stall_first) ho_t0 = it;
+      if (it < std::max(ho_w, 200)) return false;
+      if (ho_t0 < 0) { if (it >= 400) { stalled = true; return true; } return false; }
+      if (it < ho_t0 + ho_w) return false;
+      double b0 = stall_first;
+      for (const auto &h : best_hist) { if (h.first > it - ho_w) break; b0 = h.second; }
+      const double gap = stall_cutoff - b, rate = std::max(0.0, b - b0) / ho_w, g = gap / ho_unit;
+      // (i) finishing costs more than handing over, and (ii, KAPPA > 0) an iteration no longer saves
+      // KAPPA iterations of the children: rate x dC/dgap < KAPPA
+      const double C = ho_kids * (ho_n0 + ho_a * g + ho_b * pow(std::max(g, 0.0), ho_p));
+      const double dC = ho_kids * (ho_a + ho_b * ho_p * pow(std::max(g, 0.0), ho_p - 1)) / ho_unit;
+      if (ho_phi * gap > rate * C && (ho_kappa <= 0 || rate * dC < ho_kappa)) { stalled = true; return true; }
+      return false;
+    }
     if (stall_window <= 0 || it < stall_window) return false;
     double b0 = stall_first;   // the running best at it - W (first_lb before the first check)
     for (const auto &h : best_hist) { if (h.first > it - stall_window) break; b0 = h.second; }
@@ -2228,6 +2302,9 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   pj.stall_window = cp.stall_rounds > 0 ? cp.stall_rounds * cp.iters : 0;
   pj.stall_factor = cp.stall_factor; pj.stall_cutoff = cutoff; pj.stall_first = first_lb;
   pj.giveup = cp.giveup;
+  pj.ho_w = cp.ho_w; pj.ho_n0 = cp.ho_n0; pj.ho_a = cp.ho_a; pj.ho_b = cp.ho_b; pj.ho_phi = cp.ho_phi;
+  pj.ho_p = cp.ho_p; pj.ho_kappa = cp.ho_kappa;
+  pj.ho_kids = m; pj.ho_unit = 0.001 * std::max(1.0, fabs(cutoff));
   DNNParams par = base;
   par.ycuts = &pj;
   par.L_add = NULL; par.L_add_abs = 0;
@@ -2235,6 +2312,21 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   par.hopeless_after = 0; par.hopeless_gap_ratio = 0;   // as the cut rounds
   par.warm_primal = cp.warm_primal;
   par.cut_round = 1;   // DNN_BETA_SCHED's wc, as the rounds
+  // cut.cp_wc_gap: a phase that starts within this of the cutoff keeps the children's factor w
+  // (not wc): the change of penalty costs the first 30-150 iterations, which is most of
+  // a near miss's phase (bound_lab/cpfast)
+  if (cp.cp_wc_gap > 0 && std::isfinite(cutoff) && cutoff - first_lb < cp.cp_wc_gap) par.cut_round = 2;
+  // cut.cp_wc_deficit: wc only where the first solve's primal objective is at least this
+  // fraction of |cutoff| below its certified bound. That deficit is 0.5-1.4% at unpooled far
+  // misses, where a higher penalty shortens the phase 2.4-4.6x, and within +-0.2% of zero at
+  // pooled children and on the path to the best known solution, where it gains nothing or loses
+  if (cp.cp_wc_deficit > 0 && std::isfinite(cutoff) && std::isfinite(first_lb) && std::isfinite(first_primal) &&
+      first_lb - first_primal < cp.cp_wc_deficit * std::max(1.0, fabs(cutoff))) par.cut_round = 2;
+  if (cp.verbose)
+    printf("cp phase start: shortfall %.1f, first-solve deficit (lb - primal) %.1f: penalty factor %s\n", cutoff - first_lb,
+           first_lb - first_primal, par.cut_round == 2 ? "w (kept)" : "wc if set");
+  par.cp_extrap = cp.cp_extrap; par.cp_extrap_gamma = cp.cp_extrap_gamma;
+  par.cp_extrap_guard = cp.cp_extrap_guard; par.cp_extrap_mode = cp.cp_extrap_mode;
   DNNWarm save;
   DNNResult res = dnn_bound(A, B, C, shift, cutoff, par, warm, &save);
   if (res.status == DNN_ERROR && res.iterations == 0)   // a setting the CP solve refuses (the accelerations)

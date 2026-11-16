@@ -248,6 +248,7 @@ DNNParams::DNNParams()
   warm_primal = 0;
   child_bounds = 0;
   ycuts = NULL;
+  cp_extrap = 0; cp_extrap_guard = 30; cp_extrap_mode = 2; cp_extrap_gamma = 1.0;
   verbose = 0;
 }
 
@@ -524,7 +525,72 @@ struct Work {
   // CP-ADMM (DNNParams::ycuts): the projected Y, the certificate's objective and
   // cut term; allocated only then
   std::vector<double> Ycp, Lcp, Lcp_add;
+  // dnn.dscale (diagonal congruence scaling, see dnn_bound): Yt = D Y D with
+  // D = diag(d0, d1 kron d2), so Yt = Vt Rt Vt' with Vt = orth(D V). The transform
+  // keeps its form: range(D1 Vb) is the complement of u1 = D1^-1 e, so H becomes one
+  // reflector per mode (hu1s for the facility index, hu2s for the location index), and
+  // the 45-degree rotation of the pair (0, ll) becomes the reflection that maps e_0 to
+  // the unit vector c = (d0; (q1 kron q2)/m on the last row and column of the grid),
+  // q = H D e, the part of D (1; e kron e / m) outside the kept block. sc selects the
+  // scaled transform; the certificate always runs with sc = false on a multiplier in
+  // original units, so it is the plain certificate.
+  bool sc = false;
+  std::vector<double> hu1s, hu2s, dsc, idsc;   // dsc: the diagonal of D (length n1), idsc its inverse
+  double tau1s = 0, tau2s = 0, tauc = 0;
+  std::vector<int> cidx;        // support of the reflection vector e_0 - c
+  std::vector<double> cval;
+  std::vector<double> racc;     // rows_rot accumulator (n1)
   ~Work() { if (use_amx) amx_ctx_free(&amx); }
+
+  // d1, d2: positive, length m. Returns false when the scaling is degenerate.
+  bool set_scaling(const double *d1, const double *d2, double d0)
+  {
+    hu1s.assign(m, 0); hu2s.assign(m, 0);
+    for (int pass = 0; pass < 2; pass++) {
+      const double *d = pass == 0 ? d1 : d2;
+      std::vector<double> &hu_ = pass == 0 ? hu1s : hu2s;
+      double nn = 0;
+      for (int i = 0; i < m; i++) { if (!(d[i] > 0) || !std::isfinite(d[i])) return false; nn += 1.0 / (d[i] * d[i]); }
+      nn = sqrt(nn);
+      for (int i = 0; i < m; i++) hu_[i] = 1.0 / (d[i] * nn);   // unit vector along D^-1 e
+      hu_[m - 1] -= 1.0;
+      double uu = 0;
+      for (int i = 0; i < m; i++) uu += hu_[i] * hu_[i];
+      if (!(uu > 1e-12)) return false;
+      (pass == 0 ? tau1s : tau2s) = 2.0 / uu;
+    }
+    // q = H D e per mode
+    std::vector<double> q1(m), q2(m);
+    for (int pass = 0; pass < 2; pass++) {
+      const double *d = pass == 0 ? d1 : d2;
+      const std::vector<double> &hu_ = pass == 0 ? hu1s : hu2s;
+      const double t_ = pass == 0 ? tau1s : tau2s;
+      std::vector<double> &q = pass == 0 ? q1 : q2;
+      double dt = 0;
+      for (int i = 0; i < m; i++) dt += hu_[i] * d[i];
+      for (int i = 0; i < m; i++) q[i] = d[i] - t_ * dt * hu_[i];
+    }
+    cidx.clear(); cval.clear();
+    cidx.push_back(0); cval.push_back(d0);
+    for (int a = 0; a < m; a++)
+      for (int b = 0; b < m; b++)
+        if (a == m - 1 || b == m - 1) { cidx.push_back(1 + a * m + b); cval.push_back(q1[a] * q2[b] / m); }
+    double cn = 0;
+    for (double v : cval) cn += v * v;
+    cn = sqrt(cn);
+    if (!(cn > 0) || !std::isfinite(cn)) return false;
+    for (double &v : cval) v = -v / cn;
+    cval[0] += 1.0;                 // e_0 - c
+    double ww = 0;
+    for (double v : cval) ww += v * v;
+    if (!(ww > 1e-12)) return false;
+    tauc = 2.0 / ww;
+    dsc.assign(n1, d0); idsc.assign(n1, 1.0 / d0);
+    for (int a = 0; a < m; a++)
+      for (int b = 0; b < m; b++) { dsc[1 + a * m + b] = d1[a] * d2[b]; idsc[1 + a * m + b] = 1.0 / (d1[a] * d2[b]); }
+    racc.assign(n1, 0);
+    return true;
+  }
 
   void alloc(int m_)
   {
@@ -598,11 +664,13 @@ struct Work {
 inline void hh_block(Work &w, double *X)
 {
   const int m = w.m;
-  const double *u = w.hu.data(), tau = w.tau;
+  // u2, tau2: along the location index l; u, tau: along the facility index k
+  const double *u = w.sc ? w.hu1s.data() : w.hu.data(), tau = w.sc ? w.tau1s : w.tau;
+  const double *u2 = w.sc ? w.hu2s.data() : w.hu.data(), tau2 = w.sc ? w.tau2s : w.tau;
   double *s = w.tmp.data();
   for (int k = 0; k < m; k++) {
-    double *row = X + k * m, d = tau * dot4(row, u, m);
-    for (int l = 0; l < m; l++) row[l] -= d * u[l];
+    double *row = X + k * m, d = tau2 * dot4(row, u2, m);
+    for (int l = 0; l < m; l++) row[l] -= d * u2[l];
   }
   for (int l = 0; l < m; l++) s[l] = 0;
   for (int k = 0; k < m; k++) {
@@ -616,8 +684,19 @@ inline void hh_block(Work &w, double *X)
 }
 
 // rotation of the pair (0, ll) of a row: x <- x Rot
-inline void col_rot(double *row, int ll)
+inline void col_rot(const Work &w, double *row, int ll)
 {
+  if (w.sc) {
+    // the reflection I - tauc v v', v = e_0 - c (see Work::set_scaling)
+    const int nc = (int)w.cidx.size();
+    const int *ix = w.cidx.data();
+    const double *cv = w.cval.data();
+    double s = 0;
+    for (int t = 0; t < nc; t++) s += cv[t] * row[ix[t]];
+    s *= w.tauc;
+    for (int t = 0; t < nc; t++) row[ix[t]] -= s * cv[t];
+    return;
+  }
   const double h = sqrt(0.5);
   double a = row[0], b = row[ll];
   row[0] = h * (a + b);
@@ -628,6 +707,21 @@ inline void col_rot(double *row, int ll)
 void rows_rot(Work &w, double *M)
 {
   const int n1 = w.n1;
+  if (w.sc) {
+    const int nc = (int)w.cidx.size();
+    double *acc = w.racc.data();
+    for (int c = 0; c < n1; c++) acc[c] = 0;
+    for (int t = 0; t < nc; t++) {
+      const double *row = M + (size_t)w.cidx[t] * n1, cv = w.cval[t];
+      for (int c = 0; c < n1; c++) acc[c] += cv * row[c];
+    }
+    for (int t = 0; t < nc; t++) {
+      double *row = M + (size_t)w.cidx[t] * n1;
+      const double f = w.tauc * w.cval[t];
+      for (int c = 0; c < n1; c++) row[c] -= f * acc[c];
+    }
+    return;
+  }
   const double h = sqrt(0.5);
   double *r0 = M, *rl = M + (size_t)w.ll * n1;
   for (int c = 0; c < n1; c++) {
@@ -644,12 +738,14 @@ void rows_rot(Work &w, double *M)
 void rows_D(Work &w, double *M)
 {
   const int m = w.m, n1 = w.n1;
-  const double *u = w.hu.data(), tau = w.tau;
   double *acc = w.tmp.data();
   const int CB = 48;
   for (int c0 = 0; c0 < n1; c0 += CB) {
     const int nc = std::min(CB, n1 - c0);
-    for (int pass = 0; pass < 2; pass++)
+    for (int pass = 0; pass < 2; pass++) {
+      // pass 0 runs along the location index, pass 1 along the facility index
+      const double *u = !w.sc ? w.hu.data() : (pass == 0 ? w.hu2s.data() : w.hu1s.data());
+      const double tau = !w.sc ? w.tau : (pass == 0 ? w.tau2s : w.tau1s);
       for (int g = 0; g < m; g++) {
         // pass 0: along j for fixed i = g; pass 1: along i for fixed j = g
         for (int c = 0; c < nc; c++) acc[c] = 0;
@@ -665,6 +761,7 @@ void rows_D(Work &w, double *M)
           for (int c = 0; c < nc; c++) row[c] -= f * acc[c];
         }
       }
+    }
   }
 }
 
@@ -711,7 +808,7 @@ void forward(Work &w, const double *A, double *Wout, const double *B = NULL,
         memcpy(row, a, n1 * sizeof(double));
       }
       hh_block(w, row + 1);
-      col_rot(row, ll);
+      col_rot(w, row, ll);
     }
   w.t_rows_ready = false;   // T is consumed (or overwritten) by this call
   rows_D(w, T);
@@ -746,7 +843,7 @@ void expand(Work &w, const double *R, double *Mout)
     if (s < 0) continue;
     const double *rs = R + (size_t)s * K;
     for (int t = 0; t < K; t++) row[w.kept[t]] = rs[t];
-    col_rot(row, ll);
+    col_rot(w, row, ll);
     hh_block(w, row + 1);
   }
   rows_rot(w, Mout);
@@ -1631,6 +1728,51 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   std::vector<std::pair<int, double>> cr_hist;   // (iteration, running best) at every check
 
   double *Y = w.Y.data(), *Z = w.Z.data(), *VRV = w.VRV.data(), *Zc = w.Zc.data();
+  /*
+   dnn.dscale = p > 0 (experiments/bound_lab/admm): the PRSM runs on the congruence-
+   scaled variable Yt = D Y D, D = diag(1, d1 kron d2), d1_i = (r1_i / geometric
+   mean)^p with r1_i the 2-norm of row i of (|A| + |A'|)/2, d2_j likewise from B. In
+   the original variables that is the entrywise penalty beta d_a^2 d_b^2, large where
+   the objective's entries are large, while the R-step stays a plain PSD projection
+   (Work::set_scaling). The scaled problem is
+     min <D^-1 L D^-1, Yt>,  0 <= Yt_ab <= d_a d_b,  Yt_00 = 1,  gangster zeros,
+     Yt = Vt Rt Vt', Rt psd.
+   Y, Z and VRV hold the scaled iterates inside the loop; the certificate multiplier
+   Zc is written in original units (D Zc_t D: V'ZcV = T'(Vt'Zc_t Vt)T <= 0 with
+   D V = Vt T), start and save are in original units, and every certificate runs
+   with the plain transform (w.sc = false), so it is the certificate of the unscaled
+   solve. Not with the cut hook, the accelerations or the prototype certificate.
+  */
+  const double dscale_p = setting_d("dnn.dscale");
+  bool sc_on = false;
+  if ((dscale_p > 0 || (setting_d("dnn.dscale0") > 0 && setting_d("dnn.dscale0") != 1.0)) && !par.ycuts && par.anderson == 0 && par.halpern == 0 && !(par.momentum > 0) &&
+      !par.prototype_cert && m >= 3) {
+    std::vector<double> d1(m), d2(m);
+    for (int pass = 0; pass < 2; pass++) {
+      const MAT *Mx = pass == 0 ? A : B;
+      std::vector<double> &d = pass == 0 ? d1 : d2;
+      double rmax = 0;
+      for (int i = 0; i < m; i++) {
+        double q = 0;
+        for (int k = 0; k < m; k++) { const double v = 0.5 * (fabs(Mx->me[i][k]) + fabs(Mx->me[k][i])); q += v * v; }
+        d[i] = sqrt(q); rmax = std::max(rmax, d[i]);
+      }
+      double lg = 0;
+      for (int i = 0; i < m; i++) { d[i] = std::max(d[i], 1e-3 * rmax); if (d[i] > 0) lg += log(d[i]); }
+      const double gm = exp(lg / m);
+      for (int i = 0; i < m; i++) d[i] = (rmax > 0 && gm > 0) ? pow(d[i] / gm, dscale_p) : 1.0;
+    }
+    // dnn.dscale0: the scale d0 of the homogenizing coordinate (index 0), so the
+    // arrow entries x_ij = Y_0,(ij) run at the penalty beta d0^2 d_ij^2 (1: unscaled)
+    const double d0s = setting_d("dnn.dscale0");
+    sc_on = w.set_scaling(d1.data(), d2.data(), d0s > 0 ? d0s : 1.0);
+    if (par.verbose) {
+      double a1 = HUGE_VAL, b1 = 0, a2 = HUGE_VAL, b2 = 0;
+      for (int i = 0; i < m; i++) { a1 = std::min(a1, d1[i]); b1 = std::max(b1, d1[i]); a2 = std::min(a2, d2[i]); b2 = std::max(b2, d2[i]); }
+      printf("dscale p %g d0 %g on %d: d1 in [%.4g, %.4g], d2 in [%.4g, %.4g]\n", dscale_p, d0s, (int)sc_on, a1, b1, a2, b2);
+    }
+  }
+  const double *dsc = sc_on ? w.dsc.data() : NULL, *idsc = sc_on ? w.idsc.data() : NULL;
   Y[0] = 1.0;
   if (par.warm_primal && start) {
     // Explicit same-node initialization; never infer it from dimension alone.
@@ -1653,6 +1795,14 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       if (par.warm_primal && !std::isfinite(Z[t])) {
         res.status = DNN_ERROR; res.cpu = thread_cpu() - t0; return res;
       }
+    }
+  }
+  if (sc_on) {
+    // the start is in original units: Yt = D Y D, Zt = D^-1 Z D^-1
+    for (int r = 0; r < n1; r++) {
+      double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1;
+      const double dr = dsc[r], ir = idsc[r];
+      for (int c = 0; c < n1; c++) { yr[c] *= dr * dsc[c]; zr[c] *= ir * idsc[c]; }
     }
   }
   double best = -HUGE_VAL;
@@ -1718,7 +1868,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     // so that children and cut rounds can run at different betas
     // (experiments/wil50_feasibility/speed/nov6_admm); unset: w for both. Not
     // par.L_add: a pooled child carries a cut term as well, and is a child
-    if (warm_call && par.cut_round && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
+    // (cut_round 2: a phase that keeps w, cut.cp_wc_gap; bound_lab/cpfast)
+    if (warm_call && par.cut_round == 1 && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
   }
   // DNN_ADMM_WARM_BETA=F1:T:F2[:force] (off unless set): a warm-started call runs at
   // F1 x base until the first scheduled refresh at or after iteration T, then at
@@ -1776,7 +1927,47 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     printf("bsched kind %d beta %.6g (base %.6g) f %g t %d f2 %g force %d c %g every %d max %d freeze %d nodes %d w %g\n",
            bs.kind, beta, beta0, bs.f, bs.t, bs.f2, bs.force, bs.c, bs.every, bs.maxchg, bs.freeze,
            bs.nodes, bs.w);
+  // cp_extrap (see DNNParams): the checkpoint, the guard copy and the pending test
+  const int ex_E = (yc && par.cp_extrap >= 2 && par.cp_extrap_gamma > 0) ? par.cp_extrap : 0;
+  std::vector<double> ex_Yck, ex_Zck, ex_Ysg, ex_Zsg;
+  bool ex_have = false, ex_pending = false;
+  double ex_gamma = par.cp_extrap_gamma, ex_ref = -HUGE_VAL, ex_last = -HUGE_VAL;
+  int ex_it = 0, ex_jumps = 0, ex_reverts = 0;
+  // dnn.dscale_until = T > 0: the scaled iteration for the first T iterations of a call, the
+  // plain one after (the state converts exactly; the tracker restarts from a full eigendecomposition)
+  const int sc_until = (int)setting_i("dnn.dscale_until");
   for (int it = 1; it <= par.max_iter; it++) {
+    if (sc_on && sc_until > 0 && it == sc_until + 1) {
+      for (int r = 0; r < n1; r++) {
+        double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1;
+        const double dr = dsc[r], ir = idsc[r];
+        for (int c = 0; c < n1; c++) { yr[c] *= ir * idsc[c]; zr[c] *= dr * dsc[c]; }
+      }
+      sc_on = false;
+      w.have_basis = false;
+      w.t_rows_ready = false;
+      if (par.verbose) printf("dscale off at iteration %d\n", it);
+    }
+    w.sc = sc_on;   // the iteration's transforms (the certificate below turns it off)
+    if (ex_E > 0 && it > 1) {
+      const size_t nn = (size_t)n1 * n1;
+      const int k = it - 1;   // iterations done
+      if (k % ex_E == ex_E / 2 && !ex_pending) {
+        if (par.cp_extrap_mode >= 2) ex_Zck.assign(Z, Z + nn);
+        if (par.cp_extrap_mode >= 3) ex_Yck.assign(Y, Y + nn);
+        yc->extrap(0, 0);
+        ex_have = true;
+      } else if (k % ex_E == 0 && ex_have && !ex_pending && ex_last > -HUGE_VAL) {
+        ex_Zsg.assign(Z, Z + nn); ex_Ysg.assign(Y, Y + nn);
+        if (par.cp_extrap_mode >= 2) for (size_t t = 0; t < nn; t++) Z[t] += ex_gamma * (Z[t] - ex_Zck[t]);
+        if (par.cp_extrap_mode >= 3) for (size_t t = 0; t < nn; t++) Y[t] += ex_gamma * (Y[t] - ex_Yck[t]);
+        yc->extrap(1, ex_gamma);
+        ex_pending = true; ex_ref = ex_last; ex_it = it; ex_jumps++; ex_have = false;
+        if (par.eig_mode == DNN_EIG_SUBSPACE) w.since_refresh = par.refresh;   // a full eigendecomposition after the jump
+        w.t_rows_ready = false;
+        if (par.verbose) printf("extrap it %d gamma %g (ref %.4f)\n", it, ex_gamma, ex_ref);
+      }
+    }
     if (bs.kind && it > 1 && it <= bs.freeze) {
       // a change of beta, only where the R-step will run a scheduled full
       // eigendecomposition (force: make this iteration one)
@@ -1831,6 +2022,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     // Y-step, Z-step (and the certificate multiplier Zc = Z + beta (Y - VRV)),
     // a row at a time: clip, then the fixed entries, then the updates
     long double pres2 = 0, dy2 = 0, dz2 = 0;
+    long double pres2_0 = 0, dy2_0 = 0;   // the arrow's share (row and column 0), verbose only
     double *yn = w.tmp.data();
     if (yc) {
       // CP-ADMM: Zc and the first dual step as below, X = VRV - (L/scale + Z)/beta
@@ -1863,6 +2055,55 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         }
         pres2 += dot4(rs, rs, n1);
         dy2 += dot4(ds, ds, n1);
+      }
+    } else if (sc_on) {
+      // the Y/Z step in the scaled variables (dnn.dscale); Zc in original units;
+      // pres and dY are reported in original units
+      for (int r = 0; r < n1; r++) {
+        const double *lr = L + (size_t)r * n1, *vr = VRV + (size_t)r * n1;
+        double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1, *cr = Zc + (size_t)r * n1;
+        const double dr = dsc[r], ir = idsc[r] * iscale;
+        if (rstep_cert)
+          for (int c = 0; c < n1; c++) cr[c] = (zr[c] + beta * (yr[c] - vr[c])) * (dr * dsc[c]);
+        if (gamma1 > 0)
+          for (int c = 0; c < n1; c++) zr[c] += gamma1 * beta * (yr[c] - vr[c]);
+        for (int c = 0; c < n1; c++) {
+          double y = vr[c] - (lr[c] * ir * idsc[c] + zr[c]) * ibeta;
+          yn[c] = std::min(dr * dsc[c], std::max(0.0, y));
+        }
+        if (r == 0) {
+          yn[0] = dsc[0] * dsc[0];
+        } else {
+          int i = (r - 1) / m, j = (r - 1) % m;
+          for (int l = 0; l < m; l++) if (l != j) yn[1 + i * m + l] = 0;
+          for (int k = 0; k < m; k++) if (k != i) yn[1 + k * m + j] = 0;
+        }
+        if (w.elim) {
+          if (r > 0 && w.elim[r - 1]) {
+            for (int c = 0; c < n1; c++) yn[c] = 0;
+          } else {
+            for (int a : w.elim_idx) yn[a] = 0;
+          }
+        }
+        double *rs = w.tmp.data() + n1, *ds = rs + n1;
+        const double jr = idsc[r];
+        for (int c = 0; c < n1; c++) {
+          double y = yn[c], res_ = y - vr[c];
+          zr[c] += gamma * beta * res_;
+          rs[c] = res_ * jr * idsc[c];
+          ds[c] = (y - yr[c]) * jr * idsc[c];
+          yr[c] = y;
+        }
+        pres2 += dot4(rs, rs, n1);
+        dy2 += dot4(ds, ds, n1);
+        if (r == 0) { pres2_0 += dot4(rs, rs, n1); dy2_0 += dot4(ds, ds, n1); }
+        else { pres2_0 += rs[0] * rs[0]; dy2_0 += ds[0] * ds[0]; }
+        if (fuse_ok) {
+          double *trow = w.T.data() + (size_t)r * n1;
+          for (int c = 0; c < n1; c++) trow[c] = yr[c] + ibeta * zr[c];
+          hh_block(w, trow + 1);
+          col_rot(w, trow, w.ll);
+        }
       }
     } else   // the plain Y/Z step
     for (int r = 0; r < n1; r++) {
@@ -1902,12 +2143,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       }
       pres2 += dot4(rs, rs, n1);
       dy2 += dot4(ds, ds, n1);
+      if (par.verbose) {
+        if (r == 0) { pres2_0 += dot4(rs, rs, n1); dy2_0 += dot4(ds, ds, n1); }
+        else { pres2_0 += rs[0] * rs[0]; dy2_0 += ds[0] * ds[0]; }
+      }
       if (fuse_ok) {
         // the next R-step's forward, row phase: (Y + Z/beta) row, Householder block, rotation
         double *trow = w.T.data() + (size_t)r * n1;
         for (int c = 0; c < n1; c++) trow[c] = yr[c] + ibeta * zr[c];
         hh_block(w, trow + 1);   // scratch w.tmp[0..m): yn is finished with
-        col_rot(trow, w.ll);
+        col_rot(w, trow, w.ll);
       }
       if (par.halpern > 0 || m_on) {
         // the Z change of this iteration, in units of Y: gamma1 (Y_old - VRV) +
@@ -1976,6 +2221,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     tq = thread_cpu(); w.prof[3] += tq - tp; tp = tq;
     if (!check) continue;
 
+    w.sc = false;   // the certificate: plain transforms, Zc in original units
     // certified bound
     CertInfo ci;
     double lbs;
@@ -2076,6 +2322,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     // CP-ADMM: the bound of the cut-modified objective less h'mu (rounded up by
     // the hook), rounded down; lb = lbs + shift below rounds down once more
     if (cp_swapped && lbs > -HUGE_VAL) lbs = nextafter(lbs - cp_hsum, -HUGE_VAL);
+    bool ex_revert = false;
+    if (ex_E > 0 && regular) {
+      const double cur = lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL;
+      if (ex_pending && it >= ex_it + par.cp_extrap_guard - 1) {
+        ex_pending = false;
+        if (cur < ex_ref) ex_revert = true;   // restored below, after this check's bookkeeping
+        if (par.verbose) printf("extrap guard it %d cert %.4f ref %.4f -> %s\n", it, cur, ex_ref, ex_revert ? "REVERT" : "kept");
+      }
+      if (!ex_pending && !ex_revert) ex_last = cur;
+    }
     if (lbs > -HUGE_VAL) {
       double lb = nextafter(lbs + shift, -HUGE_VAL);   // covers the addition's rounding
       if (m_on && best > -HUGE_VAL &&
@@ -2104,6 +2360,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       best_rule = lz_best_est;
     }
     tq = thread_cpu(); w.prof[4] += tq - tp; tp = tq;
+    if (sc_on) {
+      long double o = 0;
+      for (int r = 0; r < n1; r++) {
+        const double *lr = L + (size_t)r * n1, *yr = Y + (size_t)r * n1;
+        double q = 0;
+        for (int c = 0; c < n1; c++) q += lr[c] * yr[c] * idsc[c];
+        o += q * idsc[r];
+      }
+      obj = (double)o + shift;
+    } else
     obj = dot4(L, Y, (size_t)n1 * n1) + shift;
     double pres = sqrt((double)pres2), dy = sqrt((double)dy2);
     if (par.verbose)
@@ -2111,10 +2377,22 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
              it, best_rule, lazy_this ? lz_est + shift : (lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL), ci.margin,
              lazy_this ? ", lazy" : (ci.chol_ok ? "" : ", chol FAILED"), obj, pres, dy, npos, thread_cpu() - t0,
              regular ? "" : " extra");
+    if (par.verbose && !yc && it % 50 == 0)
+      printf("split it %d arrow share of pres^2 %.3f of dY^2 %.3f\n", it, pres2 > 0 ? (double)(pres2_0 / pres2) : 0.0,
+             dy2 > 0 ? (double)(dy2_0 / dy2) : 0.0);
     if (par.verbose && yc) {
       const std::string t = yc->trace();
       const double cv = lbs > -HUGE_VAL ? nextafter(lbs + shift, -HUGE_VAL) : -HUGE_VAL;
       printf("cp it %5d cert %.17g hsum %.6g cpcpu %.2f %s\n", it, cv, cp_hsum, cp_cpu, t.c_str());
+    }
+    if (ex_revert) {
+      // the jump lost: back to the state of before it, half the factor
+      memcpy(Y, ex_Ysg.data(), (size_t)n1 * n1 * sizeof(double));
+      memcpy(Z, ex_Zsg.data(), (size_t)n1 * n1 * sizeof(double));
+      yc->extrap(2, 0);
+      ex_gamma *= 0.5; ex_reverts++; ex_have = false;
+      if (par.eig_mode == DNN_EIG_SUBSPACE) w.since_refresh = par.refresh;
+      w.t_rows_ready = false;
     }
     // DNN_ADMM_CROSS: the crossing prediction from the (iteration, running best)
     // history of the checks; an extra check at a predicted crossing that did not
@@ -2215,6 +2493,15 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     cross_predict();
   }
   if (status < 0) status = DNN_ITER_LIMIT;
+  w.sc = false;   // what follows certifies multipliers in original units
+  if (sc_on) {
+    // back to original units (save below; nothing after the loop reads the scaled iterates)
+    for (int r = 0; r < n1; r++) {
+      double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1;
+      const double dr = dsc[r], ir = idsc[r];
+      for (int c = 0; c < n1; c++) { yr[c] *= ir * idsc[c]; zr[c] *= dr * dsc[c]; }
+    }
+  }
   if (lazy_ok && status != DNN_FATHOMED && status != DNN_ERROR && (lz_exit || lz_have)) {
     // DNN_CORE_LAZYCERT: the checks that skipped Rump's test left no certified value.
     // Certify the multiplier of the check that stopped the run (still in Zc) and the

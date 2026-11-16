@@ -1,6 +1,7 @@
 #include "estimate.h"
 #include "util.h"
 
+#include <cmath>
 #include <fstream>
 #include <vector>
 #include <cstdlib>
@@ -8,6 +9,7 @@
 
 // One line per printed dive: depth, node estimate, time estimate.
 // QAP_EST_HIST overrides the file name (default kept for old scripts).
+double est_resume_root_bound = NAN;   // set by the driver for -e -r
 static const char *dive_hist_file() { return setting_s("QAP_EST_HIST"); }
 
 void standard_errs(double n_mean,double n_sumsq,
@@ -84,6 +86,13 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
   bnb(q,stack,s,top_stats,0,0,params,nlevel,ep->start_dive_level-1,false,-1);
 
   root_bound = top_stats->root_bound;
+  // tai50b_size: dives resumed from a state file (-e -r F): the top of the tree was
+  // bounded by the run that wrote F, so the root bound is F's, not this run's (unset)
+  if (!std::isnan(est_resume_root_bound)) {
+    root_bound = est_resume_root_bound;
+    top_stats->root_bound = root_bound;
+    std::cout << "estimator resumed from a state file: root bound " << root_bound << std::endl;
+  }
 
   top_stats->print();
 

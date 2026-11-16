@@ -887,6 +887,28 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    // every value from the settings registry (settings.C has the ranges
 	    // and one-line descriptions; the defaults are DNNCutParams's)
 	    if (const char *e = setting_s("cut.grid"); *e) sscanf(e, "%d:%d", &cp.grid_rows, &cp.grid_cols);
+	    // cut.regions = FILE: arbitrary regions, one per line, original indices of cut.side
+	    // (experiments/bound_lab/regions: the cluster and line-prefix regions of tai*b)
+	    {
+	      static const std::vector<std::vector<int>> region_sets = [] {
+	        std::vector<std::vector<int>> out;
+	        const char *e = setting_s("cut.regions");
+	        if (!*e) return out;
+	        FILE *f = fopen(e, "r");
+	        if (!f) { std::cerr << "cut.regions: cannot read " << e << std::endl; exit(2); }
+	        char line[1 << 14];
+	        while (fgets(line, sizeof line, f)) {
+	          if (char *h = strchr(line, '#')) *h = 0;
+	          std::vector<int> r; char *q = line;
+	          for (;;) { char *end; long x = strtol(q, &end, 10); if (end == q) break; r.push_back((int)x); q = end; }
+	          if (!r.empty()) out.push_back(r);
+	        }
+	        fclose(f);
+	        if (out.empty()) { std::cerr << "cut.regions: no regions in " << e << std::endl; exit(2); }
+	        return out;
+	      }();
+	      cp.regions = region_sets;
+	    }
 	    cp.side = (int)setting_i("cut.side");
 	    cp.rounds = (int)setting_i("cut.rounds");
 	    cp.iters = (int)setting_i("cut.iters");
@@ -942,7 +964,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    }
 	    // cut.giveup = T:G,T:G,... (CP form; review_nov10/phase_stop): from iteration T the
 	    // phase stops when its gap to the cutoff is still above G
-	    if (const char *e = setting_s("cut.giveup"); *e) {
+	    // cut.giveup_depth = D: the give-up rule only at depth >= D, so that the phases above D run on to equip their subtrees
+	    if (const char *e = setting_s("cut.giveup"); *e && node.depth >= (int)setting_i("cut.giveup_depth")) {
 	      for (const char *p = e; *p; ) {
 	        char *q; long T = strtol(p, &q, 10);
 	        if (q == p || *q != ':') { std::cerr << "cut.giveup: expected T:G,T:G,... got '" << e << "'" << std::endl; exit(2); }
@@ -952,7 +975,20 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	        p = q;
 	      }
 	    }
-	    if (cp.grid_rows == 0) cp.prefix = true;
+	    // cut.handover = N0:A:B[:PHI[:W[:P[:KAPPA]]]] (CP form; experiments/bound_lab/tho40_search/stop): the phase
+	    // stops when finishing at its present rate would cost more than its children would
+	    if (const char *e = setting_s("cut.handover"); *e) {
+	      double v[7] = {0, 0, 0, 1.5, 200, 2, 0};
+	      int k = 0;
+	      for (const char *p = e; *p && k < 7; k++) {
+	        char *q; v[k] = strtod(p, &q);
+	        if (q == p || (*q && *q != ':')) { std::cerr << "cut.handover: expected N0:A:B[:PHI[:W[:P[:KAPPA]]]] got '" << e << "'" << std::endl; exit(2); }
+	        p = *q ? q + 1 : q;
+	      }
+	      if (k < 3 || v[0] < 0 || v[1] < 0 || v[2] < 0 || v[3] <= 0 || v[4] < 10 || v[5] < 1 || v[6] < 0) { std::cerr << "cut.handover: expected N0:A:B[:PHI[:W[:P[:KAPPA]]]] got '" << e << "'" << std::endl; exit(2); }
+	      cp.ho_n0 = v[0]; cp.ho_a = v[1]; cp.ho_b = v[2]; cp.ho_phi = v[3]; cp.ho_w = (int)v[4]; cp.ho_p = v[5]; cp.ho_kappa = v[6];
+	    }
+	    if (cp.grid_rows == 0 && cp.regions.empty()) cp.prefix = true;
 	    DNNPool pool_out;
 	    if (dnn_pool && cp.side == cut_side) {
 	      cp.pool_in = have_pool ? (pool_cp_ran ? &pool_mid : &pool_in) : NULL;   // QAP_DNN_POOL_CP: at mu_D
@@ -976,6 +1012,10 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	        const char *f = setting_s("cut.cp_sweeps");
 	        cp.cp_sweeps = atoi(f);
 	        if (const char *c = strchr(f, ':')) cp.cp_passes = atoi(c + 1);
+	        cp.cp_wc_gap = setting_d("cut.cp_wc_gap");
+	        cp.cp_wc_deficit = setting_d("cut.cp_wc_deficit");
+	        if (const char *x = setting_s("cut.cp_extrap"); *x)
+	          sscanf(x, "%d:%lf:%d:%d", &cp.cp_extrap, &cp.cp_extrap_gamma, &cp.cp_extrap_guard, &cp.cp_extrap_mode);
 	      }
 	    if (cut_cp) {
 	      // the CP form has no Polyak rounds, so the rounds-only settings do nothing in it
