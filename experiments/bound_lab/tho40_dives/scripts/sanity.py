@@ -12,9 +12,15 @@ P = [27, 38, 32, 14, 5, 18, 34, 10, 15, 26, 25, 17, 4, 30, 28, 20, 24, 23, 37, 2
 OPT = 240516.0
 ok = True
 runs = sorted(glob.glob(HERE + "/runs/*"))
-new = [r for r in runs if "New objective" in open(r + "/est.out", errors="replace").read()]
-print(f"1. runs with a 'New objective value' line: {len(new)} of {len(runs)} {[os.path.basename(r) for r in new]}")
-ok &= not new
+import re
+new = {}
+for r in runs:
+    v = [float(x) for x in re.findall(r"New objective value: ([-0-9.e+]+)", open(r + "/est.out", errors="replace").read())]
+    if v: new[os.path.basename(r)] = min(v)
+dive_new = {k: v for k, v in new.items() if not k.startswith("path")}
+print(f"1. dive runs that found any new solution (incumbent 240,516): {len(dive_new)} of {len(runs) - sum(os.path.basename(r).startswith('path') for r in runs)} {dive_new}")
+print(f"   the forced-path run (incumbent 240,518) reached: {({k: v for k, v in new.items() if k.startswith('path')})} (it must reach 240,516 and nothing lower)")
+ok &= not dive_new and all(v >= OPT for v in new.values())
 onpath = lambda nd: all(P[int(a)] == int(b) for a, b in (x.split(":") for x in nd["fixes"].split()))
 seen = bad = 0
 for r in runs:
