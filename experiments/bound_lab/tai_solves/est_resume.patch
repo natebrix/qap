@@ -1,0 +1,54 @@
+diff --git a/latest/driver.C b/latest/driver.C
+index ba73c99..25209d8 100644
+--- a/latest/driver.C
++++ b/latest/driver.C
+@@ -65,6 +65,7 @@ extern double dnn_max_gap;
+ #include "dnn.h"
+ #endif
+ extern bool bnb_resumed;
++extern double est_resume_root_bound;
+ extern bool bnb_stopped;
+ extern volatile sig_atomic_t bnb_stop_requested;
+ static void request_stop(int) { bnb_stop_requested = 1; }
+@@ -620,6 +621,7 @@ int main(int argc, char *argv[])
+   if (resume_file) {
+     if (!read_state(resume_file, n, stack, solution, stats)) return 1;
+     bnb_resumed = true;
++    if (run_estimate) est_resume_root_bound = stats->root_bound;
+     // an explicit -u below the saved incumbent wins (the default is +inf)
+     if (qap_upper_bound < solution->getObjective())
+       solution->setObjective(qap_upper_bound);
+diff --git a/latest/estimate.C b/latest/estimate.C
+index 74ecc63..e04a144 100644
+--- a/latest/estimate.C
++++ b/latest/estimate.C
+@@ -1,6 +1,7 @@
+ #include "estimate.h"
+ #include "util.h"
+ 
++#include <cmath>
+ #include <fstream>
+ #include <vector>
+ #include <cstdlib>
+@@ -8,6 +9,7 @@
+ 
+ // One line per printed dive: depth, node estimate, time estimate.
+ // QAP_EST_HIST overrides the file name (default kept for old scripts).
++double est_resume_root_bound = NAN;   // set by the driver for -e -r
+ static const char *dive_hist_file() { return setting_s("QAP_EST_HIST"); }
+ 
+ void standard_errs(double n_mean,double n_sumsq,
+@@ -84,6 +86,13 @@ QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
+   bnb(q,stack,s,top_stats,0,0,params,nlevel,ep->start_dive_level-1,false,-1);
+ 
+   root_bound = top_stats->root_bound;
++  // tai50b_size: dives resumed from a state file (-e -r F): the top of the tree was
++  // bounded by the run that wrote F, so the root bound is F's, not this run's (unset)
++  if (!std::isnan(est_resume_root_bound)) {
++    root_bound = est_resume_root_bound;
++    top_stats->root_bound = root_bound;
++    std::cout << "estimator resumed from a state file: root bound " << root_bound << std::endl;
++  }
+ 
+   top_stats->print();
+ 
