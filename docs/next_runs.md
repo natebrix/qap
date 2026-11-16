@@ -5,6 +5,26 @@ cut phase (no solver change), against 1,308 as tho40-b runs, and tai50b at about
 with cluster-region cuts. This page decides what that means for tho40-b and plans a tai50b run of
 record. The subtree A/B in `experiments/tho40b_analysis/giveup_ab/` settles tho40's settings first.
 
+## For the launcher (Nov 16, 21:00 UTC)
+
+Runs are launched from the laptop or desktop with `infra/phase1/start.sh PROBLEM` (`infra/phase1/README.md`,
+Starting a run); the cloud sessions make no AWS calls. Where things stand:
+- **tho40-b** was stopped by Nathan at 20:00 UTC Nov 16 (`qapctl stop`), after 51 h: 3,325,118 nodes,
+  134.7 CPU-days, 61,541 open, incumbent still 240,518 (240,516 not found). Not to be resumed. Left to do:
+  - confirm its instance terminated (`infra/phase1/collect.sh tho40-b` lists the instances; on a stop
+    `node.sh` shuts the instance down within a minute or two);
+  - collect it with its traces (`collect.sh tho40-b`, or the phase1 workflow's collect; the export works
+    for a stopped run, 3c2516c) and commit `infra/phase1/runs/tho40-b/`;
+  - rerun the part-way analyses on the full traces (`experiments/tho40b_analysis`: `giveups.py`,
+    `livetree.py` levels, `bound_value.py`) against the Nov 15 export.
+- **Next: tai50b** (below): `git pull origin cognac`, then `infra/phase1/start.sh tai50b` with its
+  defaults (`recipes/tai50b.par`, incumbent 458,821,518, one Spot c7a.16xlarge, 72 h).
+- **A private tai50b run is going on Nathan's laptop** (`bound_lab/laptop/tai50b.sh`: the same settings
+  and region file, the retry always on, through the coordinator's local mode, 12 cores). It stops itself
+  after 20 hours. If it does, do not rerun the script: its next start deletes the store
+  (`runs_tai50b/store`), and with it the run so far.
+- **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), two Spot instances.
+
 ## tho40-b: let it end, then a new run
 
 **What is left under the current settings.** At its 72-hour limit (Nov 17 16:46 UTC) tho40-b will have
