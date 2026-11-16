@@ -69,6 +69,27 @@ So E2's "copy" holds for the five levels measured: the mirror's nodes cost what 
 mirror branched on location 12 at depth 3 where the path took the column of facility 26). If anything its
 subtree is a little larger than a copy. Its off-mirror children were not sampled.
 
+**tai80b with the dendrogram's clusters added (`combh`): no gain; 46% is what these cuts give on it.**
+[m `runs/root80h`: `regions/tai80b.comb7h.txt` = `line:1,top:7,linegap:4:0.03,hier`, 200 regions (the 138 of
+`comb7` + 62 dendrogram clusters); `par/root80h.par`, otherwise as `root80`; 4 threads, alone on the box.]
+Asked by the coordinating session as the last test, with the rule: stop if it is not ahead of `comb7` at
+phase iteration 500.
+
+| phase iterations | `comb7` (138 regions) | `comb7` + `hier` (200 regions) | difference |
+|---|---|---|---|
+| 100 | 781,163,383 | 781,161,776 | -1,607 |
+| 250 | 787,033,428 | 787,035,779 | +2,351 |
+| 400 | 791,804,708 | 791,792,141 | -12,567 |
+| 500 | 793,523,956 | 793,504,673 | -19,283 |
+| 510 | 793,523,956 | 793,504,673 | -19,283 |
+
+It is level with `comb7` to within 20k of 31.5M (0.06% of the published gap) at every check and 19k behind
+at 500, so I stopped it there (last check: iteration 510). On tai40b `../tai_solves` found `combh` 285k ahead on a
+4.2M gap; on tai80b the 62 extra clusters add nothing the unions of the 7 top clusters and the prefixes do
+not already have. `line:4` and `comb7` + `line:2` were to be run only if `combh` was clearly ahead: not run.
+**No family tried moves tai80b's root toward tai60b's 81%.** The 62 extra regions cost nothing measurable
+(`cpu` column of the two `live.txt`: 3,318 against 3,482 at iteration 500).
+
 **Second memory kill.** The restarted tai80b root was killed at 16:12 at phase iteration 640 (7.5 GB, beside
 three dive processes one of which had grown to 2.6 GB; the container allows 14.3 GB and counts the page
 cache). I saw it at 16:41. `runs/root80_killed640` has its trace, identical to the first run's to that point.
