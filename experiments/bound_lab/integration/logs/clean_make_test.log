@@ -28,3 +28,42 @@ ok   nug16a -x 2:4:1:0:1 --ub opt: serial 178 / 161 / 0, DNN ('143', '143'); par
 all parallel checks passed
 python3 tests/coord_test.py
 serial: nodes (41443, 30703, 0), fw 2976622
+normal     ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (13 s)  units 58, retried 0 (0 from a checkpoint), returned 29
+kill9      ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (15 s)  units 57, retried 3 (0 from a checkpoint), returned 28
+kill9ckpt  ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (13 s)  units 17, retried 3 (2 from a checkpoint), returned 0
+coordkill  ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (11 s)  units 60, retried 0 (0 from a checkpoint), returned 28
+crash_marked ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (11 s)  units 57, retried 0 (0 from a checkpoint), returned 30
+crash_applied ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (11 s)  units 56, retried 0 (0 from a checkpoint), returned 28
+crash_saving ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (11 s)  units 56, retried 0 (0 from a checkpoint), returned 31
+drain      ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (14 s)  units 54, retried 0 (0 from a checkpoint), returned 29
+noub       ok  nodes (108302, 81012, 468) fw 5139254 best 1732.0  (21 s)  units 75, retried 0 (0 from a checkpoint), returned 53
+fixes      ok  nodes (1201, 831, 0) fw 162305 best 1732.0  (12 s)  units 6, retried 0 (0 from a checkpoint), returned 1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import boto3, moto
+ModuleNotFoundError: No module named 'boto3'
+aws: skipped (Command '['/usr/local/bin/python3', '-c', 'import boto3, moto']' returned non-zero exit status 1.)
+tworuns    ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (21 s)  units 100, retried 0 (0 from a checkpoint), returned 57
+stopped    ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (22 s)  units 57, retried 0 (0 from a checkpoint), returned 0
+all coordinator scenarios passed
+python3 tests/settings_doc.py
+settings table: RUNNING.md agrees with bnbdrv --settings-table
+python3 bench/bench.py check
+     nug12: ok       nodes=       241  time=    0.113s  wall=0.17s
+     nug14: ok       nodes=      2002  time=    1.166s  wall=1.22s
+     nug15: ok       nodes=      1639  time=    0.789s  wall=0.80s
+    nug16b: ok       nodes=      2894  time=    1.169s  wall=1.18s
+     had12: ok       nodes=       109  time=    0.087s  wall=0.10s
+     had14: ok       nodes=       352  time=    0.216s  wall=0.30s
+     had16: ok       nodes=      3177  time=    2.087s  wall=2.15s
+
+wrote bench/results/check-20261116-041411/  (7 instances, 0 not ok)
+
+regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
+python3 tests/estimate_test.py
+nug15: 4,077 nodes, 0.47 CPU s
+ok   QAP_EST_CHILD_QPB=0: 1200 dives, nodes 1.031, CPU 1.146 of the run's
+ok   QAP_EST_CHILD_QPB=1: 1200 dives, nodes 1.031, CPU 1.092 of the run's
+estimator: all checks passed
+exit 0
+2026-11-16T04:14:34Z

@@ -95,3 +95,45 @@ setting QAP_EST_CHILD_QPB 0 default diagnostic
 setting QAP_XBAR_DEBUG 0 default diagnostic
 branching_weight() = 0.5
 read symmetry info from ./SYM/nug20.sym
+  ---- RESULTS ----
+
+    Total Time: 19.813 seconds 
+         Nodes: 140 / 131 / 0
+    root bound: 2247.96
+ fw iterations: 245476
+     DNN bound: 133 nodes, 131 fathomed, 18.2598 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    0.09
+ 1           6	0.0000	0.0102	    1.10
+ 2          97	0.9794	0.0000	   17.43
+ 3          36	1.0000	N/A	    1.21
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000   0.0000  | 6 
+ 2 |   0.0000   0.5464   0.3505   0.0928   0.0103  | 97 
+ 3 |   0.0000   0.0000   0.0000   0.0000   1.0000  | 36 
+nodes       7       53       34        9       37 
+time     1.18    12.90     3.63     0.80     1.29 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.769820	0.053838
+ 2| 0.491610	0.139872
+ 3| 0.020664	0.011115
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 2          97	0.9794	0.0206	       7582	    78.2	   17.09
+ 3          36	1.0000	0.0000	        503	    14.0	    1.17
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2          95	       0	      95	       0	       0
+ 3          36	       0	      36	       0	       0
+
+eigendecompositions for W and U: 146 computed, 134 reused from the per-size cache
