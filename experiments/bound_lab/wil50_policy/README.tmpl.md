@@ -27,8 +27,12 @@ far from the cutoff than tho40's, or it loses most of the gain.**
   composition: on the large subtrees 46-48% of the iterations are first solves that fathom, which no
   phase policy touches. a220 overstates the gain (44% of its iterations are missed phases, one of
   them a 3,400-iteration phase that ended 0.1 short); a251 and a325 have 25%.
-- **sko49: about 1.2-1.35x [m, two subtrees]**, with `wc=1.4` in the arm. See the attribution below
-  for what the arm without `wc` did.
+- **sko49: about 1.2-1.35x [m, two subtrees]**, with `wc=1.4` in the arm. Attribution: on s188 the
+  arm without `wc` (`hoe2`) is 1.04x and `wc=1.4` alone 1.05x, the two together 1.21x; on s232
+  `wc=1.4` alone is 1.08x (1.17x on matched nodes) and `hoe2` alone was stopped at the session's budget after 73 of its nodes: on the 73 nodes it
+  shares with the others, base took 10,623 iterations, `wc14` 9,166, `hoe2` 8,769 (1.21x) and
+  `hoe2w` 7,726 (1.37x) [m, partial: `runs/s232_hoe2`, incomplete]. So on sko49 each half gives
+  about 1.05-1.2x and they add.
 - **Recommended blocks** (on top of each instance's current par file; `cut.handover` needs
   `../tho40_search/stop/handover.patch`, which this branch has applied in `latest/`):
 
@@ -60,7 +64,8 @@ far from the cutoff than tho40's, or it loses most of the gain.**
   1.27x sooner on wil50 and 1.44x sooner on sko49; 2.8 is no better and 5.6 worse (table below). In
   the search, alone: sko49 s188 1.05x, s232 1.08x with a larger tree (359 nodes: two phases that
   fathomed after 2,050-2,460 iterations in base stalled 0.7 and 3.5 short); 1.17x on the matched
-  nodes. On wil50 on top of `hoe2` it loses: a220 13,451 against 12,699, b83 worse than base. Near
+  nodes. On wil50 on top of `hoe2` it loses: a220 13,451 against 12,699 (277 nodes against 232), b83
+  13,645 against 12,230 (268 nodes against 181; 0.97x of base). Near
   misses fathom less often at the higher penalty, as cpfast found on tho40; `cut.cp_wc_gap` (cpfast's
   patch, not in this build) is the thing to try before using `wc` on wil50.
 - **Sanity: PASS.** No run printed `New objective value` (wil50 48,816, sko49 23,386 stand) and every
@@ -104,7 +109,8 @@ far from the cutoff than tho40's, or it loses most of the gain.**
 ## Every run [m]
 
 `python3 summarize.py`; "stalled" is "handed over" in the `ho*` arms; `a220r`, `s232r` are the
-single-phase `wc` probes (`-d 3`). x base is base / arm.
+single-phase `wc` probes (`-d 3`). x base is base / arm. `s232_hoe2` reads RUNNING: it was stopped by
+hand at 07:00 (its `cmd.txt`), incomplete, and is used only for the 73-node comparison in the answer.
 
 @@ python3 summarize.py
 
@@ -201,7 +207,7 @@ By this model a220 itself is 1.30x (measured 1.35x on this box's own base). For 
 
 ## Not done, and what I would do next
 
-- a251 complete (too large for this session); warm roots; an early-only arm and a hand-over-only arm
+- a251 complete (too large for this session); sko49 s232 `hoe2` to its end; warm roots; an early-only arm and a hand-over-only arm
   on a220 (the matched nodes above separate the two effects, an arm of each would do it cleanly).
 - `dnn.giveup_warm` between 100 and 300 (150, 200): b83 says 100 is too early for the nodes that
   fathom slowly in their first solve.

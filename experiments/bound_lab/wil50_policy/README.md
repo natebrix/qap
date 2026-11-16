@@ -27,8 +27,12 @@ far from the cutoff than tho40's, or it loses most of the gain.**
   composition: on the large subtrees 46-48% of the iterations are first solves that fathom, which no
   phase policy touches. a220 overstates the gain (44% of its iterations are missed phases, one of
   them a 3,400-iteration phase that ended 0.1 short); a251 and a325 have 25%.
-- **sko49: about 1.2-1.35x [m, two subtrees]**, with `wc=1.4` in the arm. See the attribution below
-  for what the arm without `wc` did.
+- **sko49: about 1.2-1.35x [m, two subtrees]**, with `wc=1.4` in the arm. Attribution: on s188 the
+  arm without `wc` (`hoe2`) is 1.04x and `wc=1.4` alone 1.05x, the two together 1.21x; on s232
+  `wc=1.4` alone is 1.08x (1.17x on matched nodes) and `hoe2` alone was stopped at the session's budget after 73 of its nodes: on the 73 nodes it
+  shares with the others, base took 10,623 iterations, `wc14` 9,166, `hoe2` 8,769 (1.21x) and
+  `hoe2w` 7,726 (1.37x) [m, partial: `runs/s232_hoe2`, incomplete]. So on sko49 each half gives
+  about 1.05-1.2x and they add.
 - **Recommended blocks** (on top of each instance's current par file; `cut.handover` needs
   `../tho40_search/stop/handover.patch`, which this branch has applied in `latest/`):
 
@@ -60,7 +64,8 @@ far from the cutoff than tho40's, or it loses most of the gain.**
   1.27x sooner on wil50 and 1.44x sooner on sko49; 2.8 is no better and 5.6 worse (table below). In
   the search, alone: sko49 s188 1.05x, s232 1.08x with a larger tree (359 nodes: two phases that
   fathomed after 2,050-2,460 iterations in base stalled 0.7 and 3.5 short); 1.17x on the matched
-  nodes. On wil50 on top of `hoe2` it loses: a220 13,451 against 12,699, b83 worse than base. Near
+  nodes. On wil50 on top of `hoe2` it loses: a220 13,451 against 12,699 (277 nodes against 232), b83
+  13,645 against 12,230 (268 nodes against 181; 0.97x of base). Near
   misses fathom less often at the higher penalty, as cpfast found on tho40; `cut.cp_wc_gap` (cpfast's
   patch, not in this build) is the thing to try before using `wc` on wil50.
 - **Sanity: PASS.** No run printed `New objective value` (wil50 48,816, sko49 23,386 stand) and every
@@ -104,7 +109,8 @@ far from the cutoff than tho40's, or it loses most of the gain.**
 ## Every run [m]
 
 `python3 summarize.py`; "stalled" is "handed over" in the `ho*` arms; `a220r`, `s232r` are the
-single-phase `wc` probes (`-d 3`). x base is base / arm.
+single-phase `wc` probes (`-d 3`). x base is base / arm. `s232_hoe2` reads RUNNING: it was stopped by
+hand at 07:00 (its `cmd.txt`), incomplete, and is used only for the 73-node comparison in the answer.
 
 | subtree | arm | DNN nodes (by depth) | first solves: it (give-ups) | phases: n = fathomed + handed over/stalled + limit | phase it: fathomed + stalled + limit | total it | x base | CPU s | x base | new obj | complete |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -116,14 +122,14 @@ single-phase `wc` probes (`-d 3`). x base is base / arm.
 | a220r | wc28 | 1 (3: 1) | 300 (1) | 1 = 0 + 1 + 0 | 0 + 1,010 + 0 = 1,010 | 1,310 | - | 468 | - | 0 | yes |
 | b83 | base | 181 (4: 1, 5: 46, 6: 90, 7: 44) | 8,826 (4) | 4 = 0 + 4 + 0 | 0 + 4,470 + 0 = 4,470 | 13,296 | 1.00x | 3436 | 1.00x | 0 | yes |
 | b83 | hoe2 | 181 (4: 1, 5: 46, 6: 90, 7: 44) | 7,019 (11) | 11 = 7 + 4 + 0 | 1,931 + 3,280 + 0 = 5,211 | 12,230 | 1.09x | 3207 | 1.07x | 0 | yes |
-| b83 | hoe2w | 264 (4: 1, 5: 46, 6: 86, 7: 88, 8: 43) | 9,240 (11) | 11 = 5 + 6 + 0 | 1,865 + 2,090 + 0 = 3,955 | 13,195 | - | 3239 | - | 0 | RUNNING |
+| b83 | hoe2w | 268 (4: 1, 5: 46, 6: 90, 7: 88, 8: 43) | 9,420 (12) | 12 = 6 + 6 + 0 | 2,135 + 2,090 + 0 = 4,225 | 13,645 | 0.97x | 3352 | 1.03x | 0 | yes |
 | s188 | base | 47 (3: 1, 4: 46) | 2,405 (2) | 2 = 1 + 1 + 0 | 397 + 1,360 + 0 = 1,757 | 4,162 | 1.00x | 1303 | 1.00x | 0 | yes |
 | s188 | hoe | 47 (3: 1, 4: 46) | 2,168 (2) | 2 = 1 + 1 + 0 | 350 + 1,610 + 0 = 1,960 | 4,128 | 1.01x | 1254 | 1.04x | 0 | yes |
-| s188 | hoe2 | 4 (3: 1, 4: 3) | 458 (2) | 2 = 1 + 1 + 0 | 566 + 1,100 + 0 = 1,666 | 2,124 | - | 668 | - | 0 | RUNNING |
+| s188 | hoe2 | 47 (3: 1, 4: 46) | 2,335 (2) | 2 = 1 + 1 + 0 | 566 + 1,100 + 0 = 1,666 | 4,001 | 1.04x | 1234 | 1.06x | 0 | yes |
 | s188 | hoe2w | 47 (3: 1, 4: 46) | 2,116 (2) | 2 = 1 + 1 + 0 | 310 + 1,020 + 0 = 1,330 | 3,446 | 1.21x | 1060 | 1.23x | 0 | yes |
 | s188 | wc14 | 47 (3: 1, 4: 46) | 2,314 (2) | 2 = 1 + 1 + 0 | 233 + 1,400 + 0 = 1,633 | 3,947 | 1.05x | 1163 | 1.12x | 0 | yes |
 | s232 | base | 271 (3: 1, 4: 46, 5: 180, 6: 44) | 16,908 (20) | 20 = 14 + 6 + 0 | 10,939 + 6,710 + 0 = 17,649 | 34,557 | 1.00x | 9197 | 1.00x | 0 | yes |
-| s232 | hoe2 | 35 (3: 1, 4: 34) | 1,861 (3) | 3 = 2 + 1 + 0 | 240 + 1,160 + 0 = 1,400 | 3,261 | - | 979 | - | 0 | RUNNING |
+| s232 | hoe2 | 73 (3: 1, 4: 40, 5: 32) | 3,910 (9) | 9 = 7 + 2 + 0 | 3,229 + 1,630 + 0 = 4,859 | 8,769 | - | 2559 | - | 0 | RUNNING |
 | s232 | hoe2w | 404 (3: 1, 4: 46, 5: 225, 6: 132) | 15,229 (21) | 21 = 12 + 9 + 0 | 4,454 + 6,080 + 0 = 10,534 | 25,763 | 1.34x | 6723 | 1.37x | 0 | yes |
 | s232 | wc14 | 359 (3: 1, 4: 46, 5: 180, 6: 132) | 17,743 (17) | 17 = 9 + 8 + 0 | 4,513 + 9,600 + 0 = 14,113 | 31,856 | 1.08x | 8278 | 1.11x | 0 | yes |
 | s232r | wc14 | 1 (3: 1) | 300 (1) | 1 = 0 + 1 + 0 | 0 + 950 + 0 = 950 | 1,250 | - | 388 | - | 0 | yes |
@@ -156,6 +162,12 @@ b83: base 181 nodes, hoe2 181 nodes, both 136
     phase in both                             4 nodes:   5710 it against   3920 (1.46x)
     other                                     7 nodes:   2000 it against   2701 (0.74x)
   only base: 45 nodes 1343 it; only hoe2: 45 nodes 1357 it
+b83: hoe2 181 nodes, hoe2w 268 nodes, both 181
+  matched nodes: hoe2 12230 it, hoe2w 11396 it (1.07x)
+    fathomed in the first solve in both     169 nodes:   5527 it against   5651 (0.98x)
+    phase in both                            11 nodes:   6621 it against   5485 (1.21x)
+    other                                     1 nodes:     82 it against    260 (0.32x)
+  only hoe2: 0 nodes 0 it; only hoe2w: 87 nodes 2249 it
 s188: base 47 nodes, hoe2w 47 nodes, both 47
   matched nodes: base 4162 it, hoe2w 3446 it (1.21x)
     fathomed in the first solve in both      45 nodes:   1805 it against   1706 (1.06x)
@@ -173,12 +185,17 @@ s232: base 271 nodes, hoe2w 404 nodes, both 271
     phase in both                            19 nodes:  23748 it against  12303 (1.93x)
     other                                     3 nodes:   1223 it against    877 (1.39x)
   only base: 0 nodes 0 it; only hoe2w: 133 nodes 3627 it
-s232: hoe2 35 nodes, hoe2w 404 nodes, both 35
-  matched nodes: hoe2 3261 it, hoe2w 2986 it (1.09x)
-    fathomed in the first solve in both      32 nodes:   1341 it against   1320 (1.02x)
-    phase in both                             1 nodes:   1460 it against   1340 (1.09x)
+s232: hoe2 73 nodes, hoe2w 404 nodes, both 73
+  matched nodes: hoe2 8769 it, hoe2w 7726 it (1.13x)
+    fathomed in the first solve in both      64 nodes:   2730 it against   2589 (1.05x)
+    phase in both                             7 nodes:   5579 it against   4811 (1.16x)
     other                                     2 nodes:    460 it against    326 (1.41x)
-  only hoe2: 0 nodes 0 it; only hoe2w: 369 nodes 22777 it
+  only hoe2: 0 nodes 0 it; only hoe2w: 331 nodes 18037 it
+s188: base 47 nodes, hoe2 47 nodes, both 47
+  matched nodes: base 4162 it, hoe2 4001 it (1.04x)
+    fathomed in the first solve in both      45 nodes:   1805 it against   1925 (0.94x)
+    phase in both                             2 nodes:   2357 it against   2076 (1.14x)
+  only base: 0 nodes 0 it; only hoe2: 0 nodes 0 it
 ```
 
 ## What the phases did [m]
@@ -375,7 +392,7 @@ By this model a220 itself is 1.30x (measured 1.35x on this box's own base). For 
 
 ## Not done, and what I would do next
 
-- a251 complete (too large for this session); warm roots; an early-only arm and a hand-over-only arm
+- a251 complete (too large for this session); sko49 s232 `hoe2` to its end; warm roots; an early-only arm and a hand-over-only arm
   on a220 (the matched nodes above separate the two effects, an arm of each would do it cleanly).
 - `dnn.giveup_warm` between 100 and 300 (150, 200): b83 says 100 is too early for the nodes that
   fathom slowly in their first solve.
