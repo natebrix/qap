@@ -28,13 +28,22 @@ def main():
     print(f"root: {root['fit'] + root['cit']} iterations, {cpu(root):.0f} CPU-s, bound {root['final']:,.0f}")
     print(f"depth 1: on-path child {'branched' if not A[0]['fath'] else 'FATHOMED'} ({cpu(A[0]):.0f} CPU-s); B sample {nB} of 49: "
           f"{sum(d['fath'] for d in B)} fathomed, {sum(1 - d['fath'] for d in B)} branched; CPU-s mean {st.mean(map(cpu, B)):.0f}")
-    la, lb = dive_rows("LA"), dive_rows("LB")
-    print(f"dives: LA {len(la)}, LB {len(lb)}; depth reached (LA) {sorted(r[3] for r in la)[-5:]}, (LB) {sorted(r[3] for r in lb)[-5:]}")
+    # the B stratum's dives may be in several sets (LB, LB2, ...: disjoint groups of parents, one state file each)
+    sp = [d for d in N.load(sorted(glob.glob(f"{H}/runs/spine_*/dnn.txt"))) if d["onpath"]]
+    la_sets = sorted(os.path.basename(p) for p in glob.glob(f"{H}/runs/LA_*"))
+    la = [dive_rows(x) for x in la_sets]
+    used = [d for d in sp if f"LA_off{d['depth']}" in la_sets or (f"LA_off{d['depth']+1}" in la_sets) or "LA_tail%d" % d["depth"] in la_sets]
+    print("spine nodes measured:", [(d["depth"], round(d["cutoff"] - d["final"])) for d in sp], "; counted:", len(used))
+    print("LA sets:", {x: len(r) for x, r in zip(la_sets, la)})
+    spine_n = len(used); spine_cpu = sum(cpu(d) for d in used)
+    lb = [dive_rows(os.path.basename(p)) for p in sorted(glob.glob(f"{H}/runs/LB*"))]
+    print(f"dives: LB sets {[len(x) for x in lb]}; deepest (LA) {sorted(r[3] for x in la for r in x)[-5:]}, (LB) {sorted(r[3] for x in lb for r in x)[-5:]}")
     top_nodes = 51.0
     def total(la, lb, Bs, k):   # k = 1 nodes, 2 CPU: (N_A, S_B over the parents Bs)
-        NA = st.mean(r[k] for r in la) if la else 0.0
+        NA = sum(st.mean(r[k] for r in x) for x in la if x) + (spine_n if k == 1 else spine_cpu)
         share = {}
-        for r in lb: share[r[0]] = share.get(r[0], 0.0) + r[k] / len(lb)
+        for x in lb:
+            for r in x: share[r[0]] = share.get(r[0], 0.0) + r[k] / len(x)
         return NA, sum(share.get(b, 0.0) for b in Bs)
     Bfix = [d["fixes"][0] for d in B]; cpuB = {d["fixes"][0]: cpu(d) for d in B}
     def est(la, lb, Bs):
@@ -49,8 +58,8 @@ def main():
         print(f"{name}: depths 0-1 {top:,.0f} + under the on-path child {NA:,.0f} + under the other 49 {SBx:,.0f} = {top + NA + SBx:,.0f}")
     rng = random.Random(1); reps = []
     for _ in range(4000):
-        la_ = [rng.choice(la) for _ in la] if la else []
-        lb_ = [rng.choice(lb) for _ in lb] if lb else []
+        la_ = [[rng.choice(x) for _ in x] for x in la]
+        lb_ = [[rng.choice(x) for _ in x] for x in lb]
         Bs = [rng.choice(Bfix) for _ in Bfix]
         reps.append([sum(x) for x in est(la_, lb_, Bs)])
     for k, name in ((0, "nodes"), (1, "CPU-s")):
