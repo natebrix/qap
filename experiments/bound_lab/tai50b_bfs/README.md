@@ -36,12 +36,18 @@ disk or memory running short. The brief first had a wall limit of 12 hours (abou
 session relayed at 17:35 UTC on 2026-11-16 that the repository owner wants the run kept going, so that limit is
 dropped (no script enforced it) and the run goes on level by level until the tree is finished or a condition fires.
 
+**Container restart, 2026-11-16 about 23:28 UTC.** The container was restarted during depth 6; the disk survived,
+the processes did not. 44 of that level's 48 chunks had finished and were kept; the 4 unfinished ones
+(`d6_c42`, `c45`, `c46`, `c47`, 36 of their 68 nodes already bounded) were redone from their input state files
+(`bfs.sh` now keeps a chunk that ended with exit 0 and has its `out.state`). The table counts the redone chunks
+once: the work lost in the interrupted processes, about 1.5 hours on 4 cores at most, is not in it.
+
 ## Status
 
-- Levels complete: depths 1 to 5; 2,459 nodes below the root, 491,876 DNN iterations, 181,719 CPU-s = 50.5 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
-- Open nodes now: 810 at depth 6 (`open/open_6.txt`).
+- Levels complete: depths 1 to 6; 3,269 nodes below the root, 596,551 DNN iterations, 206,252 CPU-s = 57.3 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
+- Open nodes now: 704 at depth 7 (`open/open_7.txt`).
 - Incumbents found: none yet (the search starts from 458,821,518 = best known + 1).
-- Path of the best known solution: 5 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517). Largest certified bound on it: 458,402,028.3151.
+- Path of the best known solution: 6 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517). Largest certified bound on it: 458,402,028.3151.
 
 ## The levels [m]
 
@@ -52,6 +58,7 @@ dropped (no script enforced it) and the run goes on level by level until the tre
 | 3 | 432 | 6 | 0 / 425 / 1 | 282 | 432, 7 | 29,612 | 10,354 | 1, 1 | 1,537,515 (B) | 141, 7,510 | 672, 11, 34,732 |
 | 4 | 282 | 23 | 0 / 205 / 54 | 1058 | 282, 77 | 154,276 | 54,618 | 0, 0 | 702,094 (B) | 135, 46,558 | 517, 43, 70,500 |
 | 5 | 1,058 | 18 | 0 / 1021 / 19 | 810 | 1058, 37 | 149,938 | 42,623 | 0, 0 | 419,489 (B) | 3,651, 136,438 | 1,978, 65, 100,950 |
+| 6 | 810 | 16 | 0 / 780 / 14 | 704 | 810, 30 | 104,675 | 24,533 | 0, 0 | 563,267 (B) | 4,043, 64,626 | 2,925, 7, 221,324 |
 
 The predictions are `../tai50b_size`'s, made without `wc=2.88` and from a 2,400-iteration phase limit under the same root; E3's depth 2 includes the 588 children of the 12 depth-1 near misses it prices separately.
 
@@ -68,4 +75,8 @@ The predictions are `../tai50b_size`'s, made without `wc=2.88` and from a 2,400-
 2026-11-16T18:46:31 depth 4 done: 1058 open at depth 5; store 2.1G; disk free 28G
 2026-11-16T18:46:33 depth 5: 1058 open nodes
 2026-11-16T21:54:18 depth 5 done: 810 open at depth 6; store 1.5G; disk free 28G
+2026-11-16T21:54:20 depth 6: 810 open nodes
+2026-11-16T23:29 container restarted at about 23:28 UTC during depth 6 (44 of 48 chunks finished); resuming depth 6, redoing the 4 unfinished chunks
+2026-11-16T23:29:47 depth 6: 810 open nodes
+2026-11-16T23:57:41 depth 6 done: 704 open at depth 7; store 1.2G; disk free 28G
 ```
