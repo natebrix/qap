@@ -8,8 +8,8 @@ two on sko49 and wil50.
 This page is the index and the summary. Each directory has its own README with the runs behind the
 numbers. **[m]** measured (in the directory named), **[e]** estimated. Work was done by agents in
 this session and in cloud sessions, each on its own branch `claude/cool-babbage-ilnogj-*`; their
-reports are merged here. Status as of Nov 16, 09:30 UTC: two cloud sessions still running (tai50b
-level by level, `tai50b_bfs` on `claude/cool-babbage-ilnogj-tai50b`; tai60b dives).
+reports are merged here. Status as of Nov 16, 14:00 UTC: one cloud session still running (tai50b
+level by level, `tai50b_bfs` on `claude/cool-babbage-ilnogj-tai50b`). `laptop/` has the scripts for the M2 Pro.
 
 ## Summary
 
@@ -18,7 +18,7 @@ level by level, `tai50b_bfs` on `claude/cool-babbage-ilnogj-tai50b`; tai60b dive
 | **tai50b** | at least 1.1e6 core-hours, no cut phase | **about 100 core-hours** (60-250) [e] | cluster-region cuts | 275 dives; tai35b and tai40b solved end to end with the same code; levels 4-5 thinly sampled |
 | **tho40** | 1,308 c7a CPU-days (tho40-b as running) | **226 CPU-days** with the cut phase at zone 0.06 [m, dives]; **about 110-215** with hand-over and the phase penalty [e] | the grid cut phase used widely, then a rule for when to stop a phase | 39-51 dives per arm over the whole tree; the last factor of two is paired on 34 dives, noisy in total |
 | **nug30** | 3,030 CPU-s, 3,688 nodes (record recipe, cloud box) | **1,667 CPU-s, 1,302 nodes** (1.82x) [m] | long phases at depth 1, short below; phase penalty; early entry | whole search, repeated, path checks pass |
-| **tai60b** | no estimate | root 605,315,696 certified (published 592,829,061; best known 608,215,054); tree **500-2,500 core-hours** (400 to more than 10,000) [e] | cluster-region cuts | a model from samples on the path to depth 18 and off it at depths 1-5; no dives yet |
+| **tai60b** | no estimate | root 605,315,696 certified (published 592,829,061; best known 608,215,054); tree **about 260 core-hours** (150-600) [e] | cluster-region cuts | about 100 Knuth dives from the saved root; the levels that carry the cost rest on 4-8 dives each; no end-to-end check at this size |
 | **tai35b, tai40b** | solved by others in 2.6 million and 278,000 nodes | **solved in 922 and 733 nodes**, about 1.4 CPU-hours each [m] | cluster-region cuts | two region families each |
 | **wil50** | 7,500-18,600 core-hours | about 1.15-1.2x less [e]; 1.09x and 1.35x measured on two subtrees | early entry, hand-over rule refitted | two subtrees |
 | **sko49** | 37,000-41,000 core-hours | about 1.2-1.35x less [m, two subtrees] | the same, plus `wc=1.4` | two subtrees |
@@ -50,9 +50,10 @@ on tai30b, 71-81% on tai35b to tai60b. Solver change: `cut.regions = FILE` (`reg
   below one branching sequence (`regions/`, "Follow-up") read 2,000-7,000 core-hours if the fringe
   compounds for three levels; the dives say two. A level-by-level run is measuring it.
 - **tai60b** (`tai60b/`): the root closes 81% of the published gap; the on-path bound is 0.45% short
-  at depth 1 and 0.01% at depth 18. Off the path the fringe of same-cluster swaps compounds for at
-  least two levels. A model of the surviving prefixes gives 500-2,500 core-hours; the slack at depths
-  17-30 decides between 400 and 10,000. tai80b: the root only (8 s per iteration).
+  at depth 1 and 4k short at depth 42, with no node of the path fathomed. By Knuth dives: 31,600
+  nodes (18,600-46,700) and about 260 core-hours on the cloud box, range 150-600; a model of the
+  surviving prefixes with the slack measured at every depth gives 460. The cost is off the path at
+  depths 1, 3, 9 and 10. tai80b: the root only (8 s per iteration).
 - **A fault to know about** (`tai_solves/`, section 5): with `wc=2.88` a child's first solve on its
   parent's pool sometimes fails outright (a certificate of -3e11, or none). The bound stays valid but
   the subtree blows up; `tai_solves/pool_retry.patch` redoes the solve without the pool. Not yet in
@@ -153,7 +154,7 @@ One tree with all the patches: commit **b86352e** on `claude/cool-babbage-ilnogj
 - The tho40 combined arm's absolute total (uncertain by about 2x either way); the patches in a run
   through the coordinator; a switch of tho40-b's settings mid-run.
 - tai50b below depth 5 other than on the path; the failed pooled solves' cause.
-- tai60b by dives; tai80b's tree at all.
+- tai80b's tree at all; tai60b's levels 3, 9 and 10 beyond 4-8 dives each.
 - wil50 and sko49 whole-tree effect of the policy (two subtrees each).
 - nug30 on the laptop.
 
