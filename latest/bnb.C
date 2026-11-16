@@ -942,7 +942,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    }
 	    // cut.giveup = T:G,T:G,... (CP form; review_nov10/phase_stop): from iteration T the
 	    // phase stops when its gap to the cutoff is still above G
-	    if (const char *e = setting_s("cut.giveup"); *e) {
+	    // cut.giveup_depth = D: the give-up rule only at depth >= D, so that the phases above D run on to equip their subtrees
+	    if (const char *e = setting_s("cut.giveup"); *e && node.depth >= (int)setting_i("cut.giveup_depth")) {
 	      for (const char *p = e; *p; ) {
 	        char *q; long T = strtol(p, &q, 10);
 	        if (q == p || *q != ':') { std::cerr << "cut.giveup: expected T:G,T:G,... got '" << e << "'" << std::endl; exit(2); }
