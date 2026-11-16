@@ -518,6 +518,45 @@ void handler(int sig) {
   exit(1);
 }
 
+
+// cut.regions (bound_lab/integration/REVIEW_cognac.md, findings 4 and 14): the region file's bytes go
+// into the settings record as cut.regions.hash, so a state file written with another file fails the
+// -r check like any other change of settings; and with n known, its indices are checked here, before
+// any node runs, instead of at the first cut phase (bnb.C reads the file again then).
+static void record_cut_regions(int n)
+{
+  const char *e = setting_s("cut.regions");
+  if (!*e) return;
+  FILE *f = fopen(e, "r");
+  if (!f) { cerr << "cut.regions: cannot read " << e << std::endl; exit(2); }
+  settings_set("cut.regions.hash", settings_hash_file(e), SRC_PAR);
+  if (n <= 0) { fclose(f); return; }
+  char line[1 << 14];
+  int regions = 0, lineno = 0;
+  while (fgets(line, sizeof line, f)) {
+    lineno++;
+    if (char *h = strchr(line, '#')) *h = 0;
+    char *q = line;
+    int count = 0;
+    for (;;) {
+      char *end;
+      long x = strtol(q, &end, 10);
+      if (end == q) break;
+      if (x < 0 || x >= n) {
+        cerr << "cut.regions: " << e << " line " << lineno << ": index " << x << " is outside 0.." << n - 1 << std::endl;
+        exit(2);
+      }
+      count++;
+      q = end;
+    }
+    while (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r') q++;
+    if (*q) { cerr << "cut.regions: " << e << " line " << lineno << ": not an index: " << q << std::endl; exit(2); }
+    if (count) regions++;
+  }
+  fclose(f);
+  if (!regions) { cerr << "cut.regions: no regions in " << e << std::endl; exit(2); }
+}
+
 int main(int argc, char *argv[])
 {
   signal(SIGSEGV, handler);   // install our handler
@@ -550,6 +589,7 @@ int main(int argc, char *argv[])
       settings_set("par.file", c->param_file, SRC_FLAG);
       settings_set("par.hash", settings_hash_file(c->param_file), SRC_PAR);
       settings_read_par(c->param_file);
+      record_cut_regions(0);   // the hash only: no instance here
     }
     settings_dump(cout);
     return 0;
@@ -605,6 +645,7 @@ int main(int argc, char *argv[])
   
   qap_read_params(c->param_file,params, c->nlevel, c->sym_file,param_max_depth);
   settings_read_par(c->param_file);   // its [settings] section (settings.h)
+  record_cut_regions(n);              // cut.regions: its hash in the record, its indices checked
   apply_policy_settings();            // -x/-w or the file into the solver's globals
   settings_dump(cout);   // every setting with its value and source (settings.h)
 

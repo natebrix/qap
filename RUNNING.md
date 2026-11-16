@@ -181,6 +181,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `cut.side` | par key | integer | `0` | 0..1 | policy | regions over the first (0) or the second (1) matrix |
 | `cut.grid` | par key | text | unset | text | policy | R:C grid whose prefixes are the regions (unset: prefixes of the free elements) |
 | `cut.regions` | par key | text | unset | text | policy | file of regions, one per line: original indices of cut.side (any sets; with cut.grid, added to its prefixes) |
+| `cut.regions.hash` | par key | text | unset | text | policy | FNV-1a of the cut.regions file's bytes (set by bnbdrv; a resume with another file fails the -r check) |
 | `cut.rounds` | par key | integer | `12` | 1..1000 | policy | cut rounds per phase |
 | `cut.iters` | par key | integer | `300` | 1..1000000 | policy | ADMM iterations per cut round |
 | `cut.k` | par key | integer | `1000` | 0..1000000 | policy | new triangle cuts per round |

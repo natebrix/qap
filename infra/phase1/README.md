@@ -91,7 +91,7 @@ launching:
 |---|---|
 | problem | the command line's (another name restarts with its defaults) |
 | run name | `PROBLEM-YYMMDD`, the UTC date: `tho40-261117` |
-| params file | `recipes/PROBLEM.par` if there is one, else the estimate's, `experiments/estimates/PROBLEM/PROBLEM.par` (wil50: `experiments/wil50_feasibility/fullrun/fullrun.par`); it must be committed |
+| params file | the one `recipes/defaults.txt` names for the problem, its next run's settings (tho40: `recipes/tho40c.par`; tai50b: `recipes/tai50b.par`), else `recipes/PROBLEM.par`, else the estimate's, `experiments/estimates/PROBLEM/PROBLEM.par` (wil50: `experiments/wil50_feasibility/fullrun/fullrun.par`); it must be committed |
 | incumbent | the best known (`QAPSOLN/PROBLEM.sln`) + the step of the objective's grid: + 2 where every value is even, else + 1 (`objstep.py`); `none` for no incumbent |
 | instance type, market | `c7a.16xlarge`, Spot |
 | instances | 1 (it shows how many the quota has room for) |
@@ -115,13 +115,14 @@ the time limit), so the same command resumes a run.
   step:
   - **+ 2 where every value is even:** tho40, sko42, sko49, wil50 (symmetric matrices, even
     diagonal products), as the 2000 nug30 solve was given the optimum + 2 and tho40-b
-    240,518. + 1 there would be wrong: with 1.95 the cutoff falls to the best known - 0.95, and
-    the node holding the best known can be fathomed. The proof would stand, but the run need
-    not find the solution.
+    240,518. + 1 there is off the grid, and `bnbdrv` rounds such an incumbent up to the next
+    attainable value (`latest/driver.C`), so it would act as + 2: without that, the 1.95
+    tolerance would put the cutoff at the best known - 0.95 and could fathom the node holding it.
   - **+ 1 where values are integers but not all even:** the tai-b instances, whose matrices are
     not symmetric (tai50b 458,821,518).
   - Data that are not integers have no grid (tolerance 0): + 1 is a margin there.
-  An incumbent typed below the next value, or past it, is pointed out. The estimates
+  An incumbent typed off the grid (rounded up), at or below the best known, or past the next value is
+  pointed out. The estimates
   (`experiments/estimates/*/settings.sh`) keep the best known itself, the tree a run must
   search.
 - **Run names:** a run the website shows is named after the QAPLIB problem and the UTC date

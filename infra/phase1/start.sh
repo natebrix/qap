@@ -11,7 +11,8 @@
 #     own short-lived token in ~/.aws/sso/cache), and the instances use their own role;
 #  2. works out the defaults and asks you to keep each one (Enter) or change it:
 #     - the run's name: PROBLEM-YYMMDD (the UTC date), the name the website shows;
-#     - the params file: recipes/PROBLEM.par if there is one, else the estimate's
+#     - the params file: the one recipes/defaults.txt names for PROBLEM (its next run's
+#       settings), else recipes/PROBLEM.par, else the estimate's
 #       (experiments/estimates/PROBLEM/PROBLEM.par);
 #     - the incumbent: the best known (QAPSOLN/PROBLEM.sln) + the step of the objective's
 #       grid (objstep.py, the solver's own test: 2 where every value is even, else 1): the
@@ -73,7 +74,7 @@ ubnote() {   # UBNOTE: what the incumbent UB means against the best known BEST
   [ -n "$UB" ] && [ -n "$BEST" ] || return 0
   d=$((UB - BEST))
   if [ "$d" -le 0 ]; then UBNOTE=" (not above the best known $BEST: the run cannot find it, only prove that nothing better than $UB exists)"
-  elif [ "$d" -lt "$STEP" ]; then UBNOTE=" (below the next value, $BEST + $STEP: the solver fathoms within its tolerance, so the run cannot find $BEST, only prove that nothing is better)"
+  elif [ "$d" -lt "$STEP" ]; then UBNOTE=" (off the objective's grid: the solver rounds it up to the next value, $BEST + $STEP, and the run must find $BEST itself)"
   else
     local past=""   # (not $( [ ] && echo ) in the assignment: under set -e its status 1 would end the script)
     if [ "$d" -gt "$STEP" ]; then past=", past the next value $BEST + $STEP"; fi
@@ -136,10 +137,14 @@ BEST=""; [ -f "QAPSOLN/$P.sln" ] && BEST=$(awk 'NR == 1 {print $2; exit}' "QAPSO
 DAT=qaplib/$P.dat; EXTRA=""
 if [ -f "qaplib/${P}t.dat" ] && [ -f "latest/SYM/${P}t.sym" ]; then DAT=qaplib/${P}t.dat; EXTRA="-s SYM/${P}t.sym"
 elif [ -f "latest/SYM/$P.sym" ]; then EXTRA="-s SYM/$P.sym"; fi
-PAR=""
-for c in "infra/phase1/recipes/$P.par" "experiments/estimates/$P/$P.par" "experiments/${P}_feasibility/fullrun/fullrun.par"; do
-  [ -f "$c" ] && { PAR=$c; break; }
-done
+# the params file: recipes/defaults.txt's for P (its next run's settings), else the first that exists
+PAR=$(awk -v p="$P" '!/^#/ && $1 == p {print $2; exit}' infra/phase1/recipes/defaults.txt 2> /dev/null || true)
+[ -z "$PAR" ] || [ -f "$PAR" ] || { echo "note: recipes/defaults.txt names $PAR for $P, which does not exist"; PAR=""; }
+if [ -z "$PAR" ]; then
+  for c in "infra/phase1/recipes/$P.par" "experiments/estimates/$P/$P.par" "experiments/${P}_feasibility/fullrun/fullrun.par"; do
+    [ -f "$c" ] && { PAR=$c; break; }
+  done
+fi
 ENVV=""
 COORD="--budget 1200 --target-unit-cpu 1200 --steal-after 300 --checkpoint-every 60 --ckpt-upload 300 --trace"
 if [ -f "$D/recipes/$P.sh" ]; then   # a committed recipe for P: its data file, flags, environment and units

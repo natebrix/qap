@@ -59,6 +59,7 @@ static Setting TABLE[] = {
   POLICY("cut.side", "QAP_DNN_CUT_SIDE", 'i', "0", 0, 1, "regions over the first (0) or the second (1) matrix"),
   POLICY("cut.grid", "QAP_DNN_CUT_GRID", 's', "", 0, 0, "R:C grid whose prefixes are the regions (unset: prefixes of the free elements)"),
   POLICY("cut.regions", "QAP_DNN_CUT_REGIONS", 's', "", 0, 0, "file of regions, one per line: original indices of cut.side (any sets; with cut.grid, added to its prefixes)"),
+  POLICY("cut.regions.hash", NULL, 's', "", 0, 0, "FNV-1a of the cut.regions file's bytes (set by bnbdrv; a resume with another file fails the -r check)"),
   POLICY("cut.rounds", "QAP_DNN_CUT_ROUNDS", 'i', "12", 1, 1000, "cut rounds per phase"),
   POLICY("cut.iters", "QAP_DNN_CUT_ITERS", 'i', "300", 1, 1000000, "ADMM iterations per cut round"),
   POLICY("cut.k", "QAP_DNN_CUT_K", 'i', "1000", 0, 1000000, "new triangle cuts per round"),
