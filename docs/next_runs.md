@@ -45,8 +45,34 @@ It saves about 35 CPU-days at most, about half a day on one instance, or $5-10 a
    subtree confirms it, would take 1.7-3.4 days on one. That is the "couple of days" target, on the
    quota there is.
 5. **Read the dives as likely low.** The estimator that produced 1,308 read about half the size of a
-   subtree whose size was known (`knuth_tho40/README.md`). The bound lab's dives used its weighting
-   too, so tho40-c's estimate should be redone with `QAP_EST_CHILD_QPB=1` before the quota is sized.
+   subtree whose size was known (`knuth_tho40/README.md`). (Corrected Nov 16 evening: the bound lab's
+   dives did not. Every arm of `bound_lab/tho40_dives` ran with `QAP_EST_CHILD_QPB=1`, and the cut arms
+   solved every subtree below a sampled depth-4 node exactly; only its reproduction of the laptop study
+   used the old weighting. Its base figure under the new weighting is 1,036, se 463.)
+
+**Settled on the subtree (Nov 16 evening).** The laptop ran the cut arms on the tho40ab subtree
+`-F 26:10,8:0` through the coordinator (`bound_lab/laptop/runs_tho40ab`, on the bound-lab branch):
+
+| arm | nodes | CPU s (M2 Pro) | CPU against tho40-b's settings |
+|---|---|---|---|
+| g200, tho40-b's settings (`giveup_ab`) | 22,895 | 31,594 | 1 |
+| cut06, the cut phase at zone 0.06 | 1,312 | 9,796 | 3.2x less |
+| comb, the full block | 877 | 3,894 | 8.1x less |
+
+Less than the dives' 5.8x and about 12x, with the same ratio between the arms. The next run takes comb:
+- **The solver:** the integration build's `latest/` and the pooled-solve retry, applied to cognac (52adc4d),
+  the retry behind `dnn.retry` and recorded in the DNN trace (`integration/REVIEW_cognac.md`).
+- **The settings:** `infra/phase1/recipes/tho40c.par` (b4a0765), tho40-b's with the block and `dnn.retry = 1`.
+- **The path check** with those settings: PASS, warm and cold (`experiments/tho40b_analysis/path_check/`,
+  Nov 16): every node on the path to 240,516 branched, no bound above 240,516.0000, the leaf the solution.
+- **The size:** the bound lab's dives under these settings, with the corrected weighting already: 215
+  c7a CPU-days (se 82) for the comb arm's own total, about 110 from zone 0.06's 226 times the
+  same-path ratio 0.49 (`bound_lab/tho40_dives`). So 110-215: 0.9-1.7 days on two Spot c7a.16xlarge
+  (64 cores each), 1.7-3.4 on one; a heavy tail is possible (single dives carried up to 31% of an arm's
+  total). At Spot's $0.0077 a core-hour (above) that is $20-40 of CPU. More dives would narrow it but
+  do not change the launch: two instances, a 72-hour limit, and `start.sh` resumes if it runs out.
+- **The launch:** `infra/phase1/start.sh tho40` once tho40-b has ended, typing `infra/phase1/recipes/tho40c.par`
+  at the params prompt; the run is named `tho40-YYMMDD`.
 
 ## tai50b: what a run of record needs
 

@@ -84,6 +84,9 @@ def main():
     ap.add_argument("--sym", default="SYM/tho40t.sym", help="relative to latest/")
     ap.add_argument("--grid", default="5x8")
     ap.add_argument("--plus", type=int, default=2, help="the incumbent given: the solution's value + this")
+    ap.add_argument("--resume", action="store_true",
+                    help="reuse the nodes OUT already holds (their trace, state and wall time), so an interrupted "
+                         "dive goes on where it stopped; the same options as the first run")
     a = ap.parse_args()
     if a.transposed is None:
         a.transposed = a.instance == "qaplib/tho40t.dat"
@@ -110,20 +113,26 @@ def main():
     while True:
         k = len(prefix)
         nt, dt, st, lg = (f"{out}/d{k:02d}.{x}" for x in ("nodes", "dnn", "state", "log"))
-        for f in (nt, dt):
-            if os.path.exists(f):
-                os.remove(f)
-        cmd = ["./bnbdrv", "-p", a.params, "-s", a.sym, "-u", str(best + a.plus), "-d", str(k), "-o", st]
-        if prefix and a.warm:
-            cmd += ["-r", f"{out}/d{k:02d}.in.state"]
-        elif prefix:
-            cmd += ["-F", ",".join(f"{i}:{j}" for i, j in prefix)]
-        cmd.append(os.path.join(ROOT, a.instance))
-        t0 = time.time()
-        with open(lg, "w") as log:
-            subprocess.run(cmd, cwd=LATEST, env=dict(os.environ, QAP_NODE_TRACE=nt, QAP_DNN_TRACE=dt),
-                           stdout=log, stderr=subprocess.STDOUT, check=False)
-        wall = time.time() - t0
+        wf = f"{out}/d{k:02d}.wall"   # written last: a node with it finished
+        if a.resume and all(os.path.exists(f) for f in (nt, st, wf)):
+            wall = float(open(wf).read())
+        else:
+            for f in (nt, dt, wf):
+                if os.path.exists(f):
+                    os.remove(f)
+            cmd = ["./bnbdrv", "-p", a.params, "-s", a.sym, "-u", str(best + a.plus), "-d", str(k), "-o", st]
+            if prefix and a.warm:
+                cmd += ["-r", f"{out}/d{k:02d}.in.state"]
+            elif prefix:
+                cmd += ["-F", ",".join(f"{i}:{j}" for i, j in prefix)]
+            cmd.append(os.path.join(ROOT, a.instance))
+            t0 = time.time()
+            with open(lg, "w") as log:
+                subprocess.run(cmd, cwd=LATEST, env=dict(os.environ, QAP_NODE_TRACE=nt, QAP_DNN_TRACE=dt),
+                               stdout=log, stderr=subprocess.STDOUT, check=False)
+            wall = time.time() - t0
+            with open(wf, "w") as w:
+                w.write(f"{wall:.1f}\n")
         mine = [l.split() for l in open(nt) if l.startswith("node ") and int(l.split()[1]) == k] \
             if os.path.exists(nt) else []
         if len(mine) != 1:

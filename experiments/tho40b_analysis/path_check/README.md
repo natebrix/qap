@@ -65,3 +65,39 @@ For the next instance, run it before the launch: `QAPSOLN/` now has `sko42.sln` 
 `wil50.sln` too, and `dive.py` takes the instance, solution, recipe, symmetry file and
 grid as options (a grid of r x c locations; a symmetry axis through the root's
 location is not handled).
+
+## With the next run's settings (Nov 16): PASS, both dives
+
+`infra/phase1/recipes/tho40c.par` (tho40-b's settings with the bound lab's full block: the grid cut phase
+at zone 0.06, pools handed to children, the hand-over rule, the phase penalties, `dnn.retry = 1`), on
+cognac 52adc4d, from the same incumbent 240,518:
+
+| | cold (`cold_tho40c.tsv`) | warm, as the run (`warm_tho40c.tsv`) |
+|---|---|---|
+| nodes on the path | 38, depths 0 to 37 | 38 |
+| every node branched, path child kept | yes | yes |
+| the leaf (depth 37, enumerated) | 240,516, the solution | 240,516, the solution |
+| highest bound on the path | 240,516.0000 | 240,516.0000 |
+| CPU on this cloud box | 2,798 s | 1,742 s |
+
+**The bound along the warm path** (240,516 less the bound) against tho40-b's settings:
+
+| depth | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| tho40-b | 14,269 | 9,075 | 6,871 | 5,238 | 3,891 | 3,220 | 1,716 | 755 | 525 | 0.89 |
+| tho40-c | 7,426 | 5,644 | 4,177 | 3,374 | 2,263 | 1,380 | 1,100 | 327 | 0.00 | 0.00 |
+
+- The root and `26:2` are tho40-b's nodes: the same QPB root, the same plain DNN bound at `26:2`
+  (226,246.9108), the cut phase then 233,089.6108, and the same line (location 0). At `30:0` the warm
+  node branches on location 32 as before; the cold one on 39, and the two paths part from depth 3.
+- From depth 9 (warm) or 10 (cold) the bound is the subtree's optimum to four places, as with tho40-b's
+  settings from depth 11: the cuts close the gap two levels sooner, and never pass the optimum.
+- The path costs about three times tho40-b's CPU: every node on it runs a cut phase that cannot fathom
+  it. Off the path the phases are what fathom nodes.
+
+```
+python3 dive.py OUT --warm --params ../infra/phase1/recipes/tho40c.par --resume
+```
+
+`--resume` (Nov 16) keeps the nodes OUT already holds, so an interrupted dive goes on where it stopped;
+a depth-1 node takes about 11 minutes here with these settings.
