@@ -13,8 +13,9 @@
 #     - the run's name: PROBLEM-YYMMDD (the UTC date), the name the website shows;
 #     - the params file: recipes/PROBLEM.par if there is one, else the estimate's
 #       (experiments/estimates/PROBLEM/PROBLEM.par);
-#     - the incumbent: the best known (QAPSOLN/PROBLEM.sln) + 2, so the run must find
-#       the best known solution itself and prove that nothing is better;
+#     - the incumbent: the best known (QAPSOLN/PROBLEM.sln) + the step of the objective's
+#       grid (objstep.py, the solver's own test: 2 where every value is even, else 1): the
+#       next value, so the run must find the best known itself and prove nothing is better;
 #     - the instances: how many (with the vCPU quota left), the type (c7a.16xlarge),
 #       Spot or on-demand, and the time limit (72 hours);
 #     - if you ask for them: the data file, the solver flags (the grid's symmetry
@@ -60,6 +61,25 @@ yesno() {   # yesno QUESTION y|n (the default): status 0 for yes
 }
 mask() { if [ -n "${ACCT:-}" ]; then sed "s/$ACCT/<account>/g"; else cat; fi; }
 note() { echo "  $*" | mask; }
+grid() {   # STEP and GRIDWHAT for $DAT: the step of the objective's grid, by the solver's test
+  local g
+  g=$(python3 "$D/objstep.py" "$DAT") || { echo "cannot read $DAT"; exit 1; }
+  STEP=${g%% *}; GRIDWHAT=${g#* }
+  [[ $STEP =~ ^[12]$ ]] || { echo "objstep.py: $g"; exit 1; }
+}
+ubnote() {   # UBNOTE: what the incumbent UB means against the best known BEST
+  local d
+  UBNOTE=""
+  [ -n "$UB" ] && [ -n "$BEST" ] || return 0
+  d=$((UB - BEST))
+  if [ "$d" -le 0 ]; then UBNOTE=" (not above the best known $BEST: the run cannot find it, only prove that nothing better than $UB exists)"
+  elif [ "$d" -lt "$STEP" ]; then UBNOTE=" (below the next value, $BEST + $STEP: the solver fathoms within its tolerance, so the run cannot find $BEST, only prove that nothing is better)"
+  else
+    local past=""   # (not $( [ ] && echo ) in the assignment: under set -e its status 1 would end the script)
+    if [ "$d" -gt "$STEP" ]; then past=", past the next value $BEST + $STEP"; fi
+    UBNOTE=" (the best known $BEST + $d$past: the run must find $BEST itself)"
+  fi
+}
 
 # --- the tools and the AWS session (SSO; nothing stored here)
 command -v aws > /dev/null || { echo "the AWS CLI is not installed (brew install awscli)"; exit 1; }
@@ -161,19 +181,18 @@ if [ "$MODE" = new ]; then
   KEYS=$(grep -E '^(ship\.bits|dnn\.depths|dnn\.giveup|pool\.on|cut\.grid|cut\.zone|cut\.regions) *=' "$PAR" | sed 's/  */ /g' | paste -sd, - | sed 's/,/, /g') || KEYS=""
   note "${KEYS:-no ship.bits, dnn.depths, pool.on or cut keys: the defaults of the solver}"
   grep -qE '^ship\.bits *= *32' "$PAR" || note "ship.bits is not 32: parent states in the store take twice the room (production runs use 32)"
-  UBDEF=none; [ -n "$BEST" ] && UBDEF=$((BEST + 2))
+  grid
+  note "objective values: $GRIDWHAT"
+  UBDEF=none; [ -n "$BEST" ] && UBDEF=$((BEST + STEP))
   while :; do
     UBASKED=1
-    ask UB "Incumbent ($([ -n "$BEST" ] && echo "the best known $BEST + 2; " || echo "no best known in QAPSOLN/; ")none: no incumbent)" "$UBDEF"
+    ask UB "Incumbent ($([ -n "$BEST" ] && echo "the best known $BEST + $STEP, the next value; " || echo "no best known in QAPSOLN/; ")none: no incumbent)" "$UBDEF"
     [ "$UB" = none ] && break
     [[ $UB =~ ^[0-9]+$ ]] && break
     echo "a whole number, or none"; [ "$YES" = 1 ] && exit 1
   done
   [ "$UB" = none ] && UB=""
-  if [ -n "$UB" ] && [ -n "$BEST" ]; then
-    if [ "$UB" -le "$BEST" ]; then UBNOTE=" (not above the best known $BEST: the run cannot find it, only prove that nothing below $UB exists)"
-    else UBNOTE=" (the best known $BEST + $((UB - BEST)): the run must find $BEST itself)"; fi
-  fi
+  ubnote
 fi
 
 # --- the instances
@@ -226,7 +245,15 @@ done
 DISK=100; VIS=public
 if yesno "Change the other settings (data file, solver flags, disk, units, public status)?" n; then
   if [ "$MODE" = new ]; then
+    DAT0=$DAT; STEP0=$STEP
     while :; do ask DAT "Data file" "$DAT"; [ -f "$DAT" ] && break; echo "no file $DAT"; done
+    if [ "$DAT" != "$DAT0" ]; then
+      grid
+      if [ "$STEP" != "$STEP0" ] && [ -n "$BEST" ] && [ "$UB" = "$((BEST + STEP0))" ]; then
+        UB=$((BEST + STEP)); note "$DAT: objective values $GRIDWHAT; the incumbent is now $UB"
+      fi
+      ubnote
+    fi
     ask EXTRA "Solver flags (paths relative to latest/; none for no flags)" "${EXTRA:-none}"; [ "$EXTRA" = none ] && EXTRA=""
     ask COORD "Unit sizing (qapctl init)" "$COORD"
     ask VIS "Public or private status" "$VIS"
@@ -241,16 +268,7 @@ fi
 echo
 echo "Run $RUN: $([ "$MODE" = new ] && echo "a new run" || echo "add instances to the run ($MODE)"), commit $COMMIT ($BRANCH)"
 if [ "$MODE" = new ]; then
-  EVEN=$(python3 - "$DAT" << 'EOF'
-import sys
-t = open(sys.argv[1]).read().split(); n = int(t[0]); v = [float(x) for x in t[1:1 + 2 * n * n]]
-A, B = v[:n * n], v[n * n:]
-sym = all(A[i * n + j] == A[j * n + i] and B[i * n + j] == B[j * n + i] for i in range(n) for j in range(n))
-even = sym and all(x == int(x) for x in v) and all(A[i * n + i] * B[k * n + k] % 2 == 0 for i in range(n) for k in range(n))
-print("even (the solver fathoms within 1.95)" if even else "integers (the solver fathoms within 0.95)")
-EOF
-)
-  note "problem    $P: $DAT${EXTRA:+, $EXTRA}; objective values $EVEN"
+  note "problem    $P: $DAT${EXTRA:+, $EXTRA}; objective values $GRIDWHAT"
   note "params     $PAR"
   note "incumbent  ${UB:-none}$UBNOTE"
   note "units      $COORD"

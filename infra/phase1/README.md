@@ -92,7 +92,7 @@ launching:
 | problem | the command line's (another name restarts with its defaults) |
 | run name | `PROBLEM-YYMMDD`, the UTC date: `tho40-261117` |
 | params file | `recipes/PROBLEM.par` if there is one, else the estimate's, `experiments/estimates/PROBLEM/PROBLEM.par` (wil50: `experiments/wil50_feasibility/fullrun/fullrun.par`); it must be committed |
-| incumbent | the best known (`QAPSOLN/PROBLEM.sln`) + 2; `none` for no incumbent |
+| incumbent | the best known (`QAPSOLN/PROBLEM.sln`) + the step of the objective's grid: + 2 where every value is even, else + 1 (`objstep.py`); `none` for no incumbent |
 | instance type, market | `c7a.16xlarge`, Spot |
 | instances | 1 (it shows how many the quota has room for) |
 | time limit | 72 hours |
@@ -106,15 +106,24 @@ that name the bucket are ignored). For a run that exists, it adds instances with
 own settings: the first one coordinates if no instance does (after a Spot interruption or
 the time limit), so the same command resumes a run.
 
-- **The incumbent: the best known + 2** for an open problem, as the 2000 nug30 solve was
-  given the optimum + 2 and tho40-b 240,518. The run must find the best known solution
-  itself (`status.json`: found by search) and prove that nothing is better. On tho40, sko42,
-  sko49 and wil50 every objective value is even (symmetric matrices, even diagonal
-  products: the solver's tolerance is 1.95), so + 2 is the next value. tai50b's matrices are
-  not symmetric, so its values are integers only (tolerance 0.95): + 1 would be the tightest,
-  and + 2 adds the nodes whose bound lies within 1 more unit, on values of 4.6e8. The
-  estimates (`experiments/estimates/*/settings.sh`) keep the best known itself, the tree a
-  run must search.
+- **The incumbent: the next value above the best known**, so the run must find the best
+  known solution itself (`status.json`: found by search) and prove that nothing is better.
+  The solver fathoms a node whose bound exceeds the incumbent less its tolerance: 1.95 when
+  every objective value is an even integer, 0.95 when they are integers (`latest/qap.C`,
+  `set_fathom_tolerance`). `objstep.py` makes the same test on the data file (it agrees with
+  the solver on all 192 QAPLIB files: 121 even, 70 integers, 1 not integers) and gives the
+  step:
+  - **+ 2 where every value is even:** tho40, sko42, sko49, wil50 (symmetric matrices, even
+    diagonal products), as the 2000 nug30 solve was given the optimum + 2 and tho40-b
+    240,518. + 1 there would be wrong: with 1.95 the cutoff falls to the best known - 0.95, and
+    the node holding the best known can be fathomed. The proof would stand, but the run need
+    not find the solution.
+  - **+ 1 where values are integers but not all even:** the tai-b instances, whose matrices are
+    not symmetric (tai50b 458,821,518).
+  - Data that are not integers have no grid (tolerance 0): + 1 is a margin there.
+  An incumbent typed below the next value, or past it, is pointed out. The estimates
+  (`experiments/estimates/*/settings.sh`) keep the best known itself, the tree a run must
+  search.
 - **Run names:** a run the website shows is named after the QAPLIB problem and the UTC date
   of its launch, `tho40-261117`; a second the same day gets a letter, `tho40-261117b`. The
   website takes the instance's name from the data file, so the name is for people. Earlier
@@ -135,7 +144,8 @@ the time limit), so the same command resumes a run.
   `QAP_RUN_SLOTS=128`, the second instance a worker. `node.sh` in its local mode from a clean
   archive with a recipe file (nug17 from 1,734, 2 slots, the run sized for 8): init at 8
   slots, 1,732 found, the check passed. Dry runs of tho40, sko42, sko49, wil50, tai50b, nug17 and nug30
-  give the defaults above. 119 of the `.sln` files end their lines with `\r`, which first gave
+  give the defaults above (+ 2 on the even ones, + 1 on tai50b), and typed incumbents below,
+  at and past the next value give their notes. 119 of the `.sln` files end their lines with `\r`, which first gave
   tai50b no incumbent: the value is now read as digits, and the launch stops if the incumbent
   was never asked.
 

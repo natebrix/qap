@@ -90,10 +90,10 @@ The first is simpler and keeps the root measured in `tai50b_size` exact.
   depths 4-5 (`tai50b_size`, section 7): 100 GB per instance is ample.
 
 **The incumbent and the checks.**
-- **Incumbent:** the best known + 2 (458,821,519), the rule for new runs (`infra/phase1/README.md`,
-  Starting a run): the run must find the best known itself and prove nothing better exists. tai50b's
-  values are integers but not proven even, so + 1 (the rehearsal's) is the tightest; + 2 adds the
-  nodes whose bound lies within one more unit.
+- **Incumbent:** the best known + 1 (458,821,518), as in the rehearsal: the next value above the best
+  known, the rule for new runs (`infra/phase1/README.md`, Starting a run). tai50b's values are integers
+  but not all even (its matrices are not symmetric), so its grid's step is 1. The run must find the best
+  known itself and prove nothing better exists.
 - **Path check first:** `path_check/dive.py` toward `QAPSOLN/tai50b.sln` with the run's settings.
   `dive.py` handles grid symmetries only, and tai50b has none: it needs a no-symmetry mode, a few lines.
 - **A rehearsal under the coordinator:** tai35b and tai40b end to end (922 and 733 nodes, about 1.4
