@@ -13,7 +13,10 @@ N, CUT = (50, 48816.0) if INST == "wil50" else (49, 23386.0)
 UNIT = 0.001 * CUT
 # per-child iterations after a miss, by gap left in 0.1% of the cutoff: wil50 a251+a325+a220 laptop traces
 # (364 missed phases, fitcost.py), bins' means at the bins' centres
-CHILD = [(0.05, 32.0), (0.15, 34.5), (0.31, 40.3), (0.51, 60.4), (0.82, 131), (1.28, 301), (1.79, 697), (2.56, 1685), (4.1, 5607), (5.5, 22670)]
+CHILD_W = [(0.05, 32.0), (0.15, 34.5), (0.31, 40.3), (0.51, 60.4), (0.82, 131), (1.28, 301), (1.79, 697), (2.56, 1685), (4.1, 5607), (5.5, 22670)]
+# sko49: s232 + s188 base here and the estimates' Cs232 (7 + 6 missed phases, fitcost.py)
+CHILD_S = [(0.3, 30.0), (0.64, 33.0), (1.33, 45.0), (2.56, 128.0), (5.1, 725.0)]
+CHILD = CHILD_W if INST == "wil50" else CHILD_S
 def child(g):
     if g <= CHILD[0][0]: return CHILD[0][1]
     for (g0, c0), (g1, c1) in zip(CHILD, CHILD[1:]):
@@ -46,7 +49,7 @@ RULES = [("recorded: cut.stall 3 x cut.iters 200", base), ("stall W 400", stall(
          ("cut.giveup 400:40,800:15", giveup([(400, 40 * UNIT / 48.8), (800, 15 * UNIT / 48.8)], base)),
          ("handover 32:0:250", handover(32, 0, 250)), ("handover 32:0:250 phi 1", handover(32, 0, 250, 1.0)), ("handover 32:0:250 phi 2.5", handover(32, 0, 250, 2.5)),
          ("handover 32:0:250 W 100", handover(32, 0, 250, 1.5, 100)), ("handover 32:0:250 W 300", handover(32, 0, 250, 1.5, 300)),
-         ("handover 32:20:100", handover(32, 20, 100)), ("handover 32:0:60", handover(32, 0, 60)), ("handover 50:0:250", handover(50, 0, 250)),
+         ("handover 32:20:100", handover(32, 20, 100)), ("handover 32:0:25 (hoe2)", handover(32, 0, 25)), ("handover 27:0:16 (sko49 hoe)", handover(27, 0, 16)), ("handover 27:0:5 (sko49 hoe2)", handover(27, 0, 5)), ("handover 50:0:250", handover(50, 0, 250)),
          ("handover 20:2:3 (tho40's)", handover(20, 2, 3))]
 ph = []
 for run in sys.argv[2:]:
