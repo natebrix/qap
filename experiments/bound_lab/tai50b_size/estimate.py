@@ -9,7 +9,7 @@ the nodes / CPU-s of all subtrees rooted at STATE's nodes):
   LA_tail8  all children (depth 9) of the spine node at depth 8
   LB, LB2, LB_near   the depth-2 children of the sampled B nodes that branched (LB: 31:4, 31:15, 31:32, 31:43;
             LB2: 31:5, 31:11; LB_near: 31:4, 31:15 again, alone)
-  T_A = sum_D mean(LA_offD) + 7 spine nodes + mean(LA_tail8)
+  T_A = sum_D mean(LA_offD) + 7 spine nodes + mean(LA_tail8) + the spine below depth 8 (spine_below8, [e])
   T_i (a B parent) = mean over the dives of the sets that cover i of (dive estimate x [the dive started under i])
 
 E1 (the sampling design alone):   51 + T_A + (49/17) sum_{i in B sample} T_i
@@ -39,6 +39,22 @@ def dive_rows(setname):
             rows.append((next(x for x in c[0]["fixes"] if x.startswith("31:")), float(e[1]), float(e[2]), int(e[0])))
     return rows
 
+def spine_below8():
+    """[e] The path below depth 8, which LA_tail8's dives barely see (they start from the 42 depth-9 children:
+    3 of 85 drew the on-path one and none followed it further): the spine nodes at depths 9..45 (measured where
+    runs/spine_D exists, else the last measured one scaled by (m/m_last)^3) and their off-path children at depths
+    10..46, each at the mean CPU of LA_tail8's depth-9 node bounds scaled by (m/41)^3. The depth-9 spine node and
+    its children are then in both this and LA_tail8's estimate (about 600 CPU-s counted twice). Returns (nodes, CPU-s)."""
+    sp = {d["depth"]: d for d in N.load(sorted(glob.glob(f"{H}/runs/spine_*/dnn.txt"))) if d["onpath"]}
+    t9 = [cpu(d) for d in N.load(glob.glob(f"{H}/runs/LA_tail8/s*/dnn.txt")) if d["depth"] == 9]
+    c9 = st.mean(t9) if t9 else 0.0
+    last = max(sp); nodes = 0.0; c = 0.0
+    for dep in range(9, 46):
+        m = 50 - dep
+        c += cpu(sp[dep]) if dep in sp else cpu(sp[last]) * (m / (50.0 - last)) ** 3
+        nodes += 1 + (m - 1); c += (m - 1) * c9 * ((m - 1) / 41.0) ** 3      # its other children, one level down
+    return nodes, c
+
 def main():
     root = N.load([f"{H}/runs/root_long/dnn.txt"])[0]
     d1 = [d for d in N.load(sorted(glob.glob(f"{H}/runs/L1_*/dnn.txt"))) if d["depth"] == 1]
@@ -58,8 +74,10 @@ def main():
     print("dives per set:", {x: len(r) for x, r in {**la, **lb}.items()}, "| sets without dives:", missing)
     print("deepest dives:", {x: max((r[3] for r in rows), default=None) for x, rows in {**la, **lb}.items()})
 
+    below = spine_below8()
+    print(f"the spine below depth 8 [e] (spine_below8): {below[0]:,.0f} nodes, {below[1]:,.0f} CPU-s")
     def parts(la, lb, k):            # k = 1 nodes, 2 CPU-s
-        TA = sum(st.mean(r[k] for r in x) for x in la.values() if x) + (len(spine) if k == 1 else sum(cpu(d) for d in spine))
+        TA = sum(st.mean(r[k] for r in x) for x in la.values() if x) + (len(spine) if k == 1 else sum(cpu(d) for d in spine)) + below[k - 1]
         # a parent's T_i from each set that covers it, averaged over the sets by their numbers of dives
         num, den = {}, {}
         for name, x in lb.items():

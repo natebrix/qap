@@ -2,7 +2,8 @@
 nodes(d), open(d) from logs/web.txt (web.py) for the gap scales 0.5 and 1.0, depths 1..8;
 an open node costs what the spine node of its depth cost [m]; a fathomed node the mean CPU of the fathomed node
 bounds of that depth in the dive sets [m] (depth 1: of the sampled depth-1 nodes that fathomed);
-below each open depth-8 node: LA_tail8's mean dive estimate; plus the root, and the children of the depth-1
+below each open depth-8 node: LA_tail8's mean dive estimate (its depth-9 children) plus the spine's path below
+depth 8 as estimate.spine_below8 extrapolates it (an open node that is not the spine fathoms sooner, so this is high); plus the root, and the children of the depth-1
 near misses the model does not have (4 of the 15 sampled non-twin nodes branched at the phase limit or the stall
 rule: 45 x 4/15 = 12 parents x 49 children at the mean cost measured under them, sets LB2 and LB_near)."""
 import os, re, sys, glob, statistics as st
@@ -15,12 +16,13 @@ sp = {d["depth"]: d for d in N.load([H + "/runs/L1_0/dnn.txt"] + sorted(glob.glo
 allb = N.load([f for f in glob.glob(H + "/runs/L*/s*/dnn.txt")])
 cf = {1: st.mean(cpu(d) for d in d1 if d["fath"])}; nf = {1: sum(d["fath"] for d in d1)}
 for dep in range(2, 9):
-    X = [cpu(d) for d in allb if d["depth"] == dep and d["fath"]]; cf[dep] = st.mean(X) if X else float("nan"); nf[dep] = len(X)
-tail = E.dive_rows("LA_tail8"); tn = st.mean(r[1] for r in tail) if tail else float("nan"); tc = st.mean(r[2] for r in tail) if tail else float("nan")
+    X = [cpu(d) for d in allb if d["depth"] == dep and d["fath"]]; cf[dep] = st.mean(X) if X else cf[dep - 1]; nf[dep] = len(X)
+tail = E.dive_rows("LA_tail8"); below = E.spine_below8()
+tn = (st.mean(r[1] for r in tail) if tail else 0.0) + below[0]; tc = (st.mean(r[2] for r in tail) if tail else 0.0) + below[1]
 near = [cpu(d) for s in ("LB2", "LB_near") for d in N.load(glob.glob(f"{H}/runs/{s}/s*/dnn.txt")) if d["depth"] == 2]
 out = ["cost of an open node by depth (the spine's) [m]: " + ", ".join("%d: %.0f" % (k, cpu(v)) for k, v in sorted(sp.items())),
        "mean cost of a fathomed node by depth [m] (node bounds): " + ", ".join("%d: %.0f (%d)" % (k, cf[k], nf[k]) for k in sorted(cf)),
-       "below an open depth-8 node (LA_tail8, %d dives) [e]: %.0f nodes, %.0f CPU-s" % (len(tail), tn, tc),
+       "below an open depth-8 node (LA_tail8, %d dives, + the spine below depth 8) [e]: %.0f nodes, %.0f CPU-s" % (len(tail), tn, tc),
        "children of the depth-1 near misses: 12 parents x 49 x %.0f CPU-s (%d node bounds) [e]" % (st.mean(near), len(near))]
 blocks = re.split(r"\ngap scale ", open(H + "/logs/web.txt").read())[1:]
 for b in blocks:

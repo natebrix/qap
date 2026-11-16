@@ -113,6 +113,7 @@ then 2-swap descent): `31:7` +0, `31:0` +147k, `31:32` +277k, `31:43` +1.96M, `3
 0.28M, depth 6 to 7 on the spine), `31:43` and `31:42` are half-twins (until about depth 3), and everything
 else can fathom at depth 1 or just below. That is what the sample shows: `31:32` and `31:43` stall 2.9M and
 2.7M short, and the four other branched nodes are near misses of the phase limit and the stall rule.
+The spine's gap goes on falling below depth 8: 68k at depth 9, 23k, 17k, 11k and 5k at depths 10 to 13.
 
 **The twin, probed** [m, `runs/twin32_D/dnn.txt`]: the path of the best solution found with `31:32`
 (`logs/perm_31_32.txt`), depths 2 to 4:
@@ -129,18 +130,29 @@ child sampling `est.xbar = 1`, `est.xbar_mix = 0.3`; one seed per process). A ra
 nodes almost never meets the spine, so the dives are **stratified by it**: one set per spine level from the
 off-path children of the spine node above (`LA_offD`, D = 2..8), one set from all children of the spine node at
 depth 8 (`LA_tail8`), and the sets under the sampled off-path depth-1 nodes (`LB`: children of `31:4`,
-`31:15`, `31:32`, `31:43`; `LB2`: of `31:5`, `31:11`). The spine nodes themselves are measured (section 5).
+`31:15`, `31:32`, `31:43`; `LB2`: of `31:5`, `31:11`; `LB_near`: of `31:4`, `31:15` alone; `LB_43`: of `31:43` alone).
+The spine nodes themselves are measured (section 5).
 
 @DIVES@
 
 Every dive and every node bound of every set: `logs/dives_SET.txt` (one line per dive:
 `depth:outcome/iterations/final shortfall in M`), `runs/SET/sSEED/{dives.txt,dnn.txt,est.out}`.
 
-Stopping. The sets `LA_off4`, `LA_off5`, `LA_off6`, `LA_off8` stop after a fixed number of dives. The others
-were stopped by the clock, which drops the dive in flight and so under-samples long dives: at most one
-dive per process (`LA_off2`, `LA_off3`, `LA_off7`: one process each; `LB`: three; `LB2`: one; `LA_tail8`: two).
-Two first attempts at levels 4 and 5 that ended that way after 2 and 6 dives are in `runs/trunc/` and are
-not used.
+Stopping, process by process (a process stopped by the clock loses its dive in flight, which under-samples
+long dives; a process that finishes its planned count does not):
+
+@STOPS@
+
+Two first attempts at levels 4 and 5 that the clock ended after 2 and 6 dives (`runs/trunc/`), and 7 dives
+from all 49 children of `31:7` before the sets were stratified (`runs/LA0`), are not used in the estimate; their
+node bounds are in the path check.
+
+What the dives show: off the spine nothing goes deep. Of the @NDIVES@ dives, @NB1@ met a node that branched. Four
+did so off the spine, at depths 4 and 5, each at a near miss that ran to the 2,400-iteration phase limit 0.05M
+to 0.20M short and whose child then fathomed. The other three are `LA_tail8` dives that drew the spine's own
+node at depth 9 and then an off-path child, which fathomed. The longest fathoming phases are at depths 2 and 6 (up to 1,700 and 980 iterations). So
+the cost below depth 1 is: every child of every open node bounded once (20 to 100 CPU-s each, more at
+depths 4 to 6), plus the open nodes themselves (300 to 600 CPU-s on the spine, about 1,000 for a near miss).
 
 ## 7. The estimate [e] (`estimate.py`, `logs/estimate.txt`)
 
@@ -161,13 +173,14 @@ not used.
 - **`dnn.giveup = 100`**: a pooled child that will not fathom in its first solve hands over to the phase
   after 110 iterations; the phase then gains from its first iterations (0.2M to 0.5M in the first 30).
   First solves that are going to fathom are not cut short (they ran 22 to 930 iterations).
-- **The phase limit of 2,400 (`cut.rounds = 12` x `cut.iters = 200`) is too short at depth 1**: 2 of 18 nodes
-  ended at it 12k and 348k short, and each then costs 49 children. Fathoming phases took up to 1,990
-  iterations. `cut.rounds = 20` (4,000) is what I would run [e: not rerun].
-- **The stall rule (`cut.stall = 3`) stops near misses too early at depth 1**: `31:4` and `31:15` stalled
-  1.5M and 1.1M short after 1,260 and 1,440 iterations while still gaining 0.2M per 100. Their children
-  all fathom, at 49 x 30 to 60 CPU-s per parent, so the loss is small here; the rule did its job on the
-  nodes that cannot fathom (the spine, `31:32`, `31:43`: stopped after 600 to 800 iterations).
+- **The phase limit of 2,400 (`cut.rounds = 12` x `cut.iters = 200`) and the stall rule (`cut.stall = 3`) are
+  about break-even as they stand.** At depth 1, `31:5` ended at the limit 12,000 short (gaining 30k per 80
+  iterations: 50 more iterations would have fathomed it; instead 49 children) and `31:11` 348k short; `31:4`
+  and `31:15` stalled 1.5M and 1.1M short while gaining 0.05M to 0.07M per 100, so about 2,000 more iterations
+  each (1,100 CPU-s), against 49 children at about 30 CPU-s (1,500 CPU-s). At depths 4 and 5 the near misses
+  end at the limit 0.05M to 0.20M short gaining 0.012M per 100, and their 45 children cost 700 to 2,000 CPU-s
+  together. A limit of 4,000 (`cut.rounds = 20`) would save the `31:5` kind and cost little elsewhere [e: not rerun].
+  The stall rule did its job on the nodes that cannot fathom (the spine, `31:32`, `31:43`: 600 to 800 iterations).
 - Not tried: a smaller region set (the 16-region `tai50b.small.txt`; a phase iteration with the 61 regions
   costs 1.15 to 1.3 times a first-solve iteration), `pool.cp = 1`, `dnn.amx = 1` (0.80 of the plain
   iteration's CPU on this box), `dnn.gu_zone = 0`.
@@ -184,6 +197,6 @@ not used.
 | `est_resume.patch` | `bnbdrv -e -r`: the root bound from the state file |
 | `run_root.sh`, `run_state.sh`, `run_dive.sh`, `queue.sh`, `spine.sh`, `core*.sh`, `after_l1.sh` | the runners (root with state; a state file's nodes down to a depth; dives from a state file; a core's queue; the path of a permutation; what each core ran) |
 | `splitstate.py`, `pick_d1.py` | state files: split, merge (renumbering the parents' warm lines), filter by depth, fix or path; the depth-1 sample |
-| `nodes.py`, `dives.py`, `estimate.py`, `validity.py`, `landscape.py`, `mkreport.sh`, `mkreadme.py`, `README.tmpl.md` | tables, the estimate, the path check, the near-optimal solutions, this file's assembly |
+| `nodes.py`, `dives.py`, `estimate.py`, `validity.py`, `landscape.py`, `web.py`, `webcheck.py`, `webcost.py`, `mkreport.sh`, `mkreadme.py`, `README.tmpl.md`, `answer.md`, `estimate_text.md`, `notdone.md` | tables, the estimates E1 and E2, the path check, the near-optimal solutions, the web model with its check and its cost (E3), this file and its hand-written parts |
 | `runs/NAME/` | `cmd.txt`, `log.txt` or `est.out`, `dnn.txt` (one line per node bound, with the phase's history), `nodes.txt` (node trace, search runs), `dives.txt`. State files and the parents' DNN states (123 MB each) are not kept: `run_root.sh` and `run_state.sh` rewrite them |
 | `logs/` | machine, calibration, tai30b check, the tables (`*.md`), `dives_SET.txt`, `pool_SET.txt` (per level, `../../tai50b_feasibility/estimate/pool.py`), `estimate.txt`, `validity.txt`, `landscape.txt`, the depth-1 sample |

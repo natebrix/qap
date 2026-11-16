@@ -1,14 +1,14 @@
-159 distinct nodes bounded at depths 1-9 under the long root
+235 distinct nodes bounded at depths 1-9 under the long root
 
 | delta / g(depth) | nodes | branched | of those: at the phase limit or stalled within 1.5M (near misses) | fathomed | mean iterations of the fathomed |
 |---|---|---|---|---|---|
-| 0 to 0.5 | 12 | 12 | 6 | 0 | - |
-| 0.5 to 1 | 4 | 2 | 1 | 2 | 689 |
+| 0 to 0.5 | 13 | 13 | 7 | 0 | - |
+| 0.5 to 1 | 7 | 4 | 3 | 3 | 1024 |
 | 1 to 1.5 | 5 | 2 | 2 | 3 | 1066 |
 | 1.5 to 2 | 11 | 2 | 2 | 9 | 170 |
-| 2 to 3 | 22 | 0 | 0 | 22 | 258 |
-| 3 to 5 | 28 | 1 | 1 | 27 | 233 |
-| 5 to inf | 77 | 0 | 0 | 77 | 145 |
+| 2 to 3 | 28 | 0 | 0 | 28 | 308 |
+| 3 to 5 | 36 | 1 | 1 | 35 | 254 |
+| 5 to inf | 135 | 0 | 0 | 135 | 109 |
 
 branched nodes: depth, fixes, delta, g(depth), iterations, final shortfall, phase end
   1 31:11 delta 6247438 g 3222232 it 2510 short 347520 iter_limit
@@ -23,16 +23,20 @@ branched nodes: depth, fixes, delta, g(depth), iterations, final shortfall, phas
   3 31:32,32:0,33:7 delta 276785 g 2185798 it 770 short 1812881 stalled stalled
   3 31:7,32:0,33:32 delta 0 g 2185798 it 760 short 2185798 stalled stalled
   4 31:32,32:0,33:7,45:34 delta 276785 g 1029797 it 2130 short 458995 stalled stalled
+  4 31:7,32:0,33:32,45:27 delta 963200 g 1029797 it 2510 short 48810 iter_limit
   4 31:7,32:0,33:32,45:34 delta 0 g 1029797 it 1350 short 1029797 stalled stalled
   4 31:7,32:0,33:32,45:49 delta 1044485 g 1029797 it 2510 short 163499 iter_limit
   5 31:7,32:0,33:32,39:39,45:34 delta 466768 g 626571 it 2610 short 197343 iter_limit
   5 31:7,32:0,33:32,40:39,45:34 delta 0 g 626571 it 1070 short 626571 stalled stalled
+  5 31:7,32:0,33:32,44:39,45:34 delta 419972 g 626571 it 2610 short 183128 iter_limit
   6 30:2,31:7,32:0,33:32,40:39,45:34 delta 0 g 199906 it 1900 short 199906 stalled stalled
   7 29:31,30:2,31:7,32:0,33:32,40:39,45:34 delta 0 g 112268 it 1870 short 112268 stalled stalled
   8 21:20,29:31,30:2,31:7,32:0,33:32,40:39,45:34 delta 0 g 107349 it 1440 short 107349 stalled stalled
+  9 21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,45:34 delta 0 g 107349 it 1660 short 67660 stalled stalled
 
 fathomed nodes with delta < 1.5 g:
   1 31:38 delta 4580800 g 3222232 it 2100
+  2 20:30,31:43 delta 2305960 g 2652428 it 1694
   2 20:31,31:43 delta 2728598 g 2652428 it 651
   2 31:7,33:43 delta 2167833 g 2652428 it 868
   3 31:7,32:42,33:32 delta 2478810 g 2185798 it 448

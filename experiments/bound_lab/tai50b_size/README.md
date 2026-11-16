@@ -7,7 +7,88 @@ named), **[e]** estimated. Incumbent everywhere: 458,821,518 = the best known va
 
 ## Answer
 
-draft
+**tai50b with the cluster-region cut phase is a run of about 100 core-hours on this machine: roughly 5,000 to
+13,000 nodes and 2e5 to 6e5 CPU-seconds. Hundreds of core-hours at the outside, not thousands.** [e]
+
+| estimate | nodes | CPU-s | core-hours here | what it is |
+|---|---|---|---|---|
+| E1 | 4,573 (2,473 to 7,135) | 228,101 | **63** (35 to 105) | depths 0-1 measured, 18 of the 50 depth-1 nodes; below them 275 Knuth dives, expanded by the sampling design alone |
+| E2 | 12,023 (5,786 to 19,493) | 420,631 | **117** (75 to 164) | the same runs, with the two depth-1 children that hold a near-optimal solution counted as copies of the on-path child's subtree |
+| E3 | 13,189 | 601,790 | **167** | a model of which nodes cannot fathom (those holding a solution within the gap measured on the best known solution's path), priced with measured node costs; 60 core-hours at half that gap |
+| far case | 66,159 | 3,615,595 | 1,004 | E3 at twice the measured gap, which the nodes bounded here contradict (1 of 199 nodes that far out branched) |
+
+- Intervals are 5th to 95th bootstrap percentiles and are too narrow: they do not know that the levels that
+  carry the cost have few dives (see "What could make it wrong"). **My range is 60 to 250 core-hours**, with E2
+  as the number I would plan on. On a c7a core [e]: about 1.4 times these figures, if this box's 0.70 of a c7a
+  per matched tho40 node carries over (section 1).
+- The old estimate (no cut phase) was a floor of 1e11 CPU-s. This one is 5 to 6 orders of magnitude lower.
+- **Where the cost is** (E2 by depth, section 7): depth 5 36%, depth 2 20%, depth 6 17%, depth 4 12%, depth 1
+  10%, the root 1%; everything from depth 7 down 3%. The DNN iterations are the whole cost (0.3 to 0.7 s each).
+- **The shape of the tree.** The root ends 5.27M (1.15%) under the best known value. 11 of 17 sampled
+  depth-1 children fathom there. Under the ones that branch, all 93 depth-2 node bounds of the dives (79 distinct nodes) fathomed.
+  What does not fathom is the path of the best known solution and the few nodes that hold a solution nearly
+  as good: the bound on that path is 3.2M short at depth 1, 0.63M at depth 5, 0.11M at depth 8, 5k at depth
+  13, and a node holding a solution within about that gap has to be branched. The landscape is flat (150
+  2-swaps of the best known solution are within 1M of it), so this "web" is a few dozen open nodes wide at
+  depths 4 and 5 and thin again by depth 7.
+
+**Settings** (`par/A.par`: `experiments/estimates/tai50b/tai50b.par` with these changed or added; the root
+separately with `cut.stall = 0` and `cut.cp_iters = 6000`, `par/root_long.par`):
+
+```
+dnn.depths = 0:48        # the root too: it carries the cut pool and the state its children start from
+dnn.giveup = 100         # a pooled first solve hands over to the phase early
+pool.on = 1
+cut.regions = experiments/bound_lab/regions/regions/tai50b.comb.txt     # 61 location-side regions (absolute path in the .par)
+cut.side = 0
+cut.cp = 100:1000
+cut.warmy = 1
+cut.zone = 1             # a phase at every DNN miss
+cut.rounds = 12          # x cut.iters = 2,400 phase iterations at most; I would raise it to 20 (section 9) [e]
+cut.iters = 200
+cut.freeze = 0
+cut.stall = 3
+```
+
+Needs `../regions/regions.patch`. These are the settings every number here was measured under, chosen once from
+the tho40 block and the regions README, not tuned: no A/B was run (section 9 says what the runs suggest).
+
+**What it rests on** [m]
+
+- The root: **453,552,676 certified** after 470 + 6,000 iterations (4,341 CPU-s), a new best root bound, and
+  not yet the plateau (section 3).
+- 18 of the 50 depth-1 nodes, warm from the root with its pool: the on-path child and a random 17 of the other
+  49 (section 4).
+- The path of the best known solution bounded node by node to depth 13, and the path of a second near-optimal
+  solution (under `31:32`) to depth 4, which behaves the same (section 5).
+- 275 dives from saved states, stratified by the path's levels, 355 node bounds in all (section 6); a model of
+  the open nodes checked against the 235 distinct nodes bounded (section 7).
+- Validity: 19 node bounds on the path of the best known solution, none fathomed, none above 458,821,517;
+  tai30b solved from an incumbent one above its optimum in 363 nodes, as in the regions session (sections 2, 8).
+- 49,000 CPU-s of node bounds in total, on 4 cores.
+
+**What could make it wrong**
+
+1. **The web is thinly sampled.** Levels 4 and 5 carry about half of E2 and have 8 and 5 dives, each stopped
+   by its wall limit with a long dive in flight; the dive estimator weights a rare child by 100 or more, so one
+   dive moves those levels by tens of thousands of CPU-s. E1 and E2 can be off by 2x either way from this alone.
+2. **The twins are assumed, not measured, below depth 4.** E2 gives `31:0` (never bounded) and `31:32` the
+   on-path child's subtree. E3 assumes a twin's gap is the spine's, that 2-swap descent finds the best solution
+   inside a node, and that every node branches on the spine's line. More near-optimal solutions than the
+   descent finds would widen the web; the nodes bounded so far agree with the rule at scale 1 (section 7).
+3. **32 depth-1 nodes were not bounded.** By the landscape only two of them (`31:0`, `31:42`) are near, and E2
+   and E3 count them; a far node that stalls anyway costs 49 quick children (4 of the 15 sampled far nodes did).
+4. **Below depth 13 on the path nothing was run.** The estimates extrapolate the path to depth 45 at 13,000
+   CPU-s per path (E2 counts three such paths: 9% of it), on the pattern that the bound there is within 5k and its children fathom in seconds.
+   tai30b's path behaved that way. If the open nodes near the bottom multiply (many solutions within a few
+   thousand of the best known: the nearest 2-swap is 1,534 away), the bottom of the tree grows; those nodes
+   are small (m under 37) and cheap, so I expect nodes more than CPU.
+5. **The cut code's validity is the regions session's**, plus the path checks here. A wrong cut that fathoms
+   off the path would make every number here too small and the run's answer wrong. tai35b and tai40b solved
+   end to end are the test, not yet run.
+6. If 458,821,517 is not optimal, the search finds the better value and the tree is smaller.
+7. CPU-seconds are this machine's (263 ms per plain iteration at m = 48); nodes and iterations carry over.
+8. In the other direction: a longer root, a longer phase limit and any tuning would shrink it (section 9).
 
 ## 1. Setup, machine, calibration
 
@@ -138,6 +219,11 @@ fathom while the gap on the path is larger than `delta`.
 | `30:2,31:7,32:0,33:32,40:39,45:34` | yes | 230 | 733,184 | 1670 | 199,906 | stalled | branched | 573 |
 | `29:31,30:2,31:7,32:0,33:32,40:39,45:34` | yes | 240 | 556,039 | 1630 | 112,268 | stalled | branched | 485 |
 | `21:20,29:31,30:2,31:7,32:0,33:32,40:39,45:34` | yes | 260 | 356,033 | 1180 | 107,349 | stalled | branched | 330 |
+| `21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,45:34` | yes | 230 | 245,752 | 1430 | 67,660 | stalled | branched | 331 |
+| `21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,45:34,49:41` | yes | 260 | 283,350 | 1790 | 22,865 | stalled | branched | 388 |
+| `21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,44:1,45:34,49:41` | yes | 230 | 173,421 | 1590 | 17,189 | stalled | branched | 338 |
+| `21:20,22:33,27:10,29:31,30:2,31:7,32:0,33:32,40:39,44:1,45:34,49:41` | yes | 250 | 35,128 | 1040 | 11,084 | stalled | branched | 226 |
+| `1:23,21:20,22:33,27:10,29:31,30:2,31:7,32:0,33:32,40:39,44:1,45:34,49:41` | yes | 230 | 57,575 | 1800 | 5,428 | stalled | branched | 466 |
 
 **The landscape** [m, `landscape.py`, `logs/landscape.txt`]: no 2-swap of the best known solution improves
 it; 15 are within 100k of it, 52 within 300k, 150 within 1M, 250 within 2M (the nearest: +1,534, +9,549,
@@ -148,6 +234,7 @@ then 2-swap descent): `31:7` +0, `31:0` +147k, `31:32` +277k, `31:43` +1.96M, `3
 0.28M, depth 6 to 7 on the spine), `31:43` and `31:42` are half-twins (until about depth 3), and everything
 else can fathom at depth 1 or just below. That is what the sample shows: `31:32` and `31:43` stall 2.9M and
 2.7M short, and the four other branched nodes are near misses of the phase limit and the stall rule.
+The spine's gap goes on falling below depth 8: 68k at depth 9, 23k, 17k, 11k and 5k at depths 10 to 13.
 
 **The twin, probed** [m, `runs/twin32_D/dnn.txt`]: the path of the best solution found with `31:32`
 (`logs/perm_31_32.txt`), depths 2 to 4:
@@ -168,71 +255,189 @@ child sampling `est.xbar = 1`, `est.xbar_mix = 0.3`; one seed per process). A ra
 nodes almost never meets the spine, so the dives are **stratified by it**: one set per spine level from the
 off-path children of the spine node above (`LA_offD`, D = 2..8), one set from all children of the spine node at
 depth 8 (`LA_tail8`), and the sets under the sampled off-path depth-1 nodes (`LB`: children of `31:4`,
-`31:15`, `31:32`, `31:43`; `LB2`: of `31:5`, `31:11`). The spine nodes themselves are measured (section 5).
+`31:15`, `31:32`, `31:43`; `LB2`: of `31:5`, `31:11`; `LB_near`: of `31:4`, `31:15` alone; `LB_43`: of `31:43` alone).
+The spine nodes themselves are measured (section 5).
 
 | set | start nodes (depth) | processes | dives | node bounds: fathomed by the first solve / by the phase / branched | deepest dive | mean CPU-s per node bound | estimate of the set's subtrees: nodes | CPU-s |
 |---|---|---|---|---|---|---|---|---|
 | `LA_off2` | 48 (2) | 1 | 15 | 11 / 4 / 0 | 2 | 78 | 49 ± 1 | 3,729 ± 1,305 |
 | `LA_off3` | 47 (3) | 1 | 25 | 23 / 2 / 0 | 3 | 47 | 47 ± 1 | 2,184 ± 571 |
-| `LA_off4` | | | 0 | | | | | |
-| `LA_off5` | | | 0 | | | | | |
-| `LA_off6` | | | 0 | | | | | |
+| `LA_off4` | 46 (4) | 1 | 8 | 4 / 4 / 2 | 5 | 267 | 1,218 ± 825 | 43,272 ± 26,579 |
+| `LA_off5` | 45 (5) | 1 | 5 | 3 / 2 / 2 | 6 | 308 | 1,348 ± 1,280 | 34,402 ± 21,498 |
+| `LA_off6` | 44 (6) | 2 | 19 | 15 / 4 / 0 | 6 | 72 | 43 ± 1 | 3,216 ± 1,060 |
 | `LA_off7` | 43 (7) | 1 | 26 | 24 / 2 / 0 | 7 | 32 | 43 ± 1 | 1,277 ± 421 |
-| `LA_off8` | | | 0 | | | | | |
-| `LA_tail8` | | | 0 | | | | | |
+| `LA_off8` | 42 (8) | 2 | 21 | 20 / 1 / 0 | 8 | 9 | 42 ± 1 | 362 ± 132 |
+| `LA_tail8` | 42 (9) | 3 | 85 | 81 / 4 / 3 | 10 | 23 | 97 ± 32 | 1,305 ± 472 |
 | `LB` | 196 (2) | 3 | 8 | 5 / 3 / 0 | 2 | 195 | 193 ± 4 | 37,105 ± 17,520 |
 | `LB2` | 98 (2) | 1 | 25 | 25 / 0 / 0 | 2 | 23 | 99 ± 2 | 2,287 ± 208 |
+| `LB_43` | 49 (2) | 1 | 8 | 5 / 3 / 0 | 2 | 220 | 51 ± 2 | 11,300 ± 4,878 |
+| `LB_near` | 98 (2) | 1 | 30 | 30 / 0 / 0 | 2 | 35 | 97 ± 1 | 3,445 ± 521 |
 
 Every dive and every node bound of every set: `logs/dives_SET.txt` (one line per dive:
 `depth:outcome/iterations/final shortfall in M`), `runs/SET/sSEED/{dives.txt,dnn.txt,est.out}`.
 
-Stopping. The sets `LA_off4`, `LA_off5`, `LA_off6`, `LA_off8` stop after a fixed number of dives. The others
-were stopped by the clock, which drops the dive in flight and so under-samples long dives: at most one
-dive per process (`LA_off2`, `LA_off3`, `LA_off7`: one process each; `LB`: three; `LB2`: one; `LA_tail8`: two).
-Two first attempts at levels 4 and 5 that ended that way after 2 and 6 dives are in `runs/trunc/` and are
-not used.
+Stopping, process by process (a process stopped by the clock loses its dive in flight, which under-samples
+long dives; a process that finishes its planned count does not):
+
+| set | seed | planned dives | finished | ended |
+|---|---|---|---|---|
+| `LA_off2` | 212 | by the clock | 15 | its wall limit |
+| `LA_off3` | 213 | by the clock | 25 | its wall limit |
+| `LA_off4` | 224 | 12 | 8 | its wall limit |
+| `LA_off5` | 235 | 12 | 5 | its wall limit |
+| `LA_off6` | 216 | 15 | 15 | its count |
+| `LA_off6` | 226 | 12 | 4 | its wall limit |
+| `LA_off7` | 217 | by the clock | 26 | its wall limit |
+| `LA_off8` | 218 | 15 | 9 | stopped by hand |
+| `LA_off8` | 228 | 12 | 12 | its count |
+| `LA_tail8` | 229 | by the clock | 42 | stopped by hand |
+| `LA_tail8` | 239 | by the clock | 23 | stopped by hand |
+| `LA_tail8` | 249 | by the clock | 20 | stopped by hand |
+| `LB` | 302 | by the clock | 6 | stopped by hand |
+| `LB` | 303 | by the clock | 1 | stopped by hand |
+| `LB` | 304 | by the clock | 1 | stopped by hand |
+| `LB2` | 322 | by the clock | 25 | its wall limit |
+| `LB_43` | 312 | 20 | 8 | stopped by hand |
+| `LB_near` | 311 | 30 | 30 | its count |
+
+Two first attempts at levels 4 and 5 that the clock ended after 2 and 6 dives (`runs/trunc/`), and 7 dives
+from all 49 children of `31:7` before the sets were stratified (`runs/LA0`), are not used in the estimate; their
+node bounds are in the path check.
+
+What the dives show: off the spine nothing goes deep. Of the 275 dives, 7 met a node that branched. Four
+did so off the spine, at depths 4 and 5, each at a near miss that ran to the 2,400-iteration phase limit 0.05M
+to 0.20M short and whose child then fathomed. The other three are `LA_tail8` dives that drew the spine's own
+node at depth 9 and then an off-path child, which fathomed. The longest fathoming phases are at depths 2 and 6 (up to 1,700 and 980 iterations). So
+the cost below depth 1 is: every child of every open node bounded once (20 to 100 CPU-s each, more at
+depths 4 to 6), plus the open nodes themselves (300 to 600 CPU-s on the spine, about 1,000 for a near miss).
 
 ## 7. The estimate [e] (`estimate.py`, `logs/estimate.txt`)
 
-draft
+Three estimates, from the same runs:
+
+- **E1, the sampling design alone**: depths 0 and 1 measured (the root, the on-path child, 17 random others
+  expanded 49/17), everything below from the dives: the on-path child's subtree by spine level, the sampled
+  branched nodes' subtrees from `LB*`.
+- **E2, post-stratified by the landscape**: the two depth-1 children that hold a solution within 1M of the best
+  known value (`31:0`, not sampled, and `31:32`) are counted as copies of the on-path child's subtree (the twin
+  probe of section 5 supports it for `31:32`); `31:43` and `31:42` get `31:43`'s dives; the other 45 are
+  expanded 45/15 from the 15 sampled. E2 is above E1 because the dives under `31:32` (few, and blind to its
+  path) saw none of what the spine-stratified dives see under `31:7`.
+- **E3, the web model priced with measured costs** (`web.py`, `webcost.py`, `logs/web.txt`, `logs/webcost.txt`,
+  section 5's rule: a node is open iff it holds a solution within g(depth) of the best known value). The rule
+  against the 235 distinct nodes bounded here (`webcheck.py`, `logs/webcheck.txt`):
+
+  | delta / g(depth) | nodes | branched | of those: at the phase limit or stalled within 1.5M (near misses) | fathomed | mean iterations of the fathomed |
+  |---|---|---|---|---|---|
+  | 0 to 0.5 | 13 | 13 | 7 | 0 | - |
+  | 0.5 to 1 | 7 | 4 | 3 | 3 | 1024 |
+  | 1 to 1.5 | 5 | 2 | 2 | 3 | 1066 |
+  | 1.5 to 2 | 11 | 2 | 2 | 9 | 170 |
+  | 2 to 3 | 28 | 0 | 0 | 28 | 308 |
+  | 3 to 5 | 36 | 1 | 1 | 35 | 254 |
+  | 5 to inf | 135 | 0 | 0 | 135 | 109 |
+
+  Below half the spine's gap every node branched; between 0.5 and 1.5 about half do, most of them near misses
+  at the phase limit; above twice the gap one node in 199 did (a depth-1 near miss). So gap scale 1.0 is the
+  model to read, 0.5 a floor, and 2.0 is contradicted by these nodes (it is in the table as the far case).
+
+```
+cost of an open node by depth (the spine's) [m]: 1: 451, 2: 330, 3: 319, 4: 550, 5: 370, 6: 573, 7: 485, 8: 330, 9: 331, 10: 388, 11: 338, 12: 226, 13: 466
+mean cost of a fathomed node by depth [m] (node bounds): 1: 604 (11), 2: 70 (93), 3: 47 (25), 4: 99 (6), 5: 40 (5), 6: 74 (21), 7: 32 (26), 8: 9 (21)
+below an open depth-8 node (LA_tail8, 85 dives, + the spine below depth 8) [e]: 948 nodes, 14436 CPU-s
+children of the depth-1 near misses: 12 parents x 49 x 30 CPU-s (55 node bounds) [e]
+
+gap scale 1.0: **13189 nodes, 601790 CPU-s = 167 core-hours**
+
+| depth | nodes | open | CPU-s |
+|---|---|---|---|
+| 0 | 1 | 1 | 4341 |
+| 1 | 50 | 5 | 29416 |
+| 2 | 245 | 14 | 20700 |
+| 3 | 672 | 11 | 34732 |
+| 4 | 517 | 43 | 70500 |
+| 5 | 1978 | 65 | 100950 |
+| 6 | 2925 | 7 | 221324 |
+| 7 | 308 | 5 | 12015 |
+| 8 | 215 | 6 | 3811 |
+| 2, under the 12 near misses | 588 | 0 | 17384 |
+| 9 and below | 5690 | | 86618 |
+
+gap scale 0.5: **5285 nodes, 215873 CPU-s = 60 core-hours**
+
+| depth | nodes | open | CPU-s |
+|---|---|---|---|
+| 0 | 1 | 1 | 4341 |
+| 1 | 50 | 3 | 29722 |
+| 2 | 147 | 6 | 11794 |
+| 3 | 288 | 6 | 15235 |
+| 4 | 282 | 10 | 32378 |
+| 5 | 460 | 10 | 21791 |
+| 6 | 450 | 2 | 34510 |
+| 7 | 88 | 2 | 3692 |
+| 8 | 86 | 3 | 1717 |
+| 2, under the 12 near misses | 588 | 0 | 17384 |
+| 9 and below | 2845 | | 43309 |
+
+gap scale 2.0: **66159 nodes, 3615595 CPU-s = 1004 core-hours**
+
+| depth | nodes | open | CPU-s |
+|---|---|---|---|
+| 0 | 1 | 1 | 4341 |
+| 1 | 50 | 20 | 27121 |
+| 2 | 980 | 116 | 98444 |
+| 3 | 5568 | 124 | 296717 |
+| 4 | 5828 | 177 | 655751 |
+| 5 | 8142 | 483 | 486533 |
+| 6 | 21735 | 38 | 1637615 |
+| 7 | 1672 | 17 | 60621 |
+| 8 | 731 | 22 | 13470 |
+| 2, under the 12 near misses | 588 | 0 | 17384 |
+| 9 and below | 20864 | | 317599 |
+```
+
+`estimate.py`'s output (E1, E2, the on-path child's subtree T_A, and E2 by depth):
 
 ```
 root: 6470 iterations, 4,341 CPU-s, certified 453,552,676
 depth 1 [m]: 31:7 branched (451 CPU-s); B sample 17 of 49: 11 fathomed, 6 branched; mean CPU-s 724
-spine [m]: depth: shortfall {2: 2652428, 3: 2185798, 4: 1029797, 5: 626571, 6: 199906, 7: 112268, 8: 107349}
-dives per set: {'LA_off2': 15, 'LA_off3': 25, 'LA_off4': 0, 'LA_off5': 0, 'LA_off6': 0, 'LA_off7': 26, 'LA_off8': 0, 'LA_tail8': 0, 'LB': 8, 'LB2': 25} | sets without dives: ['LA_off4', 'LA_off5', 'LA_off6', 'LA_off8', 'LA_tail8']
-deepest dives: {'LA_off2': 2, 'LA_off3': 3, 'LA_off4': None, 'LA_off5': None, 'LA_off6': None, 'LA_off7': 7, 'LA_off8': None, 'LA_tail8': None, 'LB': 2, 'LB2': 2}
+spine [m]: depth: shortfall {2: 2652428, 3: 2185798, 4: 1029797, 5: 626571, 6: 199906, 7: 112268, 8: 107349, 9: 67660, 10: 22865, 11: 17189, 12: 11084, 13: 5428}
+dives per set: {'LA_off2': 15, 'LA_off3': 25, 'LA_off4': 8, 'LA_off5': 5, 'LA_off6': 19, 'LA_off7': 26, 'LA_off8': 21, 'LA_tail8': 85, 'LB': 8, 'LB2': 25, 'LB_43': 8, 'LB_near': 30} | sets without dives: []
+deepest dives: {'LA_off2': 2, 'LA_off3': 3, 'LA_off4': 5, 'LA_off5': 6, 'LA_off6': 6, 'LA_off7': 7, 'LA_off8': 8, 'LA_tail8': 10, 'LB': 2, 'LB2': 2, 'LB_43': 2, 'LB_near': 2}
+the spine below depth 8 [e] (spine_below8): 851 nodes, 13,132 CPU-s
 
-T_A (below 31:7) [e]: 145 nodes, 10,149 CPU-s; by set (nodes, CPU-s): {'LA_off2': (49, 3729), 'LA_off3': (47, 2184), 'LA_off7': (43, 1277)}
-T_i of the branched B parents [e] (nodes, CPU-s): {'31:4': (47, 1408), '31:5': (47, 1125), '31:11': (53, 1162), '31:15': (52, 1223), '31:43': (94, 34474), '31:32': (0, 0)}
+T_A (below 31:7) [e]: 3,745 nodes, 105,838 CPU-s; by set (nodes, CPU-s): {'LA_off2': (49, 3729), 'LA_off3': (47, 2184), 'LA_off4': (1218, 43272), 'LA_off5': (1348, 34402), 'LA_off6': (43, 3216), 'LA_off7': (43, 1277), 'LA_off8': (42, 362), 'LA_tail8': (97, 1305)}
+T_i of the branched B parents [e] (nodes, CPU-s): {'31:4': (54, 1588), '31:5': (47, 1125), '31:11': (53, 1162), '31:15': (43, 1686), '31:43': (73, 22887), '31:32': (0, 0)}
 
-E1 nodes: 1,040 nodes  (bootstrap 5%-95%: 466 to 1,696)
-E1 CPU: 163,956 CPU-s  (bootstrap 5%-95%: 53,502 to 396,101)  = 46 core-hours (15 to 110)
-E2 nodes: 1,270 nodes  (bootstrap 5%-95%: 824 to 1,783)
-E2 CPU: 154,810 CPU-s  (bootstrap 5%-95%: 102,398 to 214,752)  = 43 core-hours (28 to 60)
-T_A nodes: 145 nodes  (bootstrap 5%-95%: 143 to 147)
-T_A CPU: 10,149 CPU-s  (bootstrap 5%-95%: 8,040 to 12,763)  = 3 core-hours (2 to 4)
+E1 nodes: 4,573 nodes  (bootstrap 5%-95%: 2,473 to 7,135)
+E1 CPU: 228,101 CPU-s  (bootstrap 5%-95%: 127,719 to 376,809)  = 63 core-hours (35 to 105)
+E2 nodes: 12,023 nodes  (bootstrap 5%-95%: 5,786 to 19,493)
+E2 CPU: 420,631 CPU-s  (bootstrap 5%-95%: 268,303 to 590,126)  = 117 core-hours (75 to 164)
+T_A nodes: 3,745 nodes  (bootstrap 5%-95%: 1,672 to 6,226)
+T_A CPU: 105,838 CPU-s  (bootstrap 5%-95%: 56,384 to 161,910)  = 29 core-hours (16 to 45)
 
 E2 by depth [e] (depths 0, 1 and the spine measured):
 
 | depth | nodes | CPU-s | share of CPU |
 |---|---|---|---|
-| 0 | 1 | 4,341 | 2.8% |
-| 1 | 50 | 36,321 | 23.5% |
-| 2 | 843 | 95,879 | 61.9% |
-| 3 | 141 | 7,510 | 4.9% |
-| 4 | 3 | 1,651 | 1.1% |
-| 5 | 3 | 1,109 | 0.7% |
-| 6 | 3 | 1,720 | 1.1% |
-| 7 | 129 | 5,288 | 3.4% |
-| 8 | 3 | 990 | 0.6% |
-| all | 1,176 | 154,810 | |
+| 0 | 1 | 4,341 | 1.1% |
+| 1 | 50 | 36,321 | 9.5% |
+| 2 | 654 | 74,635 | 19.6% |
+| 3 | 141 | 7,510 | 2.0% |
+| 4 | 135 | 46,558 | 12.2% |
+| 5 | 3,651 | 136,438 | 35.7% |
+| 6 | 4,043 | 64,626 | 16.9% |
+| 7 | 129 | 5,288 | 1.4% |
+| 8 | 130 | 2,057 | 0.5% |
+| 9 | 122 | 2,802 | 0.7% |
+| 10 | 168 | 1,112 | 0.3% |
+| all | 9,224 | 381,688 | |
 ```
 
 ## 8. Validity [m] (`validity.py`, `logs/validity.txt`)
 
 ```
-167 traced node bounds in 33 traces; 11 on the path of the best known solution
+355 traced node bounds in 49 traces; 19 on the path of the best known solution
   depth 0 -: certified 453,552,676.2916  (5,268,841 under)  branched  [runs/root_long/dnn.txt]
   depth 0 -: certified 445,306,477.0661  (13,515,040 under)  branched  [runs/root_short/dnn.txt]
   depth 1 31:7: certified 455,599,284.8629  (3,222,232 under)  branched  [runs/L1_0/dnn.txt]
@@ -244,8 +449,16 @@ E2 by depth [e] (depths 0, 1 and the spine measured):
   depth 6 30:2,31:7,32:0,33:32,40:39,45:34: certified 458,621,611.2378  (199,906 under)  branched  [runs/spine_6/dnn.txt]
   depth 7 29:31,30:2,31:7,32:0,33:32,40:39,45:34: certified 458,709,249.2532  (112,268 under)  branched  [runs/spine_7/dnn.txt]
   depth 8 21:20,29:31,30:2,31:7,32:0,33:32,40:39,45:34: certified 458,714,168.5303  (107,348 under)  branched  [runs/spine_8/dnn.txt]
+  depth 9 21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,45:34: certified 458,753,856.6484  (67,660 under)  branched  [runs/LA_tail8/s239/dnn.txt]
+  depth 9 21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,45:34: certified 458,753,856.6484  (67,660 under)  branched  [runs/LA_tail8/s249/dnn.txt]
+  depth 9 21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,45:34: certified 458,753,856.6484  (67,660 under)  branched  [runs/LA_tail8/s249/dnn.txt]
+  depth 9 21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,45:34: certified 458,753,856.6484  (67,660 under)  branched  [runs/spine_9/dnn.txt]
+  depth 10 21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,45:34,49:41: certified 458,798,651.6812  (22,865 under)  branched  [runs/spine_10/dnn.txt]
+  depth 11 21:20,27:10,29:31,30:2,31:7,32:0,33:32,40:39,44:1,45:34,49:41: certified 458,804,328.4075  (17,189 under)  branched  [runs/spine_11/dnn.txt]
+  depth 12 21:20,22:33,27:10,29:31,30:2,31:7,32:0,33:32,40:39,44:1,45:34,49:41: certified 458,810,432.5647  (11,084 under)  branched  [runs/spine_12/dnn.txt]
+  depth 13 1:23,21:20,22:33,27:10,29:31,30:2,31:7,32:0,33:32,40:39,44:1,45:34,49:41: certified 458,816,089.3467  (5,428 under)  branched  [runs/spine_13/dnn.txt]
 violations: 0
-largest certified value at an unfathomed node anywhere: 458,809,517.4702
+largest certified value at an unfathomed node anywhere: 458,816,089.3467
 largest certified value at a fathomed node: 461,716,998.5014 (a fathom stops at the first certificate above the cutoff)
 ```
 
@@ -260,20 +473,34 @@ largest certified value at a fathomed node: 461,716,998.5014 (a fathom stops at 
 - **`dnn.giveup = 100`**: a pooled child that will not fathom in its first solve hands over to the phase
   after 110 iterations; the phase then gains from its first iterations (0.2M to 0.5M in the first 30).
   First solves that are going to fathom are not cut short (they ran 22 to 930 iterations).
-- **The phase limit of 2,400 (`cut.rounds = 12` x `cut.iters = 200`) is too short at depth 1**: 2 of 18 nodes
-  ended at it 12k and 348k short, and each then costs 49 children. Fathoming phases took up to 1,990
-  iterations. `cut.rounds = 20` (4,000) is what I would run [e: not rerun].
-- **The stall rule (`cut.stall = 3`) stops near misses too early at depth 1**: `31:4` and `31:15` stalled
-  1.5M and 1.1M short after 1,260 and 1,440 iterations while still gaining 0.2M per 100. Their children
-  all fathom, at 49 x 30 to 60 CPU-s per parent, so the loss is small here; the rule did its job on the
-  nodes that cannot fathom (the spine, `31:32`, `31:43`: stopped after 600 to 800 iterations).
+- **The phase limit of 2,400 (`cut.rounds = 12` x `cut.iters = 200`) and the stall rule (`cut.stall = 3`) are
+  about break-even as they stand.** At depth 1, `31:5` ended at the limit 12,000 short (gaining 30k per 80
+  iterations: 50 more iterations would have fathomed it; instead 49 children) and `31:11` 348k short; `31:4`
+  and `31:15` stalled 1.5M and 1.1M short while gaining 0.05M to 0.07M per 100, so about 2,000 more iterations
+  each (1,100 CPU-s), against 49 children at about 30 CPU-s (1,500 CPU-s). At depths 4 and 5 the near misses
+  end at the limit 0.05M to 0.20M short gaining 0.012M per 100, and their 45 children cost 700 to 2,000 CPU-s
+  together. A limit of 4,000 (`cut.rounds = 20`) would save the `31:5` kind and cost little elsewhere [e: not rerun].
+  The stall rule did its job on the nodes that cannot fathom (the spine, `31:32`, `31:43`: 600 to 800 iterations).
 - Not tried: a smaller region set (the 16-region `tai50b.small.txt`; a phase iteration with the 61 regions
   costs 1.15 to 1.3 times a first-solve iteration), `pool.cp = 1`, `dnn.amx = 1` (0.80 of the plain
   iteration's CPU on this box), `dnn.gu_zone = 0`.
 
 ## 10. Not done
 
-draft
+- **The root's plateau** (section 3): 6,470 iterations, still climbing, no curve.
+- **A separate random sample of 40 or more depth-2 nodes, and depth 3 below them**: the dives' start nodes are
+  that sample instead (the table of section 6 counts them by depth; `logs/dives_SET.txt` has each one).
+- **Thirty complete dives through the web.** The dives number well over 200, but most start and end at
+  one fathoming node; the ones that matter (a branch at depths 4 to 6, section 6) are a handful, and levels
+  4, 5, 6 and 8 have few dives. E1 and E2's intervals understate that.
+- **Any tuning A/B**: one settings arm (`par/A.par`) throughout. The phase limit, the stall rule, the region
+  set, `pool.cp`, `dnn.amx` and the root's length are all open (section 9).
+- **The 32 unsampled depth-1 nodes**, among them `31:0` (a twin by the landscape) and `31:42`.
+- **The spine below depth 13 and any twin below depth 4**; the path check stops there too.
+- **End-to-end validity on solved instances other than tai30b** (tai35b, tai40b with their own region
+  files), which the regions session listed as the next check and which should come before a tai50b run.
+- **The run itself.** At this size the next step is not a better estimate but the search: `bnbdrv` from
+  the saved long root with `par/A.par` (phase limit raised), under the coordinator or `bench/parallel.py`.
 
 ## Files
 
@@ -283,6 +510,6 @@ draft
 | `est_resume.patch` | `bnbdrv -e -r`: the root bound from the state file |
 | `run_root.sh`, `run_state.sh`, `run_dive.sh`, `queue.sh`, `spine.sh`, `core*.sh`, `after_l1.sh` | the runners (root with state; a state file's nodes down to a depth; dives from a state file; a core's queue; the path of a permutation; what each core ran) |
 | `splitstate.py`, `pick_d1.py` | state files: split, merge (renumbering the parents' warm lines), filter by depth, fix or path; the depth-1 sample |
-| `nodes.py`, `dives.py`, `estimate.py`, `validity.py`, `landscape.py`, `mkreport.sh`, `mkreadme.py`, `README.tmpl.md` | tables, the estimate, the path check, the near-optimal solutions, this file's assembly |
+| `nodes.py`, `dives.py`, `estimate.py`, `validity.py`, `landscape.py`, `web.py`, `webcheck.py`, `webcost.py`, `mkreport.sh`, `mkreadme.py`, `README.tmpl.md`, `answer.md`, `estimate_text.md`, `notdone.md` | tables, the estimates E1 and E2, the path check, the near-optimal solutions, the web model with its check and its cost (E3), this file and its hand-written parts |
 | `runs/NAME/` | `cmd.txt`, `log.txt` or `est.out`, `dnn.txt` (one line per node bound, with the phase's history), `nodes.txt` (node trace, search runs), `dives.txt`. State files and the parents' DNN states (123 MB each) are not kept: `run_root.sh` and `run_state.sh` rewrite them |
 | `logs/` | machine, calibration, tai30b check, the tables (`*.md`), `dives_SET.txt`, `pool_SET.txt` (per level, `../../tai50b_feasibility/estimate/pool.py`), `estimate.txt`, `validity.txt`, `landscape.txt`, the depth-1 sample |
