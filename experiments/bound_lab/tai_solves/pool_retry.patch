@@ -1,6 +1,6 @@
---- a/latest/bnb.C	2026-11-16 06:38:03.710976660 +0000
-+++ b/latest/bnb.C	2026-11-16 06:37:49.738430740 +0000
-@@ -871,6 +871,22 @@
+--- a/latest/bnb.C	2026-11-16 07:39:16.948188214 +0000
++++ b/latest/bnb.C	2026-11-16 07:39:05.224457960 +0000
+@@ -871,6 +871,35 @@
  	    if (pool_kept == 0) have_pool = false;
  	  } else
  	    r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, sp, save);
@@ -19,6 +19,19 @@
 +	    static long retries = 0;
 +	    if (++retries <= 20) std::cerr << "pool retry: depth " << node.depth << ", pooled first solve " << failed.lb
 +	                                   << " against the inherited " << node.bound << "; without the pool " << r.lb << std::endl;
++	  }
++	  // ... and when the solve from the parent's state fails the same way with no pool in it (tai35b's second
++	  // route, depth 7: -inf and -2.2e11 after the retry above), the parent's state itself does not fit the
++	  // child: solve the node cold.
++	  if (sp && r.status != DNN_FATHOMED && !(r.lb >= node.bound - 0.01 * std::max(1.0, fabs(inc)))) {
++	    const DNNResult failed = r;
++	    dp.warm_primal = 0;
++	    r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, NULL, save);
++	    r.iterations += failed.iterations; r.cpu += failed.cpu;
++	    have_pool = false; pool_cp_ran = false; pool_kept = 0;
++	    static long cold = 0;
++	    if (++cold <= 20) std::cerr << "cold retry: depth " << node.depth << ", warm first solve " << failed.lb
++	                                << " against the inherited " << node.bound << "; cold " << r.lb << std::endl;
 +	  }
  	  dp.warm_primal = 0;   // the cut phase below sets its own
  	  DNNWarm *cut_state = NULL;   // the cut phase's state for the children (QAP_DNN_POOL)
