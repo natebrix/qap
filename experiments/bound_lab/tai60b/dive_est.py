@@ -49,29 +49,34 @@ def main():
         se = lambda k: (st.stdev([x[k] for x in dv]) / len(dv) ** .5) if len(dv) > 1 else float('nan')
         print(f"| `{s}` | {size.get(s, '?')} | {len(dv)} | {sum(d['out'] == 'D' for d in nb)} / {sum(d['out'] == 'C' for d in nb)} / {sum(d['out'] == 'B' for d in nb)} | "
               f"{max(x['deep'] for x in dv)} | {st.mean(x['nodes'] for x in dv):,.0f} ± {se('nodes'):,.0f} | {st.mean(x['its'] for x in dv):,.0f} | {st.mean(x['cpu'] for x in dv):,.0f} ± {se('cpu'):,.0f} |")
-    def total(sets_):
+    def total(sets_, twin=False):
         t = {'nodes': 1.0, 'its': float(its(root)), 'cpu': cpu(root)}; by = {0: dict(t)}
         for D in levels:
             b = by.setdefault(D, {'nodes': 0.0, 'its': 0.0, 'cpu': 0.0})
             if D in path: b['nodes'] += 1; b['its'] += its(path[D]); b['cpu'] += cpu(path[D])
             for k in ('far', 'near'):
-                dv = sets_.get(f'{k}{D}')
+                dv = sets_.get(f'{k}{D}' if not (twin and D == 1 and k == 'near') else 'nearx1')
                 if dv:
                     for q in ('nodes', 'its', 'cpu'): b[q] += st.mean(x[q] for x in dv)
                 elif size.get(f'{k}{D}', 0) and k == 'far':      # a far set without dives: its nodes at 45 iterations [e]
                     b['nodes'] += size[f'{k}{D}']
-        tot = {q: sum(b[q] for b in by.values()) for q in ('nodes', 'its', 'cpu')}
+        if twin:      # E2: the mirror 44:58 (excess 2,786) is a copy of the on-path depth-1 child's subtree [e]
+            p1 = path[1]
+            tot = {q: by[0][q] + by[1][q] + {'nodes': 1, 'its': its(p1), 'cpu': cpu(p1)}[q] + 2 * sum(b[q] for D, b in by.items() if D >= 2) for q in ('nodes', 'its', 'cpu')}
+        else: tot = {q: sum(b[q] for b in by.values()) for q in ('nodes', 'its', 'cpu')}
         return tot, by
     tot, by = total(sets)
-    rng = random.Random(1); reps = []
-    for _ in range(3000):
-        reps.append(total({s: [rng.choice(dv) for _ in dv] for s, dv in sets.items()})[0])
-    def iv(q):
-        v = sorted(r[q] for r in reps); return v[int(.05 * (len(v) - 1))], v[int(.95 * (len(v) - 1))]
-    print(f"\n## estimate (E1: the sampling design alone)\n")
-    for q, u in (('nodes', 'nodes'), ('its', 'ADMM iterations'), ('cpu', 'CPU-s')):
-        lo, hi = iv(q)
-        print(f"- {tot[q]:,.0f} {u} (bootstrap 5%-95%: {lo:,.0f} to {hi:,.0f})" + (f" = {tot[q] / 3600:,.0f} core-hours ({lo / 3600:,.0f} to {hi / 3600:,.0f})" if q == 'cpu' else ''))
+    for name, tw in (('E1: the sampling design alone', False), ('E2: the depth-1 mirror 44:58 counted as a copy of the on-path child and its subtree; depth-1 near dives without it (nearx1)', True)):
+        tot2, _ = total(sets, tw)
+        rng = random.Random(1); reps = []
+        for _ in range(3000):
+            reps.append(total({s: [rng.choice(dv) for _ in dv] for s, dv in sets.items()}, tw)[0])
+        def iv(q):
+            v = sorted(r[q] for r in reps); return v[int(.05 * (len(v) - 1))], v[int(.95 * (len(v) - 1))]
+        print(f"\n## estimate ({name})\n")
+        for q, u in (('nodes', 'nodes'), ('its', 'ADMM iterations'), ('cpu', 'CPU-s')):
+            lo, hi = iv(q)
+            print(f"- {tot2[q]:,.0f} {u} (bootstrap 5%-95%: {lo:,.0f} to {hi:,.0f})" + (f" = {tot2[q] / 3600:,.0f} core-hours ({lo / 3600:,.0f} to {hi / 3600:,.0f})" if q == 'cpu' else ''))
     missing = [f'{k}{D}' for D in levels for k in ('far', 'near') if size.get(f'{k}{D}', 0) and f'{k}{D}' not in sets]
     print('- sets with start nodes and no finished dive (near: counted as 0; far: their nodes only):', ' '.join(missing) or 'none')
     print('\n## by level (the on-path node at depth D and the subtrees hanging off the path at depth D)\n\n| D | on-path node: iterations, CPU-s | near: start nodes, dives | far: start nodes, dives | nodes | iterations | CPU-s | share of CPU |\n|---|---|---|---|---|---|---|---|')

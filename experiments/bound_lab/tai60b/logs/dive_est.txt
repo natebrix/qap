@@ -34,7 +34,9 @@
 | `far16` | 42 | 3 | 3 / 0 / 0 | 16 | 45 ± 6 | 845 | 297 ± 25 |
 | `near16` | 2 | 1 | 0 / 1 / 1 | 17 | 81 ± nan | 33,582 | 10,110 ± nan |
 | `far17` | 42 | 3 | 2 / 1 / 0 | 17 | 44 ± 7 | 7,784 | 2,211 ± 1,780 |
+| `near17` | 1 | 1 | 0 / 1 / 0 | 17 | 1 ± nan | 471 | 146 ± nan |
 | `far18` | 41 | 3 | 3 / 0 / 0 | 18 | 37 ± 1 | 2,809 | 732 ± 131 |
+| `near18` | 1 | 1 | 0 / 1 / 0 | 18 | 1 ± nan | 561 | 159 ± nan |
 | `far19` | 41 | 3 | 3 / 0 / 0 | 19 | 39 ± 1 | 884 | 288 ± 24 |
 | `far20` | 34 | 3 | 2 / 1 / 0 | 20 | 32 ± 2 | 4,113 | 1,125 ± 763 |
 | `near20` | 6 | 3 | 1 / 2 / 0 | 20 | 6 ± 0 | 2,563 | 705 ± 310 |
@@ -74,10 +76,16 @@
 
 ## estimate (E1: the sampling design alone)
 
-- 21,488 nodes (bootstrap 5%-95%: 7,252 to 35,803)
-- 925,123 ADMM iterations (bootstrap 5%-95%: 622,901 to 1,230,437)
-- 568,063 CPU-s (bootstrap 5%-95%: 373,927 to 762,911) = 158 core-hours (104 to 212)
-- sets with start nodes and no finished dive (near: counted as 0; far: their nodes only): near17 near18 far36 far39 far42
+- 21,490 nodes (bootstrap 5%-95%: 7,305 to 35,464)
+- 926,155 ADMM iterations (bootstrap 5%-95%: 622,735 to 1,220,473)
+- 568,368 CPU-s (bootstrap 5%-95%: 379,990 to 751,361) = 158 core-hours (106 to 209)
+
+## estimate (E2: the depth-1 mirror 44:58 counted as a copy of the on-path child and its subtree; depth-1 near dives without it (nearx1))
+
+- 41,281 nodes (bootstrap 5%-95%: 12,646 to 69,362)
+- 1,755,413 ADMM iterations (bootstrap 5%-95%: 1,137,439 to 2,345,807)
+- 1,008,978 CPU-s (bootstrap 5%-95%: 605,768 to 1,403,013) = 280 core-hours (168 to 390)
+- sets with start nodes and no finished dive (near: counted as 0; far: their nodes only): far36 far39 far42
 
 ## by level (the on-path node at depth D and the subtrees hanging off the path at depth D)
 
@@ -100,8 +108,8 @@
 | 14 | 1140, 478 | 6, 2 | 40, 3 | 172 | 13,656 | 5,406 | 1.0% |
 | 15 | 710, 314 | 0, 0 | 45, 3 | 41 | 2,583 | 963 | 0.2% |
 | 16 | 1110, 426 | 2, 1 | 42, 3 | 127 | 35,537 | 10,833 | 1.9% |
-| 17 | 1020, 357 | 1, 0 | 42, 3 | 45 | 8,804 | 2,568 | 0.5% |
-| 18 | 1030, 383 | 1, 0 | 41, 3 | 38 | 3,839 | 1,116 | 0.2% |
+| 17 | 1020, 357 | 1, 1 | 42, 3 | 46 | 9,275 | 2,714 | 0.5% |
+| 18 | 1030, 383 | 1, 1 | 41, 3 | 39 | 4,400 | 1,275 | 0.2% |
 | 19 | 900, 408 | 0, 0 | 41, 3 | 40 | 1,784 | 696 | 0.1% |
 | 20 | 1050, 412 | 6, 3 | 34, 3 | 39 | 7,726 | 2,242 | 0.4% |
 | 21 | 1110, 486 | 2, 3 | 37, 3 | 64 | 3,696 | 1,349 | 0.2% |
@@ -135,11 +143,11 @@
 | 0 to 0.5 | 14 | 14 | 0 | 0 | nan |
 | 0.5 to 1 | 5 | 5 | 0 | 0 | nan |
 | 1 to 1.6 | 13 | 5 | 5 | 3 | 398 |
-| 1.6 to 3 | 25 | 2 | 10 | 13 | 249 |
-| 3 to 5 | 13 | 1 | 4 | 8 | 216 |
+| 1.6 to 3 | 26 | 2 | 11 | 13 | 258 |
+| 3 to 5 | 14 | 1 | 5 | 8 | 242 |
 | 5 to inf | 123 | 0 | 3 | 120 | 41 |
 
-rule 'branches iff excess < s(depth)': right on 185 of 193 nodes; wrong on:
+rule 'branches iff excess < s(depth)': right on 187 of 195 nodes; wrong on:
   depth 7 `0:29,1:33,43:58,44:45,45:26,6:24,7:19` excess 441,133 = 1.08 s(d): branched (1110 iterations, end 120,521 short)
   depth 6 `1:33,43:58,44:45,45:26,6:24,7:49` excess 540,255 = 1.17 s(d): branched (1110 iterations, end 64,827 short)
   depth 6 `1:33,43:58,44:45,45:26,6:24,7:29` excess 540,848 = 1.17 s(d): branched (1110 iterations, end 92,340 short)
