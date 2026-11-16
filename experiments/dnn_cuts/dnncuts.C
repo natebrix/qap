@@ -6,7 +6,8 @@
    make -C latest dnncuts
    experiments/dnn_cuts/dnncuts [-x i:j,...] [-u ub | -c cutoff] [-r rounds]
        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
-       [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
+       [-mu0 M] [-grid R:C [-side 0|1] | -regions FILE [-side 0|1] | -prefix | -atomic]
+       [-five K] [-d degree]
        [-Ladd file[:const]] [-warmY] [-dumpY prefix] [-addto R] [-seven K[:S]]
        [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-loadpool F] [-savepool F]
        [-poolcheck K] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
@@ -60,6 +61,7 @@
 */
 
 #include "dnncut.h"
+#include "settings.h"
 #include "qap.h"
 #include "assign.h"
 #include "util.h"
@@ -142,6 +144,10 @@ int main(int argc, char **argv)
   std::string ladd_spec, dumpy, loadpool, savepool;
   std::string savepoolall, cpadmm;   // CP-ADMM study
   int savepoolall_round = -1, cp_iters = 2000, cp_plain = 0;
+  const char *par_file = NULL;
+  int phase = 0;
+  std::string savewarm, loadwarm;
+  double poolscale = 1.0, firstbeta = 0;
   DNNCPParams cpp;
   for (int a = 1; a < argc; a++) {
     std::string o = argv[a];
@@ -172,6 +178,20 @@ int main(int argc, char **argv)
         fprintf(stderr, "bad -grid R:C\n"); return 1; }
     }
     else if (o == "-side" && more) cp.side = atoi(argv[++a]);
+    else if (o == "-regions" && more) {   // -regions FILE: one region per line, original indices of -side ('#' comments)
+      FILE *f = fopen(argv[++a], "r");
+      if (!f) { fprintf(stderr, "cannot read regions file %s\n", argv[a]); return 1; }
+      char line[1 << 14];
+      while (fgets(line, sizeof line, f)) {
+        if (char *h = strchr(line, '#')) *h = 0;
+        std::istringstream in(line);
+        std::vector<int> r; int x;
+        while (in >> x) r.push_back(x);
+        if (!r.empty()) cp.regions.push_back(r);
+      }
+      fclose(f);
+      if (cp.regions.empty()) { fprintf(stderr, "no regions in %s\n", argv[a]); return 1; }
+    }
     else if (o == "-stall" && more) cp.stall_rounds = atoi(argv[++a]);   // stop rule (dnncut.h), 0 = off
     else if (o == "-pgate" && more) {                                      // -pgate R:M: primal gate after round R, margin M (dnncut.h)
       const char *z = argv[++a], *c = strchr(z, ':');
@@ -215,6 +235,17 @@ int main(int argc, char **argv)
       if (sscanf(argv[++a], "%d:%d:%d:%d", &cpp.sep_every, &cpp.sep_k, &cpp.pool_cap, &cpp.drop_after) < 2 ||
           cpp.sep_every < 1 || cpp.sep_k < 1) { fprintf(stderr, "bad -cpsep k:K[:CAP[:DROP]]\n"); return 1; }
     }
+    else if (o == "-p" && more) par_file = argv[++a];                      // [settings] of a params file: the search's dnn.* keys
+    else if (o == "-phase") phase = 1;                                     // the search's phase: first solve, then dnn_cut_cp (bnb.C)
+    else if (o == "-savewarm" && more) savewarm = argv[++a];              // the first solve's state (Y, Z), to skip it next time
+    else if (o == "-loadwarm" && more) loadwarm = argv[++a];
+    else if (o == "-firstbeta" && more) firstbeta = atof(argv[++a]);      // -phase: dnn.beta of the first solve only (a warm child's w x beta)
+    else if (o == "-poolscale" && more) poolscale = atof(argv[++a]);      // factor on a loaded pool's multipliers (-phase)
+    else if (o == "-cpextrap" && more) {                                   // -phase: E:GAMMA[:GUARD[:MODE]] (dnncut.h)
+      sscanf(argv[++a], "%d:%lf:%d:%d", &cp.cp_extrap, &cp.cp_extrap_gamma, &cp.cp_extrap_guard, &cp.cp_extrap_mode);
+    }
+    else if (o == "-cpwcgap" && more) cp.cp_wc_gap = atof(argv[++a]);      // -phase: cut.cp_wc_gap
+    else if (o == "-cpwcdef" && more) cp.cp_wc_deficit = atof(argv[++a]);  // -phase: cut.cp_wc_deficit
     else if (o == "-cpplain") cp_plain = 1;   // the same solve from the give-up point without the cuts (no hook)
     else if (o == "-dumpY" && more) dumpy = argv[++a];
     else if (o == "-prefix") cp.prefix = true;
@@ -231,7 +262,7 @@ int main(int argc, char **argv)
     else file = argv[a];
   }
   if (!file) { fprintf(stderr, "usage: see the comment at the top of dnncuts.C\n"); return 1; }
-  if (cp.grid_rows == 0 && !cp.prefix) cp.atomic = true;   // as before: no regions means atomic
+  if (cp.grid_rows == 0 && !cp.prefix && cp.regions.empty()) cp.atomic = true;   // as before: no regions means atomic
   if (cp.first_iters <= 0) cp.first_iters = cp.iters;       // the driver always runs the uncut round
   setvbuf(stdout, NULL, _IOLBF, 0);
   dnn_set_blas_threads(threads);
@@ -244,6 +275,7 @@ int main(int argc, char **argv)
   QAPAssignment node(n);
   if (!parse_fixes(fixes, node, n)) { fprintf(stderr, "bad fixes\n"); return 1; }
   if (cp.grid_rows > 0 && cp.grid_rows * cp.grid_cols != n) { fprintf(stderr, "-grid R:C needs R*C = n\n"); return 1; }
+  for (auto &r : cp.regions) for (int x : r) if (x < 0 || x >= n) { fprintf(stderr, "-regions: index %d out of range\n", x); return 1; }
   QAP qr;
   reduceQAP(q, &qr, node);
   const int m = n - node.nfix;
@@ -269,8 +301,8 @@ int main(int argc, char **argv)
     printf("external term %s: %zu nonzeros, |L_ext| = %.6f, const %.6f\n", path.c_str(), nz, abs_, cp.ext_const);
   }
   printf("instance %s n=%d node %s m=%d cutoff %.4f  cuts %s", file, n, fixes.c_str(), m, cutoff,
-         cp.atomic ? "atomic" : (cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
-  if (cp.grid_rows > 0) printf(" side %d", cp.side);
+         cp.atomic ? "atomic" : (!cp.regions.empty() ? "regional (regions file)" : cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
+  if (cp.grid_rows > 0 || !cp.regions.empty()) printf(" side %d", cp.side);
   if (cp.warm_primal) printf(" warmY 1");
   if (cp.damp1 != 1.0 || cp.damp_rest != 1.0) printf(" damp1 %g:%g", cp.damp1, cp.damp_rest);
   if (cp.kbox > 0) printf(" box %d qmax %d starts %d", cp.kbox, cp.box_qmax, cp.box_starts);
@@ -281,6 +313,13 @@ int main(int argc, char **argv)
   if (const char *e = getenv("QAP_DNN_CHEB")) base.cheb_degree = atoi(e);
   if (const char *e = getenv("QAP_DNN_TIGHT_LAM")) base.tight_lam = atoi(e);
   if (const char *e = getenv("QAP_DNN_REFRESH")) base.refresh = atoi(e);
+  if (par_file) {
+    // as bnb.C: the DNN keys of the [settings] section
+    settings_read_par(par_file);
+    base.gamma1 = setting_d("dnn.gamma1"); base.gamma = setting_d("dnn.gamma");
+    base.cheb_degree = (int)setting_i("dnn.cheb"); base.tight_lam = (int)setting_i("dnn.tight_lam");
+    base.beta = setting_d("dnn.beta"); base.refresh = (int)setting_i("dnn.refresh");
+  }
   if (hopeless_after >= 0) base.hopeless_after = hopeless_after;
   base.verbose = check_trace;   // -vc: the certified bound at every check of every solve
   cp.verbose = std::max(1, verbose);
@@ -301,6 +340,59 @@ int main(int argc, char **argv)
   DNNPool pin, pout, pall;
   if (!savepool.empty()) { cp.pool_out = &pout; cp.other_orig = &other_orig; }
   if (!savepoolall.empty()) { cp.pool_all_round = savepoolall_round; cp.pool_all_out = &pall; cp.other_orig = &other_orig; }
+  if (phase) {
+    // the search's phase (bnb.C): the first solve (cold, -I iterations, no give-up; or -loadwarm),
+    // then dnn_cut_cp from its state with the -cpsep schedule, -k round-0 cuts, -cpiters
+    // iterations, no stall rule unless -stall; -loadpool: an inherited pool (x -poolscale)
+    DNNResult r0;
+    double first_lb = -HUGE_VAL, first_primal = HUGE_VAL;
+    const size_t n1 = (size_t)m * m + 1;
+    if (!loadwarm.empty()) {
+      FILE *f = fopen(loadwarm.c_str(), "rb");
+      double hdr[4];
+      warm.Y.resize(n1 * n1); warm.Z.resize(n1 * n1);
+      if (!f || fread(hdr, sizeof(double), 4, f) != 4 || (int)hdr[0] != m ||
+          fread(warm.Y.data(), sizeof(double), n1 * n1, f) != n1 * n1 || fread(warm.Z.data(), sizeof(double), n1 * n1, f) != n1 * n1) {
+        fprintf(stderr, "cannot read the warm state %s\n", loadwarm.c_str()); return 1; }
+      fclose(f);
+      warm.m = m; warm.scale = hdr[1]; first_lb = hdr[2]; first_primal = hdr[3];
+      printf("first solve loaded from %s: lb %.4f primal %.4f\n", loadwarm.c_str(), first_lb, first_primal);
+    } else {
+      DNNParams p0 = base;
+      p0.max_iter = cp.first_iters; p0.hopeless_after = 0; p0.hopeless_gap_ratio = 0;
+      p0.verbose = check_trace;
+      if (firstbeta > 0) p0.beta = firstbeta;
+      r0 = dnn_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, p0, NULL, &warm);
+      first_lb = r0.lb; first_primal = r0.primal;
+      printf("first solve  lb %.4f  primal %.4f  status %s  iters %d  cpu %.1f\n", r0.lb, r0.primal, dnn_status_name(r0.status), r0.iterations, r0.cpu);
+      if (!savewarm.empty()) {
+        FILE *f = fopen(savewarm.c_str(), "wb");
+        double hdr[4] = {(double)m, warm.scale, first_lb, first_primal};
+        if (f) { fwrite(hdr, sizeof(double), 4, f); fwrite(warm.Y.data(), sizeof(double), n1 * n1, f); fwrite(warm.Z.data(), sizeof(double), n1 * n1, f); fclose(f); }
+      }
+    }
+    DNNCutParams c1 = cp;
+    c1.first_iters = 0;
+    c1.cp_every = cpp.sep_every; c1.cp_k = cpp.sep_k; c1.cp_iters = cp_iters;
+    c1.cp_sweeps = cpp.sweeps; c1.cp_passes = cpp.passes;
+    c1.other_orig = &other_orig; c1.fixed_at = &fixed_at;
+    c1.pool_out = &pout;
+    if (!loadpool.empty()) {
+      if (!read_pool_file(loadpool, pin) || pin.side != cp.side) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", loadpool.c_str()); return 1; }
+      for (auto &c : pin.cuts) c.mu *= poolscale;
+      size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
+      printf("pool %s: %zu regions, %zu cuts (%zu with mu > 0), multipliers x %g\n", loadpool.c_str(), pin.regions.size(), pin.cuts.size(), pos, poolscale);
+      c1.pool_in = &pin;
+    }
+    DNNParams p = base;
+    p.verbose = std::max(1, check_trace);
+    DNNCutResult res = dnn_cut_cp(qr.A, qr.B, qr.C, qr.shift, cutoff, p, free_orig, n, c1, &warm, first_lb, first_primal);
+    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f status %s iters %d cpu %.1f\n", res.best_lb, first_lb, res.best_lb - first_lb,
+           dnn_status_name(res.status), res.iterations, res.cpu);
+    if (!savepool.empty()) { FILE *f = fopen(savepool.c_str(), "w"); if (f) { fprintf(f, "%s\n", dnn_pool_encode(pout).c_str()); fclose(f); } }
+    delete q;
+    return 0;
+  }
   if (!cpadmm.empty() || cp_plain || cpp.sep_every > 0) {
     // CP-ADMM: the give-up point (the uncut round 0 of the rounds), then one solve
     // with the frozen pool inside the Y-step (-cpplain: the same solve, plain Y-step).
