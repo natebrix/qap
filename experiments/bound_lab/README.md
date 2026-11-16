@@ -27,8 +27,8 @@ level by level, `tai50b_bfs` on `claude/cool-babbage-ilnogj-tai50b`). `laptop/` 
   the cuts are closed there (the Nov 4 study stands), and what transfers from tho40 is a policy worth
   1.1-1.35x.
 - New best lower bounds at the root, all certified: tho40 230,452.99 (published 226,522); tai50b
-  453,552,676 (431,245,612); tai60b 605,315,696 (592,829,061); tai80b 798,336,758 (786,900,529)
-  after 1,000 phase iterations and still rising.
+  453,552,676 (431,245,612); tai60b 605,315,696 (592,829,061); tai80b 801,397,334 (786,900,529)
+  after 2,320 phase iterations, levelling off.
 
 ## What was found
 
@@ -53,7 +53,9 @@ on tai30b, 71-81% on tai35b to tai60b. Solver change: `cut.regions = FILE` (`reg
   at depth 1 and 4k short at depth 42, with no node of the path fathomed. By Knuth dives (284): 29,400
   nodes (21,500-38,300) and about 280 core-hours on the cloud box, range 150-600; a model of the
   surviving prefixes with the slack measured at every depth gives 460. The cost is off the path at
-  depths 1, 3, 4 and 9. tai80b: the root only (8 s per iteration).
+  depths 1, 3, 4 and 9. tai80b: the root only. It levels off at 46% of the published gap closed (2.08% under the
+  best known value) with tai50b's region family, so it is a harder instance for these cuts, not
+  only a bigger one; a two-dimensional region family is untested.
 - **A fault to know about** (`tai_solves/`, section 5): with `wc=2.88` a child's first solve on its
   parent's pool sometimes fails outright (a certificate of -3e11, or none). The bound stays valid but
   the subtree blows up; `tai_solves/pool_retry.patch` redoes the solve without the pool. Not yet in

@@ -15,6 +15,9 @@ Asked by the coordinating session: dives from the saved states, to replace the m
 
 ### Update (Nov 16, evening): more dives, the mirror's path, tai80b
 
+**In one line: tai60b 279 core-hours (202 to 363) [e], up 8%; the mirror behaves as a copy of the path for the
+five levels measured; tai80b's root levels off at 801.4M, 46% of its gap, not tai60b's 81%.**
+
 Asked by the coordinating session after the section below was merged. **The numbers in this block supersede
 the ones in "Answer" below where they differ.**
 
@@ -70,7 +73,41 @@ subtree is a little larger than a copy. Its off-mirror children were not sampled
 three dive processes one of which had grown to 2.6 GB; the container allows 14.3 GB and counts the page
 cache). I saw it at 16:41. `runs/root80_killed640` has its trace, identical to the first run's to that point.
 
-@@T80@@
+**tai80b root, run on: 801,397,334 certified at about 470 [e] + 2,320 iterations: 46% of the published gap
+closed, gap 2.08%. It levels off; it does not do what tai60b's root did (81%).** [m `runs/root80`, the third
+run: `root.sh root80 tai80b 818415043` with `THREADS=4`, alone on the box, 3.8 s of wall per phase iteration
+against 8.1 on one thread; stopped by hand at 19:48, values from `live.txt`. `threads.patch`: three lines in
+`latest/driver.C`, `QAP_BLAS_THREADS=N`, default 1 as before. The multi-threaded run's values differ from the
+single-threaded one's in the seventh digit: 798,331,438 against 798,336,758 at 1,000.]
+
+| phase iterations | certified running best | short of best known | share of the published gap closed | gain over the previous 250 |
+|---|---|---|---|---|
+| 250 | 787,033,428 | 31,381,615 | 0% |  |
+| 500 | 793,523,956 | 24,891,087 | 21% | 6,490,528 |
+| 750 | 796,394,398 | 22,020,645 | 30% | 2,870,442 |
+| 1,000 | 798,331,437 | 20,083,606 | 36% | 1,937,039 |
+| 1,250 | 799,481,341 | 18,933,702 | 40% | 1,149,904 |
+| 1,500 | 800,214,468 | 18,200,575 | 42% | 733,127 |
+| 1,750 | 800,711,844 | 17,703,199 | 44% | 497,376 |
+| 2,000 | 801,055,717 | 17,359,326 | 45% | 343,873 |
+| 2,250 | 801,316,552 | 17,098,491 | 46% | 260,835 |
+| 2,320 | 801,397,334 | 17,017,709 | 46% |  |
+
+- Gains per 250 iterations: 1.94M, 1.15M, 0.73M, 0.50M, 0.34M, 0.26M; per 100 over the last 800: 238k, 224k,
+  162k, 123k, 95k, 104k, 123k, 115k. The geometric decay (about 0.68 per 250) stops at about iteration 1,900
+  and what is left is a creep of about 110k per 100 iterations, 0.35% of the published gap. By the decay alone
+  the plateau is near 801.9M (48%); with the creep, 3,000 more iterations would add about 3M (56%) if it held,
+  which tai50b's and tai60b's roots suggest it would not [e].
+- **So tai80b's root closes about half of its gap with this region set, against 81% for tai60b**, and its
+  shortfall is 17.0M (2.08%) where tai60b's is 2.9M (0.48%). With the survive rule (a node branches when it
+  holds a solution within the slack) that is a tree of another order: tai60b's on-path slack at depth 1 was
+  already 0.45%. **On this evidence tai80b is not worth sizing with `line:1,top:7,linegap:4:0.03`.**
+- What is not settled: whether a region set made for two dimensions closes more. tai80b's clusters are spread
+  in the plane (first-axis share 0.78; tai60b 0.92), this set has the prefixes of one axis only, and
+  `../tai_solves` solved tai35b and tai40b with two families each. One root with `line:2` or `line:4` is the
+  next thing to try: 2.5 hours on four threads for 2,300 iterations, 7.3 GB, alone on a box of this size.
+- The first restart (single-threaded, killed at 640) and the first run agree with each other to the last digit.
+
 
 ### Answer
 
@@ -576,6 +613,7 @@ No brute-force check was rerun here; `../regions/README.md` section 3 has those 
 
 ## 7. tai80b root [m `root80`]
 
+(Morning run, now `runs/root80_first1000`; the evening run to 2,320 iterations is in the update block at the top.)
 `root.sh root80 tai80b 818415043` (`par/root80.par`: the same settings, `tai80b.comb7.txt`, `dnn.depths
 = 0:78`, `cut.cp_iters = 5000`). One core; two tai60b processes beside it. The run was stopped by
 hand at phase iteration 1,000, at the end of the session, so its values are the certified running best at each check
