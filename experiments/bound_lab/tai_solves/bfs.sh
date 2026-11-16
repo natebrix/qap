@@ -12,7 +12,7 @@ R=runs/$TAG; mkdir -p $R $R/store
 one() {  # NAME IN EXTRA
   D=$H/$R/$1; mkdir -p $D
   export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 QAP_NODE_TRACE=$D/nodes.txt QAP_DNN_TRACE=$D/dnn.txt QAP_DNN_WARM_DIR=$H/$R/store
-  cd /home/user/qap/latest
+  cd ${BNBDIR:-/home/user/qap/latest}
   CMD="./bnbdrv -p $H/par/$PAR.par -u $UB -r $2 --allow-settings-change -o $D/out.state $3 ../qaplib/$INST.dat"
   { echo "$CMD"; date -u +%FT%TZ; } > $D/cmd.txt
   $CMD > $D/log.txt 2> $D/err.txt; echo "exit $?" >> $D/cmd.txt; date -u +%FT%TZ >> $D/cmd.txt

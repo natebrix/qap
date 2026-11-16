@@ -1,0 +1,25 @@
+--- a/latest/bnb.C	2026-11-16 06:38:03.710976660 +0000
++++ b/latest/bnb.C	2026-11-16 06:37:49.738430740 +0000
+@@ -871,6 +871,22 @@
+ 	    if (pool_kept == 0) have_pool = false;
+ 	  } else
+ 	    r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, sp, save);
++	  // tai_solves (pool_retry.patch): a pooled first solve can fail outright: its frozen pool no longer fits the
++	  // child and the certified value ends far below the bound the node inherited (tai35b, depth 7: -3.1e11
++	  // against 2.8e8), or there is no certificate at all (-inf). Such a node was then outside cut.zone, got
++	  // no phase, and handed the failed state and pool to its children, none of which certified either.
++	  // When the pooled solve ends unfathomed more than 1% of |incumbent| below the inherited bound, solve the
++	  // node again without the pool (the plain first solve from the parent's state); the phase then starts
++	  // from that solve with no inherited pool. The iterations and CPU of the failed solve are kept in the counts.
++	  if (have_pool && r.status != DNN_FATHOMED && !(r.lb >= node.bound - 0.01 * std::max(1.0, fabs(inc)))) {
++	    const DNNResult failed = r;
++	    r = dnn_bound(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp, sp, save);
++	    r.iterations += failed.iterations; r.cpu += failed.cpu;
++	    have_pool = false; pool_cp_ran = false; pool_kept = 0;
++	    static long retries = 0;
++	    if (++retries <= 20) std::cerr << "pool retry: depth " << node.depth << ", pooled first solve " << failed.lb
++	                                   << " against the inherited " << node.bound << "; without the pool " << r.lb << std::endl;
++	  }
+ 	  dp.warm_primal = 0;   // the cut phase below sets its own
+ 	  DNNWarm *cut_state = NULL;   // the cut phase's state for the children (QAP_DNN_POOL)
+ 	  DNNCutResult cr_trace;

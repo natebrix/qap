@@ -1,0 +1,160 @@
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/experiments/bound_lab/tai_solves/par/s35.par
+incumbent: 2.83315e+08
+resume from: /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs35/in_6_6.state
+state file: /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs35/d6_c6/out.state
+max_depth has been set to 6
+input file: ../qaplib/tai35b.dat
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 0-33, relative gap <= 1, give up after 100 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 72 hash 077bb3934208b4a5
+setting dnn.depths 0:33 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 100 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36,wc=2.88 par policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 1 par policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 par policy
+setting cut.grid "" default policy
+setting cut.regions /home/user/qap/experiments/bound_lab/tai_solves/regions/tai35b.comb.txt par policy
+setting cut.rounds 12 par policy
+setting cut.iters 200 par policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 par policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 0 par policy
+setting cut.warmy 1 par policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp 100:1000 par policy
+setting cut.giveup "" default policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 1 par policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 1 par policy
+setting est.xbar_mix 0.3 par policy
+setting par.hash 0d8ee1f420c6ac3a par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs35/store env run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/bound_lab/tai_solves/par/s35.par flag run
+setting QAP_DNN_TRACE /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs35/d6_c6/dnn.txt env diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs35/d6_c6/nodes.txt env diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+resumed: 6 open nodes, 64 nodes and 884.898 s so far, incumbent 2.83315e+08
+branching_weight() = 0.5
+couldn't find [./SYM/tai35b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 901.49 seconds 
+         Nodes: 70 / 67 / 0
+    root bound: 1.5071e+08
+ fw iterations: 8375
+     DNN bound: 70 nodes, 67 fathomed, 196.774 s
+     cut phase: 3 nodes, 0 fathomed, 701.078 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	  582.79
+ 1           4	1.0000	N/A	    6.57
+ 2          12	1.0000	N/A	   26.46
+ 3          11	0.9091	0.0000	  132.21
+ 4          18	0.9444	0.0000	   95.93
+ 5          18	1.0000	N/A	   40.93
+ 6           6	1.0000	N/A	   16.59
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 4 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 12 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 11 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 18 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 18 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 6 
+nodes       1        0       69        0 
+time   582.79     0.00   318.70     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.019045	0.000000
+ 2| 0.009830	0.007391
+ 3| 0.007058	0.004528
+ 4| 0.005857	0.002821
+ 5| 0.002758	0.001388
+ 6| 0.001421	0.000001
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 0           1	0.0000	1.0000	        190	   190.0	   13.11
+ 1           4	1.0000	0.0000	        112	    28.0	    6.41
+ 2          12	1.0000	0.0000	        286	    23.8	   26.00
+ 3          11	0.9091	0.0909	        858	    78.0	   49.42
+ 4          18	0.9444	0.0556	        920	    51.1	   45.07
+ 5          18	1.0000	0.0000	       1049	    58.3	   40.36
+ 6           6	1.0000	0.0000	        539	    89.8	   16.40
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 0           1	0.0000	  569.30
+ 3           1	0.0000	   81.91
+ 4           1	0.0000	   49.86
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           4	       0	       4	       0	       0
+ 2          12	       0	      12	       0	       0
+ 3          10	       0	      10	       0	       0
+ 4          17	       0	      17	       0	       0
+ 5          18	       0	      18	       0	       0
+ 6           6	       0	       6	       0	       0
+
+eigendecompositions for W and U: 7 computed, 5 reused from the per-size cache
