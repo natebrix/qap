@@ -18,7 +18,8 @@ for d in sorted(glob.glob(os.path.join(H, "runs", "w[0-9]*_*"))):
     i = idx[nodes[0]["fixes"]]
     pn, pc, ps = t.size[i], t.sub_cpu[i], t.cutoff[i] - t.dnn[i]
     done = s["done"]
-    print("| `%s` | %.0f, %s, %s (%s) | %s | %d%s | %d / %d | %d (%d) | %s + %s = %s | %.0f | %.1fx | %.1fx | %.1fx |" % (
+    rat = ("%.0fx" % (pn / max(s["nodes"], 1)), "%.2fx" % (pn * IT_PER_NODE / max(s["it_total"], 1)), "%.2fx" % (pc * 0.70 / max(s["cpu"], 1e-9))) if done else ("-", "-", "-")
+    print("| `%s` | %.0f, %s, %s (%s) | %s | %d%s | %d / %d | %d (%d) | %s + %s = %s | %.0f | %s | %s | %s |" % ((
         nodes[0]["fixes"], ps, format(pn, ","), format(round(pc), ","), format(round(pc * 0.70), ","), os.path.basename(d).split("_")[1],
-        s["nodes"], "" if done else " (RUNNING)", s["D"], s["C"], s["phases"], s["phase_fath"], format(s["it_first"], ","), format(s["it_cut"], ","),
-        format(s["it_total"], ","), s["cpu"], pn / max(s["nodes"], 1), pn * IT_PER_NODE / max(s["it_total"], 1), pc * 0.70 / max(s["cpu"], 1e-9)))
+        s["nodes"], "" if done else " (stopped part-way)", s["D"], s["C"], s["phases"], s["phase_fath"], format(s["it_first"], ","), format(s["it_cut"], ","),
+        format(s["it_total"], ","), s["cpu"]) + rat))

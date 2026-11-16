@@ -35,7 +35,7 @@ for m, n in data:
     for x in n: pass
 for c in kids:
     fx = ",".join(t.fixes[c]); s = t.cutoff[c] - t.dnn[c]
-    if t.outcome[c] != "B" and all(fx in m and m[fx][0]["out"] == "D" for m, _ in data): continue   # fathomed at once everywhere: summed below
+    if t.outcome[c] != "B" and all(fx not in m or m[fx][0]["out"] == "D" for m, _ in data): continue   # fathomed at once everywhere: summed below
     print("| %s | %.0f, %d, %s | %s |" % (fx[len(root) + 1:], s, t.size[c], format(round(t.size[c] * 25.6), ","), " | ".join(cell(m, fx) for m, _ in data)))
 for k, (m, n) in enumerate(data):
     tot[k] = sum(e["iters"] + e["cit"] for x, e in m.values()); seen[k] = len(n)

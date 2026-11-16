@@ -8,13 +8,17 @@ PRSM (1, 1), `dnn.beta = 0.21`, `dnn.cheb = 3`, `dnn.tight_lam = 2`, `dnn.refres
 
 ## Answer
 
-- **A lever of 1.2-1.6x in iterations exists on tai-b, at the same cost per iteration: a
-  diagonal congruence scaling of the lifted variable (`dnn.dscale = 0.5`, patch
-  `admm.patch`).** On tai50b: 1.20-1.26x cold on depth-3 node 7, **1.58x on its warm
-  depth-4 child (fathom at 100 iterations instead of 158)** [m]. On the solved siblings:
-  1.4-1.5x on the tai25b root, 1.2-1.3x on the tai30b root and a depth-3 node cold,
-  1.4-1.5x on a warm depth-3 child [m]. It is not the 5-10x that would move tai50b's
-  estimate (floor 1e11 CPU-s) into reach.
+- **Not a robust 1.5x. A lever of 1.2-1.6x in iterations exists on tai-b nodes that are far
+  from their plateau, at the same cost per iteration: a diagonal congruence scaling of the
+  lifted variable (`dnn.dscale = 0.5`, patch `admm.patch`).** On tai50b: 1.20-1.26x cold on
+  depth-3 node 7, **1.58x on its warm depth-4 child (fathom at 100 iterations instead of
+  158)** [m]. On the solved siblings: 1.4-1.5x on the tai25b root, 1.2-1.3x on the tai30b
+  root and a depth-3 node cold, 1.4-1.5x on a warm depth-3 child [m]. Where the relaxation
+  is nearly tight (deep on tai30b's optimal path) it loses a little, and a tai30b subtree
+  took 36% more iterations with it; scaled for the first 100 iterations of each call and
+  plain after (`dnn.dscale_until = 100`) the same subtree took 21% fewer (section 4). It is
+  not the 5-10x that would move tai50b's estimate (floor 1e11 CPU-s) into reach, and its
+  effect on tai50b's tree is not measured.
 - **The convergence tail on tai-b is sublinear** (gap to the plateau x iteration is constant
   from iteration 400 to 2,000 on the tai25b root), unlike wil50's geometric tail. It is a
   property of the splitting on this data, not of the eigen-tracker, the certificate or beta:
@@ -25,7 +29,12 @@ PRSM (1, 1), `dnn.beta = 0.21`, `dnn.cheb = 3`, `dnn.tight_lam = 2`, `dnn.refres
   flat 0.21-0.5 on a tai30b depth-3 node). Warm children: `w` is flat from 0.36 to 2.4 after
   iteration 100 and 0.36 is best before it. No change proposed for warm calls; for a cold
   tai-b root `dnn.beta = 0.35-0.5`.
-- **tho40's regime (B)**: see section 6.
+- **tho40's regime (B)**: the 36 warm children of a give-up parent first cross the cutoff at
+  iterations 5-16 (414 in total) and production fathoms them in 537, waiting for the checks
+  at 10 and 20. `dnn.cross_first = 5` (not in tho40.par; default 0): 460. With a low beta for
+  the first 30 iterations of a warm call as well (`DNN_ADMM_WARM_BETA=0.1:30:0.36:1`):
+  **377, 1.42x fewer iterations, 1.2x less CPU on the children**, and the give-up node's
+  bound at 200 iterations is unchanged (-14). About 12% of tho40's CPU [e]. Section 6.
 
 ## 1. Diagnosis (tai25b root, m = 25, K = 577; optimum 344,355,646)
 
@@ -186,8 +195,9 @@ Fathoming nodes (iterations to fathom, baseline -> scaled) [m]:
 | tai30b depth 3, three children of `4:9,11:20`, warm | 10, 10, 20 | 10, 10, 20 | 1.0x (first or second check) |
 
 - Validity: the tai30b node `0:3,1:7,2:10` is on the optimal path (optimum 637,117,113); its
-  best certified value over all runs is 635,288,753. No certificate failed in any run
-  (`cert_fail=0`).
+  best certified value over all runs is 635,288,753, and in the subtree runs of section 4 no
+  on-path node is certified above the optimum. No certificate failed in any run
+  (`cert_fail=0`; the diverged momentum run aside).
 - p and beta with the scaling (tai30b root at 1,500: p = 0.25, 0.5, 0.75, 1.0 give 597.90M,
   598.08M, 598.07M, 597.72M; the prototype on the tai25b root at 800: 336.39M, 336.58M,
   336.60M, 336.34M against 335.97M unscaled). **p = 0.5 to 0.75 is a flat optimum.** Row
@@ -216,15 +226,66 @@ w = 0.36 stays: best in the first 50 iterations (where the fast fathoms are), le
 
 ## 4. In the tree
 
-PENDING_BB
+Two subtrees with bnbdrv from the patched worktree, tai50b's settings (`bb_*.par`: tai50b.par
+with `dnn.depths` to the bottom, give-up 600, warm starts), the optimum as the incumbent,
+per-node traces (`logs/bb_*_F3_*.dnn.txt`). Both are depth-3 subtrees of the optimal path,
+the only kind small enough to finish here; `bbsum.py`.
+
+tai30b, `-F 0:3,1:7,2:10` [m]:
+
+| arm | DNN nodes | fathomed | not fathomed | iterations on fathomed nodes | on the others | total | 
+|---|---|---|---|---|---|---|
+| baseline | 233 | 218 | 15 | 7,079 | 10,520 | 17,599 |
+| `dnn.dscale = 0.5` | 267 | 245 | 22 | 8,376 | 15,490 | 23,866 (+36%) |
+| `dnn.dscale = 0.5`, `dnn.dscale_until = 200` | 236 | 220 | 16 | 7,298 | 11,500 | 18,798 (+7%) |
+| `dnn.dscale = 0.5`, `dnn.dscale_until = 100` | 195 | 184 | 11 | 5,835 | 8,130 | **13,965 (-21%)** |
+| `dnn.dscale = 0.25` | 244 | 228 | 16 | 8,322 | 11,320 | 19,642 (+12%) |
+
+The on-path node at each depth, certified value at its give-up minus the baseline's:
+
+| depth | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| baseline's shortfall | 3.38M | 957k | 162k | 111k | 82k | 21k | 50k | 5.6k | 17.7k | 13.8k |
+| dscale 0.5 | +580k | +185k | -14.5k | -2.0k | -7.1k | -5.2k | -1.1k | -8.9k | -15.7k | -23.0k |
+| dscale 0.5 until 200 | +633k | +199k | +8.7k | +4.3k | +0.3k | +1.7k | +19.9k | -35.1k | -6.3k | -7.7k |
+| dscale 0.5 until 100 | +556k | +121k | +8.3k | +5.1k | +1.4k | -0.5k | +16.1k | -6.5k | +7.8k | +11.4k |
+| dscale 0.25 | +381k | +130k | +0.3k | -1.7k | -5.4k | -7.4k | -18.9k | -15.3k | +2.1k | +2.4k |
+
+- **The scaling helps where the node is far from its plateau (depths 3-4 here, shortfall
+  0.15-0.5% of the cutoff) and loses a little where the relaxation is nearly tight (depth 5
+  and below, shortfall under 0.03%)**: there the scaled run is 1k-23k lower at the give-up,
+  and four nodes the baseline fathomed after 250-330 iterations (or 28) gave up, so the
+  spine branched into 34 more nodes. This is the tai20b-root regime of section 2 (tight
+  relaxation, where the tail wants a different penalty).
+- `dnn.dscale_until = T` (scaled for the first T iterations of a call, plain after; the
+  state converts exactly) keeps the gain at depths 3-4 and removes most of the loss below.
+  T = 200: 236 nodes against 233, 7% more iterations. **T = 100: 195 nodes, 21% fewer
+  iterations**, the spine ending four levels sooner. One subtree, and a spine's length hangs
+  on single near-tight nodes, so read it as "no longer a loss", not as 1.26x. T = 100 is the
+  arm to carry.
+- The fathoming children here take 10-30 iterations (51 at the first check, 93 at the
+  second, of 214): the scaling does not change them (6,225 against 6,173 iterations on the
+  214 nodes both arms fathom), as on tho40 (section 6).
+- tai25b, `-F 0:3,1:14,2:9`: too small to say anything (23 nodes; the subtree's root runs
+  3,110 iterations within 5,429 of the cutoff in the baseline and gives up at 1,580 with the
+  scaling, 127k lower, and the on-path child then takes one more level): 4,028 iterations
+  against 3,655 [m].
+- **What this does not measure is tai50b's own regime**: its CPU is at levels 4-5 in nodes
+  0.5-3% short that run to the 600-iteration give-up or fathom after 100-600 iterations, the
+  regime of the tai30b depth-3/4 rows and of the two tai50b measurements of section 3.1.
+  The subtrees above are spines of near-tight nodes and quick fathoms. A tai50b estimate with
+  `dnn.dscale = 0.5`, `dnn.dscale_until = 100` or `200` (the dives of `experiments/estimates/tai50b`)
+  is the test that would settle it; from the per-node numbers I expect 1.2-1.5x in CPU at
+  levels 4-5 [e], which does not change "out of reach".
 
 ## 5. Keys per instance
 
 | instance | change | basis |
 |---|---|---|
-| tai50b, and Taillard type b generally | `dnn.dscale = 0.5` (needs `admm.patch`) | section 3 |
+| tai50b, and Taillard type b generally | `dnn.dscale = 0.5`, `dnn.dscale_until = 100` (needs `admm.patch`) | sections 3 and 4; confirm on tai50b dives first |
+| tho40 | `dnn.cross_first = 5`; `DNN_ADMM_WARM_BETA=0.1:30:0.36:1` (environment) | section 6; one parent's 36 children, confirm on the tuning set |
 | tai-b roots (cold solves) | `dnn.beta = 0.35` to `0.5` | tai30b root only; node-level flat |
-| wil50, sko42, sko49, tho40, nug | nothing: `dnn.dscale = 0` (default) | not measured there. Their row norms are nearly uniform (grid distances, dense or uniform flows), so D is close to the identity and the effect should be small either way; tho40's flows are 61% zeros with uneven rows, so it is the one grid instance worth a 10-minute A/B |
+| wil50, sko42, sko49, tho40, nug | `dnn.dscale = 0` (default) | tho40 measured: no effect (section 6). The others not measured; their row norms are nearly uniform, so D is close to the identity |
 | kra30a | not measured | a candidate for the same scaling (it "does not converge at the default beta") |
 
 The scaling is off with the cut hook (CP-ADMM), the accelerations and the prototype
@@ -232,13 +293,66 @@ certificate; the patch does not implement those paths.
 
 ## 6. tho40's regime (B)
 
-PENDING_THO
+Checked first: `experiments/estimates/tho40/tho40.par` has no `dnn.cross_first`; the default
+is 0 (off); `dnn.cross = 2`, checks every 10 iterations, `w = 0.36`.
+
+The node: tho40t `26:10,8:0,39:32,38:7` (depth 4, m = 36; in tho40ab-32 it gave up 406 short
+and its 36 children all fathomed). Reproduced with dnntest: the parent cold for 600 iterations
+(240,132.5, 382 short, as in COMMON.md), then the 36 children warm from that state (Z and
+conditioned Y, `-Q b`), production keys (`tho40_base.par`). `q2.sh`, `q7.sh` to `q9.sh`,
+`tho.py`, `logs/tho40_d4_*.log` [m]. The children's CPU is on the shared machine.
+
+| arm | iterations to fathom, 36 children | histogram (iteration: children) | extra certificates | children's CPU s |
+|---|---|---|---|---|
+| a certificate at every iteration (`-k 1`): the first crossing | 414 | 5-9: 14, 10: 7, 11-16: 12, 25-33: 3 | | 49.5 |
+| production | **537** | 10: 21, 20: 12, 26: 2, 35: 1 | 4 | 52.3 |
+| `dnn.cross_first = 5` | 460 (-14%) | 5: 1, 10: 20, 11-16: 12, 26-35: 3 | 51 | 45.3 |
+| `dnn.cross_first = 3` | 472 | 10: 21, 11-19: 12, 29-33: 3 | 57 | 48.1 |
+| w = 0.15, `-k 1` | 332 | 5-9: 24, 10-13: 9, 18-25: 3 | | 45.5 |
+| w = 0.15, `dnn.cross_first = 5` | 387 (-28%) | 5: 5, 10: 20, 11-15: 8, 18-25: 3 | 47 | 44.3 |
+| **0.1 x base for 30 iterations, then 0.36; `dnn.cross_first = 5`** | **377 (-30%)** | 5: 5, 10: 25, 11-17: 4, 22-24: 2 | 42 | 43.0 |
+
+First crossing (`-k 1`) against the warm-call beta factor w: 0.5: 467; 0.36: 414; 0.25: 373;
+0.15: 332; 0.1: 306; 0.07: 298.
+
+- **Where the iterations go**: a warm child's first certificate is 5,000-14,000 below the
+  cutoff (the parent was 382 short), closes a fifth to a third of that per iteration at
+  first and 300-700 units per iteration near the cutoff; it crosses at iteration 5-16. Production then waits for the next multiple of 10: 21 children fathom at
+  10 (they crossed at 5-10) and the 12 that crossed at 11-16 wait until 20, because the
+  crossing prediction needs two certified values and the first check has one. 537
+  iterations against 414 crossed: 1.30x is the ceiling of check timing alone.
+- `dnn.cross_first = 5` gives the first check its second point: the 12 children of the
+  second check fathom at 11-16. -14% iterations, 47 more certificates (most of them the
+  cheap polyhedral part under `dnn.lazycert`), children's CPU 45.3 s against 52.3.
+  `cross_first = 3` is no better. wil50's adoption carries over.
+- **A lower beta on warm calls shortens the recovery**: the crossing moves from 414 to 306
+  iterations at w = 0.1. Kept for the whole solve it costs the nodes that do not fathom:
+  the same parent run as a warm child of `26:10,8:0,39:32` (`logs/tho40_d3kid_*.log`) is at
+  240,068 after 200 iterations at w = 0.36 and at 239,941 at w = 0.15 (127 lower, 28% more
+  shortfall). A schedule fixes that: `DNN_ADMM_WARM_BETA=0.1:30:0.36:1` (0.1 x base for the
+  first 30 iterations of a warm call, then 0.36 with a refresh; an environment setting of
+  the experiment class, already in `dnn.C`) leaves the give-up node at 240,054 (-14) and,
+  with `cross_first = 5`, fathoms the 36 children in **377 iterations against 537 (1.42x)**;
+  children's CPU 43.0 s against 52.3 (1.2x: a child has a fixed cost of 0.15-0.25 s, the
+  first eigendecomposition and certificate, and about 85 ms per iteration).
+- Still on the table after that: 25 of the 36 now fathom at the check at 10, and at w = 0.1
+  20 children cross at 6-9 (`-k 1`). A certificate every 2-3 iterations between 5 and 20 on
+  warm calls (the check interval is `DNNParams::check_every`, not a key) would take up to
+  70 more iterations off (377 towards 306) for about 100 cheap certificates [e].
+- Size for the estimate: in tho40ab-32 the fathomed nodes are 70% of the CPU (54,952 of
+  78,804 s, `infra/phase1/runs/tho40ab-32/nodes.txt.gz`); 1.2x on them is about 12% of the
+  tree's CPU [e], 1.42x in iterations would be 21% if the fixed cost per node came down.
+  One parent's children, so the size needs the tuning set (`tho40b_analysis`) before a launch.
+- `dnn.dscale = 0.5` on the same node: parent 240,145.6 against 240,132.6 at 600, children
+  420 against 414 crossing iterations, 538 against 537 under the production checks. No
+  effect on tho40, as expected of a grid instance; no harm either.
 
 ## 7. What the patch is and is not
 
-- `admm.patch` (against `latest/dnn.C`, `latest/settings.C` at HEAD 4d3cec57): two keys,
-  `dnn.dscale` (exponent p, default 0 = off) and `dnn.dscale0` (d0, default 1; measured
-  worse at every other value, kept for the record), `Work::set_scaling`, the two-reflector
+- `admm.patch` (against `latest/dnn.C`, `latest/settings.C` at HEAD 4d3cec57): three keys,
+  `dnn.dscale` (exponent p, default 0 = off), `dnn.dscale_until` (iterations of a call that
+  run scaled, 0 = all) and `dnn.dscale0` (d0, default 1; measured worse at every other
+  value, kept for the record), `Work::set_scaling`, the two-reflector
   transform, the scaled Y/Z step, and a verbose-only `split` line (the arrow's share of
   pres^2 and dY^2 every 50 iterations).
 - Not done: `tests/dnn_test.py` and the regression suite were not run on the patched
@@ -257,6 +371,8 @@ PENDING_THO
   continuation; `extrap.py` the certificate-side extrapolation.
 - `curve.py` (certified value at given iterations), `reach.py` (iterations to reach the
   baseline's value), `kids.py` (dnntest -K logs).
-- `q1.sh` to `q4.sh`, `bb_q3.sh`: the run queues. `logs/` dnntest and bnbdrv logs, `plogs/`
+- `q1.sh` to `q9.sh`, `bb*.sh`: the run queues (`bb_q3.sh`'s whole-tree tai25b run was
+  stopped unfinished: `logs/bb_tai25b_full_base_killed.log`); `tho.py`, `bbsum.py` their
+  summaries; `tho40_*.par`, `bb_*.par` their settings. `logs/` dnntest and bnbdrv logs, `plogs/`
   prototype logs. `logs/tai50b_n3_*.log` are placeholders (those two runs were dropped).
 - `admm.patch`: `git diff` of the worktree `/home/user/wt-admm`.

@@ -17,12 +17,13 @@ for d in sorted(glob.glob(os.path.join(H, "runs", "*_*"))):
 rows.sort()
 if "-q" not in sys.argv:
     for r in rows:
-        print("short %7.1f d%d %s -> %-4s after %4d it (%.0f s), left %7.1f; first solve %3d it  %s%s" % (r[0], r[1], "pool" if r[2] else "    ", "FATH" if r[3] else "miss", r[4], r[9], max(r[5], 0), r[6], r[7], (" ROOT(warm)" if r[7].startswith("w") else " ROOT(cold)") if r[8] else ""))
+        print("short %7.1f d%d %s -> %-4s after %4d it (%.0f s), left %7.1f; first solve %3d it  %s%s" % (r[0], r[1], "pool" if r[2] else "    ", "FATH" if r[3] else "miss", r[4], r[9], max(r[5], 0), r[6], r[7], (" ROOT(warm)" if r[7].startswith("w") and not r[7].startswith("wroot") else " ROOT(cold)") if r[8] else ""))
 bins = [0, 250, 500, 750, 1000, 1500, 2000, 2500, 3500, 5000, 1e9]
-print("\nshortfall bin: phases, fathomed, median it (fathomed), median it (missed), median gain of misses")
 def med(v): v = sorted(v); return v[len(v) // 2] if v else float("nan")
-for lo, hi in zip(bins, bins[1:]):
-    b = [r for r in rows if lo <= r[0] < hi]
-    if not b: continue
-    f = [r for r in b if r[3]]; m = [r for r in b if not r[3]]
-    print("%5.0f-%-6.0f %3d %3d  %5.0f %5.0f  %7.1f" % (lo, min(hi, 99999), len(b), len(f), med([r[4] for r in f]), med([r[4] for r in m]), med([r[0] - r[5] for r in m])))
+for label, sel in (("no inherited pool", [r for r in rows if not r[2]]), ("from an inherited pool", [r for r in rows if r[2]])):
+    print("\n%s. shortfall bin: phases, fathomed, median it (fathomed), median it (missed), median gain of misses" % label)
+    for lo, hi in zip(bins, bins[1:]):
+        b = [r for r in sel if lo <= r[0] < hi]
+        if not b: continue
+        f = [r for r in b if r[3]]; m = [r for r in b if not r[3]]
+        print("%5.0f-%-6.0f %3d %3d  %5.0f %5.0f  %7.1f" % (lo, min(hi, 99999), len(b), len(f), med([r[4] for r in f]), med([r[4] for r in m]), med([r[0] - r[5] for r in m])))

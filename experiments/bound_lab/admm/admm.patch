@@ -1,5 +1,5 @@
 diff --git a/latest/dnn.C b/latest/dnn.C
-index 9ae4b2e6..f2c72279 100644
+index 9ae4b2e6..6427456c 100644
 --- a/latest/dnn.C
 +++ b/latest/dnn.C
 @@ -524,8 +524,73 @@ struct Work {
@@ -246,15 +246,30 @@ index 9ae4b2e6..f2c72279 100644
    double best = -HUGE_VAL;
    std::vector<double> red_cur, red_best;   // child bounds (par.child_bounds)
    double lbs_best = -HUGE_VAL;
-@@ -1777,6 +1926,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+@@ -1776,7 +1925,22 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     printf("bsched kind %d beta %.6g (base %.6g) f %g t %d f2 %g force %d c %g every %d max %d freeze %d nodes %d w %g\n",
             bs.kind, beta, beta0, bs.f, bs.t, bs.f2, bs.force, bs.c, bs.every, bs.maxchg, bs.freeze,
             bs.nodes, bs.w);
++  // dnn.dscale_until = T > 0: the scaled iteration for the first T iterations of a call, the
++  // plain one after (the state converts exactly; the tracker restarts from a full eigendecomposition)
++  const int sc_until = (int)setting_i("dnn.dscale_until");
    for (int it = 1; it <= par.max_iter; it++) {
++    if (sc_on && sc_until > 0 && it == sc_until + 1) {
++      for (int r = 0; r < n1; r++) {
++        double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1;
++        const double dr = dsc[r], ir = idsc[r];
++        for (int c = 0; c < n1; c++) { yr[c] *= ir * idsc[c]; zr[c] *= dr * dsc[c]; }
++      }
++      sc_on = false;
++      w.have_basis = false;
++      w.t_rows_ready = false;
++      if (par.verbose) printf("dscale off at iteration %d\n", it);
++    }
 +    w.sc = sc_on;   // the iteration's transforms (the certificate below turns it off)
      if (bs.kind && it > 1 && it <= bs.freeze) {
        // a change of beta, only where the R-step will run a scheduled full
        // eigendecomposition (force: make this iteration one)
-@@ -1831,6 +1981,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+@@ -1831,6 +1995,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
      // Y-step, Z-step (and the certificate multiplier Zc = Z + beta (Y - VRV)),
      // a row at a time: clip, then the fixed entries, then the updates
      long double pres2 = 0, dy2 = 0, dz2 = 0;
@@ -262,7 +277,7 @@ index 9ae4b2e6..f2c72279 100644
      double *yn = w.tmp.data();
      if (yc) {
        // CP-ADMM: Zc and the first dual step as below, X = VRV - (L/scale + Z)/beta
-@@ -1864,6 +2015,55 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+@@ -1864,6 +2029,55 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
          pres2 += dot4(rs, rs, n1);
          dy2 += dot4(ds, ds, n1);
        }
@@ -318,7 +333,7 @@ index 9ae4b2e6..f2c72279 100644
      } else   // the plain Y/Z step
      for (int r = 0; r < n1; r++) {
        const double *lr = L + (size_t)r * n1, *vr = VRV + (size_t)r * n1;
-@@ -1902,12 +2102,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+@@ -1902,12 +2116,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
        }
        pres2 += dot4(rs, rs, n1);
        dy2 += dot4(ds, ds, n1);
@@ -336,7 +351,7 @@ index 9ae4b2e6..f2c72279 100644
        }
        if (par.halpern > 0 || m_on) {
          // the Z change of this iteration, in units of Y: gamma1 (Y_old - VRV) +
-@@ -1976,6 +2180,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+@@ -1976,6 +2194,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
      tq = thread_cpu(); w.prof[3] += tq - tp; tp = tq;
      if (!check) continue;
  
@@ -344,7 +359,7 @@ index 9ae4b2e6..f2c72279 100644
      // certified bound
      CertInfo ci;
      double lbs;
-@@ -2104,6 +2309,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+@@ -2104,6 +2323,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
        best_rule = lz_best_est;
      }
      tq = thread_cpu(); w.prof[4] += tq - tp; tp = tq;
@@ -361,7 +376,7 @@ index 9ae4b2e6..f2c72279 100644
      obj = dot4(L, Y, (size_t)n1 * n1) + shift;
      double pres = sqrt((double)pres2), dy = sqrt((double)dy2);
      if (par.verbose)
-@@ -2111,6 +2326,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+@@ -2111,6 +2340,9 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
               it, best_rule, lazy_this ? lz_est + shift : (lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL), ci.margin,
               lazy_this ? ", lazy" : (ci.chol_ok ? "" : ", chol FAILED"), obj, pres, dy, npos, thread_cpu() - t0,
               regular ? "" : " extra");
@@ -371,7 +386,7 @@ index 9ae4b2e6..f2c72279 100644
      if (par.verbose && yc) {
        const std::string t = yc->trace();
        const double cv = lbs > -HUGE_VAL ? nextafter(lbs + shift, -HUGE_VAL) : -HUGE_VAL;
-@@ -2215,6 +2433,15 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+@@ -2215,6 +2447,15 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
      cross_predict();
    }
    if (status < 0) status = DNN_ITER_LIMIT;
@@ -388,15 +403,16 @@ index 9ae4b2e6..f2c72279 100644
      // DNN_CORE_LAZYCERT: the checks that skipped Rump's test left no certified value.
      // Certify the multiplier of the check that stopped the run (still in Zc) and the
 diff --git a/latest/settings.C b/latest/settings.C
-index f1c1d77e..b376ddcb 100644
+index f1c1d77e..d5c3889d 100644
 --- a/latest/settings.C
 +++ b/latest/settings.C
-@@ -44,6 +44,8 @@ static Setting TABLE[] = {
+@@ -44,6 +44,9 @@ static Setting TABLE[] = {
           "a child starts from its parent's Y too: 0 Z only, 1 restricted, 2 conditioned on its assignment"),
    POLICY("dnn.beta_sched", "DNN_BETA_SCHED", 's', "w=0.36", 0, 0,
           "ADMM penalty schedule, e.g. two,f=1.6667,t=60,w=0.25,wc=0.7 (\"\": off)"),
 +  POLICY("dnn.dscale", "DNN_DSCALE", 'd', "0", 0, 4, "diagonal congruence scaling of the lifted variable: exponent on the row norms of A and B (0: off)"),
 +  POLICY("dnn.dscale0", "DNN_DSCALE0", 'd', "1", 0, 1000, "with or without dnn.dscale: the scale of the homogenizing coordinate (1: unscaled)"),
++  POLICY("dnn.dscale_until", "DNN_DSCALE_UNTIL", 'i', "0", 0, 1000000, "with dnn.dscale: the scaled iteration for this many iterations of a call, the plain one after (0: throughout)"),
    POLICY("dnn.cross", "DNN_ADMM_CROSS", 'i', "2", 0, 100, "extra certificates at the predicted cutoff crossing (0: off)"),
    POLICY("dnn.cross_first", "DNN_ADMM_CROSS_FIRST", 'i', "0", 0, 1000, "with dnn.cross: one more extra certificate at this iteration of a warm call (0: off)"),
    POLICY("dnn.lazycert", "DNN_CORE_LAZYCERT", 'i', "1", 0, 1, "1: Rump's test only at checks that can decide something"),

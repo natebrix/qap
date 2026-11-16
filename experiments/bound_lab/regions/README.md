@@ -175,3 +175,26 @@ Same command with `-x SPEC`, 25-minute cap. Plain columns from `depth3/nodeN.log
 - Node 10's shortfall with cuts: 10.4M at 600 total iterations, 6.3M at 800, 3.2M at 1,100,
   1.8M at 1,500, 0.66M at 2,000. A plain depth-3 node this far away needs about four more
   levels of branching (14.4M / 1.8^4 = 1.4M); here it costs 2,780 iterations at one node.
+
+## 6. Roots of the solved siblings (`logs/plain_tai*b.log`, `logs/r*b_comb.log`) [m]
+
+300 uncut iterations, then 2,000 more: plain (`-cpplain`) or CP form with the `comb`
+regions (`line:1,top:K,linegap:4:0.03`). Cutoff 2 x optimum so the runs go on.
+
+| instance | optimum | plain DNN at 2,300 | plain gap | regions | violated at the plain 300-iteration iterate (max) | with cuts at 2,300 | gap left | **DNN gap closed** (equal iterations) | cut bound passes the plain 2,300-iteration value after |
+|---|---|---|---|---|---|---|---|---|---|
+| tai20b | 122,455,319 | 122,455,316 | 3 (exact) | 20 | 1,028 (0.062) | 122,455,319 (.59 under) | 0.4 | nothing to close | - |
+| tai25b | 344,355,646 | 337,285,170 | 7,070,476 (2.1%) | 27 | 4,572 (0.098) | 344,084,304 | 271,342 (0.08%) | **96%** | 200 CP iterations |
+| tai30b (`line:1`) | 637,117,113 | 597,633,906 | 39,483,207 (6.2%) | 29 | 9,016 (0.219) | 635,876,664 | 1,240,449 (0.19%) | **97%** (99.7% at 6,300: 636,993,730) | 100 |
+| tai35b | 283,315,445 | 269,414,422 | 13,901,023 (4.9%) | 42 | 14,511 (0.123) | 279,325,031 | 3,990,414 (1.4%) | **71%** | 100 |
+| tai40b | 637,250,948 | 608,514,446 | 28,736,502 (4.5%) | 48 | 24,230 (0.281) | 627,372,144 | 9,878,804 (1.6%) | **66%** (still rising 340k per 100) | 300 |
+| tai50b (best known) | 458,821,517 | 430,147,161 at 1,500 | 28,674,356 (6.25%) | 61 | 89,148 (0.347) | 449,469,933 at 1,900 | 9,351,584 (2.0%) | **61%** at 1,500, 66% at 1,900 (still rising 380k per 100) | 300 |
+
+- At equal iteration counts and against the plain plateau (the plain bound gains 0.05-0.1M
+  per 100 iterations at the end on tai30b-40b, the cut bound is 10M-38M above it), so this is
+  not the "more iterations" artefact.
+- tai25b and tai30b (nearly collinear clusters) become almost exact. tai35b and tai40b, whose
+  clusters are spread in two dimensions (first-axis share 0.84 and 0.64), close 66-71% with a
+  region set built around one axis; tai35b has nearly flattened (279.33M), tai40b has not.
+  `line:4` or the full dendrogram were not tried on them (no time): on tai30b `line:4` was
+  the best set at 1,000 iterations. tai50b is of the collinear kind (first-axis share 0.97).
