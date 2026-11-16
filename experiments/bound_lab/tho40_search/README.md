@@ -16,19 +16,22 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
    - warm-rooted depth-3 subtrees against production [m, production's iterations e]: `38:32` (287
      nodes) 2.1x fewer iterations and 1.5x less CPU; `18:32` (1,490 nodes, the class that holds half
      of the A/B subtree's CPU) **2.9x fewer iterations, 2.7x less CPU**, with 74 nodes.
-3. **Best zone: 0.03**, a phase at every give-up from depth 3 down. ZONE_SUMMARY
+3. **Best zone: 0.03 or wider**, a phase at every give-up from depth 3 down. `cut.zone = 0.003` gets 1.4-1.9x
+   where 0.03 gets 2.7-4.9x (t1, t2); 0.01 is behind 0.03 on t2 and t4 and ahead on t3. A zone that
+   also covers depths 1-2 (0.06) ran the same 74 nodes on `18:32` in 11% fewer iterations: the first
+   thing to A/B, and what I would launch with.
 4. **Extrapolated [e]: about 2.4x less CPU on the A/B subtree (1.9-2.9x), and if the whole tree
    responds alike, about 550 c7a CPU-days (450-700) instead of 1,300.** One depth-2 subtree of 468,
    with one node standing for 54% of it: a first sizing, not an estimate to launch on.
 5. **Surprises.**
-   - Phases run long. Two thirds of a cut arm's iterations are phase iterations; a phase from 2,400
+   - Phases run long. Half to nine tenths of a `z030` arm's iterations are phase iterations; a phase from 2,400
      short at depth 3 takes 3,341 iterations to fathom; t3's cold root ran to the 3,400 limit and
      ended 2.9 short; one pooled phase in `w18` spent 2,610 iterations to end 146 short, after which
      its 36 children fathomed in 21 iterations each.
-   - First solves linger before the phase: near misses take 320-620 iterations, not 200, because
-     `dnn.gu_zone` defers their give-up; the phase then needs 30-140.
-   - On t2-t4 a cold root's first solve is 1,000-1,600 looser than the warm one, which moved their roots out
-     of the 0.01 zone here; the warm-rooted runs are the ones to read for a run.
+   - First solves linger before the phase: near misses take 320-620 iterations, not 200, mostly
+     because `dnn.gu_zone` defers their give-up; the phase then needs 30-140.
+   - On t2-t4 a cold root's first solve is 1,000-1,600 looser than the warm one, which moved their
+     roots out of the 0.01 zone here; the warm-rooted runs are the ones to read for a run.
    - This box bounds a matched node in 0.70 of production's CPU.
 6. **Sanity: PASS.** No arm found a solution under 240,516 and every subtree was fully fathomed; the
    three nodes checked on the path to the best known solution (depths 7, 9, 10, the last with an
@@ -59,7 +62,7 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
   run, which starts from its parent (t2: 3,193 short cold, 1,931 in production; t3: 3,462 and 2,427;
   t4: 4,274 and 2,675). So on t2-t4 the root is outside `z010` here, although in a run t2's would be
   inside it and t3's 22 units outside: read `z010` on t2-t4 as "no phase at the root, phases on its children".
-- **Warm roots: `w18`, `w38`.** The A/B root's state file (`runs/wroot_ARM/root.state`, `-d 2 -o`), cut
+- **Warm roots: `w18`, `w38`.** The A/B root's state file (`runs/wroot_ARM/root.state`, `-d 2 -o`, cold from `-F` as production's root was), cut
   to one depth-3 child (`cutstate.py`, as `path_check/dive.py --warm`), resumed with `-r`: the node
   starts from its parent's shipped state as in a run. The first solves reproduce the production
   trace's bounds to the digit (A/B root 231,879.8596; `18:32` 4,474.4 short; `38:32` 2,426.7 short).
@@ -68,7 +71,8 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
   counts exactly on t1, t2, t3 (106, 211, 287) and the same outcome at every node both visited
   (`calib.py`). This box's CPU per matched node is 0.70 of production's, and the base arm takes 25.6
   iterations per node (t1-t3, cold roots aside); production's iterations, which its trace does not
-  have, are estimated as nodes x 25.6 [e].
+  have, are estimated as nodes x 25.6 [e] (counting each node at the base arm's mean for its depth and
+  outcome instead gives the same within 8%; t3's measured 7,281 is 287 x 25.4).
 - **The box was shared** (load 5-7 on 4 cores; my two processes got about half a core each).
   **Iterations and nodes are the metrics.** CPU s are the solver's own CPU time and indicative. A phase
   iteration costs about 1.25x a first-solve iteration (0.126 against 0.103 s at m = 36, t4 z030).
@@ -87,6 +91,7 @@ Production's (warm-root) figures for the same nodes: gate 36 nodes below the roo
 | t1 | z003 | 37 | 1 | 35 / 1 | 1 (1) | 1,266 + 130 = 1,396 | 320 | 145 | 1.88x | 2.9x |
 | t1 | z010 | 1 | 0 | 0 / 1 | 1 (1) | 320 + 220 = 540 | 540 | 53 | 4.86x | 106.0x |
 | t2 | base | 211 | 6 | 205 / 0 | 0 (0) | 6,187 + 0 = 6,187 | 200 | 510 |  |  |
+| t2 | z003 | 72 | 2 | 66 / 4 | 4 (4) | 3,943 + 388 = 4,331 | 200 | 387 | 1.43x | 2.9x |
 | t2 | z010 | 37 | 1 | 32 / 4 | 4 (4) | 2,812 + 817 = 3,629 | 200 | 323 | 1.70x | 5.7x |
 | t2 | z030 | 1 | 0 | 0 / 1 | 1 (1) | 200 + 2,070 = 2,270 | 2,270 | 262 | 2.73x | 211.0x |
 | t3 | base | 287 | 8 | 279 / 0 | 0 (0) | 7,281 + 0 = 7,281 | 200 | 734 |  |  |
@@ -94,6 +99,7 @@ Production's (warm-root) figures for the same nodes: gate 36 nodes below the roo
 | t3 | z030 | 38 | 1 | 37 / 0 | 1 (0) | 907 + 3,400 = 4,307 | 3,600 | 583 | 1.69x | 7.6x |
 | t4 | z010 | 37 | 1 | 28 / 8 | 8 (8) | 4,198 + 4,042 = 8,240 | 200 | 765 | 2.14x [e] | 18.6x |
 | t4 | z030 | 37 | 1 | 34 / 2 | 3 (2) | 1,836 + 2,130 = 3,966 | 2,010 | 446 | 4.44x [e] | 18.6x |
+| t4 | z030g | 37 | 1 | 34 / 2 | 3 (2) | 1,556 + 2,141 = 3,697 | 2,010 | 388 | 4.76x [e] | 18.6x |
 
 - Every phase in these runs but two fathomed its node; the two are the cold roots of t3 and t4 under
   `z030` (next section).
@@ -108,7 +114,7 @@ Production's (warm-root) figures for the same nodes: gate 36 nodes below the roo
 | node (warm root) | production: shortfall, nodes, CPU s (x 0.70 here) | arm | nodes | fathomed: first solve / phase | phases (fathomed) | iterations: first + phases = total | CPU s here | nodes vs production | iterations vs production [e] | CPU vs production x 0.70 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | z030 | 74 | 65 / 7 | 9 (7) | 4,474 + 8,561 = 13,035 | 1439 | 20x | 2.93x | 2.70x |
-| `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | zall | 10 (stopped part-way) | 7 / 2 | 3 (2) | 1,098 + 2,780 = 3,878 | 469 | - | - | - |
+| `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | zall | 74 | 65 / 7 | 9 (7) | 4,429 + 7,136 = 11,565 | 1293 | 20x | 3.30x | 3.00x |
 | `26:10,8:0,38:32` | 2427, 287, 1,000 (700) | z030 | 1 | 0 / 1 | 1 (1) | 200 + 3,341 = 3,541 | 455 | 287x | 2.07x | 1.54x |
 
 `w18`, child by child (`python3 wchildren.py w18_z030 w18_zall`; children that fathom at once in
@@ -123,19 +129,19 @@ production and here are left out; `zall` is the next section's arm):
 | 35:7 | 2214, 177, 4,531 | C 200 it (849 short) + 1900 it fathomed | C 200 it (795 short) + 1750 it fathomed |
 | 34:7 | 953, 37, 947 | D 77 it | D 70 it |
 | 33:7 | 1203, 37, 947 | D 95 it | D 92 it |
-| 30:7 | 2047, 142, 3,635 | C 340 it (648 short) + 1290 it fathomed | - |
-| 28:7 | 556, 37, 947 | D 51 it | - |
-| 25:7 | 737, 37, 947 | D 64 it | - |
-| 24:7 | 1628, 142, 3,635 | C 350 it (382 short) + 227 it fathomed | - |
-| 17:7 | 1644, 72, 1,843 | C 340 it (214 short) + 97 it fathomed | - |
-| 16:7 | 1821, 107, 2,739 | C 340 it (567 short) + 630 it fathomed | - |
-| 11:7 | 500, 37, 947 | D 52 it | - |
-| 10:7 | 444, 37, 947 | D 46 it | - |
-| 6:7 | 2001, 72, 1,843 | C 300 it (493 short) + 387 it fathomed | - |
-| 4:7 | 187, 37, 947 | D 50 it | - |
-| 3:7 | 1258, 72, 1,843 | D 140 it | - |
-| 2:7 | 2451, 246, 6,298 | B 200 it (1037 short) + 2610 it stalled 146 short | - |
-| all nodes traced so far | 1490 nodes, 38,144 it [e] | 74 nodes, 13,035 it | 10 nodes, 3,878 it |
+| 30:7 | 2047, 142, 3,635 | C 340 it (648 short) + 1290 it fathomed | C 340 it (589 short) + 1126 it fathomed |
+| 28:7 | 556, 37, 947 | D 51 it | D 50 it |
+| 25:7 | 737, 37, 947 | D 64 it | D 62 it |
+| 24:7 | 1628, 142, 3,635 | C 350 it (382 short) + 227 it fathomed | C 350 it (329 short) + 173 it fathomed |
+| 17:7 | 1644, 72, 1,843 | C 340 it (214 short) + 97 it fathomed | C 350 it (121 short) + 63 it fathomed |
+| 16:7 | 1821, 107, 2,739 | C 340 it (567 short) + 630 it fathomed | C 300 it (536 short) + 522 it fathomed |
+| 11:7 | 500, 37, 947 | D 52 it | D 50 it |
+| 10:7 | 444, 37, 947 | D 46 it | D 45 it |
+| 6:7 | 2001, 72, 1,843 | C 300 it (493 short) + 387 it fathomed | C 340 it (406 short) + 272 it fathomed |
+| 4:7 | 187, 37, 947 | D 50 it | D 50 it |
+| 3:7 | 1258, 72, 1,843 | D 140 it | D 108 it |
+| 2:7 | 2451, 246, 6,298 | B 200 it (1037 short) + 2610 it stalled 146 short | B 200 it (981 short) + 2200 it stalled 169 short |
+| all nodes traced so far | 1490 nodes, 38,144 it [e] | 74 nodes, 13,035 it | 74 nodes, 11,565 it |
 
 ## The phases [m]
 
@@ -144,29 +150,41 @@ before the phase:
 
 ```
 short     0.7 d5 pool -> FATH after   44 it (6 s), left     0.0; first solve 400 it  t4_z030
+short    15.9 d5 pool -> FATH after   47 it (5 s), left     0.0; first solve 260 it  t4_z030g
 short    29.3 d5      -> FATH after   30 it (3 s), left     0.0; first solve 620 it  t4_z010
 short    88.0 d4      -> FATH after   44 it (6 s), left     0.0; first solve 360 it  t3_z010
+short   121.5 d4 pool -> FATH after   63 it (7 s), left     0.0; first solve 350 it  w18_zall
 short   159.2 d5 pool -> FATH after  276 it (28 s), left     0.0; first solve 350 it  t4_z030
+short   179.7 d5 pool -> FATH after  284 it (29 s), left     0.0; first solve 210 it  t4_z030g
 short   182.9 d5      -> FATH after   65 it (7 s), left     0.0; first solve 370 it  t4_z010
 short   185.4 d4      -> FATH after   59 it (7 s), left     0.0; first solve 350 it  t3_z010
 short   213.7 d4 pool -> FATH after   97 it (11 s), left     0.0; first solve 340 it  w18_z030
+short   231.5 d5      -> FATH after   73 it (8 s), left     0.0; first solve 350 it  t2_z003
 short   231.5 d5      -> FATH after   73 it (7 s), left     0.0; first solve 350 it  t2_z010
+short   236.1 d5      -> FATH after   78 it (8 s), left     0.0; first solve 340 it  t2_z003
 short   236.1 d5      -> FATH after   78 it (7 s), left     0.0; first solve 340 it  t2_z010
+short   287.8 d6      -> FATH after   97 it (8 s), left     0.0; first solve 330 it  t2_z003
 short   302.0 d5      -> FATH after  140 it (14 s), left     0.0; first solve 350 it  t4_z010
+short   329.3 d4 pool -> FATH after  173 it (20 s), left     0.0; first solve 350 it  w18_zall
 short   382.5 d4 pool -> FATH after  227 it (26 s), left     0.0; first solve 350 it  w18_z030
 short   384.6 d4      -> FATH after  130 it (14 s), left     0.0; first solve 590 it  gate_z003 ROOT(cold)
+short   406.4 d4 pool -> FATH after  272 it (31 s), left     0.0; first solve 340 it  w18_zall
+short   410.7 d5      -> FATH after  140 it (14 s), left     0.0; first solve 340 it  t2_z003
 short   410.7 d5      -> FATH after  140 it (13 s), left     0.0; first solve 340 it  t2_z010
 short   437.3 d4 pool -> FATH after  380 it (47 s), left     0.0; first solve 350 it  w18_zall
 short   450.4 d5      -> FATH after  130 it (14 s), left     0.0; first solve 300 it  t1_z003
 short   493.1 d4 pool -> FATH after  387 it (44 s), left     0.0; first solve 300 it  w18_z030
 short   517.3 d4 pool -> FATH after  500 it (57 s), left     0.0; first solve 340 it  w18_z030
+short   535.9 d4 pool -> FATH after  522 it (59 s), left     0.0; first solve 300 it  w18_zall
 short   566.6 d4 pool -> FATH after  630 it (71 s), left     0.0; first solve 340 it  w18_z030
 short   577.4 d5      -> FATH after  202 it (20 s), left     0.0; first solve 320 it  t4_z010
+short   589.0 d4 pool -> FATH after 1126 it (124 s), left     0.0; first solve 340 it  w18_zall
 short   648.2 d4 pool -> FATH after 1290 it (141 s), left     0.0; first solve 340 it  w18_z030
 short   795.5 d4 pool -> FATH after 1750 it (209 s), left     0.0; first solve 200 it  w18_zall
 short   822.8 d4      -> FATH after  276 it (33 s), left     0.0; first solve 200 it  t3_z010
 short   849.4 d4 pool -> FATH after 1900 it (203 s), left     0.0; first solve 200 it  w18_z030
 short   957.3 d4      -> FATH after  220 it (24 s), left     0.0; first solve 320 it  t1_z010 ROOT(cold)
+short   981.0 d4 pool -> miss after 2200 it (243 s), left   169.3; first solve 200 it  w18_zall
 short  1036.8 d4 pool -> miss after 2610 it (299 s), left   146.0; first solve 200 it  w18_z030
 short  1138.3 d5      -> FATH after  415 it (41 s), left     0.0; first solve 200 it  t4_z010
 short  1246.7 d5      -> FATH after  526 it (51 s), left     0.0; first solve 200 it  t2_z010
@@ -179,33 +197,45 @@ short  3162.8 d3 pool -> miss after  650 it (90 s), left  2298.2; first solve 20
 short  3192.6 d4      -> FATH after 2070 it (243 s), left     0.0; first solve 200 it  t2_z030 ROOT(cold)
 short  3462.2 d3      -> miss after 3400 it (482 s), left     2.9; first solve 200 it  t3_z030 ROOT(cold)
 short  4274.3 d4      -> miss after 1810 it (228 s), left   832.1; first solve 200 it  t4_z030 ROOT(cold)
+short  4274.3 d4      -> miss after 1810 it (207 s), left   832.1; first solve 200 it  t4_z030g ROOT(cold)
 short  4474.4 d3      -> miss after  920 it (120 s), left  2420.8; first solve 200 it  w18_z030 ROOT(warm)
-short  8634.2 d2      -> miss after  760 it (122 s), left  5100.2; first solve 200 it  wroot_zall ROOT(warm)
+short  8634.2 d2      -> miss after  760 it (122 s), left  5100.2; first solve 200 it  wroot_zall ROOT(cold)
 
-shortfall bin: phases, fathomed, median it (fathomed), median it (missed), median gain of misses
-    0-250      9   9     65   nan      nan
-  250-500      7   7    140   nan      nan
-  500-750      4   4    630   nan      nan
-  750-1000     4   4   1750   nan      nan
- 1000-1500     5   4    561  2610    890.8
+no inherited pool. shortfall bin: phases, fathomed, median it (fathomed), median it (missed), median gain of misses
+    0-250      8   8     73   nan      nan
+  250-500      6   6    140   nan      nan
+  500-750      1   1    202   nan      nan
+  750-1000     2   2    276   nan      nan
+ 1000-1500     4   4    561   nan      nan
  1500-2000     2   2   1717   nan      nan
  2000-2500     1   1   3341   nan      nan
- 2500-3500     3   1   2070  3400   3459.3
- 3500-5000     2   0    nan  1810   3442.2
+ 2500-3500     2   1   2070  3400   3459.3
+ 3500-5000     3   0    nan  1810   3442.2
  5000-99999    1   0    nan   760   3534.0
+
+from an inherited pool. shortfall bin: phases, fathomed, median it (fathomed), median it (missed), median gain of misses
+    0-250      6   6     97   nan      nan
+  250-500      5   5    272   nan      nan
+  500-750      5   5    630   nan      nan
+  750-1000     3   2   1900  2200    811.7
+ 1000-1500     1   0    nan  2610    890.8
+ 2500-3500     1   0    nan   650    864.7
 ```
 
 - **Up to about 1,000 short an unpooled phase fathoms in about 0.3 iterations per unit of shortfall**
   (44 to 280 iterations), against 500 to 2,300 base iterations under the same node
   (`python3 payoff.py`: 4 to 11 base iterations saved per phase iteration).
-- **Farther out it still fathoms, but the price per unit rises**: 0.4-0.6 at 1,250-1,550 short
-  (depth 5), 0.65 at 3,193 (t2's cold root, depth 4: 2,070 iterations), 1.4 at 2,427 on a depth-3 node
-  (`w38`: 3,341 iterations, 59 short of the 3,400 limit).
+- **Farther out it still fathoms, but the price per unit rises**: 0.4-0.6 at 1,140-1,540 short
+  (depths 4-5), 0.9 at 1,908 (depth 5: 1,717 iterations), 0.65 at 3,193 (t2's cold root, depth 4:
+  2,070 iterations), 1.4 at 2,427 on a depth-3 node (`w38`: 3,341 iterations, 59 before the 3,400
+  limit).
 - **A phase that starts from an inherited pool is slower per unit**: the pool has already taken the
-  easy part. In `w18`: 214 short 97 iterations, 382: 227, 517: 500, 567: 630, 648: 1,290, 849: 1,900.
-- **Misses.** t4's cold root (4,274 short): stalled after 1,810 iterations, 832 short. `w18`'s warm
-  root (4,474): stalled after 920, 2,421 short, still gaining 0.8 a iteration. t3's cold root (3,462,
-  depth 3): ran to the 3,400 limit and ended **2.9 short**; its 37 pooled children then all fathomed
+  easy part. In `w18`: 214 short 97 iterations, 382: 227, 493: 387, 517: 500, 567: 630, 648: 1,290,
+  849: 1,900; and 1,037 short: stalled after 2,610 iterations, 146 short, after which its 36 children
+  fathomed in 21 iterations each.
+- **Misses at the roots.** t4's cold root (4,274 short): stalled after 1,810 iterations, 832 short.
+  `w18`'s warm root (4,474): stalled after 920, 2,421 short, still gaining 0.8 an iteration. t3's cold
+  root (3,462, depth 3): ran to the 3,400 limit and ended **2.9 short**; its 37 pooled children then all fathomed
   in 19 iterations each. That one is the run where `z030` lost to `z010` (4,307 against 3,401
   iterations): a limit 100 iterations longer, or stopping at 1,500 and leaving the rest to the pooled
   children, would both have been cheaper.
@@ -216,7 +246,10 @@ shortfall bin: phases, fathomed, median it (fathomed), median it (missed), media
 
 ## The zone
 
-- **`z003` (722 short) leaves most of it on the table.** ZONE003_TEXT
+- **`z003` (722 short) leaves most of it on the table.** t1: 1,396 iterations (37 nodes) against 540 under
+  `z010` or `z030` and 2,626 base. t2: 4,331 (72 nodes) against 3,629 (`z010`), 2,270 (`z030`) and
+  6,187 base. All its phases fathom, in 73 to 140 iterations, but nodes 800-3,000 short still branch.
+  On the production trace `replay.py` puts it at x1.35 less CPU for the A/B subtree [e].
 - **`z030` against `z010`** on the cold-rooted subtrees: t2 2,270 against 3,629 iterations, t4 3,966
   against 8,240, t3 4,307 against 3,401 (the 2.9-short miss above; warm, `w38` fathoms at the root in
   3,541). In t4 the eight phases `z010` runs on unpooled depth-5 children cost 4,042 iterations; under
@@ -227,10 +260,19 @@ shortfall bin: phases, fathomed, median it (fathomed), median it (missed), media
   are 7% of the A/B subtree's CPU, so this trims the total by a few percent; it argues for a phase
   limit that depends on what is left, not for a narrower zone, which would also drop the phases that
   equip the children of the far nodes.
-- **`zall` (a phase at the depth-2 root too).** ZALL_TEXT
+- **`zall` (a phase at the depth-2 root too).** `zall` differs from `z030` only above depth 3 here.
+  The A/B root (8,634 short) ran a phase that stalled after 760 iterations 5,100 short, and its pool
+  went to the 38 depth-3 children. `18:32` then started 3,163 short instead of 4,474, its own phase
+  stalled after 650 iterations instead of 920 at about the same place (2,298 against 2,421), and the
+  whole subtree took the same 74 nodes in **11,565 iterations against 13,035** (`python3 matched.py
+  w18_z030 w18_zall`: 0.90 on the 37 children, every hard child a little cheaper). The root's 760
+  iterations are 20 per child. One subtree, and a 3.0x CPU factor against production where `z030` has
+  2.7x: enough to prefer it, not enough to move the estimate.
 
-**Best zone measured: 0.03** (every give-up from depth 3 down in this subtree; the largest depth-3
-shortfall is 5,039).
+**Best zone: 0.03 or wider.** 0.03 is every give-up from depth 3 down in this subtree (the largest
+depth-3 shortfall is 5,039) and is what six subtrees ran; 0.06 adds the phases at depths 1-2 (a few
+hundred nodes in the whole tree, at most 3,400 iterations each) and was 11% cheaper on the one subtree
+that can show the difference.
 
 ## What it means for the tree [e]
 
@@ -249,13 +291,15 @@ Weighted by CPU share (1 / sum of share / factor): **about 2.4x less CPU on the 
 1.9x if every class is at the low end of what the runs allow (1.0, 1.0, 1.5, 2.2, 2.0) and 2.9x at the
 high end (2, 1.6, 2.5, 3.2, 3.5). In iterations about 2.6x; in nodes 20x or more (`w18`: 1,490 to 74).
 Measured in it: two warm depth-3 subtrees, of which **one node, `w18`, stands for 54% of the CPU** and,
-by assumption, for the 25% above it. The four cold-rooted subtrees (1.6x to 4.9x in iterations, depth-4
-roots mostly) say the deeper nodes do at least as well.
+by assumption, for the 25% above it. The five cold-rooted subtrees (1.6x to 4.9x in iterations, depth-4
+roots but one) say the deeper nodes do at least as well.
 
-`python3 replay.py` is a cruder cross-check on the same trace (a phase fathoms from at most SF short at
-measured iteration costs; after a miss the children either all fathom, `all`, or get no help, `none`):
-`z003` x1.35 CPU, `z010` x1.9, `z030` x1.6 (none) to x5 (all). The class table sits inside that bracket
-because the pool's carry is partial.
+`python3 replay.py` is a cruder model on the same trace: every branched node within the zone gets a
+phase that fathoms from at most 3,000 short at the iteration costs measured at depths 4-5 (low for
+depth 3), and after a miss the children either all fathom (`all`) or get no help (`none`). It gives
+`z003` x1.35 less CPU with 2.5x fewer nodes (no pools arise, so this one is firm), `z010` x1.9, and
+`z030` x1.9 (`none`) to x5.7 (`all`). The class table's 2.4x sits inside that bracket: the pool's
+carry is partial, and depth-3 phases cost more than the model's.
 
 **The whole tree** (3.4e7 nodes, about 1,300 c7a CPU-days by Knuth's estimator, itself "likely low"):
 - **If it responds as the A/B subtree: about 550 c7a CPU-days (450-700), from 1,300**, and of the order
@@ -263,9 +307,9 @@ because the pool's carry is partial.
 - **Why it may differ.** The A/B subtree (22,650 nodes) is smaller than the average depth-2 subtree
   (73,000), and its root is 8,634 short where the path's depth-2 node is 9,075-10,052. In a larger
   subtree more depth-3 nodes are beyond 5,000, the class not measured here; the phase then does its
-  work one level down, on smaller matrices. tho40-b's merged tree at 25 h had the same shape by depth
-  as the A/B subtree, shifted about half a level deeper (`experiments/tho40b_analysis/README.md`), and
-  its better-bound curve was within 5 points of the A/B subtree's.
+  work one level down, on smaller matrices. tho40-b's merged tree at 25 h has its CPU
+  deeper than the A/B subtree's (depth 6 and below: 59% against 40%), while its better-bound curve
+  was within 5 points of the A/B subtree's (`experiments/tho40b_analysis/README.md`).
 - **What the factor is made of.** The tree all but disappears below depth 4-5 (in `w18` 65 of 74 nodes
   fathom in a pooled first solve of 20-140 iterations), and the cost moves into the phases: 66% of
   `w18`'s iterations are phase iterations, at 1.25x the cost each. Bounding fewer, harder nodes for
@@ -296,15 +340,15 @@ PASS
   1,312 below the optimum (t2's root, 3,193 short and with no optimal solution under it, fathomed). At
   depth 9 the phase climbs to 240,494.30 in 3,400 iterations and stops at the limit; its path child,
   with the inherited pool, reaches 240,516.0000 and branches; the 30 siblings fathom. Not covered:
-  depths 1-6 and 8, the warm path, pooled nodes above depth 10 (path8, path10 and the children of
-  path7 were dropped for time). `../tho40_nodes/` checks the CP solve itself on the path and by
+  depths 1-6 and 8, the warm path, any pooled node but the depth-10 one (path8, path10 and the
+  children of path7 were dropped for time). `../tho40_nodes/` checks the CP solve itself on the path and by
   brute force on small instances.
 - `cmd.txt` of `t3_base` and `t3_z010` lack the exit line: `run.sh` was edited while they ran (the
   logs are complete; noted in the files). `run.sh` is now replaced only by `mv`.
 
 ## Recommended settings for tho40
 
-`experiments/estimates/tho40/tho40.par` plus (this is `par/z030.par`, less `cut.damp1`, which the CP
+`experiments/estimates/tho40/tho40.par` plus (this is `par/zall.par`, less `cut.damp1`, which the CP
 form ignores):
 
 ```
@@ -316,12 +360,16 @@ cut.warmy = 1
 cut.rounds = 12
 cut.iters = 200
 cut.freeze = 1000
-cut.zone = 0.03
+cut.zone = 0.06
 ```
 
-`tho40t.dat`'s second matrix is the 5 x 8 grid (`cut.side = 1`), as the gate test used. Not changed
-here and worth an A/B before a long run (next section): `dnn.gu_zone`, the phase's limit and stop rule,
-`cut.zone = 0.06`.
+- `cut.zone = 0.06` is `par/zall.par`: a phase at every give-up within 14,431 units, which is depth 2
+  and below and the depth-1 node on the path (14,269 short). `cut.zone = 0.03` (`par/z030.par`) is the
+  conservative choice: identical from depth 3 down wherever no pool comes from above, and the setting behind every factor quoted here
+  but `w18 zall`'s.
+- `tho40t.dat`'s second matrix is the 5 x 8 grid (`cut.side = 1`), as the gate test used.
+- Left as they are in `tho40.par`, each worth an A/B before a long run (next section): `dnn.gu_zone`
+  (0 looks 7% better), the phase's limit and stop rule.
 
 ## What I would do next
 
@@ -329,25 +377,29 @@ here and worth an A/B before a long run (next section): `dnn.gu_zone`, the phase
    says a phase should stop and equip its children once it will clearly not fathom soon: t4's root
    stalled at 1,810 and the 36 pooled children cost 1,956 in all, where the phases that insisted cost
    1,900-3,400 each. Candidates: `cut.giveup = T:G`, a shorter `cut.cp_iters`, `cut.stall = 2`. The DNN
-   traces written after 23:00 (`w*`, `path7`, `t1_z003`, `t4_z030g`) carry each phase's running best
+   traces of the runs started after 22:48 (`t4_z010`, `w*`, `path7`, `t1_z003`, `t2_z003`, `t4_z030g`) carry each phase's running best
    every 10 iterations (`QAP_DNN_TRACE_HIST`), so stop rules can be replayed offline first.
-2. **`dnn.gu_zone = 0` with the phase** (`par/z030g.par`): GZ_TEXT
+2. **`dnn.gu_zone = 0` with the phase** (`par/z030g.par`): run once [m], on t4: the same 37 nodes and
+   the same phases, 3,697 iterations against `z030`'s 3,966 (7% fewer; the two pooled near misses hand
+   over after 210-260 iterations instead of 350-400). In `w18` seven children waited 300-350 iterations
+   before their phase. Worth adopting after one warm-rooted A/B; a lower `dnn.giveup` for pooled
+   children is the same idea taken further.
 3. **The unmeasured classes before any whole-tree number:** `30:32` warm (`w30`, queued, not run),
    the `2:32` node (25% of the A/B subtree) and one depth-2 subtree with a far root; then Knuth dives
    (`bnbdrv -e`) under the cut arm, which is how the 1,300 was made.
 4. **sko42's `dnn.*` keys with the phase** (`par/z030c.par`: beta 0.3, the two-phase schedule, refresh 40,
    give-up 300): prepared, not run.
 5. **The pool through state files works** (the `w*` runs resume a parent's state with `-r`; `zall`'s
-   children received the root's pool that way), so a coordinator run needs nothing new; its units
-   become few and long.
+   children received the root's pool that way), so a coordinator run should need nothing new (none
+   was tried here); its units become few and long.
 
 ## Files
 
 | | |
 |---|---|
-| `par/*.par` | the arms (`z030c`, `z030g`: prepared, not run) |
-| `run.sh`, `queue.sh`, `jobs.txt`, `queue.log`, `path_jobs.txt` | the runner, the job list in the order run, its log |
-| `runs/NAME_ARM/` | `cmd.txt`, `log.txt`, `nodes.txt` (node trace), `dnn.txt` (DNN trace; with the phase's history from 23:00 on), `err.txt` |
-| `summarize.py`, `table.py`, `wtable.py`, `wchildren.py`, `phases.py`, `payoff.py` | the tables above |
+| `par/*.par` | the arms (`z030g`: `z030` with `dnn.gu_zone = 0`, run on t4; `z030c`: prepared, not run) |
+| `run.sh`, `queue.sh`, `jobs.txt`, `queue.log`, `path_jobs.txt` | the runner, the job list as it ended (reordered as results came in; four jobs not run), the log with the order run |
+| `runs/NAME_ARM/` | `cmd.txt`, `log.txt`, `nodes.txt` (node trace), `dnn.txt` (DNN trace; with each phase's history in the runs started after 22:48), `err.txt`. The warm roots' state files (44 MB each) were deleted: the `wroot` jobs rewrite them in 26 and 147 CPU s |
+| `summarize.py`, `table.py`, `wtable.py`, `wchildren.py`, `matched.py`, `phases.py`, `payoff.py` | the tables above |
 | `calib.py`, `pick.py`, `prodstats.py`, `replay.py` | the production trace: matched nodes, subtree choice, CPU by class, the replay model |
 | `cutstate.py`, `pathverify.py`, `mkreadme.py`, `README.tmpl.md` | the warm-root state cut, the path verdict, this file's assembly |

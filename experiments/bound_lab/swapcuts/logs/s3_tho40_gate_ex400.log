@@ -1,0 +1,45 @@
+# ./swapdrv -x 26:10,8:0,39:32,38:7 -I 300 -er 8 -ei 150 -ek 500 -edelta 400 -u 240516 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
+objective values are even integers: fathoming tolerance 1.95
+instance ../../../qaplib/tho40t.dat n=40 node 26:10,8:0,39:32,38:7 m=36 d=4 cutoff 240514.0500  exchange cuts: 5184 pairwise
+guard: 259200 cut evaluations on 50 random completions against brute-force exchange gains: max |err| 0
+round  0  lb 239727.6561  primal 239011.9395 (recomputed from Y 239011.9395)  status iter_limit  iters 300  cpu 32.3
+  exchange separation 0: 192 of 5184 cuts violated (130 with conditional gain below -1), sum of violations 1413.19 (cost units x probability), worst conditional gain -3683.1, largest normalised violation 0.03238
+  by fixed facility:  8@0: 58 (430.09)  26@10: 7 (0.19)  38@7: 113 (740.95)  39@32: 14 (241.96)
+    top  0  type 0  fixed 39@32  with 2@24  row 94  y 0.30960  lhs -140.2459  conditional gain -452.99  normalised 0.03238
+    top  1  type 0  fixed 39@32  with 2@33  row 102  y 0.23361  lhs -81.5768  conditional gain -349.21  normalised 0.01874
+    top  2  type 0  fixed 8@0  with 2@8  row 79  y 0.12483  lhs -96.7057  conditional gain -774.71  normalised 0.01481
+    top  3  type 0  fixed 38@7  with 37@6  row 1266  y 0.16435  lhs -87.4015  conditional gain -531.79  normalised 0.01175
+    top  4  type 0  fixed 38@7  with 17@6  row 582  y 0.11478  lhs -58.3577  conditional gain -508.41  normalised 0.00923
+    top  5  type 0  fixed 8@0  with 35@1  row 1189  y 0.07184  lhs -56.5690  conditional gain -787.39  normalised 0.00816
+    top  6  type 0  fixed 8@0  with 24@1  row 829  y 0.13669  lhs -47.8018  conditional gain -349.71  normalised 0.00806
+    top  7  type 0  fixed 8@0  with 2@1  row 73  y 0.05332  lhs -51.4224  conditional gain -964.50  normalised 0.00787
+    top  8  type 0  fixed 38@7  with 30@6  row 1014  y 0.04415  lhs -48.0049  conditional gain -1087.40  normalised 0.00785
+    top  9  type 0  fixed 38@7  with 6@6  row 222  y 0.03583  lhs -40.2357  conditional gain -1123.10  normalised 0.00618
+    top 10  type 0  fixed 8@0  with 18@1  row 613  y 0.05968  lhs -33.4391  conditional gain -560.32  normalised 0.00580
+    top 11  type 0  fixed 38@7  with 35@6  row 1194  y 0.04208  lhs -43.5540  conditional gain -1035.11  normalised 0.00559
+  exchange: added 192, pool 192, active 192, step 5.312e-03 (theta 1.000, target 240127.7)
+round  1  lb 240109.6793 (gain 382.0231, best 382.0231)  primal 239790.5840  status iter_limit  iters 150  cpu 17.7  active 192
+  exchange separation 1: 208 of 5184 cuts violated (115 with conditional gain below -1), sum of violations 608.42 (cost units x probability), worst conditional gain -3716.6, largest normalised violation 0.00504
+  exchange: added 53, pool 245, active 226, step 7.029e-03 (theta 1.000, target 240509.7)
+round  2  lb 240127.7358 (gain 400.0797, best 400.0797)  primal 239941.0058  status iter_limit  iters 150  cpu 18.3  active 226
+  exchange separation 2: 196 of 5184 cuts violated (81 with conditional gain below -1), sum of violations 898.41 (cost units x probability), worst conditional gain -3774.9, largest normalised violation 0.05136
+  exchange: added 27, pool 272, active 257, step 1.925e-03 (theta 1.000, target 240514.0)
+round  3  lb 240209.7863 (gain 482.1302, best 482.1302)  primal 240165.9294  status iter_limit  iters 150  cpu 17.8  active 257
+  exchange separation 3: 255 of 5184 cuts violated (85 with conditional gain below -1), sum of violations 294.16 (cost units x probability), worst conditional gain -5337.6, largest normalised violation 0.00479
+  exchange: added 38, pool 310, active 268, step 2.584e-02 (theta 1.000, target 240514.0)
+round  4  lb 239309.1782 (gain -418.4780, best 482.1302)  primal 239422.7774  status iter_limit  iters 150  cpu 18.0  active 268
+  exchange separation 4: 183 of 5184 cuts violated (79 with conditional gain below -1), sum of violations 869.82 (cost units x probability), worst conditional gain -2958.9, largest normalised violation 0.03207
+  exchange: added 18, pool 328, active 307, step 3.328e-04 (theta 0.500, target 240514.0)
+round  5  lb 239850.5297 (gain 122.8735, best 482.1302)  primal 239895.5679  status iter_limit  iters 150  cpu 18.1  active 307
+  exchange separation 5: 234 of 5184 cuts violated (65 with conditional gain below -1), sum of violations 637.90 (cost units x probability), worst conditional gain -3759.6, largest normalised violation 0.03704
+  exchange: added 30, pool 358, active 332, step 4.632e-04 (theta 0.500, target 240514.0)
+round  6  lb 240127.0775 (gain 399.4213, best 482.1302)  primal 240170.2233  status iter_limit  iters 150  cpu 18.2  active 332
+  exchange separation 6: 253 of 5184 cuts violated (59 with conditional gain below -1), sum of violations 448.75 (cost units x probability), worst conditional gain -1378.5, largest normalised violation 0.02960
+  exchange: added 31, pool 389, active 347, step 8.090e-04 (theta 0.500, target 240514.0)
+round  7  lb 240226.8708 (gain 499.2146, best 499.2146)  primal 240327.5454  status iter_limit  iters 150  cpu 18.4  active 347
+  exchange separation 7: 232 of 5184 cuts violated (57 with conditional gain below -1), sum of violations 217.93 (cost units x probability), worst conditional gain -4762.2, largest normalised violation 0.00856
+  exchange: added 12, pool 401, active 317, step 5.212e-03 (theta 0.500, target 240514.0)
+round  8  lb 240221.4507 (gain 493.7946, best 499.2146)  primal 240367.5410  status iter_limit  iters 150  cpu 18.7  active 317
+  exchange separation 8: 239 of 5184 cuts violated (50 with conditional gain below -1), sum of violations 235.23 (cost units x probability), worst conditional gain -1716.2, largest normalised violation 0.00439
+EXCHANGE best_lb 240226.870763 first_lb 239727.656134 gain 499.214629  iterations 1500  cpu 177.7
+FINAL best_lb 240226.870763 first_lb 239727.656134 gain 499.214629  iterations 1500  cpu 177.7

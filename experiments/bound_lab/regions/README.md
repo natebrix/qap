@@ -6,11 +6,28 @@ are built from the structure of Taillard's type-b distances (clusters, half-plan
 
 **Answer: yes, very strongly, with regions on the location side that separate the
 clusters.** Numbers below are certified values; [m] = measured (log named), [e] = estimated.
-Status: DRAFT, being filled as runs finish (see "Status" at the end).
 
 ## Headline numbers
 
-(filled at the end)
+- **tai30b root: 99.7% of the DNN gap closed.** Plain DNN 598.3M at 3,300 iterations
+  (optimum 637,117,113, gap 38.9M); with the 29 prefixes of the locations along their
+  principal axis, 635.9M at 2,300 iterations and **636,993,730 at 6,300** (0.019% under the
+  optimum) [m: `logs/r30_line1_long.log`]. Random regions and facility-side regions: 0%.
+- **Roots, DNN gap closed at equal iterations (2,300): tai25b 96%, tai30b 97%, tai35b 71%,
+  tai40b 66%**; tai20b's plain bound is already exact [m: section 6].
+- **tai50b root: 449,469,933 certified at 1,900 iterations and rising**, against the plain
+  430,147,161 at 1,500 and QAPLIB's 431,090,700: the gap to the best known value falls from
+  6.25% to at most 2.04% [m: `logs/t50_root_comb.log`].
+- **tai50b depth 3: 3 of 3 sampled misses now fathom**: the two nearest (2.7M and 3.8M short
+  at 1,500 plain iterations) at 628 and 680 total iterations, and the furthest of the
+  12-node sample (14.4M short) at 2,780 [m: `logs/t50_d3_node*_comb.log`].
+- **Validity**: 0 violations in 240 brute-force node checks and 32 small-root checks;
+  nodes on the optimal path of tai30b (depths 3, 6, 10) and tai50b (depth 3) stay below the
+  optimum; the search of tai30b from an incumbent one above the optimum does not fathom
+  the optimal child [m: sections 3, 7, 10].
+- **In the search** (`cut.regions`, section 10): tai30b's depth-1 level, 24 of 25 children
+  processed fathom (8 by the plain bound, 16 by the cut phase), the one that does not is the
+  optimal child [m].
 
 ## 0. What was changed (`regions.patch`, worktree `/home/user/wt-regions`)
 
@@ -198,3 +215,60 @@ regions (`line:1,top:K,linegap:4:0.03`). Cutoff 2 x optimum so the runs go on.
   region set built around one axis; tai35b has nearly flattened (279.33M), tai40b has not.
   `line:4` or the full dendrogram were not tried on them (no time): on tai30b `line:4` was
   the best set at 1,000 iterations. tai50b is of the collinear kind (first-axis share 0.97).
+
+## 7. Nodes on the path to the best known solution (`onpath.txt`, `logs/onpath_*.log`) [m]
+
+A node whose fixes agree with an optimal (best known) permutation has that value as its
+optimum, so no certified value there may exceed it. Cutoff = optimum + 1,000 so the runs go
+on; `comb` regions; 300 uncut + up to 2,500 CP iterations (tai50b: 15-minute cap).
+
+| instance | depth, spec | certified at the end | optimum / best known | left |
+|---|---|---|---|---|
+| tai30b | 3, `18:27,20:11,26:24` | 637,055,611 (2,800 it) | 637,117,113 | 61,502 (0.010%) |
+| tai30b | 6, `1:7,6:20,8:13,19:21,21:8,29:2` | 637,105,977 | 637,117,113 | 11,136 (0.002%) |
+| tai30b | 10, `2:10,7:4,9:29,11:12,17:23,20:11,22:6,27:15,28:0,29:2` | 637,077,476 | 637,117,113 | 39,637 (0.006%) |
+| tai50b | 3, `7:40,40:39,42:43` | 454,411,867 at 1,400 it (cap; +350k per 100) | 458,821,517 | 4,409,650 (0.96%) |
+
+None exceeds the optimum; the tai30b ones flatten within 0.01% under it. The tai50b on-path
+node is at 452.2M after the 1,000 iterations at which the off-path nodes 7 and 1 had long
+fathomed (they pass 458.82M at 628-680), so the cuts are separating nodes, not lifting
+everything.
+
+## 8. Why it works, and why only on the location side
+
+- A type-b distance matrix is, to 0.1%, a planar Euclidean metric concentrated on a few
+  clusters, and on tai25b/30b/50b nearly a line metric. A line metric is a nonnegative
+  combination of the cut semimetrics of its prefixes; a planar Euclidean one of half-plane
+  cuts (Crofton). With z^S_i = [facility i is placed in S], the objective is then
+  sum_S w_S sum_{i<j} f_ij (z^S_i + z^S_j - 2 z^S_i z^S_j): one weighted graph-partition
+  objective per cut S, in exactly the moments (p, W) the regional triangles constrain.
+  This is the same reason the grid prefixes work on nug/sko/wil/tho; type b just has far
+  fewer cuts carrying the weight (5 clusters carry 98% of tai50b's distance sum) and
+  heavy-tailed flows, so the DNN relaxation's "fractional partition" is far from Boolean:
+  violations 0.2-0.35 at the plain iterate, against 0.004-0.02 for atomic triangles on nug30.
+- Random location sets are not cuts of the metric (0.1%), balls are poor ones (32%), and
+  the flow matrix has no such decomposition (facility-side families: 0 to 9 violated
+  triangles, 0.0%).
+
+## 9. What this implies for tai50b, and what it does not show
+
+- The 12-node depth-3 sample of NOTES.md was 2 fathomed / 10 missed (2.7M-14.4M short at
+  1,500 iterations) and underlies the "floor 1e11 CPU-s / tuned 4.1e9 +- 3.0e9" estimates,
+  whose cost sits at depths 5-8. With the regions, the nearest two misses and the furthest
+  one fathom at depth 3. If the other seven behave like these (they lie between them in
+  shortfall; not run) [e], a uniformly drawn depth-3 node fathoms at depth 3, in 600-2,800
+  iterations (300-1,400 CPU-s on this shared box).
+- A frame, not an estimate [e]: bounding every one of the 50 x 49 x 48 = 117,600 depth-3
+  nodes at about 700 CPU-s each would be 8e7 CPU-s (about one day on 1,000 cores), 50-1,000x
+  under the current figures. The real tree is smaller above (depth-1/2 nodes that fathom:
+  the root itself is at 2.0% and rising) and larger below (subtrees near optimal solutions
+  cannot fathom at depth 3: the on-path depth-3 node is still 4.4M short at 1,400
+  iterations). Only Knuth dives with the cut phase can size it; that is the next step.
+- Not shown: any search run on tai50b; the root's plateau (the 26-minute cap stopped it at
+  1,900 iterations while rising); how far below the best known value the strengthened
+  relaxation sits near optimal solutions on tai50b (on tai30b: 0.02% at the root); whether
+  458,821,517 is optimal.
+- By-product: the tai50b root value 449,469,933 is a certified lower bound 18.4M above the
+  431,090,700 that NOTES.md quotes as QAPLIB's best (gap 6.04% -> at most 2.04%). The same
+  construction applies unchanged to the other open type-b instances (tai60b, tai80b, tai100b,
+  tai150b).

@@ -16,19 +16,22 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
    - warm-rooted depth-3 subtrees against production [m, production's iterations e]: `38:32` (287
      nodes) 2.1x fewer iterations and 1.5x less CPU; `18:32` (1,490 nodes, the class that holds half
      of the A/B subtree's CPU) **2.9x fewer iterations, 2.7x less CPU**, with 74 nodes.
-3. **Best zone: 0.03**, a phase at every give-up from depth 3 down. ZONE_SUMMARY
+3. **Best zone: 0.03 or wider**, a phase at every give-up from depth 3 down. `cut.zone = 0.003` gets 1.4-1.9x
+   where 0.03 gets 2.7-4.9x (t1, t2); 0.01 is behind 0.03 on t2 and t4 and ahead on t3. A zone that
+   also covers depths 1-2 (0.06) ran the same 74 nodes on `18:32` in 11% fewer iterations: the first
+   thing to A/B, and what I would launch with.
 4. **Extrapolated [e]: about 2.4x less CPU on the A/B subtree (1.9-2.9x), and if the whole tree
    responds alike, about 550 c7a CPU-days (450-700) instead of 1,300.** One depth-2 subtree of 468,
    with one node standing for 54% of it: a first sizing, not an estimate to launch on.
 5. **Surprises.**
-   - Phases run long. Two thirds of a cut arm's iterations are phase iterations; a phase from 2,400
+   - Phases run long. Half to nine tenths of a `z030` arm's iterations are phase iterations; a phase from 2,400
      short at depth 3 takes 3,341 iterations to fathom; t3's cold root ran to the 3,400 limit and
      ended 2.9 short; one pooled phase in `w18` spent 2,610 iterations to end 146 short, after which
      its 36 children fathomed in 21 iterations each.
-   - First solves linger before the phase: near misses take 320-620 iterations, not 200, because
-     `dnn.gu_zone` defers their give-up; the phase then needs 30-140.
-   - On t2-t4 a cold root's first solve is 1,000-1,600 looser than the warm one, which moved their roots out
-     of the 0.01 zone here; the warm-rooted runs are the ones to read for a run.
+   - First solves linger before the phase: near misses take 320-620 iterations, not 200, mostly
+     because `dnn.gu_zone` defers their give-up; the phase then needs 30-140.
+   - On t2-t4 a cold root's first solve is 1,000-1,600 looser than the warm one, which moved their
+     roots out of the 0.01 zone here; the warm-rooted runs are the ones to read for a run.
    - This box bounds a matched node in 0.70 of production's CPU.
 6. **Sanity: PASS.** No arm found a solution under 240,516 and every subtree was fully fathomed; the
    three nodes checked on the path to the best known solution (depths 7, 9, 10, the last with an
@@ -59,7 +62,7 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
   run, which starts from its parent (t2: 3,193 short cold, 1,931 in production; t3: 3,462 and 2,427;
   t4: 4,274 and 2,675). So on t2-t4 the root is outside `z010` here, although in a run t2's would be
   inside it and t3's 22 units outside: read `z010` on t2-t4 as "no phase at the root, phases on its children".
-- **Warm roots: `w18`, `w38`.** The A/B root's state file (`runs/wroot_ARM/root.state`, `-d 2 -o`), cut
+- **Warm roots: `w18`, `w38`.** The A/B root's state file (`runs/wroot_ARM/root.state`, `-d 2 -o`, cold from `-F` as production's root was), cut
   to one depth-3 child (`cutstate.py`, as `path_check/dive.py --warm`), resumed with `-r`: the node
   starts from its parent's shipped state as in a run. The first solves reproduce the production
   trace's bounds to the digit (A/B root 231,879.8596; `18:32` 4,474.4 short; `38:32` 2,426.7 short).
@@ -68,7 +71,8 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
   counts exactly on t1, t2, t3 (106, 211, 287) and the same outcome at every node both visited
   (`calib.py`). This box's CPU per matched node is 0.70 of production's, and the base arm takes 25.6
   iterations per node (t1-t3, cold roots aside); production's iterations, which its trace does not
-  have, are estimated as nodes x 25.6 [e].
+  have, are estimated as nodes x 25.6 [e] (counting each node at the base arm's mean for its depth and
+  outcome instead gives the same within 8%; t3's measured 7,281 is 287 x 25.4).
 - **The box was shared** (load 5-7 on 4 cores; my two processes got about half a core each).
   **Iterations and nodes are the metrics.** CPU s are the solver's own CPU time and indicative. A phase
   iteration costs about 1.25x a first-solve iteration (0.126 against 0.103 s at m = 36, t4 z030).
@@ -119,8 +123,8 @@ before the phase:
   849: 1,900; and 1,037 short: stalled after 2,610 iterations, 146 short, after which its 36 children
   fathomed in 21 iterations each.
 - **Misses at the roots.** t4's cold root (4,274 short): stalled after 1,810 iterations, 832 short.
-  `w18`'s warm root (4,474): stalled after 920, 2,421 short, still gaining 0.8 an iteration. t3's cold root (3,462,
-  depth 3): ran to the 3,400 limit and ended **2.9 short**; its 37 pooled children then all fathomed
+  `w18`'s warm root (4,474): stalled after 920, 2,421 short, still gaining 0.8 an iteration. t3's cold
+  root (3,462, depth 3): ran to the 3,400 limit and ended **2.9 short**; its 37 pooled children then all fathomed
   in 19 iterations each. That one is the run where `z030` lost to `z010` (4,307 against 3,401
   iterations): a limit 100 iterations longer, or stopping at 1,500 and leaving the rest to the pooled
   children, would both have been cheaper.
@@ -131,7 +135,10 @@ before the phase:
 
 ## The zone
 
-- **`z003` (722 short) leaves most of it on the table.** ZONE003_TEXT
+- **`z003` (722 short) leaves most of it on the table.** t1: 1,396 iterations (37 nodes) against 540 under
+  `z010` or `z030` and 2,626 base. t2: 4,331 (72 nodes) against 3,629 (`z010`), 2,270 (`z030`) and
+  6,187 base. All its phases fathom, in 73 to 140 iterations, but nodes 800-3,000 short still branch.
+  On the production trace `replay.py` puts it at x1.35 less CPU for the A/B subtree [e].
 - **`z030` against `z010`** on the cold-rooted subtrees: t2 2,270 against 3,629 iterations, t4 3,966
   against 8,240, t3 4,307 against 3,401 (the 2.9-short miss above; warm, `w38` fathoms at the root in
   3,541). In t4 the eight phases `z010` runs on unpooled depth-5 children cost 4,042 iterations; under
@@ -142,10 +149,19 @@ before the phase:
   are 7% of the A/B subtree's CPU, so this trims the total by a few percent; it argues for a phase
   limit that depends on what is left, not for a narrower zone, which would also drop the phases that
   equip the children of the far nodes.
-- **`zall` (a phase at the depth-2 root too).** ZALL_TEXT
+- **`zall` (a phase at the depth-2 root too).** `zall` differs from `z030` only above depth 3 here.
+  The A/B root (8,634 short) ran a phase that stalled after 760 iterations 5,100 short, and its pool
+  went to the 38 depth-3 children. `18:32` then started 3,163 short instead of 4,474, its own phase
+  stalled after 650 iterations instead of 920 at about the same place (2,298 against 2,421), and the
+  whole subtree took the same 74 nodes in **11,565 iterations against 13,035** (`python3 matched.py
+  w18_z030 w18_zall`: 0.90 on the 37 children, every hard child a little cheaper). The root's 760
+  iterations are 20 per child. One subtree, and a 3.0x CPU factor against production where `z030` has
+  2.7x: enough to prefer it, not enough to move the estimate.
 
-**Best zone measured: 0.03** (every give-up from depth 3 down in this subtree; the largest depth-3
-shortfall is 5,039).
+**Best zone: 0.03 or wider.** 0.03 is every give-up from depth 3 down in this subtree (the largest
+depth-3 shortfall is 5,039) and is what six subtrees ran; 0.06 adds the phases at depths 1-2 (a few
+hundred nodes in the whole tree, at most 3,400 iterations each) and was 11% cheaper on the one subtree
+that can show the difference.
 
 ## What it means for the tree [e]
 
@@ -164,8 +180,8 @@ Weighted by CPU share (1 / sum of share / factor): **about 2.4x less CPU on the 
 1.9x if every class is at the low end of what the runs allow (1.0, 1.0, 1.5, 2.2, 2.0) and 2.9x at the
 high end (2, 1.6, 2.5, 3.2, 3.5). In iterations about 2.6x; in nodes 20x or more (`w18`: 1,490 to 74).
 Measured in it: two warm depth-3 subtrees, of which **one node, `w18`, stands for 54% of the CPU** and,
-by assumption, for the 25% above it. The four cold-rooted subtrees (1.6x to 4.9x in iterations, depth-4
-roots mostly) say the deeper nodes do at least as well.
+by assumption, for the 25% above it. The five cold-rooted subtrees (1.6x to 4.9x in iterations, depth-4
+roots but one) say the deeper nodes do at least as well.
 
 `python3 replay.py` is a cruder model on the same trace: every branched node within the zone gets a
 phase that fathoms from at most 3,000 short at the iteration costs measured at depths 4-5 (low for
@@ -180,9 +196,9 @@ carry is partial, and depth-3 phases cost more than the model's.
 - **Why it may differ.** The A/B subtree (22,650 nodes) is smaller than the average depth-2 subtree
   (73,000), and its root is 8,634 short where the path's depth-2 node is 9,075-10,052. In a larger
   subtree more depth-3 nodes are beyond 5,000, the class not measured here; the phase then does its
-  work one level down, on smaller matrices. tho40-b's merged tree at 25 h had the same shape by depth
-  as the A/B subtree, shifted about half a level deeper (`experiments/tho40b_analysis/README.md`), and
-  its better-bound curve was within 5 points of the A/B subtree's.
+  work one level down, on smaller matrices. tho40-b's merged tree at 25 h has its CPU
+  deeper than the A/B subtree's (depth 6 and below: 59% against 40%), while its better-bound curve
+  was within 5 points of the A/B subtree's (`experiments/tho40b_analysis/README.md`).
 - **What the factor is made of.** The tree all but disappears below depth 4-5 (in `w18` 65 of 74 nodes
   fathom in a pooled first solve of 20-140 iterations), and the cost moves into the phases: 66% of
   `w18`'s iterations are phase iterations, at 1.25x the cost each. Bounding fewer, harder nodes for
@@ -208,15 +224,15 @@ carry is partial, and depth-3 phases cost more than the model's.
   1,312 below the optimum (t2's root, 3,193 short and with no optimal solution under it, fathomed). At
   depth 9 the phase climbs to 240,494.30 in 3,400 iterations and stops at the limit; its path child,
   with the inherited pool, reaches 240,516.0000 and branches; the 30 siblings fathom. Not covered:
-  depths 1-6 and 8, the warm path, pooled nodes above depth 10 (path8, path10 and the children of
-  path7 were dropped for time). `../tho40_nodes/` checks the CP solve itself on the path and by
+  depths 1-6 and 8, the warm path, any pooled node but the depth-10 one (path8, path10 and the
+  children of path7 were dropped for time). `../tho40_nodes/` checks the CP solve itself on the path and by
   brute force on small instances.
 - `cmd.txt` of `t3_base` and `t3_z010` lack the exit line: `run.sh` was edited while they ran (the
   logs are complete; noted in the files). `run.sh` is now replaced only by `mv`.
 
 ## Recommended settings for tho40
 
-`experiments/estimates/tho40/tho40.par` plus (this is `par/z030.par`, less `cut.damp1`, which the CP
+`experiments/estimates/tho40/tho40.par` plus (this is `par/zall.par`, less `cut.damp1`, which the CP
 form ignores):
 
 ```
@@ -228,12 +244,16 @@ cut.warmy = 1
 cut.rounds = 12
 cut.iters = 200
 cut.freeze = 1000
-cut.zone = 0.03
+cut.zone = 0.06
 ```
 
-`tho40t.dat`'s second matrix is the 5 x 8 grid (`cut.side = 1`), as the gate test used. Not changed
-here and worth an A/B before a long run (next section): `dnn.gu_zone`, the phase's limit and stop rule,
-`cut.zone = 0.06`.
+- `cut.zone = 0.06` is `par/zall.par`: a phase at every give-up within 14,431 units, which is depth 2
+  and below and the depth-1 node on the path (14,269 short). `cut.zone = 0.03` (`par/z030.par`) is the
+  conservative choice: identical from depth 3 down wherever no pool comes from above, and the setting behind every factor quoted here
+  but `w18 zall`'s.
+- `tho40t.dat`'s second matrix is the 5 x 8 grid (`cut.side = 1`), as the gate test used.
+- Left as they are in `tho40.par`, each worth an A/B before a long run (next section): `dnn.gu_zone`
+  (0 looks 7% better), the phase's limit and stop rule.
 
 ## What I would do next
 
@@ -241,25 +261,29 @@ here and worth an A/B before a long run (next section): `dnn.gu_zone`, the phase
    says a phase should stop and equip its children once it will clearly not fathom soon: t4's root
    stalled at 1,810 and the 36 pooled children cost 1,956 in all, where the phases that insisted cost
    1,900-3,400 each. Candidates: `cut.giveup = T:G`, a shorter `cut.cp_iters`, `cut.stall = 2`. The DNN
-   traces written after 23:00 (`w*`, `path7`, `t1_z003`, `t4_z030g`) carry each phase's running best
+   traces of the runs started after 22:48 (`t4_z010`, `w*`, `path7`, `t1_z003`, `t2_z003`, `t4_z030g`) carry each phase's running best
    every 10 iterations (`QAP_DNN_TRACE_HIST`), so stop rules can be replayed offline first.
-2. **`dnn.gu_zone = 0` with the phase** (`par/z030g.par`): GZ_TEXT
+2. **`dnn.gu_zone = 0` with the phase** (`par/z030g.par`): run once [m], on t4: the same 37 nodes and
+   the same phases, 3,697 iterations against `z030`'s 3,966 (7% fewer; the two pooled near misses hand
+   over after 210-260 iterations instead of 350-400). In `w18` seven children waited 300-350 iterations
+   before their phase. Worth adopting after one warm-rooted A/B; a lower `dnn.giveup` for pooled
+   children is the same idea taken further.
 3. **The unmeasured classes before any whole-tree number:** `30:32` warm (`w30`, queued, not run),
    the `2:32` node (25% of the A/B subtree) and one depth-2 subtree with a far root; then Knuth dives
    (`bnbdrv -e`) under the cut arm, which is how the 1,300 was made.
 4. **sko42's `dnn.*` keys with the phase** (`par/z030c.par`: beta 0.3, the two-phase schedule, refresh 40,
    give-up 300): prepared, not run.
 5. **The pool through state files works** (the `w*` runs resume a parent's state with `-r`; `zall`'s
-   children received the root's pool that way), so a coordinator run needs nothing new; its units
-   become few and long.
+   children received the root's pool that way), so a coordinator run should need nothing new (none
+   was tried here); its units become few and long.
 
 ## Files
 
 | | |
 |---|---|
-| `par/*.par` | the arms (`z030c`, `z030g`: prepared, not run) |
-| `run.sh`, `queue.sh`, `jobs.txt`, `queue.log`, `path_jobs.txt` | the runner, the job list in the order run, its log |
-| `runs/NAME_ARM/` | `cmd.txt`, `log.txt`, `nodes.txt` (node trace), `dnn.txt` (DNN trace; with the phase's history from 23:00 on), `err.txt` |
-| `summarize.py`, `table.py`, `wtable.py`, `wchildren.py`, `phases.py`, `payoff.py` | the tables above |
+| `par/*.par` | the arms (`z030g`: `z030` with `dnn.gu_zone = 0`, run on t4; `z030c`: prepared, not run) |
+| `run.sh`, `queue.sh`, `jobs.txt`, `queue.log`, `path_jobs.txt` | the runner, the job list as it ended (reordered as results came in; four jobs not run), the log with the order run |
+| `runs/NAME_ARM/` | `cmd.txt`, `log.txt`, `nodes.txt` (node trace), `dnn.txt` (DNN trace; with each phase's history in the runs started after 22:48), `err.txt`. The warm roots' state files (44 MB each) were deleted: the `wroot` jobs rewrite them in 26 and 147 CPU s |
+| `summarize.py`, `table.py`, `wtable.py`, `wchildren.py`, `matched.py`, `phases.py`, `payoff.py` | the tables above |
 | `calib.py`, `pick.py`, `prodstats.py`, `replay.py` | the production trace: matched nodes, subtree choice, CPU by class, the replay model |
 | `cutstate.py`, `pathverify.py`, `mkreadme.py`, `README.tmpl.md` | the warm-root state cut, the path verdict, this file's assembly |

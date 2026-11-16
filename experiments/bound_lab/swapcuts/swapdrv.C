@@ -7,6 +7,8 @@
    swapdrv [-x i:a,...] [-u ub | -c cutoff] [-I first iters] [-er rounds] [-ei iters]
            [-ek cuts per round] [-et theta] [-edelta D] [-eq quiet iters] [-fp]
            [-grid R:C -side S -k K -cpsep k:K -cpiters N]  [-saveL file] [-check N]
+           [-joint -r rounds -i iters]   (with -grid: dnn_cut_rounds on the regional triangles,
+                                          one exchange Polyak step between rounds; -ek 0: triangles alone)
            [-T threads] [-v] file.dat
 
  Cuts. Cost C(p) = sum A[k][l] B[p(k)][p(l)]. For a facility i fixed at a, a free facility
@@ -120,13 +122,145 @@ static double lhs(const Ctx &cx, const XCut &t, const std::vector<double> &Y,
   return s;
 }
 
+// min-cost assignment (Hungarian, O(n^3)); cost row-major n x n; returns the minimum
+static double lap_min(const std::vector<double> &cost, int n)
+{
+  const double INF = 1e300;
+  std::vector<double> u(n + 1, 0), v(n + 1, 0), minv(n + 1);
+  std::vector<int> p(n + 1, 0), way(n + 1, 0);
+  std::vector<char> used(n + 1);
+  for (int i = 1; i <= n; i++) {
+    p[0] = i; int j0 = 0;
+    std::fill(minv.begin(), minv.end(), INF); std::fill(used.begin(), used.end(), 0);
+    do {
+      used[j0] = 1;
+      int i0 = p[j0], j1 = 0; double delta = INF;
+      for (int j = 1; j <= n; j++) if (!used[j]) {
+        double cur = cost[(size_t)(i0 - 1) * n + (j - 1)] - u[i0] - v[j];
+        if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+        if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+      }
+      for (int j = 0; j <= n; j++) { if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta; }
+      j0 = j1;
+    } while (p[j0] != 0);
+    do { int j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+  }
+  double s = 0;
+  for (int j = 1; j <= n; j++) s += cost[(size_t)(p[j] - 1) * n + (j - 1)];
+  return s;
+}
+
+// the exchange cuts' pool, multipliers and objective term; one Polyak step per update
+struct XState {
+  const Ctx *cx;
+  std::vector<XCut> *cuts;
+  std::vector<double> Ladd, best_mu, sg;
+  std::vector<double> u1, v1, u2, v2;
+  double abs_add = 0, hsum = 0, theta_cur = 1, delta = 50, prev_lb = -HUGE_VAL, my_best = -HUGE_VAL;
+  int ek = 0, verbose = 0, topk = 12, calls = 0;
+  int assemble() {
+    const int m = cx->m, n1 = cx->n1;
+    std::fill(Ladd.begin(), Ladd.end(), 0.0);
+    abs_add = 0; hsum = 0;
+    int active = 0;
+    for (auto &t : *cuts) {
+      if (!(t.mu > 0)) continue;
+      active++;
+      cx->factors(t, u1, v1, u2, v2);
+      if (t.row == 0) hsum += t.mu * t.diag; else Ladd[(size_t)t.row * n1 + t.row] -= t.mu * t.diag;
+      abs_add += t.mu * fabs(t.diag);
+      for (int k = 0; k < m; k++) {
+        if (u1[k] == 0 && u2[k] == 0) continue;
+        for (int c = 0; c < m; c++) {
+          const double gv = u1[k] * v1[c] + u2[k] * v2[c];
+          if (gv == 0) continue;
+          const int col = 1 + k * m + c;
+          Ladd[(size_t)t.row * n1 + col] -= 0.5 * t.mu * gv;
+          Ladd[(size_t)col * n1 + t.row] -= 0.5 * t.mu * gv;
+          abs_add += t.mu * fabs(gv);
+        }
+      }
+    }
+    return active;
+  }
+  void restore_best() {
+    if (best_mu.size() == cuts->size()) for (size_t t = 0; t < cuts->size(); t++) (*cuts)[t].mu = best_mu[t];
+    assemble();
+  }
+  // lb_now: the certified bound of the solve that produced Y, run with the current multipliers
+  void update(const std::vector<double> &Y, double lb_now, double best_lb, double cutoff, int r, bool step) {
+    const int n1 = cx->n1;
+    std::vector<XCut> &C = *cuts;
+    if (lb_now > my_best) { my_best = lb_now; best_mu.resize(C.size()); for (size_t t = 0; t < C.size(); t++) best_mu[t] = C[t].mu; }
+    sg.resize(C.size());
+    std::vector<std::pair<double, int>> viol;
+    std::map<int, std::pair<int, double>> byfix;   // fixed facility -> (count, sum of -lhs)
+    size_t nv = 0, nv1 = 0; double mass = 0, worst_cond = 0, worst_norm = 0;
+    for (size_t t = 0; t < C.size(); t++) {
+      const XCut &c = C[t];
+      const double v = lhs(*cx, c, Y, u1, v1, u2, v2);
+      sg[t] = -v;
+      if (v < -1e-6) {
+        const double yd = c.row == 0 ? 1.0 : Y[(size_t)c.row * n1 + c.row];
+        nv++; mass += -v;
+        if (c.norm > 0) worst_norm = std::max(worst_norm, -v / c.norm);
+        if (yd > 1e-4) { worst_cond = std::min(worst_cond, v / yd); if (v / yd < -1.0) nv1++; }
+        auto &e = byfix[c.type == 0 ? c.i : -1 - c.type];
+        e.first++; e.second += -v;
+        viol.push_back({c.norm > 0 ? -v / c.norm : 0, (int)t});
+      }
+    }
+    std::sort(viol.begin(), viol.end(), [](const std::pair<double, int> &x, const std::pair<double, int> &y) { return x.first > y.first; });
+    printf("  exchange separation %d: %zu of %zu cuts violated (%zu with conditional gain below -1), sum of violations %.2f (cost units x probability), "
+           "worst conditional gain %.1f, largest normalised violation %.5f\n", r, nv, C.size(), nv1, mass, worst_cond, worst_norm);
+    if (verbose || calls == 0) {
+      printf("  by fixed facility:");
+      for (auto &e : byfix) {
+        if (e.first >= 0) printf("  %d@%d: %d (%.2f)", e.first, cx->p[e.first], e.second.first, e.second.second);
+        else printf("  fixed-pair type %d: %d (%.2f)", -1 - e.first, e.second.first, e.second.second);
+      }
+      printf("\n");
+      for (int s = 0; s < std::min<int>(topk, (int)viol.size()); s++) {
+        const XCut &c = C[viol[s].second];
+        const double yd = c.row == 0 ? 1.0 : Y[(size_t)c.row * n1 + c.row];
+        printf("    top %2d  type %d  fixed %d@%d  with %d@%d  row %d  y %.5f  lhs %.4f  conditional gain %.2f  normalised %.5f\n", s, c.type,
+               c.i, c.a, c.j, c.b, c.row, yd, -sg[viol[s].second], yd > 0 ? -sg[viol[s].second] / yd : 0.0, viol[s].first);
+      }
+    }
+    calls++;
+    if (!step || ek == 0) return;   // -ek 0: no exchange cut (the reference arms)
+    int added = 0;
+    for (auto &e : viol) { if (added >= ek) break; if (!C[e.second].pooled) { C[e.second].pooled = true; added++; } }
+    if (lb_now < prev_lb - 1e-9) theta_cur *= 0.5;
+    prev_lb = lb_now;
+    double s2 = 0; size_t pool = 0;
+    for (size_t t = 0; t < C.size(); t++)
+      if (C[t].pooled) { pool++; if (C[t].mu > 0 || sg[t] > 0) s2 += sg[t] * sg[t]; }
+    if (s2 <= 0) { printf("  no violated exchange cut in the pool\n"); return; }
+    const double target = std::min(cutoff, best_lb + delta);
+    const double alpha = theta_cur * std::max(target - lb_now, 1e-6) / s2;
+    for (size_t t = 0; t < C.size(); t++)
+      if (C[t].pooled) C[t].mu = std::max(0.0, C[t].mu + alpha * sg[t]);
+    const int active = assemble();
+    printf("  exchange: added %d, pool %zu, active %d, step %.3e (theta %.3f, target %.1f)\n", added, pool, active, alpha, theta_cur, target);
+  }
+};
+static void xhook(DNNExtHook *h, const std::vector<double> &Y, double lb_now, double best_lb, double cutoff, int round)
+{
+  XState *xs = (XState *)h->ctx;
+  if (round < 0) xs->restore_best();
+  else xs->update(Y, lb_now, best_lb, cutoff, round, true);
+  h->abs_ = xs->abs_add; h->cnst = xs->hsum;
+}
+
 int main(int argc, char **argv)
 {
   std::string fixes = "-", saveL;
   double ub = HUGE_VAL, cutoff = HUGE_VAL;
   bool have_cutoff = false, use_fp = false;
   int first_iters = 300, erounds = 0, eiters = 200, ek = 500, equiet = 0, threads = 1, verbose = 0, ncheck = 50;
-  int degree = 4, topk = 12;
+  int degree = 4, topk = 12, jrounds = 8, jiters = 150;
+  bool joint = false, use_elim = false;
   double theta = 1.0, edelta = 50.0;
   DNNCutParams cp;
   cp.kcuts = 1000;
@@ -147,6 +281,12 @@ int main(int argc, char **argv)
     else if (o == "-edelta" && more) edelta = atof(argv[++a]);
     else if (o == "-eq" && more) equiet = atoi(argv[++a]);
     else if (o == "-fp") use_fp = true;
+    else if (o == "-elim") use_elim = true;                // forbid x_jb when every completion with j at b gains by an exchange
+    else if (o == "-delta" && more) cp.delta = atof(argv[++a]);   // the triangles' Polyak target (joint mode)
+    else if (o == "-nocap") cp.cap_at_cutoff = 0;
+    else if (o == "-joint") joint = true;                 // the library's triangle rounds with the exchange hook
+    else if (o == "-r" && more) jrounds = atoi(argv[++a]);
+    else if (o == "-i" && more) jiters = atoi(argv[++a]);
     else if (o == "-top" && more) topk = atoi(argv[++a]);
     else if (o == "-check" && more) ncheck = atoi(argv[++a]);
     else if (o == "-saveL" && more) saveL = argv[++a];
@@ -269,55 +409,79 @@ int main(int argc, char **argv)
   DNNParams base;
   base.eig_mode = DNN_EIG_SUBSPACE;
   base.cheb_degree = degree;
+  base.gamma = 1.0; base.gamma1 = 1.0;   // as dnncuts (PRSM); DNNParams' own defaults are 1.618, 0
   DNNWarm warm, save;
-  std::vector<double> Ladd(nn, 0.0);
-  double abs_add = 0, hsum = 0;
+  XState xs;
+  xs.cx = &cx; xs.cuts = &cuts; xs.Ladd.assign(nn, 0.0); xs.ek = ek; xs.theta_cur = theta; xs.delta = edelta;
+  xs.verbose = verbose; xs.topk = topk;
+  std::vector<double> &Ladd = xs.Ladd;
   int total_iters = 0;
   double total_cpu = 0;
-  auto assemble_x = [&]() {
-    std::fill(Ladd.begin(), Ladd.end(), 0.0);
-    abs_add = 0; hsum = 0;
-    int active = 0;
+  std::vector<int> free_orig, other_orig, fixed_at(n, -1);
+  for (int a = 0; a < n; a++) {
+    if ((cp.side == 0 ? node.p[a] : node.pinv[a]) == NONE) free_orig.push_back(a);
+    if ((cp.side == 0 ? node.pinv[a] : node.p[a]) == NONE) other_orig.push_back(a);
+    else fixed_at[a] = cp.side == 0 ? node.pinv[a] : node.p[a];
+  }
+  if (joint) {
+    // ---- the library's Polyak rounds on the regional triangles, the exchange term stepped
+    // between rounds through the hook (-ek 0: the triangles alone, the reference)
+    DNNExtHook hook;
+    hook.ctx = &xs; hook.update = xhook; hook.L = Ladd.data(); hook.abs_ = 0; hook.cnst = 0;
+    cp.first_iters = first_iters; cp.rounds = jrounds; cp.iters = jiters; cp.freeze_iters = equiet;
+    cp.verbose = 1;
+    if (ek > 0) cp.ext_hook = &hook;
+    DNNCutResult jr = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, cp, &warm);
+    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f  rounds %d  iterations %d (after the first %d)  status %s\n", jr.best_lb, jr.first_lb,
+           jr.best_lb - jr.first_lb, jr.rounds, jr.iterations, first_iters, dnn_status_name(jr.status));
+    delete q;
+    return 0;
+  }
+  // ---- eliminations: x_jb = 0 in every exchange-optimal completion when the largest gain
+  // c0 + max over assignments of the rest of <g, x> of exchanging some fixed i with j at b is negative
+  std::vector<unsigned char> elim((size_t)m * m, 0);
+  int nelim = 0;
+  if (use_elim && m >= 2) {
+    std::vector<double> cst((size_t)(m - 1) * (m - 1));
+    double closest = -HUGE_VAL;
     for (auto &t : cuts) {
-      if (!(t.mu > 0)) continue;
-      active++;
+      if (t.type != 0) continue;
+      const int jl = t.exk, bl = t.exc;
+      if (elim[(size_t)jl * m + bl]) continue;
       cx.factors(t, u1, v1, u2, v2);
-      if (t.row == 0) hsum += t.mu * t.diag; else Ladd[(size_t)t.row * n1 + t.row] -= t.mu * t.diag;
-      abs_add += t.mu * fabs(t.diag);
+      int r = 0;
       for (int k = 0; k < m; k++) {
-        if (u1[k] == 0 && u2[k] == 0) continue;
-        for (int c = 0; c < m; c++) {
-          const double gv = u1[k] * v1[c] + u2[k] * v2[c];
-          if (gv == 0) continue;
-          const int col = 1 + k * m + c;
-          Ladd[(size_t)t.row * n1 + col] -= 0.5 * t.mu * gv;
-          Ladd[(size_t)col * n1 + t.row] -= 0.5 * t.mu * gv;
-          abs_add += t.mu * fabs(gv);
-        }
+        if (k == jl) continue;
+        int c2 = 0;
+        for (int c = 0; c < m; c++) { if (c == bl) continue; cst[(size_t)r * (m - 1) + c2] = -(u1[k] * v1[c] + u2[k] * v2[c]); c2++; }
+        r++;
       }
+      const double mx = t.diag - lap_min(cst, m - 1);   // the largest exchange gain over the completions
+      if (mx < -1e-6) { elim[(size_t)jl * m + bl] = 1; nelim++; }
+      else closest = std::max(closest, -mx);
     }
-    return active;
-  };
-  auto solve = [&](int iters, bool warm_start, int &active) {
-    active = assemble_x();
+    printf("eliminations: %d of %d free assignments can never be exchange-optimal against a fixed facility (LAP test)\n", nelim, m * m);
+  }
+  int active = 0;
+  auto solve = [&](int iters, bool warm_start) {
+    active = xs.assemble();
     DNNParams par = base;
     par.max_iter = iters;
     par.hopeless_after = 0; par.hopeless_gap_ratio = 0;
     par.L_add = active ? Ladd.data() : NULL;
-    par.L_add_abs = abs_add;
-    par.cut_round = warm_start ? 1 : 0;
-    DNNResult res = dnn_bound(qr.A, qr.B, qr.C, qr.shift - hsum, cutoff, par, warm_start ? &warm : NULL, &save);
+    par.L_add_abs = xs.abs_add;
+    par.cut_round = 1;
+    if (nelim > 0 && warm_start) par.elim = elim.data();
+    DNNResult res = dnn_bound(qr.A, qr.B, qr.C, qr.shift - xs.hsum, cutoff, par, warm_start ? &warm : NULL, &save);
     warm = save;
     total_iters += res.iterations; total_cpu += res.cpu;
     return res;
   };
 
   // ---- round 0: the plain solve
-  int active = 0;
-  DNNResult res = solve(first_iters, false, active);
+  DNNResult res = solve(first_iters, false);
   const double first_lb = res.lb;
-  double best_lb = res.lb, prev_lb = -HUGE_VAL, theta_cur = theta;
-  std::vector<double> best_mu(cuts.size(), 0.0);
+  double best_lb = res.lb;
   DNNWarm best_save = warm;
   {
     // the primal value recomputed from Y (index convention check)
@@ -331,75 +495,29 @@ int main(int argc, char **argv)
     printf("round  0  lb %.4f  primal %.4f (recomputed from Y %.4f)  status %s  iters %d  cpu %.1f\n", res.lb, res.primal, pv,
            dnn_status_name(res.status), res.iterations, res.cpu);
   }
+  if (nelim > 0) {
+    double mass = 0;
+    for (int k = 0; k < m * m; k++) if (elim[k]) mass += warm.Y[(size_t)(1 + k) * n1 + 1 + k];
+    printf("eliminations: probability mass %.4f of %d on the eliminated assignments at the plain iterate\n", mass, m);
+  }
   bool fathomed = res.status == DNN_FATHOMED;
   for (int r = 0; r <= erounds && !fathomed; r++) {
     if (r > 0) {
-      res = solve(eiters, true, active);
-      if (res.lb > best_lb) { best_lb = res.lb; for (size_t t = 0; t < cuts.size(); t++) best_mu[t] = cuts[t].mu; best_save = warm; }
+      res = solve(eiters, true);
+      if (res.lb > best_lb) { best_lb = res.lb; best_save = warm; }
       printf("round %2d  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  active %d\n", r, res.lb,
              res.lb - first_lb, best_lb - first_lb, res.primal, dnn_status_name(res.status), res.iterations, res.cpu, active);
       if (res.status == DNN_FATHOMED) { fathomed = true; break; }
     }
-    // ---- separation and statistics on the last primal iterate
-    const std::vector<double> &Y = warm.Y;
-    std::vector<double> sg(cuts.size());
-    std::vector<std::pair<double, int>> viol;
-    std::map<int, std::pair<int, double>> byfix;   // fixed facility -> (count, sum of -lhs)
-    size_t nv = 0, nv1 = 0; double mass = 0, worst_cond = 0, worst_norm = 0;
-    for (size_t t = 0; t < cuts.size(); t++) {
-      const XCut &c = cuts[t];
-      const double v = lhs(cx, c, Y, u1, v1, u2, v2);
-      sg[t] = -v;
-      if (v < -1e-6) {
-        const double yd = c.row == 0 ? 1.0 : Y[(size_t)c.row * n1 + c.row];
-        nv++; mass += -v;
-        if (c.norm > 0) worst_norm = std::max(worst_norm, -v / c.norm);
-        if (yd > 1e-4) { worst_cond = std::min(worst_cond, v / yd); if (v / yd < -1.0) nv1++; }
-        auto &e = byfix[c.type == 0 ? c.i : -1 - c.type];
-        e.first++; e.second += -v;
-        viol.push_back({c.norm > 0 ? -v / c.norm : 0, (int)t});
-      }
-    }
-    std::sort(viol.begin(), viol.end(), [](const std::pair<double, int> &x, const std::pair<double, int> &y) { return x.first > y.first; });
-    printf("  separation %d: %zu of %zu cuts violated (%zu with conditional gain below -1), sum of violations %.2f (cost units x probability), "
-           "worst conditional gain %.1f, largest normalised violation %.5f\n", r, nv, cuts.size(), nv1, mass, worst_cond, worst_norm);
-    if (verbose || r == 0) {
-      printf("  by fixed facility:");
-      for (auto &e : byfix) {
-        if (e.first >= 0) printf("  %d@%d: %d (%.2f)", e.first, cx.p[e.first], e.second.first, e.second.second);
-        else printf("  fixed-pair type %d: %d (%.2f)", -1 - e.first, e.second.first, e.second.second);
-      }
-      printf("\n");
-      for (int s = 0; s < std::min<int>(topk, (int)viol.size()); s++) {
-        const XCut &c = cuts[viol[s].second];
-        const double yd = c.row == 0 ? 1.0 : Y[(size_t)c.row * n1 + c.row];
-        printf("    top %2d  type %d  fixed %d@%d  with %d@%d  row %d  y %.5f  lhs %.4f  conditional gain %.2f  normalised %.5f\n", s, c.type,
-               c.i, c.a, c.j, c.b, c.row, yd, -sg[viol[s].second], yd > 0 ? -sg[viol[s].second] / yd : 0.0, viol[s].first);
-      }
-    }
-    if (r == erounds) break;
-    int added = 0;
-    for (auto &e : viol) { if (added >= ek) break; if (!cuts[e.second].pooled) { cuts[e.second].pooled = true; added++; } }
-    // ---- Polyak step on the pool
-    const double lb_now = res.lb;
-    if (r > 0 && lb_now < prev_lb - 1e-9) theta_cur *= 0.5;
-    prev_lb = lb_now;
-    double s2 = 0; size_t pool = 0;
-    for (size_t t = 0; t < cuts.size(); t++)
-      if (cuts[t].pooled) { pool++; if (cuts[t].mu > 0 || sg[t] > 0) s2 += sg[t] * sg[t]; }
-    if (s2 <= 0) { printf("  no violated cut in the pool: the exchange phase ends\n"); break; }
-    const double target = std::min(cutoff, best_lb + edelta);
-    const double alpha = theta_cur * std::max(target - lb_now, 1e-6) / s2;
-    for (size_t t = 0; t < cuts.size(); t++)
-      if (cuts[t].pooled) cuts[t].mu = std::max(0.0, cuts[t].mu + alpha * sg[t]);
-    printf("  added %d, pool %zu, step %.3e (theta %.3f, target %.1f)\n", added, pool, alpha, theta_cur, target);
+    // separation and statistics on the last primal iterate, then the Polyak step
+    xs.update(warm.Y, res.lb, best_lb, cutoff, r, r < erounds);
   }
   // ---- back to the best round's multipliers
   if (erounds > 0 && !fathomed) {
-    for (size_t t = 0; t < cuts.size(); t++) cuts[t].mu = best_mu[t];
+    xs.restore_best();
     warm = best_save;
     if (equiet > 0) {
-      res = solve(equiet, true, active);
+      res = solve(equiet, true);
       best_lb = std::max(best_lb, res.lb);
       printf("quiet round  lb %.4f (gain %.4f, best %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  active %d\n", res.lb,
              res.lb - first_lb, best_lb - first_lb, res.primal, dnn_status_name(res.status), res.iterations, res.cpu, active);
@@ -408,19 +526,14 @@ int main(int argc, char **argv)
   }
   printf("EXCHANGE best_lb %.6f first_lb %.6f gain %.6f  iterations %d  cpu %.1f%s\n", best_lb, first_lb, best_lb - first_lb,
          total_iters, total_cpu, fathomed ? "  FATHOMED" : "");
-  active = assemble_x();
+  active = xs.assemble();
+  const double abs_add = xs.abs_add, hsum = xs.hsum;
   if (!saveL.empty()) {
     FILE *f = fopen(saveL.c_str(), "wb");
     if (f) { fwrite(Ladd.data(), sizeof(double), nn, f); fclose(f); printf("wrote the exchange term (%d active cuts, const %.6f) to %s\n", active, hsum, saveL.c_str()); }
   }
   // ---- the regional-triangle CP phase of dnncuts, the exchange term frozen as L_ext
   if (!fathomed && cpp.sep_every > 0 && cp_iters > 0 && (cp.grid_rows > 0 || cp.prefix)) {
-    std::vector<int> free_orig, other_orig, fixed_at(n, -1);
-    for (int a = 0; a < n; a++) {
-      if ((cp.side == 0 ? node.p[a] : node.pinv[a]) == NONE) free_orig.push_back(a);
-      if ((cp.side == 0 ? node.pinv[a] : node.p[a]) == NONE) other_orig.push_back(a);
-      else fixed_at[a] = cp.side == 0 ? node.pinv[a] : node.p[a];
-    }
     if (active) { cp.L_ext = Ladd.data(); cp.L_ext_abs = abs_add; cp.ext_const = hsum; }
     cp.verbose = 1;
     DNNCutParams c0 = cp;
@@ -447,6 +560,7 @@ int main(int argc, char **argv)
     printf("cp solve  lb %.10f (gain %.4f over the plain first solve)  primal %.4f  status %s  iters %d  cpu %.1f  kept %d\n",
            r.lb, r.lb - first_lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, kept);
     best_lb = std::max(best_lb, r.lb);
+    if (sv.Y.size() == nn) { printf("exchange cuts at the CP solve's final iterate:\n"); xs.verbose = 1; xs.update(sv.Y, r.lb, best_lb, cutoff, 0, false); }
   }
   printf("FINAL best_lb %.6f first_lb %.6f gain %.6f  iterations %d  cpu %.1f\n", best_lb, first_lb, best_lb - first_lb, total_iters, total_cpu);
   delete q;

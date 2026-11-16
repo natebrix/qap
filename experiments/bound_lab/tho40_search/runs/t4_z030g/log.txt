@@ -89,3 +89,39 @@ setting QAP_XBAR_DEBUG 0 default diagnostic
 root bound 196746 (for the relative gaps of a -F run)
 branching_weight() = 0.5
 read symmetry info from SYM/tho40t.sym
+  ---- RESULTS ----
+
+    Total Time: 387.915 seconds 
+         Nodes: 37 / 36 / 0
+    root bound: 196746
+ fw iterations: 3580
+     DNN bound: 37 nodes, 34 fathomed, 146.494 s
+     cut phase: 3 nodes, 2 fathomed, 240.533 s
+
+level    nodes	%fathom	%c.elim	    time
+ 4           1	0.0000	0.0000	  227.22
+ 5          36	1.0000	N/A	  160.69
+
+Strategy breakdown:
+nodes       0        1       36        0 
+time     0.00   227.22   160.69     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 4           1	0.0000	1.0000	        200	   200.0	   20.43
+ 5          36	0.9444	0.0556	       1356	    37.7	  126.07
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 4           1	0.0000	  206.68
+ 5           2	1.0000	   33.85
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 4           0	       0	       0	       0	       0
+ 5          36	       0	      34	       2	       0
+
+eigendecompositions for W and U: 41 computed, 35 reused from the per-size cache
