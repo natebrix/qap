@@ -40,5 +40,7 @@ for dep in sorted(lev):
     print(f"| {dep} | {n} | {L['B']} | {L['Q']} / {L['D']} / {L['C']} | {L['E']} | {L['P']} | {L['dnn']} | {L['phases']} | {L['it']:,} | {L['cpu']:,.0f} |")
 print(f"| all | {T['n']} | {T['B']} | {T['Q']} / {T['D']} / {T['C']} | {T['E']} | {T['P']} | {T['dnn']} | {T['phases']} | {T['it']:,} | {T['cpu']:,.0f} |")
 print(f"\npath of the optimum: {len(onp)} nodes on it; violations (fathomed, or a DNN/cut bound above the optimum): {len(bad)}")
+vs = [v for _, _, v, _ in onp if v is not None]
+if vs: print(f"largest certified bound on the path: {max(vs):,.4f} (optimum {opt:,}: {opt - max(vs):.4f} under)")
 for dep, fx, v, out in sorted(onp)[:60]: print(f"  depth {dep} {out} bound {v:,.4f} ({opt - v:,.1f} under)  {fx}" if v is not None else f"  depth {dep} {out} {fx}")
 for b in bad: print("  VIOLATION:", b)
