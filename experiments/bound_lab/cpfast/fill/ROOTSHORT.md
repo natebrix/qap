@@ -1,0 +1,1 @@
+Run on (`logs/R_wc288_long.log`), it passes that run's last value (230,088.31 at phase iteration 5,490) at iteration 1,230 (4.5x) and reads **230,452.99 at 2,500: a new certified lower bound for tho40** (gap 4.18% of 240,516), still gaining 40 per 250

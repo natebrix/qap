@@ -124,6 +124,6 @@ best + 50). @@N10TEXT@@
   (`logs/s3_tho40_path_d4_ex.log`, `..._d8_ex.log`); joint with the triangles at depth 12:
   240,255.8 (`..._path_d12_jTX.log`); from a converged plain solve at depth 12 (240,515.40 at
   2,500 iterations) six rounds with all families at a target of best + 2 stay at 240,437 to
-  240,457, and at best + 400 fall to 128,446 and climb back to 202,793
+  240,457, and the pairwise cuts at best + 400 fall to 128,446 and climb back to 202,793
   (`..._path_d12_conv_exrot_d2.log`, `..._path_d12_conv_ex.log`). **No certified value above
   240,516 in any path run.** @@PATH8@@

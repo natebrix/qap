@@ -92,6 +92,17 @@
    best certified: T 240094.2, TX 240204.2, TX - T +110.0
    exchange cuts violated at TX's iterates (round: count, sum of violations): 0: 130, 810  1: 224, 483  2: 204, 433  3: 195, 312  4: 220, 430  5: 218, 147  6: 222, 270  7: 233, 319
 
+== s3_wil50_n10_jT.log  vs  s3_wil50_n10_jTXm.log
+   T : ./swapdrv2 -x 39:27,30:48,25:49 -I 400 -joint -r 3 -i 200 -delta 50 -nocap -k 1000 -ek 0 -u 48816 -grid 5:10 -side 0 -T 1 ../../../qaplib/wil50.dat
+   TX: ./swapdrv2 -x 39:27,30:48,25:49 -I 400 -joint -r 3 -i 200 -delta 50 -nocap -k 1000 -ek 500 -edelta 50 -u 48816 -grid 5:10 -side 0 -T 1 ../../../qaplib/wil50.dat
+   round       iters            T           TX   TX - T   (shortfall of T / TX to the best known value)
+   0             400      48612.9      48612.9     +0.0   203 / 203
+   1             600      48667.7      48670.4     +2.7   148 / 146
+   2             800      48501.2      48469.4    -31.9   315 / 347
+   3            1000      48606.9      48595.4    -11.5   209 / 221
+   best certified: T 48667.7, TX 48670.4, TX - T +2.7
+   exchange cuts violated at TX's iterates (round: count, sum of violations): 0: 355, 68  1: 271, 32  2: 340, 88
+
 == s3_wil50_n13_jT.log  vs  s3_wil50_n13_jTX_overshoot.log
    T : ./swapdrv2 -x 21:28,8:41,28:19 -I 400 -joint -r 5 -i 200 -delta 50 -nocap -k 1000 -eq 300 -ek 0 -u 48816 -grid 5:10 -side 0 -T 1 ../../../qaplib/wil50.dat
    TX: ./swapdrv2 -x 21:28,8:41,28:19 -I 400 -joint -r 5 -i 200 -delta 50 -nocap -k 1000 -eq 300 -ek 500 -edelta 50 -u 48816 -grid 5:10 -side 0 -T 1 ../../../qaplib/wil50.dat
