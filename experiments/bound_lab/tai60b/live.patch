@@ -1,0 +1,14 @@
+   if (cp.grid_rows > 0) return grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
+   if (cp.prefix) return prefix_regions(m);
+   return std::vector<Region>();
+@@ -1214,6 +1239,10 @@ public:
+ 
+   bool stop(int it, double best) override
+   {
++    {   // bound_lab/tai60b live.patch: QAP_CP_LIVE=FILE appends the phase's running best at every check (diagnostic only)
++      static const char *lv = getenv("QAP_CP_LIVE");
++      if (lv && *lv) { FILE *f = fopen(lv, "a"); if (f) { fprintf(f, "cp %d %.4f cpu %.1f\n", it, std::max(best, stall_first), tcpu()); fclose(f); } }
++    }
+     if ((stall_window <= 0 && giveup.empty()) || !std::isfinite(stall_cutoff)) return false;
+     const double b = std::max(best, stall_first);
+     best_hist.push_back({it, b});
