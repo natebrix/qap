@@ -1,0 +1,9 @@
+# tests/ship_test.py (stop and resume in CPU slices against the straight run, nug20) with every new key set
+$ python3 tests/ship_test.py --set cut.zone=0.03 --set cut.cp=100:1000 --set cut.handover=20:0:0.22:1.5:100:3:1.25 --set dnn.beta_sched=w=0.36,wc=2.88 --set cut.cp_wc_gap=5 --set cut.cp_wc_deficit=0.002 --set cut.cp_extrap=40:1.0:20:2 --set cut.giveup=100:30,300:10 --set cut.giveup_depth=2 --set cut.regions=experiments/bound_lab/regions/regions/tai20b.line2.txt --set dnn.dscale=0.5 --set dnn.dscale_until=100
+straight: 184 DNN nodes, 183 warm-started, 10,155 DNN iterations
+ok   ship64: 12 slices, 184 DNN nodes, 183 warm-started, 10,155 DNN iterations: every node identical to the straight run, and the 3 level tables
+ok   ship64store: 12 slices, 184 DNN nodes, 183 warm-started, 10,155 DNN iterations: every node identical to the straight run, and the 3 level tables
+     ship32: 12 slices, 184 DNN nodes, 183 warm-started, 10,175 DNN iterations
+     ship16: 12 slices, 184 DNN nodes, 183 warm-started, 10,165 DNN iterations
+     noship: 12 slices, 184 DNN nodes, 183 warm-started, 10,175 DNN iterations
+exit 0

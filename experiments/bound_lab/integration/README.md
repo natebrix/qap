@@ -226,4 +226,103 @@ the same way, shown here for `experiments/estimates/tho40/settings.golden` (all 
 Regenerated: `experiments/estimates/{tho40,sko42,sko49,tai50b}/settings.golden` and
 `experiments/wil50_feasibility/fullrun/settings.golden`. Not touched: the five stale ones under `tune/` (finding 18).
 
-(identity and reproductions: pending)
+## Switch-off identity
+
+Same command, same machine, the unpatched build (26894b2, `latest/` = `cognac` e1596e22) against the merged
+one (b86352e), no new key set. `ident.sh NAME base|new ARGS`, `ident_queue.sh`; `ident_cmp.py` compares the
+node traces (`QAP_NODE_TRACE`) and the DNN traces (`QAP_DNN_TRACE`) line by line in order, with only the CPU
+fields and the pid removed, so every bound to four decimals, every iteration count, status, pool size,
+branching line and child count must agree. All [m]; output in `logs/ident_cmp.log`.
+
+| run | settings | node-trace lines | DNN-trace lines | result |
+|---|---|---|---|---|
+| `nug20`: full search, no incumbent given | `latest/PARAM/nug20.par` (QPB only) | 1,138,754 | none | **identical** (1,138,620 / 911,370 / 103 nodes in both) |
+| `nug20_dnn`: full search, `-x 2:6:1:300:1 -u 2570` | the same with the DNN bound | 140 | 133 | **identical** |
+| `tho40_a`: `-F 26:10,8:0,2:32,18:39,35:24` | `experiments/estimates/tho40/tho40.par` (production; no cut phase) | 404 | 404 | **identical** |
+| `tho40_t3_z030`: `-F 26:10,8:0,38:32` | `tho40_search/par/z030.par` (grid cut phase in CP form, pools: keys from before the merge) | 38 | 38 | **identical** |
+| `tai30b_F3`: `-F 0:3,1:7,2:10` | `admm/bb_tai30b_base.par` (tai50b's settings; no grid) | 301 | 233 | **identical** |
+| `wil50_a220`: `-F 21:22,31:23,40:15` | `experiments/wil50_feasibility/fullrun/fullrun.par` (production; cut phase, pools), `QAP_DNN_POOL_CHECK=20` | @@WIL50N@@ | @@WIL50D@@ | @@WIL50R@@ |
+
+- The tho40 production slice is `rule2_ab`'s subtree a; the cut-phase slice is `tho40_search`'s `t3`. I added the
+  second because tho40's production settings have no cut phase and most of the merge is in the cut phase.
+  The nug20-with-DNN and tai30b pairs are extras (cheap).
+- **The three slices that have an author's trace also equal it**, line for line (`logs/ident_vs_authors.log`:
+  `rule2_ab/runs/a_base`, `tho40_search/runs/t3_z030`, `admm/logs/bb_tai30b_F3_base`), so this container's
+  build reproduces yesterday's.
+- CPU of each pair, indicative (shared box): within 1.2% of each other (`logs/ident_cpu.log`), e.g. tho40_a
+  694 s and 693 s. The `w.sc` tests in the transform cost nothing visible.
+- Node traces of the two nug20 full searches are 96 MB each and are not committed; their line count and digest
+  are in `logs/ident_cmp.log`, and `ident_queue.sh` regenerates them in 2.5 minutes.
+
+@@WIL50NOTE@@
+
+## Reproductions, one per patch
+
+Merged build, `repro.sh`, one process at a time at low priority beside the identity runs. Iterations and nodes
+are the metric. All [m]; comparisons in `logs/repro_cmp.log` and `logs/repro_handover.log`
+(`repro_cmp.py` matches the two DNN traces node by node).
+
+| patch | run | author | here | |
+|---|---|---|---|---|
+| `cut.handover` + `wc` (combined) | parent `26:10,8:0` bounded under `zallhw`, then the warm subtree `38:32` from its state | parent: phase stopped by the rule at 2,550 iterations, 237,004.5614. `38:32`: 110 + 300 = **410 iterations**, fathomed at 240,515.9671, 1 node | the same numbers, to the fourth decimal and the pool sizes (`kept 1428 dropped 145`, `active 1735`) | **exact** |
+| `cut.regions` | tai30b, `regions/bnb/tai30b_cut.par`, `-u 637117114`, in one piece | 637,117,113 proved in **363 nodes** (DNN 299 nodes, 250 fathomed; cut phase 49 nodes, 22 fathomed), in three resumed pieces | 363 nodes, 299 / 250, 49 / 22; the node trace's 375 lines equal the author's three pieces concatenated | **exact** |
+| `dnn.dscale = 0.5`, `dnn.dscale_until = 100` | tai30b `-F 0:3,1:7,2:10`, `admm/bb_tai30b_ds0.5u100.par` | **195 DNN nodes, 184 fathomed, 13,965 iterations** (243 nodes) | 195, 184, 13,965 (243); all 195 nodes equal in status, iterations and bound | **exact** |
+| `cut.giveup_depth = 2` | nug30 under `nug30_phase`'s `g2.par`, `-u 6124 -d 2` (the root, its 9 children and their 225) | depth 1: nine phases to the stall rule, 630-1,240 iterations, **6,570 in all**, none stopped by the give-up | depth 1: the same nine phases, 6,570, none gave up, each equal to four decimals | **exact at depth 1** |
+| | | depth 2 (225 nodes): 194 of 234 fathomed, 48 phases, 31 stopped by the give-up, 19,061 first-solve + 11,197 phase iterations | 194, 48, 31; 19,075 + 11,197. 214 of the 234 nodes equal in every field; the other 20 differ from the fourth decimal (first: 6078.7621 here, 6078.7632 there) | **14 iterations in 30,258 (0.05%)** |
+| `est_resume` | `bnbdrv -e -r` on a nug15 state | (no number in the branch) | root bound 992.015 from the state file, 0 without the patch (`logs/est_resume.log`) | works as described |
+
+- **The depth-2 difference on nug30 is not from the merge, I think, but I did not prove it.** The author's run is
+  the whole tree under `bench/parallel.py` with four workers and `ship.bits = 32`: a depth-2 node bounded by a
+  worker starts from its parent's state as shipped through a task file at 32 bits. Mine is one process with
+  `-d 2`, where the children take the parent's state from memory at full precision. `make shipcheck` shows the
+  size of that effect on nug20 (13,231 iterations with 64-bit shipping, 12,316 with 32). The depth-1 nodes
+  start cold in both and agree exactly. To settle it one would run the author's command with the merged build
+  (about 10 minutes on four free cores); I did not have four free cores.
+- The author's `cut.giveup_depth` build was the nug30 branch's own; the other three authors built their patch
+  alone. So these four rows also say that each patch behaves the same with the others compiled in.
+
+## Checks beyond the brief
+
+- **Every new key on at once, small instances with known optima** (`allkeys/`, `logs/allkeys.log`) [m]: tai12b and
+  tai15b with region files, nug15 and nug16b with a grid (nug16b with a region file as well), pools,
+  `dnn.dscale = 0.5` with `dnn.dscale_until`, `cut.handover`, `cut.giveup` with `cut.giveup_depth = 2`,
+  `cut.cp_extrap`, both `cut.cp_wc_*` keys, `wc=2.88`, `QAP_DNN_POOL_CHECK=20`, incumbent = optimum + 1 (+ 2 on
+  nug). All four find the optimum and prove it (36, 60, 31, 34 nodes; 8 to 12 cut phases each, most stopped at
+  iteration 200 by the hand-over rule, two by the give-up). This is a soundness check of the combination, on
+  instances where a wrong fathom on the optimal path would lose the optimum. It says nothing about speed.
+- **Stop and resume with every new key on** (`logs/shiptest_newkeys.log`) [m]: `tests/ship_test.py` with the keys
+  passed by `--set` (nug20, CP phase, hand-over, give-up from depth 2, extrapolation, a regions file on top of
+  the grid, scaling until 100): "ship64: 12 slices, 184 DNN nodes, 183 warm-started, 10,155 DNN iterations:
+  every node identical to the straight run, and the 3 level tables", and the same through the parent-state
+  store. So a search under the new keys resumed from state files is the same search.
+- **A state file across the two builds** (`logs/state_compat.log`): finding 3.
+- **Malformed values** (`logs/bad_values.log`): findings 4, 13.
+- **`dnntest -v` output** (`logs/dnntest_verbose.diff`): finding 6.
+
+## What I did not verify
+
+- @@WIL50UNV@@
+- sko49 (the brief allowed wil50 or sko49; I ran wil50).
+- `make continuationcheck` fails before and after the merge; I did not find out why.
+- The coordinator's AWS scenario (no boto3/moto in this container) and anything on EC2.
+- The four reproductions are one cheap run each. I did not rerun any author's larger tables (the `18:32`,
+  `30:32`, `2:32` subtrees, the path checks under the combined arm, tai50b dives with scaling, the whole nug30
+  tree under `g2` or `g5`).
+- Combinations nobody has measured for speed: `cut.giveup_depth` with `cut.handover`; `dnn.dscale` on an
+  instance with a cut phase; `cut.regions` together with `cut.grid` (run only in the all-keys and ship tests).
+- Whether the nug30 depth-2 difference is the shipping precision (above).
+- `dive_trace.patch`'s unconditional `importance = 1.0` (left out; see "What is in").
+- `dnncuts` was built (`make -C latest dnncuts`, exit 0) but not run.
+- The other branches were fetched once, at 48a624c (nug30), 022973d (tho40dives) and 5337856 (tai50b); neither
+  of the last two had a README yet, so my reading of their patches is from the code. Later commits there are
+  not in this merge.
+
+## Files
+
+- `all.patch`: `git diff origin/cognac b86352e -- latest` (863 lines, eight files). It applies to `cognac`'s
+  `latest/` with `git apply`. Cherry-picking b86352e also brings RUNNING.md's table and the five goldens,
+  which `make test` and `fullrun_check` need.
+- `ident.sh`, `ident_queue.sh`, `ident_cmp.py`, `ident/`: the identity runs. `repro.sh`, `repro_cmp.py`, `repro/`:
+  the reproductions (state files, 44 MB each, are not committed). `clean_checks.sh`: the clean-checkout checks.
+  `allkeys/`: the all-keys runs. `logs/`: everything quoted above.
+- The scripts name this container's paths (`/home/user/qap`, `/home/user/wt-base`, `/home/user/wt-clean`).
