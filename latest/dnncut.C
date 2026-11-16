@@ -30,6 +30,7 @@ DNNCutParams::DNNCutParams()
   pool_in = NULL; pool_out = NULL; other_orig = NULL; fixed_at = NULL; pool_check = 0;
   pool_all_round = -1; pool_all_out = NULL;
   cp_every = 0; cp_k = 0; cp_iters = 0; cp_sweeps = 1; cp_passes = 1;
+  ho_n0 = ho_a = ho_b = 0; ho_phi = 1.5; ho_w = 0;
 }
 
 namespace {
@@ -683,6 +684,9 @@ public:
   bool stalled = false;
   std::vector<std::pair<int, double>> giveup;   // cut.giveup: (T, G) pairs, see DNNCutParams
   bool gaveup = false;
+  // cut.handover (DNNCutParams): ho_w > 0 replaces the stall rule; ho_kids = m, ho_unit = 0.1% of |cutoff|
+  int ho_w = 0, ho_kids = 0;
+  double ho_n0 = 0, ho_a = 0, ho_b = 0, ho_phi = 1.5, ho_unit = 1;
   std::vector<std::pair<int, double>> best_hist;
   int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
   std::vector<std::vector<int>> rloc;
@@ -1214,12 +1218,21 @@ public:
 
   bool stop(int it, double best) override
   {
-    if ((stall_window <= 0 && giveup.empty()) || !std::isfinite(stall_cutoff)) return false;
+    if ((stall_window <= 0 && giveup.empty() && ho_w <= 0) || !std::isfinite(stall_cutoff)) return false;
     const double b = std::max(best, stall_first);
     best_hist.push_back({it, b});
     // cut.giveup: from iteration T a gap still above G will not close
     for (const auto &tg : giveup)
       if (it >= tg.first && stall_cutoff - b > tg.second) { gaveup = true; stalled = true; return true; }
+    if (ho_w > 0) {
+      // cut.handover: finishing the phase at its present rate against handing over to the children
+      if (it < ho_w) return false;
+      double b0 = stall_first;
+      for (const auto &h : best_hist) { if (h.first > it - ho_w) break; b0 = h.second; }
+      const double gap = stall_cutoff - b, rate = std::max(0.0, b - b0) / ho_w, g = gap / ho_unit;
+      if (ho_phi * gap > rate * ho_kids * (ho_n0 + ho_a * g + ho_b * g * g)) { stalled = true; return true; }
+      return false;
+    }
     if (stall_window <= 0 || it < stall_window) return false;
     double b0 = stall_first;   // the running best at it - W (first_lb before the first check)
     for (const auto &h : best_hist) { if (h.first > it - stall_window) break; b0 = h.second; }
@@ -2228,6 +2241,8 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
   pj.stall_window = cp.stall_rounds > 0 ? cp.stall_rounds * cp.iters : 0;
   pj.stall_factor = cp.stall_factor; pj.stall_cutoff = cutoff; pj.stall_first = first_lb;
   pj.giveup = cp.giveup;
+  pj.ho_w = cp.ho_w; pj.ho_n0 = cp.ho_n0; pj.ho_a = cp.ho_a; pj.ho_b = cp.ho_b; pj.ho_phi = cp.ho_phi;
+  pj.ho_kids = m; pj.ho_unit = 0.001 * std::max(1.0, fabs(cutoff));
   DNNParams par = base;
   par.ycuts = &pj;
   par.L_add = NULL; par.L_add_abs = 0;

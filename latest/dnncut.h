@@ -195,6 +195,13 @@ struct DNNCutParams {
   // phase of the node-10 subtree was above 24.5 at 200, 18.1 at 300, 13.9 at 400,
   // 8.9 at 600). Empty: off.
   std::vector<std::pair<int, double>> giveup;
+  // cut.handover = N0:A:B[:PHI[:W]] (CP form only; experiments/bound_lab/tho40_search/stop): the
+  // phase stops, and hands its pool to the children, when finishing would cost more than they
+  // would: PHI x gap / rate > m x (N0 + A g + B g^2), rate the gain of the running best over the
+  // last W iterations per iteration, g the gap in 0.1% of |cutoff|, m the node's free facilities
+  // (its children). It replaces the stall rule. ho_w = 0: off.
+  double ho_n0, ho_a, ho_b, ho_phi;
+  int ho_w;
   DNNCutParams();
 };
 

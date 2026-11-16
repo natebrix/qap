@@ -75,6 +75,7 @@ static Setting TABLE[] = {
   POLICY("cut.cp", "QAP_DNN_CUT_CP", 's', "", 0, 0, "k:K: the phase as one CP-ADMM solve separating K triangles every k iterations"),
   POLICY("cut.giveup", "QAP_DNN_CUT_GIVEUP", 's', "", 0, 0, "T:G,...: from iteration T a CP-ADMM phase stops when its gap to the cutoff is still above G (unset: the stall rule only)"),
   POLICY("cut.cp_iters", "QAP_DNN_CUT_CP_ITERS", 'i', "0", 0, 100000000, "CP-ADMM iteration limit (0: rounds x iters + freeze)"),
+  POLICY("cut.handover", "QAP_DNN_CUT_HANDOVER", 's', "", 0, 0, "N0:A:B[:PHI[:W]]: a CP-ADMM phase stops when PHI x gap / rate, the iterations it still needs at the rate of its last W, exceeds m x (N0 + A g + B g^2), its children's cost at gap g in 0.1% of the cutoff (unset: the stall rule)"),
   POLICY("cut.cp_sweeps", "QAP_DNN_CUT_CP_SWEEPS", 's', "1:1", 0, 0, "S[:P]: Dykstra sweeps and passes per CP-ADMM iteration"),
   POLICY("cut.cp_lazycert", "DNN_CP_LAZYCERT", 'i', "0", 0, 1, "1: the lazy certificate in CP-ADMM solves too"),
   POLICY("cut.xbar", "QAP_DNN_CUT_XBAR", 'i', "0", 0, 1, "1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's)"),

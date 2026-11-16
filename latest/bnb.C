@@ -952,6 +952,19 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	        p = q;
 	      }
 	    }
+	    // cut.handover = N0:A:B[:PHI[:W]] (CP form; experiments/bound_lab/tho40_search/stop): the phase
+	    // stops when finishing at its present rate would cost more than its children would
+	    if (const char *e = setting_s("cut.handover"); *e) {
+	      double v[5] = {0, 0, 0, 1.5, 200};
+	      int k = 0;
+	      for (const char *p = e; *p && k < 5; k++) {
+	        char *q; v[k] = strtod(p, &q);
+	        if (q == p || (*q && *q != ':')) { std::cerr << "cut.handover: expected N0:A:B[:PHI[:W]] got '" << e << "'" << std::endl; exit(2); }
+	        p = *q ? q + 1 : q;
+	      }
+	      if (k < 3 || v[0] < 0 || v[1] < 0 || v[2] < 0 || v[3] <= 0 || v[4] < 10) { std::cerr << "cut.handover: expected N0:A:B[:PHI[:W]] got '" << e << "'" << std::endl; exit(2); }
+	      cp.ho_n0 = v[0]; cp.ho_a = v[1]; cp.ho_b = v[2]; cp.ho_phi = v[3]; cp.ho_w = (int)v[4];
+	    }
 	    if (cp.grid_rows == 0) cp.prefix = true;
 	    DNNPool pool_out;
 	    if (dnn_pool && cp.side == cut_side) {
