@@ -91,3 +91,43 @@ setting QAP_XBAR_DEBUG 0 default diagnostic
 resumed: 1 open nodes, 1 nodes and 2043.6 s so far, incumbent 4.58822e+08
 branching_weight() = 0.5
 couldn't find [./SYM/tai50b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 2684.95 seconds 
+         Nodes: 2 / 0 / 0
+    root bound: 2.8858e+08
+ fw iterations: 5050
+     DNN bound: 2 nodes, 0 fathomed, 302.71 s
+     cut phase: 2 nodes, 0 fathomed, 2379.51 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	 2043.60
+ 1           1	0.0000	0.0000	  641.35
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 1 
+nodes       1        0        1        0 
+time  2043.60     0.00   641.35     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.050660	0.000000
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 0           1	0.0000	1.0000	        470	   470.0	  249.31
+ 1           1	0.0000	1.0000	        110	   110.0	   53.40
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 0           1	0.0000	 1792.98
+ 1           1	0.0000	  586.53
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+
+eigendecompositions for W and U: 2 computed, 0 reused from the per-size cache

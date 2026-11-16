@@ -39,7 +39,7 @@ cut block of `../tho40_search/README.md` (`cut.cp = 100:1000`, `cut.warmy = 1`),
 4. **End to end** [m]: the warm subtree `26:10,8:0,18:32` (1,490 nodes in production; 74 nodes and
    13,035 DNN iterations, 1,437 CPU s under tho40_search's `z030`) takes **38 nodes and 5,891
    iterations, 625 CPU s, with `wc=2.88` alone: 2.2x fewer iterations, 2.3x less CPU**. The tree ends
-   one level higher: every depth-4 child fathoms. @@R5_SHORT@@
+   one level higher: every depth-4 child fathoms. With `cut.cp_wc_gap = 300` as well (near misses stay at `w`): **5,605 iterations, 599 CPU s: 2.33x and 2.4x**.
 5. **Where the higher penalty does not belong** (section 2 and 3):
    - *near misses*: the change of penalty costs the first 30 to 50 iterations of a phase (100 to 150
      from an inherited pool; the running best stays at the first solve's value), which is most of a
@@ -54,10 +54,15 @@ cut block of `../tho40_search/README.md` (`cut.cp = 100:1000`, `cut.warmy = 1`),
    - *pooled children* have a deficit near zero too (-0.11 to +0.11%), so that rule leaves them at
      `w`: right for the short ones, wrong for a long one (a pooled phase 479 short: 1,573 iterations
      at `w`, 750 at `wc=2.88`). With the rule the subtree takes 6,422 iterations (2.0x) instead of
-     5,891. I did not find a signal that tells a long pooled phase from a path node.
-6. **Against the bar** (2x in iterations to a given bound at equal cost): met on the far-miss phases,
+     5,605. I did not find a signal that tells a long pooled phase from a path node.
+6. **The rounds form with a large Polyak target** (the coordinator's lead from `../swapcuts`: ahead of
+   the CP form at equal iterations on two far-miss nodes) is the same finding seen from the other
+   side: a large dual step. Against the CP form at `wc=2.88` the rounds at delta 400 are 500 to 850
+   units behind at 450 to 900 total iterations on both nodes; d4_d fathoms at 1,010 total iterations
+   under CP, and ends 196 short at 1,350 under the rounds (section 5b).
+7. **Against the bar** (2x in iterations to a given bound at equal cost): met on the far-miss phases,
    which hold most of a subtree's iterations today: 3x to 4.6x from the penalty, 5.2x with the two
-   additions on node A; 2.0 to 2.2x on the one subtree run end to end. In the other regime (no primal
+   additions on node A; 2.0 to 2.33x on the one subtree run end to end. In the other regime (no primal
    deficit: the path, pooled children) the tail is as slow as before and sweeps and extrapolation
    give 1.1 to 1.15x there: closed.
 
@@ -71,9 +76,10 @@ cut.cp_sweeps = 3:1            # optional, measured on nodes only
 cut.cp_extrap = 100:1:30:2     # cpfast.patch; optional, measured on nodes only
 ```
 
-- Without the patch: `wc=2.88` alone is run 1 (2.2x on the subtree), with slower phases near the path.
-- With `cut.cp_wc_deficit` the path's phases run exactly as today, at the price of 9% on this
-  subtree. Which of the two is cheaper over the tree depends on how much of it looks like the path;
+- Without the patch: `wc=2.88` alone is run 1 (2.2x on the subtree); with `cut.cp_wc_gap` run 5
+  (2.33x). Both have slower phases near the path.
+- With `cut.cp_wc_deficit` as well (runs 3 and 4, 2.0x) the path's phases run exactly as today, at the
+  price of 15% on this subtree (6,422 against 5,605). Which of the two is cheaper over the tree depends on how much of it looks like the path;
   nothing here measures that (first item of "next").
 
 ## How it was measured
@@ -268,7 +274,7 @@ search/NAME/dnn.txt`:
 | `search/w18_wc2_gap400` (run 2) | `wc=2.0`, `cut.cp_wc_gap = 400` | 38 | 3,381 + 2,496 = 5,877 | 622 | 6 (5) | 2.22x |
 | `search/w18_rule` (run 3) | `wc=2.88`, `cut.cp_wc_gap = 300`, `cut.cp_wc_deficit = 0.004` | 38 | 3,323 + 3,099 = 6,422 | 698 | 6 (5) | 2.03x |
 | `search/w18_rule2` (run 4) | run 3's with `cut.cp_wc_deficit = 0.002`, `cut.cp_wc_test = 50:0.004` (`cpfast_wc_test.patch`) | 38 | 3,323 + 3,099 = 6,422 | 677 | 6 (5) | 2.03x |
-@@R5_ROW@@
+| `search/w18_wc2.88_gap300` (run 5) | `wc=2.88`, `cut.cp_wc_gap = 300` (`cpfast.patch` as delivered) | 38 | 3,323 + 2,282 = 5,605 | 599 | 6 (5) | **2.33x** |
 
 - The root's phase ends 800 units higher (1,605 short against 2,421), so the 37 children start from
   a better pool: 32 fathom in their pooled first solve (29 before) and the 5 that need a phase are 25
@@ -281,12 +287,56 @@ search/NAME/dnn.txt`:
   higher penalty, and the first solve's deficit does not see it (a pooled first solve has converged
   on the pool it inherited; the phase then adds cuts whose multipliers creep). Run 4 adds a test on
   the phase's own iterate for that case; it never fired, and the run is run 3's to the iteration.
-@@R5_TEXT@@
-- Against production's 38,100 iterations [e]: 6.5x for run 1. CPU: 2.3x against `z030`, measured hours apart on
+- Run 5 is run 1 with the gap rule alone: the four pooled near misses at `w` (49, 82, 110 iterations;
+  the one 307 short is above the gap and takes 281 at `wc`), the long pooled phase at `wc` (750):
+  5,605 iterations, 2.33x fewer than `z030` and 2.4x less CPU.
+- Against production's 38,100 iterations [e]: 6.5x for run 1, 6.8x for run 5. CPU: 2.3x against `z030`, measured hours apart on
   a shared box (0.106 s per iteration in run 1, 0.110 in the reference).
 - One subtree, the class that holds 54% of the A/B subtree's CPU in tho40_search's table. Not run: a
   subtree whose depth-3 root fathoms (`38:32`: one node, 1,001 iterations against 3,541, 3.5x, is
   the probe above), the classes above 5,000 short, any Knuth dive.
+
+## 5b. The rounds form with a large Polyak target against the CP form (the coordinator's lead) [m]
+
+`../swapcuts/README.md` observed that the triangle rounds with target best + 400 (`-delta 400`; 150
+iterations a round) are ahead of the CP form at equal iterations on two far-miss nodes. That CP form
+ran at dnncuts' default penalty (0.108 m/3, 1.4 times today's in the search). Same nodes, 300
+iterations of first solve, certified bound by total iterations (theirs: `../swapcuts/logs/
+s3_tho40_d4d_jTd400.log`, `s3_tho40_d5d_jT.log`, `s3_tho40_d4d_cp1400.log`; here: `logs/D4d_wc288.log`,
+`logs/D5_base.log`, `logs/D5_wc288.log`):
+
+| total iterations | d4_d: rounds, delta 400 | d4_d: CP, dnncuts' penalty | d4_d: **CP, `wc=2.88`** | d5_d: rounds, delta 400 | d5_d: CP today | d5_d: **CP, `wc=2.88`** |
+|---|---|---|---|---|---|---|
+| 300 (first solve) | 238,237.8 | 238,237.8 | 238,116.2 | 237,994.8 | 237,987.5 | 237,987.5 |
+| 450 | 238,759.8 | | 239,295.0 | 238,551.4 | | |
+| 600 | 239,134.6 | 239,172.5 (at 500) | 239,985.5 | 238,891.2 | 238,975.7 | 239,680.5 |
+| 750 | 239,511.7 | 239,583.7 (at 700) | 240,287.3 | 239,251.8 | | |
+| 900 | 239,874.9 | 239,839.1 | 240,442.7 | 239,600.0 | 239,390.0 | 240,162.7 |
+| 1,050 | 240,163.9 | | **240,542.3** (past the cutoff at 1,010) | 239,904.6 | | 240,273.7 |
+| 1,200 | 240,251.0 | 240,105.2 (at 1,250) | 240,606.6 | 240,052.6 | 239,570.9 (at 1,100) | 240,298.9 (at 1,100) |
+| 1,350 | 240,318.1 (196 short) | | 240,648.7 | 239,914.4 | | |
+| 1,500 | 240,288.3 | 240,299.8 (at 1,700) | | 240,094.2 (420 short) | | |
+
+- d4_d with today's settings in the driver here (`logs/D4d_base.log`): 239,178.6 / 239,615.2 /
+  239,758.0 / 239,965.9 at 600 / 900 / 1,050 / 1,350 total: level with the rounds at 600, 260 to 410
+  behind them from 900 on.
+- The observation holds against the CP form at a low penalty, and it is the same finding: a Polyak
+  step sized to a target 400 above the bound is a large dual step, which is what the CP form lacks
+  at `w`. **At `wc=2.88` the CP form is 500 to 850 units ahead of the rounds at 450 to 900 total
+  iterations on both nodes**; d4_d fathoms at 1,010 total where the rounds end 196 short at 1,350, and
+  d5_d is at 900 where the rounds are not at 1,500.
+- Rounds with the target scaled to the gap, and the hybrid (a few large-target rounds, then CP from
+  their pool and multipliers), were not run: the comparison above arrived in the last half hour. The
+  oracle of section 1 bounds what the hybrid can give from the multipliers alone: the CP phase
+  started with the final pool and multipliers of a long run is 190 units ahead at iterations 100 to
+  200, not at the final bound, because the semidefinite multiplier has to follow; the exchange-then-CP
+  test of `../swapcuts` says the same of its multipliers ("a level shift of about 150, not a faster
+  climb").
+- With the search's new hand-over rule and early entry the iterations that count are the first 300
+  to 1,500 of a phase. That is where the penalty acts: at phase iteration 300 a far miss is 645 to
+  856 units higher than today (nodes A, D5, B), at 500 about 706 to 889 (A, B), and the start-up cost of
+  section 2 (no progress for the first 30 to 50 iterations) weighs more the earlier the phase is cut
+  off: a hand-over rule tuned on today's curves should be replayed on the new ones.
 
 ## 6. Validity [m]
 
@@ -335,7 +385,7 @@ Every key defaults to today's behaviour.
 | key | default | what |
 |---|---|---|
 | `dnn.beta_sched = ...,wc=F` | unset | existing. The phase's penalty factor. 2.88 for tho40 (1.44 to 2.88 all give at least 3x at 90% on node A) |
-| `cut.cp_wc_deficit = D` | 0 (off) | new. The phase takes `wc` only when the first solve's bound less its primal objective is at least D x the cutoff; otherwise `w`. 0.002 keeps the path's phases as they are and costs 9% on the subtree of section 5 |
+| `cut.cp_wc_deficit = D` | 0 (off) | new. The phase takes `wc` only when the first solve's bound less its primal objective is at least D x the cutoff; otherwise `w`. 0.002 keeps the path's phases as they are and costs 15% on the subtree of section 5 (6,422 against 5,605) |
 | `cut.cp_wc_gap = G` | 0 (off) | new. A phase that starts within G of the cutoff keeps `w`. 300 |
 | `cut.cp_sweeps = 3:1` | 1:1 | existing. 1.15x fewer iterations at 7% more per iteration in both regimes; not in the subtree runs |
 | `cut.cp_extrap = E:GAMMA[:GUARD[:MODE]]` | unset | new, experimental. Every E iterations Z and the cut multipliers (mode 2; 3: Y too; 1: the multipliers alone) move GAMMA times their change over the last E/2; if the certified value GUARD iterations later is below the value before the jump, the state is restored and GAMMA halved. `100:1:30:2`: 1.19x on node A at `wc=2.88` at no cost per iteration, 1.1x on the path node at `w`, 1.3x with three sweeps on node A; not in the subtree runs |
@@ -355,8 +405,8 @@ Every key defaults to today's behaviour.
 
 1. **Settle `cut.cp_wc_deficit` on the path.** Rerun `../tho40_search`'s `path7` and `path9` jobs (the
    path node, its children with the inherited pool, the siblings) under `wc=2.88` with and without
-   the rule. That measures what the rule protects, in nodes and iterations, against the 9% it costs on
-   `18:32`; the driver runs here only show the path nodes' own bounds.
+   the rule. That measures what the rule protects, in nodes and iterations, against the 15% it costs
+   on `18:32`; the driver runs here only show the path nodes' own bounds.
 2. **Long pooled phases.** One phase (479 short, 1,573 iterations at `w`, 750 at `wc`) is 25% of the
    subtree under the rule. Candidates: `wc` for a pooled phase whose shortfall is above some G2 (the
    gap rule with two thresholds; path nodes with a pool would take it too), or a stop rule that sends
@@ -386,6 +436,7 @@ Every key defaults to today's behaviour.
 | `scripts/curve.py`, `scripts/levels.py`, `scripts/validity.py` | driver logs: bound by iteration, iterations to levels, the path check |
 | `scripts/hist.py`, `scripts/early.py` | DNN traces of the search: phases and their running best |
 | `scripts/small.sh`, `scripts/small_sweep.sh`, `logs/small_sweep.txt` | the small instances |
+| `fill/`, `scripts/fill.py` | the generated tables that were pasted into this file |
 | `par/` | `wcF.par`: tho40.par with `wc=F`; `z030_*.par`: tho40_search's `z030` plus the keys of section 5; `pr_*.par`: the 400 to 500 iteration probes of section 2 |
 | `logs/A_*`, `C_*`, `D5_*`, `R_*`, `V_*` | driver runs by node (B is read from the search traces, section 4) |
 | `state/*.pool` | the pool each driver run handed on; the first solves' states (`state/*.warm`) and the `search/*/root.state` files were deleted at the end (30 to 45 MB each; `run.sh` and the `wroot` job rewrite them). **The `.warm` files were swept into the orchestrator's "agents' logs in progress" commits before I added `.gitignore`: they are in the branch's history** |
