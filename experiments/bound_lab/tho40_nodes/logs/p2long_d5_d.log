@@ -1,3 +1,11 @@
 # experiments/dnn_cuts/dnncuts -x 26:10,8:0,2:32,6:39,33:24 -u 240516 -grid 5:8 -side 1 -I 300 -k 1000 -cpsep 100:1000 -cpiters 2000 -T 1 -v qaplib/tho40t.dat
 objective values are even integers: fathoming tolerance 1.95
 instance qaplib/tho40t.dat n=40 node 26:10,8:0,2:32,6:39,33:24 m=35 cutoff 240514.0500  cuts regional (grid) side 1, 11 regions
+round  0  lb 237994.8477 (gain 0.0000, best 0.0000)  primal 237621.0442  status iter_limit  iters 300  cpu 28.6  active 0  violated 2681 (max 0.0768)  added 1000
+cp pool: round 0's separation at the give-up point, 9 regions, 1000 cuts; in-solve separation every 100 iterations, 1000 cuts, cap 0, drop after 0
+cp pool: 1000 cuts kept (0 dropped), 1000 in the projector, 4400 terms, 11 regions, 36 region-pair classes; sweeps 1 passes 1 omega 1
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 1.26 (base 3.5) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 10 beta 1.26 pres/(beta dY) 0.6201 rhat 0.1007 shat 0.005143 rhat/shat 19.58 |Y| 3.499 |VRV| 3.467 |Z| 110.5
+it    10 lb 232622.9255 (cert 232622.9255, margin 1.74e-05) primal 215267.2353 pres 3.52e-01 dY 4.51e-01 npos 789 cpu 1.41
+cp it    10 cert 232622.92550929572 hsum 1780.42 cpcpu 0.07 cuts 1000 active 715 sum_nu 0.614434 viol 471 (max 2.642e-03/||G||, rnorm 1.824e-02) dstep 7.144e-03 | ms pstep 3.41 (20) hpass 0.11 (10) diag 0.0 s | pool 1000 sep 0 (last: violated 0 max 0.0000 added 0; total added 0 dropped 0) sep 0.0 s
