@@ -1,0 +1,134 @@
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/experiments/bound_lab/regions/size50/par/t25kid.par
+resume from: /home/user/qap/experiments/bound_lab/regions/size50/logs/t25kid.state
+max_depth has been set to 1
+state file: /home/user/qap/experiments/bound_lab/regions/size50/logs/t25kid.out.state
+input file: ../qaplib/tai25b.dat
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 0-23, relative gap <= 1, give up after 100 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 72 hash dcb68b7c450527fb
+setting dnn.depths 0:23 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 100 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 100 par policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36 par policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 1 par policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 par policy
+setting cut.grid "" default policy
+setting cut.regions /home/user/qap/experiments/bound_lab/regions/regions/tai25b.comb.txt par policy
+setting cut.rounds 12 par policy
+setting cut.iters 200 par policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 par policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 0 par policy
+setting cut.warmy 1 par policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp 100:1000 par policy
+setting cut.giveup "" default policy
+setting cut.cp_iters 3000 par policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 1 par policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 1 par policy
+setting est.xbar_mix 0.3 par policy
+setting par.hash 168849b201826aec par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/bound_lab/regions/size50/par/t25kid.par flag run
+setting QAP_DNN_TRACE /home/user/qap/experiments/bound_lab/regions/size50/logs/t25kid.dnn env diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE /home/user/qap/experiments/bound_lab/regions/size50/logs/t25kid.nodes env diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+read_state: [/home/user/qap/experiments/bound_lab/regions/size50/logs/t25kid.state] warning: the state file was written with settings [a105ed40726e1c6f dnn.depths=0:23 dnn.maxgap=1 dnn.giveup=100 dnn.warm=1 dnn.giveup_warm=100 dnn.ext=20 dnn.gamma1=1.0 dnn.gamma=1.0 dnn.cheb=3 dnn.tight_lam=2 dnn.gu_zone=0 dnn.beta=0.21 dnn.refresh=120 dnn.warm_y=2 dnn.beta_sched=w=0.36 dnn.cross=2 dnn.lazycert=1 ship.bits=64 cut.zone=1 cut.side=0 cut.regions=/home/user/qap/experiments/bound_lab/regions/regions/tai25b.comb.txt cut.rounds=12 cut.iters=200 cut.stall=0 cut.freeze=0 cut.warmy=1 cut.cp=100:1000 cut.cp_iters=600 pool.on=1 est.xbar=1 est.xbar_mix=0.3 par.hash=07099c47d76169ca], this run has [dcb68b7c450527fb dnn.depths=0:23 dnn.maxgap=1 dnn.giveup=100 dnn.warm=1 dnn.giveup_warm=100 dnn.ext=20 dnn.gamma1=1.0 dnn.gamma=1.0 dnn.cheb=3 dnn.tight_lam=2 dnn.gu_zone=0 dnn.beta=0.21 dnn.refresh=120 dnn.warm_y=2 dnn.beta_sched=w=0.36 dnn.cross=2 dnn.lazycert=1 ship.bits=64 cut.zone=1 cut.side=0 cut.regions=/home/user/qap/experiments/bound_lab/regions/regions/tai25b.comb.txt cut.rounds=12 cut.iters=200 cut.stall=3 cut.freeze=0 cut.warmy=1 cut.cp=100:1000 cut.cp_iters=3000 pool.on=1 est.xbar=1 est.xbar_mix=0.3 par.hash=168849b201826aec] (the hash covers every policy and experiment setting; the list shows those set away from their defaults, so a changed default shows as a hash change alone) (allowed)
+resumed: 1 open nodes, 1 nodes and 11.4971 s so far, incumbent 3.44356e+08
+branching_weight() = 0.5
+couldn't find [./SYM/tai25b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 57.3328 seconds 
+         Nodes: 2 / 0 / 0
+    root bound: 1.14205e+08
+ fw iterations: 2550
+     DNN bound: 2 nodes, 0 fathomed, 2.45242 s
+     cut phase: 2 nodes, 0 fathomed, 54.6381 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	   11.50
+ 1           1	0.0000	0.0000	   45.84
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 1 
+nodes       1        0        1        0 
+time    11.50     0.00    45.84     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.018360	0.000000
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 0           1	0.0000	1.0000	        110	   110.0	    1.13
+ 1           1	0.0000	1.0000	        110	   110.0	    1.32
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 0           1	0.0000	   10.23
+ 1           1	0.0000	   44.41
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+
+eigendecompositions for W and U: 2 computed, 0 reused from the per-size cache

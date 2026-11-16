@@ -111,6 +111,7 @@ def main():
     ap.add_argument("--detail")
     a = ap.parse_args()
     P = [p for p in load_phases(a.runs.split(",") if a.runs else None) if not p["path"]]
+    if not a.runs: P = [p for p in P if "zallh" not in p["run"]]   # the phases recorded under the stall rule only
     print("the hand-over model against the misses whose children ran: gap left, m, children measured, model")
     for p in P:
         if p["after"] is not None and p["status"] != "fathomed" and p["after"] > 0:
