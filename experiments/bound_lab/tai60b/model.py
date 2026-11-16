@@ -75,13 +75,13 @@ branch = [int(round(x)) for x in branch]; kids = [int(round(x)) for x in kids]; 
 print(f'order {order_spec} slack {slack_spec}: nodes by depth')
 print('depth  s(d)      bounded  branch  fathom in a phase  iterations  CPU-h')
 # cost [e]: a branching node 110 + 800 iterations, a phase-fathomed one 110 + 400, a first-solve fathom 45;
-# 1.3 s per iteration at m = 59, scaled by (m/59)^6 (measured 0.72 at m = 54)
+# 1.3 s per iteration at m = 59, scaled by (m/59)^4.5 (measured 0.93 at m = 56, 0.72 at m = 54, 0.46 at m = 48, 0.43 at m = 46)
 IT = 0.0; CPU = 0.0
 for d in range(0, n - 1):
     nb = kids[d] if d else 1
     it = branch[d] * 910 + phasef[d] * 510 + max(0, nb - branch[d] - phasef[d]) * 45
     if d == 0: it = 3470
-    cpu = it * 1.3 * ((n - d) / 59.0) ** 6 / 3600
+    cpu = it * 1.3 * ((n - d) / 59.0) ** 4.5 / 3600
     IT += it; CPU += cpu
     if branch[d] > 1 or d < 10: print(f'{d:3d}  {s(d) if d else float("nan"):10.0f}  {nb:7d} {branch[d]:7d}  {phasef[d]:7d}  {it:10.0f}  {cpu:7.2f}')
 print(f'total: branch nodes {sum(branch)}{" (levels above the cap were sampled)" if capped else ""}, nodes bounded {sum(kids) + 1}, iterations {IT:.3g}, core-hours on this box {CPU:.1f}')

@@ -37,28 +37,37 @@ metrics; CPU seconds are from a 4-core box that ran 3 to 4 solver processes at o
    - **The fringe appears with the first location in a large cluster** (depth 4, location 1 of the
      14-point cluster; depth 3 is a column branch on a facility). There 5 of 5 random children
      fathom in the first solve, and of 9 children whose facility belongs to the same cluster in the
-     best known solution 5 fathom in the first solve and 4 do not; 2 of those 4 were given a phase
-     and both end it unfathomed (0.23M and 0.40M short at the 1,000-iteration limit)
-     [m `d4p1_under_path`, `d4_1_39`, `d4_1_59`; @@D429@@].
+     best known solution 5 fathom in the first solve and 4 do not; 3 of those 4 were given a phase
+     and all three end it unfathomed (0.23M, 0.25M and 0.40M short at the 1,000-iteration limit)
+     [m `d4p1_under_path`, `d4_1_39`, `d4_1_59`, `d4_1_29`].
+   - **A survivor's children mostly die at once, but not all, and the ones that do not are again
+     same-cluster ones**: under the depth-4 survivor `1:39`, 8 of 10 random children fathom in the
+     first solve (27-90 iterations); the other two (0.24M and 0.62M short) carry a facility of their
+     location's cluster, and the one given a phase ends it 0.17M short at the limit
+     [m `d5p1_under_1_39`, `d5_1_39_22_48`]. tai50b's survivor had 1 of 10. So the fringe does
+     compound for at least two levels.
    - **Which children survive is predictable from the near-optimal solutions**: a child survives
      when the best completion a 2-swap descent finds for it costs less than best known + the
-     slack of the bound at that depth (the on-path node's shortfall). That rule gets 23 of the 24
-     depth-1 and depth-4 nodes above right in the first solve (`nearopt.py`, section 4). The best known
+     slack of the bound at that depth (the on-path node's shortfall). That rule gets 26 of the 27
+     depth-1 and depth-4 first solves above right (`nearopt.py`, section 4). The best known
      solution has 8 pair swaps within 10,000 of it, 40 within 100,000 and 213 within 1M, all but
      two inside one cluster [m `nearopt.py swaps`]: that is the fringe, and it compounds only as
      far as the bound's slack exceeds those excesses.
    - **The on-path nodes close faster than tai50b's**: 2.72M short at depth 1, 1.58M, 1.07M, 0.73M,
-     0.61M, 0.46M, 0.41M, 0.37M, 0.34M, 0.22M, 0.14M, 0.13M at depth 12@@D18@@ (0.45% of the best known
-     value at depth 1, 0.02% at depth 12; tai50b: 1.05%, 0.85%, 0.67% at depths 1-3) [m chain
-     `d*_path`].
+     0.61M, 0.46M, 0.41M, 0.37M, 0.34M, 0.22M, 0.14M, 0.13M at depth 12, then 0.10M, 0.10M, 0.09M,
+     0.08M, 0.08M, 0.06M at depths 13-18 (0.45% of the best known value at depth 1, 0.02% at depth
+     12, 0.01% at depth 18; tai50b: 1.05%, 0.85%, 0.67% at depths 1-3) [m chain `d*_path`]. That is
+     far closer than tai50b and far less close than tai30b (0.01% at depth 3, exact from depth 15).
 
-3. **Estimate for tai60b: about 1,000-2,000 core-hours on this box (2e7-4e7 ADMM iterations,
-   3e5-5e5 nodes), with a range of 400 to 20,000 core-hours** [e]; @@EST@@. It is a model, not a
-   dive: the tree of all prefixes whose best completion lies within the measured slack, costed
-   with the measured iterations per node class (section 5). What it rests on and what would move
-   it is in section 5. So: **tai60b looks within reach of a few thousand core-hours, not safely
-   so; the number to get next is the slack at depths 13-25**, which the model shows deciding
-   between 400 and 20,000. tai80b's tree was not sampled (the root alone is 8 s per iteration here).
+3. **Estimate for tai60b: 500-2,500 core-hours on this box (5e6-4e7 ADMM iterations, 6e4-4e5
+   nodes; about 700-3,500 c7a core-hours), with a range of 400 to more than 10,000** [e]. It is a
+   model, not a dive: the tree of all prefixes whose best completion lies within the measured
+   slack of the bound, costed with the measured iterations per node class (section 5, with what it
+   rests on). About 440 of those core-hours are depths 0-16, where the slack is measured; the rest
+   is the extrapolation. So: **tai60b looks within reach of a few thousand core-hours, but not
+   safely: the number to get next is the bound's slack at depths 17-30 and off the path**, which
+   decides between 400 and 10,000. Knuth dives from the saved root would give it. tai80b's tree was
+   not sampled (its root alone costs 8 s per iteration here).
 
 ## 1. Build, regions, cost per iteration
 
@@ -155,7 +164,29 @@ the first matrix) of the permutation holds facility L; the on-path child of a br
 
 **The path** (`runs/d*path`; first solves are 110 iterations each):
 
-@@PATHTABLE@@
+| depth | child (m) | first solve: certified, short | phase end: certified | short | % of best known | phase iterations (end) | CPU-s | s/it |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `44:45` (59) | 603,840,108, 4,374,946 | 605,492,773 | 2,722,281 | 0.448% | 780 (stalled) | 1,185 | 1.33 |
+| 2 | `43:58` (58) | 606,006,543, 2,208,511 | 606,638,236 | 1,576,818 | 0.259% | 770 (stalled) | 968 | 1.10 |
+| 3 | `45:26` (57) | 606,838,380, 1,376,674 | 607,149,697 | 1,065,357 | 0.175% | 600 (stalled) | 678 | 0.95 |
+| 4 | `1:33` (56) | 607,144,783, 1,070,271 | 607,481,185 | 733,869 | 0.121% | 830 (stalled) | 803 | 0.85 |
+| 5 | `6:24` (55) | 607,330,940, 884,114 | 607,605,946 | 609,108 | 0.100% | 820 (stalled) | 707 | 0.76 |
+| 6 | `7:19` (54) | 607,184,172, 1,030,882 | 607,752,706 | 462,348 | 0.076% | 1000 (limit) | 805 | 0.72 |
+| 7 | `0:32` (53) | 607,757,734, 457,320 | 607,805,120 | 409,934 | 0.067% | 600 (stalled) | 503 | 0.71 |
+| 8 | `14:54` (52) | 607,767,805, 447,249 | 607,841,134 | 373,920 | 0.061% | 600 (stalled) | 463 | 0.65 |
+| 9 | `24:2` (51) | 607,818,783, 396,271 | 607,878,851 | 336,203 | 0.055% | 600 (stalled) | 401 | 0.56 |
+| 10 | `28:50` (50) | 607,774,646, 440,408 | 607,995,616 | 219,438 | 0.036% | 1000 (limit) | 603 | 0.54 |
+| 11 | `18:43` (49) | 607,914,004, 301,050 | 608,071,159 | 143,895 | 0.024% | 1000 (limit) | 543 | 0.49 |
+| 12 | `23:18` (48) | 607,998,639, 216,415 | 608,087,137 | 127,917 | 0.021% | 1000 (limit) | 515 | 0.46 |
+| 13 | `38:41` (47) | 608,033,437, 181,617 | 608,111,140 | 103,914 | 0.017% | 1000 (limit) | 468 | 0.42 |
+| 14 | `15:12` (46) | 607,879,688, 335,366 | 608,113,739 | 101,315 | 0.017% | 1000 (limit) | 478 | 0.42 |
+| 15 | `31:10` (45) | 608,097,002, 118,052 | 608,121,522 | 93,532 | 0.015% | 600 (stalled) | 314 | 0.44 |
+| 16 | `20:21` (44) | 608,084,974, 130,080 | 608,130,965 | 84,089 | 0.014% | 1000 (limit) | 426 | 0.38 |
+| 17 | `16:17` (43) | 608,086,740, 128,314 | 608,136,872 | 78,182 | 0.013% | 900 (stalled) | 357 | 0.35 |
+| 18 | `19:13` (42) | 608,113,127, 101,927 | 608,154,280 | 60,774 | 0.010% | 920 (stalled) | 383 | 0.37 |
+
+Shortfalls are against the best known value 608,215,054 (the cutoff is that + 0.05). "limit": the phase
+reached `cut.cp_iters = 1000` still gaining; "stalled": stopped by `cut.stall = 3`.
 
 The branching order is the search's own (rule 9): the 2-point cluster's locations 44 and 43, a column
 branch on facility 26 (its children are the 58 free locations; on-path 45), then locations of the
@@ -184,18 +215,25 @@ cluster, whose facilities in the best known solution are 0, 19, 23, 24, 29, 32, 
 | `1:8`, `1:13`, `1:17`, `1:50`, `1:53` | random (5 of 5), other clusters | 13.6M-34.3M (`1:53`, `1:8`, `1:13`, `1:17`, `1:50`: 13.6M, 15.9M, 30.3M, 33.0M, 42.9M) | fathomed, 23-50 iterations | |
 | `1:23`, `1:0` | same cluster | 2.86M, 2.47M | fathomed, 56 and 70 iterations | |
 | `1:32`, `1:35`, `1:36` | same cluster | 1.57M, 1.33M, 1.23M | fathomed, 87-117 iterations (by 2k-14k) | |
-| `1:29` | same cluster | 0.96M | 705,728 short | @@D429ROW@@ |
+| `1:29` | same cluster | 0.96M | 705,728 short | 247,676 short at the 1,000 limit, gaining 25k per 100: **branches** |
 | `1:24` | same cluster | 0.51M | 1,124,476 short | not run |
 | `1:59` | same cluster | 0.51M | 798,843 short | 231,441 short at the 1,000 limit: **branches** |
 | `1:39` | same cluster | 0.25M | 922,686 short | 396,970 short at the 1,000 limit: **branches** |
 | `1:33` (on-path) | | 0 | 1,070,271 short | stalled 733,869 short after 830 |
 
 So at depth 4 the 43 other-cluster children fathom at once [e from 5 of 5], and of the 13 same-cluster
-ones about 8 fathom in the first solve, 1-2 in a phase and **3-4 survive** [e from 9 first solves and
-@@NPH@@ phases]. tai50b had about 15 of 46 surviving at its depth 4.
+ones about 8 fathom in the first solve and **4-5 survive** (the on-path one included) [e from 9 first
+solves and 3 phases, all three unfathomed at the limit]. tai50b had about 15 of 46 surviving at its
+depth 4. The phases of these survivors end 0.74M to 1.2M below the upper bounds on their subtrees'
+optima (shortfall + excess), against 0.73M for the on-path node: off the path the slack is up to 1.6
+times larger.
 
 **A survivor's children** (`d5p1_under_1_39`: first solves of 10 random children of `1:39`, which
-branches on location 22): @@D5@@
+branches on location 22, in the 12-point cluster {14..25}, whose facilities in the best known solution
+are 2, 9, 12, 13, 17, 18, 21, 25, 31, 43, 48, 54): 8 fathom in the first solve (27-90 iterations,
+20-62 CPU-s), among them one same-cluster facility (`22:17`); `22:9` ends 237,006 short and `22:48`
+624,649 short, both same-cluster. Phases: `22:48` 174,189 short at the 1,000 limit: branches
+(`d5_1_39_22_48`); `22:9` @@D5B@@.
 
 ## 4. Why the fringe is what it is: near-optimal solutions (`nearopt.py`) [m for the counts]
 
@@ -206,11 +244,12 @@ branches on location 22): @@D5@@
 - A node whose subtree holds a solution with excess e cannot fathom before the bound's slack at its
   depth falls below e. Measured at depth 1 and 4: children with excess up to 0.96M did not fathom in
   the first solve (first-solve slack of the on-path node there: 4.37M and 1.07M), children from 1.23M
-  up did at depth 4; at depth 1 the first solve fathomed children with excess 6.28M and more and missed
-  one at 6.75M (`44:39`, then fathomed by its phase). Of the 24 sampled first solves at depths 1 and
-  4, the rule "fathoms in the first solve iff excess > the on-path node's first-solve shortfall"
-  misses one (`44:40`, 6.28M against 4.37M: fathomed by 22k, after 91 iterations; the slack off the
-  path is larger than on it at depth 1).
+  up did at depth 4; at depth 1 the first solve fathomed children with excess 6.28M and more (the one
+  at 6.28M, `44:40`, by 22k after 91 iterations) and missed one at 6.75M (`44:39`, 1.96M short, then
+  fathomed by its phase). Of the 27 sampled first solves at depths 1 and 4, the rule "fathoms in the
+  first solve iff excess > the on-path node's first-solve shortfall" is wrong on that one only: the
+  slack off the path is somewhat larger than on it. The same shows in the phases: the three depth-4
+  survivors end 0.74M-1.2M below their subtrees' upper bounds, the on-path node 0.73M below its optimum.
 - This is the tai50b agent's "same-cluster children survive" seen from the solutions' side, and it
   says when the fringe stops: when the slack is below the swap excesses, i.e. gradually from about
   0.5M (123 swaps) down to 10k (8 swaps).
@@ -222,18 +261,50 @@ found for it (2-swap best-improvement descent from its parent's completion) has 
 the phase's slack at depth d; it *fathoms in a phase* when its excess is between s(d) and 1.6 s(d)
 (the first-solve slack: on-path first-solve shortfalls are 1.3-2.2 times the phase-end ones); otherwise
 it *fathoms in the first solve*. s(d) = the on-path node's shortfall at the end of its phase, measured
-for d = 1..@@DMAX@@, continued below by a ratio r per level. Costs from section 3: a branching node
+for d = 1..16 (or 18), continued below by a ratio r per level. Costs from section 3: a branching node
 110 + 800 iterations, a phase fathom 110 + 400, a first-solve fathom 45; 1.3 s per iteration at
 m = 59 scaled by (m/59)^6 (measured: 0.93-0.95 s at m = 56-57, 0.72 at m = 54, 0.46 at m = 48).
 Order: the search's measured rows down the path, then the remaining locations cluster by cluster
 (`path`) or at random (`rand`).
 
-@@MODELTABLE@@
+s(d) measured to depth 16 (2.72M ... 0.084M, the table in section 3); `logs/model16_*.txt` have the
+per-depth profiles:
 
-**Reading.** @@MODELREAD@@
+| order | s(d) for d = 1..16 | ratio r below depth 16 | branching nodes | nodes bounded | ADMM iterations | core-hours on this box |
+|---|---|---|---|---|---|---|
+| path | measured | 0.8 | 987 | 43,057 | 3.4e6 | 475 |
+| path | measured | 0.9 | 4,090 | 137,417 | 1.1e7 | 661 |
+| random (seed 1) | measured | 0.9 | 1,805 | 60,347 | 4.9e6 | 492 |
+| path | measured | 0.95 | 22,888 | 635,972 | 5.3e7 | 1,378 |
+| path | measured x 1.5 | 0.9 | 11,574 | 407,171 | 3.4e7 | 2,362 |
+| path | measured x 1.5 | 0.95 | 76,303 | 2.2e6 | 1.8e8 | 4,925 |
+| path | measured | 1.0 (the slack never falls below 0.084M) | 1.7e6 | 1.8e7 | 2.3e9 | 7,918 |
+| path, with depths 17-18 measured too (0.078M, 0.061M; rows 16, 19) | measured | 0.9 below depth 18 | 2,482 | 83,063 | 6.7e6 | 524 |
+| same | measured | 0.95 | 10,458 | 271,358 | 2.3e7 | 723 |
 
-**What it rests on.** One root; the on-path chain to depth @@DMAX@@ (one node per level); 13 + 12 + 14
-first solves at depths 1, 2, 4 and @@NPHALL@@ off-path phases; the survive rule checked on those nodes
+**Reading.**
+- **Depths 0-16, where s(d) is measured, cost about 440 core-hours in the model** (560 branching
+  nodes and 2.2M iterations; most of it at depths 4-10, where a node costs 0.5-1 s per iteration and
+  the same-cluster children of the large clusters survive). That part does not depend on r, only on
+  the survive rule; with the slack x 1.5 it is about 1,700 (2,060 branching nodes, 9.0M iterations).
+- **Below depth 16 everything depends on how fast the slack keeps falling.** Measured ratios per
+  level: 0.58-0.83 at depths 2-6, 0.89-0.91 at depths 7-9, 0.65 at depths 10-11, then 0.89, 0.81,
+  0.97, 0.92, 0.90 at depths 12-16: about 0.9 lately. At r = 0.9 the lower tree adds 220 core-hours;
+  at 0.95, 940; if the slack stopped at 0.084M (40 pair swaps are cheaper than that) the fringe would
+  run to the bottom: 7,500, and with the larger slack as well, several times that.
+- The last two rows came in at the end (depths 17 and 18: ratios 0.93 and 0.78, in line with 0.9) and
+  are lower than the rows above them at the same r, because two more rows of the order are the
+  search's own: the model moves by a factor of 2 with the order alone.
+- **Central reading: 500-2,500 core-hours on this box (5e6-4e7 iterations, 6e4-4e5 nodes), about
+  700-3,500 c7a core-hours; range 400 to more than 10,000** [e]. The x 1.5 rows are not a
+  pessimistic decoration: the three depth-4 survivors I ran sit 1.0-1.6 times the on-path slack below
+  their subtrees' upper bounds.
+- For comparison, the tai50b agent's cross-check for tai50b was 50-200 core-hours if its fringe dies
+  in one or two levels and 1e4-1e5 if it compounds; here the fringe is seen compounding for two
+  levels (depth 4 and 5) and the model says it goes on at a slowly falling rate.
+
+**What it rests on.** One root; the on-path chain to depth 18 (one node per level); 13 + 12 + 14 + 10
+first solves at depths 1, 2, 4, 5 and 7 off-path phases; the survive rule checked on those nodes
 only at depths 1 and 4; a descent that finds upper bounds on subtree optima (so it can only
 under-count survivors where it is poor); one fixed branching order where the search picks its own in
 every subtree (the survivor `1:39` branched on location 22, the path on location 6); phases stopped by
@@ -241,9 +312,9 @@ every subtree (the survivor `1:39` branched on location 22, the path on location
 (the root: 5.2M short at 1,000 iterations, 2.9M at 3,000). The cost side assumes off-path survivors
 cost what on-path nodes do.
 
-**What would move it.** (a) The slack at depths 13-25, where the model's nodes are: r = 0.7 against
-0.9 is a factor of 40. On tai30b the on-path bound was within 0.01% from depth 3 and within 1 from
-depth 15; here it is at 0.02% at depth 12. (b) Longer phases at survivors and a longer root lower
+**What would move it.** (a) The slack below depth 18 and off the path: r = 0.9 against 1.0 is a factor
+of 12, the slack x 1.5 a factor of 3.5. On tai30b the on-path bound was within 0.01% from depth 3 and
+within 1 from depth 15; here it is at 0.01% at depth 18. (b) Longer phases at survivors and a longer root lower
 s(d) at a cost per node the model does not trade off. (c) Symmetric-looking arrangements of the
 8-point cluster: if the bound cannot tell them apart until they are fixed, that cluster alone is up
 to 8! = 40,320 leaves; the model has this through the swap excesses, but only as far as the descent
@@ -253,8 +324,8 @@ node, so core-hours here are about 1.4 c7a core-hours when the box is loaded [e]
 ## 6. Validity [m]
 
 With the incumbent at best known + 1 (cutoff 608,215,054.05) no node on the path to
-`QAPSOLN/tai60b.sln` fathoms and no certified value there exceeds 608,215,054: depths 1-12
-@@VALID@@ (table in section 3). Off the path, the mirror `44:58` (subtree optimum at most 608,217,840)
+`QAPSOLN/tai60b.sln` fathoms and no certified value there exceeds 608,215,054: 18 nodes, depths 1-18,
+the largest 608,154,280 at depth 18 (table in section 3). Off the path, the mirror `44:58` (subtree optimum at most 608,217,840)
 ends at 605,921,475 and the depth-4 same-cluster survivors at 607,818,084 and 607,983,613, below
 their subtrees' upper bounds 608,463k and 608,727k. The root values are below the best known value.
 No brute-force check was rerun here; `../regions/README.md` section 3 has those for the patch.
@@ -274,7 +345,7 @@ The first solve gave up at 776,697,155 (41.7M short; the published converged pla
 
 ## 8. Not measured
 
-- tai60b: a search or a Knuth dive; anything off the path below depth 5; phases of `1:24`; any
+- tai60b: a search or a Knuth dive; anything off the path below depth 5; a phase for `1:24`; the survivors' phases beyond 1,000 iterations (all four were still gaining); any
   depth-3 (column-branch) sibling; the root beyond 3,000 phase iterations; the converged plain bound;
   samples warm from the 3,000-iteration root (all samples start from the 1,000-iteration one);
   `dnn.amx`; three Dykstra sweeps / extrapolation (`../cpfast`).
