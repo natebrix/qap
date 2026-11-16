@@ -145,7 +145,7 @@ def main():
         tot = res[0][2] + res[1][2]
         if ref is None: ref = (res[0][2], res[1][2], tot)
         print("%-32s | %8.0f %8.0f %6.0f (x%.2f) %2d | %8.0f %8.0f %6.0f (x%.2f) %2d %2d | %6.0f (x%.2f)" % (
-            name, res[0][0], res[0][1], res[0][2], ref[0] / res[0][2], res[0][3], res[1][0], res[1][1], res[1][2], ref[1] / res[1][2], res[1][3], res[1][4], tot, ref[2] / tot))
+            name, res[0][0], res[0][1], res[0][2], ref[0] / max(res[0][2], 1e-9), res[0][3], res[1][0], res[1][1], res[1][2], ref[1] / max(res[1][2], 1e-9), res[1][3], res[1][4], tot, ref[2] / tot))
 
 if __name__ == "__main__":
     main()

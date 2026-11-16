@@ -13,14 +13,14 @@ scripts' output on the logs.
 ## Summary
 
 1. **Validity: PASS** [m]. Brute force on 41 small nodes: 10,508 certified CP values, none
-   above the optimum (max -1e-10). On @@NP1@@ nodes of the path to tho40's best known solution
+   above the optimum (max -1e-10). On 21 nodes of the path to tho40's best known solution
    (two orders at depths 1, 2, 3, 4, 5, 6, 8, 10, plus depths 9, 11, 12 and the cold order at 8, 10),
-   with the cutoff at 241,500: no certified value above 240,516 in @@NCHK@@ checks; three nodes
+   with the cutoff at 241,500: no certified value above 240,516 in 2,280 checks; three nodes
    converge to 240,515.99999 and hold there for 700 to 1,100 iterations.
 2. **The CP phase is strong on tho40, and its gain is a number of units, not a share of the
    gap** [m]: over the *converged* plain DNN bound, about +330 after 100 CP iterations, +730
-   after 200, +1,130 after 400 and +1,540 to +1,880 after 800, at every depth from 1 to 6 and at
-   the root alike; about +2,000 at 2,000 iterations at depth 5 (plateau about +2,150 to +2,200 [e]).
+   after 200 and +1,130 after 400 at the far-miss nodes of depths 3 to 6, and +1,540 to +1,880
+   after 800 at every depth from 1 to 6 and at the root alike; about +2,000 at 2,000 iterations at depth 5 (plateau about +2,150 to +2,200 [e]).
    The plain bound itself is spent at the give-up: converging it fathoms none of the 18 sampled
    give-up nodes.
 3. **It fathoms every sampled give-up node up to a production shortfall of 1,906** (13 of 18 at
@@ -39,7 +39,10 @@ scripts' output on the logs.
 6. **Root** [m]: certified **230,088.31** after 300 + 5,490 iterations (3,568 triangles), still
    rising; plain DNN is 226,515 to 226,522. If 226,522 is the best published bound, this is a
    new best lower bound for tho40 by 3,566 (gap 5.82% -> 4.34%).
-7. **Other families** [m]: @@P3SUM@@
+7. **Other families** [m]: in the CP form, 200 boxes add 30 units to a 2,200 gain (one
+   node); in the Polyak rounds form boxes, five-point and local-7 cuts are all *behind* the
+   triangles alone at equal iterations (one node, 6 to 8 rounds; local-7 only 2). Flat, as on wil50; measured
+   on fewer nodes and rounds than asked.
 
 ## Files
 
@@ -48,7 +51,7 @@ scripts' output on the logs.
 | `scripts/path.py` | the best known solution (`QAPSOLN/tho40.sln`, inverted for `tho40t.dat`), its four grid images (all 240,516), node specs along it |
 | `scripts/part1_jobs.py`, `scripts/p1_summary.py` | part 1's runs and table (`logs/p1_*.log`) |
 | `scripts/sample_nodes.py`, `nodes.tsv` | part 2's sample from `infra/phase1/runs/tho40ab-32/nodes.txt.gz` |
-| `scripts/p2_summary.py`, `part2.json` | part 2's table (`logs/p2pl_*.log` plain, `logs/p2cp_*.log` CP phase, `logs/p2u_*.log` and `logs/p2long_*.log` longer CP runs) |
+| `scripts/p2_summary.py`, `part2.json` | part 2's table (`logs/p2pl_*.log` plain, `logs/p2cp_*.log` CP phase with the cutoff at 241,500, `logs/p2e_*.log` early-entry and `logs/p2long_*.log` long CP runs, those two with `-u 240516`) |
 | `scripts/cost_table.py`, `scripts/tree_model.py`, `scripts/level_gain.py` | the derived tables of part 2 |
 | `scripts/p3_summary.py` | part 3's tables (`logs/p3r_*.log` rounds form, `logs/p3cpb_*.log` CP form with boxes) |
 | `scripts/runq.sh`, `scripts/runseq.sh`, `scripts/*.jobs` | the job runners and lists; each log's first line is its command (the lists were edited as the session went: the log is the record) |
@@ -96,9 +99,10 @@ line of the table). What makes the test sharp:
 - The same nodes, cold and plain, are 280 to 1,220 short of the optimum at 300 iterations, so the cuts carry
   the bound the whole way to the optimum at depths 8 to 12 and no further.
 - Shortfall to the optimum on the warm path, against path_check's production values (plain,
-  warm-started chain, give-up 200): depth 3: 5,363 after 500 CP iterations (production 6,871);
+  warm-started chain, give-up 200): depth 1: 9,482 after 500 CP iterations (production 14,269); 2: 6,945 (9,075);
+  3: 5,363 (6,871);
   4: 3,998 (5,238); 5: 2,809 (3,891); 6: 2,283 (3,220); 8: 105 after 2,000 (755); 9: 75 (525);
-  10: 1.2 (0.9). At depths 3 to 6 the 500-iteration runs are still rising by about 300 per 200.
+  10: 1.2 (0.9). At depths 1 to 6 the 500-iteration runs are still rising by 290 to 450 per 200.
 
 What it does not show: these are nodes on the path of one solution. Validity in general rests
 on the counting argument for the regional triangles and on the certificate; the enumeration
@@ -250,11 +254,48 @@ part 1: I did not verify the published record independently.
 
 ## Part 3: the other families
 
-@@P3INTRO@@
+Cut short for time: one node in the rounds form (d5_d, depth 5, m = 35, 2,359 short in
+production, not fathomed by the triangles in 2,000 CP iterations) and one in the CP form (d3_d,
+depth 3, m = 37, 3,679 short), instead of the three or four asked for, and 6 to 8 rounds
+instead of 12 (the local-7 arm 2 rounds).
+
+- **CP form.** The CP projector holds triangles and boxes, and only triangles are separated
+  inside the solve; with `-box K` the driver puts round 0's K boxes into the start pool and
+  prints every family's violations at the CP run's last iterate. `logs/p3cpb_d3_d.log` is part
+  2's CP command with `-box 200 -five 500 -seven 200` (the five- and seven-point cuts are
+  counted, not used), against `logs/p2cp_d3_d.log`.
+- **Rounds form**: `dnncuts -x SPEC -u 240516 -grid 5:8 -side 1 -I 300 -r R -i 200 -k 1000 -warmY -delta D`
+  alone and with `-five 500`, `-seven 200`, `-box 200`. The default Polyak target (best + 50)
+  binds on tho40: the gate test's rounds gain 50 a round after the first, so every arm would
+  tie by construction. `-delta 200 -r 8` (first table) still binds for the triangles (+190 to
+  +200 a round); `-delta 1000 -r 6` (second table, node "d5_dD1000") does not, and is the
+  comparison to read.
 
 {{p3_summary.py}}
 
-@@P3TEXT@@
+**Verdict: no family adds anything measurable on tho40 either; in the rounds form they
+cost.** [m]
+
+- CP form, d3_d: with round 0's 200 boxes in the projector the certified value is 30 units
+  ahead at 800 CP iterations (1,475 short against 1,505), 1.4% of the phase's 2,200 gain there
+  (its pool also ended with 75 more triangles).
+- Rounds form, d5_d, `-delta 1000`, gain over the 300-iteration value after rounds 1 / 2 / 4 / 6:
+  triangles +927 / +1,588 / +1,947 / +2,027; with boxes 0 / 0 / +375 / +619; with five-point
+  cuts +575 / +875 / +1,118 / +1,234 (its best, at round 5; round 6 fell back); with local-7 cuts +617 / +938 after rounds 1 / 2, where
+  I stopped it for time (the triangles are at +1,588 there). Every added family is
+  *behind* the triangles alone at equal iterations: the extra multipliers take a share of each
+  Polyak step and the first steps overshoot (the box arm's bound falls 1,677 in round 1). With
+  `-delta 200` the box arm ends 2,199 short where the triangles end 770 short.
+- The violations do not predict a gain. At the CP run's last iterate on d3_d the triangles'
+  largest violation is down from 0.092 to 0.030, while the five-point (0.119 -> 0.075), local-7
+  (0.150 -> 0.056) and box (0.343 -> 0.209) inequalities remain violated in number (63,877
+  five-point patterns), as on wil50, where the same picture also bought no bound.
+- What this does not settle: the rounds form is the wrong vehicle on tho40 (the CP form with
+  triangles alone reaches 510 short at 300 + 1,200 iterations, the rounds 492 at 1,500, and the
+  CP form needs no step rule), so "behind in the rounds form" is partly a statement about the
+  Polyak step. A fair test of the five-point and local-7 families needs them inside the CP
+  projector, which the code does not do; the box test, which is in that form, says +1.4%.
+  Tho40's sparse, heavy-tailed flows did not make these families useful where measured.
 
 ## What it implies, and what I would do next
 
@@ -282,5 +323,5 @@ part 1: I did not verify the published record independently.
 - **Not done**: the brief's 1,500-iteration plain runs were cut to 1,000 to 1,200 for all but
   three nodes; part 1's shallow runs to 500 and 300 CP iterations; part 3 to one node in the
   rounds form and one in the CP form, with fewer rounds than asked. The job streams died once
-  (about 10 minutes lost) and were restarted; no result depends on a killed run except the
-  root's, whose every check is certified.
+  (about 10 minutes lost) and were restarted; the only results read from a
+  stopped run are the root's (its timeout; every check is certified) and the local-7 arm's two rounds.

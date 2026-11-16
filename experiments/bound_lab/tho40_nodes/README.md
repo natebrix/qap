@@ -12,7 +12,37 @@ scripts' output on the logs.
 
 ## Summary
 
-@@SUMMARY@@
+1. **Validity: PASS** [m]. Brute force on 41 small nodes: 10,508 certified CP values, none
+   above the optimum (max -1e-10). On 21 nodes of the path to tho40's best known solution
+   (two orders at depths 1, 2, 3, 4, 5, 6, 8, 10, plus depths 9, 11, 12 and the cold order at 8, 10),
+   with the cutoff at 241,500: no certified value above 240,516 in 2,280 checks; three nodes
+   converge to 240,515.99999 and hold there for 700 to 1,100 iterations.
+2. **The CP phase is strong on tho40, and its gain is a number of units, not a share of the
+   gap** [m]: over the *converged* plain DNN bound, about +330 after 100 CP iterations, +730
+   after 200 and +1,130 after 400 at the far-miss nodes of depths 3 to 6, and +1,540 to +1,880
+   after 800 at every depth from 1 to 6 and at the root alike; about +2,000 at 2,000 iterations at depth 5 (plateau about +2,150 to +2,200 [e]).
+   The plain bound itself is spent at the give-up: converging it fathoms none of the 18 sampled
+   give-up nodes.
+3. **It fathoms every sampled give-up node up to a production shortfall of 1,906** (13 of 18 at
+   depths 3 to 6), in 70 to 130 CP iterations up to a shortfall of 400, 190 to 280 up to 950,
+   650 to 740 up to 1,900. 84% of the production subtree's branched nodes are short by at
+   most 1,500, 90% by at most 1,900. A fathom there costs 2.2 to 6.4 times fewer iterations
+   than the children it replaces.
+4. **In levels** [e]: 0.3 of a level at depth 2, 0.5 to 0.65 at depth 3, 0.6 to 0.95 at depth 4,
+   0.7 to 1.4 at depth 5 (800 CP iterations); at depths 4 and below the median give-up node is
+   fathomed outright.
+5. **Threshold model of subtree `26:10,8:0`** [e], CP only as a phase after the give-up, no
+   inheritance: 10 to 16% of the nodes, 57 to 62% of the CPU. The node count falls 6 to 10 fold,
+   the CPU only 1.6 to 1.75 fold, because every give-up node still pays its first solve and
+   100 to 740 CP iterations. The larger factor has to come from the search (inherited pools,
+   the CP solve entered early).
+6. **Root** [m]: certified **230,088.31** after 300 + 5,490 iterations (3,568 triangles), still
+   rising; plain DNN is 226,515 to 226,522. If 226,522 is the best published bound, this is a
+   new best lower bound for tho40 by 3,566 (gap 5.82% -> 4.34%).
+7. **Other families** [m]: in the CP form, 200 boxes add 30 units to a 2,200 gain (one
+   node); in the Polyak rounds form boxes, five-point and local-7 cuts are all *behind* the
+   triangles alone at equal iterations (one node, 6 to 8 rounds; local-7 only 2). Flat, as on wil50; measured
+   on fewer nodes and rounds than asked.
 
 ## Files
 
@@ -21,7 +51,7 @@ scripts' output on the logs.
 | `scripts/path.py` | the best known solution (`QAPSOLN/tho40.sln`, inverted for `tho40t.dat`), its four grid images (all 240,516), node specs along it |
 | `scripts/part1_jobs.py`, `scripts/p1_summary.py` | part 1's runs and table (`logs/p1_*.log`) |
 | `scripts/sample_nodes.py`, `nodes.tsv` | part 2's sample from `infra/phase1/runs/tho40ab-32/nodes.txt.gz` |
-| `scripts/p2_summary.py`, `part2.json` | part 2's table (`logs/p2pl_*.log` plain, `logs/p2cp_*.log` CP phase, `logs/p2u_*.log` and `logs/p2long_*.log` longer CP runs) |
+| `scripts/p2_summary.py`, `part2.json` | part 2's table (`logs/p2pl_*.log` plain, `logs/p2cp_*.log` CP phase with the cutoff at 241,500, `logs/p2e_*.log` early-entry and `logs/p2long_*.log` long CP runs, those two with `-u 240516`) |
 | `scripts/cost_table.py`, `scripts/tree_model.py`, `scripts/level_gain.py` | the derived tables of part 2 |
 | `scripts/p3_summary.py` | part 3's tables (`logs/p3r_*.log` rounds form, `logs/p3cpb_*.log` CP form with boxes) |
 | `scripts/runq.sh`, `scripts/runseq.sh`, `scripts/*.jobs` | the job runners and lists; each log's first line is its command (the lists were edited as the session went: the log is the record) |
@@ -57,24 +87,29 @@ would show; at depths 1 to 6, where the bound is thousands below, N = 500 (`warm
 
 | run | depth | m | plain@300 | CP iters | CP certified (last) | gain over last 200 it | max certified, all checks | 240,516 - max | checks | |
 |---|---|---|---|---|---|---|---|---|---|---|
-| p1_cold_d08 | 8 | 32 | 238534.7 | 2000 | 240399.7587 | +19.6 | 240399.7587 | 116.2413 | 200 | PASS |
-| p1_cold_d10 | 10 | 30 | 239373.1 | 2000 | 240515.3993 | +0.7 | 240515.3993 | 0.6007 | 200 | PASS |
-| p1_index_d04 | 4 | 36 | 235463.4 | 300 | 236744.5388 | +666.2 | 236744.5388 | 3771.4612 | 30 | PASS |
-| p1_index_d05 | 5 | 35 | 237351.3 | 300 | 238599.5916 | +904.6 | 238599.5916 | 1916.4084 | 30 | PASS |
-| p1_index_d06 | 6 | 34 | 238198.9 | 300 | 239438.7902 | +997.3 | 239438.7902 | 1077.2098 | 30 | PASS |
-| p1_index_d08 | 8 | 32 | 239300.2 | 2000 | 240514.3245 | +1.8 | 240514.3245 | 1.6755 | 200 | PASS |
-| p1_index_d10 | 10 | 30 | 240237.6 | 2000 | 240516.0000 | +0.0 | 240516.0000 | 0.0000 | 200 | PASS |
-| p1_warm_d03 | 3 | 37 | 233378.1 | 500 | 235153.3937 | +346.4 | 235153.3937 | 5362.6063 | 50 | PASS |
-| p1_warm_d04 | 4 | 36 | 234864.9 | 500 | 236518.0602 | +291.0 | 236518.0602 | 3997.9398 | 50 | PASS |
-| p1_warm_d05 | 5 | 35 | 236139.7 | 500 | 237707.0570 | +294.0 | 237707.0570 | 2808.9430 | 50 | PASS |
-| p1_warm_d06 | 6 | 34 | 236645.2 | 500 | 238233.1915 | +324.0 | 238233.1915 | 2282.8085 | 50 | PASS |
-| p1_warm_d08 | 8 | 32 | 238458.3 | 2000 | 240411.1237 | +18.8 | 240411.1237 | 104.8763 | 200 | PASS |
-| p1_warm_d09 | 9 | 31 | 238604.5 | 2000 | 240440.5206 | +16.5 | 240440.5206 | 75.4794 | 200 | PASS |
-| p1_warm_d10 | 10 | 30 | 239311.2 | 2000 | 240514.8094 | +0.8 | 240514.8094 | 1.1906 | 200 | PASS |
-| p1_warm_d11 | 11 | 29 | 239802.2 | 2000 | 240516.0000 | -0.0 | 240516.0000 | 0.0000 | 200 | PASS |
-| p1_warm_d12 | 12 | 28 | 239971.3 | 2000 | 240516.0000 | -0.0 | 240516.0000 | 0.0000 | 200 | PASS |
+| p1_cold_d08 | 8 | 32 | 238534.7 | 2000 | 240399.7587 | +19.6 | 240399.758652 | 116.241348 | 200 | PASS |
+| p1_cold_d10 | 10 | 30 | 239373.1 | 2000 | 240515.3993 | +0.7 | 240515.399309 | 0.600691 | 200 | PASS |
+| p1_index_d01 | 1 | 39 | 228161.6 | 300 | 229729.9978 | +780.2 | 229729.997761 | 10786.002239 | 30 | PASS |
+| p1_index_d02 | 2 | 38 | 231570.4 | 300 | 232992.6972 | +668.2 | 232992.697222 | 7523.302778 | 30 | PASS |
+| p1_index_d03 | 3 | 37 | 233676.6 | 300 | 235115.5731 | +635.5 | 235115.573100 | 5400.426900 | 30 | PASS |
+| p1_index_d04 | 4 | 36 | 235463.4 | 300 | 236744.5388 | +666.2 | 236744.538794 | 3771.461206 | 30 | PASS |
+| p1_index_d05 | 5 | 35 | 237351.3 | 300 | 238599.5916 | +904.6 | 238599.591612 | 1916.408388 | 30 | PASS |
+| p1_index_d06 | 6 | 34 | 238198.9 | 300 | 239438.7902 | +997.3 | 239438.790190 | 1077.209810 | 30 | PASS |
+| p1_index_d08 | 8 | 32 | 239300.2 | 2000 | 240514.3245 | +1.8 | 240514.324523 | 1.675477 | 200 | PASS |
+| p1_index_d10 | 10 | 30 | 240237.6 | 2000 | 240516.0000 | +0.0 | 240515.999992 | 0.000008 | 200 | PASS |
+| p1_warm_d01 | 1 | 39 | 229018.4 | 500 | 231034.2308 | +446.1 | 231034.230814 | 9481.769186 | 50 | PASS |
+| p1_warm_d02 | 2 | 38 | 231753.6 | 500 | 233570.9346 | +387.4 | 233570.934644 | 6945.065356 | 50 | PASS |
+| p1_warm_d03 | 3 | 37 | 233378.1 | 500 | 235153.3937 | +346.4 | 235153.393701 | 5362.606299 | 50 | PASS |
+| p1_warm_d04 | 4 | 36 | 234864.9 | 500 | 236518.0602 | +291.0 | 236518.060228 | 3997.939772 | 50 | PASS |
+| p1_warm_d05 | 5 | 35 | 236139.7 | 500 | 237707.0570 | +294.0 | 237707.056989 | 2808.943011 | 50 | PASS |
+| p1_warm_d06 | 6 | 34 | 236645.2 | 500 | 238233.1915 | +324.0 | 238233.191549 | 2282.808451 | 50 | PASS |
+| p1_warm_d08 | 8 | 32 | 238458.3 | 2000 | 240411.1237 | +18.8 | 240411.123683 | 104.876317 | 200 | PASS |
+| p1_warm_d09 | 9 | 31 | 238604.5 | 2000 | 240440.5206 | +16.5 | 240440.520592 | 75.479408 | 200 | PASS |
+| p1_warm_d10 | 10 | 30 | 239311.2 | 2000 | 240514.8094 | +0.8 | 240514.809449 | 1.190551 | 200 | PASS |
+| p1_warm_d11 | 11 | 29 | 239802.2 | 2000 | 240516.0000 | -0.0 | 240515.999994 | 0.000006 | 200 | PASS |
+| p1_warm_d12 | 12 | 28 | 239971.3 | 2000 | 240516.0000 | -0.0 | 240515.999994 | 0.000006 | 200 | PASS |
 
-worst: max certified - 240516 = 0.000000 over 2090 certified values in 16 runs
+worst: max certified - 240516 = -5.546e-06 over 2280 certified values in 21 runs (the table rounds 240,515.99999 to 240516.0000)
 
 **Result: PASS.** No certified value is above 240,516 in any check of any run (the last
 line of the table). What makes the test sharp:
@@ -82,15 +117,16 @@ line of the table). What makes the test sharp:
 - Three nodes reach the optimum and stop there: `warm` depth 11 and 12 and `index` depth 10
   come within 0.01 of 240,516 at CP iteration 1,280, 960 and 890 and then sit at
   240,515.99999 (largest value 240,515.999994) for the remaining 700 to 1,100 iterations.
-  Four more end 0.6 to 1.7 below (`warm` and `cold` depth 10, `index` depth 8), creeping up by
-  1 to 2 per 200 iterations. A cut that removed this solution, or a certificate off by 1e-5
-  relative, would have shown here.
-- The same nodes, cold and plain, are 280 to 1,200 short at 300 iterations, so the cuts carry
+  Three more end 0.6 to 1.7 below (`warm` and `cold` depth 10, `index` depth 8), creeping up by
+  1 to 2 per 200 iterations. A cut that removed this solution, or a certificate too high by 1e-5
+  (4e-11 of the value), would have shown here.
+- The same nodes, cold and plain, are 280 to 1,220 short of the optimum at 300 iterations, so the cuts carry
   the bound the whole way to the optimum at depths 8 to 12 and no further.
 - Shortfall to the optimum on the warm path, against path_check's production values (plain,
-  warm-started chain, give-up 200): depth 3: 5,363 after 500 CP iterations (production 6,871);
+  warm-started chain, give-up 200): depth 1: 9,482 after 500 CP iterations (production 14,269); 2: 6,945 (9,075);
+  3: 5,363 (6,871);
   4: 3,998 (5,238); 5: 2,809 (3,891); 6: 2,283 (3,220); 8: 105 after 2,000 (755); 9: 75 (525);
-  10: 1.2 (0.9). At depths 3 to 6 the 500-iteration runs are still rising by about 300 per 200.
+  10: 1.2 (0.9). At depths 1 to 6 the 500-iteration runs are still rising by 290 to 450 per 200.
 
 What it does not show: these are nodes on the path of one solution. Validity in general rests
 on the counting argument for the regional triangles and on the certificate; the enumeration
@@ -127,7 +163,7 @@ stopped at its 241,500 cutoff or was still rising, it is a lower bound.
 | node | depth | m | production shortfall (subtree nodes) | plain@300 short: dnntest par / dnncuts | plain end short (its, last-300 gain) | CP: fathom at | CP shortfall at CP it 100/200/400/800 | CP end short (gain/200 its) | CP gain vs plain end | share of plain end shortfall | -u 240516 run |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | root `-` | 0 | 40 | - (-) | 16440 / 14833 | 14234 (iter_limit 600, +2206) | no | 14057/13530/12871/12151 | 10426 (@5490, +22) | +3808 | 0.27 | - |
-| d1_path `26:2` | 1 | 39 | - (-) | 12706 / - | 10763 (iter_limit 1000, +83) | - | - | - | - | - | - |
+| d1_path `26:2` | 1 | 39 | - (-) | 12706 / 11496 | 10763 (iter_limit 1000, +83) | no | 10674/10242/9680/- | 9480 (@500, +446) | +1283 | 0.12 | - |
 | d1_sub `26:10` | 1 | 39 | - (-) | 13457 / 12149 | 11402 (iter_limit 1000, +87) | no | 11349/10912/10340/9696 | 9696 (@800, +270) | +1706 | 0.15 | - |
 | d2_sub `26:10,8:0` | 2 | 38 | 8634.2 (22650) | 7079 / 6769 | 6494 (iter_limit 1000, +22) | no | 6104/5719/5217/4653 | 4653 (@800, +232) | +1840 | 0.28 | - |
 | d3_a `26:10,8:0,31:32` | 3 | 37 | 73.7 (38) | 287 / 251 | 13 (iter_limit 1200, +4) | it 70 (300+70) | -427/-894/-/- | -989 (@230, +2533) | +1002 | 79.15 | - |
@@ -301,8 +337,55 @@ part 1: I did not verify the published record independently.
 
 ## Part 3: the other families
 
-@@P3INTRO@@
+Cut short for time: one node in the rounds form (d5_d, depth 5, m = 35, 2,359 short in
+production, not fathomed by the triangles in 2,000 CP iterations) and one in the CP form (d3_d,
+depth 3, m = 37, 3,679 short), instead of the three or four asked for, and 6 to 8 rounds
+instead of 12 (the local-7 arm 2 rounds).
 
+- **CP form.** The CP projector holds triangles and boxes, and only triangles are separated
+  inside the solve; with `-box K` the driver puts round 0's K boxes into the start pool and
+  prints every family's violations at the CP run's last iterate. `logs/p3cpb_d3_d.log` is part
+  2's CP command with `-box 200 -five 500 -seven 200` (the five- and seven-point cuts are
+  counted, not used), against `logs/p2cp_d3_d.log`.
+- **Rounds form**: `dnncuts -x SPEC -u 240516 -grid 5:8 -side 1 -I 300 -r R -i 200 -k 1000 -warmY -delta D`
+  alone and with `-five 500`, `-seven 200`, `-box 200`. The default Polyak target (best + 50)
+  binds on tho40: the gate test's rounds gain 50 a round after the first, so every arm would
+  tie by construction. `-delta 200 -r 8` (first table) still binds for the triangles (+190 to
+  +200 a round); `-delta 1000 -r 6` (second table, node "d5_dD1000") does not, and is the
+  comparison to read.
+
+
+Rounds form, node d5_d (shortfall to 240,514.05 after each round; iterations cumulative):
+
+| round | iterations | triangles | + box 200 |
+|---|---|---|---|
+| 0 | 300 | 2519 | 2519 |
+| 1 | 500 | 2119 | 2519 |
+| 2 | 700 | 1926 | 2344 |
+| 3 | 900 | 1747 | 2275 |
+| 4 | 1100 | 1560 | 2237 |
+| 5 | 1300 | 1360 | 2228 |
+| 6 | 1500 | 1169 | 2199 |
+| 7 | 1700 | 961 | 2199 |
+| 8 | 1900 | 770 | 2199 |
+- tri: last round active 2300, triangles violated 1642 (max 0.0498); cpu 183 s
+- box: last round active 7227, triangles violated 7945 (max 0.0815); box violated 107 (max 0.0554); cpu 223 s
+
+Rounds form, node d5_dD1000 (shortfall to 240,514.05 after each round; iterations cumulative):
+
+| round | iterations | triangles | + five 500 | + seven 200 | + box 200 |
+|---|---|---|---|---|---|
+| 0 | 300 | 2519 | 2519 | 2519 | 2519 |
+| 1 | 500 | 1592 | 1945 | 1902 | 2519 |
+| 2 | 700 | 931 | 1645 | 1581 | 2519 |
+| 3 | 900 | 839 | 1401 | - | 2144 |
+| 4 | 1100 | 572 | 1401 | - | 2144 |
+| 5 | 1300 | 572 | 1285 | - | 2144 |
+| 6 | 1500 | 492 | 1285 | - | 1900 |
+- tri: last round active 2475, triangles violated 1115 (max 0.0355); cpu 148 s
+- five: last round active 8442, triangles violated 5027 (max 0.0746); five violated 108812 (max 0.0757); cpu 170 s
+- seven: last round active 2361, triangles violated 2685 (max 0.0667); seven violated 6946 (max 0.1153); cpu 70 s
+- box: last round active 5509, triangles violated 3533 (max 0.0741); box violated 439 (max 0.0644); cpu 160 s
 
 CP form: triangles (p2cp) against triangles + round 0's 200 boxes (p3cpb), certified shortfall to 240,514.05:
 
@@ -311,8 +394,55 @@ CP form: triangles (p2cp) against triangles + round 0's 200 boxes (p3cpb), certi
 | d3_d triangles | 2978 | 2501 | 2004 | 1701 | 1505 | 2374 | tri 3218 (0.0919) | - |
 | d3_d + boxes | 2978 | 2496 | 1986 | 1679 | 1475 | 2649 | tri 3218 (0.0919), five 306646 (0.1191), seven 8972 (0.1502), box 1828 (0.3433) | tri 1047 (0.0301), five 63877 (0.0751), seven 3511 (0.0562), box 699 (0.2091) |
 
-@@P3TEXT@@
+**Verdict: no family adds anything measurable on tho40 either; in the rounds form they
+cost.** [m]
+
+- CP form, d3_d: with round 0's 200 boxes in the projector the certified value is 30 units
+  ahead at 800 CP iterations (1,475 short against 1,505), 1.4% of the phase's 2,200 gain there
+  (its pool also ended with 75 more triangles).
+- Rounds form, d5_d, `-delta 1000`, gain over the 300-iteration value after rounds 1 / 2 / 4 / 6:
+  triangles +927 / +1,588 / +1,947 / +2,027; with boxes 0 / 0 / +375 / +619; with five-point
+  cuts +575 / +875 / +1,118 / +1,234 (its best, at round 5; round 6 fell back); with local-7 cuts +617 / +938 after rounds 1 / 2, where
+  I stopped it for time (the triangles are at +1,588 there). Every added family is
+  *behind* the triangles alone at equal iterations: the extra multipliers take a share of each
+  Polyak step and the first steps overshoot (the box arm's bound falls 1,677 in round 1). With
+  `-delta 200` the box arm ends 2,199 short where the triangles end 770 short.
+- The violations do not predict a gain. At the CP run's last iterate on d3_d the triangles'
+  largest violation is down from 0.092 to 0.030, while the five-point (0.119 -> 0.075), local-7
+  (0.150 -> 0.056) and box (0.343 -> 0.209) inequalities remain violated in number (63,877
+  five-point patterns), as on wil50, where the same picture also bought no bound.
+- What this does not settle: the rounds form is the wrong vehicle on tho40 (the CP form with
+  triangles alone reaches 510 short at 300 + 1,200 iterations, the rounds 492 at 1,500, and the
+  CP form needs no step rule), so "behind in the rounds form" is partly a statement about the
+  Polyak step. A fair test of the five-point and local-7 families needs them inside the CP
+  projector, which the code does not do; the box test, which is in that form, says +1.4%.
+  Tho40's sparse, heavy-tailed flows did not make these families useful where measured.
 
 ## What it implies, and what I would do next
 
-@@NEXT@@
+- **Estimates.** tho40's 3.4e7 nodes and about 1,300 c7a CPU-days were sized without a cut
+  phase. On this evidence the node count with the phase as measured here is 6 to 10 times
+  smaller [e, one subtree, threshold model], and the CPU 1.6 to 1.75 times smaller before any
+  of the search-side gains. I would not quote a CPU figure from this lab beyond "at least
+  1.6 times less": the per-node data say where the saving is, the search decides how much.
+- **What decides the larger factor** (for agent `tho40_search`, or next): (a) children of a
+  give-up node inheriting the pool and the CP state, so that the cut bound is there from their
+  first iteration: the children that now take 20 to 40 plain iterations to fathom might take
+  fewer, and the 16% of nodes left in the model are mostly such children; (b) the gate for
+  entering the phase: here every node up to a converged shortfall of about 1,650 fathoms within
+  800 CP iterations, and 2,050 to 2,300 is borderline even at 2,000 (d5_d ends 283 short), so a
+  shortfall gate near 1,600 to 2,000 with a budget that grows with the shortfall (100 iterations per 330 units at
+  first, 400 per 400 later) wastes little; (c) entering before the plain solve has run out:
+  about 100 iterations saved per node on three of three nodes.
+- **Depth 3 is where a longer CP solve pays**: 26% of its branched nodes are within 1,900,
+  and their subtrees are the large ones; d3_b (1,906 short, 110 nodes, 430 CPU s in
+  production) fathoms in 650 CP iterations.
+- **Root bound**: rerun for 20,000 iterations on an idle machine to quote the plateau (230,300
+  to 230,400 expected), and repeat on the facility side or with both sides' regions if a
+  published number is wanted; a second independent check of the certificate (dnn.py's) on the
+  final dual point would be worth having before it is quoted outside.
+- **Not done**: the brief's 1,500-iteration plain runs were cut to 1,000 to 1,200 for all but
+  three nodes; part 1's shallow runs to 500 and 300 CP iterations; part 3 to one node in the
+  rounds form and one in the CP form, with fewer rounds than asked. The job streams died once
+  (about 10 minutes lost) and were restarted; the only results read from a
+  stopped run are the root's (its timeout; every check is certified) and the local-7 arm's two rounds.

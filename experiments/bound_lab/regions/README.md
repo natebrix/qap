@@ -7,6 +7,87 @@ are built from the structure of Taillard's type-b distances (clusters, half-plan
 **Answer: yes, very strongly, with regions on the location side that separate the
 clusters.** Numbers below are certified values; [m] = measured (log named), [e] = estimated.
 
+## Follow-up (Nov 16): sizing tai50b's tree with `cut.regions` -- IN PROGRESS
+
+Files in `size50/` (`par/`, `runs/`, scripts). Stages: root with a saved state, settings,
+depth-1/2/3 samples warm from the root with its pool, validity. The Knuth dives and the
+root's plateau are run elsewhere (coordinator's scope change); this section gives the
+settings and the stage samples, and a rough cross-check estimate at the end.
+
+### For the dive runner
+
+(first version, written before the tai50b samples; revised below as they come in)
+
+**Build.** Apply `regions.patch` to `cognac` HEAD 6e993cc7 (`git apply`), then
+`make -C latest -j4 && make -C latest dnntest dnncuts`. It adds `cut.regions` to bnbdrv and
+`-regions` to dnncuts; without it `cut.regions` is an unknown key.
+
+**Regions file.** `regions/tai50b.comb.txt` (61 regions, 0-based location indices, the first
+matrix = `cut.side = 0`). Rebuild with
+`python3 -I gen_regions.py qaplib/tai50b.dat line:1,top:5,linegap:4:0.03 -o FILE`.
+`cut.regions` takes a path; my par files carry an absolute one
+(`/home/user/qap/experiments/bound_lab/regions/regions/tai50b.comb.txt`): change it.
+
+**Settings block** (`size50/par/kidA.par` = `experiments/estimates/tai50b/tai50b.par` with
+these changes; the root's own par differs only in `cut.cp_iters` and `cut.stall = 0`):
+
+```
+dnn.depths = 0:48        # was 1:48. Pitfall 1 below
+dnn.giveup = 100         # was 600: hand over to the phase early
+dnn.giveup_warm = 100
+dnn.gu_zone = 0          # was 0.003: no 100-iteration wait before a near-miss give-up
+pool.on = 1
+cut.regions = <path>/tai50b.comb.txt
+cut.side = 0
+cut.zone = 1             # a phase at every DNN miss (the plain bound is 6% off at the root)
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200          # with cut.stall = 3: the stall window is 600 iterations
+cut.freeze = 0
+cut.cp = 100:1000
+cut.cp_iters = 3000      # node 10 (depth 3, cold) needed 2,480 phase iterations to fathom
+cut.stall = 3
+```
+
+**Pitfalls.**
+1. **The root gets no DNN bound under `dnn.depths = 1:48`** (the estimates' setting), hence no
+   phase, no pool and no warm state: all 50 depth-1 children start cold and uncut. Use
+   `0:48`. In my tai30b solve (section 10) the root was not bounded, which is why depth 1
+   took 57% of that run.
+2. **Start the phase early.** The first (uncut) solve is nearly worthless here: the phase
+   passes the plain bound's plateau within about 100 of its own iterations. tai30b root,
+   same total iterations, phase started after 100 uncut iterations against 300
+   (`logs/r30_line1_I100.log`, `logs/r30_line1.log`) [m]: 601.2M against 598.4M at 400 total,
+   616.9M against 612.9M at 600, 627.8M against 625.7M at 1,000, 633.7M against 633.1M at
+   1,600. With `dnn.giveup = 100` the first solve stops as "hopeless" at 110 iterations.
+3. **Phases run long and are worth it**, and the default limit (rounds x iters + freeze) cuts
+   them: give `cut.cp_iters` explicitly. The stall rule (after 600 iterations: stop when the
+   gap is more than 3 x the last 600 iterations' gain) does not stop a node on the optimal
+   path, whose gap and gains shrink together: on tai25b the on-path depth-1 child ran to the
+   3,000 limit (8,256 short, `size50/logs/t25kid.*`). Such nodes are one per level, so this
+   costs 48 x 3,000 iterations in a whole run, but in a *dive* every level's on-path-like
+   child pays it: consider `cut.giveup = T:G` or a smaller `cut.cp_iters` for the dives and
+   state which you used.
+4. **A warm root for samples or dives**: `bnbdrv -p ROOT.par -u 458821517 -d 0 -o root.state
+   qaplib/tai50b.dat` bounds the root (first solve + phase) and writes its 50 children,
+   set aside by `-d 0`, with the root's shipped DNN state (`ship.bits = 64`) and pool.
+   One child: `python3 ../tho40_search/cutstate.py root.state kid.state 1 F:L` (keeps the
+   depth-1 node line whose permutation has entry F equal to L; the node trace prints the same
+   `F:L`), then `bnbdrv -p KID.par --allow-settings-change -r kid.state -d 1 -o out.state ...`
+   (bound that node only and write its children) or without `-d` for its whole subtree.
+   **`-r` refuses a state written under other settings unless `--allow-settings-change`** is
+   given (the root's par differs from the children's in `cut.cp_iters`/`cut.stall`).
+   `size50/root.sh` and `size50/kid.sh` do exactly this.
+5. `QAP_NODE_TRACE`, `QAP_DNN_TRACE`, `QAP_DNN_TRACE_HIST=1` (environment, diagnostic keys) give
+   one line per node / per DNN node with first-solve and phase iterations, status and the
+   phase's running best every 10 iterations.
+6. A dive (`bnbdrv -e`) bounds every child of each node on its way down. At depth 1 that is
+   50 warm pooled children; expect most of a dive's cost there and at depth 2 (numbers in
+   the tables below when measured).
+7. Validity guard for any run: with the incumbent at best known + 1 (`-u 458821518`) the
+   path to `QAPSOLN/tai50b.sln` must never fathom; my on-path checks are in section 7 and
+   below.
+
 ## Headline numbers
 
 - **tai30b root: 99.7% of the DNN gap closed.** Plain DNN 598.3M at 3,300 iterations

@@ -89,3 +89,39 @@ setting QAP_XBAR_DEBUG 0 default diagnostic
 resumed: 1 open nodes, 1 nodes and 145.315 s so far, incumbent 240516
 branching_weight() = 0.5
 read symmetry info from SYM/tho40t.sym
+  ---- RESULTS ----
+
+    Total Time: 519.268 seconds 
+         Nodes: 2 / 1 / 0
+    root bound: 196746
+ fw iterations: 3850
+     DNN bound: 2 nodes, 0 fathomed, 47.9317 s
+     cut phase: 2 nodes, 1 fathomed, 471.111 s
+
+level    nodes	%fathom	%c.elim	    time
+ 2           1	0.0000	0.0000	  145.31
+ 3           1	1.0000	N/A	  373.95
+
+Strategy breakdown:
+nodes       1        0        1        0 
+time   145.31     0.00   373.95     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 2           1	0.0000	1.0000	        200	   200.0	   24.93
+ 3           1	0.0000	1.0000	        200	   200.0	   23.00
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 2           1	0.0000	  120.20
+ 3           1	1.0000	  350.91
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 2           0	       0	       0	       0	       0
+ 3           1	       0	       0	       1	       0
+
+eigendecompositions for W and U: 2 computed, 0 reused from the per-size cache
