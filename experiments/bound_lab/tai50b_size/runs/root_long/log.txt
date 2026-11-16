@@ -90,3 +90,37 @@ setting QAP_EST_CHILD_QPB 0 default diagnostic
 setting QAP_XBAR_DEBUG 0 default diagnostic
 branching_weight() = 0.5
 couldn't find [./SYM/tai50b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 4342.17 seconds 
+         Nodes: 1 / 0 / 0
+    root bound: 2.8858e+08
+ fw iterations: 2575
+     DNN bound: 1 nodes, 0 fathomed, 243.026 s
+     cut phase: 1 nodes, 0 fathomed, 4097.86 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	 4342.17
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+nodes       1        0        0        0 
+time  4342.17     0.00     0.00     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 0           1	0.0000	1.0000	        470	   470.0	  243.03
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 0           1	0.0000	 4097.86
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+
+eigendecompositions for W and U: 2 computed, 0 reused from the per-size cache

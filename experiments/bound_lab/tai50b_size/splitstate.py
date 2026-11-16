@@ -17,20 +17,21 @@ def read(src):
 def write(dst, head, nodes, tail):
     with open(dst, "w") as w:
         w.writelines(head); w.write("nodes %d\n" % len(nodes)); w.writelines(nodes); w.writelines(tail)
-if sys.argv[1] == "-merge":
-    head, nodes, tail = read(sys.argv[3])
-    for s in sys.argv[4:]: nodes += read(s)[1]
-    write(sys.argv[2], head, nodes, tail); print(len(nodes), "nodes")
-elif sys.argv[3] == "-depth":
-    head, nodes, tail = read(sys.argv[1])
-    keep = [ln for ln in nodes if int(ln.split()[1]) == int(sys.argv[4])]
-    write(sys.argv[2], head, keep, tail); print(len(keep), "nodes")
-elif sys.argv[3] == "-pick":
-    head, nodes, tail = read(sys.argv[1])
-    want = [tuple(map(int, x.split(":"))) for x in sys.argv[4].split(",")]
-    keep = [ln for ln in nodes if any(int(ln.split()[5 + f]) == l for f, l in want)]
-    write(sys.argv[2], head, keep, tail); print(len(keep), "nodes")
-else:
-    head, nodes, tail = read(sys.argv[1]); k = int(sys.argv[3])
-    for i in range(k): write("%s%d.state" % (sys.argv[2], i), head, nodes[i::k], tail)
-    print(len(nodes), "nodes in", k, "files")
+if __name__ == "__main__":
+    if sys.argv[1] == "-merge":
+        head, nodes, tail = read(sys.argv[3])
+        for s in sys.argv[4:]: nodes += read(s)[1]
+        write(sys.argv[2], head, nodes, tail); print(len(nodes), "nodes")
+    elif sys.argv[3] == "-depth":
+        head, nodes, tail = read(sys.argv[1])
+        keep = [ln for ln in nodes if int(ln.split()[1]) == int(sys.argv[4])]
+        write(sys.argv[2], head, keep, tail); print(len(keep), "nodes")
+    elif sys.argv[3] == "-pick":
+        head, nodes, tail = read(sys.argv[1])
+        want = [tuple(map(int, x.split(":"))) for x in sys.argv[4].split(",")]
+        keep = [ln for ln in nodes if any(int(ln.split()[5 + f]) == l for f, l in want)]
+        write(sys.argv[2], head, keep, tail); print(len(keep), "nodes")
+    else:
+        head, nodes, tail = read(sys.argv[1]); k = int(sys.argv[3])
+        for i in range(k): write("%s%d.state" % (sys.argv[2], i), head, nodes[i::k], tail)
+        print(len(nodes), "nodes in", k, "files")
