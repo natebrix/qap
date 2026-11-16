@@ -180,7 +180,10 @@ def run(a):
                     os.remove(f)
         print(f"chain depth {k}: {len(prefixes)} nodes", flush=True)
 
-    jobs = [(i, arm) for arm in ("A0", "A1", "G") for i in range(len(smp))]
+    jobs = [(i, arm) for arm in (a.arms.split(",") if a.arms else ("A0", "A1", "G")) for i in range(len(smp))
+            if not os.path.exists(os.path.join(work, "arms", f"{i:03d}_{arm}", "done.json"))]
+    if a.max_jobs:   # a batch that ends within one command (this session's container is reclaimed when idle)
+        jobs = jobs[:a.max_jobs]
 
     def arm_job(job):
         i, arm = job
@@ -278,6 +281,8 @@ def main():
     r.add_argument("work")
     r.add_argument("--workers", type=int, default=4)
     r.add_argument("--clean", action="store_true")
+    r.add_argument("--arms", default="", help="only these arms, e.g. G")
+    r.add_argument("--max-jobs", type=int, default=0, help="run at most this many pending arms, then stop")
     p = sub.add_parser("report")
     p.add_argument("sample")
     p.add_argument("work")

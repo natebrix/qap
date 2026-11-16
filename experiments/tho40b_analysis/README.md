@@ -17,6 +17,7 @@ them (`coord/export.py`).
 | `giveups.py` | what the DNN give-up costs and saves: give-ups per depth, and those whose children all fathomed at once | an export directory |
 | `knuth_sim.py` | Knuth's estimator simulated on the complete tree: how many dives, and which way of choosing a child, give an estimate within a factor of the truth (`--per-root`: each of many complete subtrees scored on its own) | node trace |
 | `livetree.py` | a running run's published live tree as a node trace (crawl through the site's tree endpoint; `trace --complete-at D` keeps the complete subtrees rooted at depth D; `summary`, `levels` by depth), so the scripts here run on what is finished while the run goes on; complete subtrees lean small and easy | the site |
+| `giveup_probe/probe.py` | 48 give-up nodes rebuilt as the run bounded them: running on past the give-up does not pay (3 of 48 fathom within 4,000 iterations); give-ups are 30% of the DNN CPU, so an earlier give-up is the test; AMX 1.26x per iteration on Sapphire Rapids (`giveup_probe/README.md`) | the export, the solver |
 | `path_check/dive.py` | whether a dive from tho40-b's incumbent (the best known + 2) toward the best known solution recovers it, with the run's settings: done Nov 15, both paths PASS (`path_check/README.md`) | `QAPSOLN/tho40.sln`, the solver |
 
 ## Results on the A/B subtrees
