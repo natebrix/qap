@@ -64,6 +64,7 @@ would show; at depths 1 to 6, where the bound is thousands below, N = 500 (`warm
 | p1_index_d06 | 6 | 34 | 238198.9 | 300 | 239438.7902 | +997.3 | 239438.7902 | 1077.2098 | 30 | PASS |
 | p1_index_d08 | 8 | 32 | 239300.2 | 2000 | 240514.3245 | +1.8 | 240514.3245 | 1.6755 | 200 | PASS |
 | p1_index_d10 | 10 | 30 | 240237.6 | 2000 | 240516.0000 | +0.0 | 240516.0000 | 0.0000 | 200 | PASS |
+| p1_warm_d03 | 3 | 37 | 233378.1 | 500 | 235153.3937 | +346.4 | 235153.3937 | 5362.6063 | 50 | PASS |
 | p1_warm_d04 | 4 | 36 | 234864.9 | 500 | 236518.0602 | +291.0 | 236518.0602 | 3997.9398 | 50 | PASS |
 | p1_warm_d05 | 5 | 35 | 236139.7 | 500 | 237707.0570 | +294.0 | 237707.0570 | 2808.9430 | 50 | PASS |
 | p1_warm_d06 | 6 | 34 | 236645.2 | 500 | 238233.1915 | +324.0 | 238233.1915 | 2282.8085 | 50 | PASS |
@@ -73,9 +74,27 @@ would show; at depths 1 to 6, where the bound is thousands below, N = 500 (`warm
 | p1_warm_d11 | 11 | 29 | 239802.2 | 2000 | 240516.0000 | -0.0 | 240516.0000 | 0.0000 | 200 | PASS |
 | p1_warm_d12 | 12 | 28 | 239971.3 | 2000 | 240516.0000 | -0.0 | 240516.0000 | 0.0000 | 200 | PASS |
 
-worst: max certified - 240516 = 0.000000 over 2040 certified values in 15 runs
+worst: max certified - 240516 = 0.000000 over 2090 certified values in 16 runs
 
-@@P1TEXT@@
+**Result: PASS.** No certified value is above 240,516 in any check of any run (the last
+line of the table). What makes the test sharp:
+
+- Three nodes reach the optimum and stop there: `warm` depth 11 and 12 and `index` depth 10
+  come within 0.01 of 240,516 at CP iteration 1,280, 960 and 890 and then sit at
+  240,515.99999 (largest value 240,515.999994) for the remaining 700 to 1,100 iterations.
+  Four more end 0.6 to 1.7 below (`warm` and `cold` depth 10, `index` depth 8), creeping up by
+  1 to 2 per 200 iterations. A cut that removed this solution, or a certificate off by 1e-5
+  relative, would have shown here.
+- The same nodes, cold and plain, are 280 to 1,200 short at 300 iterations, so the cuts carry
+  the bound the whole way to the optimum at depths 8 to 12 and no further.
+- Shortfall to the optimum on the warm path, against path_check's production values (plain,
+  warm-started chain, give-up 200): depth 3: 5,363 after 500 CP iterations (production 6,871);
+  4: 3,998 (5,238); 5: 2,809 (3,891); 6: 2,283 (3,220); 8: 105 after 2,000 (755); 9: 75 (525);
+  10: 1.2 (0.9). At depths 3 to 6 the 500-iteration runs are still rising by about 300 per 200.
+
+What it does not show: these are nodes on the path of one solution. Validity in general rests
+on the counting argument for the regional triangles and on the certificate; the enumeration
+test above is the independent check of both, and it passes.
 
 ## Part 2: what the CP phase gains, by depth and shortfall
 
@@ -290,7 +309,7 @@ CP form: triangles (p2cp) against triangles + round 0's 200 boxes (p3cpb), certi
 | node | CP it 100 | 200 | 400 | 600 | 800 | pool at the end | at the give-up point: violated (max) | at the CP run's last iterate: violated (max) |
 |---|---|---|---|---|---|---|---|---|
 | d3_d triangles | 2978 | 2501 | 2004 | 1701 | 1505 | 2374 | tri 3218 (0.0919) | - |
-| d3_d + boxes | 2978 | 2496 | 1986 | 1679 | - | 2614 | tri 3218 (0.0919), five 306646 (0.1191), seven 8972 (0.1502), box 1828 (0.3433) | - |
+| d3_d + boxes | 2978 | 2496 | 1986 | 1679 | 1475 | 2649 | tri 3218 (0.0919), five 306646 (0.1191), seven 8972 (0.1502), box 1828 (0.3433) | tri 1047 (0.0301), five 63877 (0.0751), seven 3511 (0.0562), box 699 (0.2091) |
 
 @@P3TEXT@@
 

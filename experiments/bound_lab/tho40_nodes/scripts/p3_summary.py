@@ -12,7 +12,7 @@ for nd in nodes:
         if not os.path.exists(p): continue
         t = open(p).read()
         rs = re.findall(r"^round +(\d+)  lb (\S+) .*?iters (\d+)  cpu (\S+)(.*)$", t, re.M)
-        arms[arm] = rs
+        if rs: arms[arm] = rs
     if not arms: continue
     print("\nRounds form, node %s (shortfall to 240,514.05 after each round; iterations cumulative):\n" % nd)
     names = [a for a in ("tri", "five", "seven", "box") if a in arms]

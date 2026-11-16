@@ -12,7 +12,34 @@ scripts' output on the logs.
 
 ## Summary
 
-@@SUMMARY@@
+1. **Validity: PASS** [m]. Brute force on 41 small nodes: 10,508 certified CP values, none
+   above the optimum (max -1e-10). On @@NP1@@ nodes of the path to tho40's best known solution
+   (two orders at depths 1, 2, 3, 4, 5, 6, 8, 10, plus depths 9, 11, 12 and the cold order at 8, 10),
+   with the cutoff at 241,500: no certified value above 240,516 in @@NCHK@@ checks; three nodes
+   converge to 240,515.99999 and hold there for 700 to 1,100 iterations.
+2. **The CP phase is strong on tho40, and its gain is a number of units, not a share of the
+   gap** [m]: over the *converged* plain DNN bound, about +330 after 100 CP iterations, +730
+   after 200, +1,130 after 400 and +1,540 to +1,880 after 800, at every depth from 1 to 6 and at
+   the root alike; about +2,000 at 2,000 iterations at depth 5 (plateau about +2,150 to +2,200 [e]).
+   The plain bound itself is spent at the give-up: converging it fathoms none of the 18 sampled
+   give-up nodes.
+3. **It fathoms every sampled give-up node up to a production shortfall of 1,906** (13 of 18 at
+   depths 3 to 6), in 70 to 130 CP iterations up to a shortfall of 400, 190 to 280 up to 950,
+   650 to 740 up to 1,900. 84% of the production subtree's branched nodes are short by at
+   most 1,500, 90% by at most 1,900. A fathom there costs 2.2 to 6.4 times fewer iterations
+   than the children it replaces.
+4. **In levels** [e]: 0.3 of a level at depth 2, 0.5 to 0.65 at depth 3, 0.6 to 0.95 at depth 4,
+   0.7 to 1.4 at depth 5 (800 CP iterations); at depths 4 and below the median give-up node is
+   fathomed outright.
+5. **Threshold model of subtree `26:10,8:0`** [e], CP only as a phase after the give-up, no
+   inheritance: 10 to 16% of the nodes, 57 to 62% of the CPU. The node count falls 6 to 10 fold,
+   the CPU only 1.6 to 1.75 fold, because every give-up node still pays its first solve and
+   100 to 740 CP iterations. The larger factor has to come from the search (inherited pools,
+   the CP solve entered early).
+6. **Root** [m]: certified **230,088.31** after 300 + 5,490 iterations (3,568 triangles), still
+   rising; plain DNN is 226,515 to 226,522. If 226,522 is the best published bound, this is a
+   new best lower bound for tho40 by 3,566 (gap 5.82% -> 4.34%).
+7. **Other families** [m]: @@P3SUM@@
 
 ## Files
 
@@ -57,7 +84,25 @@ would show; at depths 1 to 6, where the bound is thousands below, N = 500 (`warm
 
 {{p1_summary.py}}
 
-@@P1TEXT@@
+**Result: PASS.** No certified value is above 240,516 in any check of any run (the last
+line of the table). What makes the test sharp:
+
+- Three nodes reach the optimum and stop there: `warm` depth 11 and 12 and `index` depth 10
+  come within 0.01 of 240,516 at CP iteration 1,280, 960 and 890 and then sit at
+  240,515.99999 (largest value 240,515.999994) for the remaining 700 to 1,100 iterations.
+  Three more end 0.6 to 1.7 below (`warm` and `cold` depth 10, `index` depth 8), creeping up by
+  1 to 2 per 200 iterations. A cut that removed this solution, or a certificate too high by 1e-5
+  (4e-11 of the value), would have shown here.
+- The same nodes, cold and plain, are 280 to 1,220 short of the optimum at 300 iterations, so the cuts carry
+  the bound the whole way to the optimum at depths 8 to 12 and no further.
+- Shortfall to the optimum on the warm path, against path_check's production values (plain,
+  warm-started chain, give-up 200): depth 3: 5,363 after 500 CP iterations (production 6,871);
+  4: 3,998 (5,238); 5: 2,809 (3,891); 6: 2,283 (3,220); 8: 105 after 2,000 (755); 9: 75 (525);
+  10: 1.2 (0.9). At depths 3 to 6 the 500-iteration runs are still rising by about 300 per 200.
+
+What it does not show: these are nodes on the path of one solution. Validity in general rests
+on the counting argument for the regional triangles and on the certificate; the enumeration
+test above is the independent check of both, and it passes.
 
 ## Part 2: what the CP phase gains, by depth and shortfall
 
@@ -213,4 +258,29 @@ part 1: I did not verify the published record independently.
 
 ## What it implies, and what I would do next
 
-@@NEXT@@
+- **Estimates.** tho40's 3.4e7 nodes and about 1,300 c7a CPU-days were sized without a cut
+  phase. On this evidence the node count with the phase as measured here is 6 to 10 times
+  smaller [e, one subtree, threshold model], and the CPU 1.6 to 1.75 times smaller before any
+  of the search-side gains. I would not quote a CPU figure from this lab beyond "at least
+  1.6 times less": the per-node data say where the saving is, the search decides how much.
+- **What decides the larger factor** (for agent `tho40_search`, or next): (a) children of a
+  give-up node inheriting the pool and the CP state, so that the cut bound is there from their
+  first iteration: the children that now take 20 to 40 plain iterations to fathom might take
+  fewer, and the 16% of nodes left in the model are mostly such children; (b) the gate for
+  entering the phase: here every node up to a converged shortfall of about 1,650 fathoms within
+  800 CP iterations, and 2,050 to 2,300 is borderline even at 2,000 (d5_d ends 283 short), so a
+  shortfall gate near 1,600 to 2,000 with a budget that grows with the shortfall (100 iterations per 330 units at
+  first, 400 per 400 later) wastes little; (c) entering before the plain solve has run out:
+  about 100 iterations saved per node on three of three nodes.
+- **Depth 3 is where a longer CP solve pays**: 26% of its branched nodes are within 1,900,
+  and their subtrees are the large ones; d3_b (1,906 short, 110 nodes, 430 CPU s in
+  production) fathoms in 650 CP iterations.
+- **Root bound**: rerun for 20,000 iterations on an idle machine to quote the plateau (230,300
+  to 230,400 expected), and repeat on the facility side or with both sides' regions if a
+  published number is wanted; a second independent check of the certificate (dnn.py's) on the
+  final dual point would be worth having before it is quoted outside.
+- **Not done**: the brief's 1,500-iteration plain runs were cut to 1,000 to 1,200 for all but
+  three nodes; part 1's shallow runs to 500 and 300 CP iterations; part 3 to one node in the
+  rounds form and one in the CP form, with fewer rounds than asked. The job streams died once
+  (about 10 minutes lost) and were restarted; no result depends on a killed run except the
+  root's, whose every check is certified.

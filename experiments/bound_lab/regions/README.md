@@ -23,11 +23,12 @@ clusters.** Numbers below are certified values; [m] = measured (log named), [e] 
   12-node sample (14.4M short) at 2,780 [m: `logs/t50_d3_node*_comb.log`].
 - **Validity**: 0 violations in 240 brute-force node checks and 32 small-root checks;
   nodes on the optimal path of tai30b (depths 3, 6, 10) and tai50b (depth 3) stay below the
-  optimum; the search of tai30b from an incumbent one above the optimum does not fathom
-  the optimal child [m: sections 3, 7, 10].
-- **In the search** (`cut.regions`, section 10): tai30b's depth-1 level, 24 of 25 children
-  processed fathom (8 by the plain bound, 16 by the cut phase), the one that does not is the
-  optimal child [m].
+  optimum; the search of tai30b from an incumbent one above the optimum finds it, with every
+  on-path bound at or below it [m: sections 3, 7, 10].
+- **In the search** (`cut.regions`, section 10): **tai30b solved to proven optimality in 363
+  nodes and 1,520 CPU-s** from an incumbent one above the optimum. 29 of the 30 depth-1
+  children fathom (8 by the plain bound, 21 by the cut phase); the one that does not is the
+  optimal child, and below it the tree is a single path [m].
 
 ## 0. What was changed (`regions.patch`, worktree `/home/user/wt-regions`)
 
@@ -41,7 +42,7 @@ clusters.** Numbers below are certified values; [m] = measured (log named), [e] 
 - `dnncuts -regions FILE [-side 0|1]`: one region per line, original 0-based indices, `#`
   comments.
 - `cut.regions = FILE` for the search (`latest/bnb.C`, `settings.C`, `RUNNING.md` row;
-  `tests/settings_doc.py` passes). Compiled, **not yet run in a search** (see "Next").
+  `tests/settings_doc.py` passes). Used for the tai30b solve of section 10.
 - In `tai*b.dat` the first matrix is the symmetric distance matrix (side 0 = locations) and
   the second the asymmetric flow matrix (side 1 = facilities); checked for n = 12..50: the
   `.sln` permutations evaluate to the listed optima with `sum A[i,k] B[p(i),p(k)]`, A the
@@ -272,3 +273,77 @@ everything.
   431,090,700 that NOTES.md quotes as QAPLIB's best (gap 6.04% -> at most 2.04%). The same
   construction applies unchanged to the other open type-b instances (tai60b, tai80b, tai100b,
   tai150b).
+
+## 10. In the search: tai30b solved with `cut.regions` (`bnb/tai30b_cut.par`, `logs/bnb_tai30b_cut.*`) [m]
+
+`bnbdrv -p bnb/tai30b_cut.par -u 637117114` (incumbent = optimum + 1, so the run has to find
+the optimum and prove it; cutoff 637,117,113.05): tai50b.par's settings with give-up 300,
+DNN at every depth, and the cut phase at every DNN miss (`cut.zone = 1`, `cut.regions =
+regions/tai30b.line1.txt`, `cut.cp = 100:1000`, `pool.on = 1`). The root is not bounded by
+the DNN in the search (depths 1-28). Run in three pieces because of my time caps (`-o/-t`,
+then `-r` twice; logs `.log`, `.log2`, `.log3`, node traces `.trace*`).
+
+**Result: tai30b solved, 637,117,113 found and proved optimal in 363 nodes and 1,520 CPU-s**
+(one core of the shared box; DNN bound 299 nodes, 250 fathomed, 709 s; cut phase 49 nodes,
+22 fathomed, 801 s).
+
+Depth 1 (the root branches on column 19, 30 children):
+
+| fate | children | detail |
+|---|---|---|
+| fathomed by the plain DNN bound | 8 | 5-45 s each |
+| plain DNN gave up at 300 iterations (623.4M-636.1M, i.e. 1.0M-13.7M short), **cut phase fathomed** | 21 | 22-46 s per node in all |
+| not fathomed | 1 | `5:19`, the optimal child (p(5) = 19 in `QAPSOLN/tai30b.sln`): plain 623,179,768, cut phase 636,960,944, branched |
+
+Below it **the tree is one path**: at each depth exactly one node branches, always the pair
+of the optimal permutation (`11:12`, `22:6`, `25:17`, `8:13`, `2:10`, `0:3`, `9:29`, ...),
+and the siblings fathom (levels 2-8: 23-29 nodes each, 91-97% fathomed, by the DNN
+bound with the inherited pool in about 60 iterations, 1-2 s; QPB takes over from depth 9).
+The optimum is found at depth 27. The on-path nodes' certified cut bounds are 636,960,944,
+637,023,811, 637,047,851, 637,055,843, 637,094,293, 637,088,196, 637,110,195, 637,109,018
+at depths 1-8 and 637,117,112.55 to 637,117,112.9999 from depth 15 on: never above the
+optimum 637,117,113, and within 0.025% of it from depth 1.
+
+- 57% of the CPU is depth 1 (865 s): 300 uncut iterations and then the phase at 22 nodes.
+  Starting the phase earlier is the obvious saving. The on-path nodes' phases (35-80 s
+  each at depths 1-9) cannot fathom and run to the stall rule; a give-up for nodes that end
+  within 0.03% of the cutoff, or an incumbent heuristic, would remove most of that.
+- No plain-search comparison was run (no time). For scale: the 22 depth-1 children that
+  needed the cut phase were 1.0M-13.7M short at the plain give-up, where the plain bound
+  gains about 0.05M per 100 iterations; without cuts each of them is a subtree.
+
+## 11. Next (in order)
+
+1. **Review the patch and rerun the validity set** (`validity.py`, the on-path nodes, the
+   tai30b search from `-u 637117114`; then tai35b and tai40b solved by the
+   search as end-to-end checks: they are solved instances, the search must return 283,315,445
+   and 637,250,948).
+2. **tai50b Knuth dives with the cut phase** (`cut.regions`, `cut.zone = 1`, CP form, pools):
+   that is the estimate the current 4e9-1e11 CPU-s figures must be replaced by. Settings to
+   tune first, all specific to this regime (bound far from converged at the give-up, gaps of
+   1e6-1e7): start the cut phase early (the first 300 uncut iterations are mostly wasted:
+   at the tai50b root the cut bound passes the plain 1,500-iteration value 300 iterations
+   into the phase), the phase's iteration limit and stall/give-up rules (node 10 needed
+   2,480 CP iterations and was still worth it), and a give-up for on-path nodes.
+3. **The root of tai50b to its plateau** (a few hours of one core): how close the relaxation
+   gets to 458,821,517 decides whether the tree is "one path" as on tai30b.
+4. **Region sets**: fewer regions (`linegap` + `top`, 16 on tai50b) against `comb` (61) for
+   speed; `line:4` / `hier` for the 2-D instances tai35b, tai40b (66-71% with one axis).
+5. **Same idea elsewhere**: any instance whose distance matrix is (near) l1-embeddable has
+   such cuts: the other open type-b instances (tai60b-tai150b), and Hamming or tree
+   metrics. On the grid instances the row/column prefixes are already this construction.
+
+## Files
+
+- `regions.patch`: `git diff` of the worktree `/home/user/wt-regions` (dnncut.h/.C, dnncuts.C,
+  bnb.C, settings.C, RUNNING.md).
+- `gen_regions.py` (families, `-stats`), `regions/*.txt` (region files), `validity.py`
+  (brute force), `run.sh` (one `dnncuts` run, filtered log), `tab.py` (tables),
+  `sweep30.sh`, `nodes50.sh`, `tail.sh`, `rest.sh` (the queues, one solver process at a
+  time), `onpath.txt`, `bnb/*.par`.
+- `logs/`: every run; `structure.txt`, `validity_seed1.txt`, `table_*.md`.
+
+Not done: the rounds (Polyak) form beyond the validity runs (it needs `-delta` scaled to
+the objective, about 1% of it; the CP form was used for every measurement); families on
+tai35b/40b beyond `comb`; tai50b depth-3 nodes other than 7, 1, 10; a plain-search
+comparison on tai30b; no search or dive on tai50b.

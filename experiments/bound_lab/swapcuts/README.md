@@ -62,3 +62,19 @@ hull the cuts are very strong: most wrong nodes have no good exchange-optimal co
 all. Exchanges among free facilities add nothing to "affected" (the node's best completion is
 already optimal under them). nug14 was stopped (my enumerator's bound is too weak for 13!).
 
+## Stage 3 (interim, being filled in): the relaxation
+
+Driver `swapdrv.C` (built by `build.sh` against the worktree /home/user/wt-swap, which carries
+`swapcuts.patch`: `latest/` in the main checkout is untouched). Cuts in Lagrangian form
+(objective term -sum mu_t G_t, mu >= 0, Polyak rounds like `dnn_cut_rounds`); every value is
+a certificate of `dnn_bound`. dnncuts' ADMM defaults (PRSM, degree 4), `-T 1`.
+
+Interim numbers [m]:
+- tho40 gate node `26:10,8:0,39:32,38:7` (d = 4, m = 36), 300 + 8 x 150 iterations:
+  plain 240,085.8 (`logs/s3_tho40_d4_plain.log`), exchange cuts 240,235.4
+  (`logs/s3_tho40_d4_ex.log`; 240,226.9 with a target of best + 400, `logs/s3_tho40_gate_ex400.log`):
+  about +145 at equal iterations. The triangle CP phase fathoms this node (240,514) at 300 + 120.
+- tho40 far-miss node `26:10,8:0,39:32,30:7`: CP alone 240,105.2 at CP iteration 950 and
+  240,299.8 at 1,400 (`logs/s3_tho40_d4d_cp1400.log`); three exchange rounds (450 iterations)
+  then CP with the exchange term frozen: 240,256.8 at CP iteration 950
+  (`logs/s3_tho40_d4d_xcp.log`): +152 at equal CP iterations, -43 at equal total iterations.

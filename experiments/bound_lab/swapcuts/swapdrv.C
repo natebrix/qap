@@ -18,6 +18,8 @@
    c0 = (A[i][j]-A[j][i]) (B[b][a]-B[a][b]) + (A[i][i]-A[j][j]) (B[b][b]-B[a][a])
         + sum over the other fixed k of g_k(p(k)),
  so  c0 Y[jb,jb] + sum g_k(c) Y[jb,kc] >= 0   (type P, one per fixed i, free j, free b).
+ -rot adds the 3-cycles: fixed i (at a) to the location a2 of a second fixed facility i2, i2 to
+ b, the free j (at b) to a: again linear in row jb (type R, d (d-1) m^2 cuts).
  -fp adds, for two fixed facilities i (at a), i2 (at b): l(x) = c0 + sum g_k(c) x_kc >= 0 on
  row 0 (type F0) and l(x) x_ld >= 0 on every row ld (type F1: diagonal c0 + g_l(d)).
 
@@ -60,7 +62,10 @@ static bool parse_fixes(const std::string &fixes, QAPAssignment &node, int n)
 }
 
 struct XCut {
-  int type;      // 0: P (fixed i, free j at b), 1: F0 (two fixed, row 0), 2: F1 (two fixed, row ld)
+  int type;      // 0: P (fixed i, free j at b), 1: F0 (two fixed, row 0), 2: F1 (two fixed, row ld),
+                 // 3: R (rotation: fixed i -> the location of fixed i2, i2 -> b, free j at b -> a)
+  int ns, S[3], from[3], to[3];   // the move: facility S[s] goes from from[s] to to[s] (original indices)
+  void move2() { ns = 2; S[0] = i; from[0] = a; to[0] = b; S[1] = j; from[1] = b; to[1] = a; }
   int i, a;      // original: the fixed facility and its location
   int j, b;      // original: the other facility and the location it takes (P: free; F: fixed)
   int row;       // lifted row (0 for F0)
@@ -79,23 +84,33 @@ struct Ctx {
   std::vector<int> fixf;               // fixed facilities
   double a_(int i, int k) const { return A[(size_t)i * n + k]; }
   double b_(int i, int k) const { return B[(size_t)i * n + k]; }
+  // the move's gain is  cpair + sum over the facilities k outside the move of g(k, p(k))
   double g(const XCut &t, int k, int c) const {   // original k, c
-    return (a_(t.i, k) - a_(t.j, k)) * (b_(t.b, c) - b_(t.a, c)) + (a_(k, t.i) - a_(k, t.j)) * (b_(c, t.b) - b_(c, t.a));
+    double v = 0;
+    for (int s = 0; s < t.ns; s++)
+      v += a_(t.S[s], k) * (b_(t.to[s], c) - b_(t.from[s], c)) + a_(k, t.S[s]) * (b_(c, t.to[s]) - b_(c, t.from[s]));
+    return v;
   }
   double cpair(const XCut &t) const {
-    return (a_(t.i, t.j) - a_(t.j, t.i)) * (b_(t.b, t.a) - b_(t.a, t.b)) + (a_(t.i, t.i) - a_(t.j, t.j)) * (b_(t.b, t.b) - b_(t.a, t.a));
+    double v = 0;
+    for (int s = 0; s < t.ns; s++) for (int u = 0; u < t.ns; u++)
+      v += a_(t.S[s], t.S[u]) * (b_(t.to[s], t.to[u]) - b_(t.from[s], t.from[u]));
+    return v;
   }
-  // the four factor vectors over local indices (zero at the excluded ones)
-  void factors(const XCut &t, std::vector<double> &u1, std::vector<double> &v1, std::vector<double> &u2, std::vector<double> &v2) const {
-    u1.assign(m, 0); v1.assign(m, 0); u2.assign(m, 0); v2.assign(m, 0);
-    for (int k = 0; k < m; k++) {
-      if (k == t.exk) continue;
-      u1[k] = a_(t.i, ff[k]) - a_(t.j, ff[k]); u2[k] = a_(ff[k], t.i) - a_(ff[k], t.j);
-    }
-    for (int c = 0; c < m; c++) {
-      if (c == t.exc) continue;
-      v1[c] = b_(t.b, fl[c]) - b_(t.a, fl[c]); v2[c] = b_(fl[c], t.b) - b_(fl[c], t.a);
-    }
+  // the coefficients over local (k, c), row-major m x m (zero at the excluded row and column)
+  void coef(const XCut &t, std::vector<double> &G) const {
+    G.assign((size_t)m * m, 0.0);
+    for (int s = 0; s < t.ns; s++)
+      for (int k = 0; k < m; k++) {
+        if (k == t.exk) continue;
+        const double as = a_(t.S[s], ff[k]), sa = a_(ff[k], t.S[s]);
+        if (as == 0 && sa == 0) continue;
+        double *row = G.data() + (size_t)k * m;
+        for (int c = 0; c < m; c++) {
+          if (c == t.exc) continue;
+          row[c] += as * (b_(t.to[s], fl[c]) - b_(t.from[s], fl[c])) + sa * (b_(fl[c], t.to[s]) - b_(fl[c], t.from[s]));
+        }
+      }
   }
   double cost(const std::vector<int> &q) const {
     double s = 0;
@@ -109,16 +124,11 @@ static double lhs(const Ctx &cx, const XCut &t, const std::vector<double> &Y,
                   std::vector<double> &u1, std::vector<double> &v1, std::vector<double> &u2, std::vector<double> &v2)
 {
   const int m = cx.m, n1 = cx.n1;
-  cx.factors(t, u1, v1, u2, v2);
+  cx.coef(t, u1);
   const double *row = Y.data() + (size_t)t.row * n1;
   double s = t.diag * (t.row == 0 ? 1.0 : row[t.row]);
-  for (int k = 0; k < m; k++) {
-    if (u1[k] == 0 && u2[k] == 0) continue;
-    const double *r = row + 1 + (size_t)k * m;
-    double s1 = 0, s2 = 0;
-    for (int c = 0; c < m; c++) { s1 += v1[c] * r[c]; s2 += v2[c] * r[c]; }
-    s += u1[k] * s1 + u2[k] * s2;
-  }
+  const double *G = u1.data(), *r = row + 1;
+  for (int q = 0; q < m * m; q++) s += G[q] * r[q];
   return s;
 }
 
@@ -166,13 +176,12 @@ struct XState {
     for (auto &t : *cuts) {
       if (!(t.mu > 0)) continue;
       active++;
-      cx->factors(t, u1, v1, u2, v2);
+      cx->coef(t, u1);
       if (t.row == 0) hsum += t.mu * t.diag; else Ladd[(size_t)t.row * n1 + t.row] -= t.mu * t.diag;
       abs_add += t.mu * fabs(t.diag);
       for (int k = 0; k < m; k++) {
-        if (u1[k] == 0 && u2[k] == 0) continue;
         for (int c = 0; c < m; c++) {
-          const double gv = u1[k] * v1[c] + u2[k] * v2[c];
+          const double gv = u1[(size_t)k * m + c];
           if (gv == 0) continue;
           const int col = 1 + k * m + c;
           Ladd[(size_t)t.row * n1 + col] -= 0.5 * t.mu * gv;
@@ -195,7 +204,7 @@ struct XState {
     sg.resize(C.size());
     std::vector<std::pair<double, int>> viol;
     std::map<int, std::pair<int, double>> byfix;   // fixed facility -> (count, sum of -lhs)
-    size_t nv = 0, nv1 = 0; double mass = 0, worst_cond = 0, worst_norm = 0;
+    size_t nv = 0, nv1 = 0, nrot = 0; double mass = 0, worst_cond = 0, worst_norm = 0, mrot = 0;
     for (size_t t = 0; t < C.size(); t++) {
       const XCut &c = C[t];
       const double v = lhs(*cx, c, Y, u1, v1, u2, v2);
@@ -204,6 +213,7 @@ struct XState {
         const double yd = c.row == 0 ? 1.0 : Y[(size_t)c.row * n1 + c.row];
         nv++; mass += -v;
         if (c.norm > 0) worst_norm = std::max(worst_norm, -v / c.norm);
+        if (c.type == 3) { nrot++; mrot += -v; }
         if (yd > 1e-4) { worst_cond = std::min(worst_cond, v / yd); if (v / yd < -1.0) nv1++; }
         auto &e = byfix[c.type == 0 ? c.i : -1 - c.type];
         e.first++; e.second += -v;
@@ -213,6 +223,7 @@ struct XState {
     std::sort(viol.begin(), viol.end(), [](const std::pair<double, int> &x, const std::pair<double, int> &y) { return x.first > y.first; });
     printf("  exchange separation %d: %zu of %zu cuts violated (%zu with conditional gain below -1), sum of violations %.2f (cost units x probability), "
            "worst conditional gain %.1f, largest normalised violation %.5f\n", r, nv, C.size(), nv1, mass, worst_cond, worst_norm);
+    if (nrot) printf("  of which rotations: %zu violated, sum %.2f\n", nrot, mrot);
     if (verbose || calls == 0) {
       printf("  by fixed facility:");
       for (auto &e : byfix) {
@@ -260,7 +271,7 @@ int main(int argc, char **argv)
   bool have_cutoff = false, use_fp = false;
   int first_iters = 300, erounds = 0, eiters = 200, ek = 500, equiet = 0, threads = 1, verbose = 0, ncheck = 50;
   int degree = 4, topk = 12, jrounds = 8, jiters = 150;
-  bool joint = false, use_elim = false;
+  bool joint = false, use_elim = false, use_rot = false;
   double theta = 1.0, edelta = 50.0;
   DNNCutParams cp;
   cp.kcuts = 1000;
@@ -281,6 +292,7 @@ int main(int argc, char **argv)
     else if (o == "-edelta" && more) edelta = atof(argv[++a]);
     else if (o == "-eq" && more) equiet = atoi(argv[++a]);
     else if (o == "-fp") use_fp = true;
+    else if (o == "-rot") use_rot = true;                  // 3-cycles through two fixed facilities and one free
     else if (o == "-elim") use_elim = true;                // forbid x_jb when every completion with j at b gains by an exchange
     else if (o == "-delta" && more) cp.delta = atof(argv[++a]);   // the triangles' Polyak target (joint mode)
     else if (o == "-nocap") cp.cap_at_cutoff = 0;
@@ -336,6 +348,7 @@ int main(int argc, char **argv)
   const int d = (int)cx.fixf.size();
   printf("instance %s n=%d node %s m=%d d=%d cutoff %.4f  exchange cuts: %d pairwise%s\n", file, n, fixes.c_str(), m, d, cutoff,
          d * m * m, use_fp ? " + fixed-pair rows" : "");
+  if (use_rot) printf("rotations: %d cuts\n", d * (d - 1) * m * m);
 
   // ---- the candidate cuts
   std::vector<XCut> cuts;
@@ -344,6 +357,7 @@ int main(int argc, char **argv)
       for (int bl = 0; bl < m; bl++) {
         XCut t; t.type = 0; t.i = i; t.a = cx.p[i]; t.j = cx.ff[jl]; t.b = cx.fl[bl];
         t.row = 1 + jl * m + bl; t.exk = jl; t.exc = bl; t.mu = 0; t.pooled = false;
+        t.move2();
         double c0 = cx.cpair(t);
         for (int k : cx.fixf) if (k != i) c0 += cx.g(t, k, cx.p[k]);
         t.diag = c0;
@@ -353,6 +367,7 @@ int main(int argc, char **argv)
     for (int s = 0; s < d; s++)
       for (int s2 = s + 1; s2 < d; s2++) {
         XCut t; t.i = cx.fixf[s]; t.a = cx.p[t.i]; t.j = cx.fixf[s2]; t.b = cx.p[t.j]; t.mu = 0; t.pooled = false;
+        t.move2();
         double c0 = cx.cpair(t);
         for (int k : cx.fixf) if (k != t.i && k != t.j) c0 += cx.g(t, k, cx.p[k]);
         t.type = 1; t.row = 0; t.exk = t.exc = -1; t.diag = c0;
@@ -364,11 +379,30 @@ int main(int argc, char **argv)
             cuts.push_back(r);
           }
       }
+  if (use_rot)
+    // rotations: fixed i (at a) -> a2, fixed i2 (at a2) -> b, free j (at b) -> a; both directions through the ordered pairs
+    for (int i : cx.fixf)
+      for (int i2 : cx.fixf) {
+        if (i2 == i) continue;
+        for (int jl = 0; jl < m; jl++)
+          for (int bl = 0; bl < m; bl++) {
+            XCut t; t.type = 3; t.i = i; t.a = cx.p[i]; t.j = cx.ff[jl]; t.b = cx.fl[bl];
+            t.row = 1 + jl * m + bl; t.exk = jl; t.exc = bl; t.mu = 0; t.pooled = false;
+            t.ns = 3;
+            t.S[0] = i; t.from[0] = t.a; t.to[0] = cx.p[i2];
+            t.S[1] = i2; t.from[1] = cx.p[i2]; t.to[1] = t.b;
+            t.S[2] = t.j; t.from[2] = t.b; t.to[2] = t.a;
+            double c0 = cx.cpair(t);
+            for (int k : cx.fixf) if (k != i && k != i2) c0 += cx.g(t, k, cx.p[k]);
+            t.diag = c0;
+            cuts.push_back(t);
+          }
+      }
   std::vector<double> u1, v1, u2, v2;
   for (auto &t : cuts) {
-    cx.factors(t, u1, v1, u2, v2);
+    cx.coef(t, u1);
     double s = t.diag * t.diag;
-    for (int k = 0; k < m; k++) for (int c = 0; c < m; c++) { double gv = u1[k] * v1[c] + u2[k] * v2[c]; s += gv * gv; }
+    for (double gv : u1) s += gv * gv;
     t.norm = sqrt(s);
   }
   // ---- guard: every cut's linear form against brute-force exchange gains on random completions
@@ -386,15 +420,17 @@ int main(int argc, char **argv)
       std::vector<double> y(n1, 0.0); y[0] = 1;
       for (int k = 0; k < m; k++) y[1 + k * m + perm[k]] = 1;
       for (int r = 0; r < n1; r++) for (int s = 0; s < n1; s++) Yp[(size_t)r * n1 + s] = y[r] * y[s];
-      std::map<long, double> gain;
+      std::map<std::vector<int>, double> gain;
       for (auto &t : cuts) {
         const double v = lhs(cx, t, Yp, u1, v1, u2, v2);
         double want = 0;
         if (t.row == 0 || y[t.row] == 1) {
-          const long key = (long)t.i * n + t.j;
+          std::vector<int> key;
+          for (int s = 0; s < t.ns; s++) { key.push_back(t.S[s]); key.push_back(t.to[s]); }
           auto it = gain.find(key);
           if (it == gain.end()) {
-            std::vector<int> sw(full); std::swap(sw[t.i], sw[t.j]);
+            std::vector<int> sw(full);
+            for (int s = 0; s < t.ns; s++) sw[t.S[s]] = t.to[s];
             it = gain.insert({key, cx.cost(sw) - c}).first;
           }
           want = it->second;
@@ -445,15 +481,15 @@ int main(int argc, char **argv)
     std::vector<double> cst((size_t)(m - 1) * (m - 1));
     double closest = -HUGE_VAL;
     for (auto &t : cuts) {
-      if (t.type != 0) continue;
+      if (t.type != 0 && t.type != 3) continue;
       const int jl = t.exk, bl = t.exc;
       if (elim[(size_t)jl * m + bl]) continue;
-      cx.factors(t, u1, v1, u2, v2);
+      cx.coef(t, u1);
       int r = 0;
       for (int k = 0; k < m; k++) {
         if (k == jl) continue;
         int c2 = 0;
-        for (int c = 0; c < m; c++) { if (c == bl) continue; cst[(size_t)r * (m - 1) + c2] = -(u1[k] * v1[c] + u2[k] * v2[c]); c2++; }
+        for (int c = 0; c < m; c++) { if (c == bl) continue; cst[(size_t)r * (m - 1) + c2] = -u1[(size_t)k * m + c]; c2++; }
         r++;
       }
       const double mx = t.diag - lap_min(cst, m - 1);   // the largest exchange gain over the completions

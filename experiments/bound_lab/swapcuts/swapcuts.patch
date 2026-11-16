@@ -1,0 +1,87 @@
+diff --git a/latest/dnncut.C b/latest/dnncut.C
+index 7e0aeafe..18d7ea65 100644
+--- a/latest/dnncut.C
++++ b/latest/dnncut.C
+@@ -27,6 +27,7 @@ DNNCutParams::DNNCutParams()
+   cap_at_cutoff = 1; freeze_after = 0; freeze_iters = 0; freeze_if_primal_above = 0;
+   freeze_best = 1;
+   L_ext = NULL; L_ext_abs = 0; ext_const = 0;
++  ext_hook = NULL;
+   pool_in = NULL; pool_out = NULL; other_orig = NULL; fixed_at = NULL; pool_check = 0;
+   pool_all_round = -1; pool_all_out = NULL;
+   cp_every = 0; cp_k = 0; cp_iters = 0; cp_sweeps = 1; cp_passes = 1;
+@@ -1373,9 +1374,10 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+   bool pool_checked = false;
+   // one solve of the modified problem with the current multipliers
+   auto solve = [&](int r, int iters) {
+-    if (cp.L_ext) std::copy(cp.L_ext, cp.L_ext + (size_t)n1 * n1, Ladd.begin());
++    if (cp.ext_hook) std::copy(cp.ext_hook->L, cp.ext_hook->L + (size_t)n1 * n1, Ladd.begin());
++    else if (cp.L_ext) std::copy(cp.L_ext, cp.L_ext + (size_t)n1 * n1, Ladd.begin());
+     else std::fill(Ladd.begin(), Ladd.end(), 0.0);
+-    double abs_add = cp.L_ext_abs, hsum = cp.ext_const;
++    double abs_add = cp.ext_hook ? cp.ext_hook->abs_ : cp.L_ext_abs, hsum = cp.ext_hook ? cp.ext_hook->cnst : cp.ext_const;
+     const int active = assemble(cuts, regions, boxes, lift, n1, Ladd, abs_add, hsum);
+     if (cp.pool_check > 0 && !cp.L_ext && !pool_checked) {
+       const double w = check_term(Ladd, hsum - cp.ext_const, m, cp.pool_check, 12345u + r);
+@@ -1389,7 +1391,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+     par.max_iter = iters;
+     par.hopeless_after = 0;
+     par.hopeless_gap_ratio = 0;
+-    par.L_add = (active || cp.L_ext) ? Ladd.data() : NULL;
++    par.L_add = (active || cp.L_ext || cp.ext_hook) ? Ladd.data() : NULL;
+     par.L_add_abs = abs_add;
+     par.cut_round = 1;   // DNN_BETA_SCHED's wc (dnn.C); a pooled child (dnn_pool_bound) leaves it 0
+     DNNResult res = dnn_bound(A, B, C, shift - hsum, cutoff, par, (r > 0 && warm) ? warm : NULL, &save);
+@@ -1702,6 +1704,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+     }
+     // Polyak subgradient step on all cuts toward the target; the step factor
+     // halves whenever a round lowers the bound (an overshoot)
++    if (cp.ext_hook) cp.ext_hook->update(cp.ext_hook, Y, solved ? res.lb : first_lb, out.best_lb, cutoff, r);
+     if (cp.theta <= 0) continue;
+     const double lb_now = solved ? res.lb : first_lb;
+     if (solved && r > 0 && lb_now < prev_lb - 1e-9) theta_cur *= 0.5;
+@@ -1738,6 +1741,7 @@ DNNCutResult dnn_cut_rounds(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+       for (size_t t = 0; t < cuts.size(); t++) cuts[t].mu = t < best_mu.size() ? best_mu[t] : 0.0;
+       *warm = best_save;
+     }
++    if (cp.ext_hook) cp.ext_hook->update(cp.ext_hook, warm->Y, -HUGE_VAL, out.best_lb, cutoff, -1);
+     DNNResult res = solve(1, cp.freeze_iters);
+     quiet_lb = res.lb;
+     if (cp.verbose)
+@@ -2090,7 +2094,10 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
+   }
+   DNNParams p = par;
+   p.ycuts = &pj;
+-  p.L_add = NULL; p.L_add_abs = 0;
++  // swapcuts: an external term (cp.L_ext, e.g. exchange-optimality cuts at fixed multipliers)
++  // stays in the objective of the CP solve; its constant comes off the shift
++  p.L_add = cp.L_ext; p.L_add_abs = cp.L_ext ? cp.L_ext_abs : 0;
++  if (cp.L_ext) shift -= cp.ext_const;
+   DNNWarm own;
+   DNNWarm *sv = save ? save : &own;
+   DNNResult r = dnn_bound(A, B, C, shift, cutoff, p, start, sv);
+diff --git a/latest/dnncut.h b/latest/dnncut.h
+index b856b128..5c45075f 100644
+--- a/latest/dnncut.h
++++ b/latest/dnncut.h
+@@ -93,7 +93,20 @@ struct DNNPool {
+ std::string dnn_pool_encode(const DNNPool &p);
+ bool dnn_pool_decode(const std::string &s, DNNPool &p);
+ 
++// swapcuts (experiments/bound_lab/swapcuts): an external objective term the caller rewrites
++// between rounds of dnn_cut_rounds. L: (m^2+1)^2 row-major, unscaled, added to every round's
++// objective; abs_: the sum of its terms' magnitudes; cnst: subtracted from the shift. update is
++// called after each round's solve and separation, before the Polyak step, with the last primal
++// iterate and that solve's certified bound (round >= 0), and once with round = -1 before the
++// quiet round (restore the term of the best round).
++struct DNNExtHook {
++  void *ctx;
++  void (*update)(DNNExtHook *h, const std::vector<double> &Y, double lb_now, double best_lb, double cutoff, int round);
++  double *L; double abs_, cnst;
++};
++
+ struct DNNCutParams {
++  DNNExtHook *ext_hook;  // NULL: none (default)
+   int warm_primal;    // opt-in same-node Y/Z restart between rounds (0); see DNNParams
+   int rounds;         // cut rounds after the uncut solve (12)
+   int iters;          // iterations per cut round (300)

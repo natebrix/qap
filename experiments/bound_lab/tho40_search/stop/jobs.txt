@@ -1,0 +1,13 @@
+# stop-rule study (README "The stop rule"): one solver process at a time
+# baseline under zall for 38:32 (the main checkout's binary): the root's state again (deleted after the first study), then w38
+wroot zall 26:10,8:0 -d 2 -o /home/user/qap/experiments/bound_lab/tho40_search/runs/wroot_zall/root.state
+w38 zall 26:10,8:0,38:32
+# the hand-over rule (par/zallh.par, patched solver): the A/B root again (its own phase runs under the rule), then the
+# warm subtrees with the rule and dnn.gu_zone = 0 (par/zallhg.par; the root's solve does not depend on gu_zone), then
+# the rule alone on 18:32
+wroot zallh 26:10,8:0 -d 2 -o /home/user/qap/experiments/bound_lab/tho40_search/runs/wroot_zallh/root.state
+w18 zallhg@zallh 26:10,8:0,18:32
+w38 zallhg@zallh 26:10,8:0,38:32
+# 30:32 warm (571 nodes, 2,122 s, 3,492 short in production): the 2,500-3,500 class, not run in the first study
+w30 zallhg@zallh 26:10,8:0,30:32
+w18 zallh 26:10,8:0,18:32
