@@ -76,6 +76,28 @@ Less than the dives' 5.8x and about 12x, with the same ratio between the arms. T
 
 ## tai50b: what a run of record needs
 
+**Status (Nov 16 evening): tai50b is the next production run**, before tho40 (Nathan, Nov 16). Of the plan
+below:
+- **Done in cognac:** the build (the integration build's `latest/`, the retry keyed as `dnn.retry` and
+  recorded in the trace: 52adc4d; the trigger tied to the gate is not needed at `cut.zone = 1`); the region
+  file checked at startup and hashed into the record as `cut.regions.hash` (1e75fe3); the recipe,
+  `infra/phase1/recipes/tai50b.{par,regions,sh}`, with one params file for the root and the rest as
+  `bound_lab/laptop/tai50b.sh` has it (the root's phase at 6,000 iterations, phases below it stopped at
+  2,400), so no seeding from a root state; `start.sh tai50b` defaults to it, incumbent 458,821,518.
+- **The gate:** tai35b end to end through the coordinator's local mode with that recipe's settings
+  (tai35b's regions and depths) on cognac's build (1e75fe3), 4 slots: **PASS**. From 283,315,446 it found
+  283,315,445 by search and closed the tree: 981 nodes (the bound-lab session's own coordinator test of
+  tai35b: 981), 111 units, 2,344 s wall, 6,942 CPU s. The retry fired on two of 932 DNN solves, both steps
+  (`retry 3` in the trace): a depth-3 node whose pooled first solve certified -1.6e10 fathomed after its
+  cold solve (283,317,226), and a depth-8 node went from 233M to 275.7M cold, 283.26M after its phase.
+- **Not done:** the guided path dive (`dive.py` needs a no-symmetry mode, and with the long root it is
+  hours: the root alone is 72 minutes). The rehearsal checks every node it bounds on the best known's path
+  (0 violations through depth 4), and tai35b and tai40b were solved end to end by the same code.
+- **The rehearsal so far** (`claude/cool-babbage-ilnogj-tai50b`, `tai50b_bfs`): depths 1-4 bounded, 1,401
+  nodes and 38.6 core-hours on the cloud box, 1,058 nodes open at depth 5. So the frontier is wider than
+  "a few dozen" below: 64 slots will be busy from depth 2 on.
+- **The launch:** one Spot c7a.16xlarge, `infra/phase1/start.sh tai50b`, once tho40-b has ended; tho40 next.
+
 The bound lab's evidence: 275 Knuth dives and a model put the tree at 5,000-13,000 nodes and 60-250
 core-hours on the cloud box, about 1.4 times that on c7a. tai35b and tai40b were solved end to end in
 922 and 733 nodes by two region families each. A level-by-level rehearsal runs on
