@@ -1,0 +1,15 @@
+$ make shipcheck
+2026-11-16T04:16:22Z
+make -C latest
+make[1]: Entering directory '/home/user/wt-clean/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/home/user/wt-clean/latest'
+python3 tests/ship_test.py
+straight: 184 DNN nodes, 183 warm-started, 13,231 DNN iterations
+ok   ship64: 9 slices, 184 DNN nodes, 183 warm-started, 13,231 DNN iterations: every node identical to the straight run, and the 3 level tables
+ok   ship64store: 9 slices, 184 DNN nodes, 183 warm-started, 13,231 DNN iterations: every node identical to the straight run, and the 3 level tables
+     ship32: 9 slices, 184 DNN nodes, 183 warm-started, 12,316 DNN iterations
+     ship16: 9 slices, 184 DNN nodes, 183 warm-started, 13,193 DNN iterations
+     noship: 9 slices, 184 DNN nodes, 183 warm-started, 12,316 DNN iterations
+exit 0
+2026-11-16T04:20:18Z

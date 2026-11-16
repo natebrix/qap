@@ -1,0 +1,39 @@
+$ make nodetrace
+2026-11-16T04:14:34Z
+make -C latest
+make[1]: Entering directory '/home/user/wt-clean/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/home/user/wt-clean/latest'
+python3 tests/node_trace_test.py
+ok   nug12: 241 lines = node counter 241 + popped 0; Q 132 B 109; fathom 132, enumerate 0, fw 62944 with and without the trace
+ok   nug12-noub: 1324 lines = node counter 1276 + popped 48; Q 698 P 48 E 39 B 539; fathom 746, enumerate 39, fw 145896 with and without the trace
+ok   nug16a-dnn: 178 lines = node counter 178 + popped 0; Q 18 D 143 B 17; fathom 161, enumerate 0, fw 110682 with and without the trace
+ok   nug17-cut: 95 lines = node counter 95 + popped 0; Q 2 D 87 B 6; fathom 89, enumerate 0, fw 16736 with and without the trace
+     (serial: 28 s)
+ok   killed nug15: 1639 lines (252 of the killed run's 386 lines, then the resumed run's), serial 1639; Q 1060 B 579; 0 nodes twice
+     (killed: 2 s)
+ok   parallel.py nug15 --jobs 2: 1639 lines (one file, every process), serial 1639; Q 1060 B 579; 0 nodes twice
+     (parallel: 2 s)
+ok   coord parent-state store: up to 5 parent states during the run, 0 files left after it
+ok   coord nug17 -x 1:3:1:20:1: 95 lines (frontier + 26 of 26 units, 0 retried, 0 from a checkpoint), serial 95; Q 2 D 87 B 6; 0 nodes twice
+ok   coord qapctl nodes: 95 lines (qapctl nodes --out FILE.gz), serial 95; Q 2 D 87 B 6; 0 nodes twice
+ok   coord qapctl export: 95 node lines (= qapctl nodes: True), 92 DNN lines for 92 DNN nodes, in their order: True; exit 0
+ok   coord live tree: 95 nodes in 1 shards, read from 0.json through the boundaries
+ok   coord tree rebuilt by qapctl publish: the same meta and 1 shards
+     (coord: 20 s)
+ok   coordkill nug17: 41443 lines (frontier + 17 of 17 units, 2 retried, 2 from a checkpoint), serial 41443; Q 30703 B 10740; 0 nodes twice
+ok   coordkill qapctl nodes: 41443 lines (qapctl nodes --out FILE.gz), serial 41443; Q 30703 B 10740; 0 nodes twice
+ok   coordkill qapctl export: 41443 node lines (= qapctl nodes: True), 0 DNN lines for 0 DNN nodes, in their order: True; exit 0
+ok   coordkill live tree: 41443 nodes in 285 shards, read from 0.json through the boundaries
+ok   coordkill tree rebuilt by qapctl publish: the same meta and 285 shards
+     (coordkill: 28 s)
+ok   coordkilldnn parent-state store: up to 3 parent states during the run, 0 files left after it
+ok   coordkilldnn nug17 -x 1:3:1:20:1: 95 lines (frontier + 17 of 17 units, 2 retried, 1 from a checkpoint), serial 95; Q 2 D 87 B 6; 0 nodes twice
+ok   coordkilldnn qapctl nodes: 95 lines (qapctl nodes --out FILE.gz), serial 95; Q 2 D 87 B 6; 0 nodes twice
+ok   coordkilldnn qapctl export: 95 node lines (= qapctl nodes: True), 92 DNN lines for 92 DNN nodes, in their order: True; exit 0
+ok   coordkilldnn live tree: 95 nodes in 1 shards, read from 0.json through the boundaries
+ok   coordkilldnn tree rebuilt by qapctl publish: the same meta and 1 shards
+     (coordkilldnn: 25 s)
+node trace: all checks passed
+exit 0
+2026-11-16T04:16:22Z
