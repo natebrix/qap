@@ -1,0 +1,8 @@
+# malformed values of the new text keys (tai12b, allkeys/tai12b.par with one key changed, -u 39464926)
+cut.regions = /nonexistent/regions.txt -> exit 2 nodes "" stderr: cut.regions: cannot read /nonexistent/regions.txt
+cut.cp_extrap = abc -> exit 0 nodes " Nodes: 36 / 43 / 1" stderr: 
+cut.cp_extrap = 40:x -> exit 0 nodes " Nodes: 38 / 43 / 1" stderr: 
+cut.handover = 20:0 -> exit 2 nodes "" stderr: cut.handover: expected N0:A:B[:PHI[:W[:P[:KAPPA]]]] got '20:0'
+cut.handover = 20:0:0.22:1.5:5 -> exit 2 nodes "" stderr: cut.handover: expected N0:A:B[:PHI[:W[:P[:KAPPA]]]] got '20:0:0.22:1.5:5'
+cut.giveup_depth = -1 -> exit 2 nodes "" stderr: settings: cut.giveup_depth=-1 is outside 0..1073741824
+dnn.dscale = 9 -> exit 2 nodes "" stderr: settings: dnn.dscale=9 is outside 0..4

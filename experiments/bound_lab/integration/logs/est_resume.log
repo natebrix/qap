@@ -1,0 +1,48 @@
+# bnbdrv -e -r F (est_resume): nug15, a state written at depth 2 (-d 2 -o), dives resumed from it, QAP_EST_SEED=7
+$ new: ./bnbdrv -u 1150 -d 2 -o e.state ../qaplib/nug15.dat
+exit 0
+root_bound 992.01473739504274
+$ base: QAP_EST_SEED=7 ./bnbdrv -e -u 1150 -r e.state ../qaplib/nug15.dat
+exit 1
+3:estimator ON, branch and bound OFF
+$ new: QAP_EST_SEED=7 ./bnbdrv -e -u 1150 -r e.state ../qaplib/nug15.dat
+exit 0
+273:    root bound: 992.015
+276:level    nodes	%fathom	%c.elim	    time
+285:nodes       0        2     4340 
+291:Mon Nov 16 04:09:35 [   900 dives            4340 nodes          0.25 seconds 0 ignored]
+294:         Nodes: 4339 / 3504 / 0
+295:    root bound: 992.015
+298:level    nodes	%fathom	%c.elim	    time
+307:nodes       0        2     4334 
+315:         Nodes: 4204 / 3380 / 0
+316:    root bound: 992.015
+319:level    nodes	%fathom	%c.elim	    time
+328:nodes       0        1     4199 
+$ new, no -r: QAP_EST_SEED=7 ./bnbdrv -e -u 1150 ../qaplib/nug15.dat
+level    nodes	%fathom	%c.elim	    time
+nodes       5       15     4384 
+         Nodes: 4478 / 3565 / 0
+    root bound: 992.015
+level    nodes	%fathom	%c.elim	    time
+nodes       5       15     4454 
+# (the base run above was refused for the settings hash: the state was written by the merged build; again with --allow-settings-change)
+$ base: QAP_EST_SEED=7 ./bnbdrv -e -u 1150 -r e.state --allow-settings-change ../qaplib/nug15.dat
+exit 0
+263:         Nodes: 4358 / 3510 / 0
+264:    root bound: 0
+281:Mon Nov 16 04:09:50 [   900 dives            4248 nodes          0.24 seconds 0 ignored]
+284:         Nodes: 4248 / 3432 / 0
+285:    root bound: 0
+304:         Nodes: 4128 / 3323 / 0
+305:    root bound: 0
+327:0 dives with depth >= 1000 were thrown out.
+# new, for comparison:
+272:         Nodes: 4346 / 3542 / 0
+273:    root bound: 992.015
+291:Mon Nov 16 04:09:35 [   900 dives            4340 nodes          0.25 seconds 0 ignored]
+294:         Nodes: 4339 / 3504 / 0
+295:    root bound: 992.015
+315:         Nodes: 4204 / 3380 / 0
+316:    root bound: 992.015
+339:0 dives with depth >= 1000 were thrown out.

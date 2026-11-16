@@ -1,0 +1,11 @@
+$ make continuationcheck
+2026-11-16T04:21:30Z
+make -C latest dnncontinuation
+make[1]: Entering directory '/home/user/wt-clean/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I. -I -I./ ../tests/dnn_continuation.C qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o -o dnncontinuation -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/home/user/wt-clean/latest'
+./latest/dnncontinuation
+FAIL split Y/Z differs from uninterrupted full-spectrum state
+make: *** [Makefile:74: continuationcheck] Error 1
+exit 2
+2026-11-16T04:21:31Z

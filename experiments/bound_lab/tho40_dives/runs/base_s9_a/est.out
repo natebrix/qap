@@ -1,0 +1,169 @@
+[Jan 1, 2023]
+vm
+estimator ON, branch and bound OFF
+parameters file: /home/user/qap/experiments/bound_lab/tho40_dives/par/base.par
+symmetry file: /home/user/qap/latest/SYM/tho40t.sym
+incumbent: 240516
+root fixes: 26:9
+input file: /home/user/qap/qaplib/tho40t.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 1-38, relative gap <= 1, give up after 200 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 71 hash d8f32b9fa3087c58
+setting dnn.depths 1:38 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 200 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36 par policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.giveup "" default policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 2 par policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash b555e05176c9fa88 par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED 2009 env run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/bound_lab/tho40_dives/par/base.par flag run
+setting QAP_DNN_TRACE /home/user/qap/experiments/bound_lab/tho40_dives/runs/base_s9_a/trace.txt env diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE "" default diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST /home/user/qap/experiments/bound_lab/tho40_dives/runs/base_s9_a/dives.txt env diagnostic
+setting QAP_EST_CHILD_QPB 1 env diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+root bound 196746 (for the relative gaps of a -F run)
+branching_weight() = 0.5
+read symmetry info from /home/user/qap/latest/SYM/tho40t.sym
+start dives at 2, 4 trials, print every 1/100000000, score exp = 10.000000
+throw out dives with depth >= 1000
+!! ESTIMATE !! 
+Estimator seed = 2009
+Dive history file = /home/user/qap/experiments/bound_lab/tho40_dives/runs/base_s9_a/dives.txt
+Scoring exponent = 10
+
+    Total Time: 45.1236 seconds 
+         Nodes: 1 / 0 / 0
+    root bound: 0
+ fw iterations: 3900
+     DNN bound: 1 nodes, 0 fathomed, 44.9257 s
+
+level    nodes	%fathom	%c.elim	    time
+ 1           1	0.0000	0.0000	   45.12
+
+Strategy breakdown:
+nodes       1        0        0        0 
+time    45.12     0.00     0.00     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           1	0.0000	1.0000	        250	   250.0	   44.93
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 1           0	       0	       0	       0	       0
+
+QAP_EST_CHILD_QPB: the first draw's 39 nodes scored by their own QPB bound
+sum = 1
+stack = 39
+
+    Total Time: 751126 seconds 
+         Nodes: 157892 / 151979 / 0
+    root bound: 0
+ fw iterations: 28731362
+     DNN bound: 17 nodes, 4 fathomed, 487.103 s
+
+level    nodes	%fathom	%c.elim	    time
+ 1           1	0.0000	0.0000	   45.12
+ 2          45	0.0000	0.0000	 1565.99
+ 3        1270	0.0000	0.0000	46411.53
+ 4       51134	0.9101	0.0000	269744.51
+ 5      105440	1.0000	N/A	433358.95
+
+Strategy breakdown:
+nodes       1        0   157889        0 
+time    45.12     0.00 751080.98     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           4	0.0000	1.0000	       1000	   250.0	  179.70
+ 2           4	0.0000	1.0000	        800	   200.0	  135.20
+ 3           4	0.0000	1.0000	        950	   237.5	  132.90
+ 4           4	0.7500	0.2500	        290	    72.5	   35.21
+ 5           1	1.0000	0.0000	         36	    36.0	    4.08
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3           0	       0	       0	       0	       0
+ 4       46539	   46536	       3	       0	       0
+ 5      105440	  105439	       1	       0	       0
+
+tmean = 751126	 nmean = 157892
+tssq  = 5.06309e+12	 nssq  = 2.08521e+11
+tvar  = 7.01581e+11	 nvar  = 2.72004e+10
+time stddev = 837604, err = 418802
+node stddev = 164925, err = 82462.7
+0 dives with depth >= 1000 were thrown out.

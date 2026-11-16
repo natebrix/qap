@@ -1,0 +1,28 @@
+# a state file written by the unpatched build, resumed by the merged one (nug16a, tests/par/ship.par: DNN bound, shipped parent state; optimum as incumbent)
+$ base: ./bnbdrv -p ../tests/par/ship.par -u 1610 ../qaplib/nug16a.dat   (uninterrupted reference)
+         Nodes: 32 / 30 / 0
+ fw iterations: 3150
+     DNN bound: 32 nodes, 30 fathomed, 1.83961 s
+$ base: ./bnbdrv -p ../tests/par/ship.par -u 1610 -o s.state -t 3 ../qaplib/nug16a.dat
+exit 3
+QAP-STATE 9
+n 16 levels 16 strategies 4
+incumbent 1610 0 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+root_bound 1442.1449893228701
+$ new: ./bnbdrv -p ../tests/par/ship.par -u 1610 -r s.state ../qaplib/nug16a.dat
+exit 1
+
+DNN bound at depths 0-4, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 80 hash c75721af80c691e9
+--
+read_state: [/tmp/claude-0/-home-user-qap/49f2be81-3bef-577b-9472-4e87006c586a/scratchpad/s.state] the state file was written with settings [5cde55c281ef8386 dnn.depths=0:4 dnn.giveup=300 dnn.warm=1 dnn.ext=20 dnn.gamma1=1.0 dnn.gamma=1.0 dnn.cheb=3 dnn.tight_lam=2 dnn.refresh=40 dnn.warm_y=2 cut.zo
+$ new: ./bnbdrv -p ../tests/par/ship.par -u 1610 -r s.state --allow-settings-change ../qaplib/nug16a.dat
+exit 0
+read_state: [/tmp/claude-0/-home-user-qap/49f2be81-3bef-577b-9472-4e87006c586a/scratchpad/s.state] warning: the state file was written with settings [5cde55c281ef8386 dnn.depths=0:4 dnn.giveup=300 dnn.warm=1 dnn.ext=20 dnn.gamma1=1.0 dnn.gamma=1.0 dnn.cheb=3 dnn.tight_lam=2 dnn.refresh=40 dnn.warm_y
+         Nodes: 32 / 30 / 0
+ fw iterations: 3150
+     DNN bound: 32 nodes, 30 fathomed, 1.77189 s
+$ base: ./bnbdrv -p ../tests/par/ship.par -u 1610 -r s.state ../qaplib/nug16a.dat   (the same file resumed by the build that wrote it)
+         Nodes: 32 / 30 / 0
+ fw iterations: 3150
+     DNN bound: 32 nodes, 30 fathomed, 1.77135 s

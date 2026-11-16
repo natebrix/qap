@@ -1,0 +1,108 @@
+diff --git a/latest/bnb.C b/latest/bnb.C
+index 3838c886..da358cce 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -952,6 +952,19 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	        p = q;
+ 	      }
+ 	    }
++	    // cut.handover = N0:A:B[:PHI[:W]] (CP form; experiments/bound_lab/tho40_search/stop): the phase
++	    // stops when finishing at its present rate would cost more than its children would
++	    if (const char *e = setting_s("cut.handover"); *e) {
++	      double v[5] = {0, 0, 0, 1.5, 200};
++	      int k = 0;
++	      for (const char *p = e; *p && k < 5; k++) {
++	        char *q; v[k] = strtod(p, &q);
++	        if (q == p || (*q && *q != ':')) { std::cerr << "cut.handover: expected N0:A:B[:PHI[:W]] got '" << e << "'" << std::endl; exit(2); }
++	        p = *q ? q + 1 : q;
++	      }
++	      if (k < 3 || v[0] < 0 || v[1] < 0 || v[2] < 0 || v[3] <= 0 || v[4] < 10) { std::cerr << "cut.handover: expected N0:A:B[:PHI[:W]] got '" << e << "'" << std::endl; exit(2); }
++	      cp.ho_n0 = v[0]; cp.ho_a = v[1]; cp.ho_b = v[2]; cp.ho_phi = v[3]; cp.ho_w = (int)v[4];
++	    }
+ 	    if (cp.grid_rows == 0) cp.prefix = true;
+ 	    DNNPool pool_out;
+ 	    if (dnn_pool && cp.side == cut_side) {
+diff --git a/latest/dnncut.C b/latest/dnncut.C
+index 7e0aeafe..f3752c76 100644
+--- a/latest/dnncut.C
++++ b/latest/dnncut.C
+@@ -30,6 +30,7 @@ DNNCutParams::DNNCutParams()
+   pool_in = NULL; pool_out = NULL; other_orig = NULL; fixed_at = NULL; pool_check = 0;
+   pool_all_round = -1; pool_all_out = NULL;
+   cp_every = 0; cp_k = 0; cp_iters = 0; cp_sweeps = 1; cp_passes = 1;
++  ho_n0 = ho_a = ho_b = 0; ho_phi = 1.5; ho_w = 0;
+ }
+ 
+ namespace {
+@@ -683,6 +684,9 @@ public:
+   bool stalled = false;
+   std::vector<std::pair<int, double>> giveup;   // cut.giveup: (T, G) pairs, see DNNCutParams
+   bool gaveup = false;
++  // cut.handover (DNNCutParams): ho_w > 0 replaces the stall rule; ho_kids = m, ho_unit = 0.1% of |cutoff|
++  int ho_w = 0, ho_kids = 0;
++  double ho_n0 = 0, ho_a = 0, ho_b = 0, ho_phi = 1.5, ho_unit = 1;
+   std::vector<std::pair<int, double>> best_hist;
+   int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
+   std::vector<std::vector<int>> rloc;
+@@ -1214,12 +1218,21 @@ public:
+ 
+   bool stop(int it, double best) override
+   {
+-    if ((stall_window <= 0 && giveup.empty()) || !std::isfinite(stall_cutoff)) return false;
++    if ((stall_window <= 0 && giveup.empty() && ho_w <= 0) || !std::isfinite(stall_cutoff)) return false;
+     const double b = std::max(best, stall_first);
+     best_hist.push_back({it, b});
+     // cut.giveup: from iteration T a gap still above G will not close
+     for (const auto &tg : giveup)
+       if (it >= tg.first && stall_cutoff - b > tg.second) { gaveup = true; stalled = true; return true; }
++    if (ho_w > 0) {
++      // cut.handover: finishing the phase at its present rate against handing over to the children
++      if (it < ho_w) return false;
++      double b0 = stall_first;
++      for (const auto &h : best_hist) { if (h.first > it - ho_w) break; b0 = h.second; }
++      const double gap = stall_cutoff - b, rate = std::max(0.0, b - b0) / ho_w, g = gap / ho_unit;
++      if (ho_phi * gap > rate * ho_kids * (ho_n0 + ho_a * g + ho_b * g * g)) { stalled = true; return true; }
++      return false;
++    }
+     if (stall_window <= 0 || it < stall_window) return false;
+     double b0 = stall_first;   // the running best at it - W (first_lb before the first check)
+     for (const auto &h : best_hist) { if (h.first > it - stall_window) break; b0 = h.second; }
+@@ -2228,6 +2241,8 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+   pj.stall_window = cp.stall_rounds > 0 ? cp.stall_rounds * cp.iters : 0;
+   pj.stall_factor = cp.stall_factor; pj.stall_cutoff = cutoff; pj.stall_first = first_lb;
+   pj.giveup = cp.giveup;
++  pj.ho_w = cp.ho_w; pj.ho_n0 = cp.ho_n0; pj.ho_a = cp.ho_a; pj.ho_b = cp.ho_b; pj.ho_phi = cp.ho_phi;
++  pj.ho_kids = m; pj.ho_unit = 0.001 * std::max(1.0, fabs(cutoff));
+   DNNParams par = base;
+   par.ycuts = &pj;
+   par.L_add = NULL; par.L_add_abs = 0;
+diff --git a/latest/dnncut.h b/latest/dnncut.h
+index b856b128..87737470 100644
+--- a/latest/dnncut.h
++++ b/latest/dnncut.h
+@@ -195,6 +195,13 @@ struct DNNCutParams {
+   // phase of the node-10 subtree was above 24.5 at 200, 18.1 at 300, 13.9 at 400,
+   // 8.9 at 600). Empty: off.
+   std::vector<std::pair<int, double>> giveup;
++  // cut.handover = N0:A:B[:PHI[:W]] (CP form only; experiments/bound_lab/tho40_search/stop): the
++  // phase stops, and hands its pool to the children, when finishing would cost more than they
++  // would: PHI x gap / rate > m x (N0 + A g + B g^2), rate the gain of the running best over the
++  // last W iterations per iteration, g the gap in 0.1% of |cutoff|, m the node's free facilities
++  // (its children). It replaces the stall rule. ho_w = 0: off.
++  double ho_n0, ho_a, ho_b, ho_phi;
++  int ho_w;
+   DNNCutParams();
+ };
+ 
+diff --git a/latest/settings.C b/latest/settings.C
+index f1c1d77e..1a3eab34 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -75,6 +75,7 @@ static Setting TABLE[] = {
+   POLICY("cut.cp", "QAP_DNN_CUT_CP", 's', "", 0, 0, "k:K: the phase as one CP-ADMM solve separating K triangles every k iterations"),
+   POLICY("cut.giveup", "QAP_DNN_CUT_GIVEUP", 's', "", 0, 0, "T:G,...: from iteration T a CP-ADMM phase stops when its gap to the cutoff is still above G (unset: the stall rule only)"),
+   POLICY("cut.cp_iters", "QAP_DNN_CUT_CP_ITERS", 'i', "0", 0, 100000000, "CP-ADMM iteration limit (0: rounds x iters + freeze)"),
++  POLICY("cut.handover", "QAP_DNN_CUT_HANDOVER", 's', "", 0, 0, "N0:A:B[:PHI[:W]]: a CP-ADMM phase stops when PHI x gap / rate, the iterations it still needs at the rate of its last W, exceeds m x (N0 + A g + B g^2), its children's cost at gap g in 0.1% of the cutoff (unset: the stall rule)"),
+   POLICY("cut.cp_sweeps", "QAP_DNN_CUT_CP_SWEEPS", 's', "1:1", 0, 0, "S[:P]: Dykstra sweeps and passes per CP-ADMM iteration"),
+   POLICY("cut.cp_lazycert", "DNN_CP_LAZYCERT", 'i', "0", 0, 1, "1: the lazy certificate in CP-ADMM solves too"),
+   POLICY("cut.xbar", "QAP_DNN_CUT_XBAR", 'i', "0", 0, 1, "1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's)"),

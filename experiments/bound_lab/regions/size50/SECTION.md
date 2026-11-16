@@ -24,10 +24,18 @@ the samples. [m] measured (run named), [e] estimated.
    of the surviving kind [e].
 3. **A survivor's children die quickly**: under `34:28` (branched 0.55M short), 9 of 10 random
    depth-5 children fathom in the first solve (40-91 iterations, 9-21 CPU-s); the tenth,
-   again a same-cluster facility, ends it 0.47M short (@@D5PHASE@@).
+   again a same-cluster facility (`42:35`), ends it 0.47M short and **does not fathom either**:
+   106k short after 1,000 phase iterations, gaining 15k per 100. So the same-cluster fringe
+   compounds for at least one more level, with gaps falling about 5x per level (3.1M at
+   depth 3, 0.55M at depth 4, 0.11M at depth 5).
 4. **The on-path nodes close slowly**: 4.82M short at depth 1, 3.88M at depth 2, 3.10M at
    depth 3 when the stall rule stops their phases after 600-760 iterations (0.68-1.05% of
-   the best known value; on tai30b the same nodes were within 0.025%). @@LONG@@
+   the best known value; on tai30b the same nodes were within 0.025%). **Run long they close much further**: the on-path depth-4 node with 3,000 phase
+   iterations, `wc=2.88` and no stall rule reaches 458,412,325, 0.41M (0.089%) under the
+   best known value (`runs/d4_34_6path_long`); its stalled parent was 3.10M short. And its children
+   are then far easier: of 10 random depth-5 children of that node, **8 fathom in the first
+   solve** (45-141 iterations), 2 end 0.74M short, against 2 of 10 and 1.5M-3.2M below its
+   stalled parent one level up (`runs/d5p1_under_longpath`, `runs/d4p1_under_path`).
 5. **The phase penalty matters here too** (the coordinator's lead, `../cpfast`): on the median
    depth-1 child `31:23` (5.54M short at its first solve) the phase needs
    **589 iterations with `dnn.beta_sched = w=0.36,wc=2.88`, 743 with `wc=1.0`, 640 with
@@ -48,19 +56,27 @@ the samples. [m] measured (run named), [e] estimated.
   survivor, so 60,000-140,000 iterations per on-path level at depth 4, less below as the
   clusters fill and m falls (0.30 s per iteration at m = 46, 0.15 at m = 40 [e], 0.04 at
   m = 30 [m, tai30b]).
-- **If the fringe dies within one to two levels (what the one depth-5 sample shows):
-  about 1e6-3e6 iterations, 20,000-60,000 nodes, 50-200 core-hours on this box
-  (70-300 c7a core-hours)** [e]. This is my central reading.
-- **If each survivor instead keeps 3-5 survivors of its own for 3-4 levels** (not seen, not
-  excluded: one depth-5 child in ten did not fathom at once, and I have no sample below
-  depth 5 or in the 15- and 12-point clusters): 100-1,000 times more, **1e4-1e5 core-hours**.
-- So: **thousands of core-hours at the outside of what the samples support, most likely
-  hundreds; not hundreds of thousands** unless the same-cluster fringe compounds, which is
-  the one thing the dives must settle. For comparison the current figures are 4.1e9 CPU-s
-  (1.1e6 core-hours, tuned 10 dives) to 1e11.
+- **If every survivor's children died at once: about 1e6-3e6 iterations, 10,000-60,000 nodes,
+  50-200 core-hours on this box** [e]. The samples say this is too low: one depth-5 child in
+  ten survives again (1 of 2 same-cluster ones sampled).
+- **With the fringe compounding** at rho surviving children per survivor for L more levels,
+  the cost multiplies by about rho^L. The samples give rho between 0.5 and 20 (1 of 10;
+  point value 4.5, i.e. half of the same-cluster children) and gaps falling 5x per level,
+  which should end the compounding within 2 to 4 levels [e]. rho = 3, L = 3: x27, **about
+  1,500-5,000 core-hours here (2,000-7,000 c7a core-hours), of the order of 1e6 nodes**: my
+  central reading. rho = 2, L = 2: 200-800 core-hours. rho = 5, L = 4: 3e4-1e5 core-hours.
+- So: **a run of thousands of core-hours, with a range from several hundred to several
+  tens of thousands**; hundreds of thousands only if the same-cluster fringe keeps
+  compounding below depth 6, where I have no sample. For comparison the current figures are
+  4.1e9 CPU-s (1.1e6 core-hours; tuned, 10 dives) to 1e11. The dives are the number to use:
+  everything here hangs on rho and L, measured on 12 nodes.
+- Two things should pull it down, neither measured in a tree: on-path phases run to
+  convergence instead of to the stall rule (0.41M short instead of 3.1M at depth 4), so that
+  their children start from a tighter state (8 of 10 children then fathom in the first solve, not 2 of 10); and a branching order that fills the
+  small clusters first and leaves near-equivalent placements to the end.
 - What it rests on: one root (2,970 iterations, not converged), 14 depth-1 first solves and
-  4 depth-1 phases, 21 + 11 + 11 + 10 first solves at depths 2-5, 6 phases at depths 2-4,
-  all below one branching sequence. The depth-4 survivor count is the weakest number.
+  4 depth-1 phases, 21 + 11 + 11 + 21 first solves at depths 2-5, 8 phases at depths 2-5,
+  all below one branching sequence, most with phases capped at 1,000 and the stall rule on. The depth-4 survivor count is the weakest number.
 
 ### Stage tables [m]
 
@@ -108,13 +124,20 @@ gaining 43k per 100: branches (1,110 iterations, 337 CPU-s).
 
 **Depth 5** (`runs/d5p1_under_34_28`; children `42:x` of the survivor `34:28`): 9 of 10 random
 fathom in the first solve (40-91 iterations, 9-21 CPU-s); `42:35` (same cluster) 474,550
-short. @@D5PHASE2@@
+short. Its phase (`runs/d5_42_35`, wc=2.88): 106,016 short at the 1,000 cap (303 CPU-s).
+
+**Depth 4 run long, and depth 5 below it** (`runs/d4_34_6path_long`, `par/kidLong.par`: wc=2.88,
+`cut.cp_iters = 3000`, `cut.stall = 0`, incumbent + 1): on-path `34:6`, 2.94M short at its
+first solve, 409,192 short after 3,000 phase iterations (3,110 in all, 1,012 CPU-s). Its
+children `37:x` (`runs/d5p1_under_longpath`): of 10 random, 8 fathom in the first solve (45-141
+iterations, 11-33 CPU-s), 2 (same-cluster facilities) end 0.74M short; on-path `37:28` 1.29M.
 
 ### Validity [m]
 
 With the incumbent at best known + 1 (cutoff 458,821,517.05) the nodes on the path to
 `QAPSOLN/tai50b.sln` never fathom and never exceed the best known value: depth 1 `31:7`
-453,997,041; depth 2 `33:32` 454,939,006; depth 3 `32:0` 455,726,095; @@VALID4@@ Their off-path
+453,997,041; depth 2 `33:32` 454,939,006; depth 3 `32:0` 455,726,095; depth 4 `34:6` run to 3,000 phase
+iterations 458,412,325 (0.41M under); its on-path child `37:28` 1.29M short at its first solve. Their off-path
 siblings fathom around them, as above.
 
 ### Calibration
@@ -140,7 +163,7 @@ matrix = `cut.side = 0`). Rebuild with
 `cut.regions` takes a path; my par files carry an absolute one
 (`/home/user/qap/experiments/bound_lab/regions/regions/tai50b.comb.txt`): change it.
 
-**Settings block** (`size50/par/kidW288.par` with `cut.cp_iters` raised; =
+**Settings block** (`size50/par/kidLong.par`; =
 `experiments/estimates/tai50b/tai50b.par` with these changes):
 
 ```
@@ -158,8 +181,8 @@ cut.rounds = 12
 cut.iters = 200          # with cut.stall = 3: the stall window is 600 iterations
 cut.freeze = 0
 cut.cp = 100:1000
-cut.cp_iters = 1000      # what I sampled with; see pitfall 3 before raising it
-cut.stall = 3
+cut.cp_iters = 3000      # most of my samples: 1000 with cut.stall = 3. Pitfall 3
+cut.stall = 0
 ```
 
 The root's par is the same with `cut.cp_iters` large and `cut.stall = 0` (`par/rootL.par`
@@ -176,13 +199,17 @@ used 2,500 and no `wc`: at the cold root the phase runs at penalty factor 1, not
    616.9M against 612.9M at 600, 633.7M against 633.1M at 1,600. But the cold tai50b root's
    first solve ran 470 iterations before the extrapolation rule called it hopeless; warm
    pooled children stop at 110.
-3. **Phase length.** A phase that fathoms is far cheaper than branching (a branch costs at
-   least 46 x 40 iterations even when every child fathoms at once), so let far misses run:
-   `31:23` needs 589, cold depth-3 node 10 needed 2,480 without `wc`. But nodes on the path
-   and same-cluster survivors never fathom and take whatever the limit and the stall rule
-   allow (600-760 with `cut.stall = 3`, the full limit otherwise: tai25b's on-path depth-1
-   child ran 3,000 iterations to end 8,256 short). In a *dive* every level has such a node;
-   with `cut.cp_iters = 1000` it costs 600-1,000 iterations a level. Say which limit you used.
+3. **Phase length: long, and the stall rule is too eager for this instance.** A phase that
+   fathoms is far cheaper than branching (a branch costs at least 46 x 40 iterations even
+   when every child fathoms at once): `31:23` needs 589 iterations, cold depth-3 node 10
+   needed 2,480 without `wc`. And a node that cannot fathom (on the path, or a same-cluster
+   swap) should still run long, because its children inherit its state: below the on-path
+   depth-3 node stopped by `cut.stall = 3` after 620 iterations (3.1M short) 2 of 10 children
+   fathom in the first solve; below the on-path depth-4 node run 3,000 iterations (0.41M
+   short) 8 of 10 do. 3,000 iterations cost less than the 6 x 46 x 400 they save. I would
+   run the dives with `cut.cp_iters = 3000` and `cut.stall = 0` (or a much wider window),
+   not with the 1,000 / stall 3 that most of my samples used; the price is 3,000 iterations at
+   one or more nodes per level of every dive. Say which limit you used.
 4. **A warm root for samples or dives**: `bnbdrv -p ROOT.par -u 458821517 -d 0 -o root.state
    qaplib/tai50b.dat` bounds the root (first solve + phase) and writes its 50 children, set
    aside by `-d 0`, with the root's shipped DNN state (`ship.bits = 64`) and pool (134 MB).
