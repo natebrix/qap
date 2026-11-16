@@ -36,10 +36,10 @@ or bounded above 458,821,517; an incumbent below 458,821,517; a level more than 
 
 ## Status
 
-- Levels complete: depths 1 to 2; 687 nodes below the root, 158,050 DNN iterations, 74,125 CPU-s = 20.6 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
-- Open nodes now: 432 at depth 3 (`open/open_3.txt`).
+- Levels complete: depths 1 to 3; 1,119 nodes below the root, 187,662 DNN iterations, 84,479 CPU-s = 23.5 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
+- Open nodes now: 282 at depth 4 (`open/open_4.txt`).
 - Incumbents found: none yet (the search starts from 458,821,518 = best known + 1).
-- Path of the best known solution: 2 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517). Largest certified bound on it: 456,924,273.7386.
+- Path of the best known solution: 3 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517). Largest certified bound on it: 457,284,002.0728.
 
 ## The levels [m]
 
@@ -47,6 +47,7 @@ or bounded above 458,821,517; an incumbent below 458,821,517; a level more than 
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 50 | 13 | 0 / 7 / 30 | 637 | 50, 43 | 50,769 | 27,731 | 0, 0 | 2,511,495 (B) | 50, 36,321 | 50, 5, 29,416 |
 | 2 | 637 | 9 | 0 / 572 / 56 | 432 | 637, 65 | 107,281 | 46,393 | 1, 1 | 1,897,243 (B) | 654, 74,635 | 833, 14, 38,084 |
+| 3 | 432 | 6 | 0 / 425 / 1 | 282 | 432, 7 | 29,612 | 10,354 | 1, 1 | 1,537,515 (B) | 141, 7,510 | 672, 11, 34,732 |
 
 The predictions are `../tai50b_size`'s, made without `wc=2.88` and from a 2,400-iteration phase limit under the same root; E3's depth 2 includes the 588 children of the 12 depth-1 near misses it prices separately.
 
@@ -57,4 +58,6 @@ The predictions are `../tai50b_size`'s, made without `wc=2.88` and from a 2,400-
 2026-11-16T10:24:37 depth 1 done: 637 open at depth 2; store 1.5G; disk free 28G
 2026-11-16T10:24:44 depth 2: 637 open nodes
 2026-11-16T14:01:59 depth 2 done: 432 open at depth 3; store 973M; disk free 29G
+2026-11-16T14:02:02 depth 3: 432 open nodes
+2026-11-16T14:47:22 depth 3 done: 282 open at depth 4; store 597M; disk free 29G
 ```
