@@ -79,6 +79,14 @@ to unpatched b86352e's.
 4. Then the identity runs on a tho40 slice and a wil50 subtree (the replay predicts no change), and the
    tai35b case again.
 
+**In cognac (Nov 16), for tho40-c:** the integration build's `latest/` (205bd9b, line for line b86352e)
+and the retry (5f644a1), applied as a patch, not merged. Items 1 and 2 are done: `dnn.retry` (default 0)
+switches both retries, and each one adds `retry S rlb X` to the node's DNN line (S: 1 without the pool,
+2 cold, 3 both; X the first failed bound). Item 3 is not: at tho40's `cut.zone = 0.06` the 1% trigger lies
+inside the zone. Checked: `make test`, `dnncheck`, `shipcheck`, `nodetrace`, `continuationcheck` pass; on
+the tho40 subtree `26:10,8:0,30:32` under cut06's settings (38 nodes, 37 pooled first solves) the node and
+DNN traces equal cognac aa5113d's but for pids and CPU, and `dnn.retry = 1` fired no retry there.
+
 ## `make continuationcheck`
 
 **It has failed since 34e347c (Nov 8), on any machine; not a solver bug.** The check compares a DNN solve

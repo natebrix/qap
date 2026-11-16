@@ -65,6 +65,7 @@ extern double dnn_max_gap;
 #include "dnn.h"
 #endif
 extern bool bnb_resumed;
+extern double est_resume_root_bound;
 extern bool bnb_stopped;
 extern volatile sig_atomic_t bnb_stop_requested;
 static void request_stop(int) { bnb_stop_requested = 1; }
@@ -620,6 +621,7 @@ int main(int argc, char *argv[])
   if (resume_file) {
     if (!read_state(resume_file, n, stack, solution, stats)) return 1;
     bnb_resumed = true;
+    if (run_estimate) est_resume_root_bound = stats->root_bound;
     // an explicit -u below the saved incumbent wins (the default is +inf)
     if (qap_upper_bound < solution->getObjective())
       solution->setObjective(qap_upper_bound);
