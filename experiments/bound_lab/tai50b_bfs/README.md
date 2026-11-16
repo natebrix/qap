@@ -38,10 +38,10 @@ dropped (no script enforced it) and the run goes on level by level until the tre
 
 ## Status
 
-- Levels complete: depths 1 to 4; 1,401 nodes below the root, 341,938 DNN iterations, 139,097 CPU-s = 38.6 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
-- Open nodes now: 1058 at depth 5 (`open/open_5.txt`).
+- Levels complete: depths 1 to 5; 2,459 nodes below the root, 491,876 DNN iterations, 181,719 CPU-s = 50.5 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
+- Open nodes now: 810 at depth 6 (`open/open_6.txt`).
 - Incumbents found: none yet (the search starts from 458,821,518 = best known + 1).
-- Path of the best known solution: 4 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517). Largest certified bound on it: 458,119,422.9497.
+- Path of the best known solution: 5 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517). Largest certified bound on it: 458,402,028.3151.
 
 ## The levels [m]
 
@@ -51,6 +51,7 @@ dropped (no script enforced it) and the run goes on level by level until the tre
 | 2 | 637 | 9 | 0 / 572 / 56 | 432 | 637, 65 | 107,281 | 46,393 | 1, 1 | 1,897,243 (B) | 654, 74,635 | 833, 14, 38,084 |
 | 3 | 432 | 6 | 0 / 425 / 1 | 282 | 432, 7 | 29,612 | 10,354 | 1, 1 | 1,537,515 (B) | 141, 7,510 | 672, 11, 34,732 |
 | 4 | 282 | 23 | 0 / 205 / 54 | 1058 | 282, 77 | 154,276 | 54,618 | 0, 0 | 702,094 (B) | 135, 46,558 | 517, 43, 70,500 |
+| 5 | 1,058 | 18 | 0 / 1021 / 19 | 810 | 1058, 37 | 149,938 | 42,623 | 0, 0 | 419,489 (B) | 3,651, 136,438 | 1,978, 65, 100,950 |
 
 The predictions are `../tai50b_size`'s, made without `wc=2.88` and from a 2,400-iteration phase limit under the same root; E3's depth 2 includes the 588 children of the 12 depth-1 near misses it prices separately.
 
@@ -65,4 +66,6 @@ The predictions are `../tai50b_size`'s, made without `wc=2.88` and from a 2,400-
 2026-11-16T14:47:22 depth 3 done: 282 open at depth 4; store 597M; disk free 29G
 2026-11-16T14:47:25 depth 4: 282 open nodes
 2026-11-16T18:46:31 depth 4 done: 1058 open at depth 5; store 2.1G; disk free 28G
+2026-11-16T18:46:33 depth 5: 1058 open nodes
+2026-11-16T21:54:18 depth 5 done: 810 open at depth 6; store 1.5G; disk free 28G
 ```
