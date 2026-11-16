@@ -1,0 +1,605 @@
+diff --git a/experiments/dnn_cuts/dnncuts.C b/experiments/dnn_cuts/dnncuts.C
+index bf9fbb25..5b8323e1 100644
+--- a/experiments/dnn_cuts/dnncuts.C
++++ b/experiments/dnn_cuts/dnncuts.C
+@@ -60,6 +60,7 @@
+ */
+ 
+ #include "dnncut.h"
++#include "settings.h"
+ #include "qap.h"
+ #include "assign.h"
+ #include "util.h"
+@@ -142,6 +143,10 @@ int main(int argc, char **argv)
+   std::string ladd_spec, dumpy, loadpool, savepool;
+   std::string savepoolall, cpadmm;   // CP-ADMM study
+   int savepoolall_round = -1, cp_iters = 2000, cp_plain = 0;
++  const char *par_file = NULL;
++  int phase = 0;
++  std::string savewarm, loadwarm;
++  double poolscale = 1.0, firstbeta = 0;
+   DNNCPParams cpp;
+   for (int a = 1; a < argc; a++) {
+     std::string o = argv[a];
+@@ -215,6 +220,18 @@ int main(int argc, char **argv)
+       if (sscanf(argv[++a], "%d:%d:%d:%d", &cpp.sep_every, &cpp.sep_k, &cpp.pool_cap, &cpp.drop_after) < 2 ||
+           cpp.sep_every < 1 || cpp.sep_k < 1) { fprintf(stderr, "bad -cpsep k:K[:CAP[:DROP]]\n"); return 1; }
+     }
++    else if (o == "-p" && more) par_file = argv[++a];                      // [settings] of a params file: the search's dnn.* keys
++    else if (o == "-phase") phase = 1;                                     // the search's phase: first solve, then dnn_cut_cp (bnb.C)
++    else if (o == "-savewarm" && more) savewarm = argv[++a];              // the first solve's state (Y, Z), to skip it next time
++    else if (o == "-loadwarm" && more) loadwarm = argv[++a];
++    else if (o == "-firstbeta" && more) firstbeta = atof(argv[++a]);      // -phase: dnn.beta of the first solve only (a warm child's w x beta)
++    else if (o == "-poolscale" && more) poolscale = atof(argv[++a]);      // factor on a loaded pool's multipliers (-phase)
++    else if (o == "-cpfree" && more) cp.cp_free = atof(argv[++a]);         // -phase: the half-space step on the free entries (dnncut.h)
++    else if (o == "-cpextrap" && more) {                                   // -phase: E:GAMMA[:GUARD[:MODE]] (dnncut.h)
++      sscanf(argv[++a], "%d:%lf:%d:%d", &cp.cp_extrap, &cp.cp_extrap_gamma, &cp.cp_extrap_guard, &cp.cp_extrap_mode);
++    }
++    else if (o == "-cpwcgap" && more) cp.cp_wc_gap = atof(argv[++a]);      // -phase: cut.cp_wc_gap
++    else if (o == "-cpwcdef" && more) cp.cp_wc_deficit = atof(argv[++a]);  // -phase: cut.cp_wc_deficit
+     else if (o == "-cpplain") cp_plain = 1;   // the same solve from the give-up point without the cuts (no hook)
+     else if (o == "-dumpY" && more) dumpy = argv[++a];
+     else if (o == "-prefix") cp.prefix = true;
+@@ -281,6 +298,13 @@ int main(int argc, char **argv)
+   if (const char *e = getenv("QAP_DNN_CHEB")) base.cheb_degree = atoi(e);
+   if (const char *e = getenv("QAP_DNN_TIGHT_LAM")) base.tight_lam = atoi(e);
+   if (const char *e = getenv("QAP_DNN_REFRESH")) base.refresh = atoi(e);
++  if (par_file) {
++    // as bnb.C: the DNN keys of the [settings] section
++    settings_read_par(par_file);
++    base.gamma1 = setting_d("dnn.gamma1"); base.gamma = setting_d("dnn.gamma");
++    base.cheb_degree = (int)setting_i("dnn.cheb"); base.tight_lam = (int)setting_i("dnn.tight_lam");
++    base.beta = setting_d("dnn.beta"); base.refresh = (int)setting_i("dnn.refresh");
++  }
+   if (hopeless_after >= 0) base.hopeless_after = hopeless_after;
+   base.verbose = check_trace;   // -vc: the certified bound at every check of every solve
+   cp.verbose = std::max(1, verbose);
+@@ -301,6 +325,60 @@ int main(int argc, char **argv)
+   DNNPool pin, pout, pall;
+   if (!savepool.empty()) { cp.pool_out = &pout; cp.other_orig = &other_orig; }
+   if (!savepoolall.empty()) { cp.pool_all_round = savepoolall_round; cp.pool_all_out = &pall; cp.other_orig = &other_orig; }
++  if (phase) {
++    // the search's phase (bnb.C): the first solve (cold, -I iterations, no give-up; or -loadwarm),
++    // then dnn_cut_cp from its state with the -cpsep schedule, -k round-0 cuts, -cpiters
++    // iterations, no stall rule unless -stall; -loadpool: an inherited pool (x -poolscale)
++    DNNResult r0;
++    double first_lb = -HUGE_VAL, first_primal = HUGE_VAL;
++    const size_t n1 = (size_t)m * m + 1;
++    if (!loadwarm.empty()) {
++      FILE *f = fopen(loadwarm.c_str(), "rb");
++      double hdr[4];
++      warm.Y.resize(n1 * n1); warm.Z.resize(n1 * n1);
++      if (!f || fread(hdr, sizeof(double), 4, f) != 4 || (int)hdr[0] != m ||
++          fread(warm.Y.data(), sizeof(double), n1 * n1, f) != n1 * n1 || fread(warm.Z.data(), sizeof(double), n1 * n1, f) != n1 * n1) {
++        fprintf(stderr, "cannot read the warm state %s\n", loadwarm.c_str()); return 1; }
++      fclose(f);
++      warm.m = m; warm.scale = hdr[1]; first_lb = hdr[2]; first_primal = hdr[3];
++      printf("first solve loaded from %s: lb %.4f primal %.4f\n", loadwarm.c_str(), first_lb, first_primal);
++    } else {
++      DNNParams p0 = base;
++      p0.max_iter = cp.first_iters; p0.hopeless_after = 0; p0.hopeless_gap_ratio = 0;
++      p0.verbose = check_trace;
++      if (firstbeta > 0) p0.beta = firstbeta;
++      r0 = dnn_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, p0, NULL, &warm);
++      first_lb = r0.lb; first_primal = r0.primal;
++      printf("first solve  lb %.4f  primal %.4f  status %s  iters %d  cpu %.1f\n", r0.lb, r0.primal, dnn_status_name(r0.status), r0.iterations, r0.cpu);
++      if (!savewarm.empty()) {
++        FILE *f = fopen(savewarm.c_str(), "wb");
++        double hdr[4] = {(double)m, warm.scale, first_lb, first_primal};
++        if (f) { fwrite(hdr, sizeof(double), 4, f); fwrite(warm.Y.data(), sizeof(double), n1 * n1, f); fwrite(warm.Z.data(), sizeof(double), n1 * n1, f); fclose(f); }
++      }
++    }
++    DNNCutParams c1 = cp;
++    c1.first_iters = 0;
++    c1.cp_every = cpp.sep_every; c1.cp_k = cpp.sep_k; c1.cp_iters = cp_iters;
++    c1.cp_sweeps = cpp.sweeps; c1.cp_passes = cpp.passes;
++    c1.cp_omega = cpp.omega;
++    c1.other_orig = &other_orig; c1.fixed_at = &fixed_at;
++    c1.pool_out = &pout;
++    if (!loadpool.empty()) {
++      if (!read_pool_file(loadpool, pin) || pin.side != cp.side) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", loadpool.c_str()); return 1; }
++      for (auto &c : pin.cuts) c.mu *= poolscale;
++      size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
++      printf("pool %s: %zu regions, %zu cuts (%zu with mu > 0), multipliers x %g\n", loadpool.c_str(), pin.regions.size(), pin.cuts.size(), pos, poolscale);
++      c1.pool_in = &pin;
++    }
++    DNNParams p = base;
++    p.verbose = std::max(1, check_trace);
++    DNNCutResult res = dnn_cut_cp(qr.A, qr.B, qr.C, qr.shift, cutoff, p, free_orig, n, c1, &warm, first_lb, first_primal);
++    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f status %s iters %d cpu %.1f\n", res.best_lb, first_lb, res.best_lb - first_lb,
++           dnn_status_name(res.status), res.iterations, res.cpu);
++    if (!savepool.empty()) { FILE *f = fopen(savepool.c_str(), "w"); if (f) { fprintf(f, "%s\n", dnn_pool_encode(pout).c_str()); fclose(f); } }
++    delete q;
++    return 0;
++  }
+   if (!cpadmm.empty() || cp_plain || cpp.sep_every > 0) {
+     // CP-ADMM: the give-up point (the uncut round 0 of the rounds), then one solve
+     // with the frozen pool inside the Y-step (-cpplain: the same solve, plain Y-step).
+diff --git a/latest/bnb.C b/latest/bnb.C
+index 3838c886..8ae96300 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -976,6 +976,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	        const char *f = setting_s("cut.cp_sweeps");
+ 	        cp.cp_sweeps = atoi(f);
+ 	        if (const char *c = strchr(f, ':')) cp.cp_passes = atoi(c + 1);
++	        cp.cp_omega = setting_d("cut.cp_omega");
++	        cp.cp_free = setting_d("cut.cp_free");
++	        cp.cp_wc_gap = setting_d("cut.cp_wc_gap");
++	        cp.cp_wc_deficit = setting_d("cut.cp_wc_deficit");
++	        if (const char *x = setting_s("cut.cp_extrap"); *x)
++	          sscanf(x, "%d:%lf:%d:%d", &cp.cp_extrap, &cp.cp_extrap_gamma, &cp.cp_extrap_guard, &cp.cp_extrap_mode);
+ 	      }
+ 	    if (cut_cp) {
+ 	      // the CP form has no Polyak rounds, so the rounds-only settings do nothing in it
+diff --git a/latest/dnn.C b/latest/dnn.C
+index 9ae4b2e6..66fcb9e4 100644
+--- a/latest/dnn.C
++++ b/latest/dnn.C
+@@ -248,6 +248,7 @@ DNNParams::DNNParams()
+   warm_primal = 0;
+   child_bounds = 0;
+   ycuts = NULL;
++  cp_extrap = 0; cp_extrap_guard = 30; cp_extrap_mode = 2; cp_extrap_gamma = 1.0;
+   verbose = 0;
+ }
+ 
+@@ -1500,6 +1501,14 @@ bool dnn_warm_child(const DNNWarm &par, int i, int j, DNNWarm &child, int ymode)
+               pooled child carries a cut term too (par.L_add) but is a child:
+               it takes w (until Nov 6 it took wc, which made the laptop's
+               wlowc arm identical to fast; pipeline_ab/README.md)
++   wca=C      the cut phase chooses its factor itself: at its first regular check the
++              penalty is multiplied by (rhat/shat) / C (at least 1, at most wcamax=16),
++              which brings the ratio of the primal to the dual residual to about C
++              (bound_lab/cpfast: on tho40 the phase at w runs at a ratio of 15-19)
++   wcs=T:F/.. with wc: the cut phase's factor becomes F after iteration T of the phase
++              (several steps separated by '/'), each at a full eigendecomposition:
++              a low factor first, where the bound dips under a high one, then a high
++              one for the tail (bound_lab/cpfast)
+  Not with the accelerations (Anderson keeps Z/beta; Halpern, momentum): off
+  there. Read at every call (tests set and unset it within a process).
+ */
+@@ -1507,6 +1516,13 @@ struct BetaSched {
+   int kind = 0;          // 0 off, 1 two-phase, 2 residual balancing, 3 fixed (set per call: w)
+   double f = 1, f2 = 1, c = 1, lo = 0.25, hi = 4, w = 0, wc = 0;   // wc: w for warm calls with a cut term (L_add)
+   int t = 60, force = 0, every = 40, maxchg = 4, freeze = 200, nodes = 0;   // nodes: 0 all, 1 cold, 2 warm
++  // wcs=T1:F1/T2:F2/...: in the warm rounds of a cut phase (as wc), the factor becomes F1 after
++  // iteration T1, F2 after T2, ... (each at a forced full eigendecomposition); bound_lab/cpfast
++  std::vector<std::pair<int, double>> wcs;
++  // wca=C: the cut phase picks its own factor: it starts at w (or wc) and, at its first regular
++  // check, multiplies the penalty by (rhat/shat) / C, the factor that would bring the residual
++  // ratio to C (measured: the ratio falls as 1 / penalty), at least 1 and at most wcamax (16)
++  double wca = 0, wcamax = 16;
+   BetaSched()
+   {
+     const char *e = setting_s("dnn.beta_sched");   // default w=0.36, the record recipe's warm-child beta; "" turns it off
+@@ -1534,6 +1550,18 @@ struct BetaSched {
+         else if (k == "nodes") nodes = v == "cold" ? 1 : v == "warm" ? 2 : 0;
+         else if (k == "w") w = atof(v.c_str());
+         else if (k == "wc") wc = atof(v.c_str());
++        else if (k == "wca") wca = atof(v.c_str());
++        else if (k == "wcamax") wcamax = atof(v.c_str());
++        else if (k == "wcs") {
++          for (const char *q = v.c_str(); *q;) {
++            char *e2; const long T = strtol(q, &e2, 10);
++            if (e2 == q || *e2 != ':') break;
++            const double F = strtod(e2 + 1, &e2);
++            if (T > 0 && F > 0) wcs.push_back({(int)T, F});
++            q = *e2 == '/' ? e2 + 1 : e2;
++            if (*e2 && *e2 != '/') break;
++          }
++        }
+       }
+     }
+     if (!(f > 0) || !(f2 > 0) || !(c > 0) || !(lo > 0) || !(hi >= lo) || !(w >= 0) || !(wc >= 0)) kind = 0, w = 0, wc = 0;
+@@ -1718,7 +1746,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     // so that children and cut rounds can run at different betas
+     // (experiments/wil50_feasibility/speed/nov6_admm); unset: w for both. Not
+     // par.L_add: a pooled child carries a cut term as well, and is a child
+-    if (warm_call && par.cut_round && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
++    // (cut_round 2: a phase that keeps w, cut.cp_wc_gap; bound_lab/cpfast)
++    if (warm_call && par.cut_round == 1 && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
+   }
+   // DNN_ADMM_WARM_BETA=F1:T:F2[:force] (off unless set): a warm-started call runs at
+   // F1 x base until the first scheduled refresh at or after iteration T, then at
+@@ -1776,7 +1805,51 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     printf("bsched kind %d beta %.6g (base %.6g) f %g t %d f2 %g force %d c %g every %d max %d freeze %d nodes %d w %g\n",
+            bs.kind, beta, beta0, bs.f, bs.t, bs.f2, bs.force, bs.c, bs.every, bs.maxchg, bs.freeze,
+            bs.nodes, bs.w);
++  // cp_extrap (see DNNParams): the checkpoint, the guard copy and the pending test
++  const int ex_E = (yc && par.cp_extrap >= 2 && par.cp_extrap_gamma > 0) ? par.cp_extrap : 0;
++  std::vector<double> ex_Yck, ex_Zck, ex_Ysg, ex_Zsg;
++  bool ex_have = false, ex_pending = false;
++  double ex_gamma = par.cp_extrap_gamma, ex_ref = -HUGE_VAL, ex_last = -HUGE_VAL;
++  int ex_it = 0, ex_jumps = 0, ex_reverts = 0;
++  const bool wcs_on = warm_call && par.cut_round == 1 && bs.kind == 3 && bs.wc > 0 && !bs.wcs.empty();
++  size_t wcs_next = 0;
++  const bool wca_on = warm_call && par.cut_round == 1 && bs.kind == 3 && bs.wca > 0 && bs.wcamax > 1;
++  bool wca_done = false;
++  double wca_nb = 0;
+   for (int it = 1; it <= par.max_iter; it++) {
++    if (wca_nb > 0) {
++      if (par.verbose) printf("bsched it %d beta %.6g -> %.6g (wca, factor %.4g of base)\n", it, beta, wca_nb, wca_nb / beta0);
++      beta = wca_nb; ibeta = 1.0 / beta; wca_nb = 0;
++      if (par.eig_mode == DNN_EIG_SUBSPACE) w.since_refresh = par.refresh;   // a full eigendecomposition at the change
++      w.t_rows_ready = false;
++    }
++    if (wcs_on && wcs_next < bs.wcs.size() && it > bs.wcs[wcs_next].first) {
++      const double nb = bs.wcs[wcs_next].second * beta0;
++      wcs_next++;
++      if (par.verbose) printf("bsched it %d beta %.6g -> %.6g (wcs, factor %.4g of base)\n", it, beta, nb, nb / beta0);
++      beta = nb; ibeta = 1.0 / beta;
++      if (par.eig_mode == DNN_EIG_SUBSPACE) w.since_refresh = par.refresh;   // a full eigendecomposition at the change
++      w.t_rows_ready = false;
++    }
++    if (ex_E > 0 && it > 1) {
++      const size_t nn = (size_t)n1 * n1;
++      const int k = it - 1;   // iterations done
++      if (k % ex_E == ex_E / 2 && !ex_pending) {
++        if (par.cp_extrap_mode >= 2) ex_Zck.assign(Z, Z + nn);
++        if (par.cp_extrap_mode >= 3) ex_Yck.assign(Y, Y + nn);
++        yc->extrap(0, 0);
++        ex_have = true;
++      } else if (k % ex_E == 0 && ex_have && !ex_pending && ex_last > -HUGE_VAL) {
++        ex_Zsg.assign(Z, Z + nn); ex_Ysg.assign(Y, Y + nn);
++        if (par.cp_extrap_mode >= 2) for (size_t t = 0; t < nn; t++) Z[t] += ex_gamma * (Z[t] - ex_Zck[t]);
++        if (par.cp_extrap_mode >= 3) for (size_t t = 0; t < nn; t++) Y[t] += ex_gamma * (Y[t] - ex_Yck[t]);
++        yc->extrap(1, ex_gamma);
++        ex_pending = true; ex_ref = ex_last; ex_it = it; ex_jumps++; ex_have = false;
++        if (par.eig_mode == DNN_EIG_SUBSPACE) w.since_refresh = par.refresh;   // a full eigendecomposition after the jump
++        w.t_rows_ready = false;
++        if (par.verbose) printf("extrap it %d gamma %g (ref %.4f)\n", it, ex_gamma, ex_ref);
++      }
++    }
+     if (bs.kind && it > 1 && it <= bs.freeze) {
+       // a change of beta, only where the R-step will run a scheduled full
+       // eigendecomposition (force: make this iteration one)
+@@ -1926,6 +1999,11 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+       const double pres = sqrt((double)pres2), dy = sqrt((double)dy2);
+       const double rhat = pres / std::max(1e-300, std::max(ny, nv));
+       const double shat = beta * dy / std::max(1e-300, std::max(bs_Lnorm > 0 ? bs_Lnorm : 1.0, nz));
++      if (wca_on && !wca_done && regular && rhat > 0 && shat > 0) {
++        wca_done = true;
++        const double f = std::min(bs.wcamax, (rhat / shat) / bs.wca);
++        if (f > 1.25) wca_nb = f * beta;
++      }
+       if (bs.kind == 2 && rhat > 0 && shat > 0 && it <= bs.freeze) {
+         bs_S += log(rhat / shat) - log(bs.c);
+         bs_n++;
+@@ -2076,6 +2154,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     // CP-ADMM: the bound of the cut-modified objective less h'mu (rounded up by
+     // the hook), rounded down; lb = lbs + shift below rounds down once more
+     if (cp_swapped && lbs > -HUGE_VAL) lbs = nextafter(lbs - cp_hsum, -HUGE_VAL);
++    bool ex_revert = false;
++    if (ex_E > 0 && regular) {
++      const double cur = lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL;
++      if (ex_pending && it >= ex_it + par.cp_extrap_guard - 1) {
++        ex_pending = false;
++        if (cur < ex_ref) ex_revert = true;   // restored below, after this check's bookkeeping
++        if (par.verbose) printf("extrap guard it %d cert %.4f ref %.4f -> %s\n", it, cur, ex_ref, ex_revert ? "REVERT" : "kept");
++      }
++      if (!ex_pending && !ex_revert) ex_last = cur;
++    }
+     if (lbs > -HUGE_VAL) {
+       double lb = nextafter(lbs + shift, -HUGE_VAL);   // covers the addition's rounding
+       if (m_on && best > -HUGE_VAL &&
+@@ -2116,6 +2204,15 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+       const double cv = lbs > -HUGE_VAL ? nextafter(lbs + shift, -HUGE_VAL) : -HUGE_VAL;
+       printf("cp it %5d cert %.17g hsum %.6g cpcpu %.2f %s\n", it, cv, cp_hsum, cp_cpu, t.c_str());
+     }
++    if (ex_revert) {
++      // the jump lost: back to the state of before it, half the factor
++      memcpy(Y, ex_Ysg.data(), (size_t)n1 * n1 * sizeof(double));
++      memcpy(Z, ex_Zsg.data(), (size_t)n1 * n1 * sizeof(double));
++      yc->extrap(2, 0);
++      ex_gamma *= 0.5; ex_reverts++; ex_have = false;
++      if (par.eig_mode == DNN_EIG_SUBSPACE) w.since_refresh = par.refresh;
++      w.t_rows_ready = false;
++    }
+     // DNN_ADMM_CROSS: the crossing prediction from the (iteration, running best)
+     // history of the checks; an extra check at a predicted crossing that did not
+     // fathom predicts again from its own value (at most cross_max per interval)
+diff --git a/latest/dnn.h b/latest/dnn.h
+index b9b339de..b74692aa 100644
+--- a/latest/dnn.h
++++ b/latest/dnn.h
+@@ -115,6 +115,11 @@ struct DNNYCuts {
+   virtual void snapshot(int slot, double scale, double beta) { (void)slot; (void)scale; (void)beta; }
+   virtual int cert_term_at(int slot, double *Ladd, double &abs_add, double &hsum)
+   { (void)slot; (void)Ladd; (void)abs_add; (void)hsum; return -1; }
++  // DNNParams::cp_extrap (bound_lab/cpfast): op 0 keeps the multipliers as the checkpoint;
++  // op 1 keeps them as the guard copy and extrapolates nu <- max(0, nu + gamma (nu -
++  // checkpoint)); op 2 restores the guard copy. Any nu >= 0 certifies, so this only
++  // moves the iteration. Default: nothing
++  virtual void extrap(int op, double gamma) { (void)op; (void)gamma; }
+ };
+ 
+ struct DNNParams {
+@@ -212,6 +217,13 @@ struct DNNParams {
+                        // spectral/acceleration history or stopping-rule counters.
+   int child_bounds;    // 1: also return child bounds (DNNResult::child_lb) from the
+                        // best certificate's outer assignment problem (0)
++  // CP-ADMM only (ycuts): every cp_extrap iterations (0: off) the state is extrapolated
++  // along its own trajectory: x <- x + cp_extrap_gamma (x - x_ck), x_ck the state half a
++  // period earlier; x = the cut multipliers (cp_extrap_mode 1), with Z (2), with Z and Y (3).
++  // Guard: when the certified value cp_extrap_guard iterations later is below the value of
++  // the check before the jump, the state of before the jump is restored and gamma halved.
++  int cp_extrap, cp_extrap_guard, cp_extrap_mode;
++  double cp_extrap_gamma;
+   DNNYCuts *ycuts;     // CP-ADMM (see DNNYCuts): cuts in the Y-step, certified with
+                        // their multipliers at every check. NULL: off (default). Not
+                        // with prototype_cert, the accelerations or the child
+diff --git a/latest/dnncut.C b/latest/dnncut.C
+index 7e0aeafe..7f5a33d5 100644
+--- a/latest/dnncut.C
++++ b/latest/dnncut.C
+@@ -30,6 +30,9 @@ DNNCutParams::DNNCutParams()
+   pool_in = NULL; pool_out = NULL; other_orig = NULL; fixed_at = NULL; pool_check = 0;
+   pool_all_round = -1; pool_all_out = NULL;
+   cp_every = 0; cp_k = 0; cp_iters = 0; cp_sweeps = 1; cp_passes = 1;
++  cp_omega = 1.0; cp_free = 0;
++  cp_extrap = 0; cp_extrap_gamma = 1.0; cp_extrap_guard = 30; cp_extrap_mode = 2;
++  cp_wc_gap = 0; cp_wc_deficit = 0;
+ }
+ 
+ namespace {
+@@ -663,6 +666,19 @@ public:
+   int side = 0;                    // the region side: 0 the first lifted index, 1 the second (Lift)
+   int sweeps = 1, passes = 1;      // Dykstra sweeps per Y-step, half-space passes per sweep
+   double omega = 1.0;              // over-relaxation of the half-space steps (1: Hildreth/Dykstra)
++  // cut.cp_free (bound_lab/cpfast): the half-space step on the entries of Y that the P-step
++  // left strictly inside (0, 1). A step nu_t += d moves Y = P(X - G'nu) only there, so the
++  // cut's value falls by d ||D G_t||^2 (D: the free entries), not d ||G_t||^2: Hildreth's
++  // step v / ||G_t||^2 under-corrects by the free fraction (0.05-0.2 on tho40), which is what
++  // makes the cut multipliers creep. free_mode 1: d = omega v / max(||D G_t||^2, free_floor
++  // ||G_t||^2), and the other regions' moments follow with the free counts of the overlaps
++  // (a Gauss-Seidel pass of the semismooth Newton system of the projection). -1: count only
++  // (the trace prints the free fraction). 0: Hildreth (default). Any nu >= 0 certifies.
++  int free_mode = 0;
++  double free_floor = 0.05;
++  std::vector<double> Nsig, Ndsig;   // per sigma: free entries of the (i, j) blocks, of the diagonals
++  std::vector<double> NFW, NFP;      // per region pair s <= s2: free ordered pairs (a, b) of S∩S2 for (i < j); free diagonals
++  double last_ffrac = 0;             // mean ||D G_t||^2 / ||G_t||^2 over the cuts at the last pass
+   std::vector<double> init_mu;     // optional start multipliers (unscaled), applied at the first Y-step
+   double init_scale = 0;           // as nu = mu / (scale beta)
+   // separation inside the solve (DNNCPParams::sep_every): every sep_every Y-steps, up to
+@@ -771,6 +787,7 @@ public:
+     Pag.assign((size_t)R * m, 0); Wag.assign((size_t)R * mm, 0);
+     CPs.assign((size_t)R * m, 0); CWs.assign((size_t)R * mm, 0);
+     Csig.assign(ns * mm, 0); Dsig.assign(ns * m, 0); Gsig.assign(ns * mm, 0); Gdsig.assign(ns * m, 0);
++    Nsig.assign(ns * mm, 0); Ndsig.assign(ns * m, 0);
+   }
+ 
+   size_t nsig() const { return sig_reg.size(); }
+@@ -809,6 +826,7 @@ public:
+       for (int i = 0; i < m; i++) for (int j = i + 1; j < m; j++) cs[(size_t)j * m + i] = cs[(size_t)i * m + j];
+     }
+     std::fill(Gsig.begin(), Gsig.end(), 0.0); std::fill(Gdsig.begin(), Gdsig.end(), 0.0);
++    if (free_mode) { std::fill(Nsig.begin(), Nsig.end(), 0.0); std::fill(Ndsig.begin(), Ndsig.end(), 0.0); }
+     auto clip = [](double v) { return std::min(1.0, std::max(0.0, v)); };
+     Y[0] = 1.0;
+     for (int c = 1; c < n1; c++) Y[c] = clip(X[c]);
+@@ -842,6 +860,10 @@ public:
+           const double *yb = yr + 1 + (size_t)b * m;
+           if (b == a) Gdsig[(size_t)g * m + i] += yb[i];
+           else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += yb[j]; }
++          if (free_mode) {
++            if (b == a) Ndsig[(size_t)g * m + i] += (yb[i] > 0.0) & (yb[i] < 1.0);
++            else { double *nsg = &Nsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) nsg[j] += (double)((yb[j] > 0.0) & (yb[j] < 1.0)); }
++          }
+         }
+       }
+     moments_from_groups();
+@@ -900,6 +922,10 @@ public:
+           const double *yc = yy + b;
+           if (b == a) Gdsig[(size_t)g * m + i] += yc[i * sm];
+           else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += yc[j * sm]; }
++          if (free_mode) {
++            if (b == a) Ndsig[(size_t)g * m + i] += (yc[i * sm] > 0.0) & (yc[i * sm] < 1.0);
++            else { double *nsg = &Nsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) nsg[j] += (double)((yc[j * sm] > 0.0) & (yc[j * sm] < 1.0)); }
++          }
+         }
+         std::copy(rowy.begin(), rowy.end(), yr);
+       }
+@@ -919,6 +945,81 @@ public:
+         }
+       }
+     }
++    if (free_mode) free_counts();
++  }
++
++  // the free counts of every pair of regions that share a sigma (s <= s2), from the
++  // per-sigma counts of the P-step: NFW[(s R + s2) m^2 + i m + j] (i < j) ordered pairs
++  // (a, b) of S∩S2 whose entry ((a i), (b j)) is strictly inside (0, 1), NFP the diagonals
++  void free_counts()
++  {
++    const size_t mm = (size_t)m * m, ns = nsig();
++    NFW.assign((size_t)R * R * mm, 0.0); NFP.assign((size_t)R * R * m, 0.0);
++    std::vector<double> &sym = fc_sym;
++    sym.resize(mm);
++    for (size_t g = 0; g < ns; g++) {
++      const double *n2 = &Nsig[g * mm], *nd = &Ndsig[g * m];
++      for (int i = 0; i < m; i++) for (int j = i + 1; j < m; j++) sym[(size_t)i * m + j] = 0.5 * (n2[(size_t)i * m + j] + n2[(size_t)j * m + i]);
++      const std::vector<int> &rg = sig_reg[g];
++      for (size_t x = 0; x < rg.size(); x++)
++        for (size_t y = x; y < rg.size(); y++) {
++          const int s = std::min(rg[x], rg[y]), s2 = std::max(rg[x], rg[y]);
++          double *w = &NFW[((size_t)s * R + s2) * mm], *p = &NFP[((size_t)s * R + s2) * m];
++          for (int i = 0; i < m; i++) {
++            p[i] += nd[i];
++            for (int j = i + 1; j < m; j++) w[(size_t)i * m + j] += sym[(size_t)i * m + j];
++          }
++        }
++    }
++  }
++  std::vector<double> fc_sym;
++
++  // ||D G_t||^2: the cut's squared norm on the free entries of the current Y
++  double g2_free(const CPCut &c) const
++  {
++    const size_t mm = (size_t)m * m;
++    const double *nw = &NFW[((size_t)c.s * R + c.s) * mm], *np = &NFP[((size_t)c.s * R + c.s) * m];
++    double g = 0;
++    for (int q = c.t0; q < c.t1; q++) {
++      const CPTerm &x = terms[q];
++      g += x.c * x.c * (x.j < 0 ? np[x.i] : 0.5 * nw[(size_t)x.i * m + x.j]);
++    }
++    return g;
++  }
++
++  // one cyclic pass of half-space steps on the free entries (free_mode 1): as hpass with
++  // ||D G_t||^2 for ||G_t||^2 and the overlaps' free counts for k and k (k - 1)
++  double hpass_free()
++  {
++    const size_t mm = (size_t)m * m;
++    double dmax = 0, fsum = 0;
++    for (size_t t = 0; t < cuts.size(); t++) {
++      const CPCut &c = cuts[t];
++      const double v = value(c);
++      const double gf = g2_free(c);
++      fsum += gf / c.g2;
++      const double nn = std::max(0.0, nu[t] + omega * v / std::max(gf, free_floor * c.g2)), d = nn - nu[t];
++      if (d == 0) continue;
++      nu[t] = nn;
++      dmax = std::max(dmax, fabs(d) * sqrt(c.g2));
++      for (const auto &o : ovl[c.s]) {
++        const int lo = std::min(c.s, o.first), hi = std::max(c.s, o.first);
++        const double *nw = &NFW[((size_t)lo * R + hi) * mm], *np = &NFP[((size_t)lo * R + hi) * m];
++        double *p = &Pag[(size_t)o.first * m], *w = &Wag[o.first * mm];
++        for (int q = c.t0; q < c.t1; q++) {
++          const CPTerm &x = terms[q];
++          if (x.j < 0) p[x.i] -= d * x.c * np[x.i];
++          else w[(size_t)x.i * m + x.j] -= d * x.c * 0.5 * nw[(size_t)x.i * m + x.j];
++        }
++      }
++      for (int q = c.t0; q < c.t1; q++) {
++        const CPTerm &x = terms[q];
++        if (x.j < 0) CPs[(size_t)c.s * m + x.i] += d * x.c;
++        else CWs[c.s * mm + (size_t)x.i * m + x.j] += d * x.c;
++      }
++    }
++    last_ffrac = cuts.empty() ? 0 : fsum / cuts.size();
++    return dmax;
+   }
+ 
+   // the cut's value <G_t, y> - h_t on the current moments
+@@ -984,7 +1085,8 @@ public:
+     t1 = tcpu(); t_p += t1 - t0; t0 = t1; n_p++;
+     for (int k = 0; k < nsweeps; k++) {
+       double d = 0;
+-      for (int p = 0; p < passes; p++) d = hpass();
++      for (int p = 0; p < passes; p++) d = free_mode > 0 ? hpass_free() : hpass();
++      if (free_mode < 0) { double fs = 0; for (const CPCut &c : cuts) fs += g2_free(c) / c.g2; last_ffrac = cuts.empty() ? 0 : fs / cuts.size(); }
+       t1 = tcpu(); t_h += t1 - t0; t0 = t1; n_h += passes;
+       last_dstep = d;
+       pstep(X, Y, elim);
+@@ -1212,6 +1314,30 @@ public:
+     return dense_term(snap_f[slot], v, Ladd, abs_add, hsum) ? 1 : 0;
+   }
+ 
++  // DNNParams::cp_extrap: the checkpoint and the guard copy of nu (in units of mu / scale =
++  // beta nu, so that a change of beta in between does not matter; cuts separated since count
++  // from zero; a compaction since cancels the step)
++  std::vector<double> ex_ck, ex_sg;
++  int ex_ck_gen = -1, ex_sg_gen = -1;
++  void extrap(int op, double gamma) override
++  {
++    const double b = beta_last > 0 ? beta_last : 1.0;
++    if (op == 0) { ex_ck.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_ck[t] = b * nu[t]; ex_ck_gen = gen; }
++    else if (op == 1) {
++      ex_sg.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_sg[t] = b * nu[t];
++      ex_sg_gen = gen;
++      if (ex_ck_gen != gen) return;
++      for (size_t t = 0; t < nu.size(); t++) {
++        const double c = t < ex_ck.size() ? ex_ck[t] : 0.0, v = b * nu[t];
++        nu[t] = std::max(0.0, v + gamma * (v - c)) / b;
++      }
++      rebuild_sums();
++    } else if (op == 2 && ex_sg_gen == gen) {
++      for (size_t t = 0; t < nu.size(); t++) nu[t] = (t < ex_sg.size() ? ex_sg[t] : 0.0) / b;
++      rebuild_sums();
++    }
++  }
++
+   bool stop(int it, double best) override
+   {
+     if ((stall_window <= 0 && giveup.empty()) || !std::isfinite(stall_cutoff)) return false;
+@@ -1234,6 +1360,7 @@ public:
+     snprintf(buf, sizeof buf, "cuts %zu active %d sum_nu %.6g viol %d (max %.3e/||G||, rnorm %.3e) dstep %.3e",
+              cuts.size(), last_nact, sn, last_nviol, last_viol, last_rnorm, last_dstep);
+     std::string s = buf;
++    if (free_mode) { snprintf(buf, sizeof buf, " free %.4f", last_ffrac); s += buf; }
+     snprintf(buf, sizeof buf, " | ms pstep %.2f (%d) hpass %.2f (%d) diag %.1f s",
+              n_p ? 1e3 * t_p / n_p : 0.0, n_p, n_h ? 1e3 * t_h / n_h : 0.0, n_h, t_diag);
+     s += buf;
+@@ -2200,6 +2327,9 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+   out.nregions = (int)regions.size();
+   CutProjector pj(m, regions, cuts, cp.side);
+   pj.sweeps = std::max(1, cp.cp_sweeps); pj.passes = std::max(1, cp.cp_passes);
++  if (cp.cp_omega > 0) pj.omega = cp.cp_omega;
++  pj.free_mode = cp.cp_free > 0 ? 1 : (cp.cp_free < 0 ? -1 : 0);
++  if (cp.cp_free > 0) pj.free_floor = cp.cp_free;
+   {
+     const int R = (int)regions.size();
+     std::vector<double> Pm((size_t)R * m, 0.0), Wm((size_t)R * mm, 0.0);
+@@ -2235,6 +2365,21 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+   par.hopeless_after = 0; par.hopeless_gap_ratio = 0;   // as the cut rounds
+   par.warm_primal = cp.warm_primal;
+   par.cut_round = 1;   // DNN_BETA_SCHED's wc, as the rounds
++  // cut.cp_wc_gap: a phase that starts within this of the cutoff keeps the children's factor w
++  // (no wc, no wcs): the change of penalty costs the first 30-150 iterations, which is most of
++  // a near miss's phase (bound_lab/cpfast)
++  if (cp.cp_wc_gap > 0 && std::isfinite(cutoff) && cutoff - first_lb < cp.cp_wc_gap) par.cut_round = 2;
++  // cut.cp_wc_deficit: wc only where the first solve's primal objective is at least this
++  // fraction of |cutoff| below its certified bound. That deficit is 0.5-1.4% at unpooled far
++  // misses, where a higher penalty shortens the phase 2.4-4.6x, and within +-0.2% of zero at
++  // pooled children and on the path to the best known solution, where it gains nothing or loses
++  if (cp.cp_wc_deficit > 0 && std::isfinite(cutoff) && std::isfinite(first_lb) && std::isfinite(first_primal) &&
++      first_lb - first_primal < cp.cp_wc_deficit * std::max(1.0, fabs(cutoff))) par.cut_round = 2;
++  if (cp.verbose)
++    printf("cp phase start: shortfall %.1f, first-solve deficit (lb - primal) %.1f: penalty factor %s\n", cutoff - first_lb,
++           first_lb - first_primal, par.cut_round == 2 ? "w (kept)" : "wc if set");
++  par.cp_extrap = cp.cp_extrap; par.cp_extrap_gamma = cp.cp_extrap_gamma;
++  par.cp_extrap_guard = cp.cp_extrap_guard; par.cp_extrap_mode = cp.cp_extrap_mode;
+   DNNWarm save;
+   DNNResult res = dnn_bound(A, B, C, shift, cutoff, par, warm, &save);
+   if (res.status == DNN_ERROR && res.iterations == 0)   // a setting the CP solve refuses (the accelerations)
+diff --git a/latest/dnncut.h b/latest/dnncut.h
+index b856b128..b279dc12 100644
+--- a/latest/dnncut.h
++++ b/latest/dnncut.h
+@@ -190,6 +190,18 @@ struct DNNCutParams {
+   // cp_sweeps Dykstra sweeps of cp_passes passes per iteration (1, 1). Used only
+   // by dnn_cut_cp; dnn_cut_rounds ignores them
+   int cp_every, cp_k, cp_iters, cp_sweeps, cp_passes;
++  // bound_lab/cpfast (dnn_cut_cp only). cp_omega: factor on the half-space steps (1). cp_free:
++  // > 0: the half-space step on the free entries of Y (CutProjector::free_mode), the value
++  // being the floor on ||D G||^2 / ||G||^2; < 0: count only (trace); 0: Hildreth's step (default)
++  double cp_omega, cp_free;
++  // cut.cp_extrap = E:GAMMA[:GUARD[:MODE]] (DNNParams::cp_extrap): every E iterations the
++  // phase's state is extrapolated along its own trajectory, with a guard. 0: off (default)
++  int cp_extrap, cp_extrap_guard, cp_extrap_mode;
++  double cp_extrap_gamma;
++  double cp_wc_gap;   // cut.cp_wc_gap: > 0: a phase whose first solve ended within this of the
++                      // cutoff runs at dnn.beta_sched's w, not wc/wcs (0: every phase at wc; default)
++  double cp_wc_deficit;   // cut.cp_wc_deficit: > 0: wc/wcs only when the first solve's primal objective
++                      // is at least this fraction of |cutoff| below its bound; else w (0: off; default)
+   // cut.giveup (CP form only): (T, G) pairs; from iteration T the phase stops when
+   // its gap to the cutoff is still above G (review_nov10/phase_stop: no fathoming
+   // phase of the node-10 subtree was above 24.5 at 200, 18.1 at 300, 13.9 at 400,
+diff --git a/latest/settings.C b/latest/settings.C
+index f1c1d77e..9a50b66f 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -76,6 +76,11 @@ static Setting TABLE[] = {
+   POLICY("cut.giveup", "QAP_DNN_CUT_GIVEUP", 's', "", 0, 0, "T:G,...: from iteration T a CP-ADMM phase stops when its gap to the cutoff is still above G (unset: the stall rule only)"),
+   POLICY("cut.cp_iters", "QAP_DNN_CUT_CP_ITERS", 'i', "0", 0, 100000000, "CP-ADMM iteration limit (0: rounds x iters + freeze)"),
+   POLICY("cut.cp_sweeps", "QAP_DNN_CUT_CP_SWEEPS", 's', "1:1", 0, 0, "S[:P]: Dykstra sweeps and passes per CP-ADMM iteration"),
++  POLICY("cut.cp_omega", NULL, 'd', "1", 1e-3, 100, "factor on the CP-ADMM half-space steps (1: Hildreth's step)"),
++  POLICY("cut.cp_free", NULL, 'd', "0", -1, 1, "> 0: CP-ADMM half-space steps on the free entries of Y, this the floor on the free share of ||G||^2 (0: off)"),
++  POLICY("cut.cp_extrap", NULL, 's', "", 0, 0, "E:GAMMA[:GUARD[:MODE]]: every E iterations a CP-ADMM phase extrapolates its state by GAMMA times its change over the last E/2, guarded (unset: off)"),
++  POLICY("cut.cp_wc_gap", NULL, 'd', "0", 0, INF, "a CP-ADMM phase that starts within this of the cutoff keeps dnn.beta_sched's w instead of wc (0: off)"),
++  POLICY("cut.cp_wc_deficit", NULL, 'd', "0", 0, 1, "a CP-ADMM phase takes wc only when the first solve's primal objective is at least this fraction of |cutoff| below its bound (0: off)"),
+   POLICY("cut.cp_lazycert", "DNN_CP_LAZYCERT", 'i', "0", 0, 1, "1: the lazy certificate in CP-ADMM solves too"),
+   POLICY("cut.xbar", "QAP_DNN_CUT_XBAR", 'i', "0", 0, 1, "1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's)"),
+   POLICY("pool.on", "QAP_DNN_POOL", 'i', "0", 0, 1, "1: a node hands its cut pool to its children"),

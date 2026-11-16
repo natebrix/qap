@@ -84,6 +84,26 @@ cut.stall = 3
 6. A dive (`bnbdrv -e`) bounds every child of each node on its way down. At depth 1 that is
    50 warm pooled children; expect most of a dive's cost there and at depth 2 (numbers in
    the tables below when measured).
+8. **Measured on tai50b so far (Nov 16, 02:00; `size50/runs/rootL`, `size50/runs/d1p1`)** [m]:
+   - Root in the search (`par/rootL.par`: the block above with `cut.cp_iters = 2500`,
+     `cut.stall = 0`): the first solve did **not** stop at 110 iterations but at 470
+     ("hopeless", 417.85M): `dnn.giveup = 100` is only the floor of the extrapolation rule.
+     Then 2,500 phase iterations: **450,196,995** (8.62M short), 2,970 iterations, 2,042 CPU-s
+     (0.69 s per iteration at m = 50 on the loaded box). That is slower per iteration count
+     than `dnncuts`' defaults on the same root (449.47M at 300 + 1,600; section 5): the
+     search's `dnn.beta = 0.21` / `dnn.beta_sched = w=0.36` / `dnn.cheb = 3` are tuned for
+     plain nug-type solves, not for this phase. Worth one A/B on the idle box before the dives
+     (dnncuts' defaults: `-g 1 -G 1 -d 4`, no beta schedule).
+   - It branches on row 31 (children `31:x`). The root state file is 134 MB (64-bit).
+   - Depth-1 children, warm with the root's pool, first solve only: the first 13 of a
+     random 20 all give up at 110 iterations (55-59 CPU-s each), **none fathoms**, 1.4M to
+     8.4M short (median 6.0M; the on-path child `31:7` is the furthest, 8.36M). So at depth 1
+     every child needs a phase, and a dive pays 50 x (110 + a phase) there unless the root is
+     run much longer first (a converged root is cheap relative to that: run it to its
+     plateau and start the dives from its state).
+9. **`-e` and a saved root.** I have not checked whether `bnbdrv -e` accepts `-r`; if it does
+   not, `estimate.par`'s start level (`start_dive_level`) makes the estimator bound the top
+   levels itself, which at 50 x phases is hours per dive on tai50b. Check this first.
 7. Validity guard for any run: with the incumbent at best known + 1 (`-u 458821518`) the
    path to `QAPSOLN/tai50b.sln` must never fathom; my on-path checks are in section 7 and
    below.

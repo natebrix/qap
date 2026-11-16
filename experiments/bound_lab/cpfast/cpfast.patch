@@ -1,0 +1,347 @@
+diff --git a/experiments/dnn_cuts/dnncuts.C b/experiments/dnn_cuts/dnncuts.C
+index bf9fbb25..498276ad 100644
+--- a/experiments/dnn_cuts/dnncuts.C
++++ b/experiments/dnn_cuts/dnncuts.C
+@@ -60,6 +60,7 @@
+ */
+ 
+ #include "dnncut.h"
++#include "settings.h"
+ #include "qap.h"
+ #include "assign.h"
+ #include "util.h"
+@@ -142,6 +143,10 @@ int main(int argc, char **argv)
+   std::string ladd_spec, dumpy, loadpool, savepool;
+   std::string savepoolall, cpadmm;   // CP-ADMM study
+   int savepoolall_round = -1, cp_iters = 2000, cp_plain = 0;
++  const char *par_file = NULL;
++  int phase = 0;
++  std::string savewarm, loadwarm;
++  double poolscale = 1.0, firstbeta = 0;
+   DNNCPParams cpp;
+   for (int a = 1; a < argc; a++) {
+     std::string o = argv[a];
+@@ -215,6 +220,17 @@ int main(int argc, char **argv)
+       if (sscanf(argv[++a], "%d:%d:%d:%d", &cpp.sep_every, &cpp.sep_k, &cpp.pool_cap, &cpp.drop_after) < 2 ||
+           cpp.sep_every < 1 || cpp.sep_k < 1) { fprintf(stderr, "bad -cpsep k:K[:CAP[:DROP]]\n"); return 1; }
+     }
++    else if (o == "-p" && more) par_file = argv[++a];                      // [settings] of a params file: the search's dnn.* keys
++    else if (o == "-phase") phase = 1;                                     // the search's phase: first solve, then dnn_cut_cp (bnb.C)
++    else if (o == "-savewarm" && more) savewarm = argv[++a];              // the first solve's state (Y, Z), to skip it next time
++    else if (o == "-loadwarm" && more) loadwarm = argv[++a];
++    else if (o == "-firstbeta" && more) firstbeta = atof(argv[++a]);      // -phase: dnn.beta of the first solve only (a warm child's w x beta)
++    else if (o == "-poolscale" && more) poolscale = atof(argv[++a]);      // factor on a loaded pool's multipliers (-phase)
++    else if (o == "-cpextrap" && more) {                                   // -phase: E:GAMMA[:GUARD[:MODE]] (dnncut.h)
++      sscanf(argv[++a], "%d:%lf:%d:%d", &cp.cp_extrap, &cp.cp_extrap_gamma, &cp.cp_extrap_guard, &cp.cp_extrap_mode);
++    }
++    else if (o == "-cpwcgap" && more) cp.cp_wc_gap = atof(argv[++a]);      // -phase: cut.cp_wc_gap
++    else if (o == "-cpwcdef" && more) cp.cp_wc_deficit = atof(argv[++a]);  // -phase: cut.cp_wc_deficit
+     else if (o == "-cpplain") cp_plain = 1;   // the same solve from the give-up point without the cuts (no hook)
+     else if (o == "-dumpY" && more) dumpy = argv[++a];
+     else if (o == "-prefix") cp.prefix = true;
+@@ -281,6 +297,13 @@ int main(int argc, char **argv)
+   if (const char *e = getenv("QAP_DNN_CHEB")) base.cheb_degree = atoi(e);
+   if (const char *e = getenv("QAP_DNN_TIGHT_LAM")) base.tight_lam = atoi(e);
+   if (const char *e = getenv("QAP_DNN_REFRESH")) base.refresh = atoi(e);
++  if (par_file) {
++    // as bnb.C: the DNN keys of the [settings] section
++    settings_read_par(par_file);
++    base.gamma1 = setting_d("dnn.gamma1"); base.gamma = setting_d("dnn.gamma");
++    base.cheb_degree = (int)setting_i("dnn.cheb"); base.tight_lam = (int)setting_i("dnn.tight_lam");
++    base.beta = setting_d("dnn.beta"); base.refresh = (int)setting_i("dnn.refresh");
++  }
+   if (hopeless_after >= 0) base.hopeless_after = hopeless_after;
+   base.verbose = check_trace;   // -vc: the certified bound at every check of every solve
+   cp.verbose = std::max(1, verbose);
+@@ -301,6 +324,59 @@ int main(int argc, char **argv)
+   DNNPool pin, pout, pall;
+   if (!savepool.empty()) { cp.pool_out = &pout; cp.other_orig = &other_orig; }
+   if (!savepoolall.empty()) { cp.pool_all_round = savepoolall_round; cp.pool_all_out = &pall; cp.other_orig = &other_orig; }
++  if (phase) {
++    // the search's phase (bnb.C): the first solve (cold, -I iterations, no give-up; or -loadwarm),
++    // then dnn_cut_cp from its state with the -cpsep schedule, -k round-0 cuts, -cpiters
++    // iterations, no stall rule unless -stall; -loadpool: an inherited pool (x -poolscale)
++    DNNResult r0;
++    double first_lb = -HUGE_VAL, first_primal = HUGE_VAL;
++    const size_t n1 = (size_t)m * m + 1;
++    if (!loadwarm.empty()) {
++      FILE *f = fopen(loadwarm.c_str(), "rb");
++      double hdr[4];
++      warm.Y.resize(n1 * n1); warm.Z.resize(n1 * n1);
++      if (!f || fread(hdr, sizeof(double), 4, f) != 4 || (int)hdr[0] != m ||
++          fread(warm.Y.data(), sizeof(double), n1 * n1, f) != n1 * n1 || fread(warm.Z.data(), sizeof(double), n1 * n1, f) != n1 * n1) {
++        fprintf(stderr, "cannot read the warm state %s\n", loadwarm.c_str()); return 1; }
++      fclose(f);
++      warm.m = m; warm.scale = hdr[1]; first_lb = hdr[2]; first_primal = hdr[3];
++      printf("first solve loaded from %s: lb %.4f primal %.4f\n", loadwarm.c_str(), first_lb, first_primal);
++    } else {
++      DNNParams p0 = base;
++      p0.max_iter = cp.first_iters; p0.hopeless_after = 0; p0.hopeless_gap_ratio = 0;
++      p0.verbose = check_trace;
++      if (firstbeta > 0) p0.beta = firstbeta;
++      r0 = dnn_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, p0, NULL, &warm);
++      first_lb = r0.lb; first_primal = r0.primal;
++      printf("first solve  lb %.4f  primal %.4f  status %s  iters %d  cpu %.1f\n", r0.lb, r0.primal, dnn_status_name(r0.status), r0.iterations, r0.cpu);
++      if (!savewarm.empty()) {
++        FILE *f = fopen(savewarm.c_str(), "wb");
++        double hdr[4] = {(double)m, warm.scale, first_lb, first_primal};
++        if (f) { fwrite(hdr, sizeof(double), 4, f); fwrite(warm.Y.data(), sizeof(double), n1 * n1, f); fwrite(warm.Z.data(), sizeof(double), n1 * n1, f); fclose(f); }
++      }
++    }
++    DNNCutParams c1 = cp;
++    c1.first_iters = 0;
++    c1.cp_every = cpp.sep_every; c1.cp_k = cpp.sep_k; c1.cp_iters = cp_iters;
++    c1.cp_sweeps = cpp.sweeps; c1.cp_passes = cpp.passes;
++    c1.other_orig = &other_orig; c1.fixed_at = &fixed_at;
++    c1.pool_out = &pout;
++    if (!loadpool.empty()) {
++      if (!read_pool_file(loadpool, pin) || pin.side != cp.side) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", loadpool.c_str()); return 1; }
++      for (auto &c : pin.cuts) c.mu *= poolscale;
++      size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
++      printf("pool %s: %zu regions, %zu cuts (%zu with mu > 0), multipliers x %g\n", loadpool.c_str(), pin.regions.size(), pin.cuts.size(), pos, poolscale);
++      c1.pool_in = &pin;
++    }
++    DNNParams p = base;
++    p.verbose = std::max(1, check_trace);
++    DNNCutResult res = dnn_cut_cp(qr.A, qr.B, qr.C, qr.shift, cutoff, p, free_orig, n, c1, &warm, first_lb, first_primal);
++    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f status %s iters %d cpu %.1f\n", res.best_lb, first_lb, res.best_lb - first_lb,
++           dnn_status_name(res.status), res.iterations, res.cpu);
++    if (!savepool.empty()) { FILE *f = fopen(savepool.c_str(), "w"); if (f) { fprintf(f, "%s\n", dnn_pool_encode(pout).c_str()); fclose(f); } }
++    delete q;
++    return 0;
++  }
+   if (!cpadmm.empty() || cp_plain || cpp.sep_every > 0) {
+     // CP-ADMM: the give-up point (the uncut round 0 of the rounds), then one solve
+     // with the frozen pool inside the Y-step (-cpplain: the same solve, plain Y-step).
+diff --git a/latest/bnb.C b/latest/bnb.C
+index 3838c886..3e0fcc6b 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -976,6 +976,10 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	        const char *f = setting_s("cut.cp_sweeps");
+ 	        cp.cp_sweeps = atoi(f);
+ 	        if (const char *c = strchr(f, ':')) cp.cp_passes = atoi(c + 1);
++	        cp.cp_wc_gap = setting_d("cut.cp_wc_gap");
++	        cp.cp_wc_deficit = setting_d("cut.cp_wc_deficit");
++	        if (const char *x = setting_s("cut.cp_extrap"); *x)
++	          sscanf(x, "%d:%lf:%d:%d", &cp.cp_extrap, &cp.cp_extrap_gamma, &cp.cp_extrap_guard, &cp.cp_extrap_mode);
+ 	      }
+ 	    if (cut_cp) {
+ 	      // the CP form has no Polyak rounds, so the rounds-only settings do nothing in it
+diff --git a/latest/dnn.C b/latest/dnn.C
+index 9ae4b2e6..42e8741f 100644
+--- a/latest/dnn.C
++++ b/latest/dnn.C
+@@ -248,6 +248,7 @@ DNNParams::DNNParams()
+   warm_primal = 0;
+   child_bounds = 0;
+   ycuts = NULL;
++  cp_extrap = 0; cp_extrap_guard = 30; cp_extrap_mode = 2; cp_extrap_gamma = 1.0;
+   verbose = 0;
+ }
+ 
+@@ -1718,7 +1719,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     // so that children and cut rounds can run at different betas
+     // (experiments/wil50_feasibility/speed/nov6_admm); unset: w for both. Not
+     // par.L_add: a pooled child carries a cut term as well, and is a child
+-    if (warm_call && par.cut_round && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
++    // (cut_round 2: a phase that keeps w, cut.cp_wc_gap; bound_lab/cpfast)
++    if (warm_call && par.cut_round == 1 && bs.wc > 0) { bs.kind = 3; bs.w = bs.wc; }
+   }
+   // DNN_ADMM_WARM_BETA=F1:T:F2[:force] (off unless set): a warm-started call runs at
+   // F1 x base until the first scheduled refresh at or after iteration T, then at
+@@ -1776,7 +1778,32 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     printf("bsched kind %d beta %.6g (base %.6g) f %g t %d f2 %g force %d c %g every %d max %d freeze %d nodes %d w %g\n",
+            bs.kind, beta, beta0, bs.f, bs.t, bs.f2, bs.force, bs.c, bs.every, bs.maxchg, bs.freeze,
+            bs.nodes, bs.w);
++  // cp_extrap (see DNNParams): the checkpoint, the guard copy and the pending test
++  const int ex_E = (yc && par.cp_extrap >= 2 && par.cp_extrap_gamma > 0) ? par.cp_extrap : 0;
++  std::vector<double> ex_Yck, ex_Zck, ex_Ysg, ex_Zsg;
++  bool ex_have = false, ex_pending = false;
++  double ex_gamma = par.cp_extrap_gamma, ex_ref = -HUGE_VAL, ex_last = -HUGE_VAL;
++  int ex_it = 0, ex_jumps = 0, ex_reverts = 0;
+   for (int it = 1; it <= par.max_iter; it++) {
++    if (ex_E > 0 && it > 1) {
++      const size_t nn = (size_t)n1 * n1;
++      const int k = it - 1;   // iterations done
++      if (k % ex_E == ex_E / 2 && !ex_pending) {
++        if (par.cp_extrap_mode >= 2) ex_Zck.assign(Z, Z + nn);
++        if (par.cp_extrap_mode >= 3) ex_Yck.assign(Y, Y + nn);
++        yc->extrap(0, 0);
++        ex_have = true;
++      } else if (k % ex_E == 0 && ex_have && !ex_pending && ex_last > -HUGE_VAL) {
++        ex_Zsg.assign(Z, Z + nn); ex_Ysg.assign(Y, Y + nn);
++        if (par.cp_extrap_mode >= 2) for (size_t t = 0; t < nn; t++) Z[t] += ex_gamma * (Z[t] - ex_Zck[t]);
++        if (par.cp_extrap_mode >= 3) for (size_t t = 0; t < nn; t++) Y[t] += ex_gamma * (Y[t] - ex_Yck[t]);
++        yc->extrap(1, ex_gamma);
++        ex_pending = true; ex_ref = ex_last; ex_it = it; ex_jumps++; ex_have = false;
++        if (par.eig_mode == DNN_EIG_SUBSPACE) w.since_refresh = par.refresh;   // a full eigendecomposition after the jump
++        w.t_rows_ready = false;
++        if (par.verbose) printf("extrap it %d gamma %g (ref %.4f)\n", it, ex_gamma, ex_ref);
++      }
++    }
+     if (bs.kind && it > 1 && it <= bs.freeze) {
+       // a change of beta, only where the R-step will run a scheduled full
+       // eigendecomposition (force: make this iteration one)
+@@ -2076,6 +2103,16 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+     // CP-ADMM: the bound of the cut-modified objective less h'mu (rounded up by
+     // the hook), rounded down; lb = lbs + shift below rounds down once more
+     if (cp_swapped && lbs > -HUGE_VAL) lbs = nextafter(lbs - cp_hsum, -HUGE_VAL);
++    bool ex_revert = false;
++    if (ex_E > 0 && regular) {
++      const double cur = lbs > -HUGE_VAL ? lbs + shift : -HUGE_VAL;
++      if (ex_pending && it >= ex_it + par.cp_extrap_guard - 1) {
++        ex_pending = false;
++        if (cur < ex_ref) ex_revert = true;   // restored below, after this check's bookkeeping
++        if (par.verbose) printf("extrap guard it %d cert %.4f ref %.4f -> %s\n", it, cur, ex_ref, ex_revert ? "REVERT" : "kept");
++      }
++      if (!ex_pending && !ex_revert) ex_last = cur;
++    }
+     if (lbs > -HUGE_VAL) {
+       double lb = nextafter(lbs + shift, -HUGE_VAL);   // covers the addition's rounding
+       if (m_on && best > -HUGE_VAL &&
+@@ -2116,6 +2153,15 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
+       const double cv = lbs > -HUGE_VAL ? nextafter(lbs + shift, -HUGE_VAL) : -HUGE_VAL;
+       printf("cp it %5d cert %.17g hsum %.6g cpcpu %.2f %s\n", it, cv, cp_hsum, cp_cpu, t.c_str());
+     }
++    if (ex_revert) {
++      // the jump lost: back to the state of before it, half the factor
++      memcpy(Y, ex_Ysg.data(), (size_t)n1 * n1 * sizeof(double));
++      memcpy(Z, ex_Zsg.data(), (size_t)n1 * n1 * sizeof(double));
++      yc->extrap(2, 0);
++      ex_gamma *= 0.5; ex_reverts++; ex_have = false;
++      if (par.eig_mode == DNN_EIG_SUBSPACE) w.since_refresh = par.refresh;
++      w.t_rows_ready = false;
++    }
+     // DNN_ADMM_CROSS: the crossing prediction from the (iteration, running best)
+     // history of the checks; an extra check at a predicted crossing that did not
+     // fathom predicts again from its own value (at most cross_max per interval)
+diff --git a/latest/dnn.h b/latest/dnn.h
+index b9b339de..b74692aa 100644
+--- a/latest/dnn.h
++++ b/latest/dnn.h
+@@ -115,6 +115,11 @@ struct DNNYCuts {
+   virtual void snapshot(int slot, double scale, double beta) { (void)slot; (void)scale; (void)beta; }
+   virtual int cert_term_at(int slot, double *Ladd, double &abs_add, double &hsum)
+   { (void)slot; (void)Ladd; (void)abs_add; (void)hsum; return -1; }
++  // DNNParams::cp_extrap (bound_lab/cpfast): op 0 keeps the multipliers as the checkpoint;
++  // op 1 keeps them as the guard copy and extrapolates nu <- max(0, nu + gamma (nu -
++  // checkpoint)); op 2 restores the guard copy. Any nu >= 0 certifies, so this only
++  // moves the iteration. Default: nothing
++  virtual void extrap(int op, double gamma) { (void)op; (void)gamma; }
+ };
+ 
+ struct DNNParams {
+@@ -212,6 +217,13 @@ struct DNNParams {
+                        // spectral/acceleration history or stopping-rule counters.
+   int child_bounds;    // 1: also return child bounds (DNNResult::child_lb) from the
+                        // best certificate's outer assignment problem (0)
++  // CP-ADMM only (ycuts): every cp_extrap iterations (0: off) the state is extrapolated
++  // along its own trajectory: x <- x + cp_extrap_gamma (x - x_ck), x_ck the state half a
++  // period earlier; x = the cut multipliers (cp_extrap_mode 1), with Z (2), with Z and Y (3).
++  // Guard: when the certified value cp_extrap_guard iterations later is below the value of
++  // the check before the jump, the state of before the jump is restored and gamma halved.
++  int cp_extrap, cp_extrap_guard, cp_extrap_mode;
++  double cp_extrap_gamma;
+   DNNYCuts *ycuts;     // CP-ADMM (see DNNYCuts): cuts in the Y-step, certified with
+                        // their multipliers at every check. NULL: off (default). Not
+                        // with prototype_cert, the accelerations or the child
+diff --git a/latest/dnncut.C b/latest/dnncut.C
+index 7e0aeafe..59b3f084 100644
+--- a/latest/dnncut.C
++++ b/latest/dnncut.C
+@@ -30,6 +30,8 @@ DNNCutParams::DNNCutParams()
+   pool_in = NULL; pool_out = NULL; other_orig = NULL; fixed_at = NULL; pool_check = 0;
+   pool_all_round = -1; pool_all_out = NULL;
+   cp_every = 0; cp_k = 0; cp_iters = 0; cp_sweeps = 1; cp_passes = 1;
++  cp_extrap = 0; cp_extrap_gamma = 1.0; cp_extrap_guard = 30; cp_extrap_mode = 2;
++  cp_wc_gap = 0; cp_wc_deficit = 0;
+ }
+ 
+ namespace {
+@@ -1212,6 +1214,30 @@ public:
+     return dense_term(snap_f[slot], v, Ladd, abs_add, hsum) ? 1 : 0;
+   }
+ 
++  // DNNParams::cp_extrap: the checkpoint and the guard copy of nu (in units of mu / scale =
++  // beta nu, so that a change of beta in between does not matter; cuts separated since count
++  // from zero; a compaction since cancels the step)
++  std::vector<double> ex_ck, ex_sg;
++  int ex_ck_gen = -1, ex_sg_gen = -1;
++  void extrap(int op, double gamma) override
++  {
++    const double b = beta_last > 0 ? beta_last : 1.0;
++    if (op == 0) { ex_ck.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_ck[t] = b * nu[t]; ex_ck_gen = gen; }
++    else if (op == 1) {
++      ex_sg.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_sg[t] = b * nu[t];
++      ex_sg_gen = gen;
++      if (ex_ck_gen != gen) return;
++      for (size_t t = 0; t < nu.size(); t++) {
++        const double c = t < ex_ck.size() ? ex_ck[t] : 0.0, v = b * nu[t];
++        nu[t] = std::max(0.0, v + gamma * (v - c)) / b;
++      }
++      rebuild_sums();
++    } else if (op == 2 && ex_sg_gen == gen) {
++      for (size_t t = 0; t < nu.size(); t++) nu[t] = (t < ex_sg.size() ? ex_sg[t] : 0.0) / b;
++      rebuild_sums();
++    }
++  }
++
+   bool stop(int it, double best) override
+   {
+     if ((stall_window <= 0 && giveup.empty()) || !std::isfinite(stall_cutoff)) return false;
+@@ -2235,6 +2261,21 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+   par.hopeless_after = 0; par.hopeless_gap_ratio = 0;   // as the cut rounds
+   par.warm_primal = cp.warm_primal;
+   par.cut_round = 1;   // DNN_BETA_SCHED's wc, as the rounds
++  // cut.cp_wc_gap: a phase that starts within this of the cutoff keeps the children's factor w
++  // (not wc): the change of penalty costs the first 30-150 iterations, which is most of
++  // a near miss's phase (bound_lab/cpfast)
++  if (cp.cp_wc_gap > 0 && std::isfinite(cutoff) && cutoff - first_lb < cp.cp_wc_gap) par.cut_round = 2;
++  // cut.cp_wc_deficit: wc only where the first solve's primal objective is at least this
++  // fraction of |cutoff| below its certified bound. That deficit is 0.5-1.4% at unpooled far
++  // misses, where a higher penalty shortens the phase 2.4-4.6x, and within +-0.2% of zero at
++  // pooled children and on the path to the best known solution, where it gains nothing or loses
++  if (cp.cp_wc_deficit > 0 && std::isfinite(cutoff) && std::isfinite(first_lb) && std::isfinite(first_primal) &&
++      first_lb - first_primal < cp.cp_wc_deficit * std::max(1.0, fabs(cutoff))) par.cut_round = 2;
++  if (cp.verbose)
++    printf("cp phase start: shortfall %.1f, first-solve deficit (lb - primal) %.1f: penalty factor %s\n", cutoff - first_lb,
++           first_lb - first_primal, par.cut_round == 2 ? "w (kept)" : "wc if set");
++  par.cp_extrap = cp.cp_extrap; par.cp_extrap_gamma = cp.cp_extrap_gamma;
++  par.cp_extrap_guard = cp.cp_extrap_guard; par.cp_extrap_mode = cp.cp_extrap_mode;
+   DNNWarm save;
+   DNNResult res = dnn_bound(A, B, C, shift, cutoff, par, warm, &save);
+   if (res.status == DNN_ERROR && res.iterations == 0)   // a setting the CP solve refuses (the accelerations)
+diff --git a/latest/dnncut.h b/latest/dnncut.h
+index b856b128..e4cd3c3e 100644
+--- a/latest/dnncut.h
++++ b/latest/dnncut.h
+@@ -190,6 +190,14 @@ struct DNNCutParams {
+   // cp_sweeps Dykstra sweeps of cp_passes passes per iteration (1, 1). Used only
+   // by dnn_cut_cp; dnn_cut_rounds ignores them
+   int cp_every, cp_k, cp_iters, cp_sweeps, cp_passes;
++  // cut.cp_extrap = E:GAMMA[:GUARD[:MODE]] (DNNParams::cp_extrap): every E iterations the
++  // phase's state is extrapolated along its own trajectory, with a guard. 0: off (default)
++  int cp_extrap, cp_extrap_guard, cp_extrap_mode;
++  double cp_extrap_gamma;
++  double cp_wc_gap;   // cut.cp_wc_gap: > 0: a phase whose first solve ended within this of the
++                      // cutoff runs at dnn.beta_sched's w, not wc (0: every phase at wc; default)
++  double cp_wc_deficit;   // cut.cp_wc_deficit: > 0: wc only when the first solve's primal objective
++                      // is at least this fraction of |cutoff| below its bound; else w (0: off; default)
+   // cut.giveup (CP form only): (T, G) pairs; from iteration T the phase stops when
+   // its gap to the cutoff is still above G (review_nov10/phase_stop: no fathoming
+   // phase of the node-10 subtree was above 24.5 at 200, 18.1 at 300, 13.9 at 400,
+diff --git a/latest/settings.C b/latest/settings.C
+index f1c1d77e..be6bdce2 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -76,6 +76,9 @@ static Setting TABLE[] = {
+   POLICY("cut.giveup", "QAP_DNN_CUT_GIVEUP", 's', "", 0, 0, "T:G,...: from iteration T a CP-ADMM phase stops when its gap to the cutoff is still above G (unset: the stall rule only)"),
+   POLICY("cut.cp_iters", "QAP_DNN_CUT_CP_ITERS", 'i', "0", 0, 100000000, "CP-ADMM iteration limit (0: rounds x iters + freeze)"),
+   POLICY("cut.cp_sweeps", "QAP_DNN_CUT_CP_SWEEPS", 's', "1:1", 0, 0, "S[:P]: Dykstra sweeps and passes per CP-ADMM iteration"),
++  POLICY("cut.cp_extrap", NULL, 's', "", 0, 0, "E:GAMMA[:GUARD[:MODE]]: every E iterations a CP-ADMM phase extrapolates its state by GAMMA times its change over the last E/2, guarded (unset: off)"),
++  POLICY("cut.cp_wc_gap", NULL, 'd', "0", 0, INF, "a CP-ADMM phase that starts within this of the cutoff keeps dnn.beta_sched's w instead of wc (0: off)"),
++  POLICY("cut.cp_wc_deficit", NULL, 'd', "0", 0, 1, "a CP-ADMM phase takes wc only when the first solve's primal objective is at least this fraction of |cutoff| below its bound (0: off)"),
+   POLICY("cut.cp_lazycert", "DNN_CP_LAZYCERT", 'i', "0", 0, 1, "1: the lazy certificate in CP-ADMM solves too"),
+   POLICY("cut.xbar", "QAP_DNN_CUT_XBAR", 'i', "0", 0, 1, "1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's)"),
+   POLICY("pool.on", "QAP_DNN_POOL", 'i', "0", 0, 1, "1: a node hands its cut pool to its children"),

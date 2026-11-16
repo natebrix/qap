@@ -13,6 +13,21 @@
    best certified: T 238682.7, TX 240522.7, TX - T +1840.0   (* = fathomed, the run stops there)
    exchange cuts violated at TX's iterates (round: count, sum of violations): 0: 181, 1346  1: 230, 517  2: 223, 640  3: 221, 312  4: 220, 488  5: 243, 355  6: 204, 297
 
+== s3_tho40_d4d_jT.log  vs  s3_tho40_d4d_jTXm.log
+   T : ./swapdrv -x 26:10,8:0,39:32,30:7 -I 300 -joint -r 8 -i 150 -ek 0 -k 1000 -u 240516 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
+   TX: ./swapdrv2 -x 26:10,8:0,39:32,30:7 -u 240516 -I 300 -joint -r 8 -i 150 -delta 400 -k 1000 -ek 500 -edelta 400 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
+   round       iters            T           TX   TX - T   (shortfall of T / TX to the best known value)
+   0             300     238237.8     238237.8     +0.0   2278 / 2278
+   1             450     238472.1     238902.3   +430.2   2044 / 1614
+   2             600     238530.8     239331.7   +801.0   1985 / 1184
+   3             750     238582.5     239636.5  +1054.0   1934 / 880
+   4             900     238631.3     240024.1  +1392.8   1885 / 492
+   5            1050     238682.7     240309.2  +1626.5   1833 / 207
+   6            1200            -     240380.2            
+   7            1340            -    240535.1*            
+   best certified: T 238682.7, TX 240535.1, TX - T +1852.4   (* = fathomed, the run stops there)
+   exchange cuts violated at TX's iterates (round: count, sum of violations): 0: 181, 1346  1: 246, 670  2: 246, 417  3: 253, 392  4: 228, 326  5: 238, 372  6: 217, 287
+
 == s3_tho40_d4d_jTd400.log  vs  s3_tho40_d4d_jTXd400.log
    T : ./swapdrv -x 26:10,8:0,39:32,30:7 -u 240516 -I 300 -joint -r 8 -i 150 -ek 0 -delta 400 -k 1000 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
    TX: ./swapdrv -x 26:10,8:0,39:32,30:7 -u 240516 -I 300 -joint -r 8 -i 150 -ek 500 -edelta 400 -delta 400 -k 1000 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
@@ -28,6 +43,22 @@
    8            1500     240288.3            -            
    best certified: T 240318.1, TX 240522.7, TX - T +204.5   (* = fathomed, the run stops there)
    exchange cuts violated at TX's iterates (round: count, sum of violations): 0: 181, 1346  1: 230, 517  2: 223, 640  3: 221, 312  4: 220, 488  5: 243, 355  6: 204, 297
+
+== s3_tho40_d4d_jTd400.log  vs  s3_tho40_d4d_jTXm.log
+   T : ./swapdrv -x 26:10,8:0,39:32,30:7 -u 240516 -I 300 -joint -r 8 -i 150 -ek 0 -delta 400 -k 1000 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
+   TX: ./swapdrv2 -x 26:10,8:0,39:32,30:7 -u 240516 -I 300 -joint -r 8 -i 150 -delta 400 -k 1000 -ek 500 -edelta 400 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
+   round       iters            T           TX   TX - T   (shortfall of T / TX to the best known value)
+   0             300     238237.8     238237.8     +0.0   2278 / 2278
+   1             450     238759.8     238902.3   +142.5   1756 / 1614
+   2             600     239134.6     239331.7   +197.1   1381 / 1184
+   3             750     239511.7     239636.5   +124.8   1004 / 880
+   4             900     239874.9     240024.1   +149.2   641 / 492
+   5            1050     240163.9     240309.2   +145.3   352 / 207
+   6            1200     240251.0     240380.2   +129.2   265 / 136
+   7            1350     240318.1    240535.1*   +217.0   198 / -19
+   8            1500     240288.3            -            
+   best certified: T 240318.1, TX 240535.1, TX - T +217.0   (* = fathomed, the run stops there)
+   exchange cuts violated at TX's iterates (round: count, sum of violations): 0: 181, 1346  1: 246, 670  2: 246, 417  3: 253, 392  4: 228, 326  5: 238, 372  6: 217, 287
 
 == s3_tho40_d5d_jT.log  vs  s3_tho40_d5d_jTX.log
    T : ./swapdrv2 -x 26:10,8:0,2:32,6:39,33:24 -u 240516 -I 300 -joint -r 8 -i 150 -delta 400 -k 1000 -ek 0 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
@@ -49,15 +80,17 @@
    T : ./swapdrv2 -x 26:10,8:0,2:32,6:39,33:24 -u 240516 -I 300 -joint -r 8 -i 150 -delta 400 -k 1000 -ek 0 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
    TX: ./swapdrv2 -x 26:10,8:0,2:32,6:39,33:24 -u 240516 -I 300 -joint -r 8 -i 150 -delta 400 -k 1000 -ek 500 -edelta 400 -grid 5:8 -side 1 -T 1 ../../../qaplib/tho40t.dat
    round       iters            T           TX   TX - T   (shortfall of T / TX to the best known value)
-   0             300     237994.8            -            
-   1             450     238551.4            -            
-   2             600     238891.2            -            
-   3             750     239251.8            -            
-   4             900     239600.0            -            
-   5            1050     239904.6            -            
-   6            1200     240052.6            -            
-   7            1350     239914.4            -            
-   8            1500     240094.2            -            
+   0             300     237994.8     237994.8     +0.0   2521 / 2521
+   1             450     238551.4     238631.6    +80.2   1965 / 1884
+   2             600     238891.2     239040.1   +148.9   1625 / 1476
+   3             750     239251.8     239380.9   +129.1   1264 / 1135
+   4             900     239600.0     239694.0    +94.1   916 / 822
+   5            1050     239904.6     240039.3   +134.7   611 / 477
+   6            1200     240052.6     240123.2    +70.5   463 / 393
+   7            1350     239914.4     240203.0   +288.6   602 / 313
+   8            1500     240094.2     240204.2   +110.0   422 / 312
+   best certified: T 240094.2, TX 240204.2, TX - T +110.0
+   exchange cuts violated at TX's iterates (round: count, sum of violations): 0: 130, 810  1: 224, 483  2: 204, 433  3: 195, 312  4: 220, 430  5: 218, 147  6: 222, 270  7: 233, 319
 
 == s3_wil50_n13_jT.log  vs  s3_wil50_n13_jTX_overshoot.log
    T : ./swapdrv2 -x 21:28,8:41,28:19 -I 400 -joint -r 5 -i 200 -delta 50 -nocap -k 1000 -eq 300 -ek 0 -u 48816 -grid 5:10 -side 0 -T 1 ../../../qaplib/wil50.dat

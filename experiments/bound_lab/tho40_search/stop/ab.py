@@ -10,7 +10,7 @@ idx = {",".join(fx): i for i, fx in enumerate(t.fixes)}
 ORDER = ["z030", "zall", "zallh", "zallhg", "zallhge"]
 print("| node | arm | nodes | fathomed: first solve / phase | phases (fathomed) | iterations: first + phases = total | root: first + phase (gap left) | CPU s | vs z030 | vs zall | vs production [e] |")
 print("|---|---|---|---|---|---|---|---|---|---|---|")
-for w in ["w18", "w38", "w30"]:
+for w in ["w18", "w38", "w30"]:   # (w18r_zallhg, the attribution run, is in the text)
     rows = {}
     for d in glob.glob(os.path.join(H, "runs", w + "_*")):
         arm = os.path.basename(d).split("_", 1)[1]

@@ -37,6 +37,12 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
    three nodes checked on the path to the best known solution (depths 7, 9, 10, the last with an
    inherited pool) all branch with bounds at most 240,516.0000.
 
+7. **Follow-up, Nov 16 ("The stop rule" below): another 2.1-2.3x against `zall`, 2.4-2.7x against `z030`.** With a hand-over stop rule
+   (a new key, patch in `stop/`), `dnn.gu_zone = 0` and `dnn.giveup_warm = 100` under `cut.zone = 0.06`,
+   `18:32` takes 5,523 iterations (13,035 above) and `38:32` 1,312 (3,541); the extrapolation becomes
+   about 5.8x on the A/B subtree (4.0-6.8x) and **about 225 c7a CPU-days (190-330)** for the tree if
+   it responds alike. Items 3 and 4 above are the first study's numbers, kept as written.
+
 ## How it was run
 
 - One `latest/bnbdrv` process per subtree and arm (`run.sh`; two at a time, `queue.sh` over `jobs.txt`),
@@ -232,6 +238,8 @@ carry is partial, and depth-3 phases cost more than the model's.
 
 ## Recommended settings for tho40
 
+(The first study's. "Recommended settings, restated" in the stop-rule section adds three keys.)
+
 `experiments/estimates/tho40/tho40.par` plus (this is `par/zall.par`, less `cut.damp1`, which the CP
 form ignores):
 
@@ -256,6 +264,8 @@ cut.zone = 0.06
   (0 looks 7% better), the phase's limit and stop rule.
 
 ## What I would do next
+
+(Written after the first study. Items 1 and 2 were then done: "The stop rule" below.)
 
 1. **The phase's stop rule, on `w18` warm (13,035 iterations to beat) and t3/t4.** The evidence above
    says a phase should stop and equip its children once it will clearly not fathom soon: t4's root
@@ -285,14 +295,14 @@ runs showed it is too patient near the cutoff (2,610 iterations to end 146 short
 2,427) and, as it turned out, too impatient far from it. Result [m]: with a
 hand-over rule (a new key, patch below), `dnn.gu_zone = 0` and `dnn.giveup_warm = 100`, all under
 `cut.zone = 0.06`, the warm `18:32` subtree takes **5,523 iterations against 11,565 (`zall`) and
-13,035 (`z030`)**, and `38:32` **1,312 against 3,012 and 3,541**: 2.1-2.3x and 2.4-2.7x fewer, the
-same trees (74 nodes and 1 node). `30:32`, not run before, takes 2,005 iterations and 38 nodes where
+13,035 (`z030`)**, and `38:32` **1,312 against 3,012 and 3,541**: 2.1x and 2.3x fewer than `zall`,
+2.4x and 2.7x fewer than `z030`, the same trees (74 nodes and 1 node). `30:32`, not run before, takes 2,005 iterations and 38 nodes where
 production took 571 nodes.
 
 ### Offline: candidate rules replayed on the recorded phases [m histories, e hand-over cost]
 
 `stop/hist.py` reads the phase histories (`QAP_DNN_TRACE_HIST`, the running best every 10 iterations):
-41 phases recorded under the stall rule, the path check aside. `stop/replay_rules.py` replays a rule on
+37 phases recorded under the stall rule, the path check aside. `stop/replay_rules.py` replays a rule on
 each as the solver's `stop()` would see it. A phase a rule stops before its recorded fathom is a lost
 fathom, and costs what the node's children then cost.
 
@@ -312,7 +322,7 @@ Three nodes; the quadratic term rests on `w18`'s root and t4's. Cost of a rule =
 its stops (`python3 stop/replay_rules.py`, in `stop/replay_rules.out`; "near" = phases that start within
 2,000 of the cutoff, "far" = the 5 that start beyond; x = recorded cost / the rule's):
 
-| rule | near (36 phases): phase it + hand-over, lost fathoms | far (5): the same | all |
+| rule | near (32 phases): phase it + hand-over, lost fathoms | far (5): the same | all |
 |---|---|---|---|
 | recorded: `cut.stall 3`, `cut.iters 200` | 21,830 + 1,628 = 23,458, 0 | 7,481 + 80,207 | x1.00 |
 | window 400 (`cut.stall 2`) | 21,027 (x1.12), 0 | x0.84 | x0.88 |
@@ -378,15 +388,93 @@ Each arm's subtree is resumed from that arm's A/B root (`wroot_ARM`; `zallhg` an
 
 @@ wchildren.py w18_zall w18_zallhg w18_zallhge
 
-AB_TEXT
+- **The same trees in about half the iterations**: `18:32` 74 nodes in every arm, `38:32` fathomed at its
+  root in every arm. Every run ended with its subtree fathomed and no solution under 240,516.
+- **What the rule did.**
+  - *Far, at the depth-2 root:* its phase ran 3,030 iterations instead of 760 and ended 4,050 short
+    instead of 5,100 (the rule stopped it when the rate had fallen to 0.17 an iteration). Those 2,270
+    extra iterations are paid once and every depth-3 child starts closer: `18:32` 2,468 short
+    instead of 3,163, `38:32` 984 instead of 1,380, `30:32` 1,807 where production had 3,492.
+  - *Near:* `18:32`'s child `2:7` handed over after 490-500 iterations, 261 short, where the stall
+    rule ran 2,200 to end 169 short; its 36 children then fathomed in 21 iterations each (767; the
+    model said 925). `30:32`'s root handed over after 550 iterations, 1,032 short; 36 of its 37
+    children fathomed in their first solve and one in a 210-iteration phase.
+  - *No fathom was lost to it that the record shows:* the phases it did not stop fathomed in 74 to
+    1,202 iterations.
+- **Where `18:32`'s gain comes from** (`runs/w18r_zallhg`: the rule and `dnn.gu_zone = 0` below the
+  *first study's* root, whose phase had stalled at 760): 11,565 (`zall`) to **7,813** with the rule
+  and `gu_zone` alone (1.48x; here the rule let `18:32`'s own phase run 1,320 iterations instead of
+  650, to 2,011 short instead of 2,298, and stopped `2:7` at 470), to 6,231 once the depth-2 root is
+  under the rule too (1.25x more), to 5,523 with `dnn.giveup_warm = 100` (1.13x more).
+- **The two `dnn.*` keys** show in the first-solve iterations of `18:32`: 4,429 (`zall`), 3,500 with
+  `dnn.gu_zone = 0` (give-ups at 200-220 instead of 300-350; part of this is also the better pool),
+  2,717 with `dnn.giveup_warm = 100` as well, while the phases stay at 2,731 and 2,806.
+- **The hand-over model, checked on the new runs.** It overstates what children cost under the new
+  settings: `18:32`'s root left 1,888 and its children cost 4,793 (model 8,160); `30:32`'s left 1,032
+  and they cost 1,345 (model 3,100). The children's own phases are cheaper now. Refit, the quadratic
+  coefficient would be 0.4 to 1.5, not 3, which makes far phases hand over sooner: the first thing to
+  A/B next. The constants run are the first study's; nothing was refit to these runs.
+- **Not run:** a second rule (the best of the solver's own keys, window 400, is x1.12 near and loses far
+  in the replay); the rule without the two `dnn.*` keys; `zall` alone on `30:32`.
+
+### Sanity under the final arm
+
+Every `zallh*` run ended with its subtree fathomed and no `New objective value`. The stop rule changes
+only where a phase stops, never a certified value; the path check was rerun all the same with the
+patched solver and `par/zallhge.par` (`python3 pathverify.py zallhge`, incumbent 240,518):
+
+```
+@@ pathverify.py zallhge
+```
+
+All three branch, none above 240,516, and the first solves at depths 7 and 9 are `cold.tsv`'s. The
+depth-10 path child, entered after 110 iterations with the inherited pool, approaches its optimum from
+below (0.014 under it at 1,400 iterations, 240,516.0000 to four places when the rule stops it at 1,580).
+On a path node the gap to the cutoff shrinks about as fast as the rate, so the rule lets the phase run:
+one long phase per path node, as under the stall rule (3,400 and 600 iterations there).
 
 ### Recommended settings, restated
 
-RECO_TEXT
+`experiments/estimates/tho40/tho40.par` with `dnn.gu_zone = 0` in place of its 0.003, plus
+(this is `par/zallhge.par`, less `cut.damp1`):
+
+```
+pool.on = 1
+cut.grid = 5:8
+cut.side = 1
+cut.cp = 100:1000
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+cut.freeze = 1000
+cut.zone = 0.06
+cut.handover = 20:2:3
+dnn.giveup_warm = 100
+```
+
+`cut.handover` needs `stop/handover.patch` in the solver (and its line in RUNNING.md's table and the
+settings goldens, which the patch does not touch). Without the patch the block is the first study's
+with the two `dnn.*` changes, which the main checkout already reads: not run as such here; by the
+first-solve iterations above, worth 10-15% on `zall`.
 
 ### The whole tree, restated [e]
 
-TREE_TEXT
+`python3 stop/tree.py`: the first study's class table with the factors measured under `zallhge`, and the
+A/B root's own longer phase added:
+
+@@ stop/tree.py
+
+- **About 225 c7a CPU-days (190-330) if the whole tree responds as the A/B subtree**, where the first
+  study had 550 (450-700) and the base settings 1,300. In nodes, of the order of 1e6.
+- **What is measured:** three warm depth-3 subtrees in the classes that hold 73% of the A/B
+  subtree's CPU, each 4x to 7x cheaper than production in CPU and 5.6x to 7.3x in iterations.
+- **What is not:** the `2:32` node (25%), taken as `18:32` with half of it as the low end; the other
+  35 depth-3 nodes; any depth-2 node but this one, and the depth-2 phase is now where much of the gain
+  starts; depth 1. The range is the class factors' spread only. The earlier caveats stand: one
+  depth-2 subtree of 468, smaller than average, CPU from a shared box (iterations weighted 1.25 for
+  phases give 6.1x on `18:32` where CPU gives 6.4x).
+- **Before a launch:** the same arm on a second depth-2 subtree with a far root, warm from depth 1,
+  and Knuth dives under it.
 
 ## Files
 
@@ -398,3 +486,8 @@ TREE_TEXT
 | `summarize.py`, `table.py`, `wtable.py`, `wchildren.py`, `matched.py`, `phases.py`, `payoff.py` | the tables above |
 | `calib.py`, `pick.py`, `prodstats.py`, `replay.py` | the production trace: matched nodes, subtree choice, CPU by class, the replay model |
 | `cutstate.py`, `pathverify.py`, `mkreadme.py`, `README.tmpl.md` | the warm-root state cut, the path verdict, this file's assembly |
+| `stop/hist.py`, `stop/replay_rules.py`, `stop/replay_rules.out` | the stop-rule study: the phase histories, the offline replay and its output |
+| `stop/handover.patch` | the `cut.handover` key, as built in the worktree `/home/user/wt-tho40search` |
+| `stop/run2.sh`, `stop/seq.sh`, `stop/jobs.txt`, `stop/seq.log` | its runner (patched solver for the arms named `*h*`), the one-at-a-time queue, its log |
+| `stop/ab.py`, `stop/tree.py` | the A/B table and the restated extrapolation |
+| `par/zallh.par`, `par/zallhg.par`, `par/zallhge.par` | `zall` + `cut.handover = 20:2:3`; + `dnn.gu_zone = 0`; + `dnn.giveup_warm = 100` |

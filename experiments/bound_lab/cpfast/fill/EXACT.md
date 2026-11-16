@@ -1,0 +1,1 @@
+a full `ssyevd` at every iteration (`-e 1`) at `wc=2.88`, 200 iterations (`logs/A_wc288_exact.log`) | 238,682 / 239,119 / 239,433 at iterations 100 / 150 / 200 against 238,647 / 239,068 / 239,405 with the tracker (refresh 120, degree 3): 28 to 51 units, i.e. 5 to 8 iterations, at twice the CPU per iteration (0.23 s against 0.12). Not the tail
