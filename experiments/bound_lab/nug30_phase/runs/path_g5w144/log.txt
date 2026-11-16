@@ -1,0 +1,583 @@
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/experiments/bound_lab/nug30_phase/par/g5w144.par
+incumbent: 6126
+max_depth has been set to 0
+state file: /tmp/claude-0/-home-user-qap/e88dd8fa-3a7b-5316-a9cb-3b155a7b99d4/scratchpad/n30-path_g5w144-je3R/frontier.state
+input file: /home/user/qap/qaplib/nug30.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 1-7, relative gap <= 1, give up after 200 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 72 hash 4a17fab0c326af42
+setting dnn.depths 1:7 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 200 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36,wc=1.44 par policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 32 par policy
+setting cut.zone 0.03 par policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 1 par policy
+setting cut.grid 5:6 par policy
+setting cut.rounds 12 par policy
+setting cut.iters 200 par policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 1000 par policy
+setting cut.warmy 1 par policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp 100:1000 par policy
+setting cut.giveup 100:5,300:2 par policy
+setting cut.giveup_depth 2 par policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 1 par policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash 9084c0cd62124ab3 par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR /tmp/claude-0/-home-user-qap/e88dd8fa-3a7b-5316-a9cb-3b155a7b99d4/scratchpad/n30-path_g5w144-je3R/warm env run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/bound_lab/nug30_phase/par/g5w144.par flag run
+setting QAP_DNN_TRACE /home/user/qap/experiments/bound_lab/nug30_phase/runs/path_g5w144/dnn.txt env diagnostic
+setting QAP_DNN_TRACE_HIST 1 env diagnostic
+setting QAP_NODE_TRACE /home/user/qap/experiments/bound_lab/nug30_phase/runs/path_g5w144/nodes.txt env diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+branching_weight() = 0.5
+read symmetry info from ./SYM/nug30.sym
+parallel: frontier at depth 0 has 9 open nodes; 4 workers
+parallel: 1 tasks done, 31 nodes (30 DNN, 29 DNN-fathomed), 5 open, 3 running, CPU 81 s
+parallel: 2 tasks done, 145 nodes (144 DNN, 139 DNN-fathomed), 4 open, 3 running, CPU 234 s
+parallel: 3 tasks done, 313 nodes (312 DNN, 296 DNN-fathomed), 3 open, 3 running, CPU 470 s
+parallel: 4 tasks done, 482 nodes (481 DNN, 455 DNN-fathomed), 2 open, 3 running, CPU 736 s
+parallel: 5 tasks done, 679 nodes (678 DNN, 643 DNN-fathomed), 1 open, 3 running, CPU 1009 s
+parallel: 6 tasks done, 793 nodes (792 DNN, 750 DNN-fathomed), 0 open, 3 running, CPU 1212 s
+parallel: 7 tasks done, 875 nodes (874 DNN, 827 DNN-fathomed), 46 open, 2 running, CPU 1336 s
+parallel: 8 tasks done, 877 nodes (876 DNN, 829 DNN-fathomed), 42 open, 3 running, CPU 1337 s
+parallel: 9 tasks done, 879 nodes (878 DNN, 831 DNN-fathomed), 40 open, 3 running, CPU 1338 s
+parallel: 10 tasks done, 881 nodes (880 DNN, 833 DNN-fathomed), 38 open, 3 running, CPU 1341 s
+parallel: 11 tasks done, 883 nodes (882 DNN, 835 DNN-fathomed), 36 open, 3 running, CPU 1342 s
+parallel: 12 tasks done, 885 nodes (884 DNN, 837 DNN-fathomed), 34 open, 3 running, CPU 1343 s
+parallel: 13 tasks done, 887 nodes (886 DNN, 839 DNN-fathomed), 32 open, 3 running, CPU 1343 s
+parallel: 14 tasks done, 889 nodes (888 DNN, 841 DNN-fathomed), 30 open, 3 running, CPU 1345 s
+parallel: 15 tasks done, 891 nodes (890 DNN, 843 DNN-fathomed), 29 open, 3 running, CPU 1348 s
+parallel: 16 tasks done, 892 nodes (891 DNN, 844 DNN-fathomed), 28 open, 3 running, CPU 1348 s
+parallel: 17 tasks done, 893 nodes (892 DNN, 845 DNN-fathomed), 27 open, 3 running, CPU 1348 s
+parallel: 18 tasks done, 894 nodes (893 DNN, 846 DNN-fathomed), 26 open, 3 running, CPU 1349 s
+parallel: 19 tasks done, 895 nodes (894 DNN, 847 DNN-fathomed), 25 open, 3 running, CPU 1349 s
+parallel: 20 tasks done, 896 nodes (895 DNN, 848 DNN-fathomed), 24 open, 3 running, CPU 1350 s
+parallel: 21 tasks done, 897 nodes (896 DNN, 849 DNN-fathomed), 23 open, 3 running, CPU 1350 s
+parallel: 22 tasks done, 898 nodes (897 DNN, 850 DNN-fathomed), 22 open, 3 running, CPU 1350 s
+parallel: 23 tasks done, 899 nodes (898 DNN, 851 DNN-fathomed), 21 open, 3 running, CPU 1351 s
+parallel: 24 tasks done, 900 nodes (899 DNN, 852 DNN-fathomed), 20 open, 3 running, CPU 1352 s
+parallel: 25 tasks done, 901 nodes (900 DNN, 853 DNN-fathomed), 19 open, 3 running, CPU 1353 s
+parallel: 26 tasks done, 902 nodes (901 DNN, 854 DNN-fathomed), 18 open, 3 running, CPU 1354 s
+parallel: 27 tasks done, 903 nodes (902 DNN, 855 DNN-fathomed), 17 open, 3 running, CPU 1355 s
+parallel: 28 tasks done, 904 nodes (903 DNN, 856 DNN-fathomed), 16 open, 3 running, CPU 1356 s
+parallel: 29 tasks done, 905 nodes (904 DNN, 857 DNN-fathomed), 15 open, 3 running, CPU 1357 s
+parallel: 30 tasks done, 906 nodes (905 DNN, 858 DNN-fathomed), 14 open, 3 running, CPU 1357 s
+parallel: 31 tasks done, 907 nodes (906 DNN, 859 DNN-fathomed), 13 open, 3 running, CPU 1358 s
+parallel: 32 tasks done, 908 nodes (907 DNN, 860 DNN-fathomed), 12 open, 3 running, CPU 1359 s
+parallel: 33 tasks done, 909 nodes (908 DNN, 861 DNN-fathomed), 11 open, 3 running, CPU 1359 s
+parallel: 34 tasks done, 910 nodes (909 DNN, 862 DNN-fathomed), 10 open, 3 running, CPU 1360 s
+parallel: 35 tasks done, 911 nodes (910 DNN, 863 DNN-fathomed), 9 open, 3 running, CPU 1362 s
+parallel: 36 tasks done, 912 nodes (911 DNN, 864 DNN-fathomed), 8 open, 3 running, CPU 1363 s
+parallel: 37 tasks done, 913 nodes (912 DNN, 865 DNN-fathomed), 7 open, 3 running, CPU 1363 s
+parallel: 38 tasks done, 914 nodes (913 DNN, 866 DNN-fathomed), 6 open, 3 running, CPU 1364 s
+parallel: 39 tasks done, 915 nodes (914 DNN, 867 DNN-fathomed), 5 open, 3 running, CPU 1365 s
+parallel: 40 tasks done, 916 nodes (915 DNN, 868 DNN-fathomed), 4 open, 3 running, CPU 1366 s
+parallel: 41 tasks done, 917 nodes (916 DNN, 869 DNN-fathomed), 3 open, 3 running, CPU 1366 s
+parallel: 42 tasks done, 918 nodes (917 DNN, 870 DNN-fathomed), 2 open, 3 running, CPU 1368 s
+parallel: 43 tasks done, 945 nodes (944 DNN, 896 DNN-fathomed), 1 open, 3 running, CPU 1400 s
+parallel: 44 tasks done, 974 nodes (973 DNN, 924 DNN-fathomed), 0 open, 3 running, CPU 1425 s
+parallel: 45 tasks done, 1022 nodes (1021 DNN, 966 DNN-fathomed), 88 open, 2 running, CPU 1595 s
+parallel: 46 tasks done, 1027 nodes (1026 DNN, 971 DNN-fathomed), 78 open, 3 running, CPU 1596 s
+parallel: 47 tasks done, 1032 nodes (1031 DNN, 976 DNN-fathomed), 74 open, 3 running, CPU 1599 s
+parallel: 48 tasks done, 1036 nodes (1035 DNN, 980 DNN-fathomed), 70 open, 3 running, CPU 1601 s
+parallel: 49 tasks done, 1040 nodes (1039 DNN, 984 DNN-fathomed), 66 open, 3 running, CPU 1603 s
+parallel: 50 tasks done, 1044 nodes (1043 DNN, 988 DNN-fathomed), 62 open, 3 running, CPU 1605 s
+parallel: 51 tasks done, 1047 nodes (1046 DNN, 991 DNN-fathomed), 59 open, 3 running, CPU 1606 s
+parallel: 52 tasks done, 1050 nodes (1049 DNN, 994 DNN-fathomed), 56 open, 3 running, CPU 1608 s
+parallel: 53 tasks done, 1053 nodes (1052 DNN, 997 DNN-fathomed), 53 open, 3 running, CPU 1609 s
+parallel: 54 tasks done, 1056 nodes (1055 DNN, 1000 DNN-fathomed), 50 open, 3 running, CPU 1610 s
+parallel: 55 tasks done, 1059 nodes (1058 DNN, 1003 DNN-fathomed), 47 open, 3 running, CPU 1612 s
+parallel: 56 tasks done, 1061 nodes (1060 DNN, 1005 DNN-fathomed), 45 open, 3 running, CPU 1613 s
+parallel: 57 tasks done, 1063 nodes (1062 DNN, 1007 DNN-fathomed), 43 open, 3 running, CPU 1614 s
+parallel: 58 tasks done, 1065 nodes (1064 DNN, 1009 DNN-fathomed), 41 open, 3 running, CPU 1615 s
+parallel: 59 tasks done, 1067 nodes (1066 DNN, 1011 DNN-fathomed), 39 open, 3 running, CPU 1615 s
+parallel: 60 tasks done, 1069 nodes (1068 DNN, 1013 DNN-fathomed), 37 open, 3 running, CPU 1616 s
+parallel: 61 tasks done, 1071 nodes (1070 DNN, 1015 DNN-fathomed), 35 open, 3 running, CPU 1617 s
+parallel: 62 tasks done, 1073 nodes (1072 DNN, 1017 DNN-fathomed), 33 open, 3 running, CPU 1618 s
+parallel: 63 tasks done, 1075 nodes (1074 DNN, 1019 DNN-fathomed), 31 open, 3 running, CPU 1619 s
+parallel: 64 tasks done, 1076 nodes (1075 DNN, 1020 DNN-fathomed), 30 open, 3 running, CPU 1619 s
+parallel: 65 tasks done, 1077 nodes (1076 DNN, 1021 DNN-fathomed), 29 open, 3 running, CPU 1620 s
+parallel: 66 tasks done, 1078 nodes (1077 DNN, 1022 DNN-fathomed), 28 open, 3 running, CPU 1620 s
+parallel: 67 tasks done, 1079 nodes (1078 DNN, 1023 DNN-fathomed), 27 open, 3 running, CPU 1621 s
+parallel: 68 tasks done, 1080 nodes (1079 DNN, 1024 DNN-fathomed), 26 open, 3 running, CPU 1621 s
+parallel: 69 tasks done, 1081 nodes (1080 DNN, 1025 DNN-fathomed), 25 open, 3 running, CPU 1622 s
+parallel: 70 tasks done, 1082 nodes (1081 DNN, 1026 DNN-fathomed), 24 open, 3 running, CPU 1622 s
+parallel: 71 tasks done, 1164 nodes (1163 DNN, 1105 DNN-fathomed), 23 open, 3 running, CPU 1690 s
+parallel: 72 tasks done, 1165 nodes (1164 DNN, 1106 DNN-fathomed), 22 open, 3 running, CPU 1691 s
+parallel: 73 tasks done, 1166 nodes (1165 DNN, 1107 DNN-fathomed), 21 open, 3 running, CPU 1692 s
+parallel: 74 tasks done, 1167 nodes (1166 DNN, 1108 DNN-fathomed), 20 open, 3 running, CPU 1693 s
+parallel: 75 tasks done, 1168 nodes (1167 DNN, 1109 DNN-fathomed), 19 open, 3 running, CPU 1693 s
+parallel: 76 tasks done, 1230 nodes (1229 DNN, 1166 DNN-fathomed), 18 open, 3 running, CPU 1814 s
+parallel: 77 tasks done, 1231 nodes (1230 DNN, 1166 DNN-fathomed), 17 open, 3 running, CPU 1826 s
+parallel: 78 tasks done, 1232 nodes (1231 DNN, 1166 DNN-fathomed), 16 open, 3 running, CPU 1847 s
+parallel: 79 tasks done, 1233 nodes (1232 DNN, 1167 DNN-fathomed), 15 open, 3 running, CPU 1848 s
+parallel: 80 tasks done, 1234 nodes (1233 DNN, 1168 DNN-fathomed), 14 open, 3 running, CPU 1849 s
+parallel: 81 tasks done, 1235 nodes (1234 DNN, 1169 DNN-fathomed), 13 open, 3 running, CPU 1849 s
+parallel: 82 tasks done, 1236 nodes (1235 DNN, 1170 DNN-fathomed), 12 open, 3 running, CPU 1859 s
+parallel: 83 tasks done, 1237 nodes (1236 DNN, 1171 DNN-fathomed), 11 open, 3 running, CPU 1860 s
+parallel: 84 tasks done, 1238 nodes (1237 DNN, 1172 DNN-fathomed), 10 open, 3 running, CPU 1860 s
+parallel: 85 tasks done, 1239 nodes (1238 DNN, 1173 DNN-fathomed), 9 open, 3 running, CPU 1862 s
+parallel: 86 tasks done, 1268 nodes (1267 DNN, 1201 DNN-fathomed), 8 open, 3 running, CPU 1890 s
+parallel: 87 tasks done, 1269 nodes (1268 DNN, 1202 DNN-fathomed), 7 open, 3 running, CPU 1892 s
+parallel: 88 tasks done, 1270 nodes (1269 DNN, 1203 DNN-fathomed), 6 open, 3 running, CPU 1893 s
+parallel: 89 tasks done, 1271 nodes (1270 DNN, 1204 DNN-fathomed), 5 open, 3 running, CPU 1894 s
+parallel: 90 tasks done, 1272 nodes (1271 DNN, 1205 DNN-fathomed), 4 open, 3 running, CPU 1894 s
+parallel: 91 tasks done, 1273 nodes (1272 DNN, 1206 DNN-fathomed), 3 open, 3 running, CPU 1895 s
+parallel: 92 tasks done, 1274 nodes (1273 DNN, 1207 DNN-fathomed), 2 open, 3 running, CPU 1896 s
+parallel: 93 tasks done, 1275 nodes (1274 DNN, 1208 DNN-fathomed), 1 open, 3 running, CPU 1897 s
+parallel: 94 tasks done, 1276 nodes (1275 DNN, 1209 DNN-fathomed), 0 open, 3 running, CPU 1897 s
+parallel: 95 tasks done, 1305 nodes (1304 DNN, 1236 DNN-fathomed), 0 open, 2 running, CPU 1936 s
+parallel: 96 tasks done, 1319 nodes (1318 DNN, 1247 DNN-fathomed), 30 open, 1 running, CPU 1977 s
+parallel: 97 tasks done, 1320 nodes (1319 DNN, 1248 DNN-fathomed), 27 open, 3 running, CPU 1977 s
+parallel: 98 tasks done, 1321 nodes (1320 DNN, 1249 DNN-fathomed), 26 open, 3 running, CPU 1978 s
+parallel: 99 tasks done, 1322 nodes (1321 DNN, 1250 DNN-fathomed), 25 open, 3 running, CPU 1978 s
+parallel: 100 tasks done, 1323 nodes (1322 DNN, 1251 DNN-fathomed), 24 open, 3 running, CPU 1979 s
+parallel: 101 tasks done, 1324 nodes (1323 DNN, 1252 DNN-fathomed), 23 open, 3 running, CPU 1979 s
+parallel: 102 tasks done, 1325 nodes (1324 DNN, 1253 DNN-fathomed), 22 open, 3 running, CPU 1980 s
+parallel: 103 tasks done, 1326 nodes (1325 DNN, 1254 DNN-fathomed), 21 open, 3 running, CPU 1980 s
+parallel: 104 tasks done, 1327 nodes (1326 DNN, 1255 DNN-fathomed), 20 open, 3 running, CPU 1981 s
+parallel: 105 tasks done, 1328 nodes (1327 DNN, 1256 DNN-fathomed), 19 open, 3 running, CPU 1981 s
+parallel: 106 tasks done, 1329 nodes (1328 DNN, 1257 DNN-fathomed), 18 open, 3 running, CPU 1982 s
+parallel: 107 tasks done, 1330 nodes (1329 DNN, 1258 DNN-fathomed), 17 open, 3 running, CPU 1982 s
+parallel: 108 tasks done, 1331 nodes (1330 DNN, 1259 DNN-fathomed), 16 open, 3 running, CPU 1983 s
+parallel: 109 tasks done, 1332 nodes (1331 DNN, 1260 DNN-fathomed), 15 open, 3 running, CPU 1983 s
+parallel: 110 tasks done, 1333 nodes (1332 DNN, 1261 DNN-fathomed), 14 open, 3 running, CPU 1984 s
+parallel: 111 tasks done, 1334 nodes (1333 DNN, 1262 DNN-fathomed), 13 open, 3 running, CPU 1984 s
+parallel: 112 tasks done, 1335 nodes (1334 DNN, 1263 DNN-fathomed), 12 open, 3 running, CPU 1985 s
+parallel: 113 tasks done, 1336 nodes (1335 DNN, 1264 DNN-fathomed), 11 open, 3 running, CPU 1985 s
+parallel: 114 tasks done, 1337 nodes (1336 DNN, 1265 DNN-fathomed), 10 open, 3 running, CPU 1986 s
+parallel: 115 tasks done, 1338 nodes (1337 DNN, 1266 DNN-fathomed), 9 open, 3 running, CPU 1987 s
+parallel: 116 tasks done, 1339 nodes (1338 DNN, 1267 DNN-fathomed), 8 open, 3 running, CPU 1987 s
+parallel: 117 tasks done, 1340 nodes (1339 DNN, 1268 DNN-fathomed), 7 open, 3 running, CPU 1988 s
+parallel: 118 tasks done, 1369 nodes (1368 DNN, 1294 DNN-fathomed), 47 open, 3 running, CPU 2082 s
+parallel: 119 tasks done, 1370 nodes (1369 DNN, 1295 DNN-fathomed), 45 open, 3 running, CPU 2083 s
+parallel: 120 tasks done, 1372 nodes (1371 DNN, 1297 DNN-fathomed), 43 open, 3 running, CPU 2098 s
+parallel: 121 tasks done, 1374 nodes (1373 DNN, 1299 DNN-fathomed), 41 open, 3 running, CPU 2099 s
+parallel: 122 tasks done, 1376 nodes (1375 DNN, 1301 DNN-fathomed), 39 open, 3 running, CPU 2099 s
+parallel: 123 tasks done, 1378 nodes (1377 DNN, 1303 DNN-fathomed), 37 open, 3 running, CPU 2100 s
+parallel: 124 tasks done, 1380 nodes (1379 DNN, 1305 DNN-fathomed), 35 open, 3 running, CPU 2100 s
+parallel: 125 tasks done, 1382 nodes (1381 DNN, 1307 DNN-fathomed), 33 open, 3 running, CPU 2100 s
+parallel: 126 tasks done, 1384 nodes (1383 DNN, 1309 DNN-fathomed), 31 open, 3 running, CPU 2101 s
+parallel: 127 tasks done, 1385 nodes (1384 DNN, 1310 DNN-fathomed), 30 open, 3 running, CPU 2101 s
+parallel: 128 tasks done, 1387 nodes (1386 DNN, 1312 DNN-fathomed), 29 open, 3 running, CPU 2119 s
+parallel: 129 tasks done, 1388 nodes (1387 DNN, 1313 DNN-fathomed), 28 open, 3 running, CPU 2120 s
+parallel: 130 tasks done, 1389 nodes (1388 DNN, 1314 DNN-fathomed), 27 open, 3 running, CPU 2120 s
+parallel: 131 tasks done, 1390 nodes (1389 DNN, 1315 DNN-fathomed), 26 open, 3 running, CPU 2120 s
+parallel: 132 tasks done, 1391 nodes (1390 DNN, 1316 DNN-fathomed), 25 open, 3 running, CPU 2120 s
+parallel: 133 tasks done, 1392 nodes (1391 DNN, 1317 DNN-fathomed), 24 open, 3 running, CPU 2120 s
+parallel: 134 tasks done, 1420 nodes (1419 DNN, 1344 DNN-fathomed), 23 open, 3 running, CPU 2142 s
+parallel: 135 tasks done, 1421 nodes (1420 DNN, 1345 DNN-fathomed), 22 open, 3 running, CPU 2142 s
+parallel: 136 tasks done, 1422 nodes (1421 DNN, 1346 DNN-fathomed), 21 open, 3 running, CPU 2143 s
+parallel: 137 tasks done, 1423 nodes (1422 DNN, 1347 DNN-fathomed), 20 open, 3 running, CPU 2143 s
+parallel: 138 tasks done, 1424 nodes (1423 DNN, 1348 DNN-fathomed), 19 open, 3 running, CPU 2143 s
+parallel: 139 tasks done, 1425 nodes (1424 DNN, 1349 DNN-fathomed), 18 open, 3 running, CPU 2143 s
+parallel: 140 tasks done, 1426 nodes (1425 DNN, 1350 DNN-fathomed), 17 open, 3 running, CPU 2144 s
+parallel: 141 tasks done, 1427 nodes (1426 DNN, 1351 DNN-fathomed), 16 open, 3 running, CPU 2144 s
+parallel: 142 tasks done, 1428 nodes (1427 DNN, 1352 DNN-fathomed), 15 open, 3 running, CPU 2144 s
+parallel: 143 tasks done, 1429 nodes (1428 DNN, 1353 DNN-fathomed), 14 open, 3 running, CPU 2144 s
+parallel: 144 tasks done, 1430 nodes (1429 DNN, 1354 DNN-fathomed), 13 open, 3 running, CPU 2145 s
+parallel: 145 tasks done, 1431 nodes (1430 DNN, 1355 DNN-fathomed), 12 open, 3 running, CPU 2145 s
+parallel: 146 tasks done, 1432 nodes (1431 DNN, 1356 DNN-fathomed), 11 open, 3 running, CPU 2145 s
+parallel: 147 tasks done, 1433 nodes (1432 DNN, 1357 DNN-fathomed), 10 open, 3 running, CPU 2145 s
+parallel: 148 tasks done, 1434 nodes (1433 DNN, 1358 DNN-fathomed), 9 open, 3 running, CPU 2145 s
+parallel: 149 tasks done, 1435 nodes (1434 DNN, 1359 DNN-fathomed), 8 open, 3 running, CPU 2146 s
+parallel: 150 tasks done, 1436 nodes (1435 DNN, 1360 DNN-fathomed), 7 open, 3 running, CPU 2146 s
+parallel: 151 tasks done, 1437 nodes (1436 DNN, 1361 DNN-fathomed), 6 open, 3 running, CPU 2146 s
+parallel: 152 tasks done, 1438 nodes (1437 DNN, 1362 DNN-fathomed), 5 open, 3 running, CPU 2146 s
+parallel: 153 tasks done, 1439 nodes (1438 DNN, 1363 DNN-fathomed), 4 open, 3 running, CPU 2147 s
+parallel: 154 tasks done, 1440 nodes (1439 DNN, 1364 DNN-fathomed), 3 open, 3 running, CPU 2147 s
+parallel: 155 tasks done, 1441 nodes (1440 DNN, 1365 DNN-fathomed), 2 open, 3 running, CPU 2147 s
+parallel: 156 tasks done, 1442 nodes (1441 DNN, 1366 DNN-fathomed), 1 open, 3 running, CPU 2148 s
+parallel: 157 tasks done, 1443 nodes (1442 DNN, 1367 DNN-fathomed), 0 open, 3 running, CPU 2148 s
+parallel: 158 tasks done, 1444 nodes (1443 DNN, 1368 DNN-fathomed), 0 open, 2 running, CPU 2148 s
+parallel: 159 tasks done, 1445 nodes (1444 DNN, 1368 DNN-fathomed), 0 open, 1 running, CPU 2185 s
+parallel: 160 tasks done, 1446 nodes (1445 DNN, 1368 DNN-fathomed), 20 open, 0 running, CPU 2204 s
+parallel: 161 tasks done, 1447 nodes (1446 DNN, 1369 DNN-fathomed), 16 open, 3 running, CPU 2204 s
+parallel: 162 tasks done, 1448 nodes (1447 DNN, 1370 DNN-fathomed), 15 open, 3 running, CPU 2205 s
+parallel: 163 tasks done, 1449 nodes (1448 DNN, 1371 DNN-fathomed), 14 open, 3 running, CPU 2205 s
+parallel: 164 tasks done, 1450 nodes (1448 DNN, 1371 DNN-fathomed), 13 open, 3 running, CPU 2205 s
+parallel: 165 tasks done, 1451 nodes (1449 DNN, 1372 DNN-fathomed), 12 open, 3 running, CPU 2205 s
+parallel: 166 tasks done, 1452 nodes (1450 DNN, 1373 DNN-fathomed), 11 open, 3 running, CPU 2205 s
+parallel: 167 tasks done, 1453 nodes (1451 DNN, 1374 DNN-fathomed), 10 open, 3 running, CPU 2205 s
+parallel: 168 tasks done, 1454 nodes (1452 DNN, 1375 DNN-fathomed), 9 open, 3 running, CPU 2206 s
+parallel: 169 tasks done, 1455 nodes (1453 DNN, 1376 DNN-fathomed), 8 open, 3 running, CPU 2206 s
+parallel: 170 tasks done, 1456 nodes (1454 DNN, 1377 DNN-fathomed), 7 open, 3 running, CPU 2206 s
+parallel: 171 tasks done, 1457 nodes (1455 DNN, 1378 DNN-fathomed), 6 open, 3 running, CPU 2206 s
+parallel: 172 tasks done, 1458 nodes (1456 DNN, 1379 DNN-fathomed), 5 open, 3 running, CPU 2206 s
+parallel: 173 tasks done, 1459 nodes (1457 DNN, 1380 DNN-fathomed), 4 open, 3 running, CPU 2207 s
+parallel: 174 tasks done, 1460 nodes (1458 DNN, 1381 DNN-fathomed), 3 open, 3 running, CPU 2207 s
+parallel: 175 tasks done, 1461 nodes (1459 DNN, 1382 DNN-fathomed), 2 open, 3 running, CPU 2207 s
+parallel: 176 tasks done, 1462 nodes (1460 DNN, 1383 DNN-fathomed), 1 open, 3 running, CPU 2207 s
+parallel: 177 tasks done, 1463 nodes (1461 DNN, 1384 DNN-fathomed), 0 open, 3 running, CPU 2207 s
+parallel: 178 tasks done, 1464 nodes (1462 DNN, 1385 DNN-fathomed), 0 open, 2 running, CPU 2207 s
+parallel: 179 tasks done, 1465 nodes (1463 DNN, 1386 DNN-fathomed), 0 open, 1 running, CPU 2208 s
+parallel: 180 tasks done, 1466 nodes (1464 DNN, 1386 DNN-fathomed), 19 open, 0 running, CPU 2223 s
+parallel: 181 tasks done, 1467 nodes (1465 DNN, 1387 DNN-fathomed), 15 open, 3 running, CPU 2223 s
+parallel: 182 tasks done, 1468 nodes (1466 DNN, 1388 DNN-fathomed), 14 open, 3 running, CPU 2224 s
+parallel: 183 tasks done, 1469 nodes (1467 DNN, 1389 DNN-fathomed), 13 open, 3 running, CPU 2224 s
+parallel: 184 tasks done, 1470 nodes (1468 DNN, 1390 DNN-fathomed), 12 open, 3 running, CPU 2224 s
+parallel: 185 tasks done, 1471 nodes (1469 DNN, 1391 DNN-fathomed), 11 open, 3 running, CPU 2224 s
+parallel: 186 tasks done, 1472 nodes (1470 DNN, 1392 DNN-fathomed), 10 open, 3 running, CPU 2224 s
+parallel: 187 tasks done, 1473 nodes (1471 DNN, 1393 DNN-fathomed), 9 open, 3 running, CPU 2224 s
+parallel: 188 tasks done, 1474 nodes (1472 DNN, 1394 DNN-fathomed), 8 open, 3 running, CPU 2225 s
+parallel: 189 tasks done, 1475 nodes (1472 DNN, 1394 DNN-fathomed), 7 open, 3 running, CPU 2225 s
+parallel: 190 tasks done, 1476 nodes (1473 DNN, 1395 DNN-fathomed), 6 open, 3 running, CPU 2225 s
+parallel: 191 tasks done, 1477 nodes (1474 DNN, 1396 DNN-fathomed), 5 open, 3 running, CPU 2225 s
+parallel: 192 tasks done, 1478 nodes (1475 DNN, 1397 DNN-fathomed), 4 open, 3 running, CPU 2225 s
+parallel: 193 tasks done, 1479 nodes (1475 DNN, 1397 DNN-fathomed), 3 open, 3 running, CPU 2225 s
+parallel: 194 tasks done, 1480 nodes (1475 DNN, 1397 DNN-fathomed), 2 open, 3 running, CPU 2225 s
+parallel: 195 tasks done, 1481 nodes (1476 DNN, 1398 DNN-fathomed), 1 open, 3 running, CPU 2225 s
+parallel: 196 tasks done, 1482 nodes (1477 DNN, 1399 DNN-fathomed), 0 open, 3 running, CPU 2225 s
+parallel: 197 tasks done, 1483 nodes (1478 DNN, 1400 DNN-fathomed), 0 open, 2 running, CPU 2225 s
+parallel: 198 tasks done, 1484 nodes (1479 DNN, 1401 DNN-fathomed), 0 open, 1 running, CPU 2226 s
+parallel: 199 tasks done, 1485 nodes (1480 DNN, 1401 DNN-fathomed), 18 open, 0 running, CPU 2238 s
+parallel: 200 tasks done, 1486 nodes (1481 DNN, 1402 DNN-fathomed), 14 open, 3 running, CPU 2238 s
+parallel: 201 tasks done, 1487 nodes (1482 DNN, 1403 DNN-fathomed), 13 open, 3 running, CPU 2238 s
+parallel: 202 tasks done, 1488 nodes (1482 DNN, 1403 DNN-fathomed), 12 open, 3 running, CPU 2238 s
+parallel: 203 tasks done, 1489 nodes (1483 DNN, 1404 DNN-fathomed), 11 open, 3 running, CPU 2238 s
+parallel: 204 tasks done, 1490 nodes (1484 DNN, 1405 DNN-fathomed), 10 open, 3 running, CPU 2238 s
+parallel: 205 tasks done, 1491 nodes (1484 DNN, 1405 DNN-fathomed), 9 open, 3 running, CPU 2238 s
+parallel: 206 tasks done, 1492 nodes (1484 DNN, 1405 DNN-fathomed), 8 open, 3 running, CPU 2238 s
+parallel: 207 tasks done, 1493 nodes (1485 DNN, 1406 DNN-fathomed), 7 open, 3 running, CPU 2238 s
+parallel: 208 tasks done, 1494 nodes (1486 DNN, 1407 DNN-fathomed), 6 open, 3 running, CPU 2238 s
+parallel: 209 tasks done, 1495 nodes (1487 DNN, 1408 DNN-fathomed), 5 open, 3 running, CPU 2239 s
+parallel: 210 tasks done, 1496 nodes (1488 DNN, 1409 DNN-fathomed), 4 open, 3 running, CPU 2239 s
+parallel: 211 tasks done, 1497 nodes (1489 DNN, 1410 DNN-fathomed), 3 open, 3 running, CPU 2239 s
+parallel: 212 tasks done, 1498 nodes (1490 DNN, 1411 DNN-fathomed), 2 open, 3 running, CPU 2239 s
+parallel: 213 tasks done, 1499 nodes (1491 DNN, 1412 DNN-fathomed), 1 open, 3 running, CPU 2239 s
+parallel: 214 tasks done, 1500 nodes (1492 DNN, 1413 DNN-fathomed), 0 open, 3 running, CPU 2239 s
+parallel: 215 tasks done, 1501 nodes (1493 DNN, 1414 DNN-fathomed), 0 open, 2 running, CPU 2239 s
+parallel: 216 tasks done, 1502 nodes (1494 DNN, 1415 DNN-fathomed), 0 open, 1 running, CPU 2239 s
+parallel: 217 tasks done, 1503 nodes (1495 DNN, 1415 DNN-fathomed), 17 open, 0 running, CPU 2248 s
+parallel: 218 tasks done, 1504 nodes (1496 DNN, 1416 DNN-fathomed), 13 open, 3 running, CPU 2248 s
+parallel: 219 tasks done, 1505 nodes (1497 DNN, 1417 DNN-fathomed), 12 open, 3 running, CPU 2248 s
+parallel: 220 tasks done, 1506 nodes (1498 DNN, 1418 DNN-fathomed), 11 open, 3 running, CPU 2248 s
+parallel: 221 tasks done, 1507 nodes (1499 DNN, 1419 DNN-fathomed), 10 open, 3 running, CPU 2249 s
+parallel: 222 tasks done, 1508 nodes (1500 DNN, 1420 DNN-fathomed), 9 open, 3 running, CPU 2249 s
+parallel: 223 tasks done, 1509 nodes (1501 DNN, 1421 DNN-fathomed), 8 open, 3 running, CPU 2249 s
+parallel: 224 tasks done, 1510 nodes (1502 DNN, 1422 DNN-fathomed), 7 open, 3 running, CPU 2249 s
+parallel: 225 tasks done, 1511 nodes (1503 DNN, 1423 DNN-fathomed), 6 open, 3 running, CPU 2249 s
+parallel: 226 tasks done, 1512 nodes (1504 DNN, 1424 DNN-fathomed), 5 open, 3 running, CPU 2249 s
+parallel: 227 tasks done, 1513 nodes (1505 DNN, 1425 DNN-fathomed), 4 open, 3 running, CPU 2249 s
+parallel: 228 tasks done, 1514 nodes (1506 DNN, 1426 DNN-fathomed), 3 open, 3 running, CPU 2249 s
+parallel: 229 tasks done, 1515 nodes (1507 DNN, 1427 DNN-fathomed), 2 open, 3 running, CPU 2249 s
+parallel: 230 tasks done, 1516 nodes (1508 DNN, 1428 DNN-fathomed), 1 open, 3 running, CPU 2249 s
+parallel: 231 tasks done, 1517 nodes (1509 DNN, 1429 DNN-fathomed), 0 open, 3 running, CPU 2249 s
+parallel: 232 tasks done, 1518 nodes (1510 DNN, 1430 DNN-fathomed), 0 open, 2 running, CPU 2249 s
+parallel: 233 tasks done, 1519 nodes (1511 DNN, 1431 DNN-fathomed), 0 open, 1 running, CPU 2249 s
+parallel: 234 tasks done, 1520 nodes (1512 DNN, 1431 DNN-fathomed), 16 open, 0 running, CPU 2256 s
+parallel: 235 tasks done, 1521 nodes (1512 DNN, 1431 DNN-fathomed), 12 open, 3 running, CPU 2256 s
+parallel: 236 tasks done, 1522 nodes (1513 DNN, 1432 DNN-fathomed), 11 open, 3 running, CPU 2256 s
+parallel: 237 tasks done, 1523 nodes (1514 DNN, 1433 DNN-fathomed), 10 open, 3 running, CPU 2256 s
+parallel: 238 tasks done, 1524 nodes (1514 DNN, 1433 DNN-fathomed), 9 open, 3 running, CPU 2256 s
+parallel: 239 tasks done, 1525 nodes (1515 DNN, 1434 DNN-fathomed), 8 open, 3 running, CPU 2256 s
+parallel: 240 tasks done, 1526 nodes (1515 DNN, 1434 DNN-fathomed), 7 open, 3 running, CPU 2256 s
+parallel: 241 tasks done, 1527 nodes (1516 DNN, 1435 DNN-fathomed), 6 open, 3 running, CPU 2256 s
+parallel: 242 tasks done, 1528 nodes (1516 DNN, 1435 DNN-fathomed), 5 open, 3 running, CPU 2256 s
+parallel: 243 tasks done, 1529 nodes (1516 DNN, 1435 DNN-fathomed), 4 open, 3 running, CPU 2256 s
+parallel: 244 tasks done, 1530 nodes (1516 DNN, 1435 DNN-fathomed), 3 open, 3 running, CPU 2256 s
+parallel: 245 tasks done, 1531 nodes (1516 DNN, 1435 DNN-fathomed), 2 open, 3 running, CPU 2256 s
+parallel: 246 tasks done, 1532 nodes (1517 DNN, 1436 DNN-fathomed), 1 open, 3 running, CPU 2256 s
+parallel: 247 tasks done, 1533 nodes (1517 DNN, 1436 DNN-fathomed), 0 open, 3 running, CPU 2256 s
+parallel: 248 tasks done, 1534 nodes (1518 DNN, 1437 DNN-fathomed), 0 open, 2 running, CPU 2256 s
+parallel: 249 tasks done, 1535 nodes (1519 DNN, 1438 DNN-fathomed), 0 open, 1 running, CPU 2256 s
+parallel: 250 tasks done, 1536 nodes (1520 DNN, 1438 DNN-fathomed), 12 open, 0 running, CPU 2261 s
+parallel: 251 tasks done, 1537 nodes (1520 DNN, 1438 DNN-fathomed), 8 open, 3 running, CPU 2261 s
+parallel: 252 tasks done, 1538 nodes (1520 DNN, 1438 DNN-fathomed), 7 open, 3 running, CPU 2261 s
+parallel: 253 tasks done, 1539 nodes (1520 DNN, 1438 DNN-fathomed), 6 open, 3 running, CPU 2261 s
+parallel: 254 tasks done, 1540 nodes (1520 DNN, 1438 DNN-fathomed), 5 open, 3 running, CPU 2261 s
+parallel: 255 tasks done, 1541 nodes (1520 DNN, 1438 DNN-fathomed), 4 open, 3 running, CPU 2261 s
+parallel: 256 tasks done, 1542 nodes (1520 DNN, 1438 DNN-fathomed), 3 open, 3 running, CPU 2261 s
+parallel: 257 tasks done, 1543 nodes (1521 DNN, 1439 DNN-fathomed), 2 open, 3 running, CPU 2261 s
+parallel: 258 tasks done, 1544 nodes (1522 DNN, 1440 DNN-fathomed), 1 open, 3 running, CPU 2261 s
+parallel: 259 tasks done, 1545 nodes (1523 DNN, 1441 DNN-fathomed), 0 open, 3 running, CPU 2261 s
+parallel: 260 tasks done, 1546 nodes (1523 DNN, 1441 DNN-fathomed), 0 open, 2 running, CPU 2261 s
+parallel: 261 tasks done, 1547 nodes (1524 DNN, 1442 DNN-fathomed), 0 open, 1 running, CPU 2261 s
+parallel: 262 tasks done, 1548 nodes (1525 DNN, 1442 DNN-fathomed), 12 open, 0 running, CPU 2265 s
+parallel: 263 tasks done, 1549 nodes (1525 DNN, 1442 DNN-fathomed), 8 open, 3 running, CPU 2265 s
+parallel: 264 tasks done, 1550 nodes (1525 DNN, 1442 DNN-fathomed), 7 open, 3 running, CPU 2265 s
+parallel: 265 tasks done, 1551 nodes (1525 DNN, 1442 DNN-fathomed), 6 open, 3 running, CPU 2265 s
+parallel: 266 tasks done, 1552 nodes (1525 DNN, 1442 DNN-fathomed), 5 open, 3 running, CPU 2265 s
+parallel: 267 tasks done, 1553 nodes (1525 DNN, 1442 DNN-fathomed), 4 open, 3 running, CPU 2265 s
+parallel: 268 tasks done, 1554 nodes (1525 DNN, 1442 DNN-fathomed), 3 open, 3 running, CPU 2265 s
+parallel: 269 tasks done, 1555 nodes (1525 DNN, 1442 DNN-fathomed), 2 open, 3 running, CPU 2265 s
+parallel: 270 tasks done, 1556 nodes (1526 DNN, 1443 DNN-fathomed), 1 open, 3 running, CPU 2265 s
+parallel: 271 tasks done, 1557 nodes (1526 DNN, 1443 DNN-fathomed), 0 open, 3 running, CPU 2265 s
+parallel: 272 tasks done, 1558 nodes (1527 DNN, 1444 DNN-fathomed), 0 open, 2 running, CPU 2265 s
+parallel: 273 tasks done, 1559 nodes (1528 DNN, 1445 DNN-fathomed), 0 open, 1 running, CPU 2265 s
+parallel: 274 tasks done, 1560 nodes (1529 DNN, 1445 DNN-fathomed), 9 open, 0 running, CPU 2268 s
+parallel: 275 tasks done, 1561 nodes (1529 DNN, 1445 DNN-fathomed), 5 open, 3 running, CPU 2268 s
+parallel: 276 tasks done, 1562 nodes (1529 DNN, 1445 DNN-fathomed), 4 open, 3 running, CPU 2268 s
+parallel: 277 tasks done, 1563 nodes (1529 DNN, 1445 DNN-fathomed), 3 open, 3 running, CPU 2268 s
+parallel: 278 tasks done, 1564 nodes (1529 DNN, 1445 DNN-fathomed), 2 open, 3 running, CPU 2268 s
+parallel: 279 tasks done, 1565 nodes (1529 DNN, 1445 DNN-fathomed), 1 open, 3 running, CPU 2268 s
+parallel: 280 tasks done, 1566 nodes (1529 DNN, 1445 DNN-fathomed), 0 open, 3 running, CPU 2268 s
+parallel: 281 tasks done, 1567 nodes (1530 DNN, 1446 DNN-fathomed), 0 open, 2 running, CPU 2268 s
+parallel: 282 tasks done, 1568 nodes (1530 DNN, 1446 DNN-fathomed), 0 open, 1 running, CPU 2268 s
+parallel: 283 tasks done, 1569 nodes (1531 DNN, 1446 DNN-fathomed), 7 open, 0 running, CPU 2270 s
+parallel: 284 tasks done, 1570 nodes (1532 DNN, 1447 DNN-fathomed), 3 open, 3 running, CPU 2270 s
+parallel: 285 tasks done, 1571 nodes (1532 DNN, 1447 DNN-fathomed), 2 open, 3 running, CPU 2270 s
+parallel: 286 tasks done, 1572 nodes (1532 DNN, 1447 DNN-fathomed), 1 open, 3 running, CPU 2270 s
+parallel: 287 tasks done, 1573 nodes (1533 DNN, 1448 DNN-fathomed), 0 open, 3 running, CPU 2270 s
+parallel: 288 tasks done, 1574 nodes (1533 DNN, 1448 DNN-fathomed), 0 open, 2 running, CPU 2270 s
+parallel: 289 tasks done, 1575 nodes (1534 DNN, 1449 DNN-fathomed), 0 open, 1 running, CPU 2270 s
+parallel: 290 tasks done, 1576 nodes (1535 DNN, 1449 DNN-fathomed), 4 open, 0 running, CPU 2271 s
+parallel: 291 tasks done, 1577 nodes (1535 DNN, 1449 DNN-fathomed), 0 open, 3 running, CPU 2271 s
+parallel: 292 tasks done, 1578 nodes (1535 DNN, 1449 DNN-fathomed), 0 open, 2 running, CPU 2271 s
+parallel: 293 tasks done, 1579 nodes (1535 DNN, 1449 DNN-fathomed), 0 open, 1 running, CPU 2271 s
+parallel: 294 tasks done, 1580 nodes (1536 DNN, 1449 DNN-fathomed), 1 open, 0 running, CPU 2272 s
+parallel: 295 tasks done, 1584 nodes (1539 DNN, 1449 DNN-fathomed), 2 open, 0 running, CPU 2273 s
+parallel: 296 tasks done, 1585 nodes (1539 DNN, 1449 DNN-fathomed), 0 open, 1 running, CPU 2273 s
+New objective value: 6124
+parallel: 297 tasks done, 1589 nodes (1542 DNN, 1449 DNN-fathomed), 0 open, 0 running, CPU 2274 s
+  ---- RESULTS ----
+
+    Total Time: 2273.635587 seconds 
+         Nodes: 1589 / 1515 / 1
+    root bound: 5342.2609646393284
+ fw iterations: 190211
+     DNN bound: 1542 nodes, 1449 fathomed, 1553.86 s
+     cut phase: 93 nodes, 21 fathomed, 703.43 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    0.17
+ 1           9	0.0000	0.0000	  367.56
+ 2         225	0.8756	0.0000	  612.41
+ 3         748	0.9866	0.0000	  750.70
+ 4         270	0.9889	0.0000	  206.07
+ 5          78	0.9872	0.0000	   93.11
+ 6          25	0.9600	0.0000	   42.44
+ 7          24	0.9583	0.0000	   44.50
+ 8          23	0.9565	0.0000	   35.92
+ 9          22	0.9545	0.0000	   27.98
+10          21	0.9524	0.0000	   23.16
+11          20	0.9500	0.0000	   19.16
+12          19	0.9474	0.0000	   14.47
+13          18	0.9444	0.0000	   10.43
+14          17	0.9412	0.0000	    7.44
+15          16	0.9375	0.2000	    5.18
+16          12	0.9167	0.1429	    3.85
+17          12	0.9167	0.3077	    2.91
+18           9	0.8889	0.4167	    2.11
+19           7	0.8571	0.6364	    1.49
+20           4	0.7500	0.9000	    1.00
+21           1	0.0000	0.7778	    0.62
+22           2	0.5000	0.7500	    0.36
+23           2	0.5000	0.8571	    0.21
+24           1	0.0000	0.8333	    0.13
+25           1	0.0000	0.8000	    0.06
+26           1	0.0000	0.7500	    0.03
+27           1	0.0000	N/A	    0.00
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 9 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 225 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 748 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 270 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 78 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 25 
+ 7 |   0.0000   0.0000   0.0000   1.0000  | 24 
+ 8 |   0.0000   0.0000   0.0000   1.0000  | 23 
+ 9 |   0.0000   0.0000   0.0000   1.0000  | 22 
+10 |   0.0000   0.0000   0.0000   1.0000  | 21 
+11 |   0.0000   0.0000   0.0000   1.0000  | 20 
+12 |   0.0000   0.0000   0.0000   1.0000  | 19 
+13 |   0.0000   0.0000   0.0000   1.0000  | 18 
+14 |   0.0000   0.0000   0.0000   1.0000  | 17 
+15 |   0.0000   0.0000   0.0000   1.0000  | 16 
+16 |   0.0000   0.0000   0.0000   1.0000  | 12 
+17 |   0.0000   0.0000   0.0000   1.0000  | 12 
+18 |   0.0000   0.0000   0.0000   1.0000  | 9 
+19 |   0.0000   0.0000   0.0000   1.0000  | 7 
+20 |   0.0000   0.0000   0.0000   1.0000  | 4 
+21 |   0.0000   0.0000   0.0000   1.0000  | 1 
+22 |   0.0000   0.0000   0.0000   1.0000  | 2 
+23 |   0.0000   0.0000   0.0000   1.0000  | 2 
+24 |   0.0000   0.0000   0.0000   1.0000  | 1 
+25 |   0.0000   0.0000   0.0000   1.0000  | 1 
+26 |   0.0000   0.0000   0.0000   1.0000  | 1 
+27 |   0.0000   0.0000   0.0000   1.0000  | 1 
+nodes      10        0     1346      233 
+time   367.73     0.00  1704.73   201.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.866136	0.019033
+ 2| 0.070540	0.022137
+ 3| 0.030690	0.014835
+ 4| 0.022774	0.007457
+ 5| 0.012733	0.004705
+ 6| 0.002553	-nan
+ 7| 0.002552	0.000000
+ 8| 0.002552	-nan
+ 9| 0.002552	-nan
+10| 0.002552	-nan
+11| 0.002552	-nan
+12| 0.002552	-nan
+13| 0.002552	-nan
+14| 0.002552	-nan
+15| 0.002552	-nan
+16| 0.002552	-nan
+17| 0.002552	0.000000
+18| 0.002552	0.000000
+19| 0.002552	-nan
+20| 0.002552	0.000000
+21| 0.002552	0.000000
+22| 0.002552	0.000000
+23| 0.002552	0.000000
+24| 0.002552	0.000000
+25| 0.002552	0.000000
+26| 0.002552	0.000000
+27| 0.002552	0.000000
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           9	0.0000	1.0000	       1800	   200.0	   60.81
+ 2         225	0.8444	0.1556	      13921	    61.9	  484.63
+ 3         748	0.9706	0.0294	      22466	    30.0	  661.03
+ 4         270	0.9815	0.0185	       8081	    29.9	  187.20
+ 5          78	0.9872	0.0128	       4662	    59.8	   81.47
+ 6          25	0.9600	0.0400	       1076	    43.0	   15.58
+ 7          24	0.9583	0.0417	        885	    36.9	   14.06
+ 8          23	0.9565	0.0435	        705	    30.7	   10.94
+ 9          22	0.9545	0.0455	        633	    28.8	    8.43
+10          21	0.9524	0.0476	        574	    27.3	    6.99
+11          19	0.9474	0.0526	        531	    27.9	    6.80
+12          16	0.9375	0.0625	        455	    28.4	    5.35
+13          15	0.9333	0.0667	        450	    30.0	    3.52
+14          17	0.9412	0.0588	        430	    25.3	    2.34
+15           8	0.8750	0.1250	        300	    37.5	    1.42
+16           5	0.8000	0.2000	        240	    48.0	    1.06
+17           4	0.7500	0.2500	        240	    60.0	    0.76
+18           2	0.5000	0.5000	        210	   105.0	    0.51
+19           4	0.7500	0.2500	        230	    57.5	    0.36
+20           1	0.0000	1.0000	        200	   200.0	    0.26
+21           1	0.0000	1.0000	        200	   200.0	    0.13
+22           1	0.0000	1.0000	        200	   200.0	    0.08
+23           1	0.0000	1.0000	        200	   200.0	    0.05
+24           1	0.0000	1.0000	        200	   200.0	    0.03
+25           1	0.0000	1.0000	        200	   200.0	    0.01
+26           1	0.0000	1.0000	        200	   200.0	    0.01
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 1           9	0.0000	  305.57
+ 2          35	0.2000	  124.37
+ 3          22	0.5455	   82.57
+ 4           5	0.4000	   16.37
+ 5           1	0.0000	   11.02
+ 6           1	0.0000	   26.64
+ 7           1	0.0000	   30.20
+ 8           1	0.0000	   24.82
+ 9           1	0.0000	   19.41
+10           1	0.0000	   16.05
+11           1	0.0000	   12.25
+12           1	0.0000	    9.05
+13           1	0.0000	    6.85
+14           1	0.0000	    5.06
+15           1	0.0000	    3.74
+16           1	0.0000	    2.78
+17           1	0.0000	    2.15
+18           1	0.0000	    1.59
+19           1	0.0000	    1.12
+20           1	0.0000	    0.74
+21           1	0.0000	    0.48
+22           1	0.0000	    0.28
+23           1	0.0000	    0.16
+24           1	0.0000	    0.09
+25           1	0.0000	    0.05
+26           1	0.0000	    0.02
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2         197	       0	     190	       7	       0
+ 3         738	       0	     726	      12	       0
+ 4         267	       0	     265	       2	       0
+ 5          77	       0	      77	       0	       0
+ 6          24	       0	      24	       0	       0
+ 7          23	       0	      23	       0	       0
+ 8          22	       0	      22	       0	       0
+ 9          21	       0	      21	       0	       0
+10          20	       0	      20	       0	       0
+11          19	       1	      18	       0	       0
+12          18	       3	      15	       0	       0
+13          17	       3	      14	       0	       0
+14          16	       0	      16	       0	       0
+15          15	       8	       7	       0	       0
+16          11	       7	       4	       0	       0
+17          11	       8	       3	       0	       0
+18           8	       7	       1	       0	       0
+19           6	       3	       3	       0	       0
+20           3	       3	       0	       0	       0
+21           0	       0	       0	       0	       0
+22           1	       1	       0	       0	       0
+23           1	       1	       0	       0	       0
+24           0	       0	       0	       0	       0
+25           0	       0	       0	       0	       0
+26           0	       0	       0	       0	       0
+27           0	       0	       0	       0	       0
+
+parallel: 4 workers, 297 tasks, 17 steals, wall 641.06 s, CPU 2273.64 s (x3.55), best objective 6124
+parallel: final statistics -> /home/user/qap/experiments/bound_lab/nug30_phase/runs/path_g5w144/final.state
