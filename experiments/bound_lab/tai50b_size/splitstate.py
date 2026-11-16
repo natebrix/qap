@@ -12,7 +12,7 @@ def read(src):
         for ln in fh:
             if ln.startswith("nodes "): continue
             if ln.startswith("node "): nodes.append(ln)
-            elif nodes: tail.append(ln)
+            elif nodes or ln.strip() == "end": tail.append(ln)   # (a file with no open node still ends with "end")
             else: head.append(ln)
     return head, nodes, tail
 def write(dst, head, nodes, tail):
