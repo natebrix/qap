@@ -36,16 +36,16 @@ or bounded above 458,821,517; an incumbent below 458,821,517; a level more than 
 
 ## Status
 
-- Levels complete: depths 1 to 1; 0 nodes below the root, 0 DNN iterations, 0 CPU-s = 0.0 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
-- Open nodes now: ? at depth 2 (`open/open_2.txt`).
+- Levels complete: depths 1 to 1; 50 nodes below the root, 50,769 DNN iterations, 27,731 CPU-s = 7.7 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
+- Open nodes now: 637 at depth 2 (`open/open_2.txt`).
 - Incumbents found: none yet (the search starts from 458,821,518 = best known + 1).
-- Path of the best known solution: 0 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517).
+- Path of the best known solution: 1 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517). Largest certified bound on it: 456,310,021.6095.
 
 ## The levels [m]
 
 | depth | nodes bounded | branched | fathomed: QPB / DNN first solve / cut phase | open nodes carried to the next depth | DNN bounds, phases | DNN iterations | CPU-s | retries: pool, cold | on-path node: short of 458,821,517 | E2 predicted: nodes, CPU-s | E3 (scale 1) predicted: nodes, branched, CPU-s |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | 0 | 0 | 0 / 0 / 0 | ? | 0, 0 | 0 | 0 | 0, 0 | - | 50, 36,321 | 50, 5, 29,416 |
+| 1 | 50 | 13 | 0 / 7 / 30 | 637 | 50, 43 | 50,769 | 27,731 | 0, 0 | 2,511,495 (B) | 50, 36,321 | 50, 5, 29,416 |
 
 The predictions are `../tai50b_size`'s, made without `wc=2.88` and from a 2,400-iteration phase limit under the same root; E3's depth 2 includes the 588 children of the 12 depth-1 near misses it prices separately.
 
@@ -53,4 +53,5 @@ The predictions are `../tai50b_size`'s, made without `wc=2.88` and from a 2,400-
 
 ```
 2026-11-16T08:24:54 depth 1: 50 open nodes
+2026-11-16T10:24:37 depth 1 done: 637 open at depth 2; store 1.5G; disk free 28G
 ```
