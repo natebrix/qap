@@ -1,6 +1,7 @@
 // Same-node continuation: identity tests, exact-enumeration safety, and paired probes.
 #include "dnn.h"
 #include "dnncut.h"
+#include "settings.h"
 #include "qap.h"
 #include "assign.h"
 #include <algorithm>
@@ -118,6 +119,12 @@ static void print(const char*arm,const DNNResult&r,const DNNWarm&w) {
 int main(int argc,char**argv) {
  try {
   setvbuf(stdout,nullptr,_IOLBF,0);dnn_set_blas_threads(1);
+  // The identity below (chunks equal one uninterrupted solve) holds when a warm call
+  // runs at the same penalty as a cold one. Since Nov 8 (34e347c) dnn.beta_sched
+  // defaults to the record recipe's w=0.36, which runs every warm-started call, these
+  // chunks included, at 0.36 x the base penalty by design, so the check failed from
+  // then on. It is about continuation, not the schedule: pin the schedule off.
+  settings_load();settings_set("dnn.beta_sched","",SRC_FLAG);
   if(argc==1){checks();return 0;}
   require(argc==8||argc==10,"usage: dnncontinuation --probe instance fixes first rest eig scheme [L.bin shift_add]");
   require(std::string(argv[1])=="--probe","bad mode");
