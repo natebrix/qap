@@ -1,6 +1,6 @@
 # Laptop runs for the bound lab (Nov 16)
 
-Two scripts for the M2 Pro, run from the repository's root on this branch
+Scripts for the M2 Pro, run from the repository's root on this branch
 (`claude/cool-babbage-ilnogj`, whose `latest/` is `cognac`'s plus commit b86352e, the bound lab's
 nine default-off keys; `integration/README.md`). Both build the solver first.
 
@@ -8,6 +8,8 @@ nine default-off keys; `integration/README.md`). Both build the solver first.
 |---|---|---|
 | `tho40ab_cut.sh` | the tho40ab subtree (`-F 26:10,8:0`) through `qapctl local`, as `tho40b_analysis/giveup_ab/run.sh` does it, with two arms: `cut06` (tho40-b's settings + the grid cut phase at zone 0.06; settings only) and `comb` (+ early entry, hand-over, phase penalty). The reference arm g200 is read from giveup_ab's results (`REF=...`, or `ARMS="g200 cut06 comb"` to run it here) | 10-20 minutes an arm if the subtree responds as the warm subtrees did; g200 about an hour |
 | `nug30.sh` | nug30 whole, record recipe (`base`) against `nug30_phase`'s best arm (`g5e`), 8 jobs | 3 minutes + under 2 |
+| `tai50b.sh` | tai50b whole through `qapctl local` with the cluster-region cut phase, from incumbent best known + 1 (`INST=tai35b` or `tai40b` for the tests). One settings file for the root and the rest: the root's phase runs to 6,000 iterations, phases below stop at 2,400 (no stall rule). It watches the disk and stops the run under 10 GB free | about 100 cloud core-hours by the dives, so 5-10 hours here; unknown beyond that [e] |
+| `overnight.sh` | the first two, then `tai50b.sh` from the branch's newest commit | |
 
 Tested on the cloud box (Nov 16): `tho40ab_cut.sh` on the 37-node subtree `26:10,31:0,34:32,2:7`
 (g200 37 nodes, 109 CPU s; cut06 1 node, 65; comb 1 node, 57); `nug30_summary.py` on the cloud
@@ -16,3 +18,11 @@ runs of `nug30_phase`. Neither has run on macOS.
 What to look for in `tho40ab_cut.sh`'s table: the dives put `cut06` at 5.8x less CPU than tho40-b's
 settings over the whole tree and `comb` at about twice that again; the warm depth-3 subtrees of
 this subtree gave 7.8x for `comb`. Every arm must end with best objective 240516 and no open node.
+
+`tai50b.sh` was tested on the cloud box with `INST=tai35b SLOTS=4` (Nov 16, commit 5f644a13's
+solver): 981 nodes, 188,121 DNN iterations, 6,558 CPU s, 37 minutes of wall, 112 units, no retry;
+it found 283,315,445 from 283,315,446 and closed the tree. The level-by-level cloud run with the
+stall rule took 922 nodes, 125,232 iterations and 5,275 CPU s: without the stall rule 47 unfathomed
+phases run to 2,400 iterations, half again the iterations and a quarter more CPU. tai50b itself has
+not been run this way anywhere. It is a rehearsal: `latest/` here carries the pooled-solve retry
+(`../tai_solves/pool_retry.patch`), which has no key and is not covered by the integration checks.
