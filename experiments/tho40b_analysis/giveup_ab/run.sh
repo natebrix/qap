@@ -6,6 +6,7 @@
 #   g200    dnn.giveup = 200, dnn.gu_zone = 0.003   tho40-b's settings
 #   g100    dnn.giveup = 100, dnn.gu_zone = 0.003   give up at 100; within the zone, at 200
 #   g100z0  dnn.giveup = 100, dnn.gu_zone = 0       give up at 100, no zone
+# (any arm gN or gNz0: dnn.giveup = N, with the zone or without it)
 # then prints a table of the arms' nodes, fathoms and CPU against g200's.
 #
 # From the repository's root, on the laptop (about 1 h an arm on 12 cores):
@@ -31,12 +32,15 @@ say "give-up A/B: subtree -F $SUB, -u $UB, $SLOTS slots, arms: $ARMS (commit $(g
 make solver PYTHON="$PY" > "$OUT/build.log" 2>&1 || { say "build failed: $OUT/build.log"; exit 1; }
 
 # the arms' params: tho40-b's, with the give-up changed
-"$PY" - "$R/infra/phase1/recipes/tho40.par" "$OUT/params" << 'EOF'
+"$PY" - "$R/infra/phase1/recipes/tho40.par" "$OUT/params" $ARMS << 'EOF'
 import re, sys, os
-base, out = sys.argv[1], sys.argv[2]
-arms = {"g200": {"dnn.giveup": "200", "dnn.gu_zone": "0.003"},
-        "g100": {"dnn.giveup": "100", "dnn.gu_zone": "0.003"},
-        "g100z0": {"dnn.giveup": "100", "dnn.gu_zone": "0"}}
+base, out, names = sys.argv[1], sys.argv[2], sys.argv[3:]
+arms = {}
+for a in names:   # gN: dnn.giveup = N with the zone (0.003); gNz0: without it
+    m = re.fullmatch(r"g(\d+)(z0)?", a)
+    if not m:
+        sys.exit(f"arm {a}: not gN or gNz0")
+    arms[a] = {"dnn.giveup": m.group(1), "dnn.gu_zone": "0" if m.group(2) else "0.003"}
 text = open(base).read()
 for arm, kv in arms.items():
     t = text

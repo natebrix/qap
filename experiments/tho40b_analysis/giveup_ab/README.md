@@ -1,5 +1,25 @@
 # An earlier DNN give-up: A/B on a complete tho40 subtree (Nov 16)
 
+**Result (laptop, night of Nov 15):** giving up at 100 iterations without the zone saves
+10.1% of the CPU on the tho40ab subtree, for 10.4% more nodes.
+
+| arm | nodes | fathomed | wall s | CPU s (M2 Pro) | nodes / g200 | CPU / g200 |
+|---|---|---|---|---|---|---|
+| g200 (tho40-b) | 22,895 | 22,244 | 4,173 | 31,594 | 1.000 | 1.000 |
+| g100 | 24,336 | 23,643 | 3,686 | 29,358 | 1.063 | 0.929 |
+| g100z0 | 25,273 | 24,553 | 3,529 | 28,407 | 1.104 | 0.899 |
+
+- **The baseline checks the setup:** g200 is within 1.1% of the A/B's 22,650 nodes
+  (Accelerate rounds differently from OpenBLAS), at 1/2.49 of the c7a's CPU.
+- **Less than the ceiling:** the earlier give-up saves about half of the 19% its
+  iterations past the 100th would suggest. The rest goes to the nodes it branches
+  that a later give-up would have fathomed.
+- **Next:** whether 75 or 50 does better (the trend had not flattened at 100 without
+  the zone), and whether the saving holds on a second subtree: `26:3,38:0`, a complete
+  tho40-b depth-2 subtree of 7,100 nodes and 28,123 c7a s, whose root starts 5,827 short
+  of the cutoff against the tho40ab subtree's 8,634.
+
+
 In tho40-b's part-way export, the nodes whose DNN bound gave up as hopeless are 3% of
 the nodes but 30% of the DNN CPU, and 19% of all of it is their iterations past the
 100th (`../giveup_probe/README.md`). Past depth 4, at most 1.6% of the nodes that fathom need
@@ -27,6 +47,9 @@ against 22,650 (close, not exact: Accelerate rounds differently from OpenBLAS).
 cd ~/dev/qap && git pull origin cognac
 caffeinate -i experiments/tho40b_analysis/giveup_ab/run.sh
 ```
+
+Any arm `gN` (`dnn.giveup = N` with the zone) or `gNz0` (without it) runs by name,
+e.g. `ARMS="g200 g100z0 g75z0 g50z0"`; arms already in `OUT` are skipped.
 
 About an hour an arm on the M2 Pro's 12 cores (78,804 c7a CPU s at the laptop's 2.23x
 under load). Keep the laptop plugged in with the lid open. The table is in
