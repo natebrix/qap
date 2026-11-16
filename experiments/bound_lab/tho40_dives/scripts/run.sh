@@ -7,7 +7,7 @@
 #   PATH_PERM   (patched binary) a dive follows this permutation instead of drawing
 set -u
 HERE=$(cd "$(dirname "$0")/.." && pwd); ROOT=$(cd "$HERE/../../.." && pwd)
-BIN=${DIVE_BIN:-/home/user/dvbuild/bnbdrv}
+BIN=${DIVE_BIN:-/home/user/dvbuild/bnbdrv}; [ "$2" = hand ] && BIN=/home/user/dvbuild3/bnbdrv
 NAME=$1 PAR=$2 STRATUM=$3 ND=$4 SEED=$5 UB=$6 START=$7 RULE=$8 FULL=${9:--} PPERM=${10:-}
 D=$HERE/runs/$NAME; mkdir -p "$D"; cd "$D" || exit 1
 echo "$START $ND 1 100000000 10 1000" > estimate.par
