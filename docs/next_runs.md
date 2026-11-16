@@ -17,12 +17,12 @@ Starting a run); the cloud sessions make no AWS calls. Where things stand:
     for a stopped run, 3c2516c) and commit `infra/phase1/runs/tho40-b/`;
   - rerun the part-way analyses on the full traces (`experiments/tho40b_analysis`: `giveups.py`,
     `livetree.py` levels, `bound_value.py`) against the Nov 15 export.
-- **Next: tai50b** (below): `git pull origin cognac`, then `infra/phase1/start.sh tai50b` with its
-  defaults (`recipes/tai50b.par`, incumbent 458,821,518, one Spot c7a.16xlarge, 72 h).
-- **A private tai50b run is going on Nathan's laptop** (`bound_lab/laptop/tai50b.sh`: the same settings
-  and region file, the retry always on, through the coordinator's local mode, 12 cores). It stops itself
-  after 20 hours. If it does, do not rerun the script: its next start deletes the store
-  (`runs_tai50b/store`), and with it the run so far.
+- **tai50b is solved on the laptop** (Nov 16, `experiments/bound_lab/laptop/README.md`): from 458,821,518
+  the tree closed at 458,821,517 in 8,206 nodes, 11.0 hours on 10 cores, the solution found by the search
+  and verified by the coordinator. A rehearsal on one machine, not yet a run of record.
+- **Next: tai50b's run of record** (below), now a confirmation: `git pull origin cognac`, then
+  `infra/phase1/start.sh tai50b` with its defaults (`recipes/tai50b.par`, incumbent 458,821,518, one Spot
+  c7a.16xlarge, 72 h). Expect about 8,200 nodes, about 170 c7a core-hours: 3-6 hours on 64 cores.
 - **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), two Spot instances.
 
 ## tho40-b: let it end, then a new run
