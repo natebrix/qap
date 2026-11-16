@@ -40,7 +40,8 @@ It saves about 35 CPU-days at most, about half a day on one instance, or $5-10 a
 3. A fresh run, tho40-c, with the chosen block, from the root. It needs the path check first
    (`experiments/tho40b_analysis/path_check/dive.py`, its params given with `--params`). With the
    full block, it also needs the integration build reviewed and merged (`integration/REVIEW_cognac.md`).
-4. **Size:** 226 CPU-days is 3.6 days on one c7a.16xlarge, or 1.8 on two. The combined arm, if the
+4. **Size:** 226 CPU-days is 3.6 days on one c7a.16xlarge, or 1.8 on two (`infra/phase1/start.sh
+   tho40`, two Spot instances: the quota is 128 vCPUs). The combined arm, if the
    subtree confirms it, would take 1.7-3.4 days on one. That is the "couple of days" target, on the
    quota there is.
 5. **Read the dives as likely low.** The estimator that produced 1,308 read about half the size of a
@@ -89,8 +90,10 @@ The first is simpler and keeps the root measured in `tai50b_size` exact.
   depths 4-5 (`tai50b_size`, section 7): 100 GB per instance is ample.
 
 **The incumbent and the checks.**
-- **Incumbent:** the best known + 1 (458,821,518), as in the rehearsal, so the run must prove nothing
-  better exists.
+- **Incumbent:** the best known + 2 (458,821,519), the rule for new runs (`infra/phase1/README.md`,
+  Starting a run): the run must find the best known itself and prove nothing better exists. tai50b's
+  values are integers but not proven even, so + 1 (the rehearsal's) is the tightest; + 2 adds the
+  nodes whose bound lies within one more unit.
 - **Path check first:** `path_check/dive.py` toward `QAPSOLN/tai50b.sln` with the run's settings.
   `dive.py` handles grid symmetries only, and tai50b has none: it needs a no-symmetry mode, a few lines.
 - **A rehearsal under the coordinator:** tai35b and tai40b end to end (922 and 733 nodes, about 1.4

@@ -46,7 +46,8 @@ instance.
 
 ## Recipes
 
-A recipe (`recipes/NAME.sh`, committed: the instance builds from `HEAD`) says
+A recipe (`recipes/NAME.sh`, committed: the instance builds from `HEAD`; or a run's
+`runs/RUN/recipe.sh`, which `start.sh` writes and the user data carries) says
 what to solve: `INSTANCE`, `PARAMS`, `OPT` (the known optimum the check
 expects), `UB` (the incumbent given to the solver), `EXTRA` (solver flags),
 `ENV` (the solver's environment) and `COORD` (unit sizing for `qapctl init`).
@@ -72,6 +73,72 @@ against 1,404 at depth 4 (Nov 9). Some setting of the recipe keeps state
 inside a process that state files do not carry (`make shipcheck`'s smaller
 set of settings is exact); `compare.py` checks the tree, not iterations.
 
+## Starting a run (`start.sh`, Nov 16)
+
+One command on the laptop starts a run of a QAPLIB problem:
+
+```
+cd ~/dev/qap && git pull origin cognac
+infra/phase1/start.sh tho40 --dry-run
+infra/phase1/start.sh tho40
+```
+
+It checks the AWS session first, then asks for each setting with a default (Enter keeps it),
+shows the whole launch with the vCPU quota left and today's Spot price, and asks before
+launching:
+
+| setting | default |
+|---|---|
+| problem | the command line's (another name restarts with its defaults) |
+| run name | `PROBLEM-YYMMDD`, the UTC date: `tho40-261117` |
+| params file | `recipes/PROBLEM.par` if there is one, else the estimate's, `experiments/estimates/PROBLEM/PROBLEM.par` (wil50: `experiments/wil50_feasibility/fullrun/fullrun.par`); it must be committed |
+| incumbent | the best known (`QAPSOLN/PROBLEM.sln`) + 2; `none` for no incumbent |
+| instance type, market | `c7a.16xlarge`, Spot |
+| instances | 1 (it shows how many the quota has room for) |
+| time limit | 72 hours |
+| on request | the data file and solver flags (`qaplib/PROBLEMt.dat` and `-s SYM/PROBLEMt.sym` where the grid's symmetry file exists, else `qaplib/PROBLEM.dat`), the disk (100 GB), the unit sizing (tho40-b's 20-minute units, `--trace`), public or private status |
+
+Then it writes the run's recipe to `runs/RUN/recipe.sh` and calls `launch.sh` once per
+instance: the first coordinates (`--recipe-file`, `--run-slots` the sum of every instance's
+cores, so the queue reserve and steals cover them all), the others are `--worker-only`. All
+get `--no-reference`. Commit `runs/RUN/` afterwards (`recipe.sh`, `launches.tsv`; the files
+that name the bucket are ignored). For a run that exists, it adds instances with the run's
+own settings: the first one coordinates if no instance does (after a Spot interruption or
+the time limit), so the same command resumes a run.
+
+- **The incumbent: the best known + 2** for an open problem, as the 2000 nug30 solve was
+  given the optimum + 2 and tho40-b 240,518. The run must find the best known solution
+  itself (`status.json`: found by search) and prove that nothing is better. On tho40, sko42,
+  sko49 and wil50 every objective value is even (symmetric matrices, even diagonal
+  products: the solver's tolerance is 1.95), so + 2 is the next value. tai50b's matrices are
+  not symmetric, so its values are integers only (tolerance 0.95): + 1 would be the tightest,
+  and + 2 adds the nodes whose bound lies within 1 more unit, on values of 4.6e8. The
+  estimates (`experiments/estimates/*/settings.sh`) keep the best known itself, the tree a
+  run must search.
+- **Run names:** a run the website shows is named after the QAPLIB problem and the UTC date
+  of its launch, `tho40-261117`; a second the same day gets a letter, `tho40-261117b`. The
+  website takes the instance's name from the data file, so the name is for people. Earlier
+  runs (`tho40-b`, `nug30-a`) keep theirs.
+- **AWS credentials:** none are stored. The script runs on the AWS CLI's IAM Identity Center
+  (SSO) session: `aws sts get-caller-identity`, and `aws sso login` when there is no session
+  or it has expired (once per laptop, `aws configure sso` sets a profile up; `--profile P`
+  picks one). The CLI keeps its own short-lived token in `~/.aws/sso/cache`; the instances use
+  their role. A sign-in that is not SSO, or keys in the shell's environment, is pointed out.
+  The output shows the account as `<account>` (`launch.sh` too), so it can be pasted.
+- **A run on several instances:** the coordinator sizes its queue reserve (2 units a slot)
+  and its steals by the run's slot count, fixed at `qapctl init`. If an instance is lost, its
+  slots stay counted, and the coordinator splits units for them: relaunch with the same
+  command. `slots busy` in the results is relative to the run's slots.
+- **Tested here** (Nov 16) against a stand-in for the AWS CLI and moto: a dry run with every
+  default (`--yes`, signed out first, so through `aws sso login`), and a launch of two
+  instances with typed answers: the recipe went in the coordinator's user data unchanged,
+  `QAP_RUN_SLOTS=128`, the second instance a worker. `node.sh` in its local mode from a clean
+  archive with a recipe file (nug17 from 1,734, 2 slots, the run sized for 8): init at 8
+  slots, 1,732 found, the check passed. Dry runs of tho40, sko42, sko49, wil50, tai50b, nug17 and nug30
+  give the defaults above. 119 of the `.sln` files end their lines with `\r`, which first gave
+  tai50b no incumbent: the value is now read as digits, and the launch stops if the incumbent
+  was never asked.
+
 ## Running it (laptop)
 
 Once: the AWS CLI and a login (as for Phase 0), and boto3 for `python3`
@@ -90,7 +157,9 @@ infra/phase1/launch.sh nug30-b --recipe nug30 --no-ub       # and without the in
 git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
 ```
 
-- **Options:** `--type c7g.4xlarge` (16 Graviton3 cores; any type whose
+- **Options:** `--recipe-file F` (a recipe outside `recipes/`, as `start.sh` writes; it
+  goes in the user data, and the files it names must be committed), `--run-slots S` (the
+  run's slots when it has more instances than this one), `--type c7g.4xlarge` (16 Graviton3 cores; any type whose
   family ends in `g`, `gd` or `gn` gets the arm64 image), `--region eu-north-1`,
   `--on-demand`, `--worker-only` (more capacity for a run another instance
   coordinates; at most one coordinating instance per run), `--private` (no

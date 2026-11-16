@@ -23,8 +23,12 @@
 # (for uploads before boto3 is installed), QAP_RECIPE (a name in recipes/;
 # needed only to create the run), QAP_ROLE, QAP_NO_UB=1 (no incumbent),
 # QAP_REFERENCE (default 1), QAP_GATES (default below; "none" skips them),
-# QAP_SLOTS (default: the physical cores), QAP_VISIBILITY (public or private:
-# the coordinator's public status, coord/publish.py; for a new run only).
+# QAP_SLOTS (this instance's worker slots; default: the physical cores),
+# QAP_RUN_SLOTS (the run's slots, for `qapctl init`: the sum over every instance
+# the run is launched with; default QAP_SLOTS), QAP_RECIPE_FILE (a recipe outside
+# recipes/, which launch.sh --recipe-file writes from the user data; it wins over
+# QAP_RECIPE), QAP_VISIBILITY (public or private: the coordinator's public status,
+# coord/publish.py; for a new run only).
 #
 # Local test (any Linux; no dnf, no shutdown): QAP_LOCAL=1, QAP_BACKEND pointing
 # at a moto server (aws:B?region=eu-north-1&endpoint=http://127.0.0.1:PORT),
@@ -86,7 +90,8 @@ step "start: run $RUN, role $ROLE, host $HOST"
 CORES=$(lscpu -p=CPU,CORE,SOCKET | grep -v '^#' | sort -t, -k3,3n -k2,2n -k1,1n | awk -F, '!seen[$3","$2]++ {print $1}')
 NC=$(echo "$CORES" | wc -l)
 SLOTS=${QAP_SLOTS:-$NC}
-{ echo "physical_cores $NC"; echo "slots $SLOTS"; echo "vcpus $(nproc)"; echo "arch $(uname -m)"
+RUN_SLOTS=${QAP_RUN_SLOTS:-$SLOTS}
+{ echo "physical_cores $NC"; echo "slots $SLOTS"; echo "run_slots $RUN_SLOTS"; echo "vcpus $(nproc)"; echo "arch $(uname -m)"
   echo "model $(lscpu | sed -n 's/^Model name: *//p' | head -1)"
   echo "amx_bf16 $(grep -m1 -c amx_bf16 /proc/cpuinfo)"
   echo "mem_gb $(free -g | awk '/^Mem/ {print $2}')"; echo "kernel $(uname -r)"; } >> "$OUT/sysinfo.txt"
@@ -213,18 +218,20 @@ fi
 # role all: the run
 if [ "$ST" = finished ]; then step "run $RUN is finished already: nothing to do"; exit 0; fi
 if [ "$ST" = none ]; then
-  RF=infra/phase1/recipes/${QAP_RECIPE:-}.sh
-  [ -n "${QAP_RECIPE:-}" ] && [ -f "$RF" ] || { step "no run $RUN and no recipe (QAP_RECIPE=${QAP_RECIPE:-}): stopping"; exit 1; }
+  RF=infra/phase1/recipes/${QAP_RECIPE:-}.sh; RN=recipes/${QAP_RECIPE:-}.sh
+  [ -n "${QAP_RECIPE_FILE:-}" ] && RF=$QAP_RECIPE_FILE && RN="the recipe launch.sh sent (runs/$RUN/recipe.sh on the laptop)"
+  { [ -n "${QAP_RECIPE:-}" ] || [ -n "${QAP_RECIPE_FILE:-}" ]; } && [ -f "$RF" ] \
+    || { step "no run $RUN and no recipe (QAP_RECIPE=${QAP_RECIPE:-}, QAP_RECIPE_FILE=${QAP_RECIPE_FILE:-}): stopping"; exit 1; }
   INSTANCE= PARAMS= OPT= UB= EXTRA= ENV= COORD=
   source "$RF"
   [ "$NO_UB" = 1 ] && UB=
   # the recipe as this run uses it, for the reference run and for a relaunch
-  { echo "# run $RUN: recipes/$QAP_RECIPE.sh$([ "$NO_UB" = 1 ] && echo ', --no-ub')"; declare -p INSTANCE PARAMS OPT UB EXTRA ENV COORD; } > "$OUT/recipe.sh"
-  args=(--instance "$INSTANCE" --params "$PARAMS" --slots "$SLOTS" "--extra=$EXTRA")
+  { echo "# run $RUN: $RN$([ "$NO_UB" = 1 ] && echo ', --no-ub'), $RUN_SLOTS slots"; declare -p INSTANCE PARAMS OPT UB EXTRA ENV COORD; } > "$OUT/recipe.sh"
+  args=(--instance "$INSTANCE" --params "$PARAMS" --slots "$RUN_SLOTS" "--extra=$EXTRA")
   for kv in $ENV; do args+=(--env "$kv"); done
   [ -n "$UB" ] && args+=(--ub "$UB")
   args+=(--visibility "${QAP_VISIBILITY:-public}" $COORD)
-  step "init: run $RUN from recipes/$QAP_RECIPE.sh$([ -n "$UB" ] && echo ", incumbent $UB" || echo ", no incumbent"): the frontier pass"
+  step "init: run $RUN from $RN$([ -n "$UB" ] && echo ", incumbent $UB" || echo ", no incumbent"), $RUN_SLOTS slots: the frontier pass"
   if ! $PY -m coord.qapctl init "$RUN" --backend "$BK" "${args[@]}" > "$OUT/init.log" 2>&1; then
     step "init FAILED (out/init.log)"; exit 1
   fi
