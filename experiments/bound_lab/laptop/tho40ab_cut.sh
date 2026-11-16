@@ -89,7 +89,7 @@ for a in arms:
     if os.path.exists(p):
         rows[a] = read(p)
 b = rows.get("g200")
-print(f"reference (g200): {ref if b else 'none found: run with ARMS=\"g200 cut06 comb\" or set REF'}")
+print("reference (g200): " + (ref if b else "none found: run with ARMS='g200 cut06 comb' or set REF"))
 print(f"{'arm':>7} {'nodes':>8} {'fathomed':>9} {'wall s':>8} {'CPU s':>10} {'g200 nodes / arm':>17} {'g200 CPU / arm':>15}")
 for a, (n, f, w, c) in rows.items():
     print(f"{a:>7} {n:>8,} {f:>9,} {w:>8,.0f} {c:>10,.0f} {b[0] / n if b else float('nan'):>17.2f} {b[3] / c if b else float('nan'):>15.2f}")

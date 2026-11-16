@@ -26,3 +26,23 @@ stall rule took 922 nodes, 125,232 iterations and 5,275 CPU s: without the stall
 phases run to 2,400 iterations, half again the iterations and a quarter more CPU. tai50b itself has
 not been run this way anywhere. It is a rehearsal: `latest/` here carries the pooled-solve retry
 (`../tai_solves/pool_retry.patch`), which has no key and is not covered by the integration checks.
+
+## Results on the M2 Pro (Nov 16; `runs_tho40ab/`, `runs_nug30/`, pushed from the laptop)
+
+tho40ab subtree `-F 26:10,8:0` through `qapctl local`, 10 slots, solver at 5f644a13 [m]:
+
+| arm | nodes | CPU s | wall s | g200 CPU / arm |
+|---|---|---|---|---|
+| g200 (tho40-b's settings; `giveup_ab`) | 22,895 | 31,594 | 4,173 | 1 |
+| cut06 (cut phase at zone 0.06, settings only) | 1,312 | 9,796 | 1,497 | 3.23 |
+| comb (+ early entry, hand-over, phase penalty) | 877 | 3,894 | 650 | 8.11 |
+
+Every arm ends at 240516 with no open node. The warm depth-3 subtrees of this subtree had given
+7.8x for comb (`../tho40_search`); the dives give cut06 5.8x over the whole tree (`../tho40_dives`),
+and 3.2x on this subtree.
+
+nug30 whole, 8 jobs [m]: base 3,716 nodes, 111,182 iterations, 1,261 CPU s, 179 s; g5e 1,302 nodes,
+52,018 iterations, 722 CPU s, **103 s** (1.74x). Both end at 6124.
+
+`tho40ab_cut.sh`'s table step failed on the laptop's Python 3.11 (a backslash inside an f-string);
+fixed after that run, and the table above was built by hand from the arms' results.
