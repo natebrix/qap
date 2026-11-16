@@ -1,0 +1,13 @@
+@@ -463,7 +464,8 @@ static void apply_policy_settings()
+     // one core per solver process. Accelerate (macOS) has no such call;
+     // it reads VECLIB_MAXIMUM_THREADS when it is loaded, so that must be
+     // set in the environment (bench/parallel.py sets it for its workers).
+-    if (!dnn_set_blas_threads(1) && !getenv("VECLIB_MAXIMUM_THREADS"))
++    // bound_lab/tai60b threads.patch: QAP_BLAS_THREADS=N (a root run alone on the box); default 1 as before
++    if (!dnn_set_blas_threads(getenv("QAP_BLAS_THREADS") ? atoi(getenv("QAP_BLAS_THREADS")) : 1) && !getenv("VECLIB_MAXIMUM_THREADS"))
+       cerr << "warning: the BLAS may use several threads per process; "
+ 	   << "export VECLIB_MAXIMUM_THREADS=1 when running several solvers"
+ 	   << std::endl;
+@@ -620,6 +622,7 @@ int main(int argc, char *argv[])
+   if (resume_file) {
+     if (!read_state(resume_file, n, stack, solution, stats)) return 1;
