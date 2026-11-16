@@ -127,7 +127,7 @@ def fmt(x):
 
 def main():
     use_all = "--all" in sys.argv
-    arms = ["cut06", "hand", "base"]
+    arms = ["cut06", "hand", "comb", "base"]
     if "--arms" in sys.argv:
         arms = sys.argv[sys.argv.index("--arms") + 1].split(",")
     R = {}
