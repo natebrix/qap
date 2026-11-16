@@ -6,23 +6,29 @@ time, nothing else running. **[m]** measured (the run's directory under `runs/` 
 
 ## Answer
 
-**Yes, by about a quarter, but not with the phase as the brief specified it, and not where tho40 gains.**
+**Yes: 1.8x less CPU and wall end to end (-45%), with three changes to the phase as the brief specified it.**
 
 | | nodes | DNN iterations | CPU s | wall s |
 |---|---|---|---|---|
 | record recipe (`base`) [m] | 3,688 | 110,926 | 3,030 | 771 |
-| best cut arm (`g5`) [m] | 1,674 | 72,147 | 2,197 | 564 |
-| ratio | 2.20x fewer | 1.54x fewer | **1.38x less (-27%)** | **1.37x less (-27%)** |
-| the same without `dnn.gu_zone = 0` (`g2`) [m] | 1,646 | 77,535 | 2,309 | 596 |
-| ratio | 2.24x fewer | 1.43x fewer | 1.31x less (-24%) | 1.29x less (-23%) |
+| best cut arm (`g5e`) [m] | 1,302 | 52,041 | 1,667 | 424 |
+| ratio | 2.83x fewer | 2.13x fewer | **1.82x less (-45%)** | **1.82x less (-45%)** |
+| without early entry (`g5w144`) [m] | 1,221 | 58,960 | 1,895 (-37%) | 482 |
+| without the phase's own penalty either (`g5`) [m] | 1,674 | 72,147 | 2,197 (-27%) | 564 |
+| with the record recipe's `dnn.gu_zone` (`g2`) [m] | 1,646 | 77,535 | 2,309 (-24%) | 596 |
+
+The three changes, in the order they were found (sections 4-6):
+1. **long phases at depth 1 only, short ones below** (`cut.giveup = 100:5,300:2` from depth 2): -24%;
+2. **the phase's own ADMM penalty**, `dnn.beta_sched = w=0.36,wc=1.44` (the bound-lab coordinator's finding
+   on tho40, `../cpfast/README.md`; 1.0 and 2.88 give the same within 1%): -37% with `dnn.gu_zone = 0`;
+3. **early entry**, `dnn.giveup_warm = 100` with `dnn.gu_zone = 0`: -45%.
 
 - A rerun of the baseline (`base2`) gave the same tree and iterations, 3,083 CPU s and 784 s wall: the
   CPU noise is under 2%.
 - With `dnn.amx = 1` on both sides (this box has AMX; the record recipe leaves it off): `basea` 2,505 CPU s
   and 638 s wall, `g2a` 2,024 and 528: the same trees, 1.43x fewer iterations, **1.24x less CPU (-19%)**.
   With sko42's `dnn.*` block under the same phase (`g2s`, AMX on): 1,277 nodes, 66,219 iterations,
-  **1,854 CPU s, 496 s wall, 26% under `basea`** and the fastest nug30 search on this box (the record
-  recipe as it stands: 771 s).
+  **1,854 CPU s, 496 s wall, 26% under `basea`** (its phase penalty is 2.8x `g2`'s: section 6).
 - **The brief's four zones do not win, except the narrowest, barely** [m]: `cut.zone = 0.003` 7% less CPU
   (1.10x fewer iterations), 0.01 **39% more** CPU, 0.03 19% more, 0.06 the same search as 0.03 (not run: in `z030` all 74 give-ups are within 121.8 of the cutoff and all got a phase, so a zone of 367 decides every node the same way).
   The Nov 1 verdict (+34% / +42%) still describes a phase that runs to its end at every give-up.
@@ -39,9 +45,9 @@ time, nothing else running. **[m]** measured (the run's directory under `runs/` 
     and hands its pool on. 23 of 76 fathom (median 100-280 iterations); the 53 stopped ones cost 100
     iterations each and their pooled children take about a quarter fewer iterations.
   - Phases are 20% of `g2`'s iterations (15,635 of 77,535) and 22% of `g5`'s (15,631 of 72,147).
-- **Sanity: PASS.** Every arm ends at 6124 with no solution below it and no open node. The `g5` arm
-  started from incumbent 6126 finds 6124 itself (`path_g5`, and `path_g2` for `g2`); all 28 nodes on the path
-  to it branch, and no certified value on the path passes 6124.0000 (`pathcheck_g5.out`, `pathcheck.out`).
+- **Sanity: PASS.** Every arm ends at 6124 with no solution below it and no open node. Started from incumbent 6126,
+  `g5e`, `g5w144`, `g5` and `g2` each find 6124 themselves (`path_*`); every node on the path to it
+  branches, and no certified value on the path passes 6124.0000 (`pathcheck*.out`).
 
 ## The arms [m]
 
@@ -60,12 +66,18 @@ time, nothing else running. **[m]** measured (the run's directory under `runs/` 
 | g2 | 1,646 | 63 | 0 / 1560 / 23 | 85 (23) | 61,900 + 15,635 = 77,535 | 20% | 2309 | 596 | 1.43x | 1.31x | 2.24x | 0 |
 | g4 | 1,402 | 54 | 0 / 1324 / 24 | 77 (24) | 53,942 + 21,495 = 75,437 | 28% | 2420 | 636 | 1.47x | 1.25x | 2.63x | 0 |
 | g5 | 1,674 | 64 | 0 / 1587 / 23 | 86 (23) | 56,516 + 15,631 = 72,147 | 22% | 2197 | 564 | 1.54x | 1.38x | 2.20x | 0 |
+| g5w100 | 1,277 | 49 | 0 / 1209 / 19 | 67 (19) | 44,573 + 13,929 = 58,502 | 24% | 1901 | 488 | 1.90x | 1.59x | 2.89x | 0 |
+| g5w144 | 1,221 | 47 | 0 / 1159 / 15 | 61 (15) | 45,293 + 13,667 = 58,960 | 23% | 1895 | 482 | 1.88x | 1.60x | 3.02x | 0 |
+| g5w288 | 1,223 | 47 | 0 / 1169 / 7 | 53 (7) | 44,288 + 12,832 = 57,120 | 22% | 1903 | 486 | 1.94x | 1.59x | 3.02x | 0 |
+| g5e | 1,302 | 50 | 0 / 1225 / 27 | 76 (27) | 36,694 + 15,347 = 52,041 | 29% | 1667 | 424 | 2.13x | 1.82x | 2.83x | 0 |
 | basea | 3,688 | 141 | 0 / 3547 / 0 | 0 (0) | 110,972 + 0 = 110,972 | 0% | 2505 | 638 | 1.00x | 1.21x | 1.00x | 0 |
 | skob | 3,578 | 137 | 0 / 3441 / 0 | 0 (0) | 110,083 + 0 = 110,083 | 0% | 2624 | 668 | 1.01x | 1.15x | 1.03x | 0 |
 | g2a | 1,646 | 63 | 0 / 1560 / 23 | 85 (23) | 61,794 + 15,639 = 77,433 | 20% | 2024 | 528 | 1.43x | 1.50x | 2.24x | 0 |
 | g2s | 1,277 | 49 | 0 / 1209 / 19 | 67 (19) | 52,364 + 13,855 = 66,219 | 21% | 1854 | 496 | 1.68x | 1.63x | 2.89x | 0 |
 | path_g2 | 2,065 | 91 | 49 / 1897 / 28 | 118 (28) | 78,619 + 32,534 = 111,153 | 29% | 2866 | 816 | 1.00x | 1.06x | 1.79x | 1 |
 | path_g5 | 2,096 | 92 | 45 / 1931 / 28 | 119 (28) | 70,298 + 32,641 = 102,939 | 32% | 2766 | 785 | 1.08x | 1.10x | 1.76x | 1 |
+| path_g5e | 1,694 | 77 | 64 / 1524 / 29 | 105 (29) | 46,123 + 32,068 = 78,191 | 41% | 2097 | 565 | 1.42x | 1.44x | 2.18x | 1 |
+| path_g5w144 | 1,589 | 73 | 46 / 1449 / 21 | 93 (21) | 59,289 + 27,930 = 87,219 | 32% | 2273 | 641 | 1.27x | 1.33x | 2.32x | 1 |
 
 The ratio columns are against `base`. `basea`, `skob`, `sko`, `g2a` and `g2s` have `dnn.amx = 1`, which makes an
 iteration about 18% cheaper here: compare them with `basea` (2,505 CPU s, 638 s wall).
@@ -81,8 +93,9 @@ iteration about 18% cheaper here: compare them with `basea` (2,505 CPU s, 638 s 
 - `d1`: `z030` with `cut.maxdepth = 1`: the nine depth-1 phases only; their pools are inherited down the tree.
 - `g1`: `z030` with `cut.giveup = 100:5,300:2` at every depth (the depth-1 phases stop at 100 iterations too).
 - `g2`: `g1` with `cut.giveup_depth = 2`. `g4`: `g2` with `cut.stall = 5`. `g5`: `g2` with `dnn.gu_zone = 0`.
+- `g5w100`, `g5w144`, `g5w288`: `g5` with `dnn.beta_sched = w=0.36,wc=` 1.0, 1.44, 2.88. `g5e`: `g5w144` with `dnn.giveup_warm = 100`.
 - `basea`, `g2a`: `base` and `g2` with `dnn.amx = 1`. `g2s`: sko42's `dnn.*` block with `g2`'s phase.
-- `path_g2`, `path_g5`: `g2` and `g5` from incumbent 6126 (the path checks).
+- `path_g2`, `path_g5`, `path_g5w144`, `path_g5e`: those arms from incumbent 6126 (the path checks).
 - `skob`: sko42's `dnn.*` block with no phase and no pool (the control for `sko` and `g2s`).
 
 In the nodes column the tree shrinks 2-3.6x under every cut arm; the CPU does not follow, because the
@@ -168,13 +181,37 @@ then spends 35,113 iterations on 39 depth-2 phases (18 fathom) where `g2` spends
   (76 phases, 58,515 iterations, where `z010` has 87 and 81,467; one depth-1 node, 0:0, falls inside its zone
   after 300 first-solve iterations) and each costs 0.84 of `z010`'s (`dnn.amx = 1`): 2,899 CPU s, which is
   16% MORE than the AMX baseline `basea` (2,505).
-- **But the phase does want that block.** `g2s` (sko42's `dnn.*` block with `g2`'s phase) is the fastest
-  search run here: 1,277 nodes, 66,219 iterations, **1,854 CPU s, 496 s wall**. Its no-phase control
+- **But the phase does want that block.** `g2s` (sko42's `dnn.*` block with `g2`'s phase) was the fastest
+  search before section 6's arms: 1,277 nodes, 66,219 iterations, **1,854 CPU s, 496 s wall**. Its no-phase control
   `skob` (the same block, no phase, no pool) takes 3,578 nodes, 110,083 iterations, 2,624 CPU s, 668 s:
   without a phase the block is 5% slower than the record recipe (`basea`, 2,505), with the phase it is 8%
   faster than the record recipe with the phase (`g2a`, 2,024). Against `basea`: 1.68x fewer iterations,
   **1.35x less CPU (-26%)**. Which of its keys does it (beta 0.3 and refresh 40, the two-phase schedule,
   give-up 300, `dnn.gu_zone = 0`, which alone was worth 5% in `g5`) was not separated.
+
+**6. The phase's penalty and early entry** [m] (arms added on a message from the bound-lab coordinator:
+tho40's and nug30's recipes have `dnn.beta_sched = w=0.36` and no `wc`, so phases and pooled solves run
+at the warm children's low penalty). On `g5`:
+
+| arm | nodes | iterations: first + phases | CPU s | wall s | depth-1 phases: iterations, left short (range) | depth 2: fathomed at once of 225, first-solve iterations | phases below depth 1: fathomed of all |
+|---|---|---|---|---|---|---|---|
+| `g5` (no `wc`) | 1,674 | 56,516 + 15,631 | 2,197 | 564 | 6,570, 20-81 | 185, 15,008 | 23 of 77 |
+| `g5w100` (`wc=1.0`) | 1,277 | 44,573 + 13,929 | 1,901 | 488 | 7,540, 11-70 | 190, 13,344 | 19 of 58 |
+| `g5w144` (`wc=1.44`) | 1,221 | 45,293 + 13,667 | 1,895 | 482 | 7,680, 10-67 | 192, 13,493 | 15 of 52 |
+| `g5w288` (`wc=2.88`) | 1,223 | 44,288 + 12,832 | 1,903 | 486 | 7,840, 8-63 | 195, 13,754 | 7 of 44 |
+| `g5e` (`wc=1.44`, `dnn.giveup_warm = 100`) | 1,302 | 36,694 + 15,347 | 1,667 | 424 | 7,680, 10-67 | 190, 10,055 | 27 of 67 |
+
+- **Any `wc` from 1.0 to 2.88 is worth 13-14% of `g5`'s CPU**, mostly through the first solves: the pooled
+  first solves run at that penalty too and take 44-45 thousand iterations instead of 56.5, and the
+  depth-1 phases end 11-18 units nearer the cutoff, so 190-195 depth-2 nodes fathom at once.
+- **The coordinator's caveat shows as predicted**: the higher the penalty, the fewer near-miss phases
+  fathom inside the 100/300-iteration rule (23, 19, 15, 7), which cancels the gain above 1.0. A stop rule
+  retuned for the high penalty, or `cut.cp_wc_gap` (in the cpfast patch, not on this branch), is the
+  obvious next arm.
+- **Early entry is worth another 12%**: give-ups below depth 1 hand over after a median 110 iterations
+  instead of 200 (7,590 iterations in 67 give-ups against 11,580 in 52), and the fathoming first solves
+  are untouched in number (1,225) and cheaper in total.
+- This also explains `g2s`: sko42's block has `wc=0.7` on beta 0.3, a phase penalty 2.8x `g2`'s.
 
 **5. Refinements of `g2`** [m]:
 - `g5`, `dnn.gu_zone = 0`: **72,147 iterations, 2,197 CPU s, 564 s wall**, the best arm. The record
@@ -190,6 +227,13 @@ then spends 35,113 iterations on 39 depth-2 phases (18 fathom) where `g2` spends
 - `./sanity.sh` (`sanity.out`): every run of incumbent 6124 has no `New objective value` line, ends with
   `best objective 6124` and a final state with no open node. Since the baseline proves that no
   solution below 6124 exists, no cut-arm fathom contradicts it.
+- **The best arm, `g5e`, and the penalty arm `g5w144`, from incumbent 6126** (`path_g5e`, `path_g5w144`;
+  `pathcheck_g5e.out`, `pathcheck_g5w144.out`): each finds 6124 itself (one `New objective value` line, the
+  permutation costs 6124 on the data), ends with no open node, and every node on the path to it branches.
+  `path_g5e` on the path: depth 1 first solve 6000.23, phase 6057.76; depth 2 6075.76, 6078.98; depth 3
+  6100.37, 6104.45; depth 4 6113.84, 6116.27; depth 5 6120.27, 6123.96; never above 6124. It took 1,694
+  nodes, 78,191 iterations, 2,097 CPU s, 565 s wall (`path_g5w144`: 1,589, 87,219, 2,273, 641): with the
+  optimum unknown, less than the baseline takes with the optimum given (3,030 CPU s, 771 s). PASS, both.
 - `python3 pathcheck.py path_g5 path_g5 g5 g2s g2a g4` (output in `pathcheck_g5.out`) and
   `python3 pathcheck.py path_g2 path_g2 g2 z003 z010 z030 d1 g1 sko` (`pathcheck.out`).
   `path_g5` and `path_g2` are `g5` and `g2` from incumbent 6126 (cutoff 6124.05), so the optimum is not
@@ -216,7 +260,8 @@ otherwise the same source (commit in each `cmd.txt`).
 
 ## Settings
 
-The winning arm, `par/g5.par`: the record recipe with `dnn.gu_zone = 0` (the recipe has 0.003) plus
+The winning arm, `par/g5e.par`: the record recipe with `dnn.gu_zone = 0` (the recipe has 0.003),
+`dnn.beta_sched = w=0.36,wc=1.44` (the recipe has `w=0.36`) and `dnn.giveup_warm = 100`, plus
 
 ```
 pool.on = 1
@@ -234,7 +279,7 @@ cut.giveup_depth = 2
 
 `qaplib/nug30.dat`'s second matrix is the 5 x 6 grid (checked: rectilinear, row-major, 6 columns; 3% zeros
 against the first matrix's 35%), so `cut.side = 1`. `cut.zone = 0.03` covers every give-up in the tree
-(the farthest is 121.8 short). `par/g2.par` is the same with `dnn.gu_zone = 0.003`. Without the new key: `par/d1.par` (`cut.zone = 0.03`, `cut.maxdepth = 1`).
+(the farthest is 121.8 short). `par/g5.par` is the same without `wc` and `dnn.giveup_warm`; `par/g2.par` also has `dnn.gu_zone = 0.003`. Without the new key: `par/d1.par` (`cut.zone = 0.03`, `cut.maxdepth = 1`).
 On an AMX machine: `par/g2s.par` (sko42's `dnn.*` block, `dnn.amx = 1`, the same `cut.*` lines).
 
 ## What this does and does not show
@@ -247,7 +292,8 @@ On an AMX machine: `par/g2s.par` (sko42's `dnn.*` block, `dnn.amx = 1`, the same
 - For tho40 and sko42 the measured thing worth carrying over is the split of the stop rule by depth,
   and the question it raises: tho40's `w18` spent 66% of its iterations in phases; how many of those
   would a `cut.giveup` below some depth have saved?
-- Not separated: which keys of sko42's block make `g2s` better than `g2a`; `g5` and `g2s` were each run once.
+- Each arm was run once (the baseline twice). `g5e` has no AMX-matched run; `g2s`'s edge over `g2a` is
+  explained by its phase penalty (section 6) but its keys were not separated.
 - Not tried: a depth-1 phase longer than the stall rule allows other than `g4`; `cut.giveup_depth = 3`
   (in `z030` the depth-2 phases cost 35,113 iterations, so only with their own, longer, stop rule);
   rule 9's line from the phase's iterate (`cut.xbar = 1`); the M2 Pro, where the record was set
@@ -262,5 +308,5 @@ On an AMX machine: `par/g2s.par` (sko42's `dnn.*` block, `dnn.amx = 1`, the same
 | `runs/ARM/` | `cmd.txt` (command, commit, times, load), `log.txt` (the solver's report), `nodes.txt` (node trace), `dnn.txt` (DNN trace with each phase's history), `time.txt`; `final.state` is not committed |
 | `summarize.py` | the arms table; `--depth ARM` per depth; `--phases` phases by shortfall |
 | `matched.py`, `replay.py`, `costs.py` | phases against the baseline's subtrees; zone and cap replay; ms per iteration and the pooled children |
-| `pathcheck.py`, `pathcheck.out`, `pathcheck_g5.out`, `sanity.sh` | the sanity checks |
+| `pathcheck.py`, `pathcheck.out`, `pathcheck_g5.out`, `pathcheck_g5w144.out`, `pathcheck_g5e.out`, `sanity.sh`, `sanity.out` | the sanity checks |
 | `lscpu.txt` | the machine |
