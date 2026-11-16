@@ -32,4 +32,6 @@ depth. Every node starts warm from its parent with its pool.
 
 **Stop conditions** (checked by `levels.py` after every level): a node on the best known solution's path fathomed
 or bounded above 458,821,517; an incumbent below 458,821,517; a level more than 3x over the high prediction; or
-12 hours of wall (about 20:30 UTC).
+disk or memory running short. The brief first had a wall limit of 12 hours (about 20:30 UTC); the coordinating
+session relayed at 17:35 UTC on 2026-11-16 that the repository owner wants the run kept going, so that limit is
+dropped (no script enforced it) and the run goes on level by level until the tree is finished or a condition fires.
