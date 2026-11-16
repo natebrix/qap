@@ -10,7 +10,8 @@
 - **A solver fault was found and patched on the way** (section 5): with `wc=2.88`, a child's first solve from
   its parent's state and pool sometimes fails outright (a certified value of -3e11, or none). The bound stays
   valid, but the node gets no phase and its children inherit the failure; tai35b's tree blew up at depth 8
-  until the failed solve was redone (`pool_retry.patch`). It did not occur on tai40b or in the tai50b session.
+  until the failed solve was redone without the pool, and cold if that fails too (`pool_retry.patch`). It did
+  not occur on tai40b or in the tai50b session.
   A tai50b run with `wc` needs the patch.
 - What it means for tai50b (section 6): the code and the mechanism hold on two instances first solved at
   great cost, and both trees are one path with a small fringe, as the tai50b report assumed. They are easier

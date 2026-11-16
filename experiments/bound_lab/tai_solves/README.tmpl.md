@@ -111,15 +111,22 @@ value -3.1e11 against an inherited bound of 2.8e8. That is a valid bound and a u
 failed state and pool: 29 of the 84 depth-8 first solves and 86 of 216 at depth 9 ended with no certificate
 at all (`first lb -inf`). Nothing was fathomed wrongly; the bound was simply lost below that node.
 
-- `pool_retry.patch` (15 lines in `latest/bnb.C`): when a pooled first solve ends unfathomed more than 1% of
-  |incumbent| below the bound the node inherited, the node is solved again without the pool, and its phase starts
-  from that solve. From depth 7 the tai35b search ran with it: 5 retries, all at depth 7, and in 4 of them the plain solve fathoms
-  the node outright (`runs/bfs35/d7_c*/err.txt`).
+- `pool_retry.patch` (30 lines in `latest/bnb.C`), two steps. When a pooled first solve ends unfathomed more than
+  1% of |incumbent| below the bound the node inherited, the node is solved again without the pool; when that
+  solve, or any warm first solve, fails the same way, the node is solved cold. The phase then starts from the
+  solve that worked. tai35b's main search ran with the first step from depth 7: 5 retries, all at depth 7, and
+  in 4 of them the plain solve fathoms the node outright (`runs/bfs35/d7_c*/err.txt`). Its second route showed
+  the first step is not enough: at depth 7 two retried solves failed again (-inf, -2.2e11) and the tree blew
+  up the same way (84 nodes at depth 8 left 624 open, `runs/bfs35h_retry1`); with the cold step both nodes
+  fathom (283,538,000 and 283,317,000 against the cutoff 283,315,445.05) and the search ends in 890 nodes
+  (5 pool retries at depths 3, 4, 7 and 2 cold ones).
 - It had happened once before, at depth 3 (`15:5,18:12,19:26`: -2.6e8), where the node branched without a phase
   and its children recovered: an avoidable subtree inside the 922 nodes.
-- **It is new with `wc=2.88`**: none of the 359 node bounds of the tai50b session (no `wc`) shows it, tai40b
-  had none (0 retries in 630 pooled solves from depth 2), tai35b's main search 6 in 894 (and its second route more: section 4). I did not find the mechanism
-  (the pool's multipliers were set under the phase's penalty and are reused in a solve at the child's).
+- **It is new with `wc=2.88`**: none of the 359 node bounds of the tai50b session (no `wc`) shows it. tai40b had
+  none in either search (0 retries in about 1,300 warm solves). tai35b: 6 in 894 in the main search, 5 in 862 in
+  the second. I did not find the mechanism (the failures are in children of nodes whose phase ran long at the
+  phase's penalty; the child's solve starts from that state at its own penalty, and conditioning the parent's
+  Y on an assignment it gives almost no weight is the other suspect).
   **A tai50b run with `wc=2.88` needs this patch or its equivalent**; without `wc` it costs phase iterations
   instead (`../tai50b_size`, section 9b).
 
@@ -145,19 +152,21 @@ at all (`first lb -inf`). Nothing was fathomed wrongly; the bound was simply los
 - A search with the cut phase switched off below some depth (the other "different route" the task offered); the
   second routes here change the region family, the root and every pool.
 - The mechanism of the failed pooled solves, and `pool_retry.patch` on anything but these two instances.
-- A rerun of tai35b's main search from the root with one binary: its depths 1 to 6 ran before the patch
-  (with one failed pooled solve at depth 3), depths 7 on after it. The second route ran with the patch throughout.
-- tai40b's main search ran depth 1 before the patch; no pooled solve failed there or later.
+- A rerun of the main searches from the root with one binary. tai35b's main search ran depths 1 to 6 before the
+  patch (one failed pooled solve at depth 3, which cost a subtree) and depths 7 on with its first step; tai40b's
+  ran depth 1 before it, and nothing failed there or later. tai35b's second route ran depths 1 to 6 with the
+  first step and 7 on with both; tai40b's second route with the first step throughout (0 retries).
 
 ## Files
 
 | | |
 |---|---|
+| `verdict.md`, `verdict_second.md`, `validity.md`, `validity_second.md`, `README.tmpl.md` | the hand-written parts of this file |
 | `par/` | `s35`, `s40` (the searches), `s35h`, `s40c` (second routes), `root35`, `root40`, `r35_*`, `r40_*` (roots by family) |
 | `regions/` | the region files used (`comb`, `combh`, `line2`, `line4` per instance) |
 | `pool_retry.patch` | section 5; applies after `../regions/regions.patch` and `../tai50b_size/est_resume.patch` |
 | `mkpar.sh`, `run_root.sh`, `run_dive.sh`, `bfs.sh`, `run_piece.sh` (unused), `splitstate.py`, `collect.py`, `mkreadme.py` | par files, the root with state, dives, the level-by-level search, state files, the summary, this file |
-| `runs/TAG/dD_cK/` | one process of a search: `cmd.txt`, `log.txt`, `nodes.txt` (node trace), `dnn.txt`, `err.txt` (retries); `runs/TAG/progress.txt` the levels with their times |
+| `runs/TAG/dD_cK/` | one process of a search: `cmd.txt`, `log.txt`, `nodes.txt` (node trace), `dnn.txt`, `err.txt` (retries); `runs/TAG/progress.txt` the levels with their times; `runs/bfs35_unpatched`, `runs/bfs35h_retry1`: the levels that blew up (section 5) |
 | `logs/solve_TAG.txt` | `collect.py`'s output: the tree by depth, every node on the optimum's path with its bound |
 | `logs/dives35.txt`, `dives40.txt`, `structure.txt`, `*.perm.txt` | the sizing dives, the cluster statistics, the optimal permutations |
 

@@ -10,5 +10,6 @@ def path(tag):
         if m: out.append(f"{m[1]}: {float(m[3].replace(',', '')):,.0f}" if float(m[3].replace(',', '')) >= 1 else f"{m[1]}: {m[3]}")
     return ", ".join(out)
 t = rd("README.tmpl.md")
-t = re.sub(r"@FILE:([^@]+)@", lambda m: rd(m[1]), t); t = re.sub(r"@TREE:([^@]+)@", lambda m: tree(m[1]), t); t = re.sub(r"@PATH:([^@]+)@", lambda m: path(m[1]), t)
+for _ in range(2): t = re.sub(r"@FILE:([^@]+)@", lambda m: rd(m[1]), t)
+t = re.sub(r"@TREE:([^@]+)@", lambda m: tree(m[1]), t); t = re.sub(r"@PATH:([^@]+)@", lambda m: path(m[1]), t)
 open(os.path.join(H, "README.md"), "w").write(t + "\n"); print(len(t.splitlines()), "lines")
