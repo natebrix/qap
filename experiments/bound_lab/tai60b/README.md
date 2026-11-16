@@ -13,6 +13,65 @@ metrics; CPU seconds are from a 4-core box that ran 3 to 4 solver processes at o
 Asked by the coordinating session: dives from the saved states, to replace the model's "400 to more than
 10,000 core-hours" below with a measured estimate. [m]/[e] as in the rest of this file.
 
+### Update (Nov 16, evening): more dives, the mirror's path, tai80b
+
+Asked by the coordinating session after the section below was merged. **The numbers in this block supersede
+the ones in "Answer" below where they differ.**
+
+**tai60b: E2 = 29,357 nodes (21,502 to 38,340), 1.52e6 ADMM iterations (1.12e6 to 1.97e6), 1,003,935 CPU-s =
+279 core-hours on this box (202 to 363)** [e]; E1 = 15,207 nodes, 147 core-hours (106 to 192). **It moved from
+258 to 279 (+8%) with 2.75 times the dives at the three thin levels (20 to 55), and the interval narrowed** (it was 180 to 344).
+My range stays 150 to 600 for the reason given below (paths under survivors).
+
+| set | dives before | dives now | estimate before: CPU-s | now |
+|---|---|---|---|---|
+| `near3` (19 start nodes) | 4 | 11 | 142,436 ± 45,477 | 197,799 ± 66,001 |
+| `near9` (7) | 8 | 22 | 126,370 ± 77,318 | 102,446 ± 52,251 |
+| `near10` (8) | 8 | 22 | 54,677 ± 39,728 | 22,289 ± 14,850 |
+| `nearx1` (14) | 6 | 8 | 18,232 ± 13,246 | 77,522 ± 62,476 |
+| `near4` (11) | 5 | 7 | 24,391 ± 14,330 | 43,612 ± 18,114 |
+| `near6` (10) | 4 | 6 | 29,487 ± 10,280 | 19,808 ± 8,930 |
+| `near8` (10) | 4 | 5 | 15,803 ± 4,116 | 16,031 ± 3,197 |
+
+- `near3` went up by 39%, as the cut-off jobs suggested it would; it is now 38% of E1's cost, depth 9 20%,
+  depth 1 13%, depth 4 9%. `nearx1` quadrupled on two more dives (one of them went two levels down): depth 1 is the thinnest level left (8 dives over 14 start nodes).
+- 141 dive jobs, 284 finished dives in all (`logs/dive_est.txt`). 0 pool or cold retries.
+- **The survive rule, now on 286 distinct off-path dive nodes: right on 270. All 39 nodes with excess below
+  s(d) branched**; the 16 errors are again all nodes that branched above it (8 of 20 between 1 and 1.6 s(d),
+  6 of 39 between 1.6 and 3, 2 of 23 between 3 and 5, 0 of 165 above 5):
+
+| excess / s(depth) | nodes | branched | fathomed by the phase | fathomed by the first solve | mean iterations of the fathomed |
+|---|---|---|---|---|---|
+| 0 to 0.5 | 22 | 22 | 0 | 0 | nan |
+| 0.5 to 1 | 17 | 17 | 0 | 0 | nan |
+| 1 to 1.6 | 20 | 8 | 9 | 3 | 482 |
+| 1.6 to 3 | 39 | 6 | 14 | 19 | 256 |
+| 3 to 5 | 23 | 2 | 7 | 14 | 209 |
+| 5 to inf | 165 | 0 | 4 | 161 | 42 |
+
+**The mirror's path, measured** (`mirror.txt`: the best known permutation with the facilities of locations 43
+and 44 exchanged, cost 608,217,840; `chain.sh` with `ONPATH=mirror.txt`, runs `mir*`): the on-mirror node at
+each depth below `44:58`, warm from its parent, incumbent at best known + 1.
+
+| depth | on-mirror node | first solve: short | phase end: short | iterations | on-path node at that depth: phase end, iterations |
+|---|---|---|---|---|---|
+| 1 | `44:58` | 3,846,034 | 2,293,578 | 930 | 2,722,281, 890 |
+| 2 | `43:45` | 1,966,505 | 1,554,923 | 710 | 1,576,818, 880 |
+| 3 | `12:0` | 1,883,425 | 1,043,301 | 1,070 | 1,065,357, 710 |
+| 4 | `1:33` | 1,041,300 | 845,817 | 710 | 733,869, 940 |
+| 5 | `6:24` | 1,302,931 | 815,158 | 1,020 | 609,108, 930 |
+
+So E2's "copy" holds for the five levels measured: the mirror's nodes cost what the path's do (4,440 against
+4,350 iterations) and end as far or a little further from the cutoff (0.82M against 0.61M at depth 5; the
+mirror branched on location 12 at depth 3 where the path took the column of facility 26). If anything its
+subtree is a little larger than a copy. Its off-mirror children were not sampled.
+
+**Second memory kill.** The restarted tai80b root was killed at 16:12 at phase iteration 640 (7.5 GB, beside
+three dive processes one of which had grown to 2.6 GB; the container allows 14.3 GB and counts the page
+cache). I saw it at 16:41. `runs/root80_killed640` has its trace, identical to the first run's to that point.
+
+@@T80@@
+
 ### Answer
 
 **tai60b with these cuts is a run of about 250 core-hours on this box: 31,551 nodes (18,585 to 46,675),
