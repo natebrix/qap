@@ -1,10 +1,33 @@
 # bound_lab integration: the day's solver patches in one tree (Nov 16 2026)
 
-**IN PROGRESS: the verdict below is filled in as the runs finish. Sections marked (pending) are not done.**
+One solver tree with all of today's solver patches, checked against the tree before them. Commit to take:
+**b86352e** (`latest/`, RUNNING.md's settings table, five settings goldens); `all.patch` is its `latest/` part
+against `cognac` e1596e22. [m] = measured here, with the log named.
 
 ## Verdict
 
-(pending)
+- **Builds clean**: yes, from a clean checkout (exit 0; the same three old compiler warnings as before the merge).
+- **The repo's checks pass**: `make test`, `make nodetrace`, `make shipcheck`, `make dnncheck` pass.
+  **`make continuationcheck` fails, and fails identically before the merge**
+  (`FAIL split Y/Z differs from uninterrupted full-spectrum state`); I did not find out why.
+  RUNNING.md's table and five goldens were regenerated for the nine new keys and nothing else.
+- **Switch-off identity is exact**: with no new key set, the unpatched and merged builds give the same node
+  trace and the same DNN trace, line for line, on six runs: nug20 in full (1,138,754 trace lines), nug20 with the
+  DNN bound, a 404-node tho40 slice under production settings, a tho40 slice with the cut phase, a tai30b
+  slice, and a 232-node wil50 slice under production settings. No difference of any kind was found.
+- **Each patch still does what its author measured**: the hand-over subtree `38:32` takes 410 iterations (410);
+  tai30b with region cuts is solved in 363 nodes (363), the same trace; `dnn.dscale` with `dscale_until = 100`
+  takes 13,965 iterations on the tai30b subtree (13,965), every node equal; nug30 under `cut.giveup_depth = 2`
+  takes 77,534 iterations (77,535) over the same 1,646 nodes (43 of them differ from the author's in the
+  fourth decimal of a bound, as two parallel runs of one build do; see the reproductions).
+- **The one thing to know before taking it: the settings hash changes** (71 to 80 entries), so the merged
+  binary refuses a state file written before it unless `--allow-settings-change` is given [m]. With the flag
+  the resumed run's totals are unchanged. A run in flight has to switch binaries on all workers at once.
+- No bug fixed, because I found none that was plainly one. 18 review findings are listed below; the ones I
+  would act on before a long run are 4 (`cut.regions` is a path whose contents are not in the settings
+  record), 8 (how the three stop rules combine), 13 and 14 (two keys accept bad values silently).
+
+About 1 h 50 min of wall time on a 4-core container; nothing outside it was touched.
 
 ## What is in, what is out
 
@@ -241,26 +264,29 @@ branching line and child count must agree. All [m]; output in `logs/ident_cmp.lo
 | `tho40_a`: `-F 26:10,8:0,2:32,18:39,35:24` | `experiments/estimates/tho40/tho40.par` (production; no cut phase) | 404 | 404 | **identical** |
 | `tho40_t3_z030`: `-F 26:10,8:0,38:32` | `tho40_search/par/z030.par` (grid cut phase in CP form, pools: keys from before the merge) | 38 | 38 | **identical** |
 | `tai30b_F3`: `-F 0:3,1:7,2:10` | `admm/bb_tai30b_base.par` (tai50b's settings; no grid) | 301 | 233 | **identical** |
-| `wil50_a220`: `-F 21:22,31:23,40:15` | `experiments/wil50_feasibility/fullrun/fullrun.par` (production; cut phase, pools), `QAP_DNN_POOL_CHECK=20` | @@WIL50N@@ | @@WIL50D@@ | @@WIL50R@@ |
+| `wil50_a220`: `-F 21:22,31:23,40:15` | `experiments/wil50_feasibility/fullrun/fullrun.par` (production; cut phase, pools), `QAP_DNN_POOL_CHECK=20` | 232 | 232 | **identical** (232 / 227 / 0 nodes, 7 cut phases, 17,191 DNN iterations in both) |
 
 - The tho40 production slice is `rule2_ab`'s subtree a; the cut-phase slice is `tho40_search`'s `t3`. I added the
   second because tho40's production settings have no cut phase and most of the merge is in the cut phase.
   The nug20-with-DNN and tai30b pairs are extras (cheap).
 - **The three slices that have an author's trace also equal it**, line for line (`logs/ident_vs_authors.log`:
   `rule2_ab/runs/a_base`, `tho40_search/runs/t3_z030`, `admm/logs/bb_tai30b_F3_base`), so this container's
-  build reproduces yesterday's.
+  build reproduces the authors' builds on those commands.
 - CPU of each pair, indicative (shared box): within 1.2% of each other (`logs/ident_cpu.log`), e.g. tho40_a
   694 s and 693 s. The `w.sc` tests in the transform cost nothing visible.
 - Node traces of the two nug20 full searches are 96 MB each and are not committed; their line count and digest
   are in `logs/ident_cmp.log`, and `ident_queue.sh` regenerates them in 2.5 minutes.
-
-@@WIL50NOTE@@
+- The wil50 slice is the depth-3 subtree `a220` of `experiments/estimates/wil50/subtrees/`. The owner's run of it
+  (another machine and BLAS, through the coordinator) has the same 232 DNN nodes, 227 fathomed and 7 phases, and
+  18,852 iterations where this container takes 17,191; no line of the two DNN traces agrees to the fourth
+  decimal, which is the known dependence on the BLAS, not something the merge could cause (both builds here
+  give 17,191).
 
 ## Reproductions, one per patch
 
-Merged build, `repro.sh`, one process at a time at low priority beside the identity runs. Iterations and nodes
-are the metric. All [m]; comparisons in `logs/repro_cmp.log` and `logs/repro_handover.log`
-(`repro_cmp.py` matches the two DNN traces node by node).
+Merged build, `repro.sh`, one process at a time at low priority beside the identity runs (the nug30 whole tree
+separately, four workers). Iterations and nodes are the metric. All [m]; comparisons in `logs/repro_cmp.log` and
+`logs/repro_handover.log` (`repro_cmp.py` matches the two DNN traces node by node).
 
 | patch | run | author | here | |
 |---|---|---|---|---|
@@ -271,15 +297,15 @@ are the metric. All [m]; comparisons in `logs/repro_cmp.log` and `logs/repro_han
 | | the same settings in one process, `-u 6124 -d 2` (run first, as the cheap check) | (the author's depth-1 and depth-2 lines) | depth 1 exact; depth 2: 20 of 225 nodes differ from the fourth decimal, 14 more iterations in 30,258 | see below |
 | `est_resume` | `bnbdrv -e -r` on a nug15 state | (no number in the branch) | root bound 992.015 from the state file, 0 without the patch (`logs/est_resume.log`) | works as described |
 
-- **nug30: the differences are how a parent's state reaches a child, not the merge.** With `ship.bits = 32` a
+- **nug30: I put the differences down to how a parent's state reaches a child, not to the merge.** With `ship.bits = 32` a
   child bounded by another process starts from its parent's state rounded to 32 bits, and one bounded by the
   same process starts from it at full precision. My one-process `-d 2` run therefore differed from the
   author's four-worker run at depth 2 (20 nodes, fourth decimal). Run the author's way, depths 1 and 2 agree in
-  every field, and the 43 nodes that still differ are all at depth 3 or below, where which process bounds a
-  node depends on timing. For scale, the author's own two runs of the unpatched baseline arm (`runs/base`,
+  every field, and the 43 nodes that still differ are all at depth 3 or below, where (as I read
+  `bench/parallel.py`; not tested) which process bounds a node depends on timing. For scale, the author's own two runs of the unpatched baseline arm (`runs/base`,
   `runs/base2`, same command) differ from each other in 8 of 3,687 nodes in the same way
-  (`logs/repro_cmp.log`). 43 of 1,645 is a larger share than 8 of 3,687; the cut arm ships pools as well, and I
-  did not go further than that. Node count, fathom counts, phase count and give-up count are equal.
+  (`logs/repro_cmp.log`). 43 of 1,645 is a larger share than 8 of 3,687. I did not go further
+  than that. Node count, fathom counts, phase count and give-up count are equal.
 - The author's `cut.giveup_depth` build was the nug30 branch's own; the other three authors built their patch
   alone. So these four rows also say that each patch behaves the same with the others compiled in.
 
@@ -303,7 +329,6 @@ are the metric. All [m]; comparisons in `logs/repro_cmp.log` and `logs/repro_han
 
 ## What I did not verify
 
-- @@WIL50UNV@@
 - sko49 (the brief allowed wil50 or sko49; I ran wil50).
 - `make continuationcheck` fails before and after the merge; I did not find out why.
 - The coordinator's AWS scenario (no boto3/moto in this container) and anything on EC2.
