@@ -126,3 +126,46 @@ level  fathoms	     qpb	     dnn	    cuts	  popped
 
 sum = 4.01095e-07
 stack = 1482
+
+    Total Time: 653401 seconds 
+         Nodes: 408520 / 405331 / 0
+    root bound: 0
+ fw iterations: 31646174
+     DNN bound: 838 nodes, 20 fathomed, 30178.8 s
+
+level    nodes	%fathom	%c.elim	    time
+ 1           1	0.0000	0.0000	   42.79
+ 2          39	0.0000	0.0000	 1443.04
+ 3        1224	0.5989	0.0000	18452.22
+ 4       16269	0.8366	0.0000	139284.68
+ 5      390987	1.0000	N/A	494178.60
+
+Strategy breakdown:
+nodes       1        0   408519        0 
+time    42.79     0.00 653358.54     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1          20	0.0000	1.0000	       5000	   250.0	  851.97
+ 2         780	0.0000	1.0000	     179400	   230.0	28711.15
+ 3          20	0.3000	0.7000	       3202	   160.1	  436.29
+ 4          14	0.7143	0.2857	       1463	   104.5	  172.38
+ 5           4	1.0000	0.0000	         60	    15.0	    6.97
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3         733	     727	       6	       0	       0
+ 4       13611	   13601	      10	       0	       0
+ 5      390987	  390983	       4	       0	       0
+
+tmean = 653401	 nmean = 408520
+tssq  = 5.91488e+13	 nssq  = 3.1556e+13
+tvar  = 2.53051e+12	 nvar  = 1.41091e+12
+time stddev = 1.59076e+06, err = 355704
+node stddev = 1.18782e+06, err = 265604
+0 dives with depth >= 1000 were thrown out.

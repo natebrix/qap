@@ -1,5 +1,5 @@
---- ../qap/latest/bnb.C	2026-11-16 00:47:11.218070294 +0000
-+++ bnb.C	2026-11-16 00:52:23.027002100 +0000
+--- ../../../latest/bnb.C	2026-11-16 00:47:11.218070294 +0000
++++ /home/user/dvbuild2/bnb.C	2026-11-16 02:06:26.869976540 +0000
 @@ -548,6 +548,21 @@
  
        pop(stack, node, stats);
@@ -68,9 +68,27 @@
  #ifdef HAVE_DNN
        if (dnn_keep) free_dnn_warm(dnn_keep);   // not handed to children
  #endif
---- ../qap/latest/estimate.C	2026-11-16 00:47:11.218070294 +0000
-+++ estimate.C	2026-11-16 00:52:23.027248813 +0000
-@@ -164,6 +164,9 @@
+--- ../../../latest/estimate.C	2026-11-16 00:47:11.218070294 +0000
++++ /home/user/dvbuild2/estimate.C	2026-11-16 02:06:26.901451823 +0000
+@@ -153,6 +153,17 @@
+     } while(p->link!=NULL);
+ 
+     // p now points to a node we want to estimate.
++    if (const char *dpe = getenv("DIVE_PATH")) {   // tho40_dives patch: the first node on the given permutation
++      std::vector<int> perm; char *c = strdup(dpe);
++      for (char *t = strtok(c, " ,"); t; t = strtok(NULL, " ,")) perm.push_back(atoi(t));
++      free(c);
++      size_t k = 0;
++      for (Node *t = stack; t != NULL; t = t->link, k++) {
++	bool on = true;
++	for (int r = 0; r < t->data.n; r++) if (t->data.p[r] > NONE && t->data.p[r] != perm[r]) on = false;
++	if (on) { p = t; pk = k; break; }
++      }
++    }
+ 
+     path = new Node;
+     path->data = p->data;
+@@ -164,6 +175,9 @@
      // step 4: random walk down path of tree.
      path_stats->root_bound = root_bound;
      params->est_factor = 1.0/importance;
