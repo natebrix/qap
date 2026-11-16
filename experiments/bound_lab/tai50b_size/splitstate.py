@@ -2,10 +2,10 @@
   python3 splitstate.py IN.state OUTPREFIX K            -> OUTPREFIX0.state .. OUTPREFIX{K-1}.state, node lines dealt round-robin
   python3 splitstate.py IN.state OUT.state -pick F:L,.. -> the nodes with one of the listed facility:location pairs fixed (-drop: without any)
   python3 splitstate.py IN.state OUT.state -depth D     -> the nodes at depth D only
-  python3 splitstate.py IN.state OUT.state -onpath x    -> the deepest node on the path of the best known solution (-offpath: every node off it)
+  python3 splitstate.py IN.state OUT.state -onpath x    -> the deepest node on the path of the best known solution (-offpath: every node off it); a file name in place of x: that permutation's path
   python3 splitstate.py -merge OUT.state IN1.state IN2.state ...   -> one file with every node line (headers from IN1)
 Node line: "node DEPTH ... p[0..n-1] ..." as cutstate.py reads it (t[5+f] = location of facility f)."""
-import sys
+import sys, os
 def read(src):
     head, nodes, tail = [], [], []
     with open(src) as fh:
@@ -40,6 +40,7 @@ if __name__ == "__main__":
     elif sys.argv[3] in ("-onpath", "-offpath"):
         # the deepest node all of whose fixes agree with QAPSOLN/tai50b.sln (0-based, facility -> location)
         BK = [5,23,14,12,21,4,29,40,13,8,16,19,25,18,46,11,15,37,17,30,47,20,33,26,36,48,22,10,3,31,2,7,0,32,6,42,24,28,44,27,39,35,43,45,1,34,49,38,9,41]
+        if os.path.exists(sys.argv[4]): BK = [int(x) for x in open(sys.argv[4]).read().split()]   # another permutation's path
         head, nodes, tail = read(sys.argv[1])
         def ok(ln):
             p = [int(x) for x in ln.split()[5:55]]; return all(x < 0 or x == BK[i] for i, x in enumerate(p))

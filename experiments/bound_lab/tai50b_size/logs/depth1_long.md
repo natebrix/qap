@@ -1,3 +1,5 @@
+| depth | fixes | on path | first solve: iterations | bound | short | phase iterations | phase best | short | phase end | outcome | CPU-s |
+|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | `31:7` | yes | 110 | 453,552,431 | 5,269,086 | 690 | 455,599,285 | 3,222,232 | stalled stalled | B | 451 |
 | 1 | `31:4` |  | 110 | 454,462,844 | 4,358,673 | 1260 | 457,344,134 | 1,477,383 | stalled stalled | B | 776 |
 | 1 | `31:27` |  | 110 | 455,972,516 | 2,849,001 | 681 | 458,822,195 | -678 | fathomed | C | 457 |
