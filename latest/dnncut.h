@@ -129,6 +129,10 @@ struct DNNCutParams {
   int side;           // 0: regions over the first index (A), 1: the second (B)
   bool prefix;        // regions: prefixes of the free elements; what bnb.C uses
                       // when no grid is given (grid_rows == 0)
+  std::vector<std::vector<int>> regions;  // arbitrary regions (any subset of `side` is
+                      // valid): original indices of `side`, mapped to the node's free
+                      // elements as the grid's are; used when non-empty, after the
+                      // grid's prefixes if a grid is given too (dnncuts -regions FILE)
   bool atomic;        // atomic triangle cuts instead of regional ones
   int cap_at_cutoff;  // 1: Polyak target = min(cutoff, best + delta) (default); 0: best +
                       // delta, so the step does not vanish within 0.01 of the cutoff
@@ -190,11 +194,26 @@ struct DNNCutParams {
   // cp_sweeps Dykstra sweeps of cp_passes passes per iteration (1, 1). Used only
   // by dnn_cut_cp; dnn_cut_rounds ignores them
   int cp_every, cp_k, cp_iters, cp_sweeps, cp_passes;
+  // cut.cp_extrap = E:GAMMA[:GUARD[:MODE]] (DNNParams::cp_extrap): every E iterations the
+  // phase's state is extrapolated along its own trajectory, with a guard. 0: off (default)
+  int cp_extrap, cp_extrap_guard, cp_extrap_mode;
+  double cp_extrap_gamma;
+  double cp_wc_gap;   // cut.cp_wc_gap: > 0: a phase whose first solve ended within this of the
+                      // cutoff runs at dnn.beta_sched's w, not wc (0: every phase at wc; default)
+  double cp_wc_deficit;   // cut.cp_wc_deficit: > 0: wc only when the first solve's primal objective
+                      // is at least this fraction of |cutoff| below its bound; else w (0: off; default)
   // cut.giveup (CP form only): (T, G) pairs; from iteration T the phase stops when
   // its gap to the cutoff is still above G (review_nov10/phase_stop: no fathoming
   // phase of the node-10 subtree was above 24.5 at 200, 18.1 at 300, 13.9 at 400,
   // 8.9 at 600). Empty: off.
   std::vector<std::pair<int, double>> giveup;
+  // cut.handover = N0:A:B[:PHI[:W[:P[:KAPPA]]]] (CP form only; experiments/bound_lab/tho40_search/stop): the
+  // phase stops, and hands its pool to the children, when finishing would cost more than they
+  // would: PHI x gap / rate > m x (N0 + A g + B g^2), rate the gain of the running best over the
+  // last W iterations per iteration, g the gap in 0.1% of |cutoff|, m the node's free facilities
+  // (its children). It replaces the stall rule. ho_w = 0: off.
+  double ho_n0, ho_a, ho_b, ho_phi, ho_p, ho_kappa;   // children's cost m x (N0 + A g + B g^P); KAPPA > 0: and only once
+  int ho_w;                                            // one more iteration saves fewer than KAPPA child iterations
   DNNCutParams();
 };
 

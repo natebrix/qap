@@ -168,6 +168,9 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `dnn.refresh` | par key | integer | `120` | 1..1000000 | policy | full eigendecomposition every this many iterations |
 | `dnn.warm_y` | par key | integer | `2` | 0..2 | policy | a child starts from its parent's Y too: 0 Z only, 1 restricted, 2 conditioned on its assignment |
 | `dnn.beta_sched` | par key | text | `w=0.36` | text | policy | ADMM penalty schedule, e.g. two,f=1.6667,t=60,w=0.25,wc=0.7 ("": off) |
+| `dnn.dscale` | par key | number | `0` | 0..4 | policy | diagonal congruence scaling of the lifted variable: exponent on the row norms of A and B (0: off) |
+| `dnn.dscale0` | par key | number | `1` | 0..1000 | policy | with or without dnn.dscale: the scale of the homogenizing coordinate (1: unscaled) |
+| `dnn.dscale_until` | par key | integer | `0` | 0..1000000 | policy | with dnn.dscale: the scaled iteration for this many iterations of a call, the plain one after (0: throughout) |
 | `dnn.cross` | par key | integer | `2` | 0..100 | policy | extra certificates at the predicted cutoff crossing (0: off) |
 | `dnn.cross_first` | par key | integer | `0` | 0..1000 | policy | with dnn.cross: one more extra certificate at this iteration of a warm call (0: off) |
 | `dnn.lazycert` | par key | integer | `1` | 0..1 | policy | 1: Rump's test only at checks that can decide something |
@@ -177,6 +180,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `cut.maxdepth` | par key | integer | `1073741824` | 0..inf | policy | the cut phase only at nodes of at most this depth |
 | `cut.side` | par key | integer | `0` | 0..1 | policy | regions over the first (0) or the second (1) matrix |
 | `cut.grid` | par key | text | unset | text | policy | R:C grid whose prefixes are the regions (unset: prefixes of the free elements) |
+| `cut.regions` | par key | text | unset | text | policy | file of regions, one per line: original indices of cut.side (any sets; with cut.grid, added to its prefixes) |
 | `cut.rounds` | par key | integer | `12` | 1..1000 | policy | cut rounds per phase |
 | `cut.iters` | par key | integer | `300` | 1..1000000 | policy | ADMM iterations per cut round |
 | `cut.k` | par key | integer | `1000` | 0..1000000 | policy | new triangle cuts per round |
@@ -194,8 +198,13 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `cut.equip` | par key | text | unset | text | policy | G:R: a phase more than G below the cutoff runs at most R rounds, to equip the children |
 | `cut.cp` | par key | text | unset | text | policy | k:K: the phase as one CP-ADMM solve separating K triangles every k iterations |
 | `cut.giveup` | par key | text | unset | text | policy | T:G,...: from iteration T a CP-ADMM phase stops when its gap to the cutoff is still above G (unset: the stall rule only) |
+| `cut.giveup_depth` | par key | integer | `0` | 0..inf | policy | cut.giveup applies at nodes of at least this depth (shallower phases stop by the stall rule only) |
 | `cut.cp_iters` | par key | integer | `0` | 0..100000000 | policy | CP-ADMM iteration limit (0: rounds x iters + freeze) |
+| `cut.handover` | par key | text | unset | text | policy | N0:A:B[:PHI[:W[:P[:KAPPA]]]]: a CP-ADMM phase stops when PHI x gap / rate, the iterations it still needs at the rate of its last W, exceeds C = m x (N0 + A g + B g^P), its children's cost at gap g in 0.1% of the cutoff, and (KAPPA > 0) rate x dC/dgap < KAPPA (unset: the stall rule) |
 | `cut.cp_sweeps` | par key | text | `1:1` | text | policy | S[:P]: Dykstra sweeps and passes per CP-ADMM iteration |
+| `cut.cp_extrap` | par key | text | unset | text | policy | E:GAMMA[:GUARD[:MODE]]: every E iterations a CP-ADMM phase extrapolates its state by GAMMA times its change over the last E/2, guarded (unset: off) |
+| `cut.cp_wc_gap` | par key | number | `0` | 0..inf | policy | a CP-ADMM phase that starts within this of the cutoff keeps dnn.beta_sched's w instead of wc (0: off) |
+| `cut.cp_wc_deficit` | par key | number | `0` | 0..1 | policy | a CP-ADMM phase takes wc only when the first solve's primal objective is at least this fraction of |cutoff| below its bound (0: off) |
 | `cut.cp_lazycert` | par key | integer | `0` | 0..1 | policy | 1: the lazy certificate in CP-ADMM solves too |
 | `cut.xbar` | par key | integer | `0` | 0..1 | policy | 1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's) |
 | `pool.on` | par key | integer | `0` | 0..1 | policy | 1: a node hands its cut pool to its children |
