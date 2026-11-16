@@ -1,0 +1,30 @@
+$ make test
+2026-11-16T04:08:51Z
+make -C latest
+make[1]: Entering directory '/home/user/wt-clean/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/home/user/wt-clean/latest'
+python3 tests/brute_force.py
+168 instances x 9 params x 3 upper-bound modes = 4536 solver runs (seed 1, files in /tmp/qap-bf-9tqzo609)
+
+4536/4536 passed
+python3 tests/resume_test.py
+ok   nug15: 6 slices, nodes 1639 / 1060 / 0, objective 1150
+ok   had14: 2 slices, nodes 352 / 202 / 0, objective 2724
+ok   tai12b: 5 slices, nodes 1879 / 1097 / 25, objective 39464925
+ok   chr12a: 2 slices, nodes 1108 / 686 / 2, objective 9552
+ok   nug14: 12 slices, nodes 4912 / 3207 / 56, objective 1014
+
+5/5 resume cases identical
+python3 tests/parallel_test.py
+ok   nug15 --ub opt: serial 1639 / 1060 / 0, fw 263882; parallel 1639 / 1060 / 0, fw 263882
+ok   tai12b --ub opt: serial 1879 / 1097 / 25, fw 297844; parallel 1879 / 1097 / 25, fw 297844
+ok   had14 --ub opt: serial 352 / 202 / 0, fw 72799; parallel 352 / 202 / 0, fw 72799
+ok   nug14 no upper bound: found 1014.0, optimum 1014
+ok   tai12b no upper bound: found 39464925.0, optimum 39464925
+ok   nug16a interrupted and resumed: serial 8502 / 6020 / 0, fw 950015; resumed 8502 / 6020 / 0, fw 950015
+ok   nug16a -x 2:4:1:0:1 --ub opt: serial 178 / 161 / 0, DNN ('143', '143'); parallel 178 / 161 / 0, DNN ('143', '143'); per-level DNN and cause tables equal
+
+all parallel checks passed
+python3 tests/coord_test.py
+serial: nodes (41443, 30703, 0), fw 2976622

@@ -1,0 +1,78 @@
+0    has the location of a symmetry file been provided?
+-1    restriction on tree depth (-1 means none)
+4    number of branching rules
+
+0.20 use this rule when gap is worse than...
+2    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 30    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+4    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than... (all nodes thru depth 6 use rule 8)
+6    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+ 2    branching rule at bottom of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+[settings]
+# integration/allkeys: every key of the merge switched on at once, on an instance small enough to know the optimum.
+# Short give-ups so that many nodes reach a cut phase; not a setting anyone would run.
+dnn.gamma1 = 1.0
+dnn.gamma = 1.0
+dnn.cheb = 3
+dnn.tight_lam = 2
+dnn.beta = 0.21
+dnn.refresh = 120
+dnn.warm_y = 2
+dnn.ext = 20
+dnn.gu_zone = 0
+ship.bits = 64
+dnn.beta_sched = w=0.36,wc=2.88
+dnn.depths = 1:10
+dnn.maxgap = 1
+dnn.giveup = 40
+dnn.giveup_warm = 20
+dnn.warm = 1
+dnn.dscale = 0.5
+dnn.dscale_until = 15
+pool.on = 1
+cut.regions = /home/user/qap/experiments/bound_lab/integration/../regions/regions/tai12b.line2.txt
+cut.side = 0
+cut.zone = 1
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+cut.freeze = 0
+cut.cp = 20:200
+cut.giveup = 60:5000,150:1000
+cut.giveup_depth = 2
+cut.handover = 20:0:0.22:1.5:20:3:1.25
+cut.cp_extrap = 40:1.0:20:2
+cut.cp_wc_gap = 300
+cut.cp_wc_deficit = 0.002
