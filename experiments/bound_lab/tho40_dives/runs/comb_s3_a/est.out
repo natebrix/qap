@@ -128,3 +128,57 @@ level  fathoms	     qpb	     dnn	    cuts	  popped
 QAP_EST_CHILD_QPB: the first draw's 39 nodes scored by their own QPB bound
 sum = 1
 stack = 39
+
+    Total Time: 3.02201e+06 seconds 
+         Nodes: 352377 / 342249 / 0
+    root bound: 0
+ fw iterations: 52625310
+     DNN bound: 78 nodes, 66 fathomed, 450.796 s
+     cut phase: 10 nodes, 5 fathomed, 1394.77 s
+
+level    nodes	%fathom	%c.elim	    time
+ 1           1	0.0000	0.0000	   42.90
+ 2          24	0.0000	0.0000	12233.68
+ 3        1172	0.7031	0.0000	75382.29
+ 4        4877	0.0000	0.0000	290401.52
+ 5      175590	0.9722	0.0000	2111067.46
+ 6      170712	1.0000	N/A	532887.10
+
+Strategy breakdown:
+nodes       1        0   352375        0 
+time    42.90     0.00 3021972.05     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           2	0.0000	1.0000	        500	   250.0	   85.40
+ 2           2	0.0000	1.0000	        220	   110.0	   35.97
+ 3           2	0.0000	1.0000	        220	   110.0	   29.63
+ 4           1	0.0000	1.0000	        110	   110.0	   13.30
+ 5          36	0.8611	0.1389	       1582	    43.9	  178.43
+ 6          35	1.0000	0.0000	       1099	    31.4	  108.06
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 2           2	0.0000	  959.73
+ 3           2	0.5000	  135.97
+ 4           1	0.0000	   46.05
+ 5           5	0.8000	  253.01
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3         824	     823	       0	       1	       0
+ 4           0	       0	       0	       0	       0
+ 5      170712	  170677	      31	       4	       0
+ 6      170712	  170677	      35	       0	       0
+
+tmean = 3.02201e+06	 nmean = 352377
+tssq  = 3.56451e+13	 nssq  = 4.94321e+11
+tvar  = 8.68998e+12	 nvar  = 1.22991e+11
+time stddev = 2.94788e+06, err = 2.08446e+06
+node stddev = 350701, err = 247983
+0 dives with depth >= 1000 were thrown out.
