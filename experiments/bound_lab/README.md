@@ -55,7 +55,8 @@ on tai30b, 71-81% on tai35b to tai60b. Solver change: `cut.regions = FILE` (`reg
   surviving prefixes with the slack measured at every depth gives 460. The cost is off the path at
   depths 1, 3, 4 and 9. tai80b: the root only. It levels off at 46% of the published gap closed (2.08% under the
   best known value) with tai50b's region family, so it is a harder instance for these cuts, not
-  only a bigger one; a two-dimensional region family is untested.
+  only a bigger one. Adding every dendrogram cluster as a region (`combh`) changes nothing (level
+  with `comb7` to within 20k of a 31.5M gap through 500 phase iterations).
 - **A fault to know about** (`tai_solves/`, section 5): with `wc=2.88` a child's first solve on its
   parent's pool sometimes fails outright (a certificate of -3e11, or none). The bound stays valid but
   the subtree blows up; `tai_solves/pool_retry.patch` redoes the solve without the pool. Not yet in
