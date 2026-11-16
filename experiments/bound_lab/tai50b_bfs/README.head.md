@@ -35,3 +35,9 @@ or bounded above 458,821,517; an incumbent below 458,821,517; a level more than 
 disk or memory running short. The brief first had a wall limit of 12 hours (about 20:30 UTC); the coordinating
 session relayed at 17:35 UTC on 2026-11-16 that the repository owner wants the run kept going, so that limit is
 dropped (no script enforced it) and the run goes on level by level until the tree is finished or a condition fires.
+
+**Container restart, 2026-11-16 about 23:28 UTC.** The container was restarted during depth 6; the disk survived,
+the processes did not. 44 of that level's 48 chunks had finished and were kept; the 4 unfinished ones
+(`d6_c42`, `c45`, `c46`, `c47`, 36 of their 68 nodes already bounded) were redone from their input state files
+(`bfs.sh` now keeps a chunk that ended with exit 0 and has its `out.state`). The table counts the redone chunks
+once: the work lost in the interrupted processes, about 1.5 hours on 4 cores at most, is not in it.

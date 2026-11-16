@@ -5,6 +5,7 @@
 # are merged into runs/open_{D+1}.state. After each level: open/open_{D+1}.txt (the open nodes' fixes, committed;
 # the state files are not), the parents' DNN states no longer referenced are deleted, levels.py rewrites the README
 # table and checks the stop conditions (a non-zero exit stops the run), and the level is committed and pushed.
+# Rerunning an interrupted level (./bfs.sh runs/open_D.state D 48) redoes only its unfinished chunks.
 # A file named "stop" in this directory stops the run before the next level.
 # Binary: $BNBDIR/bnbdrv = latest + regions.patch + est_resume.patch + pool_retry.patch (both steps).
 H=$(cd "$(dirname "$0")" && pwd); cd $H; CUR=$1; FROM=$2; UNTIL=$3
@@ -12,7 +13,10 @@ export BNBDIR=${BNBDIR:-/home/user/qap_retry2/latest} UB=458821518 PAR=A_wc INST
 mkdir -p runs/store
 [ -d "$(dirname $CUR)/store" ] && [ "$(dirname $CUR)" != runs ] && ln -sf $(cd $(dirname $CUR)/store && pwd)/*.dnn runs/store/ 2>/dev/null
 one() {  # NAME IN DEPTH
-  D=$H/runs/$1; mkdir -p $D
+  D=$H/runs/$1
+  # resuming an interrupted level: a chunk that ended with exit 0 and still has its out.state is kept
+  [ -s $D/out.state ] && grep -q "^exit 0" $D/cmd.txt 2>/dev/null && return 0
+  rm -rf $D; mkdir -p $D
   export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 QAP_NODE_TRACE=$D/nodes.txt QAP_DNN_TRACE=$D/dnn.txt QAP_DNN_WARM_DIR=$H/runs/store
   cd $BNBDIR
   CMD="./bnbdrv -p $H/par/$PAR.par -u $UB -r $2 --allow-settings-change -o $D/out.state -d $3 ../qaplib/$INST.dat"
