@@ -267,17 +267,19 @@ are the metric. All [m]; comparisons in `logs/repro_cmp.log` and `logs/repro_han
 | `cut.handover` + `wc` (combined) | parent `26:10,8:0` bounded under `zallhw`, then the warm subtree `38:32` from its state | parent: phase stopped by the rule at 2,550 iterations, 237,004.5614. `38:32`: 110 + 300 = **410 iterations**, fathomed at 240,515.9671, 1 node | the same numbers, to the fourth decimal and the pool sizes (`kept 1428 dropped 145`, `active 1735`) | **exact** |
 | `cut.regions` | tai30b, `regions/bnb/tai30b_cut.par`, `-u 637117114`, in one piece | 637,117,113 proved in **363 nodes** (DNN 299 nodes, 250 fathomed; cut phase 49 nodes, 22 fathomed), in three resumed pieces | 363 nodes, 299 / 250, 49 / 22; the node trace's 375 lines equal the author's three pieces concatenated | **exact** |
 | `dnn.dscale = 0.5`, `dnn.dscale_until = 100` | tai30b `-F 0:3,1:7,2:10`, `admm/bb_tai30b_ds0.5u100.par` | **195 DNN nodes, 184 fathomed, 13,965 iterations** (243 nodes) | 195, 184, 13,965 (243); all 195 nodes equal in status, iterations and bound | **exact** |
-| `cut.giveup_depth = 2` | nug30 under `nug30_phase`'s `g2.par`, `-u 6124 -d 2` (the root, its 9 children and their 225) | depth 1: nine phases to the stall rule, 630-1,240 iterations, **6,570 in all**, none stopped by the give-up | depth 1: the same nine phases, 6,570, none gave up, each equal to four decimals | **exact at depth 1** |
-| | | depth 2 (225 nodes): 194 of 234 fathomed, 48 phases, 31 stopped by the give-up, 19,061 first-solve + 11,197 phase iterations | 194, 48, 31; 19,075 + 11,197. 214 of the 234 nodes equal in every field; the other 20 differ from the fourth decimal (first: 6078.7621 here, 6078.7632 there) | **14 iterations in 30,258 (0.05%)** |
+| `cut.giveup_depth = 2` | the author's command: the whole nug30 tree under `nug30_phase`'s `g2.par`, `bench/parallel.py`, 4 workers, `--ub 6124` | 1,646 nodes; 1,645 DNN nodes, 1,583 fathomed; 85 phases, 53 stopped by the give-up; **77,535 iterations** (61,900 + 15,635). The nine depth-1 phases run to the stall rule: 630-1,240 iterations, 6,570 in all | 1,646; 1,645, 1,583; 85, 53; **77,534** (61,899 + 15,635). Depths 1 and 2 (234 nodes): every node equal in every field. Below: 43 of 1,411 nodes differ from the fourth decimal (first: depth 3, 6093.1458 here, 6093.1454 there) | **same tree, 1 iteration in 77,535** |
+| | the same settings in one process, `-u 6124 -d 2` (run first, as the cheap check) | (the author's depth-1 and depth-2 lines) | depth 1 exact; depth 2: 20 of 225 nodes differ from the fourth decimal, 14 more iterations in 30,258 | see below |
 | `est_resume` | `bnbdrv -e -r` on a nug15 state | (no number in the branch) | root bound 992.015 from the state file, 0 without the patch (`logs/est_resume.log`) | works as described |
 
-- **The depth-2 difference on nug30 is not from the merge, I think, but I did not prove it.** The author's run is
-  the whole tree under `bench/parallel.py` with four workers and `ship.bits = 32`: a depth-2 node bounded by a
-  worker starts from its parent's state as shipped through a task file at 32 bits. Mine is one process with
-  `-d 2`, where the children take the parent's state from memory at full precision. `make shipcheck` shows the
-  size of that effect on nug20 (13,231 iterations with 64-bit shipping, 12,316 with 32). The depth-1 nodes
-  start cold in both and agree exactly. To settle it one would run the author's command with the merged build
-  (about 10 minutes on four free cores); I did not have four free cores.
+- **nug30: the differences are how a parent's state reaches a child, not the merge.** With `ship.bits = 32` a
+  child bounded by another process starts from its parent's state rounded to 32 bits, and one bounded by the
+  same process starts from it at full precision. My one-process `-d 2` run therefore differed from the
+  author's four-worker run at depth 2 (20 nodes, fourth decimal). Run the author's way, depths 1 and 2 agree in
+  every field, and the 43 nodes that still differ are all at depth 3 or below, where which process bounds a
+  node depends on timing. For scale, the author's own two runs of the unpatched baseline arm (`runs/base`,
+  `runs/base2`, same command) differ from each other in 8 of 3,687 nodes in the same way
+  (`logs/repro_cmp.log`). 43 of 1,645 is a larger share than 8 of 3,687; the cut arm ships pools as well, and I
+  did not go further than that. Node count, fathom counts, phase count and give-up count are equal.
 - The author's `cut.giveup_depth` build was the nug30 branch's own; the other three authors built their patch
   alone. So these four rows also say that each patch behaves the same with the others compiled in.
 
@@ -310,7 +312,8 @@ are the metric. All [m]; comparisons in `logs/repro_cmp.log` and `logs/repro_han
   tree under `g2` or `g5`).
 - Combinations nobody has measured for speed: `cut.giveup_depth` with `cut.handover`; `dnn.dscale` on an
   instance with a cut phase; `cut.regions` together with `cut.grid` (run only in the all-keys and ship tests).
-- Whether the nug30 depth-2 difference is the shipping precision (above).
+- Why the nug30 whole-tree run differs from the author's in 43 nodes' fourth decimals beyond "parallel runs
+  under 32-bit shipping are not reproducible to the last digit" (above).
 - `dive_trace.patch`'s unconditional `importance = 1.0` (left out; see "What is in").
 - `dnncuts` was built (`make -C latest dnncuts`, exit 0) but not run.
 - The other branches were fetched once, at 48a624c (nug30), 022973d (tho40dives) and 5337856 (tai50b); neither

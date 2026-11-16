@@ -21,3 +21,27 @@ repro/dscale_tai30b_F3_ds0.5u100/log.txt:         Nodes: 243 / 232 / 0
 here:   New objective value: 637117113; Nodes: 363 / 346 / 1; DNN bound: 299 nodes, 250 fathomed, 677.105 s; cut phase: 49 nodes, 22 fathomed, 770.906 s;
 author:  Nodes: 363 / 346 / 1; DNN bound: 299 nodes, 250 fathomed, 709.228 s; cut phase: 49 nodes, 22 fathomed, 800.926 s;
 node trace: 375 lines here, 375 there, differing lines 0 (CPU column removed)
+
+== cut.giveup_depth, the author's own command: the whole nug30 tree under g2.par, bench/parallel.py with 4 workers (author: nug30_phase/runs/g2 at 48a624c)
+-- all depths:
+here:   DNN nodes 1645, fathomed 1583, first-solve iterations 61899, cut phases 85 (gave up 53), phase iterations 15635, all iterations 77534
+author: DNN nodes 1645, fathomed 1583, first-solve iterations 61900, cut phases 85 (gave up 53), phase iterations 15635, all iterations 77535
+nodes in both 1645 (only here 0, only author 0); identical in every compared field 1602
+  first difference: depth 3 fixes 0:13 6:14 29:10
+    here   {'lb': '6093.1458', 'st': 'hopeless', 'it': 200, 'cut': ('6096.2497', 100, 'stalled', '1'), 'fath': False}
+    author {'lb': '6093.1454', 'st': 'hopeless', 'it': 200, 'cut': ('6096.2449', 100, 'stalled', '1'), 'fath': False}
+-- depth <= 2:
+here:   DNN nodes 234, fathomed 194, first-solve iterations 19061, cut phases 48 (gave up 31), phase iterations 11197, all iterations 30258
+author: DNN nodes 234, fathomed 194, first-solve iterations 19061, cut phases 48 (gave up 31), phase iterations 11197, all iterations 30258
+nodes in both 234 (only here 0, only author 0); identical in every compared field 234
+node-trace lines here 1646, author 1646; as sets with the CPU column removed, lines only here 43, only author 43
+here:    Nodes: 1646 / 1583 / 0; DNN bound: 1645 nodes, 1560 fathomed, 1558.69 s; cut phase: 85 nodes, 23 fathomed, 518.96 s;
+author:  Nodes: 1646 / 1583 / 0; DNN bound: 1645 nodes, 1560 fathomed, 1732.25 s; cut phase: 85 nodes, 23 fathomed, 559.35 s;
+
+== for scale: the author's own two runs of the unpatched baseline arm (nug30_phase/runs/base and base2, same command, 4 workers), against each other
+base:  DNN nodes 3687, fathomed 3547, first-solve iterations 110926, cut phases 0 (gave up 0), phase iterations 0, all iterations 110926
+base2: DNN nodes 3687, fathomed 3547, first-solve iterations 110926, cut phases 0 (gave up 0), phase iterations 0, all iterations 110926
+nodes in both 3687 (only here 0, only author 0); identical in every compared field 3679
+  first difference: depth 3 fixes 0:12 12:24 23:0
+    here   {'lb': '6142.1651', 'st': 'fathomed', 'it': 20, 'cut': None, 'fath': True}
+    author {'lb': '6142.1645', 'st': 'fathomed', 'it': 20, 'cut': None, 'fath': True}
