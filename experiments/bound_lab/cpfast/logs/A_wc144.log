@@ -1,0 +1,9 @@
+# /home/user/wt-cpfast/bin/dnncuts.v2 -p /home/user/qap/experiments/bound_lab/cpfast/par/wc1.44.par -phase -x 26:10,8:0,38:32 -c 241500 -grid 5:8 -side 1 -I 300 -k 1000 -warmY -loadwarm /home/user/qap/experiments/bound_lab/cpfast/state/26_10_8_0_38_32_I300.warm -savepool /home/user/qap/experiments/bound_lab/cpfast/state/A_wc144.pool -cpsep 100:1000 -cpiters 1000 -T 1 /home/user/wt-cpfast/qaplib/tho40t.dat
+objective values are even integers: fathoming tolerance 1.95
+instance /home/user/wt-cpfast/qaplib/tho40t.dat n=40 node 26:10,8:0,38:32 m=37 cutoff 241500.0000  cuts regional (grid) side 1 warmY 1, 11 regions
+first solve loaded from /home/user/qap/experiments/bound_lab/cpfast/state/26_10_8_0_38_32_I300.warm: lb 237921.3020 primal 236434.8664
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 3.7296 (base 2.59) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 1.44
+bsched it 10 beta 3.7296 pres/(beta dY) 0.1602 rhat 0.008038 shat 0.001825 rhat/shat 4.405 |Y| 4.562 |VRV| 4.561 |Z| 125.4
+it    10 lb 237677.8487 (cert 237677.8487, margin 2.22e-05) primal 234859.3577 pres 3.67e-02 dY 6.14e-02 npos 897 cpu 1.52
+cp it    10 cert 237677.84865147481 hsum 788.347 cpcpu 0.08 cuts 1000 active 529 sum_nu 0.222379 viol 865 (max 1.953e-03/||G||, rnorm 2.255e-02) dstep 3.184e-03 | ms pstep 3.98 (20) hpass 0.10 (10) diag 0.0 s | pool 1000 sep 1 (last: violated 3215 max 0.0917 added 1000; total added 1000 dropped 0) sep 0.0 s
