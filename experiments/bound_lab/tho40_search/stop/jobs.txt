@@ -23,8 +23,20 @@ path7 zallhge 26:2,30:0,39:39,2:32,16:24,35:16,24:8 -d 7
 # zallhw = zallhge + wc=2.88 + the refit rule; zallhwg = + cut.cp_wc_gap 300 (same root: 8,634 short is beyond the gap)
 wroot zallhw 26:10,8:0 -d 2 -o /home/user/qap/experiments/bound_lab/tho40_search/runs/wroot_zallhw/root.state
 w18 zallhw 26:10,8:0,18:32
-w18 zallhwg@zallhw 26:10,8:0,18:32
+# NOT RUN (the zallhw run has no phase that starts within 300 of the cutoff, so this arm is the same run): w18 zallhwg@zallhw 26:10,8:0,18:32
 w38 zallhw 26:10,8:0,38:32
-w38 zallhwg@zallhw 26:10,8:0,38:32
+# NOT RUN (the zallhw run has no phase that starts within 300 of the cutoff, so this arm is the same run): w38 zallhwg@zallhw 26:10,8:0,38:32
 w30 zallhw 26:10,8:0,30:32
 w30 zallhwg@zallhw 26:10,8:0,30:32
+# the path check under the combined arm with the gap rule (incumbent 240,518)
+path9 zallhwg 26:2,30:0,39:39,2:32,16:24,35:16,24:8,34:1,33:33 -d 10
+path7 zallhwg 26:2,30:0,39:39,2:32,16:24,35:16,24:8 -d 7
+# 2:32 warm (6,281 nodes, 19,941 c7a s, 5,039 short in production): the class above 5,000, 25% of the A/B subtree, never run
+# STOPPED at 76 nodes (a pooled phase 353 short at wc had not moved in 200 iterations and the rule handed it over: the flat-start guard below): w2 zallhwg@zallhw 26:10,8:0,2:32
+# 2:32 again with the rule's flat-start guard (the solver of stop/combined.patch as delivered; par/zallhwf.par = zallhwg.par)
+w2 zallhwf@zallhw 26:10,8:0,2:32
+# + three Dykstra sweeps and the extrapolation (zallhws): its own root, then the three subtrees
+wroot zallhws 26:10,8:0 -d 2 -o /home/user/qap/experiments/bound_lab/tho40_search/runs/wroot_zallhws/root.state
+w18 zallhws 26:10,8:0,18:32
+w38 zallhws 26:10,8:0,38:32
+w30 zallhws 26:10,8:0,30:32

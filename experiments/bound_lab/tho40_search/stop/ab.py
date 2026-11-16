@@ -7,10 +7,12 @@ from summarize import stats
 import ntrace
 t = ntrace.load("/home/user/qap/infra/phase1/runs/tho40ab-32/nodes.txt.gz")
 idx = {",".join(fx): i for i, fx in enumerate(t.fixes)}
-ORDER = ["z030", "zall", "zallh", "zallhg", "zallhge", "zallhw", "zallhwg", "zallhws"]
+ORDER = ["z030", "zall", "zallh", "zallhg", "zallhge", "zallhw", "zallhwg", "zallhwf", "zallhws"]
 print("| node | arm | nodes | fathomed: first solve / phase | phases (fathomed) | iterations: first + phases = total | root: first + phase (gap left) | CPU s | vs z030 | vs zall | vs zallhge | vs production [e] |")
 print("|---|---|---|---|---|---|---|---|---|---|---|---|")
-for w in ["w18", "w38", "w30"]:   # (w18r_zallhg, the attribution run, is in the text)
+STUDY2 = len(sys.argv) > 1 and sys.argv[1] == "2"      # ab.py 2: the second study's arms and nodes only
+if STUDY2: ORDER = ORDER[:5]
+for w in (["w18", "w38", "w30"] if STUDY2 else ["w18", "w38", "w30", "w2"]):   # (w18r_zallhg, the attribution run, is in the text)
     rows = {}
     for d in glob.glob(os.path.join(H, "runs", w + "_*")):
         arm = os.path.basename(d).split("_", 1)[1]

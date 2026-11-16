@@ -43,6 +43,12 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
    about 5.8x on the A/B subtree (4.0-6.8x) and **about 225 c7a CPU-days (190-330)** for the tree if
    it responds alike. Items 3 and 4 above are the first study's numbers, kept as written.
 
+8. **Third study, Nov 16 ("With the faster phase" below): with cpfast's `wc=2.88` as well.** `18:32`
+   4,322 iterations (38 nodes), `38:32` 410, `30:32` 1,687, and `2:32`, the last unmeasured class,
+   20,992 against production's 160,800 [e]. About 7.8x on the A/B subtree (6.2-9.4x) and **about 165
+   c7a CPU-days (140-210)** for the tree if it responds alike. One block, one patch
+   (`stop/combined.patch`).
+
 ## How it was run
 
 - One `latest/bnbdrv` process per subtree and arm (`run.sh`; two at a time, `queue.sh` over `jobs.txt`),
@@ -123,12 +129,20 @@ Production's (warm-root) figures for the same nodes: gate 36 nodes below the roo
 | `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | zall | 74 | 65 / 7 | 9 (7) | 4,429 + 7,136 = 11,565 | 1293 | 20x | 3.30x | 3.00x |
 | `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | zallhg | 74 | 66 / 6 | 8 (6) | 3,500 + 2,731 = 6,231 | 662 | 20x | 6.12x | 5.87x |
 | `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | zallhge | 74 | 66 / 6 | 8 (6) | 2,717 + 2,806 = 5,523 | 603 | 20x | 6.91x | 6.44x |
+| `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | zallhw | 38 | 31 / 6 | 7 (6) | 1,971 + 2,351 = 4,322 | 441 | 39x | 8.83x | 8.80x |
+| `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | zallhws | 38 | 31 / 6 | 7 (6) | 1,975 + 2,299 = 4,274 | 441 | 39x | 8.92x | 8.81x |
 | `26:10,8:0,18:32` | 4474, 1,490, 5,551 (3,886) | zallhg | 74 | 66 / 6 | 8 (6) | 3,537 + 4,276 = 7,813 | 865 | 20x | 4.88x | 4.49x |
+| `26:10,8:0,2:32` | 5039, 6,281, 19,941 (13,959) | zallhwf | 288 | 266 / 14 | 22 (14) | 11,710 + 9,282 = 20,992 | 1867 | 22x | 7.66x | 7.48x |
 | `26:10,8:0,30:32` | 3492, 571, 2,122 (1,485) | zallhge | 38 | 36 / 1 | 2 (1) | 1,245 + 760 = 2,005 | 226 | 15x | 7.29x | 6.57x |
+| `26:10,8:0,30:32` | 3492, 571, 2,122 (1,485) | zallhw | 38 | 37 / 0 | 1 (0) | 1,317 + 370 = 1,687 | 181 | 15x | 8.66x | 8.20x |
+| `26:10,8:0,30:32` | 3492, 571, 2,122 (1,485) | zallhwg | 38 | 37 / 0 | 1 (0) | 1,317 + 370 = 1,687 | 187 | 15x | 8.66x | 7.96x |
+| `26:10,8:0,30:32` | 3492, 571, 2,122 (1,485) | zallhws | 38 | 37 / 0 | 1 (0) | 1,302 + 390 = 1,692 | 185 | 15x | 8.64x | 8.04x |
 | `26:10,8:0,38:32` | 2427, 287, 1,000 (700) | z030 | 1 | 0 / 1 | 1 (1) | 200 + 3,341 = 3,541 | 455 | 287x | 2.07x | 1.54x |
 | `26:10,8:0,38:32` | 2427, 287, 1,000 (700) | zall | 1 | 0 / 1 | 1 (1) | 200 + 2,812 = 3,012 | 374 | 287x | 2.44x | 1.87x |
 | `26:10,8:0,38:32` | 2427, 287, 1,000 (700) | zallhg | 1 | 0 / 1 | 1 (1) | 200 + 1,200 = 1,400 | 170 | 287x | 5.25x | 4.11x |
 | `26:10,8:0,38:32` | 2427, 287, 1,000 (700) | zallhge | 1 | 0 / 1 | 1 (1) | 110 + 1,202 = 1,312 | 162 | 287x | 5.60x | 4.32x |
+| `26:10,8:0,38:32` | 2427, 287, 1,000 (700) | zallhw | 1 | 0 / 1 | 1 (1) | 110 + 300 = 410 | 46 | 287x | 17.92x | 15.15x |
+| `26:10,8:0,38:32` | 2427, 287, 1,000 (700) | zallhws | 1 | 0 / 1 | 1 (1) | 110 + 290 = 400 | 46 | 287x | 18.37x | 15.06x |
 
 `w18`, child by child (`python3 wchildren.py w18_z030 w18_zall`; children that fathom at once in
 production and here are left out; `zall` is the next section's arm):
@@ -167,12 +181,15 @@ short    15.9 d5 pool -> FATH after   47 it (5 s), left     0.0; first solve 260
 short    29.3 d5      -> FATH after   30 it (3 s), left     0.0; first solve 620 it  t4_z010
 short    88.0 d4      -> FATH after   44 it (6 s), left     0.0; first solve 360 it  t3_z010
 short   121.5 d4 pool -> FATH after   63 it (7 s), left     0.0; first solve 350 it  w18_zall
+short   141.1 d5 pool -> FATH after   38 it (4 s), left     0.0; first solve 110 it  w2_zallhwf
 short   149.8 d4 pool -> FATH after   74 it (8 s), left     0.0; first solve 200 it  w18_zallhg
 short   159.2 d5 pool -> FATH after  276 it (28 s), left     0.0; first solve 350 it  t4_z030
 short   163.2 d4 pool -> FATH after   83 it (9 s), left     0.0; first solve 220 it  w18_zallhg
+short   165.0 d5 pool -> FATH after   41 it (4 s), left     0.0; first solve 110 it  w2_zallhwf
 short   179.7 d5 pool -> FATH after  284 it (29 s), left     0.0; first solve 210 it  t4_z030g
 short   182.9 d5      -> FATH after   65 it (7 s), left     0.0; first solve 370 it  t4_z010
 short   185.4 d4      -> FATH after   59 it (7 s), left     0.0; first solve 350 it  t3_z010
+short   189.4 d5 pool -> FATH after   50 it (5 s), left     0.0; first solve 110 it  w2_zallhwf
 short   208.9 d4 pool -> FATH after  110 it (13 s), left     0.0; first solve 210 it  w18r_zallhg
 short   213.7 d4 pool -> FATH after   97 it (11 s), left     0.0; first solve 340 it  w18_z030
 short   231.5 d5      -> FATH after   73 it (8 s), left     0.0; first solve 350 it  t2_z003
@@ -181,12 +198,21 @@ short   234.8 d4 pool -> FATH after  116 it (13 s), left     0.0; first solve 20
 short   236.1 d5      -> FATH after   78 it (8 s), left     0.0; first solve 340 it  t2_z003
 short   236.1 d5      -> FATH after   78 it (7 s), left     0.0; first solve 340 it  t2_z010
 short   242.2 d4 pool -> FATH after  210 it (23 s), left     0.0; first solve 110 it  w30_zallhge
+short   259.9 d5 pool -> FATH after  150 it (14 s), left     0.0; first solve 110 it  w2_zallhwf
 short   265.2 d4 pool -> FATH after   78 it (9 s), left     0.0; first solve 110 it  w18_zallhge
 short   265.6 d4 pool -> FATH after  140 it (15 s), left     0.0; first solve 220 it  w18_zallhg
+short   270.3 d5 pool -> FATH after   70 it (6 s), left     0.0; first solve 110 it  w2_zallhwf
 short   287.8 d6      -> FATH after   97 it (8 s), left     0.0; first solve 330 it  t2_z003
+short   296.8 d4 pool -> FATH after   29 it (3 s), left     0.0; first solve 110 it  w2_zallhwf
 short   302.0 d5      -> FATH after  140 it (14 s), left     0.0; first solve 350 it  t4_z010
 short   329.0 d4 pool -> FATH after  198 it (22 s), left     0.0; first solve 220 it  w18r_zallhg
 short   329.3 d4 pool -> FATH after  173 it (20 s), left     0.0; first solve 350 it  w18_zall
+short   334.6 d4 pool -> FATH after  240 it (24 s), left     0.0; first solve 110 it  w18_zallhws
+short   340.4 d4 pool -> FATH after  210 it (20 s), left     0.0; first solve 110 it  w18_zallhw
+short   352.7 d5 pool -> FATH after 1370 it (116 s), left     0.0; first solve 110 it  w2_zallhwf
+short   363.8 d4 pool -> FATH after  167 it (17 s), left     0.0; first solve 110 it  w18_zallhw
+short   374.4 d5 pool -> FATH after  165 it (14 s), left     0.0; first solve 110 it  w2_zallhwf
+short   374.7 d4 pool -> FATH after  192 it (20 s), left     0.0; first solve 110 it  w18_zallhws
 short   382.5 d4 pool -> FATH after  227 it (26 s), left     0.0; first solve 350 it  w18_z030
 short   384.6 d4 pool -> FATH after  198 it (22 s), left     0.0; first solve 210 it  w18_zallhg
 short   384.6 d4      -> FATH after  130 it (14 s), left     0.0; first solve 590 it  gate_z003 ROOT(cold)
@@ -196,20 +222,35 @@ short   406.4 d4 pool -> FATH after  272 it (31 s), left     0.0; first solve 34
 short   410.7 d5      -> FATH after  140 it (14 s), left     0.0; first solve 340 it  t2_z003
 short   410.7 d5      -> FATH after  140 it (13 s), left     0.0; first solve 340 it  t2_z010
 short   417.6 d4 pool -> FATH after  274 it (32 s), left     0.0; first solve 210 it  w18r_zallhg
+short   431.3 d4 pool -> FATH after  158 it (15 s), left     0.0; first solve 110 it  w18_zallhw
+short   433.8 d4 pool -> FATH after  175 it (18 s), left     0.0; first solve 110 it  w18_zallhws
 short   437.3 d4 pool -> FATH after  380 it (47 s), left     0.0; first solve 350 it  w18_zall
 short   450.2 d4 pool -> FATH after  640 it (70 s), left     0.0; first solve 210 it  w18r_zallhg
 short   450.4 d5      -> FATH after  130 it (14 s), left     0.0; first solve 300 it  t1_z003
+short   460.5 d5 pool -> FATH after  283 it (24 s), left     0.0; first solve 110 it  w2_zallhwf
 short   470.6 d4 pool -> FATH after  150 it (16 s), left     0.0; first solve 110 it  w18_zallhge
 short   493.1 d4 pool -> FATH after  387 it (44 s), left     0.0; first solve 300 it  w18_z030
 short   517.3 d4 pool -> FATH after  500 it (57 s), left     0.0; first solve 340 it  w18_z030
 short   535.9 d4 pool -> FATH after  522 it (59 s), left     0.0; first solve 300 it  w18_zall
 short   539.7 d4 pool -> FATH after  405 it (44 s), left     0.0; first solve 110 it  w18_zallhge
+short   541.5 d4 pool -> FATH after  643 it (62 s), left     0.0; first solve 110 it  w2_zallhwf
 short   551.0 d4 pool -> FATH after  726 it (80 s), left     0.0; first solve 200 it  w18_zallhg
+short   551.1 d4 pool -> FATH after  284 it (29 s), left     0.0; first solve 110 it  w18_zallhws
+short   552.3 d4 pool -> FATH after  300 it (30 s), left     0.0; first solve 110 it  w18_zallhw
 short   566.6 d4 pool -> FATH after  630 it (71 s), left     0.0; first solve 340 it  w18_z030
 short   577.4 d5      -> FATH after  202 it (20 s), left     0.0; first solve 320 it  t4_z010
+short   580.7 d4 pool -> FATH after  266 it (25 s), left     0.0; first solve 110 it  w2_zallhwf
+short   586.6 d5 pool -> miss after  510 it (45 s), left   193.9; first solve 110 it  w2_zallhwf
 short   589.0 d4 pool -> FATH after 1126 it (124 s), left     0.0; first solve 340 it  w18_zall
+short   590.2 d4 pool -> FATH after  588 it (62 s), left     0.0; first solve 110 it  w18_zallhws
+short   590.6 d4 pool -> FATH after  690 it (68 s), left     0.0; first solve 110 it  w18_zallhw
+short   609.7 d4 pool -> FATH after  206 it (21 s), left     0.0; first solve 110 it  w18_zallhw
+short   610.4 d4 pool -> FATH after  240 it (24 s), left     0.0; first solve 110 it  w18_zallhws
 short   613.7 d4 pool -> FATH after  210 it (24 s), left     0.0; first solve 110 it  w18_zallhge
 short   615.1 d4 pool -> FATH after 1148 it (127 s), left     0.0; first solve 200 it  w18r_zallhg
+short   617.8 d4 pool -> FATH after  285 it (27 s), left     0.0; first solve 110 it  w2_zallhwf
+short   629.9 d5 pool -> miss after  340 it (28 s), left   462.5; first solve 110 it  w2_zallhwf
+short   646.1 d4 pool -> FATH after  270 it (26 s), left     0.0; first solve 110 it  w2_zallhwf
 short   648.2 d4 pool -> FATH after 1290 it (141 s), left     0.0; first solve 340 it  w18_z030
 short   685.2 d4 pool -> FATH after  750 it (82 s), left     0.0; first solve 110 it  w18_zallhge
 short   725.1 d4 pool -> miss after  490 it (52 s), left   261.3; first solve 200 it  w18_zallhg
@@ -218,22 +259,36 @@ short   795.5 d4 pool -> FATH after 1750 it (209 s), left     0.0; first solve 2
 short   822.8 d4      -> FATH after  276 it (33 s), left     0.0; first solve 200 it  t3_z010
 short   825.5 d4 pool -> miss after  500 it (53 s), left   263.0; first solve 110 it  w18_zallhge
 short   849.4 d4 pool -> FATH after 1900 it (203 s), left     0.0; first solve 200 it  w18_z030
+short   886.5 d4 pool -> FATH after  752 it (71 s), left     0.0; first solve 110 it  w2_zallhwf
 short   957.3 d4      -> FATH after  220 it (24 s), left     0.0; first solve 320 it  t1_z010 ROOT(cold)
 short   981.0 d4 pool -> miss after 2200 it (243 s), left   169.3; first solve 200 it  w18_zall
 short   984.4 d3 pool -> FATH after 1200 it (147 s), left     0.0; first solve 200 it  w38_zallhg ROOT(warm)
+short  1033.5 d4 pool -> miss after  490 it (46 s), left   398.0; first solve 110 it  w2_zallhwf
 short  1036.8 d4 pool -> miss after 2610 it (299 s), left   146.0; first solve 200 it  w18_z030
 short  1138.3 d5      -> FATH after  415 it (41 s), left     0.0; first solve 200 it  t4_z010
 short  1246.7 d5      -> FATH after  526 it (51 s), left     0.0; first solve 200 it  t2_z010
 short  1256.6 d3 pool -> FATH after 1202 it (149 s), left     0.0; first solve 110 it  w38_zallhge ROOT(warm)
+short  1271.4 d3 pool -> FATH after  300 it (34 s), left     0.0; first solve 110 it  w38_zallhw ROOT(warm)
 short  1284.0 d5      -> FATH after  561 it (56 s), left     0.0; first solve 200 it  t4_z010
+short  1284.6 d3 pool -> FATH after  290 it (34 s), left     0.0; first solve 110 it  w38_zallhws ROOT(warm)
+short  1321.9 d4 pool -> miss after  370 it (35 s), left   834.1; first solve 110 it  w2_zallhwf
+short  1362.5 d4 pool -> miss after  400 it (38 s), left   967.6; first solve 110 it  w2_zallhwf
 short  1379.9 d3 pool -> FATH after 2812 it (351 s), left     0.0; first solve 200 it  w38_zall ROOT(warm)
+short  1430.7 d4 pool -> miss after  460 it (43 s), left  1060.5; first solve 110 it  w2_zallhwf
 short  1442.7 d4      -> FATH after  773 it (92 s), left     0.0; first solve 200 it  t3_z010
+short  1450.7 d4 pool -> miss after 1610 it (154 s), left    14.6; first solve 110 it  w2_zallhwf
 short  1538.8 d5      -> FATH after  912 it (88 s), left     0.0; first solve 200 it  t4_z010
+short  1661.9 d3 pool -> miss after  370 it (41 s), left   757.3; first solve 110 it  w30_zallhw ROOT(warm)
+short  1661.9 d3 pool -> miss after  370 it (42 s), left   757.3; first solve 110 it  w30_zallhwg ROOT(warm)
+short  1667.2 d3 pool -> miss after  390 it (46 s), left   692.3; first solve 110 it  w30_zallhws ROOT(warm)
 short  1806.8 d3 pool -> miss after  550 it (67 s), left  1032.5; first solve 110 it  w30_zallhge ROOT(warm)
 short  1907.9 d5      -> FATH after 1717 it (163 s), left     0.0; first solve 200 it  t4_z010
+short  2223.6 d3 pool -> miss after  580 it (68 s), left  1471.7; first solve 110 it  w18_zallhws ROOT(warm)
+short  2224.8 d3 pool -> miss after  620 it (69 s), left  1486.1; first solve 110 it  w18_zallhw ROOT(warm)
 short  2426.7 d3      -> FATH after 3341 it (431 s), left     0.0; first solve 200 it  w38_z030 ROOT(warm)
 short  2468.1 d3 pool -> miss after  620 it (78 s), left  1886.9; first solve 200 it  w18_zallhg ROOT(warm)
 short  2551.2 d3 pool -> miss after  620 it (78 s), left  1888.0; first solve 110 it  w18_zallhge ROOT(warm)
+short  2642.6 d3 pool -> miss after  690 it (74 s), left  1936.3; first solve 110 it  w2_zallhwf ROOT(warm)
 short  3162.8 d3 pool -> miss after  650 it (90 s), left  2298.2; first solve 200 it  w18_zall ROOT(warm)
 short  3162.8 d3 pool -> miss after 1320 it (163 s), left  2010.9; first solve 200 it  w18r_zallhg ROOT(warm)
 short  3192.6 d4      -> FATH after 2070 it (243 s), left     0.0; first solve 200 it  t2_z030 ROOT(cold)
@@ -242,6 +297,8 @@ short  4274.3 d4      -> miss after 1810 it (228 s), left   832.1; first solve 2
 short  4274.3 d4      -> miss after 1810 it (207 s), left   832.1; first solve 200 it  t4_z030g ROOT(cold)
 short  4474.4 d3      -> miss after  920 it (120 s), left  2420.8; first solve 200 it  w18_z030 ROOT(warm)
 short  8634.2 d2      -> miss after  760 it (120 s), left  5100.2; first solve 200 it  wroot_zall ROOT(cold)
+short  8634.2 d2      -> miss after 1990 it (276 s), left  3498.9; first solve 200 it  wroot_zallhws ROOT(cold)
+short  8634.2 d2      -> miss after 2550 it (341 s), left  3509.5; first solve 200 it  wroot_zallhw ROOT(cold)
 short  8634.2 d2      -> miss after 3030 it (453 s), left  4050.3; first solve 200 it  wroot_zallh ROOT(cold)
 
 no inherited pool. shortfall bin: phases, fathomed, median it (fathomed), median it (missed), median gain of misses
@@ -254,17 +311,17 @@ no inherited pool. shortfall bin: phases, fathomed, median it (fathomed), median
  2000-2500     1   1   3341   nan      nan
  2500-3500     2   1   2070  3400   3459.3
  3500-5000     3   0    nan  1810   3442.2
- 5000-99999    2   0    nan  3030   4583.9
+ 5000-99999    4   0    nan  2550   5124.7
 
 from an inherited pool. shortfall bin: phases, fathomed, median it (fathomed), median it (missed), median gain of misses
-    0-250     11  11     97   nan      nan
-  250-500     14  14    227   nan      nan
-  500-750     11  10    726   490    463.8
-  750-1000     6   3   1750   500    562.5
- 1000-1500     3   2   2812  2610    890.8
- 1500-2000     1   0    nan   550    774.3
- 2000-2500     1   0    nan   620    581.2
- 2500-3500     3   0    nan   650    864.7
+    0-250     14  14     83   nan      nan
+  250-500     26  26    198   nan      nan
+  500-750     23  20    522   490    392.8
+  750-1000     7   4   1750   500    562.5
+ 1000-1500    10   4   1202   490    635.5
+ 1500-2000     4   0    nan   390    904.6
+ 2000-2500     3   0    nan   620    738.7
+ 2500-3500     4   0    nan   690    864.7
 ```
 
 - **Up to about 1,000 short an unpooled phase fathoms in about 0.3 iterations per unit of shortfall**
@@ -535,22 +592,22 @@ Arms (all `zall`, `cut.zone = 0.06`): `zall` the first study's; `zallhg` = `zall
 + `dnn.gu_zone = 0`; `zallhge` = `zallhg` + `dnn.giveup_warm = 100`. One `bnbdrv` at a time
 (`stop/run2.sh`, `stop/seq.sh` over `stop/jobs.txt`, log `stop/seq.log`), the box at load 6-8.
 Each arm's subtree is resumed from that arm's A/B root (`wroot_ARM`; `zallhg` and `zallhge` from
-`wroot_zallh`, whose solve their extra keys do not touch). `python3 stop/ab.py`:
+`wroot_zallh`, whose solve their extra keys do not touch). `python3 stop/ab.py 2`:
 
-| node | arm | nodes | fathomed: first solve / phase | phases (fathomed) | iterations: first + phases = total | root: first + phase (gap left) | CPU s | vs z030 | vs zall | vs production [e] |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `18:32` | production | 1,490 | | | 38,144 [e] | 4474 short | 5,551 (c7a) | | | |
-| | z030 | 74 | 65 / 7 | 9 (7) | 4,474 + 8,561 = 13,035 | 200 + 920 (2421 left, from 4474) | 1439 |  | 0.89x | 2.93x |
-| | zall | 74 | 65 / 7 | 9 (7) | 4,429 + 7,136 = 11,565 | 200 + 650 (2298 left, from 3163) | 1293 | 1.13x |  | 3.30x |
-| | zallhg | 74 | 66 / 6 | 8 (6) | 3,500 + 2,731 = 6,231 | 200 + 620 (1887 left, from 2468) | 662 | 2.09x | 1.86x | 6.12x |
-| | zallhge | 74 | 66 / 6 | 8 (6) | 2,717 + 2,806 = 5,523 | 110 + 620 (1888 left, from 2551) | 603 | 2.36x | 2.09x | 6.91x |
-| `38:32` | production | 287 | | | 7,347 [e] | 2427 short | 1,000 (c7a) | | | |
-| | z030 | 1 | 0 / 1 | 1 (1) | 200 + 3,341 = 3,541 | 200 + 3341 (fathomed, from 2427) | 455 |  | 0.85x | 2.07x |
-| | zall | 1 | 0 / 1 | 1 (1) | 200 + 2,812 = 3,012 | 200 + 2812 (fathomed, from 1380) | 374 | 1.18x |  | 2.44x |
-| | zallhg | 1 | 0 / 1 | 1 (1) | 200 + 1,200 = 1,400 | 200 + 1200 (fathomed, from 984) | 170 | 2.53x | 2.15x | 5.25x |
-| | zallhge | 1 | 0 / 1 | 1 (1) | 110 + 1,202 = 1,312 | 110 + 1202 (fathomed, from 1257) | 162 | 2.70x | 2.30x | 5.60x |
-| `30:32` | production | 571 | | | 14,618 [e] | 3492 short | 2,122 (c7a) | | | |
-| | zallhge | 38 | 36 / 1 | 2 (1) | 1,245 + 760 = 2,005 | 110 + 550 (1032 left, from 1807) | 226 |  |  | 7.29x |
+| node | arm | nodes | fathomed: first solve / phase | phases (fathomed) | iterations: first + phases = total | root: first + phase (gap left) | CPU s | vs z030 | vs zall | vs zallhge | vs production [e] |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `18:32` | production | 1,490 | | | 38,144 [e] | 4474 short | 5,551 (c7a) | | | | |
+| | z030 | 74 | 65 / 7 | 9 (7) | 4,474 + 8,561 = 13,035 | 200 + 920 (2421 left, from 4474) | 1439 |  | 0.89x | 0.42x | 2.93x |
+| | zall | 74 | 65 / 7 | 9 (7) | 4,429 + 7,136 = 11,565 | 200 + 650 (2298 left, from 3163) | 1293 | 1.13x |  | 0.48x | 3.30x |
+| | zallhg | 74 | 66 / 6 | 8 (6) | 3,500 + 2,731 = 6,231 | 200 + 620 (1887 left, from 2468) | 662 | 2.09x | 1.86x | 0.89x | 6.12x |
+| | zallhge | 74 | 66 / 6 | 8 (6) | 2,717 + 2,806 = 5,523 | 110 + 620 (1888 left, from 2551) | 603 | 2.36x | 2.09x |  | 6.91x |
+| `38:32` | production | 287 | | | 7,347 [e] | 2427 short | 1,000 (c7a) | | | | |
+| | z030 | 1 | 0 / 1 | 1 (1) | 200 + 3,341 = 3,541 | 200 + 3341 (fathomed, from 2427) | 455 |  | 0.85x | 0.37x | 2.07x |
+| | zall | 1 | 0 / 1 | 1 (1) | 200 + 2,812 = 3,012 | 200 + 2812 (fathomed, from 1380) | 374 | 1.18x |  | 0.44x | 2.44x |
+| | zallhg | 1 | 0 / 1 | 1 (1) | 200 + 1,200 = 1,400 | 200 + 1200 (fathomed, from 984) | 170 | 2.53x | 2.15x | 0.94x | 5.25x |
+| | zallhge | 1 | 0 / 1 | 1 (1) | 110 + 1,202 = 1,312 | 110 + 1202 (fathomed, from 1257) | 162 | 2.70x | 2.30x |  | 5.60x |
+| `30:32` | production | 571 | | | 14,618 [e] | 3492 short | 2,122 (c7a) | | | | |
+| | zallhge | 38 | 36 / 1 | 2 (1) | 1,245 + 760 = 2,005 | 110 + 550 (1032 left, from 1807) | 226 |  |  |  | 7.29x |
 
 `18:32` child by child (`python3 wchildren.py w18_zall w18_zallhg w18_zallhge`):
 
@@ -680,6 +737,297 @@ A/B subtree: 5.8x less CPU (4.0-6.8x); whole tree if alike: 225 c7a CPU-days (19
 - **Before a launch:** the same arm on a second depth-2 subtree with a far root, warm from depth 1,
   and Knuth dives under it.
 
+## With the faster phase (third study, Nov 16): hand-over policy + `wc=2.88`
+
+`../cpfast/README.md` found that the phase was running at the warm children's penalty and that
+`dnn.beta_sched = w=0.36,wc=2.88` makes a far phase 2.4 to 4.6 times shorter. This section puts that
+together with the second study's arm. Result [m], warm subtrees, one process
+at a time: **`18:32` 4,322 iterations and 38 nodes (5,523 and 74 under the second study's arm, 13,035
+under `z030`), `38:32` 410 (1,312; 3,541), `30:32` 1,687 (2,005)**, and `2:32`, never run before,
+20,992 iterations and 288 nodes where production took 6,281 nodes. Sweeps and extrapolation on top
+add nothing in the subtrees. The path check passes and costs
+no more than before. Extrapolated, with all four classes now measured: about 7.8x less CPU than
+production on the A/B subtree and **about 165 c7a CPU-days (140-210) for the tree if it responds
+alike**.
+
+### The solver: `stop/combined.patch`
+
+My worktree `/home/user/wt-tho40search` with `../cpfast/cpfast.patch` and `stop/handover.patch`
+applied (one context conflict, in `DNNCutParams`' defaults; `git diff` of the result is
+`stop/combined.patch`, against 2f2f4f1b: 239 lines added over 7 files). Every new key defaults to today's behaviour.
+`cut.handover` grew two optional fields here:
+
+```
+cut.handover = N0:A:B[:PHI[:W[:P[:KAPPA]]]]     run: 20:0:0.22:1.5:100:3:1.25
+```
+
+The children's cost is `C = m x (N0 + A g + B g^P)` (P = 2 before). From iteration max(W, 200), with
+`rate` the gain over the last W iterations per iteration, the phase stops when
+(i) `PHI x gap / rate > C` (finishing costs more than handing over) and, if KAPPA > 0,
+(ii) `rate x dC/dgap < KAPPA` (one more phase iteration no longer saves KAPPA child iterations).
+`20:2:3` still means what it meant in the second study.
+
+### The refit [m hand-overs, e model]
+
+`python3 stop/replay3.py` (`stop/replay3.out`): every hand-over whose children ran complete, mine and
+cpfast's two `w18` runs at `wc=2.88`, in iterations per child, against the second study's model
+(`quad3` = 20 + 2 g + 3 g^2), a quadratic with half the coefficient, and a cubic:
+
+| run | depth | gap left | children's iterations per child | quad3 | quad1.5 | cubic 20 + 0.22 g^3 |
+|---|---|---|---|---|---|---|
+| `t3_z030` | 3 | 3 | 19.1 | 20 | 20 | 20 |
+| `w2_zallhwf` | 4 | 15 | 27.4 | 20 | 20 | 20 |
+| `w18_z030` | 4 | 146 | 20.6 | 22 | 21 | 20 |
+| `w18_zall` | 4 | 169 | 20.5 | 23 | 21 | 20 |
+| `w2_zallhwf` | 5 | 194 | 28.5 | 24 | 21 | 20 |
+| `w18_zallhg` | 4 | 261 | 21.4 | 26 | 22 | 20 |
+| `w18_zallhge` | 4 | 263 | 21.3 | 26 | 22 | 20 |
+| `w18r_zallhg` | 4 | 339 | 20.9 | 29 | 23 | 21 |
+| `w2_zallhwf` | 4 | 398 | 31.3 | 32 | 24 | 21 |
+| `w2_zallhwf` | 5 | 463 | 32.4 | 35 | 26 | 22 |
+| `w30_zallhws` | 3 | 692 | 32.2 | 51 | 32 | 25 |
+| `w30_zallhw` | 3 | 757 | 32.6 | 56 | 35 | 27 |
+| `w30_zallhwg` | 3 | 757 | 32.6 | 56 | 35 | 27 |
+| `t4_z030` | 4 | 832 | 54.3 | 63 | 38 | 29 |
+| `t4_z030g` | 4 | 832 | 46.9 | 63 | 38 | 29 |
+| `w2_zallhwf` | 4 | 834 | 88.6 | 63 | 38 | 29 |
+| `w2_zallhwf` | 4 | 968 | 89.1 | 77 | 44 | 34 |
+| `w30_zallhge` | 3 | 1,032 | 36.4 | 84 | 48 | 37 |
+| `w2_zallhwf` | 4 | 1,060 | 101.8 | 87 | 49 | 39 |
+| `w18_zallhws` | 3 | 1,472 | 96.9 | 145 | 76 | 70 |
+| `w18_zallhw` | 3 | 1,486 | 97.1 | 147 | 77 | 72 |
+| `cpfast/w18_wc2.88` | 3 | 1,605 | 126.5 | 167 | 87 | 85 |
+| `cpfast/w18_wc2.88_gap300` | 3 | 1,605 | 118.8 | 167 | 87 | 85 |
+| `w18_zallhg` | 3 | 1,887 | 146.2 | 220 | 112 | 126 |
+| `w18_zallhge` | 3 | 1,888 | 129.5 | 221 | 112 | 126 |
+| `w2_zallhwf` | 3 | 1,936 | 545.7 | 231 | 117 | 135 |
+| `w18r_zallhg` | 3 | 2,011 | 170.1 | 246 | 125 | 149 |
+| `w18_zall` | 3 | 2,298 | 289.6 | 313 | 157 | 212 |
+| `w18_z030` | 3 | 2,421 | 322.0 | 344 | 172 | 244 |
+
+- **The cost of a hand-over is cubic in the gap, not quadratic**: 20 a child up to 340 left, 36 at
+  1,030, 130-170 at 1,900-2,000. `20 + 0.22 g^3` is within 16% of every hand-over run under the second
+  study's settings (`zallhg`, `zallhge`, `w18r`); `quad3` is 1.5 to 2.3 times too high between 800 and
+  2,000 (the runs it was fitted to had 2,600-iteration child phases). The cubic is low by 30-45% on
+  t4's and cpfast's rows, whose give-up children still spent 300-350 iterations in the first solve,
+  and the rows under the first study's settings beyond 2,200 are above every model.
+- **The `zallhw*` rows were run after the refit** and are a check on it: 33 a child against the
+  cubic's 27 at 757 left, 97 against 72 at 1,486. Low by a fifth to a third: under `wc` the pool a
+  stopped phase leaves is less converged. Not refit again.
+- **With an honest C, condition (i) alone is too impatient far from the cutoff**: it compares finishing
+  with handing over, and a far phase cannot finish. What a far phase buys is a better pool, so the
+  stop there is the marginal one, (ii). The quadratic's overstatement had been standing in for it.
+- **A phase at a new penalty starts flat** (cpfast: 30-50 iterations, 100-150 from a pool), so the rate
+  is taken over the last 100 iterations and never before iteration 200: with W = 200 the replay stops
+  cpfast's pooled 479-short phase at iteration 200, 550 iterations before it fathoms.
+- **Replayed** on the 13 phases of cpfast's `wc` runs, the refit rule stops none of the 11 that fathom
+  and neither root early. On the 66 phases recorded at `w` it would stop 13, six of them recorded
+  fathoms that took 1,290 to 3,341 iterations: at `w` those were the slow tails.
+
+### In the search: the combined arms [m]
+
+Arms, on top of `zallhge` (the second study's): `zallhw` = `dnn.beta_sched = w=0.36,wc=2.88` and
+`cut.handover = 20:0:0.22:1.5:100:3:1.25`; `zallhwg` = `zallhw` + `cut.cp_wc_gap = 300`; `zallhws` =
+`zallhwg` + `cut.cp_sweeps = 3:1` + `cut.cp_extrap = 100:1:30:2`. One `bnbdrv` at a time, the box at load
+2-5. Each arm's A/B root was run first (`wroot_zallhw`: 200 + 2,550 iterations, 3,510 short left,
+where `zallh`'s 3,030 iterations left 4,050); `zallhwg` resumes `zallhw`'s root, whose phase starts
+far beyond the gap. `python3 stop/ab.py`:
+
+| node | arm | nodes | fathomed: first solve / phase | phases (fathomed) | iterations: first + phases = total | root: first + phase (gap left) | CPU s | vs z030 | vs zall | vs zallhge | vs production [e] |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `18:32` | production | 1,490 | | | 38,144 [e] | 4474 short | 5,551 (c7a) | | | | |
+| | z030 | 74 | 65 / 7 | 9 (7) | 4,474 + 8,561 = 13,035 | 200 + 920 (2421 left, from 4474) | 1439 |  | 0.89x | 0.42x | 2.93x |
+| | zall | 74 | 65 / 7 | 9 (7) | 4,429 + 7,136 = 11,565 | 200 + 650 (2298 left, from 3163) | 1293 | 1.13x |  | 0.48x | 3.30x |
+| | zallhg | 74 | 66 / 6 | 8 (6) | 3,500 + 2,731 = 6,231 | 200 + 620 (1887 left, from 2468) | 662 | 2.09x | 1.86x | 0.89x | 6.12x |
+| | zallhge | 74 | 66 / 6 | 8 (6) | 2,717 + 2,806 = 5,523 | 110 + 620 (1888 left, from 2551) | 603 | 2.36x | 2.09x |  | 6.91x |
+| | zallhw | 38 | 31 / 6 | 7 (6) | 1,971 + 2,351 = 4,322 | 110 + 620 (1486 left, from 2225) | 441 | 3.02x | 2.68x | 1.28x | 8.83x |
+| | zallhws | 38 | 31 / 6 | 7 (6) | 1,975 + 2,299 = 4,274 | 110 + 580 (1472 left, from 2224) | 441 | 3.05x | 2.71x | 1.29x | 8.92x |
+| `38:32` | production | 287 | | | 7,347 [e] | 2427 short | 1,000 (c7a) | | | | |
+| | z030 | 1 | 0 / 1 | 1 (1) | 200 + 3,341 = 3,541 | 200 + 3341 (fathomed, from 2427) | 455 |  | 0.85x | 0.37x | 2.07x |
+| | zall | 1 | 0 / 1 | 1 (1) | 200 + 2,812 = 3,012 | 200 + 2812 (fathomed, from 1380) | 374 | 1.18x |  | 0.44x | 2.44x |
+| | zallhg | 1 | 0 / 1 | 1 (1) | 200 + 1,200 = 1,400 | 200 + 1200 (fathomed, from 984) | 170 | 2.53x | 2.15x | 0.94x | 5.25x |
+| | zallhge | 1 | 0 / 1 | 1 (1) | 110 + 1,202 = 1,312 | 110 + 1202 (fathomed, from 1257) | 162 | 2.70x | 2.30x |  | 5.60x |
+| | zallhw | 1 | 0 / 1 | 1 (1) | 110 + 300 = 410 | 110 + 300 (fathomed, from 1271) | 46 | 8.64x | 7.35x | 3.20x | 17.92x |
+| | zallhws | 1 | 0 / 1 | 1 (1) | 110 + 290 = 400 | 110 + 290 (fathomed, from 1285) | 46 | 8.85x | 7.53x | 3.28x | 18.37x |
+| `30:32` | production | 571 | | | 14,618 [e] | 3492 short | 2,122 (c7a) | | | | |
+| | zallhge | 38 | 36 / 1 | 2 (1) | 1,245 + 760 = 2,005 | 110 + 550 (1032 left, from 1807) | 226 |  |  |  | 7.29x |
+| | zallhw | 38 | 37 / 0 | 1 (0) | 1,317 + 370 = 1,687 | 110 + 370 (757 left, from 1662) | 181 |  |  | 1.19x | 8.66x |
+| | zallhwg | 38 | 37 / 0 | 1 (0) | 1,317 + 370 = 1,687 | 110 + 370 (757 left, from 1662) | 187 |  |  | 1.19x | 8.66x |
+| | zallhws | 38 | 37 / 0 | 1 (0) | 1,302 + 390 = 1,692 | 110 + 390 (692 left, from 1667) | 185 |  |  | 1.18x | 8.64x |
+| `2:32` | production | 6,281 | | | 160,794 [e] | 5039 short | 19,941 (c7a) | | | | |
+| | zallhwf | 288 | 266 / 14 | 22 (14) | 11,710 + 9,282 = 20,992 | 110 + 690 (1936 left, from 2643) | 1867 |  |  |  | 7.66x |
+
+For reference, cpfast's `z030` + `wc=2.88` runs of the same nodes: `18:32` 38 nodes, 5,891 iterations
+(5,605 with the gap rule); `38:32` 1,001.
+
+- **Together: `18:32` 4,322 iterations and 38 nodes, `38:32` 410, `30:32` 1,687.** Against `z030`'s 13,035
+  and 3,541 that is 3.0x and 8.6x; against the second study's arm 1.28x, 3.2x and 1.19x; against
+  cpfast's `z030` + `wc` runs 1.36x (1.30x with their gap rule) and 2.4x.
+- **The two results overlap rather than multiply** on `18:32`: each alone took 13,035 to about 5,500
+  to 5,900 (2.2x to 2.4x), both together to 4,322 (3.0x). Both act on the same long phases: the
+  hand-over rule had already stopped the ones `wc` shortens most. Where one far phase is the whole
+  subtree they do multiply: `38:32`'s phase is 300 iterations (3,341 under `z030`, 1,202 under
+  `zallhge`, 801 in cpfast's run from the unpooled start).
+- **What `wc` changed under the hand-over policy.**
+  - The depth-2 root's phase stops at 2,550 iterations 3,510 short (3,030 and 4,050 at `w`), so the
+    depth-3 nodes start closer again: `18:32` 2,225 short (2,551), `30:32` 1,662 (1,807).
+  - `18:32`'s own phase is handed over at 620 iterations as before but 1,486 short instead of
+    1,888; 31 of its 37 children fathom at once (30) and none branches (one did): no depth 5.
+  - Its children's phases: the longer ones are shorter (552 short: 300 iterations, where 685 short took
+    750; 340: 210, where 540 took 405), the nearest are not (340-430 short: 158-210 iterations at
+    `wc`, where 396-471 short took 93-150 at `w`). cpfast's flat start: a pooled phase at the new
+    penalty does not move for 100-200 iterations.
+  - `30:32`'s root is handed over after 370 iterations, 757 short, and all 37 children fathom in their
+    first solve: one phase in the subtree.
+- **`cut.cp_wc_gap = 300` changes nothing on these three**: no phase in them starts within 300 of the
+  cutoff. `30:32` was run under both arms and is the same run to the iteration; the other two were
+  not rerun. It matters on the path (below).
+- **A flaw found and guarded on `2:32`.** In the first run of `2:32` a pooled depth-5 phase 353 short,
+  at `wc`, had not moved at all by iteration 200, and the rule handed it over on a rate of zero.
+  `stop/combined.patch` as delivered waits until the running best has been moving for W iterations
+  (and hands over a phase that has not moved by 400). The three subtrees above are unaffected (every
+  stop in them came more than W after the first movement: checked on their histories). With the
+  guard that phase runs on and fathoms after 1,370 iterations, a geometric tail (gap x 0.7 per 100
+  iterations): dearer than the hand-over would have been (about 200 + 35 x 20). A wider
+  `cut.cp_wc_gap` (500) would have kept it at `w`. Not tuned further.
+- **`2:32`, the class above 5,000 short, measured for the first time** (25% of the A/B subtree's CPU;
+  6,281 nodes and 19,941 c7a CPU s in production): **288 nodes, 20,992 iterations, 1,867 CPU s** under
+  the combined arm with the guard (`zallhwf`): 22x fewer nodes, 7.7x fewer iterations [production's e],
+  7.5x less CPU. Its root starts 2,643 short (5,039 in production) and is handed over at 690
+  iterations, 1,936 short; 5 of its 37 children branch: four handed over 400 to 1,060 short after
+  370 to 490 iterations, one after 1,610 iterations 15 short (the geometric tail again: the rule
+  does not catch it). The tree ends at depth 6. All 5 phases that start beyond 1,000 from a pool hand
+  over; of the 16 that start within 1,000, 14 fathom.
+- **Three sweeps and the extrapolation (`zallhws`) change nothing in the subtrees**: `18:32` 4,274
+  iterations (4,322), `38:32` 400 (410), `30:32` 1,692 (1,687), at 7% more per phase iteration. They
+  shorten the one long far phase, the depth-2 root's: 1,990 iterations to the same 3,500 short
+  (2,550), 299 CPU s against 366. Under the hand-over policy the phases inside a subtree are too
+  short for it to matter. Not in the block; `2:32` was not run under it.
+
+### Where the iterations are now: first solves [m]
+
+`python3 stop/firstsplit.py ...`:
+
+| run | nodes | first solves that fathom: nodes, iterations (share) | first solves that give up: nodes, iterations (share), per node | phases: iterations (share) | total |
+|---|---|---|---|---|---|
+| `w18_z030` | 74 | 65, 1,864 (14%) | 9, 2,610 (20%), 290 | 8,561 (66%) | 13,035 |
+| `cpfast/w18_wc2.88` | 38 | 32, 1,363 (23%) | 6, 1,960 (33%), 327 | 2,568 (44%) | 5,891 |
+| `cpfast/w18_wc2.88_gap300` | 38 | 32, 1,363 (24%) | 6, 1,960 (35%), 327 | 2,282 (41%) | 5,605 |
+| `w18_zallhge` | 74 | 66, 1,837 (33%) | 8, 880 (16%), 110 | 2,806 (51%) | 5,523 |
+| `w18_zallhw` | 38 | 31, 1,201 (28%) | 7, 770 (18%), 110 | 2,351 (54%) | 4,322 |
+| `w38_zallhw` | 1 | 0, 0 (0%) | 1, 110 (27%), 110 | 300 (73%) | 410 |
+| `w30_zallhw` | 38 | 37, 1,207 (72%) | 1, 110 (7%), 110 | 370 (22%) | 1,687 |
+| `w2_zallhwf` | 288 | 266, 9,290 (44%) | 22, 2,420 (12%), 110 | 9,282 (44%) | 20,992 |
+
+- **The early entry already removes most of it.** In cpfast's `wc` run of `18:32` the first solves are
+  56% of the iterations (3,323 of 5,891): 1,960 at the 6 nodes that give up, 327 each, and 1,363 at the
+  32 that fathom. Under `zallhw` a give-up costs **110** (`dnn.giveup_warm = 100`, `dnn.gu_zone = 0`):
+  770 at 7 nodes, 18% of the subtree.
+- **What is left** in the first solves:
+  - the 110 itself. It is the give-up rule's floor (two windows of 50 iterations of history, then
+    the first check); the per-node lab started its phases after 50 to 100. Going below needs a
+    change in `latest/dnn.C`'s rule (a shorter window for warm nodes), not a key;
+  - the first solves of the children that fathom there: 31 nodes, 1,201 iterations in `18:32` (39
+    each, 28% of the subtree), and 37 nodes, 1,207 in `30:32` (72% of that subtree, which has one
+    phase). No entry policy touches these; a better pool does (fewer iterations to fathom), and so
+    would a cheaper iteration.
+
+### The path under the combined arm
+
+`python3 pathverify.py zallhwg` (the patched solver, `par/zallhwg.par`, incumbent 240,518):
+
+```
+depth  7 path node  B first solve 237165.4112 (200 it), phase best 239155.6277 after 1180 it (stalled)  -> ok
+   (the path node alone: -d 7)
+depth  9 path node  B first solve 239391.3413 (570 it), phase best 239862.0277 after 290 it (stalled)  -> ok
+depth 10 path child B first solve 240321.7048 (110 it, pooled 941 cuts), phase best 240515.9998 after 1520 it (stalled)  -> ok
+   siblings of the path child: 30 bounded, 30 fathomed; run complete
+PASS
+```
+
+Nothing above 240,516; all three branch; the first solves at depths 7 and 9 are `cold.tsv`'s. **The cost
+on the path did not rise**, because the rule hands over where the higher penalty is slow:
+
+| run (iterations: first solves + phases, CPU s) | `z030` | `zallhge` | `zallhwg` |
+|---|---|---|---|
+| depth 7, the node alone | 200 + 940, 76 | 200 + 880, 71 | 200 + 1,180, 82 |
+| depth 9 and its 31 children | 2,208 + 4,000, 347 | 1,286 + 2,230, 156 | 1,283 + 1,810, 121 |
+
+- Depth 7 (3,351 short): `wc` is slower there, as cpfast found: 239,156 after 1,180 phase iterations
+  where `w` had 239,180 after 880. 300 iterations more on this node.
+- Depth 9 (1,125 short): the phase is stopped after 290 iterations at 239,862 (240,211 after 650 under
+  `zallhge`), so its pool is weaker and the path child starts 194 short instead of 47. That child is
+  within `cut.cp_wc_gap`, keeps `w`, and reaches 240,515.9998 in 1,520 iterations (1,580 before).
+- Not checked: depths 8 and 11-12, where cpfast measured `wc` 2 to 4 times slower on single nodes; a
+  path child that starts beyond the 300 gap would run its long phase at `wc`. The gap rule is in the
+  block for that reason, not for the subtrees, where it changed nothing.
+
+### Recommended block (replaces the two above)
+
+`experiments/estimates/tho40/tho40.par` with two of its lines changed,
+
+```
+dnn.gu_zone = 0                          (was 0.003)
+dnn.beta_sched = w=0.36,wc=2.88          (was w=0.36)
+```
+
+and these added (this is `par/zallhwf.par`, less `cut.damp1`):
+
+```
+dnn.giveup_warm = 100
+pool.on = 1
+cut.grid = 5:8
+cut.side = 1
+cut.cp = 100:1000
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+cut.freeze = 1000
+cut.zone = 0.06
+cut.handover = 20:0:0.22:1.5:100:3:1.25
+cut.cp_wc_gap = 300
+```
+
+- The last two keys need `stop/combined.patch` (`git apply` on 2f2f4f1b, then `make -C latest`; it also
+  carries cpfast's `cut.cp_wc_deficit` and `cut.cp_extrap`, unused here, and their `dnncuts` options).
+  A merge also needs the keys' lines in RUNNING.md's table and the settings goldens.
+- **Without any patch**: drop the last two lines. That is the second study's block with `wc=2.88`
+  under the stall rule, which nobody has run in this form: cpfast ran `z030` + `wc` (5,891 on `18:32`),
+  I ran `zall` + rule + early entry without `wc` (5,523).
+- Not in the block: `cut.cp_sweeps = 3:1` and `cut.cp_extrap` (1.28x on the depth-2 root's phase, nothing
+  on the three subtrees: above), `cut.cp_wc_deficit` (cpfast's rule for the path: the hand-over rule did that job on the
+  path nodes checked).
+
+### The whole tree, restated again [e]
+
+`python3 stop/tree.py zallhwf,zallhwg,zallhw wroot_zallhw`: the class table once more, each class from
+its subtree under the combined arm, and now with `2:32` measured:
+
+zallhwf,zallhwg,zallhw
+| depth-3 class (short) | share of the subtree's CPU | CPU factor: low, taken, high | from |
+|---|---|---|---|
+| fathomed at once, or <= 1,500 | 1.2% | 1.5x, **2.0x**, 4.0x | [e] |
+| 1,500-2,500 | 7.4% | 9.1x, **15.2x**, 15.2x | [m] w38_zallhw (the farthest of them) 15.2x; low: 0.6 of it for the small ones |
+| 2,500-3,500 | 12.3% | 6.4x, **8.0x**, 9.5x | [m] w30_zallhwg 8.0x, +-20% |
+| 3,500-5,000 | 53.7% | 7.0x, **8.8x**, 10.6x | [m] w18_zallhw 8.8x, +-20% for the 8 other nodes |
+| above 5,000 (2:32) | 25.3% | 6.0x, **7.5x**, 9.0x | [m] w2_zallhwf 7.5x, +-20% (the one node of the class) |
+| the A/B root's own solve and phase | +0.7% of production's CPU | | [m] wroot_zallhw |
+
+A/B subtree: 7.8x less CPU (6.2-9.4x); whole tree if alike: 166 c7a CPU-days (138-209) from 1,300
+
+- **About 165 c7a CPU-days (140-210) if the whole tree responds as the A/B subtree**: 7.8x (6.2-9.4x)
+  on 1,300. The second study had 225 (190-330), the first 550 (450-700).
+- **What changed in the estimate's footing:** every class but the 1.2% of near nodes is now measured
+  on a warm subtree under the arm itself, four subtrees holding 99% of the A/B subtree's CPU between
+  their classes (36% of it in the four nodes themselves). The range is +-20% on each class factor
+  for the nodes of the class not run.
+- **What it still rests on:** one depth-2 subtree of 468, smaller than average; CPU from a shared box
+  against production's c7a seconds x 0.70 (in iterations with phases weighted 1.25, `18:32` is 7.8x
+  where its CPU says 8.8x, so the CPU factors may flatter by a tenth); the depth-2 phase, now 2,550
+  iterations a node, measured on this one depth-2 node; nothing at depth 1; the incumbent given.
+- **Before a launch**, as before: the same arm on a second depth-2 subtree with a far root, warm from
+  depth 1, and Knuth dives under it.
+
 ## Files
 
 | | |
@@ -695,3 +1043,7 @@ A/B subtree: 5.8x less CPU (4.0-6.8x); whole tree if alike: 225 c7a CPU-days (19
 | `stop/run2.sh`, `stop/seq.sh`, `stop/jobs.txt`, `stop/seq.log` | its runner (patched solver for the arms named `*h*`), the one-at-a-time queue, its log |
 | `stop/ab.py`, `stop/tree.py` | the A/B table and the restated extrapolation |
 | `par/zallh.par`, `par/zallhg.par`, `par/zallhge.par` | `zall` + `cut.handover = 20:2:3`; + `dnn.gu_zone = 0`; + `dnn.giveup_warm = 100` |
+| `stop/combined.patch` | third study: cpfast's patch and the hand-over key (with its exponent, marginal condition and flat-start guard), the diff of the worktree against 2f2f4f1b |
+| `stop/replay3.py`, `stop/replay3.out`, `stop/firstsplit.py` | third study: the refit and replay on `w` and `wc` histories; where the iterations are |
+| `par/zallhw.par`, `zallhwg.par`, `zallhwf.par`, `zallhws.par` | `zallhge` + `wc=2.88` + the refit rule; + `cut.cp_wc_gap = 300`; the same settings run with the guarded solver; + sweeps and extrapolation |
+| `runs/.w2_zallhwg_stopped/`, `runs/.old_wroot_zall/` | the traces of a run stopped part-way (before the guard) and of a root later rerun |

@@ -267,7 +267,7 @@ index b9b339de..b74692aa 100644
                         // their multipliers at every check. NULL: off (default). Not
                         // with prototype_cert, the accelerations or the child
 diff --git a/latest/dnncut.C b/latest/dnncut.C
-index 7e0aeafe..df04dff2 100644
+index 7e0aeafe..536501f9 100644
 --- a/latest/dnncut.C
 +++ b/latest/dnncut.C
 @@ -30,6 +30,9 @@ DNNCutParams::DNNCutParams()
@@ -285,12 +285,12 @@ index 7e0aeafe..df04dff2 100644
    std::vector<std::pair<int, double>> giveup;   // cut.giveup: (T, G) pairs, see DNNCutParams
    bool gaveup = false;
 +  // cut.handover (DNNCutParams): ho_w > 0 replaces the stall rule; ho_kids = m, ho_unit = 0.1% of |cutoff|
-+  int ho_w = 0, ho_kids = 0;
++  int ho_w = 0, ho_kids = 0, ho_t0 = -1;
 +  double ho_n0 = 0, ho_a = 0, ho_b = 0, ho_phi = 1.5, ho_unit = 1, ho_p = 2, ho_kappa = 0;
    std::vector<std::pair<int, double>> best_hist;
    int diag_every = 0, diag_sweeps = 30;   // every diag_every Y-steps: distance to a longer run
    std::vector<std::vector<int>> rloc;
-@@ -1212,14 +1218,51 @@ public:
+@@ -1212,14 +1218,57 @@ public:
      return dense_term(snap_f[slot], v, Ladd, abs_add, hsum) ? 1 : 0;
    }
  
@@ -329,7 +329,13 @@ index 7e0aeafe..df04dff2 100644
        if (it >= tg.first && stall_cutoff - b > tg.second) { gaveup = true; stalled = true; return true; }
 +    if (ho_w > 0) {
 +      // cut.handover: finishing the phase at its present rate against handing over to the children
-+      if (it < std::max(ho_w, 200)) return false;   // not before 200: a phase at a new penalty starts flat
++      // not before 200, nor before the running best has been moving for W iterations: a phase at a
++      // new penalty starts flat (30 to 200 iterations from an inherited pool); one that has not moved
++      // by 400 is handed over
++      if (ho_t0 < 0 && b > stall_first) ho_t0 = it;
++      if (it < std::max(ho_w, 200)) return false;
++      if (ho_t0 < 0) { if (it >= 400) { stalled = true; return true; } return false; }
++      if (it < ho_t0 + ho_w) return false;
 +      double b0 = stall_first;
 +      for (const auto &h : best_hist) { if (h.first > it - ho_w) break; b0 = h.second; }
 +      const double gap = stall_cutoff - b, rate = std::max(0.0, b - b0) / ho_w, g = gap / ho_unit;
@@ -343,7 +349,7 @@ index 7e0aeafe..df04dff2 100644
      if (stall_window <= 0 || it < stall_window) return false;
      double b0 = stall_first;   // the running best at it - W (first_lb before the first check)
      for (const auto &h : best_hist) { if (h.first > it - stall_window) break; b0 = h.second; }
-@@ -2228,6 +2271,9 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+@@ -2228,6 +2277,9 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
    pj.stall_window = cp.stall_rounds > 0 ? cp.stall_rounds * cp.iters : 0;
    pj.stall_factor = cp.stall_factor; pj.stall_cutoff = cutoff; pj.stall_first = first_lb;
    pj.giveup = cp.giveup;
@@ -353,7 +359,7 @@ index 7e0aeafe..df04dff2 100644
    DNNParams par = base;
    par.ycuts = &pj;
    par.L_add = NULL; par.L_add_abs = 0;
-@@ -2235,6 +2281,21 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
+@@ -2235,6 +2287,21 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
    par.hopeless_after = 0; par.hopeless_gap_ratio = 0;   // as the cut rounds
    par.warm_primal = cp.warm_primal;
    par.cut_round = 1;   // DNN_BETA_SCHED's wc, as the rounds

@@ -62,6 +62,14 @@ def rule(p, n0, a, b, phi, W, pw, kappa):
 
 if __name__ == "__main__":
     P = all_phases()
+    if "--table" in sys.argv:
+        print("| run | depth | gap left | children's iterations per child | quad3 | quad1.5 | cubic 20 + 0.22 g^3 |")
+        print("|---|---|---|---|---|---|---|")
+        for p in sorted(P, key=lambda p: p["left"]):
+            if p["after"] and p["status"] != "fathomed" and p["kids"] >= p["m"] - 3:
+                u = p["left"] / UNIT
+                print("| `%s` | %d | %s | %.1f | %.0f | %.0f | %.0f |" % (p["run"], p["depth"], format(round(p["left"]), ","), p["after"] / p["m"], *[MODELS[k](u) for k in ("quad3", "quad1.5", "cubic")]))
+        sys.exit(0)
     print("hand-overs whose children ran complete: gap left, children's iterations per child, and the three models")
     print("%-28s %5s %8s %3s %9s | %7s %7s %7s" % ("run", "depth", "gap left", "m", "per child", "quad3", "quad1.5", "cubic"))
     for p in sorted(P, key=lambda p: p["left"]):

@@ -2,7 +2,7 @@
 # depth-2 phases under the on-path depth-1 node 31:7: the two furthest random children and the on-path child;
 # then the first solves of 10 random depth-3 children (+ on-path) of the on-path depth-2 node
 cd /home/user/qap/experiments/bound_lab/regions/size50
-while pgrep -f q3.sh > /dev/null; do sleep 5; done
+while pgrep -f "q3b?.sh" > /dev/null; do sleep 5; done
 PARK=$(cat bestpar.txt 2>/dev/null || echo kidP)
 ./kid.sh d2_33_28 $PARK runs/d1_31_7path/out.state 2 33:28
 ./kid.sh d2_33_9 $PARK runs/d1_31_7path/out.state 2 33:9

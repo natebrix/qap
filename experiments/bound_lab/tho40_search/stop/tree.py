@@ -1,5 +1,5 @@
 """The A/B subtree's CPU under a cut arm, by the class of its depth-3 nodes (production CPU shares,
-../prodstats.py), and the whole tree if it responds alike.  python3 tree.py
+../prodstats.py), and the whole tree if it responds alike.  python3 tree.py [ARM[,ARM2] ROOTRUN]
 
 A class's factor is production CPU x 0.70 (this box per matched node, ../calib.py) over the CPU measured
 here on the warm-rooted subtree named, or an assumption [e]. The A/B root's own solve and phase
@@ -32,7 +32,9 @@ def classes(arms):
     if w30: out.append(("2,500-3,500", 0.123, (0.8 * w30[0], w30[0], 1.2 * w30[0]), "[m] %s %.1fx, +-20%%" % (n30, w30[0])))
     else: out.append(("2,500-3,500", 0.123, (min(w38[0], w18[0]), (w38[0] + w18[0]) / 2, max(w38[0], w18[0])), "[e] between the two measured"))
     out.append(("3,500-5,000", 0.537, (0.8 * w18[0], w18[0], 1.2 * w18[0]), "[m] %s %.1fx, +-20%% for the 8 other nodes" % (n18, w18[0])))
-    out.append(("above 5,000 (2:32)", 0.253, (0.5 * w18[0], w18[0], 1.2 * w18[0]), "[e] as w18; low: half of it"))
+    w2, n2 = m("w2")
+    if w2: out.append(("above 5,000 (2:32)", 0.253, (0.8 * w2[0], w2[0], 1.2 * w2[0]), "[m] %s %.1fx, +-20%% (the one node of the class)" % (n2, w2[0])))
+    else: out.append(("above 5,000 (2:32)", 0.253, (0.5 * w18[0], w18[0], 1.2 * w18[0]), "[e] as w18; low: half of it"))
     return out
 def total(arms, root_run):
     cl = classes(arms)
@@ -43,9 +45,10 @@ def total(arms, root_run):
         res.append(1.0 / (root + sum(sh / f[k] for _, sh, f, _ in cl)))
     return cl, root, res
 if __name__ == "__main__":
-    for label, arms, root_run in (("first study: z030 (its own class table gave 2.4x, 1.9-2.9)", None, None),
-                                  ("zall + hand-over rule + gu_zone 0 + giveup_warm 100 (zallhge; zallhg where hge was not run)", ["zallhge", "zallhg"], "wroot_zallh")):
-        if arms is None: continue
+    todo = [("zall + hand-over rule + gu_zone 0 + giveup_warm 100 (zallhge; zallhg where hge was not run)", ["zallhge", "zallhg"], "wroot_zallh")]
+    if len(sys.argv) > 2:      # tree.py ARM[,ARM2] ROOTRUN: another arm (third study)
+        todo = [(sys.argv[1], sys.argv[1].split(","), sys.argv[2])]
+    for label, arms, root_run in todo:
         cl, root, res = total(arms, root_run)
         print(label)
         print("| depth-3 class (short) | share of the subtree's CPU | CPU factor: low, taken, high | from |")

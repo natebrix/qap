@@ -43,6 +43,12 @@ the grid cut phase worth, and which `cut.zone`? **[m]** measured here (run named
    about 5.8x on the A/B subtree (4.0-6.8x) and **about 225 c7a CPU-days (190-330)** for the tree if
    it responds alike. Items 3 and 4 above are the first study's numbers, kept as written.
 
+8. **Third study, Nov 16 ("With the faster phase" below): with cpfast's `wc=2.88` as well.** `18:32`
+   4,322 iterations (38 nodes), `38:32` 410, `30:32` 1,687, and `2:32`, the last unmeasured class,
+   20,992 against production's 160,800 [e]. About 7.8x on the A/B subtree (6.2-9.4x) and **about 165
+   c7a CPU-days (140-210)** for the tree if it responds alike. One block, one patch
+   (`stop/combined.patch`).
+
 ## How it was run
 
 - One `latest/bnbdrv` process per subtree and arm (`run.sh`; two at a time, `queue.sh` over `jobs.txt`),
@@ -380,9 +386,9 @@ Arms (all `zall`, `cut.zone = 0.06`): `zall` the first study's; `zallhg` = `zall
 + `dnn.gu_zone = 0`; `zallhge` = `zallhg` + `dnn.giveup_warm = 100`. One `bnbdrv` at a time
 (`stop/run2.sh`, `stop/seq.sh` over `stop/jobs.txt`, log `stop/seq.log`), the box at load 6-8.
 Each arm's subtree is resumed from that arm's A/B root (`wroot_ARM`; `zallhg` and `zallhge` from
-`wroot_zallh`, whose solve their extra keys do not touch). `python3 stop/ab.py`:
+`wroot_zallh`, whose solve their extra keys do not touch). `python3 stop/ab.py 2`:
 
-@@ stop/ab.py
+@@ stop/ab.py 2
 
 `18:32` child by child (`python3 wchildren.py w18_zall w18_zallhg w18_zallhge`):
 
@@ -476,6 +482,221 @@ A/B root's own longer phase added:
 - **Before a launch:** the same arm on a second depth-2 subtree with a far root, warm from depth 1,
   and Knuth dives under it.
 
+## With the faster phase (third study, Nov 16): hand-over policy + `wc=2.88`
+
+`../cpfast/README.md` found that the phase was running at the warm children's penalty and that
+`dnn.beta_sched = w=0.36,wc=2.88` makes a far phase 2.4 to 4.6 times shorter. This section puts that
+together with the second study's arm. Result [m], warm subtrees, one process
+at a time: **`18:32` 4,322 iterations and 38 nodes (5,523 and 74 under the second study's arm, 13,035
+under `z030`), `38:32` 410 (1,312; 3,541), `30:32` 1,687 (2,005)**, and `2:32`, never run before,
+20,992 iterations and 288 nodes where production took 6,281 nodes. Sweeps and extrapolation on top
+add nothing in the subtrees. The path check passes and costs
+no more than before. Extrapolated, with all four classes now measured: about 7.8x less CPU than
+production on the A/B subtree and **about 165 c7a CPU-days (140-210) for the tree if it responds
+alike**.
+
+### The solver: `stop/combined.patch`
+
+My worktree `/home/user/wt-tho40search` with `../cpfast/cpfast.patch` and `stop/handover.patch`
+applied (one context conflict, in `DNNCutParams`' defaults; `git diff` of the result is
+`stop/combined.patch`, against 2f2f4f1b: 239 lines added over 7 files). Every new key defaults to today's behaviour.
+`cut.handover` grew two optional fields here:
+
+```
+cut.handover = N0:A:B[:PHI[:W[:P[:KAPPA]]]]     run: 20:0:0.22:1.5:100:3:1.25
+```
+
+The children's cost is `C = m x (N0 + A g + B g^P)` (P = 2 before). From iteration max(W, 200), with
+`rate` the gain over the last W iterations per iteration, the phase stops when
+(i) `PHI x gap / rate > C` (finishing costs more than handing over) and, if KAPPA > 0,
+(ii) `rate x dC/dgap < KAPPA` (one more phase iteration no longer saves KAPPA child iterations).
+`20:2:3` still means what it meant in the second study.
+
+### The refit [m hand-overs, e model]
+
+`python3 stop/replay3.py` (`stop/replay3.out`): every hand-over whose children ran complete, mine and
+cpfast's two `w18` runs at `wc=2.88`, in iterations per child, against the second study's model
+(`quad3` = 20 + 2 g + 3 g^2), a quadratic with half the coefficient, and a cubic:
+
+@@ stop/replay3.py --table
+
+- **The cost of a hand-over is cubic in the gap, not quadratic**: 20 a child up to 340 left, 36 at
+  1,030, 130-170 at 1,900-2,000. `20 + 0.22 g^3` is within 16% of every hand-over run under the second
+  study's settings (`zallhg`, `zallhge`, `w18r`); `quad3` is 1.5 to 2.3 times too high between 800 and
+  2,000 (the runs it was fitted to had 2,600-iteration child phases). The cubic is low by 30-45% on
+  t4's and cpfast's rows, whose give-up children still spent 300-350 iterations in the first solve,
+  and the rows under the first study's settings beyond 2,200 are above every model.
+- **The `zallhw*` rows were run after the refit** and are a check on it: 33 a child against the
+  cubic's 27 at 757 left, 97 against 72 at 1,486. Low by a fifth to a third: under `wc` the pool a
+  stopped phase leaves is less converged. Not refit again.
+- **With an honest C, condition (i) alone is too impatient far from the cutoff**: it compares finishing
+  with handing over, and a far phase cannot finish. What a far phase buys is a better pool, so the
+  stop there is the marginal one, (ii). The quadratic's overstatement had been standing in for it.
+- **A phase at a new penalty starts flat** (cpfast: 30-50 iterations, 100-150 from a pool), so the rate
+  is taken over the last 100 iterations and never before iteration 200: with W = 200 the replay stops
+  cpfast's pooled 479-short phase at iteration 200, 550 iterations before it fathoms.
+- **Replayed** on the 13 phases of cpfast's `wc` runs, the refit rule stops none of the 11 that fathom
+  and neither root early. On the 66 phases recorded at `w` it would stop 13, six of them recorded
+  fathoms that took 1,290 to 3,341 iterations: at `w` those were the slow tails.
+
+### In the search: the combined arms [m]
+
+Arms, on top of `zallhge` (the second study's): `zallhw` = `dnn.beta_sched = w=0.36,wc=2.88` and
+`cut.handover = 20:0:0.22:1.5:100:3:1.25`; `zallhwg` = `zallhw` + `cut.cp_wc_gap = 300`; `zallhws` =
+`zallhwg` + `cut.cp_sweeps = 3:1` + `cut.cp_extrap = 100:1:30:2`. One `bnbdrv` at a time, the box at load
+2-5. Each arm's A/B root was run first (`wroot_zallhw`: 200 + 2,550 iterations, 3,510 short left,
+where `zallh`'s 3,030 iterations left 4,050); `zallhwg` resumes `zallhw`'s root, whose phase starts
+far beyond the gap. `python3 stop/ab.py`:
+
+@@ stop/ab.py
+
+For reference, cpfast's `z030` + `wc=2.88` runs of the same nodes: `18:32` 38 nodes, 5,891 iterations
+(5,605 with the gap rule); `38:32` 1,001.
+
+- **Together: `18:32` 4,322 iterations and 38 nodes, `38:32` 410, `30:32` 1,687.** Against `z030`'s 13,035
+  and 3,541 that is 3.0x and 8.6x; against the second study's arm 1.28x, 3.2x and 1.19x; against
+  cpfast's `z030` + `wc` runs 1.36x (1.30x with their gap rule) and 2.4x.
+- **The two results overlap rather than multiply** on `18:32`: each alone took 13,035 to about 5,500
+  to 5,900 (2.2x to 2.4x), both together to 4,322 (3.0x). Both act on the same long phases: the
+  hand-over rule had already stopped the ones `wc` shortens most. Where one far phase is the whole
+  subtree they do multiply: `38:32`'s phase is 300 iterations (3,341 under `z030`, 1,202 under
+  `zallhge`, 801 in cpfast's run from the unpooled start).
+- **What `wc` changed under the hand-over policy.**
+  - The depth-2 root's phase stops at 2,550 iterations 3,510 short (3,030 and 4,050 at `w`), so the
+    depth-3 nodes start closer again: `18:32` 2,225 short (2,551), `30:32` 1,662 (1,807).
+  - `18:32`'s own phase is handed over at 620 iterations as before but 1,486 short instead of
+    1,888; 31 of its 37 children fathom at once (30) and none branches (one did): no depth 5.
+  - Its children's phases: the longer ones are shorter (552 short: 300 iterations, where 685 short took
+    750; 340: 210, where 540 took 405), the nearest are not (340-430 short: 158-210 iterations at
+    `wc`, where 396-471 short took 93-150 at `w`). cpfast's flat start: a pooled phase at the new
+    penalty does not move for 100-200 iterations.
+  - `30:32`'s root is handed over after 370 iterations, 757 short, and all 37 children fathom in their
+    first solve: one phase in the subtree.
+- **`cut.cp_wc_gap = 300` changes nothing on these three**: no phase in them starts within 300 of the
+  cutoff. `30:32` was run under both arms and is the same run to the iteration; the other two were
+  not rerun. It matters on the path (below).
+- **A flaw found and guarded on `2:32`.** In the first run of `2:32` a pooled depth-5 phase 353 short,
+  at `wc`, had not moved at all by iteration 200, and the rule handed it over on a rate of zero.
+  `stop/combined.patch` as delivered waits until the running best has been moving for W iterations
+  (and hands over a phase that has not moved by 400). The three subtrees above are unaffected (every
+  stop in them came more than W after the first movement: checked on their histories). With the
+  guard that phase runs on and fathoms after 1,370 iterations, a geometric tail (gap x 0.7 per 100
+  iterations): dearer than the hand-over would have been (about 200 + 35 x 20). A wider
+  `cut.cp_wc_gap` (500) would have kept it at `w`. Not tuned further.
+- **`2:32`, the class above 5,000 short, measured for the first time** (25% of the A/B subtree's CPU;
+  6,281 nodes and 19,941 c7a CPU s in production): **288 nodes, 20,992 iterations, 1,867 CPU s** under
+  the combined arm with the guard (`zallhwf`): 22x fewer nodes, 7.7x fewer iterations [production's e],
+  7.5x less CPU. Its root starts 2,643 short (5,039 in production) and is handed over at 690
+  iterations, 1,936 short; 5 of its 37 children branch: four handed over 400 to 1,060 short after
+  370 to 490 iterations, one after 1,610 iterations 15 short (the geometric tail again: the rule
+  does not catch it). The tree ends at depth 6. All 5 phases that start beyond 1,000 from a pool hand
+  over; of the 16 that start within 1,000, 14 fathom.
+- **Three sweeps and the extrapolation (`zallhws`) change nothing in the subtrees**: `18:32` 4,274
+  iterations (4,322), `38:32` 400 (410), `30:32` 1,692 (1,687), at 7% more per phase iteration. They
+  shorten the one long far phase, the depth-2 root's: 1,990 iterations to the same 3,500 short
+  (2,550), 299 CPU s against 366. Under the hand-over policy the phases inside a subtree are too
+  short for it to matter. Not in the block; `2:32` was not run under it.
+
+### Where the iterations are now: first solves [m]
+
+`python3 stop/firstsplit.py ...`:
+
+@@ stop/firstsplit.py w18_z030 cpfast/w18_wc2.88 cpfast/w18_wc2.88_gap300 w18_zallhge w18_zallhw w38_zallhw w30_zallhw w2_zallhwf
+
+- **The early entry already removes most of it.** In cpfast's `wc` run of `18:32` the first solves are
+  56% of the iterations (3,323 of 5,891): 1,960 at the 6 nodes that give up, 327 each, and 1,363 at the
+  32 that fathom. Under `zallhw` a give-up costs **110** (`dnn.giveup_warm = 100`, `dnn.gu_zone = 0`):
+  770 at 7 nodes, 18% of the subtree.
+- **What is left** in the first solves:
+  - the 110 itself. It is the give-up rule's floor (two windows of 50 iterations of history, then
+    the first check); the per-node lab started its phases after 50 to 100. Going below needs a
+    change in `latest/dnn.C`'s rule (a shorter window for warm nodes), not a key;
+  - the first solves of the children that fathom there: 31 nodes, 1,201 iterations in `18:32` (39
+    each, 28% of the subtree), and 37 nodes, 1,207 in `30:32` (72% of that subtree, which has one
+    phase). No entry policy touches these; a better pool does (fewer iterations to fathom), and so
+    would a cheaper iteration.
+
+### The path under the combined arm
+
+`python3 pathverify.py zallhwg` (the patched solver, `par/zallhwg.par`, incumbent 240,518):
+
+```
+@@ pathverify.py zallhwg
+```
+
+Nothing above 240,516; all three branch; the first solves at depths 7 and 9 are `cold.tsv`'s. **The cost
+on the path did not rise**, because the rule hands over where the higher penalty is slow:
+
+| run (iterations: first solves + phases, CPU s) | `z030` | `zallhge` | `zallhwg` |
+|---|---|---|---|
+| depth 7, the node alone | 200 + 940, 76 | 200 + 880, 71 | 200 + 1,180, 82 |
+| depth 9 and its 31 children | 2,208 + 4,000, 347 | 1,286 + 2,230, 156 | 1,283 + 1,810, 121 |
+
+- Depth 7 (3,351 short): `wc` is slower there, as cpfast found: 239,156 after 1,180 phase iterations
+  where `w` had 239,180 after 880. 300 iterations more on this node.
+- Depth 9 (1,125 short): the phase is stopped after 290 iterations at 239,862 (240,211 after 650 under
+  `zallhge`), so its pool is weaker and the path child starts 194 short instead of 47. That child is
+  within `cut.cp_wc_gap`, keeps `w`, and reaches 240,515.9998 in 1,520 iterations (1,580 before).
+- Not checked: depths 8 and 11-12, where cpfast measured `wc` 2 to 4 times slower on single nodes; a
+  path child that starts beyond the 300 gap would run its long phase at `wc`. The gap rule is in the
+  block for that reason, not for the subtrees, where it changed nothing.
+
+### Recommended block (replaces the two above)
+
+`experiments/estimates/tho40/tho40.par` with two of its lines changed,
+
+```
+dnn.gu_zone = 0                          (was 0.003)
+dnn.beta_sched = w=0.36,wc=2.88          (was w=0.36)
+```
+
+and these added (this is `par/zallhwf.par`, less `cut.damp1`):
+
+```
+dnn.giveup_warm = 100
+pool.on = 1
+cut.grid = 5:8
+cut.side = 1
+cut.cp = 100:1000
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+cut.freeze = 1000
+cut.zone = 0.06
+cut.handover = 20:0:0.22:1.5:100:3:1.25
+cut.cp_wc_gap = 300
+```
+
+- The last two keys need `stop/combined.patch` (`git apply` on 2f2f4f1b, then `make -C latest`; it also
+  carries cpfast's `cut.cp_wc_deficit` and `cut.cp_extrap`, unused here, and their `dnncuts` options).
+  A merge also needs the keys' lines in RUNNING.md's table and the settings goldens.
+- **Without any patch**: drop the last two lines. That is the second study's block with `wc=2.88`
+  under the stall rule, which nobody has run in this form: cpfast ran `z030` + `wc` (5,891 on `18:32`),
+  I ran `zall` + rule + early entry without `wc` (5,523).
+- Not in the block: `cut.cp_sweeps = 3:1` and `cut.cp_extrap` (1.28x on the depth-2 root's phase, nothing
+  on the three subtrees: above), `cut.cp_wc_deficit` (cpfast's rule for the path: the hand-over rule did that job on the
+  path nodes checked).
+
+### The whole tree, restated again [e]
+
+`python3 stop/tree.py zallhwf,zallhwg,zallhw wroot_zallhw`: the class table once more, each class from
+its subtree under the combined arm, and now with `2:32` measured:
+
+@@ stop/tree.py zallhwf,zallhwg,zallhw wroot_zallhw
+
+- **About 165 c7a CPU-days (140-210) if the whole tree responds as the A/B subtree**: 7.8x (6.2-9.4x)
+  on 1,300. The second study had 225 (190-330), the first 550 (450-700).
+- **What changed in the estimate's footing:** every class but the 1.2% of near nodes is now measured
+  on a warm subtree under the arm itself, four subtrees holding 99% of the A/B subtree's CPU between
+  their classes (36% of it in the four nodes themselves). The range is +-20% on each class factor
+  for the nodes of the class not run.
+- **What it still rests on:** one depth-2 subtree of 468, smaller than average; CPU from a shared box
+  against production's c7a seconds x 0.70 (in iterations with phases weighted 1.25, `18:32` is 7.8x
+  where its CPU says 8.8x, so the CPU factors may flatter by a tenth); the depth-2 phase, now 2,550
+  iterations a node, measured on this one depth-2 node; nothing at depth 1; the incumbent given.
+- **Before a launch**, as before: the same arm on a second depth-2 subtree with a far root, warm from
+  depth 1, and Knuth dives under it.
+
 ## Files
 
 | | |
@@ -491,3 +712,7 @@ A/B root's own longer phase added:
 | `stop/run2.sh`, `stop/seq.sh`, `stop/jobs.txt`, `stop/seq.log` | its runner (patched solver for the arms named `*h*`), the one-at-a-time queue, its log |
 | `stop/ab.py`, `stop/tree.py` | the A/B table and the restated extrapolation |
 | `par/zallh.par`, `par/zallhg.par`, `par/zallhge.par` | `zall` + `cut.handover = 20:2:3`; + `dnn.gu_zone = 0`; + `dnn.giveup_warm = 100` |
+| `stop/combined.patch` | third study: cpfast's patch and the hand-over key (with its exponent, marginal condition and flat-start guard), the diff of the worktree against 2f2f4f1b |
+| `stop/replay3.py`, `stop/replay3.out`, `stop/firstsplit.py` | third study: the refit and replay on `w` and `wc` histories; where the iterations are |
+| `par/zallhw.par`, `zallhwg.par`, `zallhwf.par`, `zallhws.par` | `zallhge` + `wc=2.88` + the refit rule; + `cut.cp_wc_gap = 300`; the same settings run with the guarded solver; + sweeps and extrapolation |
+| `runs/.w2_zallhwg_stopped/`, `runs/.old_wroot_zall/` | the traces of a run stopped part-way (before the guard) and of a root later rerun |
