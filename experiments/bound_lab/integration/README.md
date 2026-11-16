@@ -176,4 +176,54 @@ the owner instead.
   author's comparison against a dense prototype; and the all-keys run.
 - Whether the hand-over rule's cost model or cpfast's thresholds are right. That is the authors' studies.
 
-(checks, identity and reproductions: pending)
+## The repo's checks
+
+Built from nothing in a clean checkout of e514979 (`git worktree add --detach /home/user/wt-clean`),
+`clean_checks.sh`, logs `logs/clean_*.log`. The machine: 4 cores, Xeon with AMX, g++ 13.3.0, OpenBLAS from the
+`scipy-openblas32` wheel installed today (the container was new; the authors' builds used the same wheel name,
+I do not know that it was the same version). The `bnbdrv` from the clean checkout has the same sha256
+(cec0f39a8ae8...) as the one the identity runs and reproductions used; the unpatched one is e6a5558d99c8...
+(worktree `/home/user/wt-base` at 26894b2), and rebuilds to the same bytes.
+
+| check | command | outcome [m] |
+|---|---|---|
+| build | `make -C latest -j2`, `make -C latest dnntest`, `make -C latest dnncuts` | exit 0. 3 compiler warnings (`console.C:283`, `console.C:441`, `driver.C:543`), the same 3 as the unpatched tree, none in a file the merge touches except `driver.C`, where the line is old (`system("hostname")`) |
+| `make test` | brute force, resume, parallel, coordinator, settings table, regression, estimator | **exit 0.** "all parallel checks passed", "all coordinator scenarios passed" (the AWS scenario skipped: no boto3 here), "settings table: RUNNING.md agrees", "regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)", "estimator: all checks passed" |
+| `make nodetrace` | | exit 0, "node trace: all checks passed" |
+| `make shipcheck` | | exit 0: ship64 and ship64store "every node identical to the straight run" (184 DNN nodes, 13,231 iterations) |
+| `make dnncheck` | | exit 0, "OK" (prototype agreement 8.6e-08, nug20 nodes with known optima, cancellation, eliminations) |
+| `make continuationcheck` | | **exit 2: `FAIL split Y/Z differs from uninterrupted full-spectrum state`. The unpatched tree fails with the same line** (`logs/base_continuationcheck.log`), so it is not from the merge. Not chased: I do not know whether it fails on the owner's machine or only with this container's BLAS. `make test` does not run this target |
+| settings goldens | `fullrun_check` per settings file, `logs/goldens.log` | the five that passed with the unpatched binary fail with the merged one, as expected, and pass after regeneration; diff in `logs/goldens.diff` |
+
+The unpatched tree's `make test` (`logs/make_test_base.log`), run at the same time as the merged tree's first one
+and while the identity runs started, failed once in the estimator test, on CPU time alone
+(`FAIL QAP_EST_CHILD_QPB=0: 1200 dives, nodes 1.031, CPU 1.167 of the run's`: the tolerance is 15% and the box
+was loaded). Three reruns pass (`logs/base_estimate_rerun.log`). The node ratio, 1.031, is the same in both
+trees every time.
+
+The coordinator test's `noub` scenario (no incumbent given) reports different node counts from run to run in
+both trees (101,528 to 113,419); it is marked ok by the test and depends on when workers find the incumbent.
+
+### The goldens
+
+`RUNNING.md`'s table: nine rows added (`tests/settings_doc.py --update`). Each of the five goldens changes in
+the same way, shown here for `experiments/estimates/tho40/settings.golden` (all in `logs/goldens.diff`):
+
+```
+-settings 71 hash d8f32b9fa3087c58
++settings 80 hash 49171709a99d1b81
++setting dnn.dscale 0 default policy
++setting dnn.dscale0 1 default policy
++setting dnn.dscale_until 0 default policy
++setting cut.regions "" default policy
++setting cut.giveup_depth 0 default policy
++setting cut.handover "" default policy
++setting cut.cp_extrap "" default policy
++setting cut.cp_wc_gap 0 default policy
++setting cut.cp_wc_deficit 0 default policy
+```
+
+Regenerated: `experiments/estimates/{tho40,sko42,sko49,tai50b}/settings.golden` and
+`experiments/wil50_feasibility/fullrun/settings.golden`. Not touched: the five stale ones under `tune/` (finding 18).
+
+(identity and reproductions: pending)

@@ -14,3 +14,26 @@ ok   killed nug15: 1639 lines (252 of the killed run's 386 lines, then the resum
      (killed: 2 s)
 ok   parallel.py nug15 --jobs 2: 1639 lines (one file, every process), serial 1639; Q 1060 B 579; 0 nodes twice
      (parallel: 2 s)
+ok   coord parent-state store: up to 5 parent states during the run, 0 files left after it
+ok   coord nug17 -x 1:3:1:20:1: 95 lines (frontier + 26 of 26 units, 0 retried, 0 from a checkpoint), serial 95; Q 2 D 87 B 6; 0 nodes twice
+ok   coord qapctl nodes: 95 lines (qapctl nodes --out FILE.gz), serial 95; Q 2 D 87 B 6; 0 nodes twice
+ok   coord qapctl export: 95 node lines (= qapctl nodes: True), 92 DNN lines for 92 DNN nodes, in their order: True; exit 0
+ok   coord live tree: 95 nodes in 1 shards, read from 0.json through the boundaries
+ok   coord tree rebuilt by qapctl publish: the same meta and 1 shards
+     (coord: 20 s)
+ok   coordkill nug17: 41443 lines (frontier + 17 of 17 units, 2 retried, 2 from a checkpoint), serial 41443; Q 30703 B 10740; 0 nodes twice
+ok   coordkill qapctl nodes: 41443 lines (qapctl nodes --out FILE.gz), serial 41443; Q 30703 B 10740; 0 nodes twice
+ok   coordkill qapctl export: 41443 node lines (= qapctl nodes: True), 0 DNN lines for 0 DNN nodes, in their order: True; exit 0
+ok   coordkill live tree: 41443 nodes in 285 shards, read from 0.json through the boundaries
+ok   coordkill tree rebuilt by qapctl publish: the same meta and 285 shards
+     (coordkill: 28 s)
+ok   coordkilldnn parent-state store: up to 3 parent states during the run, 0 files left after it
+ok   coordkilldnn nug17 -x 1:3:1:20:1: 95 lines (frontier + 17 of 17 units, 2 retried, 1 from a checkpoint), serial 95; Q 2 D 87 B 6; 0 nodes twice
+ok   coordkilldnn qapctl nodes: 95 lines (qapctl nodes --out FILE.gz), serial 95; Q 2 D 87 B 6; 0 nodes twice
+ok   coordkilldnn qapctl export: 95 node lines (= qapctl nodes: True), 92 DNN lines for 92 DNN nodes, in their order: True; exit 0
+ok   coordkilldnn live tree: 95 nodes in 1 shards, read from 0.json through the boundaries
+ok   coordkilldnn tree rebuilt by qapctl publish: the same meta and 1 shards
+     (coordkilldnn: 25 s)
+node trace: all checks passed
+exit 0
+2026-11-16T04:16:22Z

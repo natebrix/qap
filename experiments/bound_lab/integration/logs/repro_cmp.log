@@ -1,0 +1,18 @@
+== cut.giveup_depth: nug30 arm g2, depths 1-2 (author: nug30_phase/runs/g2/dnn.txt at 48a624c, a 4-worker run of the whole tree)
+here:   DNN nodes 234, fathomed 194, first-solve iterations 19075, cut phases 48 (gave up 31), phase iterations 11197, all iterations 30272
+author: DNN nodes 234, fathomed 194, first-solve iterations 19061, cut phases 48 (gave up 31), phase iterations 11197, all iterations 30258
+nodes in both 234 (only here 0, only author 0); identical in every compared field 214
+  first difference: depth 2 fixes 0:12 23:0
+    here   {'lb': '6078.7621', 'st': 'hopeless', 'it': 200, 'cut': ('6081.8663', 100, 'stalled', '1'), 'fath': False}
+    author {'lb': '6078.7632', 'st': 'hopeless', 'it': 200, 'cut': ('6081.8639', 100, 'stalled', '1'), 'fath': False}
+   depth 1 only:
+   here:   DNN nodes 9, fathomed 0, first-solve iterations 1800, cut phases 9 (gave up 0), phase iterations 6570, all iterations 8370
+   author: DNN nodes 9, fathomed 0, first-solve iterations 1800, cut phases 9 (gave up 0), phase iterations 6570, all iterations 8370
+   nodes in both 9 (only here 0, only author 0); identical in every compared field 9
+
+== dnn.dscale = 0.5, dnn.dscale_until = 100: tai30b -F 0:3,1:7,2:10 (author: admm/logs/bb_tai30b_F3_ds0.5u100.dnn.txt)
+here:   DNN nodes 195, fathomed 184, first-solve iterations 13965, cut phases 0 (gave up 0), phase iterations 0, all iterations 13965
+author: DNN nodes 195, fathomed 184, first-solve iterations 13965, cut phases 0 (gave up 0), phase iterations 0, all iterations 13965
+nodes in both 195 (only here 0, only author 0); identical in every compared field 195
+repro/dscale_tai30b_F3_ds0.5u100/log.txt:         Nodes: 243 / 232 / 0
+../admm/logs/bb_tai30b_F3_ds0.5u100.log:         Nodes: 243 / 232 / 0
