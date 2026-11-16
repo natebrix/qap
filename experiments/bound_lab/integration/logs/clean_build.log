@@ -1,0 +1,80 @@
+$ make -C latest -j2
+2026-11-16T04:08:18Z
+make: Entering directory '/home/user/wt-clean/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c qpbnd.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c qpbnd2.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c dlap.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c qap.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c assign.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c link1.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c solution.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c branch.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c bnb.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c util.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c linalg.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c fw.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c estimate.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c mat.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c sa_qap.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c stats.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c console.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c lgb_train.C
+console.C: In function 'void run_for_unassigned(QAP*, QAPAssignment&, QAPSolution*, QAPStatistics*, BNBParameters*, ConsoleParameters*, QPBParameters*, BranchParameters*, int*, const char*)':
+console.C:283:34: warning: '%d' directive output may be truncated writing between 1 and 10 bytes into a region of size 9 [-Wformat-truncation=]
+  283 |     snprintf(run_prefix, 10, "%s|%d", prefix, i);
+      |                                  ^~
+console.C:283:30: note: directive argument in the range [0, 2147483646]
+  283 |     snprintf(run_prefix, 10, "%s|%d", prefix, i);
+      |                              ^~~~~~~
+In file included from /usr/include/stdio.h:980,
+                 from /usr/include/c++/13/cstdio:42,
+                 from /usr/include/c++/13/ext/string_conversions.h:45,
+                 from /usr/include/c++/13/bits/basic_string.h:4109,
+                 from /usr/include/c++/13/string:54,
+                 from /usr/include/c++/13/bits/locale_classes.h:40,
+                 from /usr/include/c++/13/bits/ios_base.h:41,
+                 from /usr/include/c++/13/ios:44,
+                 from /usr/include/c++/13/ostream:40,
+                 from /usr/include/c++/13/iostream:41,
+                 from util.h:12,
+                 from console.C:1:
+In function 'int snprintf(char*, size_t, const char*, ...)',
+    inlined from 'void run_for_unassigned(QAP*, QAPAssignment&, QAPSolution*, QAPStatistics*, BNBParameters*, ConsoleParameters*, QPBParameters*, BranchParameters*, int*, const char*)' at console.C:283:13:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:35: note: '__builtin___snprintf_chk' output 3 or more bytes (assuming 12) into a destination of size 10
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+console.C: In function 'void branch_trial(QAP*, QAPAssignment&, QAPSolution*, QAPStatistics*, BNBParameters*, ConsoleParameters*, QPBParameters*, int, int)':
+console.C:441:35: warning: '%d' directive output may be truncated writing between 1 and 10 bytes into a region of size 5 [-Wformat-truncation=]
+  441 |     snprintf(prefix, prefix_len, "%d", trial+1);
+      |                                   ^~
+console.C:441:34: note: directive argument in the range [1, 2147483647]
+  441 |     snprintf(prefix, prefix_len, "%d", trial+1);
+      |                                  ^~~~
+In function 'int snprintf(char*, size_t, const char*, ...)',
+    inlined from 'void branch_trial(QAP*, QAPAssignment&, QAPSolution*, QAPStatistics*, BNBParameters*, ConsoleParameters*, QPBParameters*, int, int)' at console.C:441:13:
+/usr/include/x86_64-linux-gnu/bits/stdio2.h:54:35: note: '__builtin___snprintf_chk' output between 2 and 11 bytes into a destination of size 5
+   54 |   return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+      |          ~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   55 |                                    __glibc_objsize (__s), __fmt,
+      |                                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   56 |                                    __va_arg_pack ());
+      |                                    ~~~~~~~~~~~~~~~~~
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c state.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c symeig.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c settings.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -DDNN_BLAS_PREFIX=scipy_ -DDNN_OPENBLAS -I -I./ -c dnn.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c dnncut.C
+cc -O3 -march=native -mamx-tile -mamx-bf16 -mavx512f -mavx512bw -mavx512bf16 -mavx512vl -MMD -MP -c amx_gemm.c
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c driver.C
+driver.C: In function 'int main(int, char**)':
+driver.C:543:9: warning: ignoring return value of 'int system(const char*)' declared with attribute 'warn_unused_result' [-Wunused-result]
+  543 |   system("hostname");
+      |   ~~~~~~^~~~~~~~~~~~
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make: Leaving directory '/home/user/wt-clean/latest'
+exit 0
+2026-11-16T04:08:48Z

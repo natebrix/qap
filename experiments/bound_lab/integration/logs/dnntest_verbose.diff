@@ -1,0 +1,31 @@
+# dnntest -v -i 300 ../qaplib/nug15.dat, unpatched (<) against merged (>), CPU times removed: 100 and 113 lines
+1c1
+< settings 71 hash f995d9a49963970c
+---
+> settings 80 hash 3857de32a0e0dacf
+18a19,21
+> setting dnn.dscale 0 default policy
+> setting dnn.dscale0 1 default policy
+> setting dnn.dscale_until 0 default policy
+27a31
+> setting cut.regions "" default policy
+44a49
+> setting cut.giveup_depth 0 default policy
+45a51
+> setting cut.handover "" default policy
+46a53,55
+> setting cut.cp_extrap "" default policy
+> setting cut.cp_wc_gap 0 default policy
+> setting cut.cp_wc_deficit 0 default policy
+81a91
+> split it 50 arrow share of pres^2 0.007 of dY^2 0.061
+86a97
+> split it 100 arrow share of pres^2 0.000 of dY^2 0.115
+91a103
+> split it 150 arrow share of pres^2 0.000 of dY^2 0.137
+96a109
+> split it 200 arrow share of pres^2 0.000 of dY^2 0.125
+100c113
+< RESULT node=0 m=15 lb=1139.2688061186741 primal=1136.4149276314683 status=hopeless iters=200 cpu=0.230 ms_per_iter=1.15 certs=3 cert_fail=0 refine=0 margin=7.07e-09 fathomed=0 restarts=0
+---
+> RESULT node=0 m=15 lb=1139.2688061186741 primal=1136.4149276314683 status=hopeless iters=200 cpu=0.221 ms_per_iter=1.10 certs=3 cert_fail=0 refine=0 margin=7.07e-09 fathomed=0 restarts=0

@@ -1,0 +1,3 @@
+#!/bin/sh
+# builds swapdrv against the worktree's objects (/home/user/wt-swap, patched with swapcuts.patch)
+cd /home/user/wt-swap/latest && g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -DHAVE_DNN -I. -I./ /home/user/qap/experiments/bound_lab/swapcuts/swapdrv.C qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o -o /home/user/qap/experiments/bound_lab/swapcuts/${OUT:-swapdrv} -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib

@@ -1,0 +1,231 @@
+settings 72 hash 91c55d03b9a80064
+setting dnn.depths "" default policy
+setting dnn.maxgap 1 default policy
+setting dnn.giveup 0 flag policy
+setting dnn.warm 0 default policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.12 flag policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36 par policy
+setting dnn.dscale 0.5 par policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.giveup "" default policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash "" default policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file "" default run
+setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE "" default diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+instance ../../../qaplib/tai30b.dat n=30 lapack=OpenBLAS (prefix 'scipy_')
+node 0 fixed=0 m=30 shift=0.000000 cutoff=637117112.050000
+dscale p 0.5 on 1: d1 in [0.9588, 1.058], d2 in [0.5645, 1.291]
+admm cross 2 warm_damp 1:0
+it    10 lb 105545717.2492 (cert 105545717.2492, margin 3.69e-02) primal 50569158.8286 pres 6.56e-01 dY 8.36e-01 npos 804 cpu 0.30
+it    20 lb 183228866.6772 (cert 183228866.6772, margin 0.00e+00, lazy) primal 94995255.1125 pres 4.07e-01 dY 3.29e-01 npos 759 cpu 0.55
+it    30 lb 234733017.4315 (cert 234733017.4315, margin 0.00e+00, lazy) primal 109425365.5527 pres 3.14e-01 dY 2.62e-01 npos 718 cpu 0.83
+it    40 lb 274764687.6872 (cert 274764687.6872, margin 0.00e+00, lazy) primal 118865206.5691 pres 2.70e-01 dY 1.50e-01 npos 681 cpu 1.12
+it    50 lb 309510762.3462 (cert 309510762.3462, margin 0.00e+00, lazy) primal 139054815.3004 pres 2.43e-01 dY 1.19e-01 npos 666 cpu 1.43
+it    60 lb 339165714.4881 (cert 339165714.4881, margin 0.00e+00, lazy) primal 163929055.5462 pres 2.23e-01 dY 9.24e-02 npos 660 cpu 1.76
+it    70 lb 363043995.3874 (cert 363043995.3874, margin 0.00e+00, lazy) primal 190534443.1933 pres 2.06e-01 dY 8.41e-02 npos 649 cpu 2.10
+it    80 lb 384198156.0150 (cert 384198156.0150, margin 0.00e+00, lazy) primal 209233770.7293 pres 1.91e-01 dY 7.17e-02 npos 637 cpu 2.44
+it    90 lb 401983702.7441 (cert 401983702.7441, margin 0.00e+00, lazy) primal 228609551.4705 pres 1.80e-01 dY 6.84e-02 npos 632 cpu 2.78
+it   100 lb 417828435.5918 (cert 417828435.5918, margin 0.00e+00, lazy) primal 244834093.3094 pres 1.70e-01 dY 6.16e-02 npos 627 cpu 3.12
+it   110 lb 431004422.8018 (cert 431004422.8018, margin 0.00e+00, lazy) primal 263300946.1043 pres 1.60e-01 dY 6.05e-02 npos 622 cpu 3.52
+it   120 lb 443444300.2730 (cert 443444300.2730, margin 0.00e+00, lazy) primal 278403587.8287 pres 1.50e-01 dY 5.20e-02 npos 615 cpu 3.88
+it   130 lb 453996107.1895 (cert 453996107.1895, margin 0.00e+00, lazy) primal 291029097.4816 pres 1.43e-01 dY 5.22e-02 npos 610 cpu 4.28
+it   140 lb 463015224.2307 (cert 463015224.2307, margin 0.00e+00, lazy) primal 303931044.3133 pres 1.36e-01 dY 4.52e-02 npos 602 cpu 4.72
+it   150 lb 471332409.1702 (cert 471332409.1702, margin 0.00e+00, lazy) primal 313810087.5011 pres 1.32e-01 dY 5.51e-02 npos 603 cpu 5.17
+it   160 lb 479773275.8730 (cert 479773275.8730, margin 0.00e+00, lazy) primal 322398774.2535 pres 1.24e-01 dY 4.02e-02 npos 592 cpu 5.58
+it   170 lb 487235187.6107 (cert 487235187.6107, margin 0.00e+00, lazy) primal 330566399.6268 pres 1.19e-01 dY 3.46e-02 npos 586 cpu 5.96
+it   180 lb 493609115.0602 (cert 493609115.0602, margin 0.00e+00, lazy) primal 337319773.6115 pres 1.15e-01 dY 3.90e-02 npos 581 cpu 6.39
+it   190 lb 500106270.9345 (cert 500106270.9345, margin 0.00e+00, lazy) primal 344037372.2853 pres 1.10e-01 dY 2.99e-02 npos 577 cpu 6.79
+it   200 lb 506336143.7087 (cert 506336143.7087, margin 0.00e+00, lazy) primal 348988757.8345 pres 1.07e-01 dY 2.50e-02 npos 571 cpu 7.22
+it   210 lb 511815164.5943 (cert 511815164.5943, margin 0.00e+00, lazy) primal 353148470.3595 pres 1.05e-01 dY 2.97e-02 npos 567 cpu 7.69
+it   220 lb 517148264.1862 (cert 517148264.1862, margin 0.00e+00, lazy) primal 358390465.7003 pres 1.02e-01 dY 2.43e-02 npos 563 cpu 8.13
+it   230 lb 522194158.8916 (cert 522194158.8916, margin 0.00e+00, lazy) primal 363230706.5868 pres 9.97e-02 dY 2.31e-02 npos 559 cpu 8.58
+it   240 lb 526963578.2659 (cert 526963578.2659, margin 0.00e+00, lazy) primal 369260430.2871 pres 9.75e-02 dY 2.44e-02 npos 560 cpu 9.00
+it   250 lb 531435089.2322 (cert 531435089.2322, margin 0.00e+00, lazy) primal 376253260.8166 pres 9.49e-02 dY 2.56e-02 npos 562 cpu 9.42
+it   260 lb 535572735.2061 (cert 535572735.2061, margin 0.00e+00, lazy) primal 383929841.4090 pres 9.22e-02 dY 2.66e-02 npos 563 cpu 9.82
+it   270 lb 539648838.0081 (cert 539648838.0081, margin 0.00e+00, lazy) primal 390455459.5605 pres 8.94e-02 dY 2.48e-02 npos 562 cpu 10.21
+it   280 lb 543318447.5139 (cert 543318447.5139, margin 0.00e+00, lazy) primal 397769583.4269 pres 8.70e-02 dY 2.52e-02 npos 562 cpu 10.62
+it   290 lb 546559864.0229 (cert 546559864.0229, margin 0.00e+00, lazy) primal 405174605.5963 pres 8.45e-02 dY 2.62e-02 npos 561 cpu 11.02
+it   300 lb 549612132.7543 (cert 549612132.7543, margin 0.00e+00, lazy) primal 412529218.8425 pres 8.21e-02 dY 2.64e-02 npos 562 cpu 11.43
+it   310 lb 552732699.0078 (cert 552732699.0078, margin 0.00e+00, lazy) primal 418754328.2896 pres 7.99e-02 dY 2.49e-02 npos 562 cpu 11.84
+it   320 lb 555654932.9373 (cert 555654932.9373, margin 0.00e+00, lazy) primal 424797537.4343 pres 7.78e-02 dY 2.35e-02 npos 561 cpu 12.23
+it   330 lb 558276165.2058 (cert 558276165.2058, margin 0.00e+00, lazy) primal 431223468.6940 pres 7.64e-02 dY 2.98e-02 npos 570 cpu 12.63
+it   340 lb 560901149.7885 (cert 560901149.7885, margin 0.00e+00, lazy) primal 436786615.7924 pres 7.36e-02 dY 2.35e-02 npos 560 cpu 13.02
+it   350 lb 562967025.6287 (cert 562967025.6287, margin 0.00e+00, lazy) primal 443071700.9659 pres 7.15e-02 dY 2.28e-02 npos 559 cpu 13.43
+it   360 lb 565026919.7483 (cert 565026919.7483, margin 0.00e+00, lazy) primal 449713078.8141 pres 6.96e-02 dY 2.27e-02 npos 559 cpu 13.85
+it   370 lb 567008385.4722 (cert 567008385.4722, margin 0.00e+00, lazy) primal 455758787.0096 pres 6.79e-02 dY 2.20e-02 npos 560 cpu 14.26
+it   380 lb 568722797.8126 (cert 568722797.8126, margin 0.00e+00, lazy) primal 462559511.9902 pres 6.61e-02 dY 2.25e-02 npos 562 cpu 14.67
+it   390 lb 570263104.0096 (cert 570263104.0096, margin 0.00e+00, lazy) primal 469564272.8127 pres 6.44e-02 dY 2.28e-02 npos 561 cpu 15.09
+it   400 lb 571645891.5918 (cert 571645891.5918, margin 0.00e+00, lazy) primal 475874550.8861 pres 6.26e-02 dY 2.27e-02 npos 562 cpu 15.50
+it   410 lb 572995943.3813 (cert 572995943.3813, margin 0.00e+00, lazy) primal 482149627.5699 pres 6.10e-02 dY 2.23e-02 npos 562 cpu 15.92
+it   420 lb 574327433.9679 (cert 574327433.9679, margin 0.00e+00, lazy) primal 487616139.6843 pres 5.96e-02 dY 2.13e-02 npos 562 cpu 16.33
+it   430 lb 575622068.9651 (cert 575622068.9651, margin 0.00e+00, lazy) primal 492763956.5778 pres 5.83e-02 dY 2.06e-02 npos 562 cpu 16.74
+it   440 lb 576874608.7529 (cert 576874608.7529, margin 0.00e+00, lazy) primal 497258000.2874 pres 5.70e-02 dY 1.97e-02 npos 563 cpu 17.15
+it   450 lb 577897651.6441 (cert 577897651.6441, margin 0.00e+00, lazy) primal 501098548.6314 pres 5.65e-02 dY 2.50e-02 npos 564 cpu 17.59
+it   460 lb 579052416.2077 (cert 579052416.2077, margin 0.00e+00, lazy) primal 504491707.9837 pres 5.44e-02 dY 1.92e-02 npos 563 cpu 18.01
+it   470 lb 580088227.3006 (cert 580088227.3006, margin 0.00e+00, lazy) primal 507194445.6668 pres 5.32e-02 dY 1.66e-02 npos 562 cpu 18.43
+it   480 lb 581037533.2134 (cert 581037533.2134, margin 0.00e+00, lazy) primal 509609475.7243 pres 5.22e-02 dY 1.52e-02 npos 561 cpu 18.84
+it   490 lb 581731832.1924 (cert 581731832.1924, margin 0.00e+00, lazy) primal 512758924.3965 pres 5.14e-02 dY 1.52e-02 npos 562 cpu 19.26
+it   500 lb 582365694.3677 (cert 582365694.3677, margin 0.00e+00, lazy) primal 516736394.1258 pres 5.05e-02 dY 1.58e-02 npos 561 cpu 19.67
+it   510 lb 583032755.0683 (cert 583032755.0683, margin 0.00e+00, lazy) primal 519791867.0836 pres 4.96e-02 dY 1.53e-02 npos 564 cpu 20.09
+it   520 lb 583676569.7376 (cert 583676569.7376, margin 0.00e+00, lazy) primal 522757971.8518 pres 4.87e-02 dY 1.50e-02 npos 563 cpu 20.58
+it   530 lb 584291707.1571 (cert 584291707.1571, margin 0.00e+00, lazy) primal 525358494.0323 pres 4.79e-02 dY 1.48e-02 npos 563 cpu 21.13
+it   540 lb 584849816.5447 (cert 584849816.5447, margin 0.00e+00, lazy) primal 527995821.9707 pres 4.72e-02 dY 1.46e-02 npos 564 cpu 21.57
+it   550 lb 585377573.2355 (cert 585377573.2355, margin 0.00e+00, lazy) primal 530452852.6715 pres 4.65e-02 dY 1.41e-02 npos 564 cpu 22.01
+it   560 lb 585862848.2579 (cert 585862848.2579, margin 0.00e+00, lazy) primal 532871729.4852 pres 4.59e-02 dY 1.40e-02 npos 564 cpu 22.44
+it   570 lb 586282686.5053 (cert 586282686.5053, margin 0.00e+00, lazy) primal 534927457.0765 pres 4.57e-02 dY 1.88e-02 npos 567 cpu 22.88
+it   580 lb 586768598.6321 (cert 586768598.6321, margin 0.00e+00, lazy) primal 536648732.7904 pres 4.43e-02 dY 1.49e-02 npos 565 cpu 23.29
+it   590 lb 587231434.4004 (cert 587231434.4004, margin 0.00e+00, lazy) primal 538297358.6161 pres 4.35e-02 dY 1.35e-02 npos 563 cpu 23.70
+it   600 lb 587645270.6337 (cert 587645270.6337, margin 0.00e+00, lazy) primal 539916498.1501 pres 4.29e-02 dY 1.29e-02 npos 562 cpu 24.13
+it   610 lb 588041310.1648 (cert 588041310.1648, margin 0.00e+00, lazy) primal 541669103.7997 pres 4.24e-02 dY 1.27e-02 npos 562 cpu 24.56
+it   620 lb 588411394.7443 (cert 588411394.7443, margin 0.00e+00, lazy) primal 543148351.8992 pres 4.19e-02 dY 1.23e-02 npos 562 cpu 24.99
+it   630 lb 588776513.5534 (cert 588776513.5534, margin 0.00e+00, lazy) primal 544348447.6939 pres 4.14e-02 dY 1.20e-02 npos 563 cpu 25.42
+it   640 lb 589114426.5094 (cert 589114426.5094, margin 0.00e+00, lazy) primal 545477061.6402 pres 4.10e-02 dY 1.17e-02 npos 563 cpu 25.85
+it   650 lb 589436846.8546 (cert 589436846.8546, margin 0.00e+00, lazy) primal 546578648.9209 pres 4.06e-02 dY 1.15e-02 npos 562 cpu 26.27
+it   660 lb 589682068.7713 (cert 589682068.7713, margin 0.00e+00, lazy) primal 547941017.3345 pres 4.01e-02 dY 1.17e-02 npos 564 cpu 26.70
+it   670 lb 589908126.6882 (cert 589908126.6882, margin 0.00e+00, lazy) primal 549424778.2784 pres 3.97e-02 dY 1.17e-02 npos 564 cpu 27.16
+it   680 lb 590159012.1511 (cert 590159012.1511, margin 0.00e+00, lazy) primal 550690293.2799 pres 3.93e-02 dY 1.16e-02 npos 564 cpu 27.59
+it   690 lb 590378669.0043 (cert 590378669.0043, margin 0.00e+00, lazy) primal 551859802.8277 pres 3.89e-02 dY 1.56e-02 npos 567 cpu 28.05
+it   700 lb 590667711.4054 (cert 590667711.4054, margin 0.00e+00, lazy) primal 553107016.2970 pres 3.80e-02 dY 1.27e-02 npos 566 cpu 28.49
+it   710 lb 590917717.3109 (cert 590917717.3109, margin 0.00e+00, lazy) primal 554315169.6761 pres 3.74e-02 dY 1.17e-02 npos 565 cpu 28.94
+it   720 lb 591138736.1693 (cert 591138736.1693, margin 0.00e+00, lazy) primal 555459912.7342 pres 3.70e-02 dY 1.12e-02 npos 565 cpu 29.36
+it   730 lb 591331658.0670 (cert 591331658.0670, margin 0.00e+00, lazy) primal 556542924.0429 pres 3.67e-02 dY 1.10e-02 npos 566 cpu 29.80
+it   740 lb 591519506.0902 (cert 591519506.0902, margin 0.00e+00, lazy) primal 557590640.6706 pres 3.64e-02 dY 1.09e-02 npos 567 cpu 30.24
+it   750 lb 591685141.6948 (cert 591685141.6948, margin 0.00e+00, lazy) primal 558521453.2929 pres 3.61e-02 dY 1.08e-02 npos 568 cpu 30.68
+it   760 lb 591867572.1093 (cert 591867572.1093, margin 0.00e+00, lazy) primal 559493138.0781 pres 3.58e-02 dY 1.08e-02 npos 568 cpu 31.12
+it   770 lb 592034054.5142 (cert 592034054.5142, margin 0.00e+00, lazy) primal 560569290.9193 pres 3.55e-02 dY 1.08e-02 npos 569 cpu 31.55
+it   780 lb 592217729.8761 (cert 592217729.8761, margin 0.00e+00, lazy) primal 561523292.9148 pres 3.53e-02 dY 1.07e-02 npos 568 cpu 31.98
+it   790 lb 592379470.0524 (cert 592379470.0524, margin 0.00e+00, lazy) primal 562472241.4525 pres 3.50e-02 dY 1.06e-02 npos 570 cpu 32.40
+it   800 lb 592525612.1501 (cert 592525612.1501, margin 0.00e+00, lazy) primal 563391631.4908 pres 3.47e-02 dY 1.06e-02 npos 570 cpu 32.81
+it   810 lb 592562818.5522 (cert 592562818.5522, margin 0.00e+00, lazy) primal 564124022.4466 pres 3.48e-02 dY 1.45e-02 npos 559 cpu 33.24
+it   820 lb 592809248.3070 (cert 592809248.3070, margin 0.00e+00, lazy) primal 565008716.5958 pres 3.37e-02 dY 1.18e-02 npos 570 cpu 33.65
+it   830 lb 592953870.0379 (cert 592953870.0379, margin 0.00e+00, lazy) primal 565683687.5688 pres 3.33e-02 dY 1.09e-02 npos 570 cpu 34.07
+it   840 lb 593095040.0532 (cert 593095040.0532, margin 0.00e+00, lazy) primal 566365243.7735 pres 3.30e-02 dY 1.05e-02 npos 570 cpu 34.49
+it   850 lb 593231891.8331 (cert 593231891.8331, margin 0.00e+00, lazy) primal 566964588.3075 pres 3.28e-02 dY 1.02e-02 npos 570 cpu 34.89
+it   860 lb 593349330.2252 (cert 593349330.2252, margin 0.00e+00, lazy) primal 567627410.8865 pres 3.25e-02 dY 1.02e-02 npos 569 cpu 35.30
+it   870 lb 593476263.7357 (cert 593476263.7357, margin 0.00e+00, lazy) primal 568388534.8390 pres 3.23e-02 dY 1.01e-02 npos 569 cpu 35.70
+it   880 lb 593603915.4440 (cert 593603915.4440, margin 0.00e+00, lazy) primal 569094338.8594 pres 3.21e-02 dY 1.01e-02 npos 570 cpu 36.10
+it   890 lb 593720126.8907 (cert 593720126.8907, margin 0.00e+00, lazy) primal 569679813.9808 pres 3.19e-02 dY 1.00e-02 npos 572 cpu 36.51
+it   900 lb 593825809.6338 (cert 593825809.6338, margin 0.00e+00, lazy) primal 570255233.6052 pres 3.17e-02 dY 9.99e-03 npos 572 cpu 36.91
+it   910 lb 593935110.3136 (cert 593935110.3136, margin 0.00e+00, lazy) primal 570737031.4301 pres 3.16e-02 dY 9.91e-03 npos 572 cpu 37.31
+it   920 lb 594034071.2032 (cert 594034071.2032, margin 0.00e+00, lazy) primal 571232373.2147 pres 3.14e-02 dY 9.86e-03 npos 572 cpu 37.72
+it   930 lb 594130528.6581 (cert 594130528.6581, margin 0.00e+00, lazy) primal 571708982.3249 pres 3.12e-02 dY 9.82e-03 npos 572 cpu 38.12
+it   940 lb 594210688.0087 (cert 594210688.0087, margin 0.00e+00, lazy) primal 572124479.7405 pres 3.04e-02 dY 1.09e-02 npos 572 cpu 38.54
+it   950 lb 594326384.1523 (cert 594326384.1523, margin 0.00e+00, lazy) primal 572485352.7924 pres 3.01e-02 dY 1.02e-02 npos 573 cpu 38.95
+it   960 lb 594426301.3364 (cert 594426301.3364, margin 0.00e+00, lazy) primal 572933303.2515 pres 2.99e-02 dY 9.87e-03 npos 572 cpu 39.37
+it   970 lb 594524282.9137 (cert 594524282.9137, margin 0.00e+00, lazy) primal 573358912.7739 pres 2.97e-02 dY 9.72e-03 npos 572 cpu 39.79
+it   980 lb 594605239.2627 (cert 594605239.2627, margin 0.00e+00, lazy) primal 573787345.3803 pres 2.96e-02 dY 9.65e-03 npos 572 cpu 40.20
+it   990 lb 594687839.5380 (cert 594687839.5380, margin 0.00e+00, lazy) primal 574168536.2473 pres 2.94e-02 dY 9.61e-03 npos 573 cpu 40.62
+it  1000 lb 594773203.4754 (cert 594773203.4754, margin 0.00e+00, lazy) primal 574536696.1640 pres 2.93e-02 dY 9.56e-03 npos 573 cpu 41.04
+it  1010 lb 594856858.6971 (cert 594856858.6971, margin 0.00e+00, lazy) primal 574865388.5315 pres 2.91e-02 dY 9.53e-03 npos 574 cpu 41.46
+it  1020 lb 594937286.4488 (cert 594937286.4488, margin 0.00e+00, lazy) primal 575197056.3406 pres 2.90e-02 dY 9.49e-03 npos 574 cpu 41.86
+it  1030 lb 595018279.9596 (cert 595018279.9596, margin 0.00e+00, lazy) primal 575547871.1007 pres 2.89e-02 dY 9.47e-03 npos 574 cpu 42.27
+it  1040 lb 595098068.1740 (cert 595098068.1740, margin 0.00e+00, lazy) primal 575897212.0260 pres 2.87e-02 dY 9.44e-03 npos 575 cpu 42.69
+it  1050 lb 595173891.6857 (cert 595173891.6857, margin 0.00e+00, lazy) primal 576194460.4180 pres 2.86e-02 dY 9.41e-03 npos 575 cpu 43.12
+it  1060 lb 595222391.8321 (cert 595222391.8321, margin 0.00e+00, lazy) primal 576481051.2091 pres 2.81e-02 dY 1.02e-02 npos 575 cpu 43.55
+it  1070 lb 595305247.6094 (cert 595305247.6094, margin 0.00e+00, lazy) primal 576753759.2499 pres 2.79e-02 dY 9.74e-03 npos 574 cpu 43.97
+it  1080 lb 595375407.1622 (cert 595375407.1622, margin 0.00e+00, lazy) primal 577078308.2387 pres 2.77e-02 dY 9.53e-03 npos 574 cpu 44.39
+it  1090 lb 595438378.2497 (cert 595438378.2497, margin 0.00e+00, lazy) primal 577383651.7284 pres 2.76e-02 dY 9.43e-03 npos 573 cpu 44.82
+it  1100 lb 595499536.6994 (cert 595499536.6994, margin 0.00e+00, lazy) primal 577673553.6546 pres 2.75e-02 dY 9.38e-03 npos 575 cpu 45.24
+it  1110 lb 595562390.5107 (cert 595562390.5107, margin 0.00e+00, lazy) primal 577949659.1545 pres 2.73e-02 dY 9.35e-03 npos 574 cpu 45.66
+it  1120 lb 595625702.5234 (cert 595625702.5234, margin 0.00e+00, lazy) primal 578248429.9631 pres 2.72e-02 dY 9.34e-03 npos 575 cpu 46.07
+it  1130 lb 595684523.9563 (cert 595684523.9563, margin 0.00e+00, lazy) primal 578544219.7700 pres 2.71e-02 dY 9.31e-03 npos 575 cpu 46.47
+it  1140 lb 595741219.1633 (cert 595741219.1633, margin 0.00e+00, lazy) primal 578797294.0042 pres 2.70e-02 dY 9.30e-03 npos 575 cpu 46.88
+it  1150 lb 595799661.0135 (cert 595799661.0135, margin 0.00e+00, lazy) primal 579057621.8747 pres 2.69e-02 dY 9.27e-03 npos 575 cpu 47.28
+it  1160 lb 595850435.0911 (cert 595850435.0911, margin 0.00e+00, lazy) primal 579323778.4809 pres 2.69e-02 dY 9.28e-03 npos 575 cpu 47.68
+it  1170 lb 595902454.7259 (cert 595902454.7259, margin 0.00e+00, lazy) primal 579598085.5493 pres 2.68e-02 dY 9.26e-03 npos 576 cpu 48.08
+it  1180 lb 595931527.7611 (cert 595931527.7611, margin 0.00e+00, lazy) primal 579800521.7865 pres 2.64e-02 dY 9.97e-03 npos 577 cpu 48.50
+it  1190 lb 595996094.4309 (cert 595996094.4309, margin 0.00e+00, lazy) primal 580039490.5580 pres 2.62e-02 dY 9.56e-03 npos 575 cpu 48.90
+it  1200 lb 596034948.9234 (cert 596034948.9234, margin 0.00e+00, lazy) primal 580361758.7799 pres 2.60e-02 dY 9.39e-03 npos 574 cpu 49.31
+it  1210 lb 596084050.8577 (cert 596084050.8577, margin 0.00e+00, lazy) primal 580640426.0747 pres 2.59e-02 dY 9.31e-03 npos 574 cpu 49.71
+it  1220 lb 596136408.8475 (cert 596136408.8475, margin 0.00e+00, lazy) primal 580939765.9260 pres 2.58e-02 dY 9.27e-03 npos 574 cpu 50.11
+it  1230 lb 596185070.8757 (cert 596185070.8757, margin 0.00e+00, lazy) primal 581164697.1915 pres 2.57e-02 dY 9.24e-03 npos 575 cpu 50.51
+it  1240 lb 596230989.7986 (cert 596230989.7986, margin 0.00e+00, lazy) primal 581373897.1469 pres 2.57e-02 dY 9.22e-03 npos 575 cpu 50.91
+it  1250 lb 596271463.4425 (cert 596271463.4425, margin 0.00e+00, lazy) primal 581593410.0579 pres 2.56e-02 dY 9.20e-03 npos 575 cpu 51.30
+it  1260 lb 596290227.5104 (cert 596290227.5104, margin 0.00e+00, lazy) primal 581865703.9463 pres 2.55e-02 dY 9.21e-03 npos 575 cpu 51.71
+it  1270 lb 596325354.5021 (cert 596325354.5021, margin 0.00e+00, lazy) primal 582097200.1795 pres 2.54e-02 dY 9.22e-03 npos 575 cpu 52.11
+it  1280 lb 596369951.2390 (cert 596369951.2390, margin 0.00e+00, lazy) primal 582335832.7343 pres 2.53e-02 dY 9.21e-03 npos 575 cpu 52.52
+it  1290 lb 596412374.9219 (cert 596412374.9219, margin 0.00e+00, lazy) primal 582579438.7303 pres 2.53e-02 dY 9.19e-03 npos 576 cpu 52.99
+it  1300 lb 596443379.7729 (cert 596443379.7729, margin 0.00e+00, lazy) primal 582709269.4625 pres 2.50e-02 dY 9.86e-03 npos 576 cpu 53.46
+it  1310 lb 596488974.1997 (cert 596488974.1997, margin 0.00e+00, lazy) primal 582963515.4640 pres 2.48e-02 dY 9.46e-03 npos 576 cpu 53.84
+it  1320 lb 596527796.6328 (cert 596527796.6328, margin 0.00e+00, lazy) primal 583206954.7361 pres 2.47e-02 dY 9.29e-03 npos 576 cpu 54.25
+it  1330 lb 596567592.9191 (cert 596567592.9191, margin 0.00e+00, lazy) primal 583476173.2743 pres 2.46e-02 dY 9.23e-03 npos 576 cpu 54.65
+it  1340 lb 596607775.2348 (cert 596607775.2348, margin 0.00e+00, lazy) primal 583703938.3458 pres 2.45e-02 dY 9.19e-03 npos 577 cpu 55.06
+it  1350 lb 596641015.7228 (cert 596641015.7228, margin 0.00e+00, lazy) primal 583889518.2850 pres 2.44e-02 dY 9.17e-03 npos 577 cpu 55.45
+it  1360 lb 596673205.1989 (cert 596673205.1989, margin 0.00e+00, lazy) primal 584125666.0229 pres 2.43e-02 dY 9.17e-03 npos 578 cpu 55.87
+it  1370 lb 596707165.6117 (cert 596707165.6117, margin 0.00e+00, lazy) primal 584317046.2700 pres 2.42e-02 dY 9.16e-03 npos 578 cpu 56.30
+it  1380 lb 596738502.5400 (cert 596738502.5400, margin 0.00e+00, lazy) primal 584499458.7172 pres 2.41e-02 dY 9.14e-03 npos 579 cpu 56.74
+it  1390 lb 596769020.9620 (cert 596769020.9620, margin 0.00e+00, lazy) primal 584689139.5184 pres 2.41e-02 dY 9.15e-03 npos 579 cpu 57.15
+it  1400 lb 596792370.1667 (cert 596792370.1667, margin 0.00e+00, lazy) primal 584874717.4693 pres 2.40e-02 dY 9.14e-03 npos 578 cpu 57.55
+it  1410 lb 596821375.1867 (cert 596821375.1867, margin 0.00e+00, lazy) primal 585074414.2910 pres 2.39e-02 dY 9.13e-03 npos 579 cpu 58.01
+it  1420 lb 596832820.2322 (cert 596832820.2322, margin 0.00e+00, lazy) primal 585166624.7634 pres 2.37e-02 dY 9.79e-03 npos 579 cpu 58.40
+it  1430 lb 596876960.4281 (cert 596876960.4281, margin 0.00e+00, lazy) primal 585423762.2176 pres 2.35e-02 dY 9.40e-03 npos 580 cpu 58.78
+it  1440 lb 596907025.6027 (cert 596907025.6027, margin 0.00e+00, lazy) primal 585621569.1259 pres 2.34e-02 dY 9.24e-03 npos 580 cpu 59.17
+it  1450 lb 596934675.4351 (cert 596934675.4351, margin 0.00e+00, lazy) primal 585819133.4140 pres 2.33e-02 dY 9.17e-03 npos 580 cpu 59.57
+it  1460 lb 596961386.9763 (cert 596961386.9763, margin 0.00e+00, lazy) primal 586003180.6068 pres 2.32e-02 dY 9.14e-03 npos 580 cpu 59.98
+it  1470 lb 596985243.7760 (cert 596985243.7760, margin 0.00e+00, lazy) primal 586221927.1249 pres 2.32e-02 dY 9.12e-03 npos 581 cpu 60.37
+it  1480 lb 597007153.4236 (cert 597007153.4236, margin 0.00e+00, lazy) primal 586414452.9816 pres 2.31e-02 dY 9.11e-03 npos 581 cpu 60.77
+it  1490 lb 597030591.7154 (cert 597030591.7154, margin 0.00e+00, lazy) primal 586622845.7315 pres 2.31e-02 dY 9.10e-03 npos 580 cpu 61.17
+it  1500 lb 597057474.6233 (cert 597057474.6233, margin 8.98e-02) primal 586839013.6946 pres 2.30e-02 dY 9.10e-03 npos 581 cpu 61.58
+admm cross: 0 extra certificates
+RESULT node=0 m=30 lb=597057474.6232866 primal=586839013.69462717 status=iter_limit iters=1500 cpu=61.583 ms_per_iter=41.06 certs=2 cert_fail=0 refine=0 margin=0.0898 fathomed=0 restarts=0

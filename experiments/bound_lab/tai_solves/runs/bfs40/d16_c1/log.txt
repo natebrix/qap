@@ -1,0 +1,212 @@
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/experiments/bound_lab/tai_solves/par/s40.par
+incumbent: 6.37251e+08
+resume from: /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs40/in_16_1.state
+state file: /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs40/d16_c1/out.state
+input file: ../qaplib/tai40b.dat
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 0-38, relative gap <= 1, give up after 100 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 72 hash cf8af2c5693d54eb
+setting dnn.depths 0:38 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 100 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36,wc=2.88 par policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 1 par policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 par policy
+setting cut.grid "" default policy
+setting cut.regions /home/user/qap/experiments/bound_lab/tai_solves/regions/tai40b.combh.txt par policy
+setting cut.rounds 12 par policy
+setting cut.iters 200 par policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 par policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 0 par policy
+setting cut.warmy 1 par policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp 100:1000 par policy
+setting cut.giveup "" default policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 1 par policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 1 par policy
+setting est.xbar_mix 0.3 par policy
+setting par.hash 8209b5003c40c611 par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs40/store env run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/bound_lab/tai_solves/par/s40.par flag run
+setting QAP_DNN_TRACE /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs40/d16_c1/dnn.txt env diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE /home/user/qap/experiments/bound_lab/tai_solves/runs/bfs40/d16_c1/nodes.txt env diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+resumed: 6 open nodes, 138 nodes and 2135.98 s so far, incumbent 6.37251e+08
+branching_weight() = 0.5
+couldn't find [./SYM/tai40b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 2138.71 seconds 
+         Nodes: 144 / 138 / 0
+    root bound: 4.26254e+08
+ fw iterations: 10786
+     DNN bound: 141 nodes, 134 fathomed, 519.082 s
+     cut phase: 7 nodes, 1 fathomed, 1609.3 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	 1227.19
+ 1          10	1.0000	N/A	   77.13
+ 2          10	1.0000	N/A	   73.74
+ 3          10	1.0000	N/A	   55.17
+ 4          10	1.0000	N/A	   28.11
+ 5           9	1.0000	N/A	   33.03
+ 6           9	0.8889	0.0000	   99.29
+ 7           9	1.0000	N/A	   16.00
+ 8           9	0.7778	0.0000	  274.71
+ 9          16	1.0000	N/A	   87.33
+10           8	1.0000	N/A	   14.94
+11           8	0.8750	0.0000	   71.53
+12           8	1.0000	N/A	    6.82
+13           7	0.8571	0.0000	   53.33
+14           7	1.0000	N/A	    9.29
+15           7	1.0000	N/A	    8.36
+16           6	1.0000	N/A	    2.73
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 10 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 10 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 10 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 10 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 9 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 9 
+ 7 |   0.0000   0.0000   0.0000   1.0000  | 9 
+ 8 |   0.0000   0.0000   0.0000   1.0000  | 9 
+ 9 |   0.0000   0.0000   0.0000   1.0000  | 16 
+10 |   0.0000   0.0000   0.0000   1.0000  | 8 
+11 |   0.0000   0.0000   0.0000   1.0000  | 8 
+12 |   0.0000   0.0000   0.0000   1.0000  | 8 
+13 |   0.0000   0.0000   0.0000   1.0000  | 7 
+14 |   0.0000   0.0000   0.0000   1.0000  | 7 
+15 |   0.0000   0.0000   0.0000   1.0000  | 7 
+16 |   0.0000   0.0000   0.0000   1.0000  | 6 
+nodes       1        0       58       85 
+time  1227.19     0.00   366.46   545.05 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.005404	0.000000
+ 2| 0.001746	0.000000
+ 3| 0.001240	-nan
+ 4| 0.000992	0.000000
+ 5| 0.000992	0.000000
+ 6| 0.000992	0.000000
+ 7| 0.000783	0.000000
+ 8| 0.000654	-nan
+ 9| 0.000281	0.000235
+10| 0.000373	0.000000
+11| 0.000273	0.000000
+12| 0.000172	-nan
+13| 0.000172	-nan
+14| 0.000167	-nan
+15| 0.000167	-nan
+16| 0.000167	-nan
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 0           1	0.0000	1.0000	        470	   470.0	   70.90
+ 1          10	1.0000	0.0000	        643	    64.3	   76.40
+ 2          10	1.0000	0.0000	        745	    74.5	   72.99
+ 3          10	1.0000	0.0000	        626	    62.6	   54.12
+ 4          10	1.0000	0.0000	        347	    34.7	   27.16
+ 5           9	1.0000	0.0000	        384	    42.7	   31.96
+ 6           9	0.8889	0.1111	        473	    52.6	   32.35
+ 7           9	1.0000	0.0000	        222	    24.7	   15.36
+ 8           9	0.7778	0.2222	        747	    83.0	   39.36
+ 9          16	0.9375	0.0625	        707	    44.2	   33.52
+10           8	1.0000	0.0000	        324	    40.5	   14.33
+11           8	0.8750	0.1250	        394	    49.2	   15.90
+12           8	1.0000	0.0000	        180	    22.5	    6.56
+13           6	0.8333	0.1667	        343	    57.2	    8.11
+14           5	1.0000	0.0000	        232	    46.4	    9.20
+15           7	1.0000	0.0000	        470	    67.1	    8.23
+16           6	1.0000	0.0000	        170	    28.3	    2.63
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 0           1	0.0000	 1155.77
+ 6           1	0.0000	   65.86
+ 8           2	0.0000	  234.50
+ 9           1	1.0000	   52.84
+11           1	0.0000	   55.30
+13           1	0.0000	   45.04
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1          10	       0	      10	       0	       0
+ 2          10	       0	      10	       0	       0
+ 3          10	       0	      10	       0	       0
+ 4          10	       0	      10	       0	       0
+ 5           9	       0	       9	       0	       0
+ 6           8	       0	       8	       0	       0
+ 7           9	       0	       9	       0	       0
+ 8           7	       0	       7	       0	       0
+ 9          16	       0	      15	       1	       0
+10           8	       0	       8	       0	       0
+11           7	       0	       7	       0	       0
+12           8	       0	       8	       0	       0
+13           6	       1	       5	       0	       0
+14           7	       2	       5	       0	       0
+15           7	       0	       7	       0	       0
+16           6	       0	       6	       0	       0
+
+eigendecompositions for W and U: 7 computed, 5 reused from the per-size cache

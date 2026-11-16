@@ -1,0 +1,8 @@
+$ make -C latest dnntest
+2026-11-16T04:08:48Z
+make: Entering directory '/home/user/wt-clean/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c dnntest.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o dnntest.o -o dnntest -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make: Leaving directory '/home/user/wt-clean/latest'
+exit 0
+2026-11-16T04:08:49Z

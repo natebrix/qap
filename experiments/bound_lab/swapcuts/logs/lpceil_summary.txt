@@ -1,0 +1,11 @@
+off-path nodes. logical = v_ex1 > v_node (stage 2's ceiling); linear = v_lp > v_node (the ceiling of the cuts as
+inequalities on Y over the exact lifted hull); kept = median of (v_lp - v_node) / (v_ex1 - v_node) where v_ex1 is finite
+and above v_node; x-opt = median share of the node's completions that are exchange-optimal against the fixed facilities.
+infeasible = the LP has no solution: no mixture of completions satisfies the cuts (the node is excluded outright).
+rise = median of (v_lp - v_node) / v_node in % over the nodes with a finite rise.
+n    depth   m nodes  logical   linear infeasible    rise%   kept   x-opt%
+10       1   9    90      32%      32%         1%     0.61   0.55     2.11
+10       2   8    80      52%      52%         4%     1.51   0.69     0.28
+12       3   9    35      71%      71%         9%     1.13   0.61     0.02
+12       4   8    70      83%      83%        29%     1.80   0.60     0.01
+12       5   7    68      88%      88%        56%     1.22   0.70     0.00

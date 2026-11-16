@@ -1,0 +1,570 @@
+settings 71 hash df04cc2d5838e5e7
+setting dnn.depths "" default policy
+setting dnn.maxgap 1 default policy
+setting dnn.giveup 200 default policy
+setting dnn.warm 0 default policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36 par policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 5 par policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.giveup "" default policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash "" default policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file "" default run
+setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE "" default diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+objective values are even integers: fathoming tolerance 1.95
+instance ../../../qaplib/tho40t.dat n=40 lapack=OpenBLAS (prefix 'scipy_')
+node 0 fixed=4 m=36 shift=4314.000000 cutoff=240514.050000
+admm cross 2 warm_damp 1:0
+it    10 lb 123583.5806 (cert 123583.5806, margin 1.27e-05) primal 54032.2134 pres 6.74e-01 dY 6.32e-01 npos 1205 cpu 0.58
+it    20 lb 147150.2975 (cert 147150.2975, margin 0.00e+00, lazy) primal 79943.7926 pres 5.23e-01 dY 4.95e-01 npos 1097 cpu 1.07
+it    30 lb 176122.6998 (cert 176122.6998, margin 0.00e+00, lazy) primal 104409.4914 pres 4.02e-01 dY 3.68e-01 npos 989 cpu 1.69
+it    40 lb 196404.8980 (cert 196404.8980, margin 0.00e+00, lazy) primal 128574.7903 pres 3.11e-01 dY 2.76e-01 npos 913 cpu 2.40
+it    50 lb 209743.7043 (cert 209743.7043, margin 0.00e+00, lazy) primal 150094.6133 pres 2.49e-01 dY 2.21e-01 npos 871 cpu 3.31
+it    60 lb 218648.1177 (cert 218648.1177, margin 0.00e+00, lazy) primal 166691.0344 pres 2.07e-01 dY 1.93e-01 npos 847 cpu 4.25
+it    70 lb 224777.3169 (cert 224777.3169, margin 0.00e+00, lazy) primal 180182.2309 pres 1.76e-01 dY 1.78e-01 npos 837 cpu 5.19
+it    80 lb 228943.3322 (cert 228943.3322, margin 0.00e+00, lazy) primal 191495.5144 pres 1.51e-01 dY 1.67e-01 npos 830 cpu 6.17
+it    90 lb 231719.0678 (cert 231719.0678, margin 0.00e+00, lazy) primal 201161.7956 pres 1.29e-01 dY 1.52e-01 npos 827 cpu 7.19
+it   100 lb 233633.8426 (cert 233633.8426, margin 0.00e+00, lazy) primal 209178.3702 pres 1.11e-01 dY 1.40e-01 npos 828 cpu 8.16
+it   110 lb 234956.9053 (cert 234956.9053, margin 0.00e+00, lazy) primal 215631.5817 pres 9.71e-02 dY 1.32e-01 npos 830 cpu 9.14
+it   120 lb 235948.8476 (cert 235948.8476, margin 0.00e+00, lazy) primal 220746.2318 pres 8.70e-02 dY 1.28e-01 npos 834 cpu 10.09
+it   130 lb 236641.3477 (cert 236641.3477, margin 0.00e+00, lazy) primal 224486.1102 pres 8.13e-02 dY 1.26e-01 npos 825 cpu 11.12
+it   140 lb 237195.2255 (cert 237195.2255, margin 0.00e+00, lazy) primal 227699.1241 pres 7.42e-02 dY 1.22e-01 npos 833 cpu 12.14
+it   150 lb 237627.2797 (cert 237627.2797, margin 0.00e+00, lazy) primal 230031.1714 pres 6.98e-02 dY 1.20e-01 npos 838 cpu 13.11
+it   160 lb 237972.3089 (cert 237972.3089, margin 0.00e+00, lazy) primal 231737.8057 pres 6.68e-02 dY 1.19e-01 npos 843 cpu 14.04
+it   170 lb 238249.8970 (cert 238249.8970, margin 0.00e+00, lazy) primal 233076.7078 pres 6.41e-02 dY 1.16e-01 npos 846 cpu 14.95
+it   180 lb 238475.6004 (cert 238475.6004, margin 0.00e+00, lazy) primal 234147.8410 pres 6.15e-02 dY 1.13e-01 npos 849 cpu 15.87
+it   190 lb 238675.8788 (cert 238675.8788, margin 0.00e+00, lazy) primal 234992.1181 pres 5.91e-02 dY 1.10e-01 npos 851 cpu 16.74
+it   200 lb 238842.9582 (cert 238842.9582, margin 0.00e+00, lazy) primal 235682.1648 pres 5.71e-02 dY 1.07e-01 npos 853 cpu 17.61
+it   210 lb 238986.4498 (cert 238986.4498, margin 0.00e+00, lazy) primal 236257.0229 pres 5.54e-02 dY 1.05e-01 npos 854 cpu 18.51
+it   220 lb 239109.3651 (cert 239109.3651, margin 0.00e+00, lazy) primal 236730.9127 pres 5.42e-02 dY 1.03e-01 npos 857 cpu 19.41
+it   230 lb 239216.1747 (cert 239216.1747, margin 0.00e+00, lazy) primal 237126.6696 pres 5.31e-02 dY 1.02e-01 npos 858 cpu 20.32
+it   240 lb 239313.8543 (cert 239313.8543, margin 0.00e+00, lazy) primal 237452.7947 pres 5.20e-02 dY 9.97e-02 npos 859 cpu 21.23
+it   250 lb 239404.6182 (cert 239404.6182, margin 0.00e+00, lazy) primal 237675.9999 pres 5.12e-02 dY 9.81e-02 npos 851 cpu 22.16
+it   260 lb 239483.1232 (cert 239483.1232, margin 0.00e+00, lazy) primal 237965.4190 pres 4.98e-02 dY 9.59e-02 npos 854 cpu 23.09
+it   270 lb 239548.4785 (cert 239548.4785, margin 0.00e+00, lazy) primal 238190.1220 pres 4.86e-02 dY 9.40e-02 npos 857 cpu 23.95
+it   280 lb 239607.9760 (cert 239607.9760, margin 0.00e+00, lazy) primal 238374.5631 pres 4.77e-02 dY 9.24e-02 npos 858 cpu 24.85
+it   290 lb 239660.2735 (cert 239660.2735, margin 0.00e+00, lazy) primal 238537.2671 pres 4.70e-02 dY 9.11e-02 npos 859 cpu 25.69
+it   300 lb 239707.2118 (cert 239707.2118, margin 0.00e+00, lazy) primal 238680.9673 pres 4.63e-02 dY 8.98e-02 npos 861 cpu 26.55
+it   310 lb 239747.8357 (cert 239747.8357, margin 0.00e+00, lazy) primal 238810.5230 pres 4.56e-02 dY 8.86e-02 npos 862 cpu 27.55
+it   320 lb 239785.1981 (cert 239785.1981, margin 0.00e+00, lazy) primal 238921.7302 pres 4.49e-02 dY 8.74e-02 npos 863 cpu 28.41
+it   330 lb 239818.9358 (cert 239818.9358, margin 0.00e+00, lazy) primal 239020.4548 pres 4.44e-02 dY 8.64e-02 npos 863 cpu 29.37
+it   340 lb 239849.2167 (cert 239849.2167, margin 0.00e+00, lazy) primal 239109.9881 pres 4.39e-02 dY 8.55e-02 npos 864 cpu 30.27
+it   350 lb 239876.2058 (cert 239876.2058, margin 0.00e+00, lazy) primal 239194.0054 pres 4.34e-02 dY 8.47e-02 npos 865 cpu 31.18
+it   360 lb 239901.2295 (cert 239901.2295, margin 0.00e+00, lazy) primal 239269.6673 pres 4.30e-02 dY 8.39e-02 npos 866 cpu 32.06
+it   370 lb 239922.2824 (cert 239922.2824, margin 0.00e+00, lazy) primal 239301.3724 pres 4.27e-02 dY 8.33e-02 npos 860 cpu 33.01
+it   380 lb 239945.0217 (cert 239945.0217, margin 0.00e+00, lazy) primal 239392.4523 pres 4.23e-02 dY 8.26e-02 npos 862 cpu 33.94
+it   390 lb 239963.1040 (cert 239963.1040, margin 0.00e+00, lazy) primal 239461.9346 pres 4.19e-02 dY 8.20e-02 npos 865 cpu 34.82
+it   400 lb 239980.2004 (cert 239980.2004, margin 0.00e+00, lazy) primal 239521.1402 pres 4.16e-02 dY 8.14e-02 npos 866 cpu 35.75
+it   410 lb 239995.6196 (cert 239995.6196, margin 0.00e+00, lazy) primal 239575.1708 pres 4.13e-02 dY 8.09e-02 npos 865 cpu 36.68
+it   420 lb 240009.6280 (cert 240009.6280, margin 0.00e+00, lazy) primal 239624.0019 pres 4.11e-02 dY 8.04e-02 npos 867 cpu 37.61
+it   430 lb 240022.0755 (cert 240022.0755, margin 0.00e+00, lazy) primal 239669.7270 pres 4.09e-02 dY 8.01e-02 npos 868 cpu 38.57
+it   440 lb 240034.0676 (cert 240034.0676, margin 0.00e+00, lazy) primal 239713.7178 pres 4.07e-02 dY 7.97e-02 npos 869 cpu 39.50
+it   450 lb 240044.9695 (cert 240044.9695, margin 0.00e+00, lazy) primal 239756.5457 pres 4.05e-02 dY 7.94e-02 npos 869 cpu 40.39
+it   460 lb 240055.1257 (cert 240055.1257, margin 0.00e+00, lazy) primal 239796.4288 pres 4.04e-02 dY 7.92e-02 npos 869 cpu 41.28
+it   470 lb 240064.3083 (cert 240064.3083, margin 0.00e+00, lazy) primal 239832.7370 pres 4.02e-02 dY 7.88e-02 npos 870 cpu 42.12
+it   480 lb 240072.5862 (cert 240072.5862, margin 0.00e+00, lazy) primal 239865.4688 pres 4.00e-02 dY 7.85e-02 npos 869 cpu 43.12
+it   490 lb 240075.3760 (cert 240075.3760, margin 0.00e+00, lazy) primal 239873.1090 pres 3.99e-02 dY 7.83e-02 npos 870 cpu 44.11
+it   500 lb 240085.9547 (cert 240085.9547, margin 0.00e+00, lazy) primal 239913.6729 pres 3.97e-02 dY 7.80e-02 npos 870 cpu 44.99
+it   510 lb 240093.0981 (cert 240093.0981, margin 0.00e+00, lazy) primal 239946.6418 pres 3.95e-02 dY 7.77e-02 npos 871 cpu 45.88
+it   520 lb 240099.1342 (cert 240099.1342, margin 0.00e+00, lazy) primal 239972.9613 pres 3.94e-02 dY 7.74e-02 npos 871 cpu 46.77
+it   530 lb 240104.6476 (cert 240104.6476, margin 0.00e+00, lazy) primal 239997.0546 pres 3.93e-02 dY 7.72e-02 npos 871 cpu 47.63
+it   540 lb 240109.6414 (cert 240109.6414, margin 0.00e+00, lazy) primal 240019.8072 pres 3.91e-02 dY 7.70e-02 npos 871 cpu 48.50
+it   550 lb 240114.2880 (cert 240114.2880, margin 0.00e+00, lazy) primal 240041.6811 pres 3.90e-02 dY 7.68e-02 npos 872 cpu 49.40
+it   560 lb 240118.5120 (cert 240118.5120, margin 0.00e+00, lazy) primal 240062.2354 pres 3.89e-02 dY 7.66e-02 npos 872 cpu 50.32
+it   570 lb 240122.5484 (cert 240122.5484, margin 0.00e+00, lazy) primal 240081.0929 pres 3.88e-02 dY 7.64e-02 npos 873 cpu 51.25
+it   580 lb 240126.1485 (cert 240126.1485, margin 0.00e+00, lazy) primal 240098.9451 pres 3.88e-02 dY 7.63e-02 npos 873 cpu 52.15
+it   590 lb 240129.4184 (cert 240129.4184, margin 0.00e+00, lazy) primal 240115.3226 pres 3.87e-02 dY 7.61e-02 npos 873 cpu 53.02
+it   600 lb 240132.4954 (cert 240132.4954, margin 1.96e-05) primal 240130.8528 pres 3.86e-02 dY 7.60e-02 npos 873 cpu 53.95
+admm cross: 0 extra certificates
+RESULT node=0 m=36 lb=240132.49543619889 primal=240130.8528423901 status=iter_limit iters=600 cpu=53.963 ms_per_iter=89.94 certs=2 cert_fail=0 refine=0 margin=1.96e-05 fathomed=0 restarts=0
+CHILD-SPEC 37:39
+CHILDNODE 37:39
+CHILD-PASS 1 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8579 rhat 0.1411 shat 0.006422 rhat/shat 21.97 |Y| 4.936 |VRV| 4.962 |Z| 127
+it     5 lb 236005.7397 (cert 236005.7397, margin 1.72e-05) primal 231539.9703 pres 7.00e-01 dY 9.25e-01 npos 787 cpu 0.57 extra
+bsched it 10 beta 0.882 pres/(beta dY) 1.036 rhat 0.07961 shat 0.002981 rhat/shat 26.7 |Y| 4.933 |VRV| 4.931 |Z| 127.2
+it    10 lb 239030.3588 (cert 239030.3588, margin 0.00e+00, lazy) primal 241249.6907 pres 3.93e-01 dY 4.30e-01 npos 797 cpu 0.95
+bsched it 15 beta 0.882 pres/(beta dY) 1.276 rhat 0.05658 shat 0.001746 rhat/shat 32.4 |Y| 5.007 |VRV| 5.008 |Z| 127.1
+it    15 lb 240520.9224 (cert 240520.9224, margin 1.71e-05) primal 244083.0981 pres 2.83e-01 dY 2.52e-01 npos 800 cpu 1.35 extra
+admm cross: 2 extra certificates
+RESULT node=1 m=35 lb=240520.92237005415 primal=244083.09810845993 status=fathomed iters=15 cpu=1.349 warm=b
+CHILD-SPEC 36:39
+CHILDNODE 36:39
+CHILD-PASS 2 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8422 rhat 0.08937 shat 0.003749 rhat/shat 23.84 |Y| 4.483 |VRV| 4.441 |Z| 126.9
+it     5 lb 238440.1596 (cert 238440.1596, margin 1.71e-05) primal 229624.6925 pres 4.01e-01 dY 5.39e-01 npos 794 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9418 rhat 0.04882 shat 0.00204 rhat/shat 23.93 |Y| 4.993 |VRV| 4.961 |Z| 126.9
+it    10 lb 240412.6397 (cert 240412.6397, margin 0.00e+00, lazy) primal 252637.2668 pres 2.44e-01 dY 2.93e-01 npos 798 cpu 1.03
+bsched it 11 beta 0.882 pres/(beta dY) 0.9763 rhat 0.04486 shat 0.001827 rhat/shat 24.55 |Y| 5.046 |VRV| 5.027 |Z| 126.9
+it    11 lb 240522.6199 (cert 240522.6199, margin 1.71e-05) primal 251870.2837 pres 2.26e-01 dY 2.63e-01 npos 796 cpu 1.15 extra
+admm cross: 2 extra certificates
+RESULT node=2 m=35 lb=240522.61987583517 primal=251870.28374166304 status=fathomed iters=11 cpu=1.153 warm=b
+CHILD-SPEC 35:39
+CHILDNODE 35:39
+CHILD-PASS 3 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8462 rhat 0.1469 shat 0.005928 rhat/shat 24.78 |Y| 4.348 |VRV| 4.358 |Z| 127.6
+it     5 lb 236498.2642 (cert 236498.2642, margin 1.72e-05) primal 227299.5689 pres 6.40e-01 dY 8.58e-01 npos 781 cpu 0.62 extra
+bsched it 10 beta 0.882 pres/(beta dY) 1.033 rhat 0.08004 shat 0.002701 rhat/shat 29.63 |Y| 4.454 |VRV| 4.445 |Z| 127.7
+it    10 lb 239521.8943 (cert 239521.8943, margin 0.00e+00, lazy) primal 240800.9617 pres 3.57e-01 dY 3.91e-01 npos 789 cpu 1.05
+bsched it 14 beta 0.882 pres/(beta dY) 1.231 rhat 0.05959 shat 0.001721 rhat/shat 34.62 |Y| 4.543 |VRV| 4.541 |Z| 127.7
+it    14 lb 240648.6397 (cert 240648.6397, margin 1.71e-05) primal 242845.7368 pres 2.71e-01 dY 2.49e-01 npos 793 cpu 1.40 extra
+admm cross: 2 extra certificates
+RESULT node=3 m=35 lb=240648.63974809091 primal=242845.73678013647 status=fathomed iters=14 cpu=1.401 warm=b
+CHILD-SPEC 34:39
+CHILDNODE 34:39
+CHILD-PASS 4 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8347 rhat 0.1183 shat 0.004824 rhat/shat 24.53 |Y| 4.131 |VRV| 4.104 |Z| 121.4
+it     5 lb 238697.1741 (cert 238697.1741, margin 1.71e-05) primal 222414.6004 pres 4.89e-01 dY 6.64e-01 npos 792 cpu 0.59 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9226 rhat 0.06177 shat 0.00255 rhat/shat 24.23 |Y| 4.625 |VRV| 4.591 |Z| 121.5
+it    10 lb 241160.6082 (cert 241160.6082, margin 1.71e-05) primal 252928.3728 pres 2.86e-01 dY 3.51e-01 npos 796 cpu 1.04
+admm cross: 1 extra certificates
+RESULT node=4 m=35 lb=241160.6082154685 primal=252928.37282981983 status=fathomed iters=10 cpu=1.045 warm=b
+CHILD-SPEC 33:39
+CHILDNODE 33:39
+CHILD-PASS 5 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.807 rhat 0.1112 shat 0.004438 rhat/shat 25.06 |Y| 4.107 |VRV| 4.092 |Z| 127.6
+it     5 lb 238336.9145 (cert 238336.9145, margin 1.72e-05) primal 225677.0164 pres 4.57e-01 dY 6.42e-01 npos 789 cpu 0.61 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8924 rhat 0.06227 shat 0.002423 rhat/shat 25.7 |Y| 4.431 |VRV| 4.411 |Z| 127.6
+it    10 lb 240210.9454 (cert 240210.9454, margin 0.00e+00, lazy) primal 247445.8872 pres 2.76e-01 dY 3.51e-01 npos 790 cpu 1.06
+bsched it 12 beta 0.882 pres/(beta dY) 0.9327 rhat 0.05312 shat 0.001997 rhat/shat 26.6 |Y| 4.475 |VRV| 4.473 |Z| 127.6
+it    12 lb 240731.2854 (cert 240731.2854, margin 1.72e-05) primal 245595.8778 pres 2.38e-01 dY 2.89e-01 npos 788 cpu 1.26 extra
+admm cross: 2 extra certificates
+RESULT node=5 m=35 lb=240731.28544833412 primal=245595.87781561521 status=fathomed iters=12 cpu=1.262 warm=b
+CHILD-SPEC 32:39
+CHILDNODE 32:39
+CHILD-PASS 6 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8448 rhat 0.1106 shat 0.004478 rhat/shat 24.7 |Y| 4.308 |VRV| 4.259 |Z| 126
+it     5 lb 238887.4336 (cert 238887.4336, margin 1.70e-05) primal 221009.8725 pres 4.76e-01 dY 6.39e-01 npos 793 cpu 0.58 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9211 rhat 0.05707 shat 0.002447 rhat/shat 23.32 |Y| 4.977 |VRV| 4.928 |Z| 126
+it    10 lb 241105.6816 (cert 241105.6816, margin 1.69e-05) primal 255726.3929 pres 2.84e-01 dY 3.50e-01 npos 796 cpu 0.98
+admm cross: 1 extra certificates
+RESULT node=6 m=35 lb=241105.68164784583 primal=255726.39291506569 status=fathomed iters=10 cpu=0.976 warm=b
+CHILD-SPEC 31:39
+CHILDNODE 31:39
+CHILD-PASS 7 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8853 rhat 0.1835 shat 0.006195 rhat/shat 29.62 |Y| 3.511 |VRV| 3.479 |Z| 117.5
+it     5 lb 240666.2619 (cert 240666.2619, margin 1.70e-05) primal 197221.9574 pres 6.44e-01 dY 8.25e-01 npos 793 cpu 0.56 extra
+admm cross: 1 extra certificates
+RESULT node=7 m=35 lb=240666.26190904164 primal=197221.95736924926 status=fathomed iters=5 cpu=0.564 warm=b
+CHILD-SPEC 30:39
+CHILDNODE 30:39
+CHILD-PASS 8 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8547 rhat 0.1281 shat 0.006242 rhat/shat 20.53 |Y| 5.282 |VRV| 5.298 |Z| 127.2
+it     5 lb 235944.6746 (cert 235944.6746, margin 1.72e-05) primal 231593.1263 pres 6.79e-01 dY 9.01e-01 npos 786 cpu 0.57 extra
+bsched it 10 beta 0.882 pres/(beta dY) 1.056 rhat 0.07137 shat 0.002841 rhat/shat 25.12 |Y| 5.353 |VRV| 5.345 |Z| 127.3
+it    10 lb 238923.8338 (cert 238923.8338, margin 0.00e+00, lazy) primal 242162.3249 pres 3.82e-01 dY 4.10e-01 npos 794 cpu 0.99
+bsched it 16 beta 0.882 pres/(beta dY) 1.384 rhat 0.04891 shat 0.001515 rhat/shat 32.29 |Y| 5.455 |VRV| 5.458 |Z| 127.3
+it    16 lb 240539.2615 (cert 240539.2615, margin 1.71e-05) primal 243843.5348 pres 2.67e-01 dY 2.19e-01 npos 799 cpu 1.52 extra
+admm cross: 2 extra certificates
+RESULT node=8 m=35 lb=240539.26152158095 primal=243843.53479161568 status=fathomed iters=16 cpu=1.520 warm=b
+CHILD-SPEC 29:39
+CHILDNODE 29:39
+CHILD-PASS 9 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.9087 rhat 0.173 shat 0.005794 rhat/shat 29.85 |Y| 3.664 |VRV| 3.61 |Z| 120.4
+it     5 lb 240026.2331 (cert 240026.2331, margin 1.69e-05) primal 192820.2995 pres 6.34e-01 dY 7.91e-01 npos 792 cpu 0.55 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8749 rhat 0.07832 shat 0.003562 rhat/shat 21.99 |Y| 4.801 |VRV| 4.694 |Z| 120.7
+it    10 lb 243445.7209 (cert 243445.7209, margin 1.69e-05) primal 262914.3037 pres 3.76e-01 dY 4.87e-01 npos 794 cpu 0.98
+admm cross: 1 extra certificates
+RESULT node=9 m=35 lb=243445.72092053256 primal=262914.30369626067 status=fathomed iters=10 cpu=0.975 warm=b
+CHILD-SPEC 28:39
+CHILDNODE 28:39
+CHILD-PASS 10 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8188 rhat 0.1119 shat 0.004722 rhat/shat 23.7 |Y| 4.191 |VRV| 4.159 |Z| 121.3
+it     5 lb 238634.4728 (cert 238634.4728, margin 1.71e-05) primal 221418.9076 pres 4.69e-01 dY 6.49e-01 npos 794 cpu 0.60 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8733 rhat 0.05946 shat 0.002651 rhat/shat 22.43 |Y| 4.724 |VRV| 4.685 |Z| 121.3
+it    10 lb 240890.8375 (cert 240890.8375, margin 1.71e-05) primal 253463.9671 pres 2.81e-01 dY 3.65e-01 npos 798 cpu 1.06
+admm cross: 1 extra certificates
+RESULT node=10 m=35 lb=240890.83748166554 primal=253463.96706730645 status=fathomed iters=10 cpu=1.060 warm=b
+CHILD-SPEC 27:39
+CHILDNODE 27:39
+CHILD-PASS 11 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8402 rhat 0.1065 shat 0.00441 rhat/shat 24.14 |Y| 4.393 |VRV| 4.332 |Z| 126.2
+it     5 lb 238458.8798 (cert 238458.8798, margin 1.69e-05) primal 221182.6626 pres 4.68e-01 dY 6.31e-01 npos 794 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9331 rhat 0.05492 shat 0.002404 rhat/shat 22.84 |Y| 5.158 |VRV| 5.105 |Z| 126.3
+it    10 lb 240478.1198 (cert 240478.1198, margin 0.00e+00, lazy) primal 257138.1841 pres 2.83e-01 dY 3.44e-01 npos 797 cpu 1.02
+bsched it 11 beta 0.882 pres/(beta dY) 0.9729 rhat 0.05014 shat 0.002143 rhat/shat 23.4 |Y| 5.248 |VRV| 5.213 |Z| 126.2
+it    11 lb 240613.8111 (cert 240613.8111, margin 1.69e-05) primal 256157.7478 pres 2.63e-01 dY 3.07e-01 npos 797 cpu 1.14 extra
+admm cross: 2 extra certificates
+RESULT node=11 m=35 lb=240613.81111796619 primal=256157.74781807803 status=fathomed iters=11 cpu=1.138 warm=b
+CHILD-SPEC 25:39
+CHILDNODE 25:39
+CHILD-PASS 12 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8211 rhat 0.1168 shat 0.004653 rhat/shat 25.1 |Y| 4.153 |VRV| 4.126 |Z| 127
+it     5 lb 238364.7228 (cert 238364.7228, margin 1.71e-05) primal 223493.3347 pres 4.85e-01 dY 6.70e-01 npos 790 cpu 0.59 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9013 rhat 0.06197 shat 0.002514 rhat/shat 24.65 |Y| 4.644 |VRV| 4.608 |Z| 127
+it    10 lb 240651.0311 (cert 240651.0311, margin 1.71e-05) primal 251365.6872 pres 2.88e-01 dY 3.62e-01 npos 794 cpu 1.03
+admm cross: 1 extra certificates
+RESULT node=12 m=35 lb=240651.03106519295 primal=251365.68717195161 status=fathomed iters=10 cpu=1.033 warm=b
+CHILD-SPEC 24:39
+CHILDNODE 24:39
+CHILD-PASS 13 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8307 rhat 0.1469 shat 0.005217 rhat/shat 28.16 |Y| 3.767 |VRV| 3.749 |Z| 127.7
+it     5 lb 238393.6855 (cert 238393.6855, margin 1.71e-05) primal 219947.9346 pres 5.54e-01 dY 7.56e-01 npos 789 cpu 0.59 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8954 rhat 0.07992 shat 0.00293 rhat/shat 27.28 |Y| 4.197 |VRV| 4.166 |Z| 127.9
+it    10 lb 241109.3542 (cert 241109.3542, margin 1.71e-05) primal 246853.4084 pres 3.35e-01 dY 4.25e-01 npos 791 cpu 1.05
+admm cross: 1 extra certificates
+RESULT node=13 m=35 lb=241109.35416054926 primal=246853.40844996806 status=fathomed iters=10 cpu=1.051 warm=b
+CHILD-SPEC 23:39
+CHILDNODE 23:39
+CHILD-PASS 14 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8356 rhat 0.1032 shat 0.004263 rhat/shat 24.21 |Y| 4.379 |VRV| 4.335 |Z| 126.8
+it     5 lb 238505.3155 (cert 238505.3155, margin 1.71e-05) primal 223326.6343 pres 4.52e-01 dY 6.13e-01 npos 792 cpu 0.59 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8954 rhat 0.05577 shat 0.002443 rhat/shat 22.83 |Y| 4.977 |VRV| 4.934 |Z| 126.9
+it    10 lb 240578.6246 (cert 240578.6246, margin 1.70e-05) primal 252694.0556 pres 2.78e-01 dY 3.51e-01 npos 795 cpu 1.07
+admm cross: 1 extra certificates
+RESULT node=14 m=35 lb=240578.62458565756 primal=252694.05556281214 status=fathomed iters=10 cpu=1.070 warm=b
+CHILD-SPEC 22:39
+CHILDNODE 22:39
+CHILD-PASS 15 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8428 rhat 0.0907 shat 0.003885 rhat/shat 23.35 |Y| 4.576 |VRV| 4.517 |Z| 126.8
+it     5 lb 238225.1425 (cert 238225.1425, margin 1.71e-05) primal 229041.1689 pres 4.15e-01 dY 5.58e-01 npos 795 cpu 0.58 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9471 rhat 0.04859 shat 0.00211 rhat/shat 23.03 |Y| 5.212 |VRV| 5.172 |Z| 126.7
+it    10 lb 239828.8910 (cert 239828.8910, margin 0.00e+00, lazy) primal 254419.8484 pres 2.53e-01 dY 3.03e-01 npos 797 cpu 1.00
+bsched it 15 beta 0.882 pres/(beta dY) 1.066 rhat 0.03469 shat 0.001378 rhat/shat 25.18 |Y| 5.364 |VRV| 5.362 |Z| 126.6
+it    15 lb 240689.0594 (cert 240689.0594, margin 1.71e-05) primal 243879.5031 pres 1.86e-01 dY 1.98e-01 npos 790 cpu 1.43 extra
+admm cross: 2 extra certificates
+RESULT node=15 m=35 lb=240689.05937048307 primal=243879.50310141937 status=fathomed iters=15 cpu=1.434 warm=b
+CHILD-SPEC 21:39
+CHILDNODE 21:39
+CHILD-PASS 16 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.9178 rhat 0.1635 shat 0.004865 rhat/shat 33.61 |Y| 3.717 |VRV| 3.675 |Z| 136.1
+it     5 lb 240007.7529 (cert 240007.7529, margin 1.69e-05) primal 198143.3499 pres 6.08e-01 dY 7.51e-01 npos 789 cpu 0.58 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8923 rhat 0.07879 shat 0.003032 rhat/shat 25.98 |Y| 4.685 |VRV| 4.586 |Z| 136.4
+it    10 lb 243053.8694 (cert 243053.8694, margin 1.69e-05) primal 256171.1252 pres 3.69e-01 dY 4.69e-01 npos 793 cpu 1.02
+admm cross: 1 extra certificates
+RESULT node=16 m=35 lb=243053.86938142669 primal=256171.12515128867 status=fathomed iters=10 cpu=1.016 warm=b
+CHILD-SPEC 20:39
+CHILDNODE 20:39
+CHILD-PASS 17 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.84 rhat 0.1081 shat 0.00434 rhat/shat 24.91 |Y| 4.294 |VRV| 4.247 |Z| 127.3
+it     5 lb 238864.8702 (cert 238864.8702, margin 1.72e-05) primal 218140.2003 pres 4.64e-01 dY 6.27e-01 npos 792 cpu 0.58 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8724 rhat 0.05605 shat 0.002523 rhat/shat 22.21 |Y| 5.004 |VRV| 4.948 |Z| 127.4
+it    10 lb 240805.7167 (cert 240805.7167, margin 1.71e-05) primal 255104.3773 pres 2.81e-01 dY 3.65e-01 npos 797 cpu 1.03
+admm cross: 1 extra certificates
+RESULT node=17 m=35 lb=240805.71665157273 primal=255104.37732462215 status=fathomed iters=10 cpu=1.027 warm=b
+CHILD-SPEC 19:39
+CHILDNODE 19:39
+CHILD-PASS 18 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8312 rhat 0.08818 shat 0.003953 rhat/shat 22.31 |Y| 4.517 |VRV| 4.471 |Z| 121.2
+it     5 lb 238283.4214 (cert 238283.4214, margin 1.71e-05) primal 228970.3816 pres 3.98e-01 dY 5.43e-01 npos 794 cpu 0.58 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9048 rhat 0.04848 shat 0.002234 rhat/shat 21.7 |Y| 5.054 |VRV| 5.019 |Z| 121.2
+it    10 lb 239886.4337 (cert 239886.4337, margin 0.00e+00, lazy) primal 252714.6536 pres 2.45e-01 dY 3.07e-01 npos 798 cpu 1.02
+bsched it 14 beta 0.882 pres/(beta dY) 0.9786 rhat 0.03644 shat 0.001597 rhat/shat 22.82 |Y| 5.194 |VRV| 5.189 |Z| 121.1
+it    14 lb 240620.6203 (cert 240620.6203, margin 1.71e-05) primal 245625.4627 pres 1.89e-01 dY 2.19e-01 npos 790 cpu 1.38 extra
+admm cross: 2 extra certificates
+RESULT node=18 m=35 lb=240620.62026100309 primal=245625.46273988497 status=fathomed iters=14 cpu=1.379 warm=b
+CHILD-SPEC 18:39
+CHILDNODE 18:39
+CHILD-PASS 19 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8845 rhat 0.06258 shat 0.003358 rhat/shat 18.63 |Y| 6.051 |VRV| 6.078 |Z| 128
+it     5 lb 237524.9825 (cert 237524.9825, margin 1.73e-05) primal 236966.7168 pres 3.80e-01 dY 4.88e-01 npos 786 cpu 0.59 extra
+bsched it 10 beta 0.882 pres/(beta dY) 1.029 rhat 0.0376 shat 0.001683 rhat/shat 22.34 |Y| 5.889 |VRV| 5.9 |Z| 128.1
+it    10 lb 238986.4456 (cert 238986.4456, margin 0.00e+00, lazy) primal 239705.4634 pres 2.22e-01 dY 2.44e-01 npos 799 cpu 1.00
+bsched it 20 beta 0.882 pres/(beta dY) 1.497 rhat 0.02272 shat 0.0006843 rhat/shat 33.21 |Y| 5.767 |VRV| 5.775 |Z| 128.1
+it    20 lb 240218.5127 (cert 240218.5127, margin 0.00e+00, lazy) primal 241017.9103 pres 1.31e-01 dY 9.94e-02 npos 808 cpu 1.80
+bsched it 26 beta 0.882 pres/(beta dY) 1.744 rhat 0.01988 shat 0.0005081 rhat/shat 39.13 |Y| 5.706 |VRV| 5.711 |Z| 128.1
+it    26 lb 240531.0276 (cert 240531.0276, margin 1.73e-05) primal 241095.0523 pres 1.14e-01 dY 7.38e-02 npos 812 cpu 2.34 extra
+admm cross: 2 extra certificates
+RESULT node=19 m=35 lb=240531.02762992727 primal=241095.05234056595 status=fathomed iters=26 cpu=2.338 warm=b
+CHILD-SPEC 17:39
+CHILDNODE 17:39
+CHILD-PASS 20 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.839 rhat 0.1269 shat 0.005774 rhat/shat 21.98 |Y| 4.508 |VRV| 4.523 |Z| 118.5
+it     5 lb 236058.0064 (cert 236058.0064, margin 1.73e-05) primal 233092.1719 pres 5.74e-01 dY 7.76e-01 npos 787 cpu 0.59 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9858 rhat 0.06983 shat 0.002724 rhat/shat 25.64 |Y| 4.559 |VRV| 4.551 |Z| 118.6
+it    10 lb 238334.4370 (cert 238334.4370, margin 0.00e+00, lazy) primal 239985.3249 pres 3.18e-01 dY 3.66e-01 npos 796 cpu 1.02
+bsched it 20 beta 0.882 pres/(beta dY) 1.433 rhat 0.0395 shat 0.001101 rhat/shat 35.87 |Y| 4.737 |VRV| 4.735 |Z| 118.6
+it    20 lb 240070.7957 (cert 240070.7957, margin 0.00e+00, lazy) primal 241630.3028 pres 1.87e-01 dY 1.48e-01 npos 800 cpu 1.84
+bsched it 27 beta 0.882 pres/(beta dY) 1.686 rhat 0.03325 shat 0.0008001 rhat/shat 41.56 |Y| 4.809 |VRV| 4.806 |Z| 118.6
+it    27 lb 240589.8316 (cert 240589.8316, margin 1.72e-05) primal 241914.2168 pres 1.60e-01 dY 1.08e-01 npos 802 cpu 2.45 extra
+admm cross: 2 extra certificates
+RESULT node=20 m=35 lb=240589.83162114455 primal=241914.21676961082 status=fathomed iters=27 cpu=2.450 warm=b
+CHILD-SPEC 16:39
+CHILDNODE 16:39
+CHILD-PASS 21 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8706 rhat 0.1064 shat 0.005172 rhat/shat 20.58 |Y| 5.366 |VRV| 5.389 |Z| 127.4
+it     5 lb 236782.7653 (cert 236782.7653, margin 1.72e-05) primal 232414.7254 pres 5.73e-01 dY 7.47e-01 npos 786 cpu 0.64 extra
+bsched it 10 beta 0.882 pres/(beta dY) 1.054 rhat 0.06174 shat 0.002451 rhat/shat 25.19 |Y| 5.335 |VRV| 5.334 |Z| 127.5
+it    10 lb 239203.3401 (cert 239203.3401, margin 0.00e+00, lazy) primal 240269.7605 pres 3.29e-01 dY 3.54e-01 npos 798 cpu 1.07
+bsched it 16 beta 0.882 pres/(beta dY) 1.338 rhat 0.04293 shat 0.001354 rhat/shat 31.7 |Y| 5.379 |VRV| 5.382 |Z| 127.5
+it    16 lb 240563.1480 (cert 240563.1480, margin 1.71e-05) primal 243175.4845 pres 2.31e-01 dY 1.96e-01 npos 803 cpu 1.64 extra
+admm cross: 2 extra certificates
+RESULT node=21 m=35 lb=240563.14798022262 primal=243175.48445066344 status=fathomed iters=16 cpu=1.644 warm=b
+CHILD-SPEC 15:39
+CHILDNODE 15:39
+CHILD-PASS 22 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8474 rhat 0.1189 shat 0.004735 rhat/shat 25.11 |Y| 4.169 |VRV| 4.121 |Z| 123.5
+it     5 lb 239060.2403 (cert 239060.2403, margin 1.70e-05) primal 215210.2370 pres 4.96e-01 dY 6.63e-01 npos 792 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8938 rhat 0.06032 shat 0.002684 rhat/shat 22.47 |Y| 4.917 |VRV| 4.859 |Z| 123.6
+it    10 lb 241389.1508 (cert 241389.1508, margin 1.69e-05) primal 257821.7677 pres 2.97e-01 dY 3.76e-01 npos 797 cpu 1.00
+admm cross: 1 extra certificates
+RESULT node=22 m=35 lb=241389.15080847326 primal=257821.76769102307 status=fathomed iters=10 cpu=1.003 warm=b
+CHILD-SPEC 14:39
+CHILDNODE 14:39
+CHILD-PASS 23 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.836 rhat 0.1166 shat 0.004553 rhat/shat 25.61 |Y| 4.117 |VRV| 4.078 |Z| 126.1
+it     5 lb 239351.2205 (cert 239351.2205, margin 1.71e-05) primal 216834.8038 pres 4.80e-01 dY 6.51e-01 npos 792 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.867 rhat 0.05933 shat 0.002612 rhat/shat 22.71 |Y| 4.819 |VRV| 4.763 |Z| 126.2
+it    10 lb 241423.9488 (cert 241423.9488, margin 1.70e-05) primal 256580.3548 pres 2.86e-01 dY 3.74e-01 npos 796 cpu 0.99
+admm cross: 1 extra certificates
+RESULT node=23 m=35 lb=241423.94882277001 primal=256580.35478045189 status=fathomed iters=10 cpu=0.986 warm=b
+CHILD-SPEC 13:39
+CHILDNODE 13:39
+CHILD-PASS 24 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8478 rhat 0.08277 shat 0.003598 rhat/shat 23 |Y| 4.625 |VRV| 4.576 |Z| 125.5
+it     5 lb 238950.1243 (cert 238950.1243, margin 1.71e-05) primal 229839.2440 pres 3.83e-01 dY 5.12e-01 npos 795 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9318 rhat 0.04474 shat 0.001983 rhat/shat 22.56 |Y| 5.182 |VRV| 5.146 |Z| 125.5
+it    10 lb 240577.0711 (cert 240577.0711, margin 1.70e-05) primal 253976.8005 pres 2.32e-01 dY 2.82e-01 npos 800 cpu 1.01
+admm cross: 1 extra certificates
+RESULT node=24 m=35 lb=240577.07107198116 primal=253976.80053738772 status=fathomed iters=10 cpu=1.012 warm=b
+CHILD-SPEC 12:39
+CHILDNODE 12:39
+CHILD-PASS 25 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8617 rhat 0.1211 shat 0.00502 rhat/shat 24.12 |Y| 4.217 |VRV| 4.161 |Z| 118
+it     5 lb 238756.1066 (cert 238756.1066, margin 1.70e-05) primal 217086.0666 pres 5.11e-01 dY 6.72e-01 npos 794 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.914 rhat 0.06137 shat 0.002838 rhat/shat 21.63 |Y| 4.993 |VRV| 4.933 |Z| 118.1
+it    10 lb 241256.1768 (cert 241256.1768, margin 1.70e-05) primal 256973.4479 pres 3.06e-01 dY 3.80e-01 npos 799 cpu 0.99
+admm cross: 1 extra certificates
+RESULT node=25 m=35 lb=241256.1767631752 primal=256973.44786578757 status=fathomed iters=10 cpu=0.991 warm=b
+CHILD-SPEC 11:39
+CHILDNODE 11:39
+CHILD-PASS 26 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8396 rhat 0.1512 shat 0.005413 rhat/shat 27.93 |Y| 3.8 |VRV| 3.755 |Z| 126.4
+it     5 lb 239009.3447 (cert 239009.3447, margin 1.71e-05) primal 212837.2457 pres 5.74e-01 dY 7.76e-01 npos 793 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9292 rhat 0.0738 shat 0.002899 rhat/shat 25.46 |Y| 4.617 |VRV| 4.559 |Z| 126.5
+it    10 lb 241527.6265 (cert 241527.6265, margin 1.70e-05) primal 258871.1880 pres 3.41e-01 dY 4.16e-01 npos 792 cpu 0.99
+admm cross: 1 extra certificates
+RESULT node=26 m=35 lb=241527.62650868576 primal=258871.18797260465 status=fathomed iters=10 cpu=0.990 warm=b
+CHILD-SPEC 10:39
+CHILDNODE 10:39
+CHILD-PASS 27 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8521 rhat 0.1094 shat 0.004677 rhat/shat 23.39 |Y| 4.451 |VRV| 4.386 |Z| 122.2
+it     5 lb 238269.3532 (cert 238269.3532, margin 1.70e-05) primal 222712.4795 pres 4.87e-01 dY 6.48e-01 npos 794 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9494 rhat 0.05785 shat 0.002596 rhat/shat 22.28 |Y| 5.207 |VRV| 5.159 |Z| 122.2
+it    10 lb 240613.4740 (cert 240613.4740, margin 1.70e-05) primal 257441.2359 pres 3.01e-01 dY 3.60e-01 npos 801 cpu 1.02
+admm cross: 1 extra certificates
+RESULT node=27 m=35 lb=240613.47403985928 primal=257441.23594066463 status=fathomed iters=10 cpu=1.019 warm=b
+CHILD-SPEC 9:39
+CHILDNODE 9:39
+CHILD-PASS 28 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8526 rhat 0.09932 shat 0.004153 rhat/shat 23.92 |Y| 4.466 |VRV| 4.415 |Z| 125.3
+it     5 lb 238505.6937 (cert 238505.6937, margin 1.69e-05) primal 223519.8286 pres 4.44e-01 dY 5.90e-01 npos 795 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9403 rhat 0.05272 shat 0.002286 rhat/shat 23.06 |Y| 5.108 |VRV| 5.064 |Z| 125.3
+it    10 lb 240635.9517 (cert 240635.9517, margin 1.69e-05) primal 255114.3155 pres 2.69e-01 dY 3.25e-01 npos 798 cpu 0.98
+admm cross: 1 extra certificates
+RESULT node=28 m=35 lb=240635.95168287543 primal=255114.31547026226 status=fathomed iters=10 cpu=0.980 warm=b
+CHILD-SPEC 7:39
+CHILDNODE 7:39
+CHILD-PASS 29 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8699 rhat 0.1586 shat 0.005233 rhat/shat 30.31 |Y| 3.637 |VRV| 3.626 |Z| 126.7
+it     5 lb 239623.9989 (cert 239623.9989, margin 1.71e-05) primal 204700.3733 pres 5.77e-01 dY 7.52e-01 npos 794 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.892 rhat 0.08037 shat 0.003021 rhat/shat 26.6 |Y| 4.258 |VRV| 4.2 |Z| 127
+it    10 lb 242712.0603 (cert 242712.0603, margin 1.71e-05) primal 254376.2525 pres 3.42e-01 dY 4.35e-01 npos 793 cpu 1.00
+admm cross: 1 extra certificates
+RESULT node=29 m=35 lb=242712.06034350939 primal=254376.25251368817 status=fathomed iters=10 cpu=0.999 warm=b
+CHILD-SPEC 6:39
+CHILDNODE 6:39
+CHILD-PASS 30 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8655 rhat 0.0914 shat 0.004528 rhat/shat 20.19 |Y| 5.468 |VRV| 5.498 |Z| 128.2
+it     5 lb 236545.9942 (cert 236545.9942, margin 1.74e-05) primal 235156.2230 pres 5.03e-01 dY 6.58e-01 npos 788 cpu 0.61 extra
+bsched it 10 beta 0.882 pres/(beta dY) 1.032 rhat 0.05319 shat 0.002147 rhat/shat 24.77 |Y| 5.342 |VRV| 5.348 |Z| 128.3
+it    10 lb 238382.9377 (cert 238382.9377, margin 0.00e+00, lazy) primal 239089.1515 pres 2.84e-01 dY 3.12e-01 npos 796 cpu 1.01
+bsched it 20 beta 0.882 pres/(beta dY) 1.525 rhat 0.03209 shat 0.0008723 rhat/shat 36.79 |Y| 5.313 |VRV| 5.318 |Z| 128.3
+it    20 lb 239849.3185 (cert 239849.3185, margin 0.00e+00, lazy) primal 241078.7984 pres 1.71e-01 dY 1.27e-01 npos 804 cpu 1.76
+bsched it 30 beta 0.882 pres/(beta dY) 1.904 rhat 0.02648 shat 0.0005731 rhat/shat 46.21 |Y| 5.286 |VRV| 5.288 |Z| 128.3
+it    30 lb 240412.6274 (cert 240412.6274, margin 0.00e+00, lazy) primal 241563.7403 pres 1.40e-01 dY 8.34e-02 npos 808 cpu 2.60
+bsched it 35 beta 0.882 pres/(beta dY) 2.02 rhat 0.02493 shat 0.0005076 rhat/shat 49.12 |Y| 5.276 |VRV| 5.279 |Z| 128.3
+it    35 lb 240569.9679 (cert 240569.9679, margin 1.73e-05) primal 241110.1489 pres 1.32e-01 dY 7.39e-02 npos 808 cpu 3.00 extra
+admm cross: 2 extra certificates
+RESULT node=30 m=35 lb=240569.96785003276 primal=241110.14886609343 status=fathomed iters=35 cpu=3.002 warm=b
+CHILD-SPEC 5:39
+CHILDNODE 5:39
+CHILD-PASS 31 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8687 rhat 0.1403 shat 0.005292 rhat/shat 26.5 |Y| 3.981 |VRV| 3.922 |Z| 121.5
+it     5 lb 239362.7800 (cert 239362.7800, margin 1.69e-05) primal 202905.7372 pres 5.58e-01 dY 7.29e-01 npos 793 cpu 0.56 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.8886 rhat 0.06648 shat 0.003081 rhat/shat 21.58 |Y| 5.008 |VRV| 4.924 |Z| 121.6
+it    10 lb 242202.9143 (cert 242202.9143, margin 1.68e-05) primal 263118.2254 pres 3.33e-01 dY 4.25e-01 npos 796 cpu 1.00
+admm cross: 1 extra certificates
+RESULT node=31 m=35 lb=242202.91429523568 primal=263118.22541558516 status=fathomed iters=10 cpu=1.005 warm=b
+CHILD-SPEC 4:39
+CHILDNODE 4:39
+CHILD-PASS 32 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8361 rhat 0.1083 shat 0.0046 rhat/shat 23.54 |Y| 4.296 |VRV| 4.255 |Z| 120.9
+it     5 lb 238151.4384 (cert 238151.4384, margin 1.70e-05) primal 226136.7690 pres 4.65e-01 dY 6.31e-01 npos 795 cpu 0.57 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9215 rhat 0.05833 shat 0.002515 rhat/shat 23.2 |Y| 4.806 |VRV| 4.773 |Z| 121
+it    10 lb 240573.2480 (cert 240573.2480, margin 1.70e-05) primal 251737.0102 pres 2.80e-01 dY 3.45e-01 npos 797 cpu 1.04
+admm cross: 1 extra certificates
+RESULT node=32 m=35 lb=240573.24796563806 primal=251737.01023115611 status=fathomed iters=10 cpu=1.043 warm=b
+CHILD-SPEC 3:39
+CHILDNODE 3:39
+CHILD-PASS 33 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8222 rhat 0.09584 shat 0.004051 rhat/shat 23.66 |Y| 4.42 |VRV| 4.385 |Z| 127.2
+it     5 lb 238237.5858 (cert 238237.5858, margin 1.72e-05) primal 228880.8523 pres 4.24e-01 dY 5.84e-01 npos 793 cpu 0.58 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9228 rhat 0.05277 shat 0.002175 rhat/shat 24.27 |Y| 4.836 |VRV| 4.812 |Z| 127.2
+it    10 lb 240059.1438 (cert 240059.1438, margin 0.00e+00, lazy) primal 251148.9961 pres 2.55e-01 dY 3.14e-01 npos 796 cpu 1.01
+bsched it 13 beta 0.882 pres/(beta dY) 0.9901 rhat 0.04222 shat 0.001643 rhat/shat 25.7 |Y| 4.898 |VRV| 4.899 |Z| 127.1
+it    13 lb 240689.8717 (cert 240689.8717, margin 1.71e-05) primal 245027.5857 pres 2.07e-01 dY 2.37e-01 npos 785 cpu 1.31 extra
+admm cross: 2 extra certificates
+RESULT node=33 m=35 lb=240689.87170790727 primal=245027.58571944805 status=fathomed iters=13 cpu=1.311 warm=b
+CHILD-SPEC 2:39
+CHILDNODE 2:39
+CHILD-PASS 34 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8561 rhat 0.1284 shat 0.004787 rhat/shat 26.82 |Y| 4.1 |VRV| 4.103 |Z| 128.5
+it     5 lb 237261.9015 (cert 237261.9015, margin 1.73e-05) primal 226904.8198 pres 5.27e-01 dY 6.98e-01 npos 782 cpu 0.65 extra
+bsched it 10 beta 0.882 pres/(beta dY) 1.008 rhat 0.07048 shat 0.00231 rhat/shat 30.51 |Y| 4.249 |VRV| 4.234 |Z| 128.6
+it    10 lb 239570.4302 (cert 239570.4302, margin 0.00e+00, lazy) primal 240336.9685 pres 2.99e-01 dY 3.37e-01 npos 791 cpu 1.07
+bsched it 15 beta 0.882 pres/(beta dY) 1.219 rhat 0.04897 shat 0.001359 rhat/shat 36.03 |Y| 4.35 |VRV| 4.349 |Z| 128.7
+it    15 lb 240650.7175 (cert 240650.7175, margin 1.73e-05) primal 241200.7150 pres 2.13e-01 dY 1.98e-01 npos 793 cpu 1.52 extra
+admm cross: 2 extra certificates
+RESULT node=34 m=35 lb=240650.71748056228 primal=241200.71503437852 status=fathomed iters=15 cpu=1.521 warm=b
+CHILD-SPEC 1:39
+CHILDNODE 1:39
+CHILD-PASS 35 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8263 rhat 0.07359 shat 0.003465 rhat/shat 21.24 |Y| 4.712 |VRV| 4.668 |Z| 121.1
+it     5 lb 238300.0967 (cert 238300.0967, margin 1.70e-05) primal 234969.4864 pres 3.47e-01 dY 4.76e-01 npos 794 cpu 0.60 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9423 rhat 0.04157 shat 0.001864 rhat/shat 22.3 |Y| 5.116 |VRV| 5.094 |Z| 121.1
+it    10 lb 239828.9835 (cert 239828.9835, margin 0.00e+00, lazy) primal 250481.7237 pres 2.13e-01 dY 2.56e-01 npos 796 cpu 1.03
+bsched it 15 beta 0.882 pres/(beta dY) 1.09 rhat 0.02975 shat 0.001172 rhat/shat 25.38 |Y| 5.196 |VRV| 5.193 |Z| 121
+it    15 lb 240530.6691 (cert 240530.6691, margin 1.70e-05) primal 241514.8474 pres 1.55e-01 dY 1.61e-01 npos 789 cpu 1.49 extra
+admm cross: 2 extra certificates
+RESULT node=35 m=35 lb=240530.66908163368 primal=241514.84742732198 status=fathomed iters=15 cpu=1.486 warm=b
+CHILD-SPEC 0:39
+CHILDNODE 0:39
+CHILD-PASS 36 start=b
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.882 (base 2.45) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 5 beta 0.882 pres/(beta dY) 0.8566 rhat 0.1082 shat 0.004612 rhat/shat 23.45 |Y| 4.448 |VRV| 4.373 |Z| 121.8
+it     5 lb 238592.0904 (cert 238592.0904, margin 1.69e-05) primal 217631.0113 pres 4.81e-01 dY 6.37e-01 npos 794 cpu 0.59 extra
+bsched it 10 beta 0.882 pres/(beta dY) 0.9066 rhat 0.05646 shat 0.002736 rhat/shat 20.63 |Y| 5.352 |VRV| 5.288 |Z| 121.8
+it    10 lb 240545.7880 (cert 240545.7880, margin 1.69e-05) primal 259878.5925 pres 3.02e-01 dY 3.78e-01 npos 799 cpu 1.04
+admm cross: 1 extra certificates
+RESULT node=36 m=35 lb=240545.78804532325 primal=259878.59254863055 status=fathomed iters=10 cpu=1.044 warm=b

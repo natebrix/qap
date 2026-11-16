@@ -1,0 +1,18 @@
+CMD dnncuts -c 458821516.05 -x 0:44,49:49,25:31 -regions regions/tai50b.comb.txt -side 0 -I 300 -k 1000 -cpsep 100:1000 -cpiters 3000 -T 1 /home/user/qap/qaplib/tai50b.dat
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+instance /home/user/qap/qaplib/tai50b.dat n=50 node 0:44,49:49,25:31 m=47 cutoff 458821516.0500  cuts regional (regions file) side 0, 58 regions
+round  0  lb 447188770.9164 (gain 0.0000, best 0.0000)  primal 415016683.4612  status iter_limit  iters 300  cpu 118.8  active 0  violated 52684 (max 0.2122)  added 1000
+cp pool: round 0's separation at the give-up point, 16 regions, 1000 cuts; in-solve separation every 100 iterations, 1000 cuts, cap 0, drop after 0
+cp pool: 1000 cuts kept (0 dropped), 1000 in the projector, 5976 terms, 58 regions, 140 region-pair classes; sweeps 1 passes 1 omega 1
+admm cross 2 warm_damp 1:0
+it   100 lb 451363920.6988 (cert 451363920.6988, margin 1.77e-01) primal 431698706.1090 pres 4.42e-02 dY 2.04e-02 npos 1358 cpu 53.47
+cp it   100 cert 451363920.69880247 hsum 8.07036e+06 cpcpu 2.74 cuts 2000 active 229 sum_nu 0.581706 viol 362 (max 2.189e-03/||G||, rnorm 9.399e-03) dstep 4.109e-03 | ms pstep 13.48 (200) hpass 0.17 (100) diag 0.0 s | pool 2000 sep 1 (last: violated 126217 max 0.1796 added 1000; total added 1000 dropped 0) sep 0.0 s
+it   200 lb 454855856.0616 (cert 454855856.0616, margin 1.77e-01) primal 438058978.7932 pres 3.42e-02 dY 1.49e-02 npos 1369 cpu 110.28
+cp it   200 cert 454855856.06161082 hsum 1.55529e+07 cpcpu 5.53 cuts 3000 active 685 sum_nu 2.45129 viol 1733 (max 2.464e-03/||G||, rnorm 3.409e-02) dstep 3.468e-03 | ms pstep 13.58 (400) hpass 0.24 (200) diag 0.0 s | pool 3000 sep 2 (last: violated 40672 max 0.0942 added 1000; total added 2000 dropped 0) sep 0.0 s
+it   300 lb 458007730.4752 (cert 458007730.4752, margin 1.74e-01) primal 443747855.3486 pres 3.04e-02 dY 1.57e-02 npos 1386 cpu 165.49
+cp it   300 cert 458007730.47523004 hsum 2.3325e+07 cpcpu 8.26 cuts 4000 active 1258 sum_nu 5.22106 viol 2348 (max 2.355e-03/||G||, rnorm 3.395e-02) dstep 2.833e-03 | ms pstep 13.49 (600) hpass 0.31 (300) diag 0.0 s | pool 4000 sep 3 (last: violated 19049 max 0.0716 added 1000; total added 3000 dropped 0) sep 0.1 s
+admm cross: 2 extra certificates
+cp separation: 3 separations, 3000 cuts added, 0 dropped, pool 4000 at the end, 0.1 s
+cp solve  lb 458840171.1916325092 (gain 11651400.2752)  primal 445358924.9907  status fathomed  iters 328  cpu 181.9  certs 34 failures 0  kept 1000
+FINAL best_lb 458840171.191633 first_lb 447188770.916425 gain 11651400.275208

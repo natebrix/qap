@@ -1,0 +1,1 @@
+With three sweeps as well (`logs/A_wc288_s3_ex.log`): 90% at 420 and the cutoff at 640 against 560 and 830 for `wc=2.88` alone: **1.3x together** at 0.125 s per iteration against 0.121, and 5.2x against today

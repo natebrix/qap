@@ -1,0 +1,136 @@
+[Jan 1, 2023]
+vm
+parameters file: ../experiments/estimates/tho40/tho40.par
+symmetry file: SYM/tho40t.sym
+incumbent: 240516
+root fixes: 26:10,8:0,2:32,18:39,35:24
+input file: ../qaplib/tho40t.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 1-38, relative gap <= 1, give up after 200 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 80 hash 49171709a99d1b81
+setting dnn.depths 1:38 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 200 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36 par policy
+setting dnn.dscale 0 default policy
+setting dnn.dscale0 1 default policy
+setting dnn.dscale_until 0 default policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.regions "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.giveup "" default policy
+setting cut.giveup_depth 0 default policy
+setting cut.cp_iters 0 default policy
+setting cut.handover "" default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_extrap "" default policy
+setting cut.cp_wc_gap 0 default policy
+setting cut.cp_wc_deficit 0 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 2 par policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash b555e05176c9fa88 par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file ../experiments/estimates/tho40/tho40.par flag run
+setting QAP_DNN_TRACE /home/user/qap/experiments/bound_lab/integration/ident/tho40_a_new/dnn.txt env diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE /home/user/qap/experiments/bound_lab/integration/ident/tho40_a_new/nodes.txt env diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+root bound 196746 (for the relative gaps of a -F run)
+branching_weight() = 0.5
+read symmetry info from SYM/tho40t.sym
+  ---- RESULTS ----
+
+    Total Time: 693.015 seconds 
+         Nodes: 404 / 392 / 0
+    root bound: 196746
+ fw iterations: 40100
+     DNN bound: 404 nodes, 392 fathomed, 688.538 s
+
+level    nodes	%fathom	%c.elim	    time
+ 5           1	0.0000	0.0000	   15.66
+ 6          35	0.8571	0.0000	  166.11
+ 7         170	0.9647	0.0000	  316.46
+ 8         198	1.0000	N/A	  194.79
+
+Strategy breakdown:
+nodes       0        0       36      368 
+time     0.00     0.00   181.76   511.25 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 5           1	0.0000	1.0000	        200	   200.0	   15.55
+ 6          35	0.8571	0.1429	       2257	    64.5	  165.11
+ 7         170	0.9647	0.0353	       4803	    28.3	  314.79
+ 8         198	1.0000	0.0000	       3376	    17.1	  193.09
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 5           0	       0	       0	       0	       0
+ 6          30	       0	      30	       0	       0
+ 7         164	       0	     164	       0	       0
+ 8         198	       0	     198	       0	       0
+
+eigendecompositions for W and U: 411 computed, 399 reused from the per-size cache

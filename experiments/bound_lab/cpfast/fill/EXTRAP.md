@@ -1,0 +1,1 @@
+Node A at `wc=2.88` (`logs/A_wc288_ex.log`): 7 jumps, none reverted, 92 to 123 units ahead from iteration 200; 90% at 470 instead of 560 and the cutoff at 700 instead of 830 (**1.19x, at the same cost per iteration**). Path node, depth 8, at `w`: 1.1x (section 3). @@S3EX@@

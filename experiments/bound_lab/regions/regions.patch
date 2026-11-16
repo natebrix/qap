@@ -1,0 +1,180 @@
+diff --git a/RUNNING.md b/RUNNING.md
+index 5f6b66bb..17b818c1 100644
+--- a/RUNNING.md
++++ b/RUNNING.md
+@@ -177,6 +177,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
+ | `cut.maxdepth` | par key | integer | `1073741824` | 0..inf | policy | the cut phase only at nodes of at most this depth |
+ | `cut.side` | par key | integer | `0` | 0..1 | policy | regions over the first (0) or the second (1) matrix |
+ | `cut.grid` | par key | text | unset | text | policy | R:C grid whose prefixes are the regions (unset: prefixes of the free elements) |
++| `cut.regions` | par key | text | unset | text | policy | file of regions, one per line: original indices of cut.side (any sets; with cut.grid, added to its prefixes) |
+ | `cut.rounds` | par key | integer | `12` | 1..1000 | policy | cut rounds per phase |
+ | `cut.iters` | par key | integer | `300` | 1..1000000 | policy | ADMM iterations per cut round |
+ | `cut.k` | par key | integer | `1000` | 0..1000000 | policy | new triangle cuts per round |
+diff --git a/experiments/dnn_cuts/dnncuts.C b/experiments/dnn_cuts/dnncuts.C
+index bf9fbb25..c61f6c54 100644
+--- a/experiments/dnn_cuts/dnncuts.C
++++ b/experiments/dnn_cuts/dnncuts.C
+@@ -6,7 +6,8 @@
+    make -C latest dnncuts
+    experiments/dnn_cuts/dnncuts [-x i:j,...] [-u ub | -c cutoff] [-r rounds]
+        [-I first-round iters] [-i iters] [-k cuts] [-t theta] [-delta D]
+-       [-mu0 M] [-grid R:C [-side 0|1] | -prefix | -atomic] [-five K] [-d degree]
++       [-mu0 M] [-grid R:C [-side 0|1] | -regions FILE [-side 0|1] | -prefix | -atomic]
++       [-five K] [-d degree]
+        [-Ladd file[:const]] [-warmY] [-dumpY prefix] [-addto R] [-seven K[:S]]
+        [-stall R] [-pgate R:M] [-box K[:QMAX[:STARTS]]] [-loadpool F] [-savepool F]
+        [-poolcheck K] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
+@@ -172,6 +173,20 @@ int main(int argc, char **argv)
+         fprintf(stderr, "bad -grid R:C\n"); return 1; }
+     }
+     else if (o == "-side" && more) cp.side = atoi(argv[++a]);
++    else if (o == "-regions" && more) {   // -regions FILE: one region per line, original indices of -side ('#' comments)
++      FILE *f = fopen(argv[++a], "r");
++      if (!f) { fprintf(stderr, "cannot read regions file %s\n", argv[a]); return 1; }
++      char line[1 << 14];
++      while (fgets(line, sizeof line, f)) {
++        if (char *h = strchr(line, '#')) *h = 0;
++        std::istringstream in(line);
++        std::vector<int> r; int x;
++        while (in >> x) r.push_back(x);
++        if (!r.empty()) cp.regions.push_back(r);
++      }
++      fclose(f);
++      if (cp.regions.empty()) { fprintf(stderr, "no regions in %s\n", argv[a]); return 1; }
++    }
+     else if (o == "-stall" && more) cp.stall_rounds = atoi(argv[++a]);   // stop rule (dnncut.h), 0 = off
+     else if (o == "-pgate" && more) {                                      // -pgate R:M: primal gate after round R, margin M (dnncut.h)
+       const char *z = argv[++a], *c = strchr(z, ':');
+@@ -231,7 +246,7 @@ int main(int argc, char **argv)
+     else file = argv[a];
+   }
+   if (!file) { fprintf(stderr, "usage: see the comment at the top of dnncuts.C\n"); return 1; }
+-  if (cp.grid_rows == 0 && !cp.prefix) cp.atomic = true;   // as before: no regions means atomic
++  if (cp.grid_rows == 0 && !cp.prefix && cp.regions.empty()) cp.atomic = true;   // as before: no regions means atomic
+   if (cp.first_iters <= 0) cp.first_iters = cp.iters;       // the driver always runs the uncut round
+   setvbuf(stdout, NULL, _IOLBF, 0);
+   dnn_set_blas_threads(threads);
+@@ -244,6 +259,7 @@ int main(int argc, char **argv)
+   QAPAssignment node(n);
+   if (!parse_fixes(fixes, node, n)) { fprintf(stderr, "bad fixes\n"); return 1; }
+   if (cp.grid_rows > 0 && cp.grid_rows * cp.grid_cols != n) { fprintf(stderr, "-grid R:C needs R*C = n\n"); return 1; }
++  for (auto &r : cp.regions) for (int x : r) if (x < 0 || x >= n) { fprintf(stderr, "-regions: index %d out of range\n", x); return 1; }
+   QAP qr;
+   reduceQAP(q, &qr, node);
+   const int m = n - node.nfix;
+@@ -269,8 +285,8 @@ int main(int argc, char **argv)
+     printf("external term %s: %zu nonzeros, |L_ext| = %.6f, const %.6f\n", path.c_str(), nz, abs_, cp.ext_const);
+   }
+   printf("instance %s n=%d node %s m=%d cutoff %.4f  cuts %s", file, n, fixes.c_str(), m, cutoff,
+-         cp.atomic ? "atomic" : (cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
+-  if (cp.grid_rows > 0) printf(" side %d", cp.side);
++         cp.atomic ? "atomic" : (!cp.regions.empty() ? "regional (regions file)" : cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
++  if (cp.grid_rows > 0 || !cp.regions.empty()) printf(" side %d", cp.side);
+   if (cp.warm_primal) printf(" warmY 1");
+   if (cp.damp1 != 1.0 || cp.damp_rest != 1.0) printf(" damp1 %g:%g", cp.damp1, cp.damp_rest);
+   if (cp.kbox > 0) printf(" box %d qmax %d starts %d", cp.kbox, cp.box_qmax, cp.box_starts);
+diff --git a/latest/bnb.C b/latest/bnb.C
+index 3838c886..301e5bf9 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -887,6 +887,28 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	    // every value from the settings registry (settings.C has the ranges
+ 	    // and one-line descriptions; the defaults are DNNCutParams's)
+ 	    if (const char *e = setting_s("cut.grid"); *e) sscanf(e, "%d:%d", &cp.grid_rows, &cp.grid_cols);
++	    // cut.regions = FILE: arbitrary regions, one per line, original indices of cut.side
++	    // (experiments/bound_lab/regions: the cluster and line-prefix regions of tai*b)
++	    {
++	      static const std::vector<std::vector<int>> region_sets = [] {
++	        std::vector<std::vector<int>> out;
++	        const char *e = setting_s("cut.regions");
++	        if (!*e) return out;
++	        FILE *f = fopen(e, "r");
++	        if (!f) { std::cerr << "cut.regions: cannot read " << e << std::endl; exit(2); }
++	        char line[1 << 14];
++	        while (fgets(line, sizeof line, f)) {
++	          if (char *h = strchr(line, '#')) *h = 0;
++	          std::vector<int> r; char *q = line;
++	          for (;;) { char *end; long x = strtol(q, &end, 10); if (end == q) break; r.push_back((int)x); q = end; }
++	          if (!r.empty()) out.push_back(r);
++	        }
++	        fclose(f);
++	        if (out.empty()) { std::cerr << "cut.regions: no regions in " << e << std::endl; exit(2); }
++	        return out;
++	      }();
++	      cp.regions = region_sets;
++	    }
+ 	    cp.side = (int)setting_i("cut.side");
+ 	    cp.rounds = (int)setting_i("cut.rounds");
+ 	    cp.iters = (int)setting_i("cut.iters");
+@@ -952,7 +974,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	        p = q;
+ 	      }
+ 	    }
+-	    if (cp.grid_rows == 0) cp.prefix = true;
++	    if (cp.grid_rows == 0 && cp.regions.empty()) cp.prefix = true;
+ 	    DNNPool pool_out;
+ 	    if (dnn_pool && cp.side == cut_side) {
+ 	      cp.pool_in = have_pool ? (pool_cp_ran ? &pool_mid : &pool_in) : NULL;   // QAP_DNN_POOL_CP: at mu_D
+diff --git a/latest/dnncut.C b/latest/dnncut.C
+index 7e0aeafe..c5e09d32 100644
+--- a/latest/dnncut.C
++++ b/latest/dnncut.C
+@@ -590,6 +590,31 @@ std::vector<Region> prefix_regions(int m)
+ // prefixes of the free elements (bnb.C sets cp.prefix when it gives no grid)
+ static std::vector<Region> cut_regions(const DNNCutParams &cp, const std::vector<int> &free_orig, int n_orig, int m)
+ {
++  if (!cp.regions.empty()) {
++    // arbitrary regions in original indices (cp.regions), mapped to the free elements;
++    // as grid_regions: no empty, full, duplicate or complementary sets
++    std::vector<Region> out;
++    if (cp.grid_rows > 0) out = grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
++    std::vector<int> local(n_orig, -1);
++    for (size_t t = 0; t < free_orig.size(); t++) local[free_orig[t]] = (int)t;
++    std::set<std::vector<int>> seen;
++    for (auto &r : out) {
++      seen.insert(r.loc);
++      std::vector<char> in(m, 0); for (int a : r.loc) in[a] = 1;
++      std::vector<int> comp; for (int a = 0; a < m; a++) if (!in[a]) comp.push_back(a);
++      seen.insert(comp);
++    }
++    for (size_t s = 0; s < cp.regions.size(); s++) {
++      std::vector<char> in(m, 0);
++      for (int x : cp.regions[s]) if (x >= 0 && x < n_orig && local[x] >= 0) in[local[x]] = 1;
++      std::vector<int> loc, comp;
++      for (int a = 0; a < m; a++) (in[a] ? loc : comp).push_back(a);
++      if (loc.empty() || comp.empty() || seen.count(loc) || seen.count(comp)) continue;
++      seen.insert(loc);
++      out.push_back({"set" + std::to_string(s), loc});
++    }
++    return out;
++  }
+   if (cp.grid_rows > 0) return grid_regions(cp.grid_rows, cp.grid_cols, free_orig, n_orig);
+   if (cp.prefix) return prefix_regions(m);
+   return std::vector<Region>();
+diff --git a/latest/dnncut.h b/latest/dnncut.h
+index b856b128..b4218062 100644
+--- a/latest/dnncut.h
++++ b/latest/dnncut.h
+@@ -129,6 +129,10 @@ struct DNNCutParams {
+   int side;           // 0: regions over the first index (A), 1: the second (B)
+   bool prefix;        // regions: prefixes of the free elements; what bnb.C uses
+                       // when no grid is given (grid_rows == 0)
++  std::vector<std::vector<int>> regions;  // arbitrary regions (any subset of `side` is
++                      // valid): original indices of `side`, mapped to the node's free
++                      // elements as the grid's are; used when non-empty, after the
++                      // grid's prefixes if a grid is given too (dnncuts -regions FILE)
+   bool atomic;        // atomic triangle cuts instead of regional ones
+   int cap_at_cutoff;  // 1: Polyak target = min(cutoff, best + delta) (default); 0: best +
+                       // delta, so the step does not vanish within 0.01 of the cutoff
+diff --git a/latest/settings.C b/latest/settings.C
+index f1c1d77e..5e505851 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -55,6 +55,7 @@ static Setting TABLE[] = {
+   POLICY("cut.maxdepth", "QAP_DNN_CUT_MAXDEPTH", 'i', "1073741824", 0, 1073741824, "the cut phase only at nodes of at most this depth"),
+   POLICY("cut.side", "QAP_DNN_CUT_SIDE", 'i', "0", 0, 1, "regions over the first (0) or the second (1) matrix"),
+   POLICY("cut.grid", "QAP_DNN_CUT_GRID", 's', "", 0, 0, "R:C grid whose prefixes are the regions (unset: prefixes of the free elements)"),
++  POLICY("cut.regions", "QAP_DNN_CUT_REGIONS", 's', "", 0, 0, "file of regions, one per line: original indices of cut.side (any sets; with cut.grid, added to its prefixes)"),
+   POLICY("cut.rounds", "QAP_DNN_CUT_ROUNDS", 'i', "12", 1, 1000, "cut rounds per phase"),
+   POLICY("cut.iters", "QAP_DNN_CUT_ITERS", 'i', "300", 1, 1000000, "ADMM iterations per cut round"),
+   POLICY("cut.k", "QAP_DNN_CUT_K", 'i', "1000", 0, 1000000, "new triangle cuts per round"),

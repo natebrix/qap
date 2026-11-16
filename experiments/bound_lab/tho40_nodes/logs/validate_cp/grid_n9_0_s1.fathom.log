@@ -1,0 +1,13 @@
+objective values are even integers: fathoming tolerance 1.95
+instance logs/validate_cp/grid_n9_0.dat n=9 node 2:5 m=8 cutoff 305.0000  cuts regional (prefixes), 7 regions
+cp pool logs/validate_cp/grid_n9_0_s1.pool: 7 regions, 255 cuts (200 with mu > 0)
+round  0  lb 305.7170 (gain 0.0000, best 0.0000)  primal 306.3514  status fathomed  iters 40  cpu 0.0  active 0  violated 30 (max 0.0522)  added 30
+cp pool: 255 cuts kept (0 dropped), 255 in the projector, 1332 terms, 7 regions, 7 region-pair classes; sweeps 1 passes 1 omega 1
+admm cross 2 warm_damp 1:0
+bsched kind 3 beta 0.288 (base 0.8) f 1 t 60 f2 1 force 0 c 1 every 40 max 4 freeze 200 nodes 0 w 0.36
+bsched it 10 beta 0.288 pres/(beta dY) 2.525 rhat 0.09902 shat 0.009511 rhat/shat 10.41 |Y| 3.52 |VRV| 3.488 |Z| 14.52
+it    10 lb 305.1400 (cert 305.1400, margin 3.90e-10) primal 279.6155 pres 3.49e-01 dY 4.79e-01 npos 26 cpu 0.00
+cp it    10 cert 305.14004816174844 hsum 4.06237 cpcpu 0.00 cuts 255 active 61 sum_nu 0.434649 viol 27 (max 1.310e-02/||G||, rnorm 2.440e-02) dstep 6.124e-02 | ms pstep 0.02 (20) hpass 0.01 (10) diag 0.0 s
+admm cross: 0 extra certificates
+cp solve  lb 305.1400481617 (gain -0.5770)  primal 279.6155  status fathomed  iters 10  cpu 0.0  certs 1 failures 0  kept 255
+FINAL best_lb 305.717023 first_lb 305.717023 gain 0.000000
