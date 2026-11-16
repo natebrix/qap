@@ -185,6 +185,49 @@ depths 4 to 6), plus the open nodes themselves (300 to 600 CPU-s on the spine, a
   costs 1.15 to 1.3 times a first-solve iteration), `pool.cp = 1`, `dnn.amx = 1` (0.80 of the plain
   iteration's CPU on this box), `dnn.gu_zone = 0`.
 
+## 9b. After the report: the coordinator's messages, and one A/B [m]
+
+Three messages from the coordinating session reached this session only after the report above was written
+(they were queued at 01:39, 02:31 and 04:13 and read at 05:01). Every number above was measured without
+them. What they change:
+
+**The phase penalty, `dnn.beta_sched = w=0.36,wc=2.88`** (`../cpfast`), tested here on four depth-1 nodes
+already bounded under `par/A.par`, same root state and pool (`par/A_wc.par`, `runs/wc_X/dnn.txt`):
+
+| node | `A.par` (no `wc`): phase iterations, end, CPU-s | `wc=2.88`: phase iterations, end, CPU-s |
+|---|---|---|
+| `31:27` | 681, fathomed, 457 | **533, fathomed, 331** |
+| `31:5` | 2,400, at the limit 12,000 short, branched, 1,504 | **1,323, fathomed, 763** |
+| `31:43` (holds a solution 1.96M above the best known) | 800, stalled 2.68M short, 552 | 1,310, stalled **1.95M** short, 762 |
+| `31:7` (on the path) | 690, stalled 3.22M short, 451 | 1,000, stalled **2.51M** short, 532 |
+
+Fathoming phases take 1.3x to 1.8x fewer iterations and the nodes that cannot fathom end 0.7M closer, so
+their children start closer. **Use `wc=2.88`; the estimates above were made without it and should be high for
+that reason** [e: four nodes at one depth; the root, the web levels and `wc` = 1.0 and 5.76 were not run].
+
+**The other session's samples** (`../regions/README.md`, "Follow-up (Nov 16)", read after the report): the same
+picture of the top (one path through the 3-point cluster's locations 31, 33, 32, then a fringe of
+same-cluster children from depth 4), and its figure for "every survivor's children die at once", 50 to 200
+core-hours and 10,000 to 60,000 nodes, is this README's range. Its central figure (2,000 to 7,000 c7a
+core-hours, order 1e6 nodes) assumes the fringe compounds for three or so levels at about 3 survivors per
+survivor. What was measured here on that question:
+
+- Off the path at depths 4 and 5, 4 of 13 dives met a node that branched (each at the phase limit, 0.05M to
+  0.20M short); the child then drawn, by the DNN marginals, which favour the likely survivors, fathomed in
+  all 4 (45 to 205 iterations in three, 681 in one). At depths 6, 7 and 8, 0 of 66 off-path nodes branched.
+- The web model counts the survivors level by level from the solutions they hold: 43 and 65 open nodes at
+  depths 4 and 5, then 7, 5, 6 at depths 6 to 8 (section 7): it compounds for two levels and stops, because
+  the gap on the path falls from 0.63M at depth 5 to 0.20M at depth 6.
+- The roots differ: its children start from a 3,000-iteration root (on-path nodes 4.82M, 3.88M, 3.10M short
+  at depths 1 to 3), these from the 6,000-iteration one (3.22M, 2.65M, 2.19M), and it notes itself that a long
+  phase on the path changes its children's fate (8 of 10 fathom at once instead of 2 of 10).
+
+So I keep the answer, with this added to "What could make it wrong": four dives is all the direct evidence
+against compounding at depths 4 and 5, and the two sessions' numbers differ by 20x on exactly that. Its
+other settings (`dnn.gu_zone = 0`, `dnn.giveup_warm = 100`, `cut.stall = 0` with `cut.cp_iters = 3000`) were
+not run here. Its report that `bnbdrv -e -r` printed a wrong level table is what `est_resume.patch` fixes
+(without it the resumed estimator has no root bound).
+
 ## 10. Not done
 
 @NOTDONE@

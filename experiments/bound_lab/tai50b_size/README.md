@@ -50,6 +50,10 @@ cut.freeze = 0
 cut.stall = 3
 ```
 
+Add `dnn.beta_sched = w=0.36,wc=2.88` (the coordinator's finding, checked on four depth-1 nodes after the
+estimates were made, section 9b): fathoming phases took 1.3x to 1.8x fewer iterations. The estimates were made
+without it, so they should be high on that account.
+
 Needs `../regions/regions.patch`. These are the settings every number here was measured under, chosen once from
 the tho40 block and the regions README, not tuned: no A/B was run (section 9 says what the runs suggest).
 
@@ -61,9 +65,9 @@ the tho40 block and the regions README, not tuned: no A/B was run (section 9 say
   49 (section 4).
 - The path of the best known solution bounded node by node to depth 13, and the path of a second near-optimal
   solution (under `31:32`) to depth 4, which behaves the same (section 5).
-- 275 dives from saved states, stratified by the path's levels, 355 node bounds in all (section 6); a model of
+- 275 dives from saved states, stratified by the path's levels, 359 node bounds in all with section 9b's (section 6); a model of
   the open nodes checked against the 235 distinct nodes bounded (section 7).
-- Validity: 19 node bounds on the path of the best known solution, none fathomed, none above 458,821,517;
+- Validity: 20 node bounds on the path of the best known solution, none fathomed, none above 458,821,517;
   tai30b solved from an incumbent one above its optimum in 363 nodes, as in the regions session (sections 2, 8).
 - 49,000 CPU-s of node bounds in total, on 4 cores.
 
@@ -88,7 +92,10 @@ the tho40 block and the regions README, not tuned: no A/B was run (section 9 say
    end to end are the test, not yet run.
 6. If 458,821,517 is not optimal, the search finds the better value and the tree is smaller.
 7. CPU-seconds are this machine's (263 ms per plain iteration at m = 48); nodes and iterations carry over.
-8. In the other direction: a longer root, a longer phase limit and any tuning would shrink it (section 9).
+8. **The other session's samples** put the tree at 2,000 to 7,000 c7a core-hours if the fringe of near-optimal
+   nodes compounds for about three levels; the dives and the model here say it compounds for two levels and
+   stops, on thin evidence (section 9b).
+9. In the other direction: a longer root, a longer phase limit and any tuning would shrink it (section 9).
 
 ## 1. Setup, machine, calibration
 
@@ -333,8 +340,8 @@ Three estimates, from the same runs:
   | 0.5 to 1 | 7 | 4 | 3 | 3 | 1024 |
   | 1 to 1.5 | 5 | 2 | 2 | 3 | 1066 |
   | 1.5 to 2 | 11 | 2 | 2 | 9 | 170 |
-  | 2 to 3 | 28 | 0 | 0 | 28 | 308 |
-  | 3 to 5 | 36 | 1 | 1 | 35 | 254 |
+  | 2 to 3 | 28 | 0 | 0 | 28 | 302 |
+  | 3 to 5 | 36 | 0 | 0 | 36 | 286 |
   | 5 to inf | 135 | 0 | 0 | 135 | 109 |
 
   Below half the spine's gap every node branched; between 0.5 and 1.5 about half do, most of them near misses
@@ -437,11 +444,12 @@ E2 by depth [e] (depths 0, 1 and the spine measured):
 ## 8. Validity [m] (`validity.py`, `logs/validity.txt`)
 
 ```
-355 traced node bounds in 49 traces; 19 on the path of the best known solution
+359 traced node bounds in 53 traces; 20 on the path of the best known solution
   depth 0 -: certified 453,552,676.2916  (5,268,841 under)  branched  [runs/root_long/dnn.txt]
   depth 0 -: certified 445,306,477.0661  (13,515,040 under)  branched  [runs/root_short/dnn.txt]
   depth 1 31:7: certified 455,599,284.8629  (3,222,232 under)  branched  [runs/L1_0/dnn.txt]
   depth 1 31:7: certified 452,629,473.6287  (6,192,043 under)  branched  [runs/s1_1/dnn.txt]
+  depth 1 31:7: certified 456,310,021.6095  (2,511,495 under)  branched  [runs/wc_7/dnn.txt]
   depth 2 31:7,33:32: certified 456,169,088.9166  (2,652,428 under)  branched  [runs/spine_2/dnn.txt]
   depth 3 31:7,32:0,33:32: certified 456,635,718.7546  (2,185,798 under)  branched  [runs/spine_3/dnn.txt]
   depth 4 31:7,32:0,33:32,45:34: certified 457,791,720.1686  (1,029,797 under)  branched  [runs/spine_4/dnn.txt]
@@ -484,6 +492,49 @@ largest certified value at a fathomed node: 461,716,998.5014 (a fathom stops at 
 - Not tried: a smaller region set (the 16-region `tai50b.small.txt`; a phase iteration with the 61 regions
   costs 1.15 to 1.3 times a first-solve iteration), `pool.cp = 1`, `dnn.amx = 1` (0.80 of the plain
   iteration's CPU on this box), `dnn.gu_zone = 0`.
+
+## 9b. After the report: the coordinator's messages, and one A/B [m]
+
+Three messages from the coordinating session reached this session only after the report above was written
+(they were queued at 01:39, 02:31 and 04:13 and read at 05:01). Every number above was measured without
+them. What they change:
+
+**The phase penalty, `dnn.beta_sched = w=0.36,wc=2.88`** (`../cpfast`), tested here on four depth-1 nodes
+already bounded under `par/A.par`, same root state and pool (`par/A_wc.par`, `runs/wc_X/dnn.txt`):
+
+| node | `A.par` (no `wc`): phase iterations, end, CPU-s | `wc=2.88`: phase iterations, end, CPU-s |
+|---|---|---|
+| `31:27` | 681, fathomed, 457 | **533, fathomed, 331** |
+| `31:5` | 2,400, at the limit 12,000 short, branched, 1,504 | **1,323, fathomed, 763** |
+| `31:43` (holds a solution 1.96M above the best known) | 800, stalled 2.68M short, 552 | 1,310, stalled **1.95M** short, 762 |
+| `31:7` (on the path) | 690, stalled 3.22M short, 451 | 1,000, stalled **2.51M** short, 532 |
+
+Fathoming phases take 1.3x to 1.8x fewer iterations and the nodes that cannot fathom end 0.7M closer, so
+their children start closer. **Use `wc=2.88`; the estimates above were made without it and should be high for
+that reason** [e: four nodes at one depth; the root, the web levels and `wc` = 1.0 and 5.76 were not run].
+
+**The other session's samples** (`../regions/README.md`, "Follow-up (Nov 16)", read after the report): the same
+picture of the top (one path through the 3-point cluster's locations 31, 33, 32, then a fringe of
+same-cluster children from depth 4), and its figure for "every survivor's children die at once", 50 to 200
+core-hours and 10,000 to 60,000 nodes, is this README's range. Its central figure (2,000 to 7,000 c7a
+core-hours, order 1e6 nodes) assumes the fringe compounds for three or so levels at about 3 survivors per
+survivor. What was measured here on that question:
+
+- Off the path at depths 4 and 5, 4 of 13 dives met a node that branched (each at the phase limit, 0.05M to
+  0.20M short); the child then drawn, by the DNN marginals, which favour the likely survivors, fathomed in
+  all 4 (45 to 205 iterations in three, 681 in one). At depths 6, 7 and 8, 0 of 66 off-path nodes branched.
+- The web model counts the survivors level by level from the solutions they hold: 43 and 65 open nodes at
+  depths 4 and 5, then 7, 5, 6 at depths 6 to 8 (section 7): it compounds for two levels and stops, because
+  the gap on the path falls from 0.63M at depth 5 to 0.20M at depth 6.
+- The roots differ: its children start from a 3,000-iteration root (on-path nodes 4.82M, 3.88M, 3.10M short
+  at depths 1 to 3), these from the 6,000-iteration one (3.22M, 2.65M, 2.19M), and it notes itself that a long
+  phase on the path changes its children's fate (8 of 10 fathom at once instead of 2 of 10).
+
+So I keep the answer, with this added to "What could make it wrong": four dives is all the direct evidence
+against compounding at depths 4 and 5, and the two sessions' numbers differ by 20x on exactly that. Its
+other settings (`dnn.gu_zone = 0`, `dnn.giveup_warm = 100`, `cut.stall = 0` with `cut.cp_iters = 3000`) were
+not run here. Its report that `bnbdrv -e -r` printed a wrong level table is what `est_resume.patch` fixes
+(without it the resumed estimator has no root bound).
 
 ## 10. Not done
 

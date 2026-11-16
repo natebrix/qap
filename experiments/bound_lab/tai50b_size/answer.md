@@ -41,6 +41,10 @@ cut.freeze = 0
 cut.stall = 3
 ```
 
+Add `dnn.beta_sched = w=0.36,wc=2.88` (the coordinator's finding, checked on four depth-1 nodes after the
+estimates were made, section 9b): fathoming phases took 1.3x to 1.8x fewer iterations. The estimates were made
+without it, so they should be high on that account.
+
 Needs `../regions/regions.patch`. These are the settings every number here was measured under, chosen once from
 the tho40 block and the regions README, not tuned: no A/B was run (section 9 says what the runs suggest).
 
@@ -52,9 +56,9 @@ the tho40 block and the regions README, not tuned: no A/B was run (section 9 say
   49 (section 4).
 - The path of the best known solution bounded node by node to depth 13, and the path of a second near-optimal
   solution (under `31:32`) to depth 4, which behaves the same (section 5).
-- 275 dives from saved states, stratified by the path's levels, 355 node bounds in all (section 6); a model of
+- 275 dives from saved states, stratified by the path's levels, 359 node bounds in all with section 9b's (section 6); a model of
   the open nodes checked against the 235 distinct nodes bounded (section 7).
-- Validity: 19 node bounds on the path of the best known solution, none fathomed, none above 458,821,517;
+- Validity: 20 node bounds on the path of the best known solution, none fathomed, none above 458,821,517;
   tai30b solved from an incumbent one above its optimum in 363 nodes, as in the regions session (sections 2, 8).
 - 49,000 CPU-s of node bounds in total, on 4 cores.
 
@@ -79,4 +83,7 @@ the tho40 block and the regions README, not tuned: no A/B was run (section 9 say
    end to end are the test, not yet run.
 6. If 458,821,517 is not optimal, the search finds the better value and the tree is smaller.
 7. CPU-seconds are this machine's (263 ms per plain iteration at m = 48); nodes and iterations carry over.
-8. In the other direction: a longer root, a longer phase limit and any tuning would shrink it (section 9).
+8. **The other session's samples** put the tree at 2,000 to 7,000 c7a core-hours if the fringe of near-optimal
+   nodes compounds for about three levels; the dives and the model here say it compounds for two levels and
+   stops, on thin evidence (section 9b).
+9. In the other direction: a longer root, a longer phase limit and any tuning would shrink it (section 9).
