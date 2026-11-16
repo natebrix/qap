@@ -1,0 +1,11 @@
+2026-11-15T23:18:07Z start
+2026-11-15T23:18:07Z machine: instance_type c7i.4xlarge az eu-north-1c lifecycle spot instance_id i-0bb41b89f97ce5a7e physical_cores 8 vcpus 16 arch x86_64 model Intel(R) Xeon(R) Platinum 8488C amx_bf16 1 mem_gb 30 kernel 6.18.62-127.179.amzn2023.x86_64 
+2026-11-15T23:18:36Z toolchain: g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5) cc: cc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5) Python 3.11.18 scipy-openblas32 /usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib 
+2026-11-15T23:18:57Z build ok: 	libscipy_openblas.so => /usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib/libscipy_openblas.so (0x00007f73cdc00000) 
+2026-11-15T23:20:59Z gates: bruteforce pass 40s resume pass 9s parallel pass 16s regression pass 6s dnncheck pass 50s 
+2026-11-15T23:21:19Z alone node 19: status=fathomed iters=122 cpu=19.731 ms_per_iter=161.73
+2026-11-15T23:21:50Z alone node 21: status=fathomed iters=177 cpu=31.080 ms_per_iter=175.60
+2026-11-15T23:22:53Z alone node 1: status=hopeless iters=300 cpu=62.284 ms_per_iter=207.61
+2026-11-15T23:23:53Z alone node 11: status=fathomed iters=284 cpu=59.105 ms_per_iter=208.12
+2026-11-15T23:28:18Z loaded: 32 nodes on 8 cores in 265 s
+2026-11-15T23:28:19Z summary: c7i.4xlarge Intel(R) Xeon(R) Platinum 8488C cores 8 amx 1 gates bruteforce:pass resume:pass parallel:pass regression:pass dnncheck:pass alone: 4/4 nodes, 883 iterations, 195.0 ms per iteration, 43.0 CPU s per node loaded: 32/32 nodes, 8861 iterations, 212.3 ms per iteration, 58.8 CPU s per node loaded / alone per iteration: 1.089 fathomed 18 (reference 18 on the same nodes); differences: ['node 11
