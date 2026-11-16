@@ -1,0 +1,100 @@
+--- ../../../latest/bnb.C	2026-11-16 00:47:11.218070294 +0000
++++ /home/user/dvbuild2/bnb.C	2026-11-16 02:06:26.869976540 +0000
+@@ -548,6 +548,21 @@
+ 
+       pop(stack, node, stats);
+       stats->startIteration(node.depth);
++      // tho40_dives diagnostic patch (experiments/bound_lab/tho40_dives/dive_trace.patch)
++      static const char *dv_file = getenv("DIVE_TRACE");
++      static const int dv_full = getenv("DIVE_FULL_DEPTH") ? atoi(getenv("DIVE_FULL_DEPTH")) : (1 << 30);
++      static std::vector<int> dv_path;
++      static bool dv_init = false;
++      if (!dv_init) {
++        dv_init = true;
++        if (const char *e = getenv("DIVE_PATH")) {
++          char *c = strdup(e);
++          for (char *t = strtok(c, " ,"); t; t = strtok(NULL, " ,")) dv_path.push_back(atoi(t));
++          free(c);
++        }
++      }
++      importance = 1.0;   // a node that does not branch leaves the factor alone
++      int dv_mode = 0;    // 0 sampled one child, 1 all children, 2 the path child
+ 
+ 
+       if (node.depth > max_depth) {
+@@ -1177,6 +1192,20 @@
+ 	      }
+ 	      for(i=0;i<kids;i++) prob[i] /= sum_of_scores;
+ 	    }
++	    if (node.depth >= dv_full) {
++	      // every child, each with probability 1: the subtree below is enumerated
++	      for (i = 0; i < kids; i++) push(stack, kid[i], stats);
++	      importance = 1.0; dv_mode = 1;
++	    } else if (!dv_path.empty()) {
++	      // the child that agrees with the given permutation (facility -> location)
++	      int pick = -1;
++	      for (i = 0; i < kids && pick < 0; i++)
++		for (int r = 0; r < n; r++)
++		  if (node.p[r] <= NONE && kid[i].p[r] > NONE) { if (kid[i].p[r] == dv_path[r]) pick = i; break; }
++	      importance = 1.0; dv_mode = 2;
++	      if (pick >= 0) push(stack, kid[pick], stats);
++	      else std::cout << "DIVE_PATH: no child on the path at depth " << node.depth << std::endl;
++	    } else {
+ 	    val = drand();
+ 
+ 	    sum_so_far = 0.0; i=0;
+@@ -1189,6 +1218,7 @@
+ 	    importance = prob[i];
+ 
+ 	    push(stack,kid[i],stats);
++	    }
+ 	  }
+ 	}
+ 	else {
+@@ -1216,6 +1246,16 @@
+ 	node_trace(trace, node, fate, bound, dnn_lb, cut_lb, s->getObjective() - DELTA,
+ 		   stats->ier_start_time, strat, row, line, kids);
+       }
++      if (dv_file) {
++	if (FILE *tf = fopen(dv_file, "a")) {
++	  double cpu = (clock() - stats->ier_start_time) / CLOCKS_PER_SEC;
++	  fprintf(tf, "dv %d depth %d fixes", dive ? 1 : 0, node.depth);
++	  for (int a = 0; a < n; a++) if (node.p[a] > NONE) fprintf(tf, " %d:%d", a, (int)node.p[a]);
++	  fprintf(tf, " | factor %.9g fate %c kids %d imp %.9g mode %d cpu %.3f qpb %.4f bound %.4f\n",
++		  dive ? factor : 1.0, fate, kids, importance, dv_mode, cpu, bound, node.bound);
++	  fclose(tf);
++	}
++      }
+ #ifdef HAVE_DNN
+       if (dnn_keep) free_dnn_warm(dnn_keep);   // not handed to children
+ #endif
+--- ../../../latest/estimate.C	2026-11-16 00:47:11.218070294 +0000
++++ /home/user/dvbuild2/estimate.C	2026-11-16 02:06:26.901451823 +0000
+@@ -153,6 +153,17 @@
+     } while(p->link!=NULL);
+ 
+     // p now points to a node we want to estimate.
++    if (const char *dpe = getenv("DIVE_PATH")) {   // tho40_dives patch: the first node on the given permutation
++      std::vector<int> perm; char *c = strdup(dpe);
++      for (char *t = strtok(c, " ,"); t; t = strtok(NULL, " ,")) perm.push_back(atoi(t));
++      free(c);
++      size_t k = 0;
++      for (Node *t = stack; t != NULL; t = t->link, k++) {
++	bool on = true;
++	for (int r = 0; r < t->data.n; r++) if (t->data.p[r] > NONE && t->data.p[r] != perm[r]) on = false;
++	if (on) { p = t; pk = k; break; }
++      }
++    }
+ 
+     path = new Node;
+     path->data = p->data;
+@@ -164,6 +175,9 @@
+     // step 4: random walk down path of tree.
+     path_stats->root_bound = root_bound;
+     params->est_factor = 1.0/importance;
++    if (const char *dvf = getenv("DIVE_TRACE")) {
++      if (FILE *tf = fopen(dvf, "a")) { fprintf(tf, "dive %d first_imp %.9g top_nodes %.0f top_time %.3f\n", i, importance, double(top_stats->node), top_stats->total_time); fclose(tf); }
++    }
+     bnb(q,path,s,path_stats,0,0,params,nlevel,-1,true,-1);
+ 
+     if(dive_depth(path_stats) >= ep->ignore_depth) {
