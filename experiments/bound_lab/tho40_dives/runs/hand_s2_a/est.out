@@ -130,3 +130,51 @@ level  fathoms	     qpb	     dnn	    cuts	  popped
 QAP_EST_CHILD_QPB: the first draw's 39 nodes scored by their own QPB bound
 sum = 1
 stack = 39
+
+    Total Time: 732843 seconds 
+         Nodes: 24291 / 23483 / 0
+    root bound: 0
+ fw iterations: 4131452
+     DNN bound: 12 nodes, 2 fathomed, 252.147 s
+     cut phase: 10 nodes, 1 fathomed, 3201.74 s
+
+level    nodes	%fathom	%c.elim	    time
+ 1           1	0.0000	0.0000	  731.00
+ 2          23	0.0000	0.0000	 6397.57
+ 3         784	0.0000	0.0000	91556.43
+ 4       23483	1.0000	N/A	634157.90
+
+Strategy breakdown:
+nodes       1        0    24290        0 
+time   731.00     0.00 732111.91     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           3	0.0000	1.0000	        750	   250.0	  129.35
+ 2           3	0.0000	1.0000	        330	   110.0	   52.08
+ 3           3	0.0000	1.0000	        330	   110.0	   42.40
+ 4           3	0.6667	0.3333	        242	    80.7	   28.32
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 1           3	0.0000	 2062.95
+ 2           3	0.0000	  762.47
+ 3           3	0.0000	  319.75
+ 4           1	1.0000	   56.56
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3           0	       0	       0	       0	       0
+ 4       23483	   23480	       2	       1	       0
+
+tmean = 732843	 nmean = 24291
+tssq  = 2.88501e+12	 nssq  = 1.92563e+09
+tvar  = 4.24611e+11	 nvar  = 5.18226e+07
+time stddev = 651622, err = 376214
+node stddev = 7198.79, err = 4156.22
+0 dives with depth >= 1000 were thrown out.

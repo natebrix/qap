@@ -97,3 +97,83 @@ throw out dives with depth >= 1000
 Estimator seed = 1001
 Dive history file = /home/user/qap/experiments/bound_lab/tho40_dives/runs/hand_s1_a/dives.txt
 Scoring exponent = 10
+
+    Total Time: 724.703 seconds 
+         Nodes: 1 / 0 / 0
+    root bound: 0
+ fw iterations: 3900
+     DNN bound: 1 nodes, 0 fathomed, 43.3069 s
+     cut phase: 1 nodes, 0 fathomed, 681.189 s
+
+level    nodes	%fathom	%c.elim	    time
+ 1           1	0.0000	0.0000	  724.70
+
+Strategy breakdown:
+nodes       1        0        0        0 
+time   724.70     0.00     0.00     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           1	0.0000	1.0000	        250	   250.0	   43.31
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 1           1	0.0000	  681.19
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 1           0	       0	       0	       0	       0
+
+QAP_EST_CHILD_QPB: the first draw's 39 nodes scored by their own QPB bound
+sum = 1
+stack = 39
+
+    Total Time: 133634 seconds 
+         Nodes: 21757 / 21318 / 0
+    root bound: 0
+ fw iterations: 2676232
+     DNN bound: 11 nodes, 2 fathomed, 233.903 s
+     cut phase: 9 nodes, 1 fathomed, 2900.5 s
+
+level    nodes	%fathom	%c.elim	    time
+ 1           1	0.0000	0.0000	  724.70
+ 2          31	0.0000	0.0000	 6419.96
+ 3         788	0.4835	0.0000	66439.15
+ 4       20937	1.0000	N/A	60049.96
+
+Strategy breakdown:
+nodes       1        0    21756        0 
+time   724.70     0.00 132909.07     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           3	0.0000	1.0000	        750	   250.0	  129.92
+ 2           3	0.0000	1.0000	        330	   110.0	   53.52
+ 3           3	0.0000	1.0000	        330	   110.0	   44.75
+ 4           2	1.0000	0.0000	         44	    22.0	    5.72
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 1           3	0.0000	 2043.57
+ 2           3	0.0000	  611.72
+ 3           3	0.3333	  245.21
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 1           0	       0	       0	       0	       0
+ 2           0	       0	       0	       0	       0
+ 3         381	     380	       0	       1	       0
+ 4       20937	   20935	       2	       0	       0
+
+tmean = 133634	 nmean = 21757
+tssq  = 5.87393e+10	 nssq  = 2.2254e+09
+tvar  = 1.72177e+09	 nvar  = 2.68433e+08
+time stddev = 41494.2, err = 23956.7
+node stddev = 16383.9, err = 9459.26
+0 dives with depth >= 1000 were thrown out.
