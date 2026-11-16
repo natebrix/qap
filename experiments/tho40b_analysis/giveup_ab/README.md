@@ -20,6 +20,31 @@
   of the cutoff against the tho40ab subtree's 8,634.
 
 
+## The cut-phase arms (Nov 16)
+
+From `experiments/bound_lab` (README.md, section 2): its Knuth dives put tho40's tree at 226
+c7a CPU-days with the grid cut phase at `cut.zone = 0.06`, against 1,308 as tho40-b runs, and
+about half that again with a hand-over rule and the phase's own penalty. Three arms put that on
+this subtree, on top of tho40-b's recipe (`ship.bits = 32` as in production, where the dives ran
+single-process at 64):
+
+| arm | settings | build |
+|---|---|---|
+| cut06 | the dives' zone 0.06 arm exactly (`tho40_dives/par/cut06.par`): `pool.on = 1`, `cut.grid = 5:8`, `cut.side = 1`, `cut.cp = 100:1000`, `cut.warmy = 1`, `cut.rounds = 12`, `cut.iters = 200`, `cut.freeze = 1000`, `cut.zone = 0.06` | cognac |
+| np10 | the README's ten-line block: cut06 with `dnn.giveup_warm = 100`, and `dnn.gu_zone = 0`, `dnn.beta_sched = w=0.36,wc=2.88` | cognac |
+| full12 | np10 with `cut.handover = 20:0:0.22:1.5:100:3:1.25` and `cut.cp_wc_gap = 300`: the dives' combined arm exactly (`comb.par`) | integration b86352e, built in its own worktree (`../qap-b86352e`, or `INTEGRATION_WT`) |
+
+**Through the coordinator** (checked on this box, the depth-3 subtree `26:10,8:0,30:32`: 571
+nodes and 2,122 c7a s under tho40-b's settings; 2 slots, 60-s units so that pools cross unit
+boundaries, 38 units):
+- **The same tree as one process:** full12 gave the same 38 nodes and the same outcome at every
+  node (1 branched, 37 fathomed) as a single `bnbdrv` run on the same build. The branched node's
+  bounds matched to the last digit. The children's DNN bounds differ by 0.06-0.6 units, from the
+  fp32 parent states the coordinator ships.
+- **CPU here:** np10 344 s, full12 267 s (tho40-b's settings: about 1,540 s on this box).
+
+`BUDGET` sets the units' CPU budget (default 300 s).
+
 In tho40-b's part-way export, the nodes whose DNN bound gave up as hopeless are 3% of
 the nodes but 30% of the DNN CPU, and 19% of all of it is their iterations past the
 100th (`../giveup_probe/README.md`). Past depth 4, at most 1.6% of the nodes that fathom need
