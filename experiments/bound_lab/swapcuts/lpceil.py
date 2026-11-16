@@ -10,6 +10,7 @@ an LP over the completions:
                                       (fixed i, free j, free b),  sum w = 1, w >= 0,
 with v_node <= v_lp <= v_ex1. No bound from these cuts in any relaxation can pass v_lp.
   python3 lpceil.py > logs/lpceil.out        (m <= 9 free: at most 362,880 columns)
+  python3 lpceil_summary.py > logs/lpceil_summary.txt
 """
 import itertools, os, sys, random, statistics as st
 import numpy as np
@@ -133,18 +134,7 @@ def main():
             key = ("n=%d" % n, d)
             e = summary.setdefault(key, [])
             e.append((vnode, vlp, vex, opt))
-    print("\n# off-path nodes: share with v_ex1 > v_node (logical ceiling), share with v_lp > v_node (the linear cuts' ceiling),")
-    print("# median of (v_lp - v_node) / opt over all nodes and over the affected ones, median share of the logical rise the LP keeps (finite v_ex1)")
-    print("# %-6s %5s %5s %9s %9s %12s %12s %10s" % ("n", "depth", "nodes", "ex>node", "lp>node", "med rise%", "med rise%aff", "lp/ex"))
-    for (nn, d), e in sorted(summary.items()):
-        k = len(e)
-        aex = sum(v[2] > v[0] + 1e-6 for v in e)
-        alp = [v for v in e if v[1] > v[0] + 1e-6 * abs(v[0]) + 1e-6]
-        rise = [100 * (v[1] - v[0]) / v[3] for v in e]
-        risea = [100 * (v[1] - v[0]) / v[3] for v in alp]
-        share = [(v[1] - v[0]) / (v[2] - v[0]) for v in e if v[0] + 1e-6 < v[2] < float("inf")]
-        print("# %-6s %5d %5d %8.0f%% %8.0f%% %12.3f %12s %10s" % (nn, d, k, 100 * aex / k, 100 * len(alp) / k, st.median(rise),
-              "%.3f" % st.median(risea) if risea else "-", "%.2f" % st.median(share) if share else "-"))
+    # the table is made by lpceil_summary.py (an infeasible LP prints v_lp = nan: the cuts exclude the node)
 
 
 if __name__ == "__main__":

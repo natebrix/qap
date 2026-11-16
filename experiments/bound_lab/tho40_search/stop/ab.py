@@ -7,7 +7,7 @@ from summarize import stats
 import ntrace
 t = ntrace.load("/home/user/qap/infra/phase1/runs/tho40ab-32/nodes.txt.gz")
 idx = {",".join(fx): i for i, fx in enumerate(t.fixes)}
-ORDER = ["z030", "zall", "zallh", "zallhg"]
+ORDER = ["z030", "zall", "zallh", "zallhg", "zallhge"]
 print("| node | arm | nodes | fathomed: first solve / phase | phases (fathomed) | iterations: first + phases = total | root: first + phase (gap left) | CPU s | vs z030 | vs zall | vs production [e] |")
 print("|---|---|---|---|---|---|---|---|---|---|---|")
 for w in ["w18", "w38", "w30"]:

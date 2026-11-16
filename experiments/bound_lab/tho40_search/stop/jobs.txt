@@ -8,6 +8,11 @@ w38 zall 26:10,8:0,38:32
 wroot zallh 26:10,8:0 -d 2 -o /home/user/qap/experiments/bound_lab/tho40_search/runs/wroot_zallh/root.state
 w18 zallhg@zallh 26:10,8:0,18:32
 w38 zallhg@zallh 26:10,8:0,38:32
+# and an earlier entry into the phase (par/zallhge.par: dnn.giveup_warm = 100; the cold root's solve does not depend on it)
+w38 zallhge@zallh 26:10,8:0,38:32
+w18 zallhge@zallh 26:10,8:0,18:32
 # 30:32 warm (571 nodes, 2,122 s, 3,492 short in production): the 2,500-3,500 class, not run in the first study
-w30 zallhg@zallh 26:10,8:0,30:32
-w18 zallh 26:10,8:0,18:32
+w30 zallhge@zallh 26:10,8:0,30:32
+# attribution: 18:32 with the rule and gu_zone 0 below the FIRST study's root (wroot_zall: its phase stalled at 760, 5,100 short)
+w18r zallhg@zall 26:10,8:0,18:32
+# NOT RUN (time): w18 zallh 26:10,8:0,18:32

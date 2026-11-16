@@ -277,6 +277,109 @@ cut.zone = 0.06
    children received the root's pool that way), so a coordinator run should need nothing new (none
    was tried here); its units become few and long.
 
+## The stop rule (follow-up, Nov 16)
+
+Question: when should a phase stop and hand over to its pooled children? The first study's stop rule
+is the stall rule: after 600 iterations, stop when the gap exceeds 3 x the gain of the last 600. Its
+runs showed it is too patient near the cutoff (2,610 iterations to end 146 short; 3,341 to fathom from
+2,427) and, as it turned out, too impatient far from it. STOP_SUMMARY
+
+### Offline: candidate rules replayed on the recorded phases [m histories, e hand-over cost]
+
+`stop/hist.py` reads the phase histories (`QAP_DNN_TRACE_HIST`, the running best every 10 iterations):
+41 phases recorded under the stall rule, the path check aside. `stop/replay_rules.py` replays a rule on
+each as the solver's `stop()` would see it. A phase a rule stops before its recorded fathom is a lost
+fathom, and costs what the node's children then cost.
+
+**The hand-over cost** is measured where a phase missed and its children ran complete, and modelled as
+`C(g) = m x (20 + 2 g + 3 g^2)` iterations, m the node's children, g the gap left in 0.1% of the cutoff
+(240.5 units): 20 iterations per child when the parent ends at the cutoff (19.1, 20.5, 20.6 measured),
+more as the gap grows and some children need a phase of their own.
+
+| missed phase | gap left | children measured | model |
+|---|---|---|---|
+| t3 `z030` root (first study, no history) | 2.9 | 707 | 741 |
+| `w18` child `2:7`, `z030` / `zall` | 146 / 169 | 741 / 739 | 803 / 824 |
+| t4 `z030g` root | 832 | 1,687 | 2,262 |
+| `w18` root, `zall` / `z030` | 2,298 / 2,421 | 10,715 / 11,915 | 11,582 / 12,730 |
+
+Three nodes; the quadratic term rests on `w18`'s root and t4's. Cost of a rule = phase iterations + C at
+its stops (`python3 stop/replay_rules.py`, in `stop/replay_rules.out`; "near" = phases that start within
+2,000 of the cutoff, "far" = the 5 that start beyond; x = recorded cost / the rule's):
+
+| rule | near (36 phases): phase it + hand-over, lost fathoms | far (5): the same | all |
+|---|---|---|---|
+| recorded: `cut.stall 3`, `cut.iters 200` | 21,830 + 1,628 = 23,458, 0 | 7,481 + 80,207 | x1.00 |
+| window 400 (`cut.stall 2`) | 21,027 (x1.12), 0 | x0.84 | x0.88 |
+| window 300 (`cut.iters 100`) | 20,656 (x1.14), 0 | x0.73 | x0.79 |
+| window 200 (`cut.iters 100`, `cut.stall 2`) | 19,726 (x1.19), 2 | x0.62 | x0.69 |
+| limit `cut.cp_iters` 1,500 / 1,000 / 600 | x1.03, 4 / x1.09, 6 / x1.10, 8 | x1.01 / x1.00 / x0.89 | x1.01 / x1.02 / x0.93 |
+| `cut.giveup 600:200` | 20,253 (x1.16), 5 | x0.89 | x0.94 |
+| `cut.giveup 400:400,800:150` | x1.09, 4 | x0.76 | x0.81 |
+| rate rule: stop when gap / rate > 20 m (window 200) | 19,790 (x1.19), 1 | x0.64 | x0.71 |
+| the same with 40 m | 21,027 (x1.12), 0 | x0.80 | x0.85 |
+| **hand-over rule: stop when 1.5 x gap / rate > C(gap)** (window 200) | 13,818 + 5,466 = 19,284 (x1.22), 3 | x1.01, and 3 recorded stalls it would let run on | x1.05 |
+
+- **Near the cutoff every impatient rule saves about the same, 12-22% of the phase iterations**: the
+  late phases are few (in each `w18` run two phases of eight carry the saving), and a lost fathom costs
+  20-25 iterations a child.
+- **Every rule the solver has loses it back on the far phases.** A shorter window, a limit, a give-up
+  pair or the plain rate rule all stop a far phase earlier, and by C its children then cost far more
+  than the phase saved: by the model's slope a unit of gap closed at 2,300 short is worth about 9 child
+  iterations, and `w18`'s root was closing it at 1.2 phase iterations a unit when it stalled.
+- **The replay cannot value letting a phase run on** (its history ends where the stall rule stopped it),
+  so "x1.01 far" for the hand-over rule is a floor. That part had to be run.
+- Sensitivity of the hand-over rule (same table, `replay_rules.out`): the factor 1.5 to 2, the window
+  100 to 300, N0 20 to 30 and the quadratic coefficient 1.5 to 6 all give x1.17 to x1.23 near (factor 1:
+  x1.13).
+
+### The key the solver lacks: `cut.handover`
+
+No existing key is impatient near the cutoff and patient far from it: the stall rule compares the gap
+with the gain of a fixed window (factor 3, not a setting), `cut.giveup` and `cut.cp_iters` only stop.
+`stop/handover.patch` (37 lines over `latest/settings.C`, `dnncut.h`, `dnncut.C`, `bnb.C`; built in my
+worktree `/home/user/wt-tho40search`, the main checkout untouched) adds
+
+```
+cut.handover = N0:A:B[:PHI[:W]]      (run: 20:2:3, PHI 1.5, W 200)
+```
+
+In `CutProjector::stop()`, in place of the stall rule: from iteration W, with `rate` the gain of the
+running best over the last W iterations per iteration and g the gap in 0.1% of |cutoff|, the phase
+stops when `PHI x gap / rate > m x (N0 + A g + B g^2)`: when finishing at its present rate (PHI for
+its decay) would cost more iterations than the children would if it handed over now. Unset, the solver
+is the main checkout's: the patched binary reproduced the unpatched root phase's history to the digit
+over its 690 recorded iterations. The certified values do not depend on where a phase stops.
+
+**Entering the phase early** (the per-node lab's finding, `../tho40_nodes/README.md`) has a key
+already: `dnn.giveup_warm = N` lets a warm-started node give up from iteration N instead of
+`dnn.giveup` = 200 (the give-up rule needs 110 iterations of history, so 100 means 110), and
+`dnn.gu_zone = 0` removes the 100-iteration confirmation near the cutoff. EARLY_TEXT
+
+### In the search: warm-rooted subtrees [m]
+
+Arms (all `zall`, `cut.zone = 0.06`): `zall` the first study's; `zallhg` = `zall` + `cut.handover = 20:2:3`
++ `dnn.gu_zone = 0`; `zallhge` = `zallhg` + `dnn.giveup_warm = 100`. One `bnbdrv` at a time
+(`stop/run2.sh`, `stop/seq.sh` over `stop/jobs.txt`, log `stop/seq.log`), the box at load 6-8.
+Each arm's subtree is resumed from that arm's A/B root (`wroot_ARM`; `zallhg` and `zallhge` from
+`wroot_zallh`, whose solve their extra keys do not touch). `python3 stop/ab.py`:
+
+@@ stop/ab.py
+
+`18:32` child by child (`python3 wchildren.py w18_zall w18_zallhg w18_zallhge`):
+
+@@ wchildren.py w18_zall w18_zallhg w18_zallhge
+
+AB_TEXT
+
+### Recommended settings, restated
+
+RECO_TEXT
+
+### The whole tree, restated [e]
+
+TREE_TEXT
+
 ## Files
 
 | | |

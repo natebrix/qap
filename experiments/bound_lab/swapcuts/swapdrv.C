@@ -168,6 +168,7 @@ struct XState {
   std::vector<double> u1, v1, u2, v2;
   double abs_add = 0, hsum = 0, theta_cur = 1, delta = 50, prev_lb = -HUGE_VAL, my_best = -HUGE_VAL;
   int ek = 0, verbose = 0, topk = 12, calls = 0;
+  double ecap = 2.0, alpha_first = 0, emu = 0.5;
   int assemble() {
     const int m = cx->m, n1 = cx->n1;
     std::fill(Ladd.begin(), Ladd.end(), 0.0);
@@ -249,11 +250,24 @@ struct XState {
       if (C[t].pooled) { pool++; if (C[t].mu > 0 || sg[t] > 0) s2 += sg[t] * sg[t]; }
     if (s2 <= 0) { printf("  no violated exchange cut in the pool\n"); return; }
     const double target = std::min(cutoff, best_lb + delta);
-    const double alpha = theta_cur * std::max(target - lb_now, 1e-6) / s2;
+    double alpha = theta_cur * std::max(target - lb_now, 1e-6) / s2;
+    // the step cap (-ecap F, default 2): at most F times the first step. When the pooled violations
+    // get small the Polyak step explodes (d5_d: 5.8e-2 after 6e-3, the bound fell 3,600)
+    if (alpha_first <= 0) alpha_first = alpha;
+    else if (ecap > 0 && alpha > ecap * alpha_first) alpha = ecap * alpha_first;
+    // the multiplier cap (-emu M, default 0.5): no multiplier moves by more than M in one step. A
+    // multiplier is dimensionless (1 = the row's cost replaced by the exchanged cost); where the
+    // violations are small (wil50 node 13: 15 units in all) the Polyak step toward best + 50 was
+    // 4.3 per unit of violation and the bound fell 331 (logs/s3_wil50_n13_jTX_overshoot.log)
+    double maxsg = 0;
+    for (size_t t = 0; t < C.size(); t++) if (C[t].pooled) maxsg = std::max(maxsg, sg[t]);
+    if (emu > 0 && alpha * maxsg > emu) alpha = emu / maxsg;
     for (size_t t = 0; t < C.size(); t++)
       if (C[t].pooled) C[t].mu = std::max(0.0, C[t].mu + alpha * sg[t]);
     const int active = assemble();
-    printf("  exchange: added %d, pool %zu, active %d, step %.3e (theta %.3f, target %.1f)\n", added, pool, active, alpha, theta_cur, target);
+    double mumax = 0;
+    for (size_t t = 0; t < C.size(); t++) mumax = std::max(mumax, C[t].mu);
+    printf("  exchange: added %d, pool %zu, active %d, step %.3e (theta %.3f, target %.1f), largest multiplier %.3f\n", added, pool, active, alpha, theta_cur, target, mumax);
   }
 };
 static void xhook(DNNExtHook *h, const std::vector<double> &Y, double lb_now, double best_lb, double cutoff, int round)
@@ -272,7 +286,7 @@ int main(int argc, char **argv)
   int first_iters = 300, erounds = 0, eiters = 200, ek = 500, equiet = 0, threads = 1, verbose = 0, ncheck = 50;
   int degree = 4, topk = 12, jrounds = 8, jiters = 150;
   bool joint = false, use_elim = false, use_rot = false;
-  double theta = 1.0, edelta = 50.0;
+  double theta = 1.0, edelta = 50.0, ecap = 2.0, emu = 0.5;
   DNNCutParams cp;
   cp.kcuts = 1000;
   DNNCPParams cpp;
@@ -291,6 +305,8 @@ int main(int argc, char **argv)
     else if (o == "-et" && more) theta = atof(argv[++a]);
     else if (o == "-edelta" && more) edelta = atof(argv[++a]);
     else if (o == "-eq" && more) equiet = atoi(argv[++a]);
+    else if (o == "-emu" && more) emu = atof(argv[++a]);     // largest multiplier change per step (0.5; 0: none)
+    else if (o == "-ecap" && more) ecap = atof(argv[++a]);   // exchange step <= F x the first step (2; 0: no cap)
     else if (o == "-fp") use_fp = true;
     else if (o == "-rot") use_rot = true;                  // 3-cycles through two fixed facilities and one free
     else if (o == "-elim") use_elim = true;                // forbid x_jb when every completion with j at b gains by an exchange
@@ -449,7 +465,7 @@ int main(int argc, char **argv)
   DNNWarm warm, save;
   XState xs;
   xs.cx = &cx; xs.cuts = &cuts; xs.Ladd.assign(nn, 0.0); xs.ek = ek; xs.theta_cur = theta; xs.delta = edelta;
-  xs.verbose = verbose; xs.topk = topk;
+  xs.verbose = verbose; xs.topk = topk; xs.ecap = ecap; xs.emu = emu;
   std::vector<double> &Ladd = xs.Ladd;
   int total_iters = 0;
   double total_cpu = 0;

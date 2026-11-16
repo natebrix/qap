@@ -1,5 +1,11 @@
-A_free_s3p3 26:10,8:0,38:32 -cpsep 100:1000 -cpiters 1000 -cpfree 0.05 -cpsweeps 3 -cppasses 3
-A_orc_mu 26:10,8:0,38:32 -cpsep 100:1000 -cpiters 200 -loadpool /home/user/qap/experiments/bound_lab/cpfast/state/A_wc144.pool
-A_orc_pool 26:10,8:0,38:32 -cpsep 100:1000 -cpiters 300 -loadpool /home/user/qap/experiments/bound_lab/cpfast/state/A_wc144.pool -poolscale 1e-9
-C_base 26:10,8:0,18:32,24:7 -cpsep 100:1000 -cpiters 900
-B_base 26:10,8:0,18:32 -cpsep 100:1000 -cpiters 2000
+V_warm_d08_base 26:2,30:0,2:32,16:24,35:16,24:8,34:1,21:13 -cpsep 100:1000 -cpiters 800
+BIN=/home/user/wt-cpfast/bin/dnncuts.v7 PAR=/home/user/qap/experiments/bound_lab/cpfast/par/wca3.par V_warm_d08_wca3 26:2,30:0,2:32,16:24,35:16,24:8,34:1,21:13 -cpsep 100:1000 -cpiters 800
+sh: BNB=/home/user/wt-cpfast/bin/bnbdrv.v7 WROOT=/home/user/qap/experiments/bound_lab/cpfast/search/wroot_z030_wc2.88/root.state scripts/search.sh w38p_pr_wca2 /home/user/qap/experiments/bound_lab/cpfast/par/pr_wca2.par 26:10,8:0,38:32 "-d 3 --allow-settings-change"
+PAR=/home/user/qap/experiments/bound_lab/cpfast/par/wc2.88.par V_warm_d12 26:2,30:0,2:32,16:24,35:16,24:8,34:1,21:13,33:33,37:7,39:39,15:20 -cpsep 100:1000 -cpiters 1000 -cpsweeps 3
+PAR=/home/user/qap/experiments/bound_lab/cpfast/par/wc2.88.par V_index_d10 0:27,1:38,2:32,3:14,4:5,5:18,6:34,7:10,8:15,9:26 -cpsep 100:1000 -cpiters 1000 -cpsweeps 3
+R_base - -cpsep 100:1000 -cpiters 800
+PAR=/home/user/qap/experiments/bound_lab/cpfast/par/wc2.88.par R_wc288 - -cpsep 100:1000 -cpiters 800
+PAR=/home/user/qap/experiments/bound_lab/cpfast/par/wc2.88.par A_orc_mu 26:10,8:0,38:32 -cpsep 100:1000 -cpiters 200 -loadpool /home/user/qap/experiments/bound_lab/cpfast/state/A_wc288.pool
+PAR=/home/user/qap/experiments/bound_lab/cpfast/par/wc2.88.par A_wc288_sep50 26:10,8:0,38:32 -cpsep 50:1000 -cpiters 600
+PAR=/home/user/qap/experiments/bound_lab/cpfast/par/wc2.88.par A_wc288_ex 26:10,8:0,38:32 -cpsep 100:1000 -cpiters 800 -cpextrap 100:1:30:2
+PAR=/home/user/qap/experiments/bound_lab/cpfast/par/wc2.88.par A_wc288_exact 26:10,8:0,38:32 -cpsep 100:1000 -cpiters 300 -e 1
