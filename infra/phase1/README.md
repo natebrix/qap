@@ -93,7 +93,8 @@ launching:
 | run name | `PROBLEM-YYMMDD`, the UTC date: `tho40-261117` |
 | params file | the one `recipes/defaults.txt` names for the problem, its next run's settings (tho40: `recipes/tho40c.par`; tai50b: `recipes/tai50b.par`), else `recipes/PROBLEM.par`, else the estimate's, `experiments/estimates/PROBLEM/PROBLEM.par` (wil50: `experiments/wil50_feasibility/fullrun/fullrun.par`); it must be committed |
 | incumbent | the best known (`QAPSOLN/PROBLEM.sln`) + the step of the objective's grid: + 2 where every value is even, else + 1 (`objstep.py`); `none` for no incumbent |
-| instance type, market | `c7a.16xlarge`, Spot |
+| instance type, market | `c7a.16xlarge`, or the problem's `type=` in `recipes/defaults.txt` (tai60b: `m7a.16xlarge`); Spot |
+| slots per instance | the type's cores, or as many as its memory holds at the problem's `mem=` GiB a solver process, less 4 GiB (tai60b: 3 GiB, so 64 on an m7a.16xlarge's 256 GiB, 41 on a c7a.16xlarge's 128); `slots=` fixes it. Passed as `QAP_SLOTS` to every instance, and the run is sized by it |
 | instances | 1 (it shows how many the quota has room for) |
 | time limit | 72 hours |
 | on request | the data file and solver flags (`qaplib/PROBLEMt.dat` and `-s SYM/PROBLEMt.sym` where the grid's symmetry file exists, else `qaplib/PROBLEM.dat`), the disk (100 GB), the unit sizing (tho40-b's 20-minute units, `--trace`), public or private status |

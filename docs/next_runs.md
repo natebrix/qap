@@ -25,6 +25,34 @@ Starting a run); the cloud sessions make no AWS calls. Where things stand:
   c7a.16xlarge, 72 h). Expect about 8,200 nodes, about 170 c7a core-hours: 3-6 hours on 64 cores.
 - **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), two Spot instances.
 
+## tai60b: after tai50b (Nov 17)
+
+The next solve after tai50b, before tho40: about a tenth of tho40's work by the estimates.
+- **Open:** best known 608,215,054, best published lower bound 592,829,061 (2.5%). The bound lab's root,
+  605,315,696 certified, closes 81% of that gap (`experiments/bound_lab/tai60b`, on
+  `claude/cool-babbage-ilnogj`).
+- **Size:** 284 Knuth dives from saved states: 29,357 nodes (21,502-38,340), 279 cloud-box core-hours
+  (202-363; the author's range 150-600), about 400 on c7a or m7a (200-850). tai50b's dives said 60-250
+  cloud-box core-hours, and the laptop's solve took about 125.
+- **The recipe** (`infra/phase1/recipes/tai60b.{par,regions,sh}`): the bound lab's root (`rootL.par`:
+  470 + 3,000 iterations, the stall rule off) and, below it, its estimate's children (`kidW.par`) as far as
+  one file allows: phases stopped at 1,000 iterations (`cut.giveup = 1000:0`, `cut.giveup_depth = 1`), but
+  without kidW's stall rule (one file cannot give it to the children and not to the root), so a little
+  more than the estimate's CPU. The 86 regions of `tai60b.comb6.txt`, fp32 parent states, `dnn.retry = 1`.
+- **Memory decides the instance** (measured on the cloud box, Nov 17): a solver process holds 2.3 GB at
+  the root and 2.2 GB at a depth-1 node through its phase, flat; a coordinator unit also keeps its parents'
+  states (the bound lab saw a dive process at 2.6 GB). So 3 GiB a process: 64 slots need more than a
+  c7a.16xlarge's 128 GiB. `recipes/defaults.txt` gives tai60b `type=m7a.16xlarge mem=3` (256 GiB: 64 slots;
+  about the same Spot price as c7a by a public listing, unconfirmed for eu-north-1); on a c7a.16xlarge
+  start.sh offers 41 slots.
+- **Time:** about 1.2-1.3 s an iteration at n = 60 on the cloud box (a cold depth-1 node: 470 + 1,000
+  iterations in 1,873 s; the root was stopped at 59 minutes by a session restart): the root about 75 minutes there,
+  1.5-2 hours on one c7a/m7a core inside `qapctl init`, before any unit runs; then about 400 core-hours on
+  64 slots, 6-7 hours. A depth-1 parent's state is 65 MB in fp32: a few hundred parents open at once fit
+  the default 100 GB disk.
+- **Launch:** after tai50b's run of record, `infra/phase1/start.sh tai60b` with its defaults (if eu-north-1
+  does not offer m7a, start.sh says so: type `c7a.16xlarge`, and take its 41 slots).
+
 ## tho40-b: let it end, then a new run
 
 **What is left under the current settings.** At its 72-hour limit (Nov 17 16:46 UTC) tho40-b will have
