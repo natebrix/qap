@@ -1748,9 +1748,12 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   const double dscale_p = setting_d(yc ? "DNN_CP_DSCALE" : "dnn.dscale");
   const double d0s = setting_d("dnn.dscale0");
   const double d0 = d0s > 0 ? d0s : 1.0;
+  // The CP box needs a representable homogenizing entry and inverse weight.
+  const bool cp_scale_ok = !yc || d0 * d0 >= DBL_MIN;
   std::vector<double> d1, d2;
   bool sc_on = false;
-  if ((dscale_p > 0 || (!yc && d0s > 0 && d0s != 1.0)) && par.anderson == 0 && par.halpern == 0 && !(par.momentum > 0) &&
+  if (cp_scale_ok && (dscale_p > 0 || (!yc && d0s > 0 && d0s != 1.0)) &&
+      par.anderson == 0 && par.halpern == 0 && !(par.momentum > 0) &&
       !par.prototype_cert && m >= 3) {
     d1.resize(m); d2.resize(m);
     for (int pass = 0; pass < 2; pass++) {

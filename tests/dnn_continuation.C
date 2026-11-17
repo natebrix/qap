@@ -166,6 +166,21 @@ static void scaled_cp_checks()
         if (full_window_Y.empty()) full_window_Y = state.Y;
         else require(distance(full_window_Y, state.Y) > 1e-6, "CP scaling window did not change the trajectory");
         separated += cpp.sep_added;
+        if (cpp.selftest) {
+          // A positive d0 whose square underflows must use the plain CP metric.
+          DNNCPParams plain_cpp = cpp;
+          plain_cpp.selftest = 0;
+          DNNCutParams plain_cp = cp;
+          plain_cp.pool_out = nullptr;
+          DNNWarm degenerate, plain;
+          settings_set("dnn.dscale0", "1e-200", SRC_FLAG);
+          safe(dnn_cp_bound(&A.a, &B.a, &C.a, shift, opt, p, free, n, plain_cp, plain_cpp, &warm, &degenerate), opt, certs);
+          settings_set("dnn.dscale0", "0.73", SRC_FLAG);
+          settings_set("DNN_CP_DSCALE", "0", SRC_FLAG);
+          safe(dnn_cp_bound(&A.a, &B.a, &C.a, shift, opt, p, free, n, plain_cp, plain_cpp, &warm, &plain), opt, certs);
+          require(distance(degenerate.Y, plain.Y) == 0 && distance(degenerate.Z, plain.Z) == 0,
+                  "unrepresentable CP box metric did not fall back to plain CP");
+        }
         if (!kept.cuts.empty()) {
           settings_set("DNN_CP_DSCALE", "0", SRC_FLAG);
           cp.pool_in = &kept;

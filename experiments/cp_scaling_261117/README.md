@@ -7,7 +7,8 @@ uses `DNN_CP_DSCALE` for the row-norm exponent and
 of zero selects the existing CP metric. A window of zero uses the metric
 through the call. The tested recipes use `w=0.36,wc=2.88`.
 An enabled CP experiment also uses the existing `dnn.dscale0` setting
-for the homogenizing coordinate. The two experiment settings are present
+for the homogenizing coordinate. A homogenizing scale whose square
+underflows selects the plain metric. The two experiment settings are present
 in the state hash, so native replays across builds use
 `--allow-settings-change`.
 
@@ -78,7 +79,7 @@ at the actual crossing check. The timed arms ran consecutively.
   additional cut installed while scaled. Max iterate error was
   (3.33\times 10^{-16}). Final KKT residual was at most
   (3.74\times 10^{-17}).
-- The continuation harness passed 27 checks against exact optima, including
+- The continuation harness passed 29 checks against exact optima, including
   12 unscaled resumes from a scaled CP state and pool. It separated 247
   new cuts during the checks, exercised the metric switch with guarded
   extrapolation, and validated the saved primal's original box.
