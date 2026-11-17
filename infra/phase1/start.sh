@@ -17,8 +17,9 @@
 #     - the incumbent: the best known (QAPSOLN/PROBLEM.sln) + the step of the objective's
 #       grid (objstep.py, the solver's own test: 2 where every value is even, else 1): the
 #       next value, so the run must find the best known itself and prove nothing is better;
-#     - the instances: how many (with the vCPU quota left), the type (c7a.16xlarge),
-#       Spot or on-demand, and the time limit (72 hours);
+#     - the instances: how many (with the vCPU quota left), the type (c7a.16xlarge, or the
+#       problem's in recipes/defaults.txt), Spot or on-demand, slots per instance (its cores,
+#       or the problem's slots= where a process needs more memory), and the time limit (72 hours);
 #     - if you ask for them: the data file, the solver flags (the grid's symmetry
 #       file), the disk, the unit sizing and the public status;
 #  3. shows the whole launch and asks before making it;
@@ -139,6 +140,12 @@ if [ -f "qaplib/${P}t.dat" ] && [ -f "latest/SYM/${P}t.sym" ]; then DAT=qaplib/$
 elif [ -f "latest/SYM/$P.sym" ]; then EXTRA="-s SYM/$P.sym"; fi
 # the params file: recipes/defaults.txt's for P (its next run's settings), else the first that exists
 PAR=$(awk -v p="$P" '!/^#/ && $1 == p {print $2; exit}' infra/phase1/recipes/defaults.txt 2> /dev/null || true)
+# and its instance type and slots per instance, if the line gives them (type=T slots=S after the file)
+DEF_TYPE=$(awk -v p="$P" '!/^#/ && $1 == p {for (i = 3; i <= NF; i++) if ($i ~ /^type=/) {sub(/^type=/, "", $i); print $i}; exit}' infra/phase1/recipes/defaults.txt 2> /dev/null || true)
+DEF_SLOTS=$(awk -v p="$P" '!/^#/ && $1 == p {for (i = 3; i <= NF; i++) if ($i ~ /^slots=/) {sub(/^slots=/, "", $i); print $i}; exit}' infra/phase1/recipes/defaults.txt 2> /dev/null || true)
+# mem=G: GiB a solver process needs (tai60b: 3); the slots then default to what the type's memory holds
+DEF_MEM=$(awk -v p="$P" '!/^#/ && $1 == p {for (i = 3; i <= NF; i++) if ($i ~ /^mem=/) {sub(/^mem=/, "", $i); print $i}; exit}' infra/phase1/recipes/defaults.txt 2> /dev/null || true)
+[[ ${DEF_MEM:-1} =~ ^[1-9][0-9]*$ ]] || { echo "recipes/defaults.txt: mem=$DEF_MEM for $P is not whole GiB"; exit 1; }
 [ -z "$PAR" ] || [ -f "$PAR" ] || { echo "note: recipes/defaults.txt names $PAR for $P, which does not exist"; PAR=""; }
 if [ -z "$PAR" ]; then
   for c in "infra/phase1/recipes/$P.par" "experiments/estimates/$P/$P.par" "experiments/${P}_feasibility/fullrun/fullrun.par"; do
@@ -201,11 +208,12 @@ if [ "$MODE" = new ]; then
 fi
 
 # --- the instances
-TYPE=c7a.16xlarge; MARKET=spot
+TYPE=${DEF_TYPE:-c7a.16xlarge}; MARKET=spot
 while :; do
   ask TYPE "Instance type" "$TYPE"
-  CPU=$(aws ec2 describe-instance-types --instance-types "$TYPE" --query 'InstanceTypes[0].VCpuInfo.[DefaultVCpus,DefaultCores]' --output text 2> /dev/null) || CPU=""
-  VCPU=$(echo "$CPU" | awk '{print $1}'); CORES=$(echo "$CPU" | awk '{print $2}')
+  CPU=$(aws ec2 describe-instance-types --instance-types "$TYPE" --query 'InstanceTypes[0].[VCpuInfo.DefaultVCpus,VCpuInfo.DefaultCores,MemoryInfo.SizeInMiB]' --output text 2> /dev/null) || CPU=""
+  VCPU=$(echo "$CPU" | awk '{print $1}'); CORES=$(echo "$CPU" | awk '{print $2}'); MEM=$(echo "$CPU" | awk '{print $3}')
+  [[ $MEM =~ ^[0-9]+$ ]] || MEM=
   [[ $VCPU =~ ^[1-9][0-9]*$ ]] && [[ $CORES =~ ^[1-9][0-9]*$ ]] && break
   echo "no instance type $TYPE in $REGION"; [ "$YES" = 1 ] && exit 1
 done
@@ -239,7 +247,24 @@ while :; do
   yesno "Launch $N anyway?" n && break
   [ "$YES" = 1 ] && exit 1
 done
-TOTAL=$((N * CORES))
+# slots per instance: a worker process each; the cores, unless the problem needs more memory per process
+# than the type has per core (recipes/defaults.txt mem=G: as many as (memory - 4 GiB) / G holds; slots=S
+# fixes the number). tai60b: about 2.3 GB a process measured, 3 with the parents' states it keeps
+SDEF=${DEF_SLOTS:-$CORES}
+if [ -z "$DEF_SLOTS" ] && [ -n "$DEF_MEM" ] && [ -n "$MEM" ]; then
+  fit=$(( (MEM / 1024 - 4) / DEF_MEM )); [ "$fit" -ge 1 ] || fit=1
+  [ "$fit" -lt "$SDEF" ] && SDEF=$fit
+fi
+[ "$SDEF" -le "$CORES" ] || SDEF=$CORES
+while :; do
+  ask SLOTS "Slots per instance (one solver process each$([ -n "$MEM" ] && echo "; $((MEM / 1024)) GiB of memory$([ -n "$DEF_MEM" ] && echo ", $P needs about $DEF_MEM GiB a process")"))" "$SDEF"
+  [[ $SLOTS =~ ^[1-9][0-9]*$ ]] && [ "$SLOTS" -le "$CORES" ] && break
+  echo "a whole number from 1 to $CORES"; [ "$YES" = 1 ] && exit 1
+done
+if [ -n "$DEF_MEM" ] && [ -n "$MEM" ] && [ $((SLOTS * DEF_MEM + 4)) -gt $((MEM / 1024)) ]; then
+  note "$SLOTS slots x $DEF_MEM GiB is more than the $((MEM / 1024)) GiB of $TYPE: the solver processes may run out of memory"
+fi
+TOTAL=$((N * SLOTS))
 while :; do
   ask HOURS "Time limit in hours (each instance shuts itself down then; a relaunch resumes the run)" 72
   [[ $HOURS =~ ^[1-9][0-9]*$ ]] && break
@@ -279,7 +304,7 @@ if [ "$MODE" = new ]; then
   note "units      $COORD"
   note "status     $VIS"
 fi
-note "instances  $N x $TYPE, $MARKET, $REGION: $CORES cores each$([ "$MODE" = new ] && echo ", the run sized for $TOTAL slots")"
+note "instances  $N x $TYPE, $MARKET, $REGION: $SLOTS slots each ($CORES cores$([ -n "$MEM" ] && echo ", $((MEM / 1024)) GiB"))$([ "$MODE" = new ] && echo ", the run sized for $TOTAL slots")"
 [ -n "$PRICE" ] && note "cost       about \$$(python3 -c "print(f'{$PRICE * $N * 24:.0f}')") a day at today's Spot price"
 note "limit      $HOURS hours ($((HOURS * 60)) minutes); disk $DISK GB each"
 [ "$DRY" = 1 ] && note "dry run: launch.sh --dry-run for the first instance; nothing is created"
@@ -288,6 +313,7 @@ yesno "Launch?" "$([ "$YES" = 1 ] && echo y || echo n)" || { echo "nothing launc
 
 # --- the recipe (a new run) and the launches
 COMMON=(--type "$TYPE" --region "$REGION" --limit $((HOURS * 60)) --disk "$DISK" --no-reference)
+[ "$SLOTS" = "$CORES" ] || COMMON+=(--node-env "QAP_SLOTS=$SLOTS")   # node.sh: the worker's slots on every instance
 [ "$MARKET" = on-demand ] && COMMON+=(--on-demand)
 [ "$DRY" = 1 ] && COMMON+=(--dry-run)
 FIRST=()

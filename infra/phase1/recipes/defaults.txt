@@ -1,5 +1,10 @@
 # start.sh's default params file per problem, relative to the repository: the settings of that
 # problem's next run. A problem not listed here falls back to recipes/PROBLEM.par, then to the
 # estimate's experiments/estimates/PROBLEM/PROBLEM.par. The file must be committed.
+# After it, optionally: type=T (the instance type; default c7a.16xlarge), mem=G (GiB a solver process
+# needs: the slots default to what the type's memory holds, less 4 GiB) or slots=S (slots per instance).
 tho40   infra/phase1/recipes/tho40c.par
 tai50b  infra/phase1/recipes/tai50b.par
+# tai60b: a solver process at n = 60 holds about 2.3 GB (measured Nov 17), 3 with the parents' states it
+# keeps; m7a.16xlarge has 256 GiB for its 64 cores (c7a.16xlarge 128: 41 slots at 3 GiB)
+tai60b  infra/phase1/recipes/tai60b.par type=m7a.16xlarge mem=3
