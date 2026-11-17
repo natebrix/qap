@@ -11,4 +11,4 @@ The full baseline suite and the three implementations' correctness checks passed
 
 Native cold tai60b stock screening was interrupted after 905 seconds elapsed without a completed node trace. No candidate native run followed it. Bounded tai60b comparisons instead used the same explicit 100-ordinary/200-CP seed and clearly labeled continuation budgets.
 
-The seed patch is only for reconstructing comparison inputs. It is not in candidate solver binaries. Large generated warm blobs remain reproducible via REPLAY.md. Publication of the four local research branches is pending explicit approval after an automatic approval rejection; it is the only unfinished external action.
+The seed patch is only for reconstructing comparison inputs. It is not in candidate solver binaries. Large generated warm blobs remain reproducible via REPLAY.md. The four research branches have since been published, with rewritten history: [PUBLISHED_HASHES.md](PUBLISHED_HASHES.md) maps the hashes above to the published commits.

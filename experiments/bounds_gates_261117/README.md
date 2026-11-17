@@ -14,6 +14,8 @@ See [RESULTS_LEDGER.md](RESULTS_LEDGER.md) for exact figures, costs and interpre
 
 ## Experimental branches
 
+The hashes below are from before publication. [PUBLISHED_HASHES.md](PUBLISHED_HASHES.md) maps them to the published commits.
+
 - `research/coarse-label-cuts-261117`: final head `26260591`; measured core solver implementation `6e53f4ff`.
 - `research/cp-congruence-261117`: final head `79c5dc37`; primary implementation `f6b2bbe0`, safe homogenizing-weight fallback `d175ac1f`.
 - `research/cp-region-equalities-261117`: final head `57e6a285`; primary implementation `0fc7508b`, imported-region capacity fix `f734af31`.
@@ -36,4 +38,4 @@ Compiler overrides `DNN_LAPACK` and `DNN_LAPACK_DEFS` must not reach solver runt
 
 ## Publication
 
-All work is committed locally. Automatic approval review rejected the initial protocol-branch push because it interpreted the user's authorization as local experiments, not GitHub publication. No remote branch was created. Explicit permission is required before publishing the four research branches.
+The four research branches were published on November 17 with rewritten history, so the commit hashes cited here and on the experiment branches do not resolve in the published repository. [PUBLISHED_HASHES.md](PUBLISHED_HASHES.md) maps each to its published commit.
