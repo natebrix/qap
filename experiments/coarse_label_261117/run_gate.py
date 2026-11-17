@@ -79,7 +79,7 @@ def compare(regional, coarse, separation_cpu):
             "matched_checks": [p for p in matched if p["it"] % 100 == 0]}
 
 
-def run_case(name, work, reuse_seed, seed_iters, cont_iters):
+def run_case(name, work, args):
     inst, recipe, fixes, ub, side, ordinary, warm_iters, step_iters = CASES[name]
     instance = f"qaplib/{inst}.dat"
     checkpoint = work / "seed.cp"
@@ -92,26 +92,38 @@ def run_case(name, work, reuse_seed, seed_iters, cont_iters):
         command += ["-grid", "5:8"]
     else:
         command += ["-regions", "infra/phase1/recipes/tai60b.regions"]
-    if not reuse_seed:
-        seed = command + ["-I", str(ordinary), "-cpiters", str(seed_iters or warm_iters), "-savecp", checkpoint,
+    if not args.reuse_seed:
+        seed = command + ["-I", str(ordinary), "-cpiters", str(args.seed_iters or warm_iters), "-savecp", checkpoint,
                           "-dumpY", prefix, instance]
         seed_cpu = run(seed, work / "seed.log")
     else:
         seed_cpu = None
     sep = [sys.executable, str(HERE / "separate.py"), instance, work / "seed.Y.bin", cuts,
-           "--side", str(side), "--fixes", fixes]
+           "--side", str(side), "--fixes", fixes, "--samples", str(args.samples),
+           "--cut-count", str(args.cut_count), "--sizes", *map(str, args.sizes)]
     if side == 1:
         sep += ["--grid", "5:8"]
     separation_cpu = run(sep, work / "separate.log")
-    phase = command + ["-cpiters", str(cont_iters or step_iters), "-startcp", checkpoint]
+    cut_data = json.loads(cuts.with_suffix(".json").read_text())
+    screened = None
+    if args.binary_filter:
+        filtered = work / "filtered.pool"
+        control = work / "local-controls.json"
+        screening_cpu = run([sys.executable, str(HERE / "local_control.py"), cuts.with_suffix(".json"), control,
+                             "--filter-pool", filtered], work / "local-controls.log")
+        separation_cpu += screening_cpu
+        screened = json.loads(control.read_text())
+        cuts = filtered
+    phase = command + ["-cpiters", str(args.continuation_iters or step_iters), "-startcp", checkpoint]
     results = {}
     for arm, flags in (("regional", []), ("coarse", ["-coarse", cuts])):
         log = work / f"{arm}.log"
         results[arm] = parse(log, run(phase + flags + [instance], log))
-    cut_data = json.loads(cuts.with_suffix(".json").read_text())
     summary = {"case": name, "fixes": fixes, "ub": ub, "seed_process_cpu": seed_cpu,
-               "seed": parse(work / "seed.log") if not reuse_seed else None,
-               "n_cuts": cut_data["n_cuts"], "capacity": cut_data["capacity"],
+               "seed": parse(work / "seed.log") if not args.reuse_seed else None,
+               "n_cuts": len(screened["retained_ranks"]) if screened else cut_data["n_cuts"],
+               "capacity": cut_data["capacity"], "binary_screen": screened,
+               "sizes": cut_data["sizes"], "samples": cut_data["samples"],
                "separation_cpu": separation_cpu, "separator_internal_cpu": cut_data["cpu_s"], **results,
                "comparison": compare(results["regional"], results["coarse"], separation_cpu)}
     (work / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -125,11 +137,15 @@ def main():
     parser.add_argument("--reuse-seed", action="store_true")
     parser.add_argument("--seed-iters", type=int)
     parser.add_argument("--continuation-iters", type=int)
+    parser.add_argument("--sizes", type=int, nargs="+", default=[4, 5])
+    parser.add_argument("--samples", type=int, default=35)
+    parser.add_argument("--cut-count", type=int, default=40)
+    parser.add_argument("--binary-filter", action="store_true")
     args = parser.parse_args()
     for name in args.cases:
         work = args.output.resolve() / name
         work.mkdir(parents=True, exist_ok=True)
-        run_case(name, work, args.reuse_seed, args.seed_iters, args.continuation_iters)
+        run_case(name, work, args)
 
 
 if __name__ == "__main__":
