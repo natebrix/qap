@@ -7,7 +7,7 @@
 #   run.sh arm NAME LINE   43:58 warm from 44:45's state (cutstate.py), branched on LINE (r1, c26, ...;
 #                          'rule9' for the params' own choice), its children bounded warm from it, the
 #                          grandchildren of those that do not fathom set aside (-d 3 -o); a checkpoint
-#                          in runs/NAME/out.state every 900 CPU s (-k)
+#                          in runs/NAME/out.state every 300 CPU s (-k)
 #   run.sh resume NAME LINE  an arm killed part-way (no "exit" in its cmd.txt) from its last checkpoint;
 #                          its traces go on in the same files, so the nodes after that checkpoint come twice
 #                          (score.py keeps a node's last line)
@@ -50,7 +50,7 @@ case ${1:-} in
     python3 -I "$R/experiments/bound_lab/tho40_search/cutstate.py" "$D/runs/parent/out.state" "$D/runs/$NAME/in.state" 2 43:58
     F=""; [ "$LINE" = rule9 ] || F=2:$LINE
     QAP_FORCE_LINE=$F QAP_LINE_RANK=2 go "$NAME" -p "$PAR" -r "$D/runs/$NAME/in.state" -d 3 \
-      -o "$D/runs/$NAME/out.state" -k 900 "$R/qaplib/tai60b.dat"
+      -o "$D/runs/$NAME/out.state" -k 300 "$R/qaplib/tai60b.dat"
     rm -f "$D/runs/$NAME/in.state" ;;
   resume)
     NAME=$2; LINE=$3
@@ -58,7 +58,7 @@ case ${1:-} in
     [ -s "$D/runs/$NAME/out.state" ] || { echo "$NAME has no checkpoint: run.sh arm $NAME $LINE"; exit 2; }
     F=""; [ "$LINE" = rule9 ] || F=2:$LINE
     QAP_FORCE_LINE=$F QAP_LINE_RANK=2 APPEND=1 go "$NAME" -p "$PAR" -r "$D/runs/$NAME/out.state" -d 3 \
-      -o "$D/runs/$NAME/out.state" -k 900 "$R/qaplib/tai60b.dat"
+      -o "$D/runs/$NAME/out.state" -k 300 "$R/qaplib/tai60b.dat"
     rm -f "$D/runs/$NAME/in.state" ;;
   *) awk 'NR > 1 && /^set /{exit} NR > 1' "$0"; exit 2 ;;
 esac
