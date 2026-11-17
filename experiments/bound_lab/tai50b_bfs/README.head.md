@@ -41,3 +41,8 @@ the processes did not. 44 of that level's 48 chunks had finished and were kept; 
 (`d6_c42`, `c45`, `c46`, `c47`, 36 of their 68 nodes already bounded) were redone from their input state files
 (`bfs.sh` now keeps a chunk that ended with exit 0 and has its `out.state`). The table counts the redone chunks
 once: the work lost in the interrupted processes, about 1.5 hours on 4 cores at most, is not in it.
+
+**Second container restart, 2026-11-17 about 01:12 UTC**, during depth 7: 40 of its 48 chunks had finished and were
+kept, the others were redone the same way. Both restarts came 70 to 90 minutes after the session's last turn, so
+they look like the container being recycled while the session is idle; from here the session checks in every
+40 minutes.
