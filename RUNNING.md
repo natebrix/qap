@@ -222,6 +222,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `DNN_FUSE` | environment | integer | `0` | 0..1 | experiment | 1: fuse the Y/Z step with the next forward's row phase |
 | `DNN_ADMM_WARM_BETA` | environment | text | unset | text | experiment | F1:T:F2[:force]: a warm call's own penalty schedule |
 | `DNN_ADMM_WARM_DAMP` | environment | text | unset | text | experiment | D:K: both dual steps scaled by D for the first K iterations of a warm call |
+| `DNN_CP_REGION_EQ` | environment | integer | `0` | 0..1 | experiment | 1: project regional cardinality and row equalities in CP-ADMM |
 | `QAP_EST_SEED` | environment | text | unset | text | run | estimator: seed for rand() (unset: the fixed sequence) |
 | `QAP_DNN_WARM_DIR` | environment | text | unset | text | run | parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline) |
 | `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error |

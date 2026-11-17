@@ -104,6 +104,7 @@ static Setting TABLE[] = {
   ENVVAR("DNN_FUSE", 'i', "0", 0, 1, SET_EXPERIMENT, "1: fuse the Y/Z step with the next forward's row phase"),
   ENVVAR("DNN_ADMM_WARM_BETA", 's', "", 0, 0, SET_EXPERIMENT, "F1:T:F2[:force]: a warm call's own penalty schedule"),
   ENVVAR("DNN_ADMM_WARM_DAMP", 's', "", 0, 0, SET_EXPERIMENT, "D:K: both dual steps scaled by D for the first K iterations of a warm call"),
+  ENVVAR("DNN_CP_REGION_EQ", 'i', "0", 0, 1, SET_EXPERIMENT, "1: project regional cardinality and row equalities in CP-ADMM"),
   // ---- this run (environment, -p)
   ENVVAR("QAP_EST_SEED", 's', "", 0, 0, SET_RUN, "estimator: seed for rand() (unset: the fixed sequence)"),
   ENVVAR("QAP_DNN_WARM_DIR", 's', "", 0, 0, SET_RUN, "parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline)"),

@@ -1,6 +1,8 @@
 // dnncut.C: triangle cuts on top of the DNN bound (see dnncut.h); the code of
 // experiments/dnn_cuts/dnncuts.C made a library, with regions on either side.
 #include "dnncut.h"
+#include "settings.h"
+#include "symeig.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -12,6 +14,7 @@
 #include <array>
 #include <cfloat>
 #include <ctime>
+#include <numeric>
 #include <random>
 
 DNNCutParams::DNNCutParams()
@@ -685,6 +688,167 @@ void cp_cut_terms(const Cut &t, std::vector<CPTerm> &out, double &h)
   for (auto &e : acc) if (e.second != 0) out.push_back({e.first.first, e.first.second, e.second});
 }
 
+// Cache a pseudoinverse of a symmetric positive semidefinite Gram matrix.
+// Region rows can be dependent (e.g. an aggregate and its disjoint parts).
+std::vector<double> gram_inverse(std::vector<double> gram, int n)
+{
+  std::vector<double *> rows(n);
+  for (int i = 0; i < n; i++) rows[i] = &gram[(size_t)i * n];
+  std::vector<double> eigen(n), inv((size_t)n * n, 0.0);
+  sym_eig(n, rows.data(), eigen.data());
+  const double tol = n * 16 * DBL_EPSILON * *std::max_element(eigen.begin(), eigen.end());
+  for (int k = 0; k < n; k++) {
+    if (eigen[k] <= tol) continue;
+    for (int i = 0; i < n; i++) {
+      const double v = rows[k][i] / eigen[k];
+      for (int j = i; j < n; j++) inv[(size_t)i * n + j] += v * rows[k][j];
+    }
+  }
+  for (int i = 0; i < n; i++)
+    for (int j = 0; j < i; j++) inv[(size_t)i * n + j] = inv[(size_t)j * n + i];
+  return inv;
+}
+
+struct RegionalEqualities {
+  int m = 0, R = 0;
+  double sqrt_m = 0;
+  std::vector<int> capacity;
+  // lambda has R signed cardinality multipliers followed by R*m signed row
+  // multipliers, grouped by region. Work buffers are reused on each pass.
+  std::vector<double> lambda, inv_diff, inv_mean, residual, delta, mean, proj_p, proj_w;
+  using Overlaps = std::vector<std::vector<std::pair<int, int>>>;
+
+  void setup(int m_, const std::vector<std::vector<int>> &rloc, const Overlaps &ovl)
+  {
+    m = m_; R = (int)rloc.size(); sqrt_m = sqrt((double)m);
+    if (R == 0) return;
+    for (const auto &r : rloc) capacity.push_back((int)r.size());
+    lambda.resize((size_t)R * (m + 1));
+    residual.resize(lambda.size()); delta.resize(lambda.size()); mean.resize(2 * R);
+    proj_p.resize((size_t)R * m); proj_w.resize((size_t)R * m);
+    std::vector<double> g_diff((size_t)R * R), g_mean((size_t)4 * R * R);
+    const int nmean = 2 * R;
+    for (int s = 0; s < R; s++) {
+      for (const auto &o : ovl[s]) {
+        const int t = o.first;
+        const double q = o.second, B = 0.5 * q * (q - 1);
+        const double A = q * (capacity[s] - 1) * (capacity[t] - 1) + (m - 2) * B;
+        g_diff[(size_t)s * R + t] = A;
+        g_mean[(size_t)s * nmean + t] = m * q;
+        g_mean[(size_t)s * nmean + R + t] = g_mean[(size_t)(R + t) * nmean + s] = -sqrt_m * q * (capacity[t] - 1);
+        g_mean[(size_t)(R + s) * nmean + R + t] = A + m * B;
+      }
+    }
+    // The row Gram entries are A_st delta_ij + B_st. The orthonormal mean
+    // (ones/sqrt(m)) couples to cardinality, while every row difference
+    // uses the same R x R Gram A. This uses the lifted Frobenius metric.
+    inv_diff = gram_inverse(std::move(g_diff), R);
+    inv_mean = gram_inverse(std::move(g_mean), nmean);
+  }
+
+  // Return E*y - b in the signed multiplier layout.
+  void measure(const std::vector<double> &P, const std::vector<double> &W)
+  {
+    const size_t mm = (size_t)m * m;
+    for (int s = 0; s < R; s++) {
+      const double *p = &P[(size_t)s * m], *w = &W[s * mm];
+      double *g = &residual[R + (size_t)s * m];
+      double c = -capacity[s];
+      for (int i = 0; i < m; i++) {
+        c += p[i];
+        g[i] = -(capacity[s] - 1) * p[i];
+      }
+      for (int i = 0; i < m; i++)
+        for (int j = i + 1; j < m; j++) {
+          const double v = w[(size_t)i * m + j];
+          g[i] += v; g[j] += v;
+        }
+      residual[s] = c;
+    }
+  }
+
+  void solve()
+  {
+    for (int s = 0; s < R; s++) {
+      double sum = 0;
+      for (int i = 0; i < m; i++) sum += residual[R + (size_t)s * m + i];
+      mean[s] = residual[s]; mean[R + s] = sum / sqrt_m;
+    }
+    std::fill(delta.begin(), delta.end(), 0.0);
+    const int nmean = 2 * R;
+    for (int s = 0; s < R; s++) {
+      double dmean = 0;
+      for (int t = 0; t < nmean; t++) {
+        delta[s] += inv_mean[(size_t)s * nmean + t] * mean[t];
+        dmean += inv_mean[(size_t)(R + s) * nmean + t] * mean[t];
+      }
+      double *d = &delta[R + (size_t)s * m];
+      std::fill(d, d + m, dmean / sqrt_m);
+      for (int t = 0; t < R; t++) {
+        const double avg = mean[R + t] / sqrt_m, a = inv_diff[(size_t)s * R + t];
+        const double *g = &residual[R + (size_t)t * m];
+        for (int i = 0; i < m; i++) d[i] += a * (g[i] - avg);
+      }
+    }
+  }
+
+  template<class T>
+  void add_terms(const std::vector<double> &multipliers, T factor, std::vector<T> &P, std::vector<T> &W) const
+  {
+    const size_t mm = (size_t)m * m;
+    for (int s = 0; s < R; s++) {
+      const double *g = &multipliers[R + (size_t)s * m];
+      T *p = &P[(size_t)s * m], *w = &W[s * mm];
+      const T c = factor * multipliers[s];
+      for (int i = 0; i < m; i++) {
+        const T gi = factor * g[i];
+        p[i] += c - (capacity[s] - 1) * gi;
+        for (int j = i + 1; j < m; j++) w[(size_t)i * m + j] += gi + factor * g[j];
+      }
+    }
+  }
+
+  // For the affine set E*y=b, Dykstra's signed correction changes by
+  // (E E')^+ (E*y-b), regardless of the previous correction. Apply its
+  // lifted effect to the moments via overlap kernels before the next pass.
+  double pass(std::vector<double> &P, std::vector<double> &W,
+              std::vector<double> &CP, std::vector<double> &CW, const Overlaps &ovl)
+  {
+    measure(P, W);
+    solve();
+    double norm2 = 0;
+    for (size_t k = 0; k < lambda.size(); k++) {
+      lambda[k] += delta[k];
+      norm2 += delta[k] * residual[k];
+    }
+    add_terms(delta, 1.0, CP, CW);
+    std::fill(proj_p.begin(), proj_p.end(), 0.0);
+    std::fill(proj_w.begin(), proj_w.end(), 0.0);
+    for (int s = 0; s < R; s++) {
+      const double *g = &delta[R + (size_t)s * m];
+      for (const auto &o : ovl[s]) {
+        const double q = o.second, pair = 0.5 * q * (q - 1), diag = q * (capacity[s] - 1);
+        double *dp = &proj_p[(size_t)o.first * m], *dw = &proj_w[(size_t)o.first * m];
+        const double c = delta[s] * q;
+        for (int i = 0; i < m; i++) {
+          dp[i] += c - diag * g[i];
+          dw[i] += pair * g[i];
+        }
+      }
+    }
+    const size_t mm = (size_t)m * m;
+    for (int s = 0; s < R; s++) {
+      const double *dp = &proj_p[(size_t)s * m], *dw = &proj_w[(size_t)s * m];
+      double *p = &P[(size_t)s * m], *w = &W[s * mm];
+      for (int i = 0; i < m; i++) {
+        p[i] -= dp[i];
+        for (int j = i + 1; j < m; j++) w[(size_t)i * m + j] -= dw[i] + dw[j];
+      }
+    }
+    return sqrt(std::max(0.0, norm2));
+  }
+};
+
 class CutProjector : public DNNYCuts {
 public:
   int m = 0, n1 = 0, R = 0;
@@ -720,6 +884,7 @@ public:
   std::vector<CPCut> cuts;
   std::vector<CPTerm> terms;
   std::vector<double> nu;          // Dykstra corrections: nu_t G_t, nu_t >= 0
+  RegionalEqualities eq;          // optional affine block, signed Dykstra corrections
   std::vector<int> sig2;           // m x m: the sigma of (a, b), -1 when no region holds both
   std::vector<std::vector<int>> sig_reg;     // regions of each sigma
   std::vector<std::vector<std::pair<int, int>>> ovl;   // per region: (region, overlap k >= 1)
@@ -733,6 +898,7 @@ public:
   double beta_last = 0;
   // diagnostics of the last Y-step (trace)
   double last_viol = 0, last_dstep = 0, last_rnorm = 0;
+  double last_card_viol = 0, last_row_viol = 0;
   int last_nviol = 0, last_nact = 0, ysteps = 0;
   double diag_dy = -1, diag_dnu = -1, diag_viol = -1, diag_ynorm = -1;
   int diag_it = -1;
@@ -771,7 +937,8 @@ public:
     return true;
   }
 
-  CutProjector(int m_, const std::vector<Region> &regions, const std::vector<Cut> &src_pool, int side_ = 0)
+  CutProjector(int m_, const std::vector<Region> &regions, const std::vector<Cut> &src_pool, int side_ = 0,
+               bool region_eq = false)
   {
     m = m_; n1 = m * m + 1; R = (int)regions.size(); side = side_ == 1 ? 1 : 0;
     for (auto &r : regions) rloc.push_back(r.loc);
@@ -798,6 +965,7 @@ public:
         for (int a = 0; a < m; a++) k += in[s][a] && in[s2][a];
         if (k > 0) ovl[s].push_back({s2, k});
       }
+    if (region_eq) eq.setup(m, rloc, ovl);
     const size_t mm = (size_t)m * m, ns = sig_reg.size();
     Pag.assign((size_t)R * m, 0); Wag.assign((size_t)R * mm, 0);
     CPs.assign((size_t)R * m, 0); CWs.assign((size_t)R * mm, 0);
@@ -806,7 +974,7 @@ public:
 
   size_t nsig() const { return sig_reg.size(); }
 
-  // CPs, CWs from nu, exactly (the incremental sums drift by rounding)
+  // CPs, CWs from the corrections (the incremental sums drift by rounding)
   void rebuild_sums()
   {
     std::fill(CPs.begin(), CPs.end(), 0.0); std::fill(CWs.begin(), CWs.end(), 0.0);
@@ -820,6 +988,7 @@ public:
         else CWs[c.s * mm + (size_t)x.i * m + x.j] += nu[t] * x.c;
       }
     }
+    eq.add_terms(eq.lambda, 1.0, CPs, CWs);
   }
 
   // the P-step: Y = P(X - G'nu) (P as dnn.C's Y-step: clip to [0, 1], Y_00 = 1, the
@@ -1015,7 +1184,10 @@ public:
     t1 = tcpu(); t_p += t1 - t0; t0 = t1; n_p++;
     for (int k = 0; k < nsweeps; k++) {
       double d = 0;
-      for (int p = 0; p < passes; p++) d = hpass();
+      for (int p = 0; p < passes; p++) {
+        d = hpass();
+        if (eq.R > 0) d = std::max(d, eq.pass(Pag, Wag, CPs, CWs, ovl));
+      }
       t1 = tcpu(); t_h += t1 - t0; t0 = t1; n_h += passes;
       last_dstep = d;
       pstep(X, Y, elim);
@@ -1031,23 +1203,39 @@ public:
       beta_last = beta;
     }
     // the multipliers mu = scale beta nu stay put when beta changes
-    if (beta_last > 0 && beta != beta_last) for (double &v : nu) v *= beta_last / beta;
+    if (beta_last > 0 && beta != beta_last) {
+      for (double &v : nu) v *= beta_last / beta;
+      for (double &v : eq.lambda) v *= beta_last / beta;
+    }
     beta_last = beta;
     ysteps++;
     const bool diag = diag_every > 0 && it % diag_every == 0;
     const bool sep = sep_every > 0 && sep_k > 0 && it % sep_every == 0;
-    std::vector<double> nu0, Psep, Wsep;
-    if (diag) nu0 = nu;
+    std::vector<double> nu0, eq0, Psep, Wsep;
+    if (diag) { nu0 = nu; eq0 = eq.lambda; }
     run(X, Y, elim, sweeps);
     residuals();
+    if (eq.R > 0) {
+      eq.measure(Pag, Wag);
+      last_card_viol = last_row_viol = 0;
+      for (int s = 0; s < R; s++) {
+        const double sz = eq.capacity[s];
+        last_card_viol = std::max(last_card_viol, fabs(eq.residual[s]) / sqrt(m * sz));
+        if (sz <= 1) continue;
+        const double gnorm = sqrt(sz * (sz - 1) * ((sz - 1) + 0.5 * (m - 1)));
+        for (int i = 0; i < m; i++)
+          last_row_viol = std::max(last_row_viol, fabs(eq.residual[R + (size_t)s * m + i]) / gnorm);
+      }
+    }
     if (sep) { Psep = Pag; Wsep = Wag; }   // the output Y's moments (the diagnostic overwrites them)
     if (diag) {
       const double td = tcpu(), tp0 = t_p, th0 = t_h; const int np0 = n_p, nh0 = n_h;
       // the distance of this Y-step's output to a longer run of the same projection
       // from the same start (nu0): ||Y - Y_long||_F, ||G'(nu - nu_long)|| proxy
-      std::vector<double> nu_out = nu, Yl((size_t)n1 * n1);
+      std::vector<double> nu_out = nu, eq_out = eq.lambda, Yl((size_t)n1 * n1);
       const double dstep_out = last_dstep;
       nu = nu0;
+      eq.lambda = eq0;
       run(X, Yl.data(), elim, diag_sweeps);
       last_dstep = dstep_out;
       double dy = 0, yn = 0;
@@ -1058,6 +1246,7 @@ public:
       for (size_t t = 0; t < cuts.size(); t++) vmax = std::max(vmax, value(cuts[t]) / sqrt(cuts[t].g2));
       diag_dy = sqrt(dy); diag_ynorm = sqrt(yn); diag_dnu = sqrt(dn); diag_viol = vmax; diag_it = it;
       nu = nu_out;
+      eq.lambda = eq_out;
       rebuild_sums();   // the state of the regular run; Pag/Wag are refreshed by the next pstep
       t_p = tp0; t_h = th0; n_p = np0; n_h = nh0;   // the regular runs' counters exclude the diagnostic
       t_diag += tcpu() - td;
@@ -1147,7 +1336,7 @@ public:
   // the dense cut term at mu = f nu (long double sums, one rounding per entry)
   // into L (added), its magnitudes and h'mu rounded up
   bool dense_term(long double f, const std::vector<double> &nuv, double *L, double &abs_add, double &hsum,
-                  bool signed_ = false) const
+                  bool signed_ = false, const std::vector<double> *lambda = NULL) const
   {
     const size_t mm = (size_t)m * m;
     std::vector<long double> &cp = dt_cp, &cw = dt_cw;
@@ -1166,9 +1355,25 @@ public:
       }
       hs += mu * c.h; hab += fabsl(mu * c.h); ab += fabsl(mu) * c.absrow;
     }
+    if (lambda && eq.R > 0) {
+      eq.add_terms(*lambda, f, cp, cw);
+      for (int s = 0; s < eq.R; s++) {
+        const long double sz = eq.capacity[s], rhs = f * (*lambda)[s] * sz;
+        const long double row_abs = sz * (sz - 1) * m;
+        hs += rhs; hab += fabsl(rhs); ab += fabsl(rhs) * m;
+        any = any || rhs != 0;
+        for (int i = 0; i < m; i++) {
+          const long double a = row_abs * fabsl(f * (*lambda)[eq.R + (size_t)s * m + i]);
+          ab += a;
+          any = any || a != 0;
+        }
+      }
+    }
     abs_add = (double)ab * (1 + 1e-12);
     hsum = (double)hs;
-    hsum = nextafter(hsum + 4.0 * (DBL_EPSILON / 2) * (double)hab + DBL_TRUE_MIN, HUGE_VAL);
+    double rhs_round = 4.0 * (DBL_EPSILON / 2);
+    if (lambda && eq.R > 0) rhs_round += (4.0 + cuts.size() + eq.R) * (double)LDBL_EPSILON;
+    hsum = nextafter(hsum + rhs_round * (double)hab + DBL_TRUE_MIN, HUGE_VAL);
     if (!any) { hsum = 0; abs_add = 0; return false; }
     // per sigma: 1/2 sum of the regions' W coefficients (symmetric), sum of the p ones
     const size_t ns = nsig();
@@ -1221,18 +1426,19 @@ public:
 
   bool cert_term(double scale, double beta, double *Ladd, double &abs_add, double &hsum) override
   {
-    return dense_term((long double)scale * (long double)beta, nu, Ladd, abs_add, hsum);
+    return dense_term((long double)scale * (long double)beta, nu, Ladd, abs_add, hsum, false, &eq.lambda);
   }
 
   // DNN_CP_LAZYCERT: a check's multipliers, for its certificate at the exit (the cuts
   // separated since enter at zero; a compaction since makes the slot unavailable)
-  std::vector<double> snap_nu[2];
+  std::vector<double> snap_nu[2], snap_eq[2];
   long double snap_f[2] = {0, 0};
   int snap_gen[2] = {-1, -1}, gen = 0;
   void snapshot(int slot, double scale, double beta) override
   {
     if (slot < 0 || slot > 1) return;
-    snap_nu[slot] = nu; snap_f[slot] = (long double)scale * (long double)beta; snap_gen[slot] = gen;
+    snap_nu[slot] = nu; snap_eq[slot] = eq.lambda;
+    snap_f[slot] = (long double)scale * (long double)beta; snap_gen[slot] = gen;
   }
   int cert_term_at(int slot, double *Ladd, double &abs_add, double &hsum) override
   {
@@ -1240,29 +1446,42 @@ public:
     std::vector<double> &v = ct_nu;
     v = snap_nu[slot];
     v.resize(cuts.size(), 0.0);
-    return dense_term(snap_f[slot], v, Ladd, abs_add, hsum) ? 1 : 0;
+    return dense_term(snap_f[slot], v, Ladd, abs_add, hsum, false, &snap_eq[slot]) ? 1 : 0;
   }
 
   // DNNParams::cp_extrap: the checkpoint and the guard copy of nu (in units of mu / scale =
   // beta nu, so that a change of beta in between does not matter; cuts separated since count
   // from zero; a compaction since cancels the step)
-  std::vector<double> ex_ck, ex_sg;
+  std::vector<double> ex_ck, ex_sg, ex_eq_ck, ex_eq_sg;
   int ex_ck_gen = -1, ex_sg_gen = -1;
   void extrap(int op, double gamma) override
   {
     const double b = beta_last > 0 ? beta_last : 1.0;
-    if (op == 0) { ex_ck.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_ck[t] = b * nu[t]; ex_ck_gen = gen; }
+    if (op == 0) {
+      ex_ck.resize(nu.size());
+      for (size_t t = 0; t < nu.size(); t++) ex_ck[t] = b * nu[t];
+      ex_eq_ck.resize(eq.lambda.size());
+      for (size_t t = 0; t < eq.lambda.size(); t++) ex_eq_ck[t] = b * eq.lambda[t];
+      ex_ck_gen = gen;
+    }
     else if (op == 1) {
       ex_sg.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_sg[t] = b * nu[t];
+      ex_eq_sg.resize(eq.lambda.size());
+      for (size_t t = 0; t < eq.lambda.size(); t++) ex_eq_sg[t] = b * eq.lambda[t];
       ex_sg_gen = gen;
       if (ex_ck_gen != gen) return;
       for (size_t t = 0; t < nu.size(); t++) {
         const double c = t < ex_ck.size() ? ex_ck[t] : 0.0, v = b * nu[t];
         nu[t] = std::max(0.0, v + gamma * (v - c)) / b;
       }
+      for (size_t t = 0; t < eq.lambda.size(); t++) {
+        const double v = b * eq.lambda[t];
+        eq.lambda[t] = (v + gamma * (v - ex_eq_ck[t])) / b;
+      }
       rebuild_sums();
     } else if (op == 2 && ex_sg_gen == gen) {
       for (size_t t = 0; t < nu.size(); t++) nu[t] = (t < ex_sg.size() ? ex_sg[t] : 0.0) / b;
+      for (size_t t = 0; t < eq.lambda.size(); t++) eq.lambda[t] = ex_eq_sg[t] / b;
       rebuild_sums();
     }
   }
@@ -1311,6 +1530,10 @@ public:
     snprintf(buf, sizeof buf, " | ms pstep %.2f (%d) hpass %.2f (%d) diag %.1f s",
              n_p ? 1e3 * t_p / n_p : 0.0, n_p, n_h ? 1e3 * t_h / n_h : 0.0, n_h, t_diag);
     s += buf;
+    if (eq.R > 0) {
+      snprintf(buf, sizeof buf, " | eq max |C-s|/||C|| %.3e |G|/||G|| %.3e", last_card_viol, last_row_viol);
+      s += buf;
+    }
     if (sep_every > 0) {
       snprintf(buf, sizeof buf, " | pool %zu sep %d (last: violated %d max %.4f added %d; total added %d dropped %d) sep %.1f s",
                cuts.size(), n_sep, last_found, last_maxv, last_added, n_added, n_dropped, t_sep);
@@ -1877,19 +2100,124 @@ DNNResult dnn_pool_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
 
 namespace {
 // The CP-ADMM self-test (DNNCPParams::selftest): the cut extraction against the
-// code the cut rounds use. (a) the dense term of the projector at multipliers mu
-// against assemble() with the same mu: L_add, the magnitude sum and h'mu; (b) for
-// a sample of cuts, the explicit sparse row of the matrix add_rcut writes (mu = 1):
-// ||G||^2 and <G, Y> against the projector's formulas, on Y from a P-step; (c) the
-// P-step's moments against aggregate(); (d) the moments kept by a half-space pass
-// against aggregate() on y_P - G'(nu_new - nu_old); (e) the projection's KKT
-// conditions after up to 3,000 sweeps on a sample of the cuts, by independent code;
-// (f) on side 1, the projector against side 0's on the transposed X, to the bit.
-// All of it uses the Lift of the projector's side. Prints one line per check;
-// returns false on a mismatch beyond rounding.
+bool cp_region_eq_selftest()
+{
+  const int m = 5, n1 = m * m + 1;
+  const size_t nn = (size_t)n1 * n1;
+  // Singletons have zero row normals. The first three sets give a dependent
+  // cardinality equation, and the repeated region gives dependent row normals.
+  const std::vector<Region> regions = {{"a", {0}}, {"b", {1}}, {"ab", {0, 1}},
+                                      {"c", {1, 2, 3}}, {"d", {0, 2, 4}}, {"c2", {1, 2, 3}}};
+  const size_t R = regions.size();
+  std::mt19937 rng(20261117u);
+  std::uniform_real_distribution<double> U(-0.1, 1.1);
+  std::vector<double> X(nn), Y(nn);
+  for (int r = 0; r < n1; r++) for (int c = r; c < n1; c++) X[(size_t)r * n1 + c] = X[(size_t)c * n1 + r] = U(rng);
+  bool ok = true;
+  for (int side = 0; side < 2; side++) {
+    const Lift lift = {m, side};
+    CutProjector pj(m, regions, {}, side, true);
+    std::vector<std::vector<double>> E(R * (m + 1), std::vector<double>(nn));
+    std::vector<double> rhs(E.size());
+    for (size_t s = 0; s < R; s++) {
+      const auto &loc = regions[s].loc;
+      rhs[s] = loc.size();
+      for (int i = 0; i < m; i++) {
+        double *g = E[R + s * m + i].data();
+        for (int a : loc) {
+          const size_t r = lift(a, i);
+          E[s][r * n1 + r] = 1;
+          g[r * n1 + r] = 1 - rhs[s];
+          for (int b : loc) if (b != a) for (int j = 0; j < m; j++) if (j != i) {
+            const size_t c = lift(b, j);
+            g[r * n1 + c] = g[c * n1 + r] = 0.5;
+          }
+        }
+      }
+    }
+    // An independent dense reference via a row-orthonormal basis of E.
+    std::vector<std::vector<double>> basis;
+    std::vector<double> brhs;
+    for (size_t k = 0; k < E.size(); k++) {
+      std::vector<double> v = E[k];
+      double b = rhs[k];
+      for (size_t q = 0; q < basis.size(); q++) {
+        const double d = std::inner_product(v.begin(), v.end(), basis[q].begin(), 0.0);
+        for (size_t e = 0; e < nn; e++) v[e] -= d * basis[q][e];
+        b -= d * brhs[q];
+      }
+      const double norm = sqrt(std::inner_product(v.begin(), v.end(), v.begin(), 0.0));
+      if (norm < 1e-10) continue;
+      for (double &x : v) x /= norm;
+      basis.push_back(std::move(v)); brhs.push_back(b / norm);
+    }
+    pj.pstep(X.data(), Y.data(), NULL);
+    std::vector<double> ref = Y;
+    for (size_t q = 0; q < basis.size(); q++) {
+      const double d = std::inner_product(Y.begin(), Y.end(), basis[q].begin(), -brhs[q]);
+      for (size_t e = 0; e < nn; e++) ref[e] -= d * basis[q][e];
+    }
+    const double step = pj.eq.pass(pj.Pag, pj.Wag, pj.CPs, pj.CWs, pj.ovl);
+    std::vector<double> L(nn);
+    double abs = 0, h = 0, dy = 0, norm2 = 0, dmom = 0, resid = 0;
+    pj.cert_term(1, 1, L.data(), abs, h);
+    for (size_t e = 0; e < nn; e++) {
+      Y[e] -= L[e];
+      dy = std::max(dy, fabs(Y[e] - ref[e]));
+      norm2 += L[e] * L[e];
+    }
+    for (size_t s = 0; s < R; s++) {
+      std::vector<double> p, W;
+      aggregate(regions[s], Y, lift, n1, p, W);
+      for (int i = 0; i < m; i++) {
+        dmom = std::max(dmom, fabs(p[i] - pj.Pag[s * m + i]));
+        for (int j = i + 1; j < m; j++) {
+          const size_t ij = (size_t)i * m + j;
+          dmom = std::max(dmom, fabs(W[ij] - pj.Wag[s * m * m + ij]));
+        }
+      }
+    }
+    for (size_t k = 0; k < E.size(); k++)
+      resid = std::max(resid, fabs(std::inner_product(E[k].begin(), E[k].end(), Y.begin(), -rhs[k])));
+    // Signed certificate terms, including a strictly negative cardinality RHS.
+    for (size_t k = 0; k < E.size(); k++) pj.eq.lambda[k] = k < R ? -0.125 * (k + 1) : U(rng);
+    std::fill(L.begin(), L.end(), 0.0);
+    pj.cert_term(2, 0.5, L.data(), abs, h);
+    pj.snapshot(0, 2, 0.5);
+    std::fill(pj.eq.lambda.begin(), pj.eq.lambda.end(), 0.0);
+    std::vector<double> snap(nn);
+    double sa = 0, sh = 0;
+    const bool snapshot_ok = pj.cert_term_at(0, snap.data(), sa, sh) == 1 && snap == L && sa == abs && sh == h;
+    double max_perm = -HUGE_VAL, min_perm = HUGE_VAL;
+    std::array<int, m> perm = {0, 1, 2, 3, 4};
+    do {
+      long double v = -h;
+      for (int i = 0; i < m; i++) for (int j = 0; j < m; j++) v += L[lift(i, perm[i]) * n1 + lift(j, perm[j])];
+      max_perm = std::max(max_perm, (double)v); min_perm = std::min(min_perm, (double)v);
+    } while (std::next_permutation(perm.begin(), perm.end()));
+    const bool pass = dy < 1e-10 && dmom < 1e-10 && resid < 1e-10 && fabs(step - sqrt(norm2)) < 1e-10 &&
+                      h < 0 && max_perm < 1e-12 && min_perm > -1e-12 && snapshot_ok;
+    printf("cp-region-eq side %d: projection %.3e, moments %.3e, residual %.3e, norm %.3e, permutation term [%.3e, %.3e], snapshot %s  %s\n",
+           side, dy, dmom, resid, fabs(step - sqrt(norm2)), min_perm, max_perm, snapshot_ok ? "ok" : "MISMATCH",
+           pass ? "ok" : "MISMATCH");
+    ok = ok && pass;
+  }
+  return ok;
+}
+
+// (a) The dense term at multipliers mu against assemble(): L_add, magnitude,
+// h'mu. (b) ||G||^2 and <G,Y> against explicit cut normals. (c) P-step moments
+// against aggregate(). (d) Half-space pass moments against aggregate() on
+// y_P - G'(nu_new - nu_old). (e) Independent KKT checks after up to 3,000
+// sweeps on sampled cuts. (f) The side-1 projector against side 0 on transposed
+// X, to the bit. Prints one line per check and returns false on a mismatch.
 bool cp_selftest(CutProjector &pj, std::vector<Cut> cuts, const std::vector<Region> &regions,
                  const std::vector<BoxCut> &boxes, const Lift &lift, int n1)
 {
+  // The original checks compare the half-space projector with the cut-only
+  // reference. The affine block has its own dense reference above.
+  RegionalEqualities eq_keep = std::move(pj.eq);
+  pj.eq = RegionalEqualities();
   const int m = lift.m;
   const size_t nn = (size_t)n1 * n1;
   bool ok = true;
@@ -2102,6 +2430,7 @@ bool cp_selftest(CutProjector &pj, std::vector<Cut> cuts, const std::vector<Regi
     ok = ok && okf;
   }
   pj.nu = nu_keep;
+  pj.eq = std::move(eq_keep);
   pj.rebuild_sums();
   pj.t_p = tp_keep; pj.t_h = th_keep; pj.n_p = np_keep; pj.n_h = nh_keep;
   return ok;
@@ -2132,7 +2461,7 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
     if (cp.pool_out) *cp.pool_out = DNNPool();
     return dnn_bound(A, B, C, shift, cutoff, par, start, save);
   }
-  CutProjector pj(m, regions, cuts, cp.side);
+  CutProjector pj(m, regions, cuts, cp.side, setting_i("DNN_CP_REGION_EQ") != 0);
   pj.sweeps = std::max(1, cpp.sweeps); pj.passes = std::max(1, cpp.passes);
   pj.diag_every = cpp.diag_every; pj.diag_sweeps = std::max(1, cpp.diag_sweeps);
   if (cpp.omega > 0 && cpp.omega < 2) pj.omega = cpp.omega;
@@ -2158,7 +2487,7 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
     printf("cp pool: %d cuts kept (%d dropped), %zu in the projector, %zu terms, %d regions, %zu region-pair classes; sweeps %d passes %d omega %g\n",
            nk, nd, pj.cuts.size(), nt, (int)regions.size(), pj.nsig(), pj.sweeps, pj.passes, pj.omega);
   }
-  if (cpp.selftest && !cp_selftest(pj, cuts, regions, boxes, lift, n1)) {
+  if (cpp.selftest && ((pj.eq.R > 0 && !cp_region_eq_selftest()) || !cp_selftest(pj, cuts, regions, boxes, lift, n1))) {
     fprintf(stderr, "dnn_cp_bound: self-test failed\n");
     return bad;
   }
@@ -2207,14 +2536,15 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
     // the quiet round: mu_D = scale beta nu frozen as L_add, the cut rounds' path
     std::vector<double> La((size_t)n1 * n1, 0.0);
     double abs_add = 0, hsum = 0;
-    const bool any = pj.dense_term((long double)sv->scale * (long double)pj.beta_last, pj.nu, La.data(), abs_add, hsum);
+    const bool any = pj.cert_term(sv->scale, pj.beta_last, La.data(), abs_add, hsum);
     DNNParams q = par;
     q.ycuts = NULL;
     q.max_iter = cpp.quiet_iters;
     q.L_add = any ? La.data() : NULL; q.L_add_abs = any ? abs_add : 0;
     if (!any) hsum = 0;
     DNNWarm st = *sv;
-    DNNResult rq = dnn_bound(A, B, C, shift - hsum, cutoff, q, &st, sv);
+    const double shift_q = pj.eq.R > 0 && any ? nextafter(shift - hsum, -HUGE_VAL) : shift - hsum;
+    DNNResult rq = dnn_bound(A, B, C, shift_q, cutoff, q, &st, sv);
     cpp.quiet_lb = rq.lb;
     if (cp.verbose)
       printf("cp quiet round  lb %.10f  primal %.4f  status %s  iters %d  cpu %.1f  h'mu %.6g\n", rq.lb, rq.primal,
@@ -2272,7 +2602,7 @@ DNNCutResult dnn_cut_cp(MAT *A, MAT *B, MAT *C, double shift, double cutoff,
     remap_pool(*cp.pool_in, free_orig, n_orig, cp, regions, cuts, boxes, dropped);
   }
   out.nregions = (int)regions.size();
-  CutProjector pj(m, regions, cuts, cp.side);
+  CutProjector pj(m, regions, cuts, cp.side, setting_i("DNN_CP_REGION_EQ") != 0);
   pj.sweeps = std::max(1, cp.cp_sweeps); pj.passes = std::max(1, cp.cp_passes);
   {
     const int R = (int)regions.size();
