@@ -1,0 +1,61 @@
+diff --git a/latest/bnb.C b/latest/bnb.C
+index d62cae56..741acc15 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -1146,6 +1146,56 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	qpbp->improve   = false;
+ 	qpbp->nofathom_patience = 0;   // only node bounds use patience
+ 	set_branch_parameters(bp, param, use_J, reorder);
++#ifdef HAVE_DNN
++	// experiments/tai60b_lines (an experiment build, never cognac's latest/):
++	// QAP_LINE_RANK=D prints, at every node of depth D, its free lines ranked by
++	// marginal score (sum of squared x_ij over the line); QAP_FORCE_LINE=D:rI or
++	// D:cJ (comma-separated, one per depth) branches every node of depth D on
++	// facility I (row) or location J (column) in place of the params' rule.
++	{
++	  static const char *force_line = getenv("QAP_FORCE_LINE");
++	  static const char *line_rank = getenv("QAP_LINE_RANK");
++	  std::vector<int> lrow(n, -1), lcol(n, -1);
++	  for (int r = 0, k = 0; r < n; r++) if (node.p[r] <= NONE) lrow[r] = k++;
++	  for (int c = 0, k = 0; c < n; c++) if (node.pinv[c] <= NONE) lcol[c] = k++;
++	  if (line_rank && atoi(line_rank) == node.depth && (int)dnn_xbar.size() == m * m) {
++	    std::vector<std::pair<double, std::string>> L;
++	    for (int r = 0; r < n; r++) {
++	      if (lrow[r] < 0) continue;
++	      double s = 0.0;
++	      for (int c = 0; c < n; c++) if (lcol[c] >= 0) { double v = dnn_xbar[lrow[r] * m + lcol[c]]; s += v * v; }
++	      L.push_back({s, "r" + std::to_string(r)});
++	    }
++	    for (int c = 0; c < n; c++) {
++	      if (lcol[c] < 0) continue;
++	      double s = 0.0;
++	      for (int r = 0; r < n; r++) if (lrow[r] >= 0) { double v = dnn_xbar[lrow[r] * m + lcol[c]]; s += v * v; }
++	      L.push_back({s, "c" + std::to_string(c)});
++	    }
++	    std::sort(L.begin(), L.end(), [](const std::pair<double, std::string> &a,
++					     const std::pair<double, std::string> &b) { return a.first > b.first; });
++	    fprintf(stderr, "line-rank: depth %d lb %.4f", node.depth, node.bound);
++	    for (const auto &l : L) fprintf(stderr, " %s:%.5f", l.second.c_str(), l.first);
++	    fprintf(stderr, "\n");
++	  }
++	  for (const char *f = force_line; f && *f; ) {
++	    int d, idx; char side;
++	    if (sscanf(f, "%d:%c%d", &d, &side, &idx) != 3 || (side != 'r' && side != 'c') || idx < 0 || idx >= n) {
++	      fprintf(stderr, "QAP_FORCE_LINE: cannot read '%s'\n", f);  exit(2);
++	    }
++	    if (d == node.depth) {
++	      const bool row = side == 'r';
++	      const int in_u = row ? lrow[idx] : lcol[idx];
++	      if (in_u < 0) { fprintf(stderr, "QAP_FORCE_LINE: %c%d is not free at depth %d\n", side, idx, d);  exit(2); }
++	      bp->how = BRANCH_FIXED;  bp->choose_row = row;
++	      bp->fixed_index_in_U = in_u;  bp->fixed_index_in_assign = idx;
++	      fprintf(stderr, "force-line: depth %d %c%d\n", d, side, idx);
++	    }
++	    f = strchr(f, ',');
++	    if (f) f++;
++	  }
++	}
++#endif
+ 	// every bound but GLB leaves its Frank-Wolfe point in X; the
+ 	// children start from it (copied first: branch() may use X)
+ 	WarmStart *warm = (param->which_bound != GLB_BND)
