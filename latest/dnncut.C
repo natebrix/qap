@@ -11,7 +11,9 @@
 #include <algorithm>
 #include <array>
 #include <cfloat>
+#include <climits>
 #include <ctime>
+#include <fstream>
 #include <random>
 
 DNNCutParams::DNNCutParams()
@@ -33,6 +35,62 @@ DNNCutParams::DNNCutParams()
   cp_extrap = 0; cp_extrap_gamma = 1.0; cp_extrap_guard = 30; cp_extrap_mode = 2;
   cp_wc_gap = 0; cp_wc_deficit = 0;
   ho_n0 = ho_a = ho_b = 0; ho_phi = 1.5; ho_w = 0; ho_p = 2; ho_kappa = 0;
+}
+
+bool dnn_read_coarse_pool(const std::string &path, int m, int side, DNNCoarsePool &pool)
+{
+  std::ifstream in(path);
+  std::string magic;
+  int version, file_m, nc;
+  DNNCoarsePool p;
+  if (!(in >> magic >> version >> p.side_ >> file_m >> p.k_ >> nc) ||
+      magic != "QAP_COARSE_POOL" || version != 1 || p.side_ != side || file_m != m ||
+      p.k_ < 2 || p.k_ > 4 || nc < 0 || nc > 50) return false;
+  p.labels_.resize(m);
+  std::vector<int> capacity(p.k_, 0);
+  for (int &g : p.labels_) {
+    if (!(in >> g) || g < 0 || g >= p.k_) return false;
+    capacity[g]++;
+  }
+  p.cuts_.resize(nc);
+  for (DNNCoarseCut &c : p.cuts_) {
+    int t;
+    if (!(in >> t) || t < 2 || t > 6 || t > m) return false;
+    c.members.resize(t);
+    int prev = -1;
+    for (int &i : c.members) {
+      if (!(in >> i) || i <= prev || i >= m) return false;
+      prev = i;
+    }
+    c.coef.resize(t * p.k_ + t * (t - 1) / 2 * p.k_ * p.k_);
+    for (int &a : c.coef) if (!(in >> a) || a < -1024 || a > 1024) return false;
+
+    // Only the residual capacities restrict the label configurations. Each
+    // feasible node permutation induces one of these t-tuples. Integer sums
+    // are exact and fit comfortably in int for this pool format.
+    int count = 1;
+    for (int i = 0; i < t; i++) count *= p.k_;
+    c.rhs = INT_MIN;
+    for (int q = 0; q < count; q++) {
+      int code = q, value = 0;
+      std::array<int, 6> label{};
+      std::array<int, 4> used{};
+      for (int i = 0; i < t; i++) {
+        label[i] = code % p.k_; code /= p.k_;
+        if (++used[label[i]] > capacity[label[i]]) { value = INT_MIN; break; }
+        value += c.coef[i * p.k_ + label[i]];
+      }
+      if (value == INT_MIN) continue;
+      int start = t * p.k_;
+      for (int i = 0; i < t; i++) for (int j = i + 1; j < t; j++, start += p.k_ * p.k_)
+        value += c.coef[start + label[i] * p.k_ + label[j]];
+      c.rhs = std::max(c.rhs, value);
+    }
+    if (c.rhs == INT_MIN) return false;
+  }
+  if (in >> magic) return false;
+  pool = std::move(p);
+  return true;
 }
 
 namespace {
@@ -647,6 +705,119 @@ static std::vector<Region> cut_regions(const DNNCutParams &cp, const std::vector
 struct CPTerm { int i, j; double c; };          // j < 0: c p_i; else i < j: c W_ij
 struct CPCut { int s, t0, t1, src; double h, g2, absrow; };   // terms [t0, t1); src: index in the pool
 
+// Cross-label half-spaces share the existing regional Hildreth passes, but
+// touch only their sparse lifted supports. Cross inner products with regional
+// moments and other coarse rows are precomputed for the half-space steps.
+struct CoarseProjector {
+  using Term = std::pair<size_t, double>;
+  struct Row { std::vector<Term> entries, regional; double rhs, norm2, absrow; };
+  struct Site { size_t offset; int r, c, i, j, signature; };
+  std::vector<Row> rows;
+  std::vector<Site> sites;
+  std::vector<double> gram, nu, value, last_region, correction;
+  size_t psize = 0;
+
+  void initialize(const DNNCoarsePool &pool, int m, const std::vector<std::vector<int>> &regions,
+                  const std::vector<int> &sig2)
+  {
+    const int k = pool.k(), n1 = m * m + 1;
+    const size_t mm = (size_t)m * m, R = regions.size();
+    psize = R * m;
+    std::vector<std::vector<int>> cells(k), counts(R, std::vector<int>(k));
+    for (int a = 0; a < m; a++) cells[pool.labels()[a]].push_back(a);
+    for (size_t s = 0; s < R; s++) for (int a : regions[s]) counts[s][pool.labels()[a]]++;
+    const auto index = [&](int i, int a) { return 1 + (pool.side() == 1 ? i * m + a : a * m + i); };
+    std::map<size_t, Site> all_sites;
+    for (const DNNCoarseCut &cut : pool.cuts()) {
+      Row row;
+      row.rhs = cut.rhs / 1024.0; row.norm2 = 0; row.absrow = 0;
+      auto entry = [&](int i, int j, int a, int b, double c) {
+        const int r = index(i, a), col = index(j, b);
+        const size_t offset = (size_t)r * n1 + col;
+        row.entries.push_back({offset, c});
+        all_sites.emplace(offset, Site{offset, r, col, i, j, sig2[(size_t)a * m + b]});
+        row.norm2 += c * c; row.absrow += fabs(c);
+      };
+      std::map<size_t, double> overlap;
+      size_t q = 0;
+      for (int i : cut.members) for (int g = 0; g < k; g++) {
+        const double c = cut.coef[q++] / 1024.0;
+        if (c == 0) continue;
+        for (int a : cells[g]) entry(i, i, a, a, c);
+        for (size_t s = 0; s < R; s++) if (counts[s][g]) overlap[s * m + i] += c * counts[s][g];
+      }
+      for (int i : cut.members) for (int j : cut.members) if (i < j)
+        for (int g = 0; g < k; g++) for (int h = 0; h < k; h++) {
+          const double half = cut.coef[q++] / 2048.0;
+          if (half == 0) continue;
+          for (int a : cells[g]) for (int b : cells[h]) if (a != b) {
+            entry(i, j, a, b, half);
+            entry(j, i, b, a, half);
+          }
+          for (size_t s = 0; s < R; s++) {
+            const int overlap_pairs = counts[s][g] * (counts[s][h] - (g == h));
+            if (overlap_pairs) overlap[psize + s * mm + (size_t)i * m + j] += half * overlap_pairs;
+          }
+        }
+      if (row.norm2 == 0) continue;
+      for (const auto &e : overlap) if (e.second != 0) row.regional.push_back(e);
+      std::sort(row.entries.begin(), row.entries.end());
+      rows.push_back(std::move(row));
+    }
+    std::map<size_t, size_t> slot;
+    for (const auto &e : all_sites) {
+      slot.emplace(e.first, sites.size());
+      sites.push_back(e.second);
+    }
+    correction.resize(sites.size());
+    for (Row &row : rows) for (Term &e : row.entries) e.first = slot.at(e.first);
+    const size_t n = rows.size();
+    gram.resize(n * n); nu.resize(n); value.resize(n); last_region.resize(n);
+    for (size_t i = 0; i < n; i++) for (size_t j = 0; j <= i; j++) {
+      const auto &a = rows[i].entries, &b = rows[j].entries;
+      double dot = 0;
+      for (size_t p = 0, q = 0; p < a.size() && q < b.size();) {
+        if (a[p].first < b[q].first) p++;
+        else if (b[q].first < a[p].first) q++;
+        else { dot += a[p].second * b[q].second; p++; q++; }
+      }
+      gram[i * n + j] = gram[j * n + i] = dot;
+    }
+  }
+
+  double region_value(const Row &row, const std::vector<double> &p, const std::vector<double> &w) const
+  {
+    double dot = 0;
+    for (const Term &e : row.regional) dot += e.second * (e.first < psize ? p[e.first] : w[e.first - psize]);
+    return dot;
+  }
+
+  double hpass(double omega, const std::vector<double> &cp, const std::vector<double> &cw,
+               std::vector<double> &p, std::vector<double> &w)
+  {
+    const size_t n = rows.size();
+    double dmax = 0;
+    for (size_t i = 0; i < n; i++) {
+      const double now = region_value(rows[i], cp, cw);
+      value[i] += last_region[i] - now;
+      last_region[i] = now;
+    }
+    for (size_t i = 0; i < n; i++) {
+      const Row &row = rows[i];
+      const double next = std::max(0.0, nu[i] + omega * value[i] / row.norm2), d = next - nu[i];
+      if (d == 0) continue;
+      nu[i] = next;
+      dmax = std::max(dmax, fabs(d) * sqrt(row.norm2));
+      for (size_t j = 0; j < n; j++) value[j] -= d * gram[i * n + j];
+      for (const Term &e : row.regional) {
+        double &moment = e.first < psize ? p[e.first] : w[e.first - psize];
+        moment -= d * e.second;
+      }
+    }
+    return dmax;
+  }
+};
+
 // the terms and right-hand side of a regional cut (the sign convention of
 // add_rcut and cut_rhs), pairs normalised to i < j and merged
 void cp_cut_terms(const Cut &t, std::vector<CPTerm> &out, double &h)
@@ -726,8 +897,10 @@ public:
   std::vector<double> Pag, Wag;    // moments of the current y, per region (W: i < j used)
   std::vector<double> CPs, CWs;    // sum_t nu_t c_t per region (the P-step's G'nu)
   std::vector<double> Csig, Dsig, Gsig, Gdsig;   // per sigma: 1/2 sum CW, sum CP; block sums of y
+  CoarseProjector coarse;
   // scratch of dense_term and cert_term_at (review E10, Nov 9: no allocation per check)
   mutable std::vector<long double> dt_cp, dt_cw, dt_cs, dt_ds;
+  mutable std::vector<long double> dt_coarse;
   mutable std::vector<std::vector<double>> dt_C, dt_D;
   mutable std::vector<double> ct_nu;
   double beta_last = 0;
@@ -844,7 +1017,16 @@ public:
     Y[0] = 1.0;
     for (int c = 1; c < n1; c++) Y[c] = clip(X[c]);
     if (elim) for (int c = 1; c < n1; c++) if (elim[c - 1]) Y[c] = 0;
-    if (side == 1) { pstep_rows1(X, Y, elim); moments_from_groups(); return; }
+    if (side == 1) pstep_rows1(X, Y, elim);
+    else pstep_rows0(X, Y, elim);
+    if (!coarse.rows.empty()) coarse_pstep(X, Y, elim);
+    moments_from_groups();
+  }
+
+  void pstep_rows0(const double *X, double *Y, const unsigned char *elim)
+  {
+    const size_t mm = (size_t)m * m;
+    auto clip = [](double v) { return std::min(1.0, std::max(0.0, v)); };
     for (int a = 0; a < m; a++)
       for (int i = 0; i < m; i++) {
         const size_t r = 1 + (size_t)a * m + i;
@@ -875,7 +1057,6 @@ public:
           else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += yb[j]; }
         }
       }
-    moments_from_groups();
   }
 
   // the rows of the P-step on side 1: row r = 1 + i m + a (i the other side's element,
@@ -936,6 +1117,42 @@ public:
       }
   }
 
+  void coarse_pstep(const double *X, double *Y, const unsigned char *elim)
+  {
+    // Apply the additional correction from X before clipping. Update the
+    // regional block sums to reflect the resulting entries of the projection.
+    const size_t mm = (size_t)m * m;
+    std::fill(coarse.correction.begin(), coarse.correction.end(), 0.0);
+    for (size_t t = 0; t < coarse.rows.size(); t++) if (coarse.nu[t] > 0)
+      for (const auto &e : coarse.rows[t].entries) coarse.correction[e.first] += coarse.nu[t] * e.second;
+    for (size_t k = 0; k < coarse.sites.size(); k++) {
+      const double adjustment = coarse.correction[k];
+      if (adjustment == 0) continue;
+      const auto &s = coarse.sites[k];
+      if (elim && (elim[s.r - 1] || elim[s.c - 1])) continue;
+      double *moment = NULL, regional = 0;
+      if (s.signature >= 0) {
+        if (s.r == s.c) {
+          const size_t idx = (size_t)s.signature * m + s.i;
+          regional = Dsig[idx]; moment = &Gdsig[idx];
+        } else {
+          const size_t idx = (size_t)s.signature * mm + (size_t)s.i * m + s.j;
+          regional = Csig[idx]; moment = &Gsig[idx];
+        }
+      }
+      const double y = std::min(1.0, std::max(0.0, X[s.offset] - regional - adjustment));
+      if (moment) *moment += y - Y[s.offset];
+      Y[s.offset] = y;
+    }
+    for (size_t t = 0; t < coarse.rows.size(); t++) {
+      const auto &row = coarse.rows[t];
+      double v = -row.rhs;
+      for (const auto &e : row.entries) v += e.second * Y[coarse.sites[e.first].offset];
+      coarse.value[t] = v;
+      coarse.last_region[t] = coarse.region_value(row, CPs, CWs);
+    }
+  }
+
   void moments_from_groups()
   {
     const size_t mm = (size_t)m * m, ns = nsig();
@@ -991,7 +1208,7 @@ public:
         else CWs[c.s * mm + (size_t)x.i * m + x.j] += d * x.c;
       }
     }
-    return dmax;
+    return std::max(dmax, coarse.hpass(omega, CPs, CWs, Pag, Wag));
   }
 
   // the output's cut residuals: max violation / ||G|| and the count above 1e-4
@@ -1031,13 +1248,16 @@ public:
       beta_last = beta;
     }
     // the multipliers mu = scale beta nu stay put when beta changes
-    if (beta_last > 0 && beta != beta_last) for (double &v : nu) v *= beta_last / beta;
+    if (beta_last > 0 && beta != beta_last) {
+      for (double &v : nu) v *= beta_last / beta;
+      for (double &v : coarse.nu) v *= beta_last / beta;
+    }
     beta_last = beta;
     ysteps++;
     const bool diag = diag_every > 0 && it % diag_every == 0;
     const bool sep = sep_every > 0 && sep_k > 0 && it % sep_every == 0;
-    std::vector<double> nu0, Psep, Wsep;
-    if (diag) nu0 = nu;
+    std::vector<double> nu0, coarse_nu0, Psep, Wsep;
+    if (diag) { nu0 = nu; coarse_nu0 = coarse.nu; }
     run(X, Y, elim, sweeps);
     residuals();
     if (sep) { Psep = Pag; Wsep = Wag; }   // the output Y's moments (the diagnostic overwrites them)
@@ -1046,8 +1266,9 @@ public:
       // the distance of this Y-step's output to a longer run of the same projection
       // from the same start (nu0): ||Y - Y_long||_F, ||G'(nu - nu_long)|| proxy
       std::vector<double> nu_out = nu, Yl((size_t)n1 * n1);
+      std::vector<double> coarse_out = coarse.nu, coarse_value_out = coarse.value;
       const double dstep_out = last_dstep;
-      nu = nu0;
+      nu = nu0; coarse.nu = coarse_nu0;
       run(X, Yl.data(), elim, diag_sweeps);
       last_dstep = dstep_out;
       double dy = 0, yn = 0;
@@ -1056,8 +1277,13 @@ public:
       for (size_t t = 0; t < nu.size(); t++) dn += (nu_out[t] - nu[t]) * (nu_out[t] - nu[t]) * cuts[t].g2;
       double vmax = 0;
       for (size_t t = 0; t < cuts.size(); t++) vmax = std::max(vmax, value(cuts[t]) / sqrt(cuts[t].g2));
+      for (size_t t = 0; t < coarse.rows.size(); t++) {
+        const double d = coarse_out[t] - coarse.nu[t];
+        dn += d * d * coarse.rows[t].norm2;
+        vmax = std::max(vmax, coarse.value[t] / sqrt(coarse.rows[t].norm2));
+      }
       diag_dy = sqrt(dy); diag_ynorm = sqrt(yn); diag_dnu = sqrt(dn); diag_viol = vmax; diag_it = it;
-      nu = nu_out;
+      nu = nu_out; coarse.nu = coarse_out; coarse.value = coarse_value_out;
       rebuild_sums();   // the state of the regular run; Pag/Wag are refreshed by the next pstep
       t_p = tp0; t_h = th0; n_p = np0; n_h = nh0;   // the regular runs' counters exclude the diagnostic
       t_diag += tcpu() - td;
@@ -1147,7 +1373,7 @@ public:
   // the dense cut term at mu = f nu (long double sums, one rounding per entry)
   // into L (added), its magnitudes and h'mu rounded up
   bool dense_term(long double f, const std::vector<double> &nuv, double *L, double &abs_add, double &hsum,
-                  bool signed_ = false) const
+                  bool signed_ = false, const std::vector<double> *coarse_nu = NULL) const
   {
     const size_t mm = (size_t)m * m;
     std::vector<long double> &cp = dt_cp, &cw = dt_cw;
@@ -1166,9 +1392,27 @@ public:
       }
       hs += mu * c.h; hab += fabsl(mu * c.h); ab += fabsl(mu) * c.absrow;
     }
+    if (coarse_nu && !coarse.rows.empty()) {
+      dt_coarse.assign(coarse.sites.size(), 0.0L);
+      for (size_t t = 0; t < coarse.rows.size(); t++) {
+        const double nu_t = (*coarse_nu)[t];
+        if (signed_ ? nu_t == 0 : !(nu_t > 0)) continue;
+        any = true;
+        const auto &row = coarse.rows[t];
+        const long double mu = f * (long double)nu_t;
+        for (const auto &e : row.entries) dt_coarse[e.first] += mu * e.second;
+        hs += mu * row.rhs; hab += fabsl(mu * row.rhs); ab += fabsl(mu) * row.absrow;
+      }
+      // The existing certificate magnitude allowance covers the final
+      // conversion and addition of the regional and coarse terms to L.
+      for (size_t e = 0; e < coarse.sites.size(); e++) L[coarse.sites[e].offset] += (double)dt_coarse[e];
+    }
     abs_add = (double)ab * (1 + 1e-12);
     hsum = (double)hs;
-    hsum = nextafter(hsum + 4.0 * (DBL_EPSILON / 2) * (double)hab + DBL_TRUE_MIN, HUGE_VAL);
+    // The larger factor for coarse pools covers accumulation error of all
+    // RHS terms even when some RHS coefficients are negative.
+    const double hround = coarse_nu && !coarse.rows.empty() ? 1e-12 : 4.0 * (DBL_EPSILON / 2);
+    hsum = nextafter(hsum + hround * (double)hab + DBL_TRUE_MIN, HUGE_VAL);
     if (!any) { hsum = 0; abs_add = 0; return false; }
     // per sigma: 1/2 sum of the regions' W coefficients (symmetric), sum of the p ones
     const size_t ns = nsig();
@@ -1221,18 +1465,20 @@ public:
 
   bool cert_term(double scale, double beta, double *Ladd, double &abs_add, double &hsum) override
   {
-    return dense_term((long double)scale * (long double)beta, nu, Ladd, abs_add, hsum);
+    return dense_term((long double)scale * (long double)beta, nu, Ladd, abs_add, hsum, false, &coarse.nu);
   }
 
   // DNN_CP_LAZYCERT: a check's multipliers, for its certificate at the exit (the cuts
   // separated since enter at zero; a compaction since makes the slot unavailable)
   std::vector<double> snap_nu[2];
+  std::vector<double> snap_coarse[2];
   long double snap_f[2] = {0, 0};
   int snap_gen[2] = {-1, -1}, gen = 0;
   void snapshot(int slot, double scale, double beta) override
   {
     if (slot < 0 || slot > 1) return;
-    snap_nu[slot] = nu; snap_f[slot] = (long double)scale * (long double)beta; snap_gen[slot] = gen;
+    snap_nu[slot] = nu; snap_coarse[slot] = coarse.nu;
+    snap_f[slot] = (long double)scale * (long double)beta; snap_gen[slot] = gen;
   }
   int cert_term_at(int slot, double *Ladd, double &abs_add, double &hsum) override
   {
@@ -1240,29 +1486,42 @@ public:
     std::vector<double> &v = ct_nu;
     v = snap_nu[slot];
     v.resize(cuts.size(), 0.0);
-    return dense_term(snap_f[slot], v, Ladd, abs_add, hsum) ? 1 : 0;
+    return dense_term(snap_f[slot], v, Ladd, abs_add, hsum, false, &snap_coarse[slot]) ? 1 : 0;
   }
 
   // DNNParams::cp_extrap: the checkpoint and the guard copy of nu (in units of mu / scale =
   // beta nu, so that a change of beta in between does not matter; cuts separated since count
   // from zero; a compaction since cancels the step)
   std::vector<double> ex_ck, ex_sg;
+  std::vector<double> ex_coarse_ck, ex_coarse_sg;
   int ex_ck_gen = -1, ex_sg_gen = -1;
   void extrap(int op, double gamma) override
   {
     const double b = beta_last > 0 ? beta_last : 1.0;
-    if (op == 0) { ex_ck.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_ck[t] = b * nu[t]; ex_ck_gen = gen; }
+    if (op == 0) {
+      ex_ck.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_ck[t] = b * nu[t];
+      ex_coarse_ck.resize(coarse.nu.size());
+      for (size_t t = 0; t < coarse.nu.size(); t++) ex_coarse_ck[t] = b * coarse.nu[t];
+      ex_ck_gen = gen;
+    }
     else if (op == 1) {
       ex_sg.resize(nu.size()); for (size_t t = 0; t < nu.size(); t++) ex_sg[t] = b * nu[t];
+      ex_coarse_sg.resize(coarse.nu.size());
+      for (size_t t = 0; t < coarse.nu.size(); t++) ex_coarse_sg[t] = b * coarse.nu[t];
       ex_sg_gen = gen;
       if (ex_ck_gen != gen) return;
       for (size_t t = 0; t < nu.size(); t++) {
         const double c = t < ex_ck.size() ? ex_ck[t] : 0.0, v = b * nu[t];
         nu[t] = std::max(0.0, v + gamma * (v - c)) / b;
       }
+      for (size_t t = 0; t < coarse.nu.size(); t++) {
+        const double v = b * coarse.nu[t];
+        coarse.nu[t] = std::max(0.0, v + gamma * (v - ex_coarse_ck[t])) / b;
+      }
       rebuild_sums();
     } else if (op == 2 && ex_sg_gen == gen) {
       for (size_t t = 0; t < nu.size(); t++) nu[t] = (t < ex_sg.size() ? ex_sg[t] : 0.0) / b;
+      for (size_t t = 0; t < coarse.nu.size(); t++) coarse.nu[t] = ex_coarse_sg[t] / b;
       rebuild_sums();
     }
   }
@@ -1308,6 +1567,17 @@ public:
     snprintf(buf, sizeof buf, "cuts %zu active %d sum_nu %.6g viol %d (max %.3e/||G||, rnorm %.3e) dstep %.3e",
              cuts.size(), last_nact, sn, last_nviol, last_viol, last_rnorm, last_dstep);
     std::string s = buf;
+    if (!coarse.rows.empty()) {
+      size_t active = 0;
+      double max_v = 0, sum_nu = 0;
+      for (size_t t = 0; t < coarse.rows.size(); t++) {
+        max_v = std::max(max_v, coarse.value[t] / sqrt(coarse.rows[t].norm2));
+        active += coarse.nu[t] > 0; sum_nu += coarse.nu[t];
+      }
+      snprintf(buf, sizeof buf, " | coarse %zu active %zu sum_nu %.6g maxviol %.3e/||G||",
+               coarse.rows.size(), active, sum_nu, max_v);
+      s += buf;
+    }
     snprintf(buf, sizeof buf, " | ms pstep %.2f (%d) hpass %.2f (%d) diag %.1f s",
              n_p ? 1e3 * t_p / n_p : 0.0, n_p, n_h ? 1e3 * t_h / n_h : 0.0, n_h, t_diag);
     s += buf;
@@ -2117,6 +2387,14 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
   bad.certificates = 0; bad.cert_failures = 0; bad.refinements = 0; bad.halpern_restarts = 0; bad.margin = 0;
   const int m = A->m, n1 = m * m + 1;
   if (cp.atomic || (cp.side != 0 && cp.side != 1)) { fprintf(stderr, "dnn_cp_bound: regional cuts only (side 0 or 1)\n"); return bad; }
+  if (cp.L_ext || cp.ext_const != 0) {
+    fprintf(stderr, "dnn_cp_bound: fixed external objective terms require the rounds/quiet driver\n");
+    return bad;
+  }
+  if (cpp.coarse && (cpp.child || cpp.coarse->side() != cp.side || cpp.coarse->labels().size() != (size_t)m)) {
+    fprintf(stderr, "dnn_cp_bound: coarse cuts require matching frozen-node dimensions and side\n");
+    return bad;
+  }
   const Lift lift = {m, cp.side};
   std::vector<Region> regions = cut_regions(cp, free_orig, n_orig, m);
   std::vector<Cut> cuts;
@@ -2162,6 +2440,13 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
     fprintf(stderr, "dnn_cp_bound: self-test failed\n");
     return bad;
   }
+  if (cpp.coarse) {
+    const double start_cpu = CutProjector::tcpu();
+    pj.coarse.initialize(*cpp.coarse, m, pj.rloc, pj.sig2);
+    if (cp.verbose)
+      printf("cp coarse pool: %zu cuts, %zu entries in support union, setup cpu %.6f\n",
+             pj.coarse.rows.size(), pj.coarse.sites.size(), CutProjector::tcpu() - start_cpu);
+  }
   DNNParams p = par;
   p.ycuts = &pj;
   p.L_add = NULL; p.L_add_abs = 0;
@@ -2193,13 +2478,26 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
     }
   }
   cpp.pool_final = (int)pj.cuts.size(); cpp.sep_added = pj.n_added; cpp.sep_dropped = pj.n_dropped;
+  if (cpp.pool_final_out && cp.other_orig) {
+    const long double f = (long double)sv->scale * (long double)pj.beta_last;
+    std::vector<Cut> fs;
+    for (size_t t = 0; t < pj.cuts.size(); t++) {
+      Cut c = pj.pool[pj.cuts[t].src];
+      c.mu = (double)(f * (long double)pj.nu[t]);
+      fs.push_back(c);
+    }
+    export_pool(fs, NULL, regions, boxes, free_orig, *cp.other_orig, cp.side, *cpp.pool_final_out, true);
+  }
   if (cp.verbose && pj.sep_every > 0)
     printf("cp separation: %d separations, %d cuts added, %d dropped, pool %zu at the end, %.1f s\n", pj.n_sep, pj.n_added,
            pj.n_dropped, pj.cuts.size(), pj.t_sep);
   if (cpp.selftest && pj.sep_every > 0) {
     // the extraction self-test again, on the pool the separations grew
     std::vector<double> nu_end = pj.nu;
+    CoarseProjector ext = std::move(pj.coarse);
+    pj.coarse = CoarseProjector();
     if (!cp_selftest(pj, pj.pool, regions, boxes, lift, n1)) fprintf(stderr, "dnn_cp_bound: self-test after the separations failed\n");
+    pj.coarse = std::move(ext);
     pj.nu = nu_end; pj.rebuild_sums();
   }
   cpp.quiet_lb = -HUGE_VAL;
@@ -2207,14 +2505,16 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
     // the quiet round: mu_D = scale beta nu frozen as L_add, the cut rounds' path
     std::vector<double> La((size_t)n1 * n1, 0.0);
     double abs_add = 0, hsum = 0;
-    const bool any = pj.dense_term((long double)sv->scale * (long double)pj.beta_last, pj.nu, La.data(), abs_add, hsum);
+    const bool any = pj.dense_term((long double)sv->scale * (long double)pj.beta_last, pj.nu, La.data(), abs_add, hsum,
+                                   false, &pj.coarse.nu);
     DNNParams q = par;
     q.ycuts = NULL;
     q.max_iter = cpp.quiet_iters;
     q.L_add = any ? La.data() : NULL; q.L_add_abs = any ? abs_add : 0;
     if (!any) hsum = 0;
     DNNWarm st = *sv;
-    DNNResult rq = dnn_bound(A, B, C, shift - hsum, cutoff, q, &st, sv);
+    const double quiet_shift = any && !pj.coarse.rows.empty() ? nextafter(shift - hsum, -HUGE_VAL) : shift - hsum;
+    DNNResult rq = dnn_bound(A, B, C, quiet_shift, cutoff, q, &st, sv);
     cpp.quiet_lb = rq.lb;
     if (cp.verbose)
       printf("cp quiet round  lb %.10f  primal %.4f  status %s  iters %d  cpu %.1f  h'mu %.6g\n", rq.lb, rq.primal,

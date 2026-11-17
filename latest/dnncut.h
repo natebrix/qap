@@ -89,6 +89,25 @@ struct DNNPool {
   std::vector<DNNPoolCut> cuts;
   DNNPool() : side(0) {}
 };
+
+// Frozen-node coarse-label inequalities. Labels partition the free region-side
+// elements; each cut's sorted members index the opposite side's free elements.
+// Coefficients are integer multiples of 1/1024 in singleton (i,g) then pair
+// (i,j,g,h) order, i < j. The RHS is the exact maximum over all admissible
+// configurations, recomputed by dnn_read_coarse_pool().
+struct DNNCoarseCut { std::vector<int> members, coef; int rhs; };
+class DNNCoarsePool {
+  int side_ = -1, k_ = 0;
+  std::vector<int> labels_;
+  std::vector<DNNCoarseCut> cuts_;
+  friend bool dnn_read_coarse_pool(const std::string &, int, int, DNNCoarsePool &);
+public:
+  int side() const { return side_; }
+  int k() const { return k_; }
+  const std::vector<int> &labels() const { return labels_; }
+  const std::vector<DNNCoarseCut> &cuts() const { return cuts_; }
+};
+bool dnn_read_coarse_pool(const std::string &path, int m, int side, DNNCoarsePool &pool);
 // one whitespace-free token for state files ("-" for an empty pool)
 std::string dnn_pool_encode(const DNNPool &p);
 bool dnn_pool_decode(const std::string &s, DNNPool &p);
@@ -302,9 +321,12 @@ struct DNNCPParams {
   // refuses runs dnn_pool_bound, and cp.pool_out gets the cuts with nu > 0 at the final
   // mu_D = scale beta nu (empty when none, or when the solve fathomed) (0)
   int child;
+  const DNNCoarsePool *coarse;   // optional validated half-spaces for this frozen node
+  DNNPool *pool_final_out;       // all regional cuts at final multipliers (same-node replay)
   DNNCPParams() : sweeps(1), passes(1), diag_every(0), diag_sweeps(30), selftest(0), quiet_iters(0),
                   quiet_lb(-HUGE_VAL), omega(1.0), nu_from_pool(0), sep_every(0), sep_k(0), pool_cap(0),
-                  drop_after(0), pool_final(0), sep_added(0), sep_dropped(0), child(0) {}
+                  drop_after(0), pool_final(0), sep_added(0), sep_dropped(0), child(0), coarse(NULL),
+                  pool_final_out(NULL) {}
 };
 DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, const DNNParams &par,
                        const std::vector<int> &free_orig, int n_orig, const DNNCutParams &cp,

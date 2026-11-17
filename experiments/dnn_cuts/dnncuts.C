@@ -12,6 +12,7 @@
        [-poolcheck K] [-e eigmode] [-g gamma] [-G gamma1] [-T threads] [-v] file.dat
        [-savepoolall R:F] [-cpadmm F [-cpiters N] [-cpsweeps S] [-cppasses K]
        [-cpdiag E[:S]] [-cpcheck] [-cpquiet N] [-cpomega W] [-cpmu] [-cpsep k:K[:CAP[:DROP]]]]
+       [-p params.par] [-regions FILE] [-savecp FILE | -startcp FILE] [-coarse FILE]
 
  -grid R:C takes the row and column prefixes of an R x C grid over the
  original indices of one side (default side 0, the first matrix: wil50's
@@ -57,11 +58,17 @@
  whose nu has been 0 for DROP iterations. Without -cpadmm the start pool is round 0's
  own separation at the give-up point (-k cuts). The per-check trace (-vc is implied) is
  certified at every check.
+ -savecp records the regional pool, final Y/Z and best bound from a CP solve;
+ -startcp replays that frozen-node state with a fresh ADMM iteration schedule.
+ -coarse adds the validated, same-node coarse-label pool inside the CP Y-step.
+ -p loads the production DNN/penalty settings. -regions reads original-index
+ regions, one per line, instead of or in addition to the grid/prefix rules.
 */
 
 #include "dnncut.h"
 #include "qap.h"
 #include "assign.h"
+#include "settings.h"
 #include "util.h"
 #include <cstdio>
 #include <cstdlib>
@@ -71,6 +78,8 @@
 #include <vector>
 #include <sstream>
 #include <cctype>
+#include <fstream>
+#include <iomanip>
 
 // a pool file: dnn_pool_encode's token, or Astra's v1 file
 // (QAP_REGIONAL_TRIANGLE_POOL 1: n side, the assignment, region-side and
@@ -127,6 +136,52 @@ static bool parse_fixes(const std::string &fixes, QAPAssignment &node, int n)
   return true;
 }
 
+static bool read_regions(const std::string &path, std::vector<std::vector<int>> &regions)
+{
+  std::ifstream in(path);
+  std::string line;
+  while (std::getline(in, line)) {
+    const size_t comment = line.find('#');
+    std::istringstream row(line.substr(0, comment));
+    std::vector<int> region;
+    int a;
+    while (row >> a) region.push_back(a);
+    if (!row.eof()) return false;
+    if (!region.empty()) regions.push_back(std::move(region));
+  }
+  return in.eof() && !regions.empty();
+}
+
+// The checkpoint stores the final iterate/multipliers and the seed's certified
+// best bound. Both comparison arms restart with a fresh iteration schedule.
+static bool cp_checkpoint(const std::string &path, const std::string &instance, const std::string &fixes,
+                          int m, int side, DNNWarm &warm, DNNPool &pool, double &lb, bool write)
+{
+  const size_t n1 = (size_t)m * m + 1, nn = n1 * n1;
+  if (write) {
+    if (warm.m != m || warm.Y.size() != nn || warm.Z.size() != nn || !std::isfinite(lb) || warm.scale <= 0)
+      return false;
+    std::ofstream out(path, std::ios::binary);
+    out << "QAP_CP_CHECKPOINT 1 " << m << ' ' << side << ' ' << std::quoted(instance) << ' ' << fixes << ' '
+        << std::setprecision(17) << warm.scale << ' ' << lb << '\n' << dnn_pool_encode(pool) << '\n';
+    out.write(reinterpret_cast<const char *>(warm.Y.data()), nn * sizeof(double));
+    out.write(reinterpret_cast<const char *>(warm.Z.data()), nn * sizeof(double));
+    out.close();
+    return (bool)out;
+  }
+  std::ifstream in(path, std::ios::binary);
+  std::string magic, source, fixed, encoded;
+  int version, n, s;
+  if (!(in >> magic >> version >> n >> s >> std::quoted(source) >> fixed >> warm.scale >> lb >> encoded) ||
+      magic != "QAP_CP_CHECKPOINT" || version != 1 || n != m || s != side || source != instance || fixed != fixes ||
+      !std::isfinite(lb) || !std::isfinite(warm.scale) || warm.scale <= 0 || in.get() != '\n' ||
+      !dnn_pool_decode(encoded, pool) || (!pool.cuts.empty() && pool.side != side)) return false;
+  warm.m = m; warm.Y.resize(nn); warm.Z.resize(nn);
+  in.read(reinterpret_cast<char *>(warm.Y.data()), nn * sizeof(double));
+  in.read(reinterpret_cast<char *>(warm.Z.data()), nn * sizeof(double));
+  return in && in.peek() == EOF;
+}
+
 int main(int argc, char **argv)
 {
   std::string fixes = "-";
@@ -139,8 +194,10 @@ int main(int argc, char **argv)
   int check_trace = 0;       // -vc: per-check trace of every solve (DNNParams::verbose)
   double gamma = 1.0, gamma1 = 1.0;
   const char *file = NULL;
+  const char *recipe = NULL;
   std::string ladd_spec, dumpy, loadpool, savepool;
   std::string savepoolall, cpadmm;   // CP-ADMM study
+  std::string regions_path, savecp, startcp, coarse_path;
   int savepoolall_round = -1, cp_iters = 2000, cp_plain = 0;
   DNNCPParams cpp;
   for (int a = 1; a < argc; a++) {
@@ -172,6 +229,8 @@ int main(int argc, char **argv)
         fprintf(stderr, "bad -grid R:C\n"); return 1; }
     }
     else if (o == "-side" && more) cp.side = atoi(argv[++a]);
+    else if (o == "-regions" && more) regions_path = argv[++a];
+    else if (o == "-p" && more) recipe = argv[++a];
     else if (o == "-stall" && more) cp.stall_rounds = atoi(argv[++a]);   // stop rule (dnncut.h), 0 = off
     else if (o == "-pgate" && more) {                                      // -pgate R:M: primal gate after round R, margin M (dnncut.h)
       const char *z = argv[++a], *c = strchr(z, ':');
@@ -211,6 +270,9 @@ int main(int argc, char **argv)
     else if (o == "-cpquiet" && more) cpp.quiet_iters = atoi(argv[++a]);   // then a quiet round with mu_D frozen
     else if (o == "-cpomega" && more) cpp.omega = atof(argv[++a]);        // over-relaxed half-space steps, (0, 2)
     else if (o == "-cpmu") cpp.nu_from_pool = 1;                           // start from the pool's multipliers
+    else if (o == "-savecp" && more) savecp = argv[++a];
+    else if (o == "-startcp" && more) startcp = argv[++a];
+    else if (o == "-coarse" && more) coarse_path = argv[++a];
     else if (o == "-cpsep" && more) {                                      // k:K[:CAP[:DROP]]: separate K cuts every k iterations
       if (sscanf(argv[++a], "%d:%d:%d:%d", &cpp.sep_every, &cpp.sep_k, &cpp.pool_cap, &cpp.drop_after) < 2 ||
           cpp.sep_every < 1 || cpp.sep_k < 1) { fprintf(stderr, "bad -cpsep k:K[:CAP[:DROP]]\n"); return 1; }
@@ -231,7 +293,21 @@ int main(int argc, char **argv)
     else file = argv[a];
   }
   if (!file) { fprintf(stderr, "usage: see the comment at the top of dnncuts.C\n"); return 1; }
-  if (cp.grid_rows == 0 && !cp.prefix) cp.atomic = true;   // as before: no regions means atomic
+  if (!regions_path.empty() && !read_regions(regions_path, cp.regions)) {
+    fprintf(stderr, "cannot read regions from %s\n", regions_path.c_str()); return 1;
+  }
+  if (recipe) {
+    std::ifstream in(recipe);
+    if (!in) { fprintf(stderr, "cannot read recipe %s\n", recipe); return 1; }
+    settings_read_par(recipe);
+  }
+  const bool cp_run = !cpadmm.empty() || cp_plain || cpp.sep_every > 0 || !startcp.empty();
+  if ((cp_run && !ladd_spec.empty()) || (!cp_run && (!savecp.empty() || !coarse_path.empty())) ||
+      (cp_plain && (!coarse_path.empty() || !savecp.empty())) ||
+      (!startcp.empty() && (!cpadmm.empty() || !loadpool.empty())) || (!savecp.empty() && cpp.quiet_iters)) {
+    fprintf(stderr, "incompatible CP checkpoint, coarse pool, or external objective options\n"); return 1;
+  }
+  if (cp.grid_rows == 0 && !cp.prefix && cp.regions.empty()) cp.atomic = true;
   if (cp.first_iters <= 0) cp.first_iters = cp.iters;       // the driver always runs the uncut round
   setvbuf(stdout, NULL, _IOLBF, 0);
   dnn_set_blas_threads(threads);
@@ -247,6 +323,13 @@ int main(int argc, char **argv)
   QAP qr;
   reduceQAP(q, &qr, node);
   const int m = n - node.nfix;
+  DNNCoarsePool coarse;
+  if (!coarse_path.empty()) {
+    if (!dnn_read_coarse_pool(coarse_path, m, cp.side, coarse)) {
+      fprintf(stderr, "cannot validate coarse pool %s for m=%d side=%d\n", coarse_path.c_str(), m, cp.side); return 1;
+    }
+    cpp.coarse = &coarse;
+  }
   // the free elements of the region side, original indices in local order
   std::vector<int> free_orig;
   for (int a = 0; a < n; a++)
@@ -269,8 +352,8 @@ int main(int argc, char **argv)
     printf("external term %s: %zu nonzeros, |L_ext| = %.6f, const %.6f\n", path.c_str(), nz, abs_, cp.ext_const);
   }
   printf("instance %s n=%d node %s m=%d cutoff %.4f  cuts %s", file, n, fixes.c_str(), m, cutoff,
-         cp.atomic ? "atomic" : (cp.grid_rows > 0 ? "regional (grid)" : "regional (prefixes)"));
-  if (cp.grid_rows > 0) printf(" side %d", cp.side);
+         cp.atomic ? "atomic" : (cp.grid_rows > 0 ? "regional (grid)" : "regional"));
+  if (!cp.atomic) printf(" side %d", cp.side);
   if (cp.warm_primal) printf(" warmY 1");
   if (cp.damp1 != 1.0 || cp.damp_rest != 1.0) printf(" damp1 %g:%g", cp.damp1, cp.damp_rest);
   if (cp.kbox > 0) printf(" box %d qmax %d starts %d", cp.kbox, cp.box_qmax, cp.box_starts);
@@ -281,6 +364,14 @@ int main(int argc, char **argv)
   if (const char *e = getenv("QAP_DNN_CHEB")) base.cheb_degree = atoi(e);
   if (const char *e = getenv("QAP_DNN_TIGHT_LAM")) base.tight_lam = atoi(e);
   if (const char *e = getenv("QAP_DNN_REFRESH")) base.refresh = atoi(e);
+  if (recipe) {
+    base.gamma = setting_d("dnn.gamma"); base.gamma1 = setting_d("dnn.gamma1");
+    base.beta = setting_d("dnn.beta"); base.momentum = setting_d("dnn.momentum");
+    base.hopeless_zone = setting_d("dnn.gu_zone"); base.hopeless_gap_ratio = setting_d("dnn.gap_ratio");
+    base.refresh = (int)setting_i("dnn.refresh"); base.cheb_degree = (int)setting_i("dnn.cheb");
+    base.tight_lam = (int)setting_i("dnn.tight_lam");
+    printf(" beta_sched %s", setting_s("dnn.beta_sched"));
+  }
   if (hopeless_after >= 0) base.hopeless_after = hopeless_after;
   base.verbose = check_trace;   // -vc: the certified bound at every check of every solve
   cp.verbose = std::max(1, verbose);
@@ -301,14 +392,15 @@ int main(int argc, char **argv)
   DNNPool pin, pout, pall;
   if (!savepool.empty()) { cp.pool_out = &pout; cp.other_orig = &other_orig; }
   if (!savepoolall.empty()) { cp.pool_all_round = savepoolall_round; cp.pool_all_out = &pall; cp.other_orig = &other_orig; }
-  if (!cpadmm.empty() || cp_plain || cpp.sep_every > 0) {
+  if (cp_run) {
     // CP-ADMM: the give-up point (the uncut round 0 of the rounds), then one solve
     // with the frozen pool inside the Y-step (-cpplain: the same solve, plain Y-step).
     // -cpsep without -cpadmm: the pool is round 0's own separation at the give-up
     // point (-k cuts, as the rounds' round 0), and the solve separates more as it goes
-    const bool pool0 = cpadmm.empty() && !cp_plain;
-    if (!cp_plain && !pool0 && (!read_pool_file(cpadmm, pin) || pin.side != cp.side)) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", cpadmm.c_str()); return 1; }
-    if (!pool0) {
+    const bool replay = !startcp.empty();
+    const bool pool0 = cpadmm.empty() && !cp_plain && !replay;
+    if (!cp_plain && !pool0 && !replay && (!read_pool_file(cpadmm, pin) || pin.side != cp.side)) { fprintf(stderr, "cannot read pool %s (or wrong side)\n", cpadmm.c_str()); return 1; }
+    if (!pool0 && !replay) {
       size_t pos = 0; for (const auto &c : pin.cuts) pos += c.mu > 0;
       printf("cp pool %s: %zu regions, %zu cuts (%zu with mu > 0)\n", cpadmm.c_str(), pin.regions.size(), pin.cuts.size(), pos);
     }
@@ -317,7 +409,17 @@ int main(int argc, char **argv)
     c0.pool_in = NULL; c0.pool_out = NULL; c0.pool_all_out = NULL;
     DNNPool p0;
     if (pool0) { c0.pool_all_round = 0; c0.pool_all_out = &p0; c0.other_orig = &other_orig; }
-    DNNCutResult r0 = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, c0, &warm);
+    double first_lb;
+    if (replay) {
+      if (!cp_checkpoint(startcp, file, fixes, m, cp.side, warm, pin, first_lb, false)) {
+        fprintf(stderr, "cannot restore checkpoint %s for this instance and node\n", startcp.c_str()); return 1;
+      }
+      cpp.nu_from_pool = 1;
+      printf("cp checkpoint %s: starting lb %.10f, %zu regional cuts\n", startcp.c_str(), first_lb, pin.cuts.size());
+    } else {
+      const auto r0 = dnn_cut_rounds(qr.A, qr.B, qr.C, qr.shift, cutoff, base, free_orig, n, c0, &warm);
+      first_lb = r0.first_lb;
+    }
     if (pool0) {
       pin = p0;
       printf("cp pool: round 0's separation at the give-up point, %zu regions, %zu cuts; in-solve separation every %d iterations, %d cuts, cap %d, drop after %d\n",
@@ -326,19 +428,21 @@ int main(int argc, char **argv)
     DNNParams p = base;
     p.max_iter = cp_iters;
     p.hopeless_after = 0; p.hopeless_gap_ratio = 0;   // as the cut rounds
-    p.warm_primal = 0;
+    p.warm_primal = cp.warm_primal;
     p.cut_round = 1;
     p.verbose = std::max(1, check_trace);
     if (verbose >= 2) p.verbose = 2;
     DNNCutParams c1 = cp;
     c1.pool_in = &pin; c1.other_orig = &other_orig; c1.fixed_at = &fixed_at; c1.pool_out = NULL; c1.pool_all_out = NULL;
     DNNWarm save;
+    if (!savecp.empty()) cpp.pool_final_out = &pout;
     int kept = 0;
     DNNResult r = cp_plain ? dnn_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, p, &warm, &save)
                            : dnn_cp_bound(qr.A, qr.B, qr.C, qr.shift, cutoff, p, free_orig, n, c1, cpp, &warm, &save, &kept);
     printf("cp solve  lb %.10f (gain %.4f)  primal %.4f  status %s  iters %d  cpu %.1f  certs %d failures %d  kept %d\n",
-           r.lb, r.lb - r0.first_lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, r.certificates,
+           r.lb, r.lb - first_lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, r.certificates,
            r.cert_failures, kept);
+    if (r.status == DNN_ERROR) return 1;
     if (cp.kbox > 0 && save.m > 0 && save.Y.size() == (size_t)(save.m * save.m + 1) * (size_t)(save.m * save.m + 1)) {
       // the violations at the CP solve's final iterate (review_nov10 section 3.4, item 7):
       // round 0 of the rounds form on that iterate, no solve, nothing added
@@ -354,8 +458,11 @@ int main(int argc, char **argv)
       if (f) { fwrite(save.Y.data(), sizeof(double), save.Y.size(), f); fclose(f);
         printf("dumped the CP solve's Y (%zu doubles, m=%d) to %s\n", save.Y.size(), save.m, path.c_str()); }
     }
-    const double fin = std::max(std::max(r.lb, r0.first_lb), cpp.quiet_lb);
-    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", fin, r0.first_lb, fin - r0.first_lb);
+    double fin = std::max(std::max(r.lb, first_lb), cpp.quiet_lb);
+    printf("FINAL best_lb %.6f first_lb %.6f gain %.6f\n", fin, first_lb, fin - first_lb);
+    if (!savecp.empty() && !cp_checkpoint(savecp, file, fixes, m, cp.side, save, pout, fin, true)) {
+      fprintf(stderr, "cannot save checkpoint %s\n", savecp.c_str()); return 1;
+    }
     delete q;
     return 0;
   }
