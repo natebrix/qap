@@ -645,7 +645,8 @@ static std::vector<Region> cut_regions(const DNNCutParams &cp, const std::vector
 // same (a, b, i, j) in the same order of a and b, so the projector of side 1 on
 // a transposed X is side 0's to the bit (cp_selftest (f)).
 struct CPTerm { int i, j; double c; };          // j < 0: c p_i; else i < j: c W_ij
-struct CPCut { int s, t0, t1, src; double h, g2, absrow; };   // terms [t0, t1); src: index in the pool
+struct CPCut { int s, t0, t1, src; double h, g2, plain_g2, absrow; };   // terms [t0, t1); src: index in the pool
+struct CPOverlap { int region, count; double diag, pair; };
 
 // the terms and right-hand side of a regional cut (the sign convention of
 // add_rcut and cut_rhs), pairs normalised to i < j and merged
@@ -722,7 +723,10 @@ public:
   std::vector<double> nu;          // Dykstra corrections: nu_t G_t, nu_t >= 0
   std::vector<int> sig2;           // m x m: the sigma of (a, b), -1 when no region holds both
   std::vector<std::vector<int>> sig_reg;     // regions of each sigma
-  std::vector<std::vector<std::pair<int, int>>> ovl;   // per region: (region, overlap k >= 1)
+  std::vector<std::vector<CPOverlap>> ovl;   // overlap count and weighted Gram kernels
+  std::vector<double> dsc, idsc;           // empty in the plain metric
+  std::vector<double> other_gram;          // (g_i g_j)^-2, g: factors on the other side
+  std::vector<double> region_diag, region_pair;   // weighted self-overlap kernels
   std::vector<double> Pag, Wag;    // moments of the current y, per region (W: i < j used)
   std::vector<double> CPs, CWs;    // sum_t nu_t c_t per region (the P-step's G'nu)
   std::vector<double> Csig, Dsig, Gsig, Gdsig;   // per sigma: 1/2 sum CW, sum CP; block sums of y
@@ -743,6 +747,63 @@ public:
 
   static std::vector<int> cut_key(const Cut &c) { return {c.type, c.a, c.b, c.c, c.s, c.d, c.e, c.mask, c.alpha}; }
 
+  double scaled_norm2(const CPCut &c) const
+  {
+    double g2 = 0;
+    for (int q = c.t0; q < c.t1; q++) {
+      const CPTerm &x = terms[q];
+      const size_t row = (size_t)x.i * m;
+      const double gram = x.j < 0 ? region_diag[c.s] * other_gram[row + x.i]
+                                  : region_pair[c.s] * other_gram[row + x.j];
+      g2 += gram * x.c * x.c;
+    }
+    return g2;
+  }
+
+  void set_scaling(const double *d1, const double *d2, double d0) override
+  {
+    if (!d1) {
+      dsc.clear();
+      idsc.clear();
+      for (CPCut &c : cuts) c.g2 = c.plain_g2;
+      return;
+    }
+    dsc.resize(n1); idsc.resize(n1);
+    dsc[0] = d0; idsc[0] = 1.0 / d0;
+    for (int a = 0; a < m; a++)
+      for (int b = 0; b < m; b++) {
+        const int r = 1 + a * m + b;
+        dsc[r] = d1[a] * d2[b];
+        idsc[r] = 1.0 / dsc[r];
+      }
+    const double *f = side == 1 ? d2 : d1, *g = side == 1 ? d1 : d2;
+    std::vector<double> f2(m), g2(m);
+    for (int i = 0; i < m; i++) { f2[i] = 1.0 / (f[i] * f[i]); g2[i] = 1.0 / (g[i] * g[i]); }
+    other_gram.resize((size_t)m * m);
+    for (int i = 0; i < m; i++)
+      for (int j = 0; j < m; j++) other_gram[(size_t)i * m + j] = g2[i] * g2[j];
+    region_diag.resize(R); region_pair.resize(R);
+    std::vector<char> member(m);
+    // For H = S intersect T, the joint diagonal Gram is sum_H f_a^-4,
+    // and the pair Gram is sum_{a<b in H} f_a^-2 f_b^-2. Accumulate the
+    // latter with a prefix sum to avoid subtracting almost equal squares.
+    for (int s = 0; s < R; s++) {
+      std::fill(member.begin(), member.end(), 0);
+      for (int a : rloc[s]) member[a] = 1;
+      for (CPOverlap &o : ovl[s]) {
+        double prefix = 0;
+        o.diag = o.pair = 0;
+        for (int a : rloc[o.region]) if (member[a]) {
+          o.diag += f2[a] * f2[a];
+          o.pair += prefix * f2[a];
+          prefix += f2[a];
+        }
+        if (o.region == s) { region_diag[s] = o.diag; region_pair[s] = o.pair; }
+      }
+    }
+    for (CPCut &c : cuts) c.g2 = scaled_norm2(c);
+  }
+
   // the cut pool[ci] into the projector (terms, ||G||^2, magnitudes); false when it
   // has no terms or is not regional
   bool add_cut(int ci)
@@ -762,8 +823,9 @@ public:
       if (x.j < 0) { g2 += sz * x.c * x.c; ab += fabs(x.c) * sz; }
       else { g2 += 0.5 * sz * (sz - 1) * x.c * x.c; ab += fabs(x.c) * sz * (sz - 1); }
     }
-    k.t1 = (int)terms.size(); k.g2 = g2; k.absrow = ab;
+    k.t1 = (int)terms.size(); k.plain_g2 = g2; k.absrow = ab;
     if (!(g2 > 0)) { terms.resize(k.t0); return false; }
+    k.g2 = dsc.empty() ? g2 : scaled_norm2(k);
     cuts.push_back(k);
     nu.push_back(0.0);
     last_pos.push_back(0);
@@ -796,7 +858,7 @@ public:
       for (int s2 = 0; s2 < R; s2++) {
         int k = 0;
         for (int a = 0; a < m; a++) k += in[s][a] && in[s2][a];
-        if (k > 0) ovl[s].push_back({s2, k});
+        if (k > 0) ovl[s].push_back({s2, k, 0, 0});
       }
     const size_t mm = (size_t)m * m, ns = sig_reg.size();
     Pag.assign((size_t)R * m, 0); Wag.assign((size_t)R * mm, 0);
@@ -822,9 +884,31 @@ public:
     }
   }
 
-  // the P-step: Y = P(X - G'nu) (P as dnn.C's Y-step: clip to [0, 1], Y_00 = 1, the
-  // gangster and eliminated zeros), and the regions' moments of Y
+  // When scaled, clip in Yt's units and subtract (D^-1 G D^-1)'nu.
+  // The moments remain in original units for both Hildreth and separation.
+  template<bool scaled>
+  double box_entry(int r, int c, double x, double term = 0) const
+  {
+    if constexpr (scaled)
+      return std::min(dsc[r] * dsc[c], std::max(0.0, x - term * (idsc[r] * idsc[c])));
+    return std::min(1.0, std::max(0.0, x - term));
+  }
+
+  template<bool scaled>
+  double moment_entry(int r, int c, double y) const
+  {
+    if constexpr (scaled) return y * (idsc[r] * idsc[c]);
+    return y;
+  }
+
   void pstep(const double *X, double *Y, const unsigned char *elim)
+  {
+    if (dsc.empty()) pstep_metric<false>(X, Y, elim);
+    else pstep_metric<true>(X, Y, elim);
+  }
+
+  template<bool scaled>
+  void pstep_metric(const double *X, double *Y, const unsigned char *elim)
   {
     const size_t mm = (size_t)m * m, ns = nsig();
     std::fill(Csig.begin(), Csig.end(), 0.0); std::fill(Dsig.begin(), Dsig.end(), 0.0);
@@ -840,11 +924,10 @@ public:
       for (int i = 0; i < m; i++) for (int j = i + 1; j < m; j++) cs[(size_t)j * m + i] = cs[(size_t)i * m + j];
     }
     std::fill(Gsig.begin(), Gsig.end(), 0.0); std::fill(Gdsig.begin(), Gdsig.end(), 0.0);
-    auto clip = [](double v) { return std::min(1.0, std::max(0.0, v)); };
-    Y[0] = 1.0;
-    for (int c = 1; c < n1; c++) Y[c] = clip(X[c]);
+    Y[0] = scaled ? dsc[0] * dsc[0] : 1.0;
+    for (int c = 1; c < n1; c++) Y[c] = box_entry<scaled>(0, c, X[c]);
     if (elim) for (int c = 1; c < n1; c++) if (elim[c - 1]) Y[c] = 0;
-    if (side == 1) { pstep_rows1(X, Y, elim); moments_from_groups(); return; }
+    if (side == 1) { pstep_rows1<scaled>(X, Y, elim); moments_from_groups(); return; }
     for (int a = 0; a < m; a++)
       for (int i = 0; i < m; i++) {
         const size_t r = 1 + (size_t)a * m + i;
@@ -853,26 +936,28 @@ public:
         const bool erow = elim && elim[r - 1];
         for (int b = 0; b < m; b++) {
           const int g = sig2[(size_t)a * m + b];
-          const double *xb = xr + 1 + (size_t)b * m;
-          double *yb = yr + 1 + (size_t)b * m;
+          const int cb = 1 + b * m;
+          const double *xb = xr + cb;
+          double *yb = yr + cb;
           if (b == a) {
             for (int j = 0; j < m; j++) yb[j] = 0;   // gangster: same first index
-            yb[i] = clip(g >= 0 ? xb[i] - Dsig[(size_t)g * m + i] : xb[i]);
+            yb[i] = box_entry<scaled>(r, r, xb[i], g >= 0 ? Dsig[(size_t)g * m + i] : 0);
           } else {
-            if (g >= 0) { const double *cs = &Csig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) yb[j] = clip(xb[j] - cs[j]); }
-            else for (int j = 0; j < m; j++) yb[j] = clip(xb[j]);
+            if (g >= 0) { const double *cs = &Csig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) yb[j] = box_entry<scaled>(r, cb + j, xb[j], cs[j]); }
+            else for (int j = 0; j < m; j++) yb[j] = box_entry<scaled>(r, cb + j, xb[j]);
             yb[i] = 0;   // gangster: same second index
           }
         }
-        yr[0] = clip(xr[0]);
+        yr[0] = box_entry<scaled>(r, 0, xr[0]);
         if (erow) for (int c = 0; c < n1; c++) yr[c] = 0;
         else if (elim) for (int c = 1; c < n1; c++) if (elim[c - 1]) yr[c] = 0;
         for (int b = 0; b < m; b++) {
           const int g = sig2[(size_t)a * m + b];
           if (g < 0) continue;
-          const double *yb = yr + 1 + (size_t)b * m;
-          if (b == a) Gdsig[(size_t)g * m + i] += yb[i];
-          else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += yb[j]; }
+          const int cb = 1 + b * m;
+          const double *yb = yr + cb;
+          if (b == a) Gdsig[(size_t)g * m + i] += moment_entry<scaled>(r, r, yb[i]);
+          else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += moment_entry<scaled>(r, cb + j, yb[j]); }
         }
       }
     moments_from_groups();
@@ -888,10 +973,10 @@ public:
   // prefetched meanwhile: 10.3 ms per P-step against 16 ms in place and side 0's
   // 8.8 ms, m = 47, caches flushed (README.md, "Side 1")
   std::vector<double> rowx, rowy;
+  template<bool scaled>
   void pstep_rows1(const double *X, double *Y, const unsigned char *elim)
   {
     const size_t mm = (size_t)m * m, sm = (size_t)m;
-    auto clip = [](double v) { return std::min(1.0, std::max(0.0, v)); };
     rowx.resize(n1); rowy.resize(n1);
     const int per = (n1 + 8 * m - 1) / (8 * m);   // cache lines of the next row to prefetch per b
     for (int i = 0; i < m; i++)
@@ -915,22 +1000,22 @@ public:
           double *yc = yy + b;
           if (b == a) {
             for (int j = 0; j < m; j++) yc[j * sm] = 0;   // gangster: same second index
-            yc[i * sm] = clip(g >= 0 ? xc[i * sm] - Dsig[(size_t)g * m + i] : xc[i * sm]);
+            yc[i * sm] = box_entry<scaled>(r, r, xc[i * sm], g >= 0 ? Dsig[(size_t)g * m + i] : 0);
           } else {
-            if (g >= 0) { const double *cs = &Csig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) yc[j * sm] = clip(xc[j * sm] - cs[j]); }
-            else for (int j = 0; j < m; j++) yc[j * sm] = clip(xc[j * sm]);
+            if (g >= 0) { const double *cs = &Csig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) yc[j * sm] = box_entry<scaled>(r, 1 + b + j * m, xc[j * sm], cs[j]); }
+            else for (int j = 0; j < m; j++) yc[j * sm] = box_entry<scaled>(r, 1 + b + j * m, xc[j * sm]);
             yc[i * sm] = 0;   // gangster: same first index
           }
         }
-        rowy[0] = clip(rowx[0]);
+        rowy[0] = box_entry<scaled>(r, 0, rowx[0]);
         if (erow) std::fill(rowy.begin(), rowy.end(), 0.0);
         else if (elim) for (int c = 1; c < n1; c++) if (elim[c - 1]) rowy[c] = 0;
         for (int b = 0; b < m; b++) {
           const int g = sig2[(size_t)a * m + b];
           if (g < 0) continue;
           const double *yc = yy + b;
-          if (b == a) Gdsig[(size_t)g * m + i] += yc[i * sm];
-          else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += yc[j * sm]; }
+          if (b == a) Gdsig[(size_t)g * m + i] += moment_entry<scaled>(r, r, yc[i * sm]);
+          else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += moment_entry<scaled>(r, 1 + b + j * m, yc[j * sm]); }
         }
         std::copy(rowy.begin(), rowy.end(), yr);
       }
@@ -967,6 +1052,12 @@ public:
   // one cyclic pass of half-space steps on the moments; returns max |d| ||G||
   double hpass()
   {
+    return dsc.empty() ? hpass_metric<false>() : hpass_metric<true>();
+  }
+
+  template<bool scaled>
+  double hpass_metric()
+  {
     const size_t mm = (size_t)m * m;
     double dmax = 0;
     for (size_t t = 0; t < cuts.size(); t++) {
@@ -977,12 +1068,14 @@ public:
       nu[t] = nn;
       dmax = std::max(dmax, fabs(d) * sqrt(c.g2));
       for (const auto &o : ovl[c.s]) {
-        const double fk = o.second, fkk = 0.5 * o.second * (o.second - 1);
-        double *p = &Pag[(size_t)o.first * m], *w = &Wag[o.first * mm];
+        const double fk = scaled ? o.diag : o.count;
+        const double fkk = scaled ? o.pair : 0.5 * o.count * (o.count - 1);
+        double *p = &Pag[(size_t)o.region * m], *w = &Wag[o.region * mm];
         for (int q = c.t0; q < c.t1; q++) {
           const CPTerm &x = terms[q];
-          if (x.j < 0) p[x.i] -= d * x.c * fk;
-          else if (fkk > 0) w[(size_t)x.i * m + x.j] -= d * x.c * fkk;
+          const size_t row = (size_t)x.i * m;
+          if (x.j < 0) p[x.i] -= d * x.c * fk * (scaled ? other_gram[row + x.i] : 1.0);
+          else if (fkk > 0) w[row + x.j] -= d * x.c * fkk * (scaled ? other_gram[row + x.j] : 1.0);
         }
       }
       for (int q = c.t0; q < c.t1; q++) {
@@ -1887,6 +1980,95 @@ namespace {
 // (f) on side 1, the projector against side 0's on the transposed X, to the bit.
 // All of it uses the Lift of the projector's side. Prints one line per check;
 // returns false on a mismatch beyond rounding.
+// Check the weighted compressed sweeps against independent dense normals.
+bool cp_scaled_selftest()
+{
+  const int m = 5, n1 = m * m + 1;
+  const size_t nn = (size_t)n1 * n1;
+  const double d1[] = {0.82, 1.17, 0.90, 1.27, 0.94};
+  const double d2[] = {1.31, 0.78, 1.01, 1.19, 0.88};
+  const double d0 = 0.73;
+  const std::vector<Region> regions = {{"S", {0, 1, 3}}, {"T", {1, 2, 3}}, {"U", {2, 4}}};
+  const std::vector<Cut> cuts = {{0, 0, 1, 2, 0}, {3, 0, 1, 2, 1},
+                                 {1, 0, 1, 3, 2}, {2, 0, 1, 3, 0}, {3, 0, 2, 4, 2}};
+  std::vector<double> d(n1, d0), X(nn);
+  for (int a = 0; a < m; a++)
+    for (int b = 0; b < m; b++) d[1 + a * m + b] = d1[a] * d2[b];
+  std::mt19937 rng(20261117u);
+  std::uniform_real_distribution<double> draw(-0.35, 1.35);
+  for (int r = 0; r < n1; r++)
+    for (int c = r; c < n1; c++) X[(size_t)r * n1 + c] = X[(size_t)c * n1 + r] = draw(rng) * d[r] * d[c];
+  std::vector<unsigned char> elim(n1 - 1);
+  elim[1] = elim[10] = 1;
+  bool ok = true;
+  for (int side = 0; side <= 1; side++) {
+    const Lift lift = {m, side};
+    CutProjector pj(m, regions, std::vector<Cut>(cuts.begin(), cuts.end() - 1), side);
+    pj.set_scaling(d1, d2, d0);
+    pj.pool.push_back(cuts.back());   // exercise creating a cut while the metric is scaled
+    if (!pj.add_cut((int)cuts.size() - 1) || pj.cuts.size() != cuts.size()) return false;
+    std::vector<double> norm(cuts.size()), h(cuts.size()), nu(cuts.size(), 0.1);
+    std::vector<std::vector<double>> G(cuts.size(), std::vector<double>(nn));
+    double norm_error = 0;
+    for (size_t t = 0; t < cuts.size(); t++) {
+      add_rcut(cuts[t], regions[cuts[t].s], G[t], lift, n1, 1.0);
+      h[t] = cut_rhs(cuts[t]);
+      for (int r = 0; r < n1; r++)
+        for (int c = 0; c < n1; c++) {
+          double &g = G[t][(size_t)r * n1 + c];
+          g /= d[r] * d[c];
+          norm[t] += g * g;
+        }
+      norm_error = std::max(norm_error, fabs(pj.cuts[t].g2 - norm[t]));
+    }
+    std::vector<double> dense(nn), Y(nn);
+    auto box = [&]() {
+      dense = X;
+      for (size_t t = 0; t < cuts.size(); t++)
+        for (size_t e = 0; e < nn; e++) dense[e] -= nu[t] * G[t][e];
+      dense[0] = d0 * d0;
+      for (int r = 0; r < n1; r++)
+        for (int c = 0; c < n1; c++) {
+          const bool fixed = (r > 0 && elim[r - 1]) || (c > 0 && elim[c - 1]);
+          const bool gangster = r > 0 && c > 0 &&
+             (((r - 1) / m == (c - 1) / m) != ((r - 1) % m == (c - 1) % m));
+          double &v = dense[(size_t)r * n1 + c];
+          v = fixed || gangster ? 0 : std::min(d[r] * d[c], std::max(0.0, v));
+        }
+    };
+    auto value = [&](size_t t) {
+      double v = -h[t];
+      for (size_t e = 0; e < nn; e++) v += G[t][e] * dense[e];
+      return v;
+    };
+    pj.nu = nu;
+    box();
+    double dy = 0, dn = 0;
+    for (int k = 0; k < 1000; k++) {
+      for (size_t t = 0; t < cuts.size(); t++) {
+        const double next = std::max(0.0, nu[t] + value(t) / norm[t]);
+        const double delta = next - nu[t];
+        nu[t] = next;
+        for (size_t e = 0; e < nn; e++) dense[e] -= delta * G[t][e];
+      }
+      box();
+      pj.run(X.data(), Y.data(), elim.data(), 1);
+      for (size_t e = 0; e < nn; e++) dy = std::max(dy, fabs(Y[e] - dense[e]));
+      for (size_t t = 0; t < cuts.size(); t++) dn = std::max(dn, fabs(pj.nu[t] - nu[t]));
+    }
+    double kkt = 0;
+    for (size_t t = 0; t < cuts.size(); t++)
+      kkt = std::max(kkt, (nu[t] > 0 ? fabs(value(t)) : value(t)) / sqrt(norm[t]));
+    pj.set_scaling(NULL, NULL, 1.0);
+    for (const CPCut &c : pj.cuts) ok = ok && c.g2 == c.plain_g2;
+    const bool pass = norm_error < 1e-11 && dy < 1e-11 && dn < 1e-11 && kkt < 1e-9;
+    printf("cp-selftest scaled side %d: norm %.2e, projector Y %.2e nu %.2e, KKT %.2e  %s\n",
+           side, norm_error, dy, dn, kkt, pass ? "ok" : "MISMATCH");
+    ok = ok && pass;
+  }
+  return ok;
+}
+
 bool cp_selftest(CutProjector &pj, std::vector<Cut> cuts, const std::vector<Region> &regions,
                  const std::vector<BoxCut> &boxes, const Lift &lift, int n1)
 {
@@ -2158,7 +2340,7 @@ DNNResult dnn_cp_bound(MAT *A, MAT *B, MAT *C, double shift, double cutoff, cons
     printf("cp pool: %d cuts kept (%d dropped), %zu in the projector, %zu terms, %d regions, %zu region-pair classes; sweeps %d passes %d omega %g\n",
            nk, nd, pj.cuts.size(), nt, (int)regions.size(), pj.nsig(), pj.sweeps, pj.passes, pj.omega);
   }
-  if (cpp.selftest && !cp_selftest(pj, cuts, regions, boxes, lift, n1)) {
+  if (cpp.selftest && (!cp_scaled_selftest() || !cp_selftest(pj, cuts, regions, boxes, lift, n1))) {
     fprintf(stderr, "dnn_cp_bound: self-test failed\n");
     return bad;
   }

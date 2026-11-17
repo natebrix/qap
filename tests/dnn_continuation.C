@@ -107,6 +107,80 @@ static void checks() {
   auto bad=dnn_bound(&D.a,&E.a,&F.a,0,HUGE_VAL,p,&child);require(bad.status==DNN_ERROR,"child warm accepted as same-node Y");
   printf("PASS identity_cases=%d safe_certificates=%d rescaling_cases=%d cut_pool_cases=%d malformed_cases=7 max_state_error=%.17g max_certificate_error=%.17g legacy_different=%d legacy_max_state_error=%.17g\n",cases,certs,rescales,cutcases,maxstate,maxlb,negative,maxlegacy);
 }
+
+static void scaled_cp_checks()
+{
+  settings_set("dnn.beta_sched", "w=0.36,wc=2.88", SRC_FLAG);
+  settings_set("cut.cp_lazycert", "1", SRC_FLAG);
+  std::mt19937 rng(20261117);
+  int certs = 0, pooled = 0, separated = 0;
+  for (int n = 5; n <= 7; n++) {
+    Matrix A(n), B(n), C(n);
+    for (int i = 0; i < n; i++)
+      for (int j = i; j < n; j++) {
+        A.a.me[i][j] = A.a.me[j][i] = (i + j + 2) * ((int)(rng() % 11) - 5);
+        B.a.me[i][j] = B.a.me[j][i] = (j + 1) * ((int)(rng() % 13) - 4);
+      }
+    for (double &v : C.values) v = (int)(rng() % 11) - 5;
+    const double shift = -7, opt = optimum(&A.a, &B.a, &C.a, shift);
+    std::vector<int> free(n), fixed(n, -1);
+    std::iota(free.begin(), free.end(), 0);
+    DNNParams p = params(DNN_EIG_DOUBLE, 1);
+    p.max_iter = 10;
+    DNNWarm warm;
+    settings_set("dnn.dscale0", "1", SRC_FLAG);
+    safe(dnn_bound(&A.a, &B.a, &C.a, shift, opt, p, nullptr, &warm), opt, certs);
+    settings_set("dnn.dscale0", "0.73", SRC_FLAG);
+    for (int side = 0; side <= 1; side++) {
+      std::vector<double> full_window_Y;
+      for (const char *window : {"0", "12"}) {
+        settings_set("DNN_CP_DSCALE", side == 0 ? "0.25" : "0.5", SRC_FLAG);
+        settings_set("DNN_CP_DSCALE_UNTIL", window, SRC_FLAG);
+        DNNPool source, kept;
+        source.side = side;
+        source.regions = {{0, 1, 3}, {1, 2, 3}};
+        source.cuts = {{0, 0, 0, 10, {0, 1, 2}}, {3, 1, 0, 30, {1, 3, 4}},
+                       {8, 1, 2, 50, {0, 1, 2, 3, 4}}};
+        DNNCutParams cp;
+        cp.side = side;
+        cp.pool_in = &source;
+        cp.pool_out = &kept;
+        cp.other_orig = &free;
+        cp.fixed_at = &fixed;
+        cp.pool_check = 120;
+        DNNCPParams cpp;
+        cpp.child = cpp.nu_from_pool = 1;
+        cpp.sep_every = 5; cpp.sep_k = 4;
+        cpp.selftest = n == 5 && side == 0 && strcmp(window, "0") == 0;
+        p.warm_primal = 1; p.cut_round = 1;
+        p.max_iter = 30;
+        p.cp_extrap = 10; p.cp_extrap_gamma = 1; p.cp_extrap_guard = 5; p.cp_extrap_mode = 3;
+        DNNWarm state, resumed;
+        int retained = 0;
+        safe(dnn_cp_bound(&A.a, &B.a, &C.a, shift, opt, p, free, n, cp, cpp, &warm, &state, &retained), opt, certs);
+        require(retained == (int)source.cuts.size() && cpp.pool_final > 0, "scaled CP fixture did not use its pool");
+        require(fabs(state.Y[0] - 1) < 1e-12, "scaled CP saved a scaled homogenizing entry");
+        for (double y : state.Y)
+          require(std::isfinite(y) && y >= 0 && y <= 1 + 1e-12, "scaled CP saved Y outside the original box");
+        for (double z : state.Z) require(std::isfinite(z), "scaled CP saved nonfinite Z");
+        if (full_window_Y.empty()) full_window_Y = state.Y;
+        else require(distance(full_window_Y, state.Y) > 1e-6, "CP scaling window did not change the trajectory");
+        separated += cpp.sep_added;
+        if (!kept.cuts.empty()) {
+          settings_set("DNN_CP_DSCALE", "0", SRC_FLAG);
+          cp.pool_in = &kept;
+          cp.pool_out = nullptr;
+          cpp.selftest = 0;
+          p.max_iter = 10;
+          safe(dnn_cp_bound(&A.a, &B.a, &C.a, shift, opt, p, free, n, cp, cpp, &state, &resumed), opt, certs);
+          pooled++;
+        }
+      }
+    }
+  }
+  require(pooled > 0 && separated > 0, "scaled CP fixture never produced a warm pool or separated cuts");
+  printf("PASS scaled CP exact-optimum certificates=%d, unscaled warm resumes=%d, new cuts=%d\n", certs, pooled, separated);
+}
 static bool fixes(const char* spec,QAPAssignment&node,int n) {
   std::string s=spec;if(s=="-")return true;
   for(size_t p=0;p<s.size();){size_t e=s.find(',',p);if(e==std::string::npos)e=s.size();int i,j;
@@ -125,7 +199,7 @@ int main(int argc,char**argv) {
   // chunks included, at 0.36 x the base penalty by design, so the check failed from
   // then on. It is about continuation, not the schedule: pin the schedule off.
   settings_load();settings_set("dnn.beta_sched","",SRC_FLAG);
-  if(argc==1){checks();return 0;}
+  if(argc==1){checks();scaled_cp_checks();return 0;}
   require(argc==8||argc==10,"usage: dnncontinuation --probe instance fixes first rest eig scheme [L.bin shift_add]");
   require(std::string(argv[1])=="--probe","bad mode");
   QAP*q=readQAPLIB(argv[2]);require(q!=nullptr,"read instance");symmetrize_QAP(q);

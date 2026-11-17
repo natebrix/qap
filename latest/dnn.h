@@ -95,6 +95,9 @@ enum DNNEig {
 // implements it for the regional cut pools (dnn_cp_bound).
 struct DNNYCuts {
   virtual ~DNNYCuts() {}
+  // Switch the projection metric to Yt = D Y D, D = diag(d0, d1 kron d2).
+  // Null factors restore the plain metric. Cut multiplier units do not change.
+  virtual void set_scaling(const double *d1, const double *d2, double d0) = 0;
   // Y <- the approximate projection of X (n1 x n1, row-major) at penalty beta;
   // elim as DNNParams::elim; it: the ADMM iteration (for diagnostics)
   virtual void project(const double *X, double *Y, double beta, const unsigned char *elim, int it) = 0;

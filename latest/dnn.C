@@ -1730,24 +1730,29 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   double *Y = w.Y.data(), *Z = w.Z.data(), *VRV = w.VRV.data(), *Zc = w.Zc.data();
   /*
    dnn.dscale = p > 0 (experiments/bound_lab/admm): the PRSM runs on the congruence-
-   scaled variable Yt = D Y D, D = diag(1, d1 kron d2), d1_i = (r1_i / geometric
+   scaled variable Yt = D Y D, D = diag(d0, d1 kron d2), d1_i = (r1_i / geometric
    mean)^p with r1_i the 2-norm of row i of (|A| + |A'|)/2, d2_j likewise from B. In
    the original variables that is the entrywise penalty beta d_a^2 d_b^2, large where
    the objective's entries are large, while the R-step stays a plain PSD projection
    (Work::set_scaling). The scaled problem is
-     min <D^-1 L D^-1, Yt>,  0 <= Yt_ab <= d_a d_b,  Yt_00 = 1,  gangster zeros,
+     min <D^-1 L D^-1, Yt>,  0 <= Yt_ab <= d_a d_b,  Yt_00 = d_0^2,  gangster zeros,
      Yt = Vt Rt Vt', Rt psd.
    Y, Z and VRV hold the scaled iterates inside the loop; the certificate multiplier
    Zc is written in original units (D Zc_t D: V'ZcV = T'(Vt'Zc_t Vt)T <= 0 with
    D V = Vt T), start and save are in original units, and every certificate runs
    with the plain transform (w.sc = false), so it is the certificate of the unscaled
-   solve. Not with the cut hook, the accelerations or the prototype certificate.
+   solve. In CP, DNN_CP_DSCALE selects the metric independently, and the hook
+   projects using D^-1 G D^-1 with the same right-hand sides and multipliers.
   */
-  const double dscale_p = setting_d("dnn.dscale");
+  DNNYCuts *const yc = par.ycuts;
+  const double dscale_p = setting_d(yc ? "DNN_CP_DSCALE" : "dnn.dscale");
+  const double d0s = setting_d("dnn.dscale0");
+  const double d0 = d0s > 0 ? d0s : 1.0;
+  std::vector<double> d1, d2;
   bool sc_on = false;
-  if ((dscale_p > 0 || (setting_d("dnn.dscale0") > 0 && setting_d("dnn.dscale0") != 1.0)) && !par.ycuts && par.anderson == 0 && par.halpern == 0 && !(par.momentum > 0) &&
+  if ((dscale_p > 0 || (!yc && d0s > 0 && d0s != 1.0)) && par.anderson == 0 && par.halpern == 0 && !(par.momentum > 0) &&
       !par.prototype_cert && m >= 3) {
-    std::vector<double> d1(m), d2(m);
+    d1.resize(m); d2.resize(m);
     for (int pass = 0; pass < 2; pass++) {
       const MAT *Mx = pass == 0 ? A : B;
       std::vector<double> &d = pass == 0 ? d1 : d2;
@@ -1764,8 +1769,7 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     }
     // dnn.dscale0: the scale d0 of the homogenizing coordinate (index 0), so the
     // arrow entries x_ij = Y_0,(ij) run at the penalty beta d0^2 d_ij^2 (1: unscaled)
-    const double d0s = setting_d("dnn.dscale0");
-    sc_on = w.set_scaling(d1.data(), d2.data(), d0s > 0 ? d0s : 1.0);
+    sc_on = w.set_scaling(d1.data(), d2.data(), d0);
     if (par.verbose) {
       double a1 = HUGE_VAL, b1 = 0, a2 = HUGE_VAL, b2 = 0;
       for (int i = 0; i < m; i++) { a1 = std::min(a1, d1[i]); b1 = std::max(b1, d1[i]); a2 = std::min(a2, d2[i]); b2 = std::max(b2, d2[i]); }
@@ -1773,6 +1777,14 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
     }
   }
   const double *dsc = sc_on ? w.dsc.data() : NULL, *idsc = sc_on ? w.idsc.data() : NULL;
+  auto unscale = [&](double *y, double *z) {
+    for (int r = 0; r < n1; r++) {
+      double *yr = y ? y + (size_t)r * n1 : NULL, *zr = z ? z + (size_t)r * n1 : NULL;
+      const double dr = dsc[r], ir = idsc[r];
+      if (yr) for (int c = 0; c < n1; c++) yr[c] *= ir * idsc[c];
+      if (zr) for (int c = 0; c < n1; c++) zr[c] *= dr * dsc[c];
+    }
+  };
   Y[0] = 1.0;
   if (par.warm_primal && start) {
     // Explicit same-node initialization; never infer it from dimension alone.
@@ -1854,12 +1866,12 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   const bool accel = par.anderson > 0 || par.halpern > 0 || par.momentum > 0;
   // CP-ADMM (par.ycuts): cuts projected in the Y-step, certified with their
   // multipliers at every check (see DNNYCuts)
-  DNNYCuts *const yc = par.ycuts;
   if (yc && (accel || par.prototype_cert || par.child_bounds)) {
     res.status = DNN_ERROR; res.cpu = thread_cpu() - t0; return res;
   }
   double cp_cpu = 0;   // CPU seconds in the hook's projection
   if (yc) { w.Ycp.assign((size_t)n1 * n1, 0.0); w.Lcp.assign((size_t)n1 * n1, 0.0); w.Lcp_add.assign((size_t)n1 * n1, 0.0); }
+  if (yc && sc_on) yc->set_scaling(d1.data(), d2.data(), d0);
   {
     if (accel || (bs.nodes == 1 && warm_call) || (bs.nodes == 2 && !warm_call))
       bs.kind = 0, bs.w = 0;
@@ -1933,16 +1945,17 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   bool ex_have = false, ex_pending = false;
   double ex_gamma = par.cp_extrap_gamma, ex_ref = -HUGE_VAL, ex_last = -HUGE_VAL;
   int ex_it = 0, ex_jumps = 0, ex_reverts = 0;
-  // dnn.dscale_until = T > 0: the scaled iteration for the first T iterations of a call, the
-  // plain one after (the state converts exactly; the tracker restarts from a full eigendecomposition)
-  const int sc_until = (int)setting_i("dnn.dscale_until");
+  // At the end of a scaling window, convert all live iterates and restart
+  // the subspace tracker from a full eigendecomposition.
+  const int sc_until = (int)setting_i(yc ? "DNN_CP_DSCALE_UNTIL" : "dnn.dscale_until");
   for (int it = 1; it <= par.max_iter; it++) {
     if (sc_on && sc_until > 0 && it == sc_until + 1) {
-      for (int r = 0; r < n1; r++) {
-        double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1;
-        const double dr = dsc[r], ir = idsc[r];
-        for (int c = 0; c < n1; c++) { yr[c] *= ir * idsc[c]; zr[c] *= dr * dsc[c]; }
-      }
+      unscale(Y, Z);
+      if (yc) yc->set_scaling(NULL, NULL, 1.0);
+      if (ex_have)
+        unscale(par.cp_extrap_mode >= 3 ? ex_Yck.data() : NULL,
+                par.cp_extrap_mode >= 2 ? ex_Zck.data() : NULL);
+      if (ex_pending) unscale(ex_Ysg.data(), ex_Zsg.data());
       sc_on = false;
       w.have_basis = false;
       w.t_rows_ready = false;
@@ -2033,11 +2046,18 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
         const double *lr = L + (size_t)r * n1, *vr = VRV + (size_t)r * n1;
         double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1, *cr = Zc + (size_t)r * n1;
         double *xr = X + (size_t)r * n1;
-        if (rstep_cert)
+        if (rstep_cert && sc_on) {
+          const double dr = dsc[r];
+          for (int c = 0; c < n1; c++) cr[c] = (zr[c] + beta * (yr[c] - vr[c])) * (dr * dsc[c]);
+        } else if (rstep_cert)
           for (int c = 0; c < n1; c++) cr[c] = zr[c] + beta * (yr[c] - vr[c]);
         if (gamma1 > 0)
           for (int c = 0; c < n1; c++) zr[c] += gamma1 * beta * (yr[c] - vr[c]);
-        for (int c = 0; c < n1; c++) xr[c] = vr[c] - (lr[c] * iscale + zr[c]) * ibeta;
+        if (sc_on) {
+          const double ir = idsc[r];
+          for (int c = 0; c < n1; c++) xr[c] = vr[c] - (lr[c] * iscale * (ir * idsc[c]) + zr[c]) * ibeta;
+        } else
+          for (int c = 0; c < n1; c++) xr[c] = vr[c] - (lr[c] * iscale + zr[c]) * ibeta;
       }
       const double tc = thread_cpu();
       yc->project(X, Yn, beta, w.elim, it);
@@ -2052,6 +2072,10 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
           rs[c] = res_;
           ds[c] = y - yr[c];
           yr[c] = y;
+        }
+        if (sc_on) {
+          const double ir = idsc[r];
+          for (int c = 0; c < n1; c++) { rs[c] *= ir * idsc[c]; ds[c] *= ir * idsc[c]; }
         }
         pres2 += dot4(rs, rs, n1);
         dy2 += dot4(ds, ds, n1);
@@ -2496,11 +2520,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
   w.sc = false;   // what follows certifies multipliers in original units
   if (sc_on) {
     // back to original units (save below; nothing after the loop reads the scaled iterates)
-    for (int r = 0; r < n1; r++) {
-      double *yr = Y + (size_t)r * n1, *zr = Z + (size_t)r * n1;
-      const double dr = dsc[r], ir = idsc[r];
-      for (int c = 0; c < n1; c++) { yr[c] *= ir * idsc[c]; zr[c] *= dr * dsc[c]; }
-    }
+    unscale(Y, Z);
+    if (yc) yc->set_scaling(NULL, NULL, 1.0);
   }
   if (lazy_ok && status != DNN_FATHOMED && status != DNN_ERROR && (lz_exit || lz_have)) {
     // DNN_CORE_LAZYCERT: the checks that skipped Rump's test left no certified value.
