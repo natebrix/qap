@@ -73,7 +73,8 @@ did what.}
 branch and bound on the quadratic\\[2pt] assignment problem, and nug30 revisited}
 
 \vspace{12pt}
-\noindent{\footnotesize November 5, 2026}
+\noindent{\footnotesize November 5, 2026. Section~\ref{sec:cuts} and
+Sections~\ref{sec:cutbounds}--\ref{sec:taib} added November 17, 2026}
 
 \vspace{14pt}
 {\small\noindent\textbf{Abstract.}\enspace We describe a certified lower bound for the quadratic assignment problem (QAP)
@@ -92,7 +93,15 @@ children, this solves nug30 in 3,844 nodes and 5 minutes 22 seconds on a laptop
 (1,838 CPU seconds over eight solver processes), and in 14 minutes on a four-core
 cloud computer, a problem whose
 solution in 2000 required $1.19\times10^{10}$ nodes and a week on a computational
-grid of hundreds of workstations.
+grid of hundreds of workstations. The bound is then strengthened by triangle
+inequalities on the moments of the indicators that a facility lies in a region of
+locations: one side of a line of a grid, or a set that separates clusters of
+locations. Imposed inside the ADMM and inherited by a node's children, they take
+the nug30 solve to 1,302 nodes and 1 minute 43 seconds, give new certified lower
+bounds for the open problems tho40, tai50b, tai60b and tai80b, and solve tai35b and
+tai40b in fewer than a thousand nodes each. A first complete search of the open
+problem tai50b ended at its best known value after 8,206 nodes and 11 hours on the
+laptop; we report it as evidence, pending a run of record.
 
 \vspace{8pt}
 \noindent\textbf{Key words.}\enspace Quadratic assignment problem -- branch and bound --
@@ -178,15 +187,25 @@ In this paper we revisit nug30 with the branch-and-bound algorithm of
   start from their parent's final ADMM state, primal and dual, in whichever
   process they are bounded.
 \end{itemize}
+A fifth change, made after nug30 was solved, reaches beyond it:
+\begin{itemize}
+\item[(C5)] regional triangle inequalities (Section~\ref{sec:cuts}): valid
+  inequalities on sums of entries of the DNN matrix over regions of locations,
+  imposed inside the ADMM and handed from a node to its children. They do little
+  at the root of a grid problem and a great deal where the distance matrix
+  separates into a few regions that carry the objective.
+\end{itemize}
 With these, nug30 is solved in 3,844 nodes and 5 minutes 22 seconds on a laptop with
 eight solver processes, and in 14 minutes on four cores of a cloud computer
 (Section~\ref{sec:results}). The first versions of the method, without (C4) and the
 marginal rule, took 1.7 hours on the cloud computer and 20 minutes on the laptop. In Section~\ref{sec:dnn}
 we describe the DNN relaxation, the certificate and its implementation. In
 Section~\ref{sec:bnb} we review the branch-and-bound algorithm of \cite{abgl} and
-describe the new branching rules and the use of the DNN bound. In
+describe the new branching rules and the use of the DNN bound.
+Section~\ref{sec:cuts} describes the regional triangle inequalities. In
 Section~\ref{sec:results} we give bounds for the QAPLIB problems of \cite{ab01},
-the effect of the DNN bound on the Nugent problems, and the solution of nug30. The
+the effect of the DNN bound on the Nugent problems, the solution of nug30, and the
+effect of the inequalities on nug30, tho40 and the Taillard type-b problems. The
 validation of the bound is described in Appendix~\ref{sec:validation}.
 
 \paragraph{Notation.} We use $\tr(\cdot)$ to denote the trace of a matrix. If $A$
@@ -719,6 +738,147 @@ bound's floating-point results depend on the BLAS kernels selected for the CPU, 
 node counts can differ between machines if a certified value lands within about
 $10^{-6}$ of a cutoff. Validity is not affected.
 
+\section{Regional triangle inequalities}\label{sec:cuts}
+
+The DNN relaxation is the strongest bound we can afford per node, and on the larger
+open problems it is not strong enough (Section~\ref{sec:open}). This section
+describes a family of valid inequalities that strengthens it at a cost of the same
+kind: more ADMM iterations on the same matrices. The inequalities are the triangle
+inequalities of the Boolean quadric polytope \cite{padberg}, applied not to single
+entries of $Y$, where they gain nothing, but to sums of its entries over
+\emph{regions} of locations.
+
+\subsection{The inequalities}\label{sec:regions}
+
+Consider a node with $m$ free facilities and locations, and let $S$ be a set of free
+locations, a \emph{region}. For a permutation $X$ the indicator that facility $i$ is
+placed in $S$ is $z_i = \sum_{j\in S}x_{ij}\in\{0,1\}$. Its first and second moments
+are linear in the lifted matrix $Y = yy^T$
+(with $W_{ii} = p_i$, by the gangster entries):
+\begin{equation}\label{eq:moments}
+  p_i = \sum_{j\in S} Y_{(ij),(ij)} = z_i, \qquad
+  W_{ik} = \sum_{j\in S}\sum_{l\in S} Y_{(ij),(kl)} = z_iz_k ,
+\end{equation}
+Since the $z_i$ are binary, $(p,W)$ lies in the Boolean quadric polytope, and for any
+three free facilities $i$, $k$, $h$ the four triangle inequalities hold:
+\begin{equation}\label{eq:triangles}
+  \begin{array}{rl}
+  W_{ik} + W_{ih} - W_{kh} - p_i \le 0 & \text{(and with $k$ or $h$ at the apex)},\\[2pt]
+  p_i + p_k + p_h - W_{ik} - W_{ih} - W_{kh} \le 1.
+  \end{array}
+\end{equation}
+Through \eqref{eq:moments} each is a linear inequality $\inner{G}{Y}\le h$ on the
+variable of \eqref{eq:dnn}, valid for every lifted permutation and for every region
+$S$. They are not implied by the DNN relaxation. The same four inequalities
+written for three single variables $x_{ij}$, $x_{kl}$, $x_{gh}$ and the entries of
+$Y$ between them are the usual triangle inequalities on $Y$, which the DNN solution
+of these problems violates by at most 0.02 and which raise the bound by a fraction
+of a unit (Section~\ref{sec:open}); summed over regions of many locations the
+violations are ten times larger and the gain is of the order of the gap. The same construction with the
+roles of facilities and locations exchanged gives inequalities for regions of
+facilities.
+
+\paragraph{Grid regions.} Which regions to take is decided by the distance matrix.
+On an $r\times c$ grid the Manhattan distance is a sum over the $r-1$ horizontal and
+$c-1$ vertical lines between adjacent rows and columns: two locations are at
+distance equal to the number of these lines that separate them. If $S_t$ is the set of
+locations on one side of line $t$ and $z^t$ its indicators, then
+$b_{jl} = \sum_t [\,j\in S_t\,] + [\,l\in S_t\,] - 2\,[\,j\in S_t\,][\,l\in S_t\,]$, and the
+objective of a grid problem is
+\begin{equation}\label{eq:cutsum}
+  \sum_{i,k} a_{ik}\,b_{\pi(i)\pi(k)} \;=\; \sum_t\ \sum_{i,k} a_{ik}\,\big(p^t_i + p^t_k - 2W^t_{ik}\big),
+\end{equation}
+a sum over the lines of the flow that crosses each. The row and column prefixes
+$S_t$ are therefore the regions whose moments carry the whole objective: 9 of them
+for nug30 ($5\times6$), 11 for tho40 ($5\times8$), 13 for wil50 ($5\times10$). At a node, each
+is restricted to its free locations.
+
+\paragraph{Cluster regions.} The construction does not need a grid. Taillard's
+type-b problems \cite{taillard} have locations drawn in a few tight clusters that
+are far apart: in tai50b five clusters of 3, 4, 16, 15 and 12 locations, with a
+mean distance of 71 within a cluster and 1,070 between clusters, so that 98\% of
+the sum of the distances is between clusters. An embedding of the distance matrix in
+the plane by classical multidimensional scaling reproduces it almost exactly, and in
+most of these problems one axis carries nearly all of the variance. We take as
+regions (i) the prefixes of the locations sorted along the first principal axis of
+that embedding, (ii) the top clusters of an average-linkage dendrogram and all
+unions of them, and (iii) the half-planes, in four directions, that pass through a
+gap between clusters: 61 regions for tai50b, 86 for tai60b, 138 for tai80b. As in
+\eqref{eq:cutsum}, a region that separates clusters is one whose moments carry a
+large share of the objective. No inequality other than \eqref{eq:triangles} is
+used.
+
+\subsection{Certified bounds with cuts}\label{sec:cutcert}
+
+Let $\inner{G_t}{Y}\le h_t$ be inequalities \eqref{eq:triangles} and $\mu_t\ge0$
+multipliers. Every lifted permutation satisfies
+\[
+  \inner{L}{Y} \;\ge\; \Big\langle L + \sum_t\mu_tG_t,\ Y\Big\rangle - \sum_t\mu_th_t ,
+\]
+so a lower bound on the subproblem with lifted cost $L + \sum_t\mu_tG_t$ and constant
+$s - \sum_t\mu_th_t$ is a lower bound on the node. The certificate of
+Section~\ref{sec:cert} applies to that subproblem unchanged, with its
+floating-point allowances, for any $\mu\ge0$ and after any number of iterations. The
+inequalities change the cost matrix to which the certificate is applied and nothing
+else, so no new argument is needed for validity, and none for the allowances beyond
+the error in forming the modified cost.
+
+We compute the multipliers in two ways. In the first, the \emph{rounds} form, the
+DNN relaxation is re-solved with the current multipliers, warm, for a few hundred
+iterations; the most violated inequalities are added, and all multipliers take a
+Polyak subgradient step. In the second, which replaced it, the inequalities enter
+the ADMM itself, as in the cutting-plane ADMM of de~Meijer et al.\ \cite{demeijer}
+for graph partition: the $Y$-step \eqref{eq:ystep} projects onto the intersection of
+the box $\mathcal{Y}$ with the half-spaces of the current pool of inequalities, by
+one sweep of Dykstra's algorithm \cite{dykstra} per iteration, and the corrections
+that the sweeps accumulate are the multipliers $\mu$. Every 100 iterations the
+1,000 most violated inequalities at the current iterate are added to the pool.
+On wil50 nodes this form reaches the certified value of twelve rounds in a quarter
+to a fifth of their iterations, at 4--14\% more per iteration.
+
+\paragraph{The penalty.} A node's first solve, started from its parent's state,
+runs at a fraction $w$ of the penalty $\beta$ of Section~\ref{sec:impl}, which suits
+a state that is nearly converged. The cut phase at first inherited that penalty. It
+needs its own: with a factor $w_c$ eight times $w$ ($w = 0.36$, $w_c = 2.88$ on
+tho40), a phase that starts far from the cutoff is 2.4 to 4.6 times shorter, and the
+tho40 root reaches in 1,230 phase iterations the value it had reached in 5,490.
+Phases that start within about 0.1\% of the cutoff are slower at the higher penalty
+and keep $w$.
+
+\paragraph{Inheritance.} A node whose cut phase ends without fathoming hands its
+pool to its children: the inequalities with positive multipliers, stated in
+original indices, and those multipliers. An inequality remains valid on a child's
+free part of its region; a triangle one of whose facilities the child has fixed is
+dropped. The child's first solve starts from the parent's final $Y$ and $Z$ with the
+pool in place, and most children of a node that ran a phase are fathomed by that
+first solve.
+
+\subsection{The cut phase in the search}\label{sec:phase}
+
+In the search, a node's first DNN solve is as in Section~\ref{sec:fathom}. If it
+ends unfathomed within a \emph{zone} of the cutoff, a fraction $\zeta$ of the
+incumbent value, a cut phase follows from the solve's final state. Three choices
+decide whether the phase pays; all three were first made on tho40.
+\begin{itemize}
+\item \emph{A wide zone.} On tho40 $\zeta = 0.06$, so that every node the first solve
+  does not fathom runs a phase. A phase far from the cutoff seldom fathoms its node,
+  but it equips the children.
+\item \emph{A rule for stopping.} A phase stops when it fathoms, and otherwise when
+  finishing would cost more than handing over. With $g$ the gap to the cutoff, in units of 0.1\% of the cutoff, and
+  $\rho$ its decrease per iteration over the last 100, the phase stops once
+  $\phi\,g/\rho$, the iterations it would still need, exceeds the cost
+  $m\,(N_0 + B\,g^{P})$ of bounding its $m$ children from the pool it would leave
+  them. The constants were fitted to complete subtrees: on tho40 $\phi = 1.5$,
+  $N_0 = 20$ iterations per child, $B = 0.22$ and $P = 3$. Before this rule a phase ran until its
+  gain over 600 iterations fell below a third of its gap.
+\item \emph{Early entry.} A warm first solve that will not fathom is given up after
+  100 iterations instead of 200 to 300, and its node goes to the phase at once.
+\end{itemize}
+On nug30, where a node that is given up costs only a few hundred iterations to
+branch on, the same ideas take a different form: the nine nodes at depth~1 run long
+phases whose pools are inherited down the tree, and phases below depth~1 are stopped
+after 100 iterations unless they are within a few units of the cutoff.
+
 \section{Computational results}\label{sec:results}
 
 All runs use the known optimum as the incumbent, so they measure the work of the
@@ -991,7 +1151,8 @@ Three things did not pay on nug30:
 \begin{itemize}
 \item a cut phase of regional triangle inequalities after a missed DNN bound
   (34\% more CPU on the laptop, 42\% on the cloud computer): a depth-2 miss saves
-  about 20 seconds when fathomed, and a phase costs about 17;
+  about 20 seconds when fathomed, and a phase costs about 17. In the form of
+  Section~\ref{sec:phase} it does pay (Section~\ref{sec:cutsearch});
 \item a give-up after 150 iterations, and a give-up rule based on the gap ratio: both
   give up on nodes that the bound would fathom;
 \item momentum on top of the Peaceman--Rachford step.
@@ -1024,7 +1185,201 @@ Nov 4 & parent's state carried between processes & 3,843 / 3,701 & 1,838 & 5:22\
 \end{tabular}
 \end{table}
 
-\subsection{Open problems}
+\subsection{Bounds with regional triangle inequalities}\label{sec:cutbounds}
+
+Table~\ref{tab:cutbounds} gives certified root bounds with the inequalities of
+Section~\ref{sec:cuts}, for tho40 and for the Taillard type-b problems from $n=25$
+to 80. Each is one run at the root: a plain first solve, then one cut phase in the
+form of Section~\ref{sec:cutcert}, with no cutoff. The share of the gap closed is
+measured from the plain DNN bound: for the open problems the best published one,
+which is the same relaxation at the root \cite{graham,kkt}, and for the solved ones
+our own certified value after 2,300 iterations.
+
+\begin{table}[t]\centering
+\caption{Certified root bounds with regional triangle inequalities, rounded up.
+OPT/BKV: the optimum, or for the open problems (*) the best known value. DNN: the
+plain bound, published \cite{graham,kkt} for the open problems and ours after 2,300
+iterations otherwise. Iterations: first solve plus cut phase. tai40b uses the
+regions of Section~\ref{sec:regions} and every dendrogram cluster.}\label{tab:cutbounds}
+\small\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+Problem & OPT/BKV & DNN & with cuts & regions & iterations & gap closed\\
+\midrule
+tho40* & 240,516 & 226,522 & 230,453 & 11 & 2,800 & 28\%\\
+\midrule
+tai25b & 344,355,646 & 337,285,170 & 344,084,304 & 27 & 2,300 & 96\%\\
+tai30b & 637,117,113 & 597,633,906 & 636,993,730 & 29 & 6,300 & 99.7\%\\
+tai35b & 283,315,445 & 269,414,422 & 280,789,962 & 42 & 6,190 & 82\%\\
+tai40b & 637,250,948 & 608,514,446 & 636,110,765 & 85 & 6,470 & 96\%\\
+tai50b* & 458,821,517 & 431,245,612 & 453,552,676 & 61 & 6,470 & 81\%\\
+tai60b* & 608,215,054 & 592,829,061 & 605,315,696 & 86 & 3,470 & 81\%\\
+tai80b* & 818,415,043 & 786,900,529 & 801,397,334 & 138 & 2,790 & 46\%\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For the four open problems the values with cuts are, as far as we know, the best
+lower bounds obtained: the published ones are those of the DNN column. Several were
+still rising when stopped (tho40 by 40 per 250 iterations, tai60b by 124,000 per
+250), so they are lower bounds on what the inequalities give. On the type-b problems
+up to $n=60$ the cluster regions close four fifths or more of the DNN gap. On tai80b
+they close less than half, and the bound levels off there; adding every dendrogram
+cluster as a region changes it by less than one part in a thousand of the gap. The
+cuts are not equally strong on every problem with clustered locations, and we do
+not yet know what separates tai80b from tai60b. On tho40 the gain at the root is
+modest, 1.6\% of the objective, and it is deeper in the tree that the inequalities
+pay (Section~\ref{sec:cutsearch}). On wil50, whose flow matrix is dense, a phase gains about 0.1\% of the objective
+at the nodes sampled (Section~\ref{sec:open}).
+
+\subsection{The cut phase in the search: nug30 and tho40}\label{sec:cutsearch}
+
+\paragraph{nug30.} A cut phase at every node that the first solve gave up had made
+nug30 slower (Section~\ref{sec:record}). In the form of Section~\ref{sec:phase} it
+is faster. The comparison is with the final setting of Section~\ref{sec:record} as
+tuned since, with Rule~9 at the DNN depths: 3,716 nodes, 1,261 CPU seconds and
+2 minutes 59 seconds on the laptop. With long phases at depth~1 and short ones
+below, the phase's own penalty, and early entry, the same search takes 1,302 nodes,
+722 CPU seconds and 1 minute 43 seconds (Table~\ref{tab:nug30cut}). Both runs end
+at 6124 with no open node, and a run started from the incumbent 6126 finds 6124 and
+bounds every node on the path to it at or below 6124. A phase in every give-up within
+1\% of the cutoff, without these changes, costs 39\% more than no phase at all:
+on nug30 the gain is in the inherited pools, not in the phases that fathom.
+
+\begin{table}[t]\centering
+\caption{nug30 with the cut phase. Cloud: four processes on a 4-core Xeon; laptop:
+Apple M2 Pro, eight processes. Each row adds one change to the row
+above.}\label{tab:nug30cut}
+\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{l>{\raggedright\arraybackslash}p{5.0cm}rrrr}
+\toprule
+ & setting & nodes & DNN iterations & CPU s & wall s\\
+\midrule
+cloud & final setting, Rule 9 & 3,688 & 110,926 & 3,030 & 771\\
+ & long phases at depth 1, short below & 1,674 & 72,147 & 2,197 & 564\\
+ & the phase's own penalty & 1,221 & 58,960 & 1,895 & 482\\
+ & early entry & 1,302 & 52,041 & 1,667 & 424\\
+\midrule
+laptop & final setting, Rule 9 & 3,716 & 111,182 & 1,261 & 179\\
+ & all three & 1,302 & 52,018 & 722 & 103\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{tho40.} tho40 is open. Its tree under the settings of
+Section~\ref{sec:record}, with no cut phase, was estimated by Knuth's method
+\cite{knuth} from 3,322 dives at $3.4\times10^7$ nodes and about 1,300 CPU days on a
+current cloud core, and a run under those settings was in progress when the cut
+phase was tried. Three measurements agree on what the phase changes.
+\begin{itemize}
+\item \emph{A complete subtree.} The depth-2 subtree below the assignments
+  $26\!\to\!10$, $8\!\to\!0$ (22,895 nodes) was searched to the end three times on the
+  laptop, through the distributed coordinator (Table~\ref{tab:tho40cut}). Every run
+  ends at 240,516 with no open node.
+\item \emph{The whole tree by sampling.} Dives over all twelve depth-1 subtrees,
+  with every node below a sampled depth-4 node enumerated, put the tree with the
+  wide zone at $1.1\times10^6$ nodes (standard error $0.27\times10^6$) and 226 CPU
+  days (standard error 39; 51 dives). On the same dive paths the stopping rule,
+  early entry and the phase's penalty together take 0.49 of that CPU (34 pairs);
+  their own total, from 39 dives, is 215 CPU days with a standard error of 82.
+\item \emph{The path to the best known solution.} In every run, and in a run forced
+  down that path from the incumbent 240,518, no node on the path is fathomed and no
+  certified value on it exceeds 240,516.
+\end{itemize}
+With the cut phase the cost moves up the tree: depths 4 and 5 carry 82\% of the CPU,
+where without it depth 6 and below carry most. The estimates are from few dives with
+a heavy tail and should be read as within a factor of two.
+
+\begin{table}[t]\centering
+\caption{A complete depth-2 subtree of tho40 (laptop, 10 processes, through the
+coordinator), each row adding to the row above.}\label{tab:tho40cut}
+\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrr}
+\toprule
+setting & nodes & CPU s & wall s & CPU ratio\\
+\midrule
+final setting of Section~\ref{sec:record}, no cut phase & 22,895 & 31,594 & 4,173 & 1\\
+cut phase, zone 0.06 & 1,312 & 9,796 & 1,497 & 3.2\\
+stopping rule, early entry, the phase's penalty & 877 & 3,894 & 650 & 8.1\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{The Taillard type-b problems}\label{sec:taib}
+
+With cluster regions the trees of the type-b problems change shape. Nearly every
+node off the path to the optimum is fathomed by its first solve from its parent's
+pool. What is left is that path and a fringe of nodes that hold a solution almost as
+good as the optimum, which differ from it by exchanges of facilities within one
+cluster and which no bound can separate until the bound's slack on the path has
+fallen below their excess.
+
+\paragraph{tai35b and tai40b.} Both were first solved by Fujii et al.\
+\cite{fujii}, in $2.6\times10^6$ and $2.8\times10^5$ nodes. Table~\ref{tab:taib}
+gives our searches, started from an incumbent one above the optimum so that the
+search must find the optimum itself, on four cores. Each problem was solved twice,
+with two families of regions and two roots, so with different inequalities at every
+node. All four runs end at the optimum with no open node, and on the path to the
+optimum (32 and 37 nodes) no node is fathomed and the largest certified value is
+less than 0.001 below the optimum. These two solves were also the test of the
+inequalities and of their implementation on problems where a wrong fathom off the
+path would have shown as a wrong answer or an unfinished tree.
+
+\begin{table}[t]\centering
+\caption{The Taillard type-b problems with cluster regions. tai35b, tai40b: four
+cores of a cloud computer, level by level; tai50b: Apple M2 Pro, 10 processes,
+through the coordinator. Each starts from an incumbent one above the value it
+finds.}\label{tab:taib}
+\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+Problem & value found & nodes & DNN iterations & CPU s & nodes in \cite{fujii}\\
+\midrule
+tai35b & 283,315,445 & 922 & 125,232 & 5,275 & 2,620,547\\
+tai35b, second family & 283,315,445 & 890 & 112,396 & 4,882 & \\
+tai40b & 637,250,948 & 733 & 75,582 & 4,862 & 278,465\\
+tai40b, second family & 637,250,948 & 726 & 69,745 & 4,551 & \\
+\midrule
+tai50b & 458,821,517 & 8,206 & 1,526,866 & 247,515 & open\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{tai50b.} tai50b is open. Its tree with a plain DNN bound was estimated at
+more than $10^{11}$ CPU seconds. With cluster regions, 275 dives from a root bounded
+for 6,470 iterations put it at 5,000 to 13,000 nodes and about 100 core-hours. One
+complete search was then run on the laptop, from the incumbent 458,821,518: 8,206
+nodes, of which 213 branch, 247,515 CPU seconds and 11.0 hours on ten processes. It
+found 458,821,517, the best known value, and ended with no open node. All 47 nodes
+on the path to that solution branch, and none has a bound above 458,821,517. The
+fringe is 10 to 32 branching nodes wide per level down to depth 11 and gone by depth
+16, after which the tree is the path. A second search of the first six levels, on
+another machine with a different stopping rule, has the same shape, and its bounds on
+the path are valid too.
+
+We report this as strong evidence that 458,821,517 is the optimal value of tai50b,
+and not yet as its solution. The run was a rehearsal: it used a build with the
+changes of Section~\ref{sec:cuts} as first written, including a workaround, added
+the same day, for first solves that fail outright when started from an inherited
+pool, whose cause we have not found. Such a failure weakens a bound and cannot
+produce a wrong fathom, but a run of record should not depend on it unexplained.
+That run, on a reviewed build, with the region file recorded with the settings and a
+second family of regions as an independent route, is under way and will be reported
+separately.
+
+\paragraph{tai60b and tai80b.} For tai60b the root is within 0.48\% of the best known
+value, and the bound on the path to the best known solution is 0.45\% short at
+depth~1 and 0.01\% at depth~18. From 284 dives the tree is estimated at 29,400 nodes
+(21,500 to 38,300) and about 280 core-hours, with a range of 150 to 600; the
+levels that carry the cost rest on few dives each, and no problem of this size has
+yet been solved by these means. A node survives when, and almost only when, the best
+solution a pairwise-exchange descent finds below it is within the bound's slack at
+its depth of the best known value: of 286 nodes off the path that the dives bounded,
+that rule predicts 270, and each of the 16 it misses branched. tai80b's tree was not
+sampled: its root bound (Table~\ref{tab:cutbounds}) is too far from the best known
+value for the tree to be small.
+
+\subsection{Open problems}\label{sec:open}
 
 We screened candidates among the instances QAPLIB lists as open by their certified
 root DNN gap (nug30: 2.9\%, and tho30, solved in \cite{abgl}: 4.2\%): wil50 1.4\%,
@@ -1040,14 +1395,57 @@ symmetry of order 4 that is about $3\times10^4$ nodes at depth 3, $1.4\times10^6
 depth 4 and $6\times10^7$ at depth 5: $10^7$ to $10^8$ DNN nodes at several minutes
 each. The near misses show that at these depths the relaxation, not the solver, is
 the limit: a faster solver changes the cost of a node but not the depth at which
-fathoming starts. Nor do the triangle inequalities on $Y$ help: added in Lagrangian
+fathoming starts. Nor do the triangle inequalities on single entries of $Y$ help: added in Lagrangian
 form to the certified bound, they raised two nug30 depth-2 misses by 0.2 and 0.4 (of
 gaps 76 and 29) and the root not at all, since the DNN solution violates them by at
-most 0.02 (\texttt{experiments/dnn\_cuts}). The open grid instances need a relaxation
-strictly stronger than the DNN relaxation at depths 3--5, worth roughly 0.3\% of
-the objective per level of fathoming depth, and we know of none that is computable
-at $n=50$; with the DNN bound, the tree is of the order of $10^7$ DNN nodes, in line
-with the estimates of Fujii et al.\ \cite{fujii}.
+most 0.02 (\texttt{experiments/dnn\_cuts}). With the DNN bound alone, then, the
+wil50 tree is of the order of $10^7$ DNN nodes, in line with the estimates of Fujii
+et al.\ \cite{fujii}, and the open grid instances need a relaxation strictly
+stronger than the DNN relaxation at depths 3--5, worth roughly 0.3\% of the
+objective per level of fathoming depth.
+
+The regional triangle inequalities of Section~\ref{sec:cuts} are such a
+strengthening, of uneven strength. Table~\ref{tab:estimates} gives our current
+estimates of the work to solve the open problems we have sized, with the cut phase,
+in CPU days of one core of a current cloud computer (the machines used differ by
+up to a factor of 1.4). All are from samples: Knuth dives \cite{knuth}, or complete
+subtrees scaled by a fitted model. The errors are large. The tho40 and type-b
+figures come from tens to hundreds of dives with heavy tails, those for wil50 and
+sko49 from fewer than twenty sampled subtrees each, and an estimate of this kind
+made early for tho40 was low by more than a factor of ten.
+
+\begin{table}[t]\centering
+\caption{Estimated work to solve, with the cut phase, in CPU days of one cloud core.
+sko42 was solved by Fujii et al.\ \cite{fujii}; the others are open. Logs:
+\texttt{experiments/estimates} and
+\texttt{experiments/bound\_lab}.}\label{tab:estimates}
+\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrl}
+\toprule
+Problem & estimate & range & from\\
+\midrule
+tai50b & 6 & 3--15 & 275 dives; one complete search (Section~\ref{sec:taib})\\
+tai60b & 16 & 9--35 & 284 dives\\
+sko42 & 22 & 21--23 & sampled subtrees\\
+tho40 & 110--230 & & 39 to 51 dives per setting (Section~\ref{sec:cutsearch})\\
+wil50 & 310--780 & & seven subtrees and a fitted model\\
+sko49 & 1,600 & 700--2,700 & sampled subtrees\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On wil50 and sko49 the inequalities help least. After the cut phase, each line's
+term of \eqref{eq:cutsum} is already at its own optimum at the wil50 nodes we
+examined; what remains is the coupling between lines, which no inequality on a
+single region sees. A search for further families on wil50 found none worth its
+cost: count inequalities on five and seven facilities, box inequalities,
+regions of facilities, and the level-2 reformulation-linearization constraints
+restricted to triples. Nor did inequalities valid only for optimal solutions (no
+exchange of two facilities improves an optimal permutation), which are linear in a
+row of $Y$: they are valid and their exact ceiling is high, but the DNN relaxation
+realizes about a tenth of it. The stopping rule and early entry of
+Section~\ref{sec:phase}, refitted, are worth a factor of 1.1 to 1.35 on complete
+subtrees of wil50 and sko49, not the factor of two and more they give on tho40.
 
 \section{Conclusion}
 
@@ -1081,8 +1479,12 @@ method of \cite{graham} may converge faster still. Rule 8 was tuned on nug30 and
 on nug28, so a rule that is good on both is still to be found. A
 separate verified check of each fathoming certificate would separate fast search
 from rigorous verification. For the larger open grid instances speed is not
-enough: the DNN relaxation is too weak at the depths where their trees are wide,
-and a stronger relaxation is the next step.
+enough: the DNN relaxation is too weak at the depths where their trees are wide.
+The regional triangle inequalities are a first stronger relaxation that is
+affordable at these sizes. Where the distance matrix separates into a few regions
+that carry the objective, on tho40 and above all on the clustered Taillard
+problems, they change what is within reach; on wil50 and sko49 they help less, and
+what would close the remaining gap there is open.
 
 \appendix
 \section{Validation}\label{sec:validation}
@@ -1183,7 +1585,11 @@ Nathan Brixius made the laptop runs. Claude, an AI system by Anthropic, wrote
 the software changes, ran the experiments in Nathan Brixius's repository and
 drafted this report, using independent AI agents for the prototype studies, the C++
 port and the reviews. Astra (an OpenAI Codex agent) reviewed an earlier draft and
-found the cancellation cases described in Appendix~\ref{sec:validation}.
+found the cancellation cases described in Appendix~\ref{sec:validation}. The cluster
+regions, the stopping rule, the phase's penalty and the experiments of
+Sections~\ref{sec:cutbounds}--\ref{sec:taib} (November 15--17) were done by Claude
+with independent AI agents in parallel cloud sessions; Nathan Brixius made the
+laptop runs of nug30, the tho40 subtree and tai50b reported there.
 
 {\small
 \begin{thebibliography}{99}
@@ -1203,6 +1609,8 @@ found the cancellation cases described in Appendix~\ref{sec:validation}.
   \emph{Handbook of Combinatorial Optimization}, vol.~3, Kluwer (1998) 241--337.
 \bibitem{qaplib} R.E. Burkard, S.E. Karisch and F. Rendl, QAPLIB -- a quadratic
   assignment problem library, \emph{Journal of Global Optimization} 10 (1997) 391--403.
+\bibitem{dykstra} R.L. Dykstra, An algorithm for restricted least squares regression,
+  \emph{Journal of the American Statistical Association} 78 (1983) 837--842.
 \bibitem{fujii} K. Fujii, N. Ito, S. Kim, M. Kojima, Y. Shinano and K.-C. Toh, Solving
   challenging large scale QAPs, arXiv:2101.09629 (2021).
 \bibitem{gilmore} P.C. Gilmore, Optimal and suboptimal algorithms for the quadratic
@@ -1213,18 +1621,30 @@ found the cancellation cases described in Appendix~\ref{sec:validation}.
 \bibitem{hrw} S.W. Hadley, F. Rendl and H. Wolkowicz, A new lower bound via projection
   for the quadratic assignment problem, \emph{Mathematics of Operations Research} 17
   (1992) 727--739.
+\bibitem{kkt} S. Kim, M. Kojima and K.-C. Toh, A Newton-bracketing method for a simple
+  conic optimization problem, \emph{Optimization Methods and Software} 36 (2021)
+  371--388; arXiv:1905.12840.
+\bibitem{knuth} D.E. Knuth, Estimating the efficiency of backtrack programs,
+  \emph{Mathematics of Computation} 29 (1975) 121--136.
 \bibitem{lawler} E.L. Lawler, The quadratic assignment problem, \emph{Management
   Science} 9 (1963) 586--599.
 \bibitem{loiola} E.M. Loiola, N.M.M. de Abreu, P.O. Boaventura-Netto, P. Hahn and
   T. Querido, A survey for the quadratic assignment problem, \emph{European Journal
   of Operational Research} 176 (2007) 657--690.
+\bibitem{demeijer} F. de Meijer, R. Sotirov, A. Wiegele and S. Zhao, Partitioning
+  through projections: strong SDP bounds for large graph partition problems,
+  \emph{Computers \& Operations Research} 151 (2023) 106088; arXiv:2205.06788.
 \bibitem{nugent} C.E. Nugent, T.E. Vollmann and J. Ruml, An experimental comparison of
   techniques for the assignment of facilities to locations, \emph{Operations
   Research} 16 (1968) 150--173.
 \bibitem{owx} D.E. Oliveira, H. Wolkowicz and Y. Xu, ADMM for the SDP relaxation of
   the QAP, \emph{Mathematical Programming Computation} 10 (2018) 631--658.
+\bibitem{padberg} M. Padberg, The Boolean quadric polytope: some characteristics,
+  facets and relatives, \emph{Mathematical Programming} 45 (1989) 139--172.
 \bibitem{rump} S.M. Rump, Verification of positive definiteness, \emph{BIT
   Numerical Mathematics} 46 (2006) 433--452.
+\bibitem{taillard} \'E.D. Taillard, Comparison of iterative searches for the quadratic
+  assignment problem, \emph{Location Science} 3 (1995) 87--105.
 \bibitem{zkrw} Q. Zhao, S.E. Karisch, F. Rendl and H. Wolkowicz, Semidefinite
   programming relaxations for the quadratic assignment problem, \emph{Journal of
   Combinatorial Optimization} 2 (1998) 71--109.
