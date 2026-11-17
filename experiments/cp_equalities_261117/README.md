@@ -77,13 +77,18 @@ seconds were 1.42 and 1.91 respectively including search and startup. This
 control used `tho40c.par` with a `3:4` grid, depth range `0:11`, initial DNN
 give-up set to 40, and the phase cap of 400.
 
-## Warm replay with production stopping
+## Warm replays with production stopping
+
+Input state, fp32 Y/Z, recipe and binary hashes are in [corpus.json](corpus.json).
+Each pair used the same one-node checkpoint and binary, ran back to back on
+a shared host, and kept the production stopping policy.
 
 The tho40t depth-three node `26:10,8:0,2:32` was replayed from the same
 production parent checkpoint in both arms, including fp32 Y/Z and the cut
 pool. Both retained 1,482 inherited cuts and reached `237871.8951` after
 110 first-solve iterations. `tho40c.par` was used with production separation,
-penalty and handover, with one OpenBLAS thread. No phase cap was added.
+penalty and handover, with one OpenBLAS thread. No phase cap was added. Both
+warm replays qualified for `wc=2.88`.
 
 | Phase check | Off | On | On minus off |
 | ---: | ---: | ---: | ---: |
@@ -98,10 +103,45 @@ penalty and handover, with one OpenBLAS thread. No phase cap was added.
 Both reached `238000`, `238300`, `238400` and `238500` on identical checks.
 The enabled arm reached `238200` and `238550` one check earlier at 170 and
 550 iterations. Both handed over at check 690, far below cutoff `240514.05`.
-CPU includes ordinary shared-workspace variation. The two arms were run
-back to back using the same binary and parent state.
+
+The depth-five node `26:10,8:0,2:32,6:39,33:24` was also replayed with its
+production parent state. Both arms retained 1,718 inherited cuts and started
+the cut phase at the same certified bound `240121.4553` after 110 first-solve
+iterations. The first solve was `392.5947` below the cutoff.
+
+| Phase check | Off | On | On minus off |
+| ---: | ---: | ---: | ---: |
+| 100 | 240121.4553 | 240121.4553 | 0 |
+| 200 | 240225.4824 | 240217.1912 | -8.2912 |
+| 300 | 240358.9179 | 240358.7682 | -0.1497 |
+| 400 | 240426.3881 | 240430.2830 | 3.8949 |
+| 600 | 240495.9725 | 240501.2407 | 5.2682 |
+| Final certificate | 240514.1271 | 240514.2926 | 0.1655 |
+| CP CPU seconds | 80.07 | 72.91 | -7.16 |
+
+| Certified target | First check off | First check on |
+| ---: | ---: | ---: |
+| 240200 | 190 | 200 |
+| 240300 | 260 | 260 |
+| 240400 | 360 | 360 |
+| 240450 | 450 | 440 |
+| 240475 | 530 | 510 |
+| 240500 | 630 | 600 |
+| 240510 | 670 | 650 |
+| 240514.05 (fathom) | 687 | 663 |
+
+The check histories record the common checkpoints. The fathoming iteration
+and final certificate are taken from the phase summary. The enabled arm
+fathomed 24 iterations earlier, a 3.5% reduction. The depth-three arm reached
+the same handover iteration with 1.66 more bound units. The CPU samples are
+indicative under shared load. The tested configuration stays off by default,
+and testing stopped at the node gate. The replays cover two warm tho40t
+nodes at `wc=2.88`. The effect on other node types, penalties or problem
+families is open.
 
 ```sh
 python3 experiment_run_261117/replay.py run equality-warm-off tho40-d3-hard qap-equalities/latest/bnbdrv
 python3 experiment_run_261117/replay.py run equality-warm-on tho40-d3-hard qap-equalities/latest/bnbdrv --env DNN_CP_REGION_EQ=1
+python3 experiment_run_261117/replay.py run equality-warm-off tho40-d5-hard qap-equalities/latest/bnbdrv
+python3 experiment_run_261117/replay.py run equality-warm-on tho40-d5-hard qap-equalities/latest/bnbdrv --env DNN_CP_REGION_EQ=1
 ```
