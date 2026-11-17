@@ -718,11 +718,16 @@ struct RegionalEqualities {
   std::vector<double> lambda, inv_diff, inv_mean, residual, delta, mean, proj_p, proj_w;
   using Overlaps = std::vector<std::vector<std::pair<int, int>>>;
 
-  void setup(int m_, const std::vector<std::vector<int>> &rloc, const Overlaps &ovl)
+  void setup(int m_, const Overlaps &ovl)
   {
-    m = m_; R = (int)rloc.size(); sqrt_m = sqrt((double)m);
+    m = m_; R = (int)ovl.size(); sqrt_m = sqrt((double)m);
     if (R == 0) return;
-    for (const auto &r : rloc) capacity.push_back((int)r.size());
+    // Use the cardinality of the same set the signatures represent. A pool
+    // loaded from a file may list an index more than once.
+    capacity.resize(R);
+    for (int s = 0; s < R; s++)
+      for (const auto &o : ovl[s])
+        if (o.first == s) { capacity[s] = o.second; break; }
     lambda.resize((size_t)R * (m + 1));
     residual.resize(lambda.size()); delta.resize(lambda.size()); mean.resize(2 * R);
     proj_p.resize((size_t)R * m); proj_w.resize((size_t)R * m);
@@ -965,7 +970,7 @@ public:
         for (int a = 0; a < m; a++) k += in[s][a] && in[s2][a];
         if (k > 0) ovl[s].push_back({s2, k});
       }
-    if (region_eq) eq.setup(m, rloc, ovl);
+    if (region_eq) eq.setup(m, ovl);
     const size_t mm = (size_t)m * m, ns = sig_reg.size();
     Pag.assign((size_t)R * m, 0); Wag.assign((size_t)R * mm, 0);
     CPs.assign((size_t)R * m, 0); CWs.assign((size_t)R * mm, 0);
@@ -1220,6 +1225,7 @@ public:
       last_card_viol = last_row_viol = 0;
       for (int s = 0; s < R; s++) {
         const double sz = eq.capacity[s];
+        if (sz == 0) continue;
         last_card_viol = std::max(last_card_viol, fabs(eq.residual[s]) / sqrt(m * sz));
         if (sz <= 1) continue;
         const double gnorm = sqrt(sz * (sz - 1) * ((sz - 1) + 0.5 * (m - 1)));
@@ -2108,6 +2114,8 @@ bool cp_region_eq_selftest()
   // cardinality equation, and the repeated region gives dependent row normals.
   const std::vector<Region> regions = {{"a", {0}}, {"b", {1}}, {"ab", {0, 1}},
                                       {"c", {1, 2, 3}}, {"d", {0, 2, 4}}, {"c2", {1, 2, 3}}};
+  std::vector<Region> imported = regions;
+  imported.back().loc.push_back(2);   // an imported list with a repeated index
   const size_t R = regions.size();
   std::mt19937 rng(20261117u);
   std::uniform_real_distribution<double> U(-0.1, 1.1);
@@ -2116,7 +2124,7 @@ bool cp_region_eq_selftest()
   bool ok = true;
   for (int side = 0; side < 2; side++) {
     const Lift lift = {m, side};
-    CutProjector pj(m, regions, {}, side, true);
+    CutProjector pj(m, imported, {}, side, true);
     std::vector<std::vector<double>> E(R * (m + 1), std::vector<double>(nn));
     std::vector<double> rhs(E.size());
     for (size_t s = 0; s < R; s++) {

@@ -2,6 +2,8 @@
 
 Implementation `0fc7508b`, based on `ba47c211`. Enable with
 `DNN_CP_REGION_EQ=1`. The default is zero.
+The new setting changes the recorded settings hash. The replay harness uses
+`--allow-settings-change` to reuse stock checkpoints for both arms.
 
 For a region of size `s` in the reduced problem, the affine block enforces
 `sum(p_i) = s` and `sum_{j!=i}(W_ij) = (s-1)*p_i` for each free element `i`.
