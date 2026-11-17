@@ -37,7 +37,7 @@ The solver's `make test` passed, including all 7 reference cases with exact node
 
 ## Longer tai60b replay
 
-Both arms ran 600 continuation iterations from the same original checkpoint with the original frozen 40-cut pool. They used one BLAS thread each and overlapped on the same host. Every certificate through iteration 120 matched the earlier run exactly. Each arm made 60 certified checks with zero failures.
+Both arms ran 600 continuation iterations from the same original checkpoint. The cut arm used the original frozen 40-cut pool. They used one BLAS thread each and overlapped on the same host. Every certificate through iteration 120 matched the earlier run exactly. Each arm made 60 certified checks with zero failures.
 
 | Iteration | Regional running best | Coarse running best | Coarse gain |
 |---:|---:|---:|---:|
@@ -48,7 +48,7 @@ Both arms ran 600 continuation iterations from the same original checkpoint with
 | 500 | 602,872,949.445 | 603,021,045.822 | +148,096.377 |
 | 600 | 603,671,585.529 | 603,777,531.952 | +105,946.422 |
 
-The gain peaked at 476,320.084 at iteration 130, then fell to 105,946.422 at iteration 600. Twenty-six coarse multipliers were active at the end. The course of both certificates stayed below 604 million. The final coarse certificate was 4.44 million below the cutoff, and the final gain closed 2.33% of the regional shortfall.
+The gain peaked at 476,320.084 at iteration 130, then fell to 105,946.422 at iteration 600. Twenty-six coarse multipliers were active at the end. Both certificates stayed below 604 million. The final coarse certificate was 4.44 million below the cutoff, and the final gain closed 2.33% of the regional shortfall.
 
 | Certified target | Regional iteration | Coarse iteration | Regional CPU s | Coarse CPU s, including setup |
 |---:|---:|---:|---:|---:|
