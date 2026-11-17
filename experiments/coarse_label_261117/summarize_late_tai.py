@@ -16,7 +16,7 @@ def main():
     early = json.loads(args.early_summary.read_text())
     regional = parse(args.trace_dir / "regional.log")
     coarse = parse(args.trace_dir / "coarse.log")
-    comparison = compare(regional, coarse, 0)
+    comparison = compare(regional, coarse, early["separation_cpu"])
     common = {}
     early_max_diff = 0
     for arm, result in (("regional", regional), ("coarse", coarse)):
@@ -43,7 +43,9 @@ def main():
                    607_000_000):
         reached = {}
         for arm, result in (("regional", regional), ("coarse", coarse)):
-            reached[arm] = next(({"iteration": p["it"], "cpu_with_setup": p["cpu"] + result["coarse_setup_cpu"]}
+            original_separation = early["separation_cpu"] if arm == "coarse" else 0
+            reached[arm] = next(({"iteration": p["it"], "cpu_with_setup": p["cpu"] + result["coarse_setup_cpu"],
+                                  "cpu_with_setup_and_original_separation": p["cpu"] + result["coarse_setup_cpu"] + original_separation}
                                  for p in result["trajectory"] if p["best"] >= target), None)
         targets.append({"target": target, **reached})
 
@@ -51,7 +53,7 @@ def main():
            "capacity": early["capacity"], "n_cuts": early["n_cuts"], "earlier_separation_cpu": early["separation_cpu"],
            "concurrent_arms": True, "early_check_max_difference": early_max_diff,
            "regional": regional, "coarse": coarse, "comparison": comparison,
-           "comparison_including_original_separation": compare(regional, coarse, early["separation_cpu"]),
+           "comparison_replay_only": compare(regional, coarse, 0),
            "milestones": milestones, "iterations_to_targets": targets}
     (args.trace_dir / "summary.json").write_text(json.dumps(out, indent=2) + "\n")
     print(json.dumps({"milestones": milestones, "iterations_to_targets": targets}, indent=2))

@@ -50,18 +50,18 @@ Both arms ran 600 continuation iterations from the same original checkpoint. The
 
 The gain peaked at 476,320.084 at iteration 130, then fell to 105,946.422 at iteration 600. Twenty-six coarse multipliers were active at the end. Both certificates stayed below 604 million. The final coarse certificate was 4.44 million below the cutoff, and the final gain closed 2.33% of the regional shortfall.
 
-| Certified target | Regional iteration | Coarse iteration | Regional CPU s | Coarse CPU s, including setup |
+| Certified target | Regional iteration | Coarse iteration | Regional CPU s | Coarse CPU s, including setup and selection |
 |---:|---:|---:|---:|---:|
-| 594,000,000 | 100 | 90 | 156.56 | 147.65 |
-| 600,000,000 | 280 | 270 | 472.70 | 476.24 |
-| 602,000,000 | 410 | 390 | 681.93 | 679.09 |
-| 602,800,000 | 480 | 460 | 793.95 | 796.38 |
-| 603,000,000 | 520 | 480 | 857.81 | 831.09 |
-| 603,100,000 | 520 | 510 | 857.81 | 880.65 |
-| 603,200,000 | 530 | 520 | 873.27 | 897.01 |
-| 603,671,585.529 | 600 | 580 | 986.79 | 1,000.82 |
+| 594,000,000 | 100 | 90 | 156.56 | 149.07 |
+| 600,000,000 | 280 | 270 | 472.70 | 477.66 |
+| 602,000,000 | 410 | 390 | 681.93 | 680.51 |
+| 602,800,000 | 480 | 460 | 793.95 | 797.80 |
+| 603,000,000 | 520 | 480 | 857.81 | 832.51 |
+| 603,100,000 | 520 | 510 | 857.81 | 882.07 |
+| 603,200,000 | 530 | 520 | 873.27 | 898.43 |
+| 603,671,585.529 | 600 | 580 | 986.79 | 1,002.24 |
 
-Regional solve CPU was 987.1 seconds. Coarse solve CPU was 1,032.2 seconds, with 2.16 seconds of setup. At the regional CPU budget, the last eligible coarse check was iteration 570 and its certificate trailed by 51,004.529. Charging the original separator's 1.41 seconds still left iteration 570 as the last eligible check. The 603 million threshold favored coarse cuts on this host and run. Nearby thresholds and the final regional certificate favored the regional arm's measured CPU. The overlapping runs make these CPU comparisons screening evidence.
+Regional solve CPU was 987.1 seconds. Coarse solve CPU was 1,032.2 seconds, with 2.16 seconds of setup. The comparison charges the original selector's 1.41 seconds once, bringing the total coarse CPU to 1,035.78 seconds. The replay reused the selected pool. At the regional CPU budget, the last eligible coarse check was iteration 570 and its certificate trailed by 51,004.529. The replay-only accounting also leaves iteration 570 as the last eligible check. The 603 million threshold favored coarse cuts on this host and run. Nearby thresholds and the final regional certificate favored the regional arm's measured CPU. The overlapping runs make these CPU comparisons screening evidence.
 
 The fixed coarse pool preserved an iteration advantage at several thresholds. Its absolute bound gain shrank over the longer run, and the final certificate remained below the regional certificate at the shared CPU budget. This comparison leaves near-cutoff and converged bound impact unmeasured.
 
