@@ -35,8 +35,9 @@ def val(s):
 
 
 def read_arm(path):
-    """the depth-2 node and its depth-3 children from a node trace"""
-    parent, kids = None, []
+    """the depth-2 node and its depth-3 children from a node trace (a node's last line: a resumed arm
+    traces the nodes after its checkpoint again)"""
+    parent, kids = None, {}
     for ln in open(path):
         f = ln.split()
         if len(f) < 12 or f[0] != "node":
@@ -48,8 +49,8 @@ def read_arm(path):
         if d == 2:
             parent = rec
         elif d == 3:
-            kids.append(rec)
-    return parent, kids
+            kids[rec["fixes"]] = rec
+    return parent, list(kids.values())
 
 
 def read_production():
