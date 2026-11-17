@@ -50,8 +50,12 @@ The next solve after tai50b, before tho40: about a tenth of tho40's work by the 
   1.5-2 hours on one c7a/m7a core inside `qapctl init`, before any unit runs; then about 400 core-hours on
   64 slots, 6-7 hours. A depth-1 parent's state is 65 MB in fp32: a few hundred parents open at once fit
   the default 100 GB disk.
-- **Launch:** after tai50b's run of record, `infra/phase1/start.sh tai60b` with its defaults (if eu-north-1
-  does not offer m7a, start.sh says so: type `c7a.16xlarge`, and take its 41 slots).
+- **Launch:** after tai50b's run of record has ended (it holds 64 of the 128 Spot vCPUs), `infra/phase1/
+  start.sh tai60b` with 2 instances: two m7a.16xlarge, 128 slots (if eu-north-1 does not offer m7a, start.sh
+  says so: type `c7a.16xlarge`, 41 slots each). The second instance waits up to 4 hours for the run to exist
+  (`QAP_RUN_WAIT_MIN=240`, Nov 17): `qapctl init` creates it only after the root, 1.5-2 hours on one core,
+  and `node.sh`'s 30 minutes would have shut it down first. 128 slots: about 3-4 hours after the root
+  against 6-7 on 64, for the second instance idle through the root (about 2 hours of 64 cores, a dollar).
 
 ## tho40-b: let it end, then a new run
 

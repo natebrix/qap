@@ -313,7 +313,10 @@ yesno "Launch?" "$([ "$YES" = 1 ] && echo y || echo n)" || { echo "nothing launc
 
 # --- the recipe (a new run) and the launches
 COMMON=(--type "$TYPE" --region "$REGION" --limit $((HOURS * 60)) --disk "$DISK" --no-reference)
-[ "$SLOTS" = "$CORES" ] || COMMON+=(--node-env "QAP_SLOTS=$SLOTS")   # node.sh: the worker's slots on every instance
+NENV=""; [ "$SLOTS" = "$CORES" ] || NENV="QAP_SLOTS=$SLOTS"   # node.sh: the worker's slots on every instance
+# a new run exists only once the first instance's qapctl init has bounded the root (hours for tai60b):
+# the other instances wait for it up to 4 hours instead of node.sh's 30 minutes
+WENV=$NENV; [ "$MODE" = new ] && WENV="${NENV:+$NENV }QAP_RUN_WAIT_MIN=240"
 [ "$MARKET" = on-demand ] && COMMON+=(--on-demand)
 [ "$DRY" = 1 ] && COMMON+=(--dry-run)
 FIRST=()
@@ -333,13 +336,13 @@ case $MODE in
   resume) ;;
 esac
 echo "--- instance 1 of $N: $([ "$MODE" = add ] && echo worker || echo "coordinator and worker")"
-"$D/launch.sh" "$RUN" ${FIRST[@]+"${FIRST[@]}"} "${COMMON[@]}"
+"$D/launch.sh" "$RUN" ${FIRST[@]+"${FIRST[@]}"} "${COMMON[@]}" ${NENV:+--node-env "$NENV"}
 i=2   # not seq: BSD seq counts down from 2 to 1
 while [ "$i" -le "$N" ]; do
-  if [ "$DRY" = 1 ]; then echo "--- instance $i of $N: launch.sh $RUN --worker-only ${COMMON[*]} (not run in a dry run: it needs the first)"
+  if [ "$DRY" = 1 ]; then echo "--- instance $i of $N: launch.sh $RUN --worker-only ${COMMON[*]}${WENV:+ --node-env "$WENV"} (not run in a dry run: it needs the first)"
   else
     echo "--- instance $i of $N: worker"
-    "$D/launch.sh" "$RUN" --worker-only "${COMMON[@]}" || echo "instance $i was not launched; add it later: infra/phase1/start.sh $P (run $RUN)"
+    "$D/launch.sh" "$RUN" --worker-only "${COMMON[@]}" ${WENV:+--node-env "$WENV"} || echo "instance $i was not launched; add it later: infra/phase1/start.sh $P (run $RUN)"
   fi
   i=$((i + 1))
 done

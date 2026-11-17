@@ -27,7 +27,8 @@
 # QAP_RUN_SLOTS (the run's slots, for `qapctl init`: the sum over every instance
 # the run is launched with; default QAP_SLOTS), QAP_RECIPE_FILE (a recipe outside
 # recipes/, which launch.sh --recipe-file writes from the user data; it wins over
-# QAP_RECIPE), QAP_VISIBILITY (public or private: the coordinator's public status,
+# QAP_RECIPE), QAP_RUN_WAIT_MIN (a worker's wait for its run to exist; default 30),
+# QAP_VISIBILITY (public or private: the coordinator's public status,
 # coord/publish.py; for a new run only).
 #
 # Local test (any Linux; no dnf, no shutdown): QAP_LOCAL=1, QAP_BACKEND pointing
@@ -206,8 +207,12 @@ coord_loop() {
 
 ST=$(bk status "$RUN") || { step "cannot read run $RUN from $BK: stopping"; exit 1; }
 if [ "$ROLE" = worker ]; then
-  for i in $(seq 60); do [ "$ST" != none ] && break; sleep 30; ST=$(bk status "$RUN"); done
-  [ "$ST" = none ] && { step "no run $RUN after 30 minutes: stopping"; exit 1; }
+  # the run exists only once qapctl init has bounded the root on the coordinating instance: minutes
+  # for a QPB root, hours for tai60b's long phase, so start.sh gives a new run's extra instances
+  # QAP_RUN_WAIT_MIN=240 (default 30)
+  WAIT_MIN=${QAP_RUN_WAIT_MIN:-30}
+  for i in $(seq $((WAIT_MIN * 2))); do [ "$ST" != none ] && break; sleep 30; ST=$(bk status "$RUN"); done
+  [ "$ST" = none ] && { step "no run $RUN after $WAIT_MIN minutes: stopping"; exit 1; }
   [ "$ST" = finished ] && { step "run $RUN is finished: nothing to do"; exit 0; }
   step "worker: $SLOTS slots on run $RUN ($ST)"
   worker_loop; rc=$?
