@@ -25,7 +25,7 @@ Seed patch SHA-256 `b3c0e372e2cbbfebf4941b3f2e55f6cba8245aa8f3362dd02890a91d3f6d
 
 ## Capture chains
 
-Run these commands from the workspace, using the path to `replay.py` in this directory as `qap_replay`.
+Run these commands from the workspace, using the path to `replay.py` in this directory as `qap_replay`. The active `progress.json` reports approximate process CPU and resident memory every 15 seconds on Linux. The solver writes certified history when the node's phase exits.
 
 ```sh
 python3 "$qap_replay" capture tho40_d2 tho40 26:10,8:0 c32
@@ -60,3 +60,14 @@ python3 "${qap_replay%/*}/summarize.py" --json "$QAP_EXPERIMENT_WORK"/runs/{stoc
 The only policy change for `--cap` is a hard phase iteration cap. Real cutoffs and all earlier stopping rules still apply. The extra terminal certificate can change the last reported bound. Use equally capped repetitions to compare actual CPU at fixed iteration budgets and uncapped repetitions to compare actual CPU to fathom. Omit `--cap` for the complete production phase. Use `--complete` for a subtree gate after the node screen. Node totals come from the run trace so the seed's counters never enter the subtree totals.
 
 The stock recipes are `infra/phase1/recipes/tho40c.par` for the 5×8 grid on side 1 and `tai60b.par` for the 86 overlapping cluster regions on side 0. Both use `w=0.36,wc=2.88`; tho40 retains `w` when the first solve ends within 300 objective units of the cutoff. The cut phase inherits its production launch logic, including tho40 handover and tai60b's 1,000-iteration descendant give-up. The nug12 control applies a 3×4 grid on side 1, starts with incumbent 580, and must close at the known optimum 578.
+
+## Historical complete tho40 subtree costs
+
+The November 16 M2 Pro trace with the combined recipe provides these sizes. This machine and the reconstructed states can differ in runtime and branch decisions.
+
+| Replay node | Fixes | Complete nodes | M2 Pro CPU seconds |
+|---|---|---:|---:|
+| `tho40-d3-hard` | `26:10,8:0,2:32` | 288 | 1,093.53 |
+| `tho40-d3-mid` | `26:10,8:0,3:32` | 38 | 106.71 |
+| `tho40-d4-subtree` | `26:10,8:0,2:32,33:24` | 72 | 210.45 |
+| `tho40-d5-tight` | `26:10,8:0,2:32,33:24,39:8` | 36 | 68.21 |

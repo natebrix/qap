@@ -114,6 +114,25 @@ def slice_state(source, target, fixes):
     target.with_suffix(".json").write_text(json.dumps(facts, indent=2) + "\n")
 
 
+def wait_for_solver(solver, folder, start):
+    snapshot = folder / "progress.json"
+    stat = Path(f"/proc/{solver.pid}/stat")
+    ticks = os.sysconf("SC_CLK_TCK")
+    page_kib = os.sysconf("SC_PAGE_SIZE") / 1024
+    while True:
+        try:
+            fields = stat.read_text().rsplit(") ", 1)[1].split()
+            info = {"status": fields[0], "cpu_seconds": (int(fields[11]) + int(fields[12])) / ticks,
+                    "rss_kib": int(fields[21]) * page_kib, "elapsed_seconds": time.monotonic() - start}
+            snapshot.write_text(json.dumps(info, indent=2) + "\n")
+        except (OSError, IndexError, ValueError):
+            pass
+        try:
+            return solver.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            continue
+
+
 def process(binary, instance, folder, arguments, changes, cap=None, parent_state=None):
     folder.mkdir(parents=True)
     bin_path = binary.resolve()
@@ -145,13 +164,14 @@ def process(binary, instance, folder, arguments, changes, cap=None, parent_state
     start = time.monotonic()
     initial = resource.getrusage(resource.RUSAGE_CHILDREN)
     with (folder / "stdout.txt").open("w") as stdout, (folder / "stderr.txt").open("w") as stderr:
-        completed = subprocess.run(command, cwd=bin_path.parent, env=environment, stdout=stdout, stderr=stderr)
+        with subprocess.Popen(command, cwd=bin_path.parent, env=environment, stdout=stdout, stderr=stderr) as solver:
+            exit_code = wait_for_solver(solver, folder, start)
     final = resource.getrusage(resource.RUSAGE_CHILDREN)
     manifest.update(wall_seconds=time.monotonic() - start, user_seconds=final.ru_utime - initial.ru_utime,
-                    system_seconds=final.ru_stime - initial.ru_stime, max_rss_kib=final.ru_maxrss)
-    manifest["returncode"] = completed.returncode
+                    system_seconds=final.ru_stime - initial.ru_stime, max_rss_kib=final.ru_maxrss, returncode=exit_code)
     artifact.write_text(json.dumps(manifest, indent=2) + "\n")
-    completed.check_returncode()
+    if exit_code:
+        raise subprocess.CalledProcessError(exit_code, command)
 
 
 def capture(args):
