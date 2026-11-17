@@ -1,0 +1,657 @@
+{
+  "coarse": {
+    "build": {
+      "commit": "6e53f4ff38710ce1e7397403f2fd508ba54653d4",
+      "source_sha256": {
+        "latest/dnn.C": "391698e83c4abba32c38ac22003bdad21b2b43d86fc42c07bd45a36a648e7379",
+        "latest/dnn.h": "8e223bfcc41dba3e5daa34681e7c7f99b16e514bfb5b6fc617494f09bbb8e06e",
+        "latest/dnncut.C": "05d33eca02adf66f0f9c63ea4878214becbc2642037fd518a2b32fc4f8314223",
+        "latest/dnncut.h": "ace39102e8e755ecb9f254a1cd1456d97293716697bc7267fc343b52b5f4643e",
+        "latest/settings.C": "880cfbe1f3ec1607bd649017f17a82abcbf68aba71e48e9bd94d849dfc9246e3",
+        "experiments/dnn_cuts/dnncuts.C": "105b1a224733a0f9e3224d712a2e90e22bf28359955646c81ebb9592699b80e5"
+      },
+      "linked_object_sha256": {
+        "dnn.o": "070cf782c78753849f7fe1d6be7a895380736acf837ce28df1eac287f6422069",
+        "dnncut.o": "fd163f7c560c66e16ca32fbe5562499c2a7ef2b76facb68f6c0daa776b3bc25e",
+        "settings.o": "0f74d9015e040a4359c7bea6104892bdbbb7e3205c12303dde4c69ad5e11bbce"
+      },
+      "driver_sha256": "61cb98ce22d3b9e8b0d805d6f2e06f415472c51d494d97716ff98cdc13815a75",
+      "command": "g++ -O2 -std=gnu++17 -Wno-register -ffp-contract=off -DHAVE_DNN -I. /tmp/verify-qap-cp-0dnxh19u/driver_coarse.C qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o -o /tmp/verify-qap-cp-0dnxh19u/verify_coarse -lm /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-6cdc3b4a.so -Wl,-rpath,/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs",
+      "temporary_driver_sha256": "391ec492ceb9f6122a6395ac2634c85178707f510504084ae86021067839a659"
+    },
+    "cases": [
+      {
+        "sample": 0,
+        "side": 0,
+        "free_order": 7,
+        "exact_optimum": -2526,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -2526.000001194,
+        "best_value_minus_optimum": -1.1940001058974303e-06,
+        "best_precise_value_minus_optimum": -1.1940001058974303e-06,
+        "quiet_value": -2540.7309945643,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_active_coarse_rows": 24
+        },
+        "fixture_sha256": "3243cb2abdd7a0f64d44aade000f47be45b979fa57ee984089d8ff44fba7e02b",
+        "overridden_environment": {},
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_coarse -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -1526 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_coarse -coarse /tmp/verify-qap-cp-0dnxh19u/pool_0_0.txt /tmp/verify-qap-cp-0dnxh19u/random_0.dat"
+      },
+      {
+        "sample": 0,
+        "side": 1,
+        "free_order": 7,
+        "exact_optimum": -2526,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -2526.0000042021,
+        "best_value_minus_optimum": -4.202100171823986e-06,
+        "best_precise_value_minus_optimum": -4.202100171823986e-06,
+        "quiet_value": -2536.7982184065,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_active_coarse_rows": 24
+        },
+        "fixture_sha256": "3243cb2abdd7a0f64d44aade000f47be45b979fa57ee984089d8ff44fba7e02b",
+        "overridden_environment": {},
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_coarse -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -1526 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_coarse -coarse /tmp/verify-qap-cp-0dnxh19u/pool_0_1.txt /tmp/verify-qap-cp-0dnxh19u/random_0.dat"
+      },
+      {
+        "sample": 1,
+        "side": 0,
+        "free_order": 6,
+        "exact_optimum": 759,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": 758.9999997416,
+        "best_value_minus_optimum": -2.583999503258383e-07,
+        "best_precise_value_minus_optimum": -2.583999503258383e-07,
+        "quiet_value": 749.3044127065,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_active_coarse_rows": 24
+        },
+        "fixture_sha256": "04b0fa4d773673ad033a9c0fc1f5192d42388b0c2a6789a47a5ef84b5804d592",
+        "overridden_environment": {},
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_coarse -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 1759 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_coarse -coarse /tmp/verify-qap-cp-0dnxh19u/pool_1_0.txt -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_1.dat"
+      },
+      {
+        "sample": 1,
+        "side": 1,
+        "free_order": 6,
+        "exact_optimum": 759,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": 758.9999996557299,
+        "best_value_minus_optimum": -3.4427011996740475e-07,
+        "best_precise_value_minus_optimum": -3.4427011996740475e-07,
+        "quiet_value": 738.415546709,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_active_coarse_rows": 24
+        },
+        "fixture_sha256": "04b0fa4d773673ad033a9c0fc1f5192d42388b0c2a6789a47a5ef84b5804d592",
+        "overridden_environment": {},
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_coarse -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 1759 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_coarse -coarse /tmp/verify-qap-cp-0dnxh19u/pool_1_1.txt -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_1.dat"
+      },
+      {
+        "sample": 2,
+        "side": 0,
+        "free_order": 7,
+        "exact_optimum": -678,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -684.2487889286529,
+        "best_value_minus_optimum": -6.248788928652857,
+        "best_precise_value_minus_optimum": -6.248788928652857,
+        "quiet_value": -707.0098042532,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_active_coarse_rows": 24
+        },
+        "fixture_sha256": "dee883752874d5dfc169f49239d1b97dcfdd10e1b876e5cc6c384b79fda2e5b0",
+        "overridden_environment": {},
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_coarse -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 322 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_coarse -coarse /tmp/verify-qap-cp-0dnxh19u/pool_2_0.txt /tmp/verify-qap-cp-0dnxh19u/random_2.dat"
+      },
+      {
+        "sample": 2,
+        "side": 1,
+        "free_order": 7,
+        "exact_optimum": -678,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -678.3673519416,
+        "best_value_minus_optimum": -0.36735194159996354,
+        "best_precise_value_minus_optimum": -0.36735194159996354,
+        "quiet_value": -709.7912721354,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_active_coarse_rows": 24
+        },
+        "fixture_sha256": "dee883752874d5dfc169f49239d1b97dcfdd10e1b876e5cc6c384b79fda2e5b0",
+        "overridden_environment": {},
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_coarse -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 322 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_coarse -coarse /tmp/verify-qap-cp-0dnxh19u/pool_2_1.txt /tmp/verify-qap-cp-0dnxh19u/random_2.dat"
+      },
+      {
+        "sample": 3,
+        "side": 0,
+        "free_order": 6,
+        "exact_optimum": -3467,
+        "status": "converged",
+        "iterations": 310,
+        "finite_values": 5,
+        "best_value": -3467.0,
+        "best_value_minus_optimum": 0.0,
+        "best_precise_value_minus_optimum": -3.3145001907541882e-06,
+        "quiet_value": -3468.1900402974,
+        "lazy_checks": 30,
+        "lazy_exit_values": [
+          -3467.0,
+          -3467.0
+        ],
+        "activation": {
+          "max_active_coarse_rows": 24
+        },
+        "fixture_sha256": "0a5f0eb6e58b6a0a26a23954e386d3b8c933c51f4d8e2b937fc7b5bed19f63f7",
+        "overridden_environment": {},
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_coarse -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -2467 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_coarse -coarse /tmp/verify-qap-cp-0dnxh19u/pool_3_0.txt -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_3.dat"
+      },
+      {
+        "sample": 3,
+        "side": 1,
+        "free_order": 6,
+        "exact_optimum": -3467,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -3467.000001060377,
+        "best_value_minus_optimum": -1.0603771443129517e-06,
+        "best_precise_value_minus_optimum": -1.0603771443129517e-06,
+        "quiet_value": -3468.1143910669,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_active_coarse_rows": 24
+        },
+        "fixture_sha256": "0a5f0eb6e58b6a0a26a23954e386d3b8c933c51f4d8e2b937fc7b5bed19f63f7",
+        "overridden_environment": {},
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_coarse -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -2467 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_coarse -coarse /tmp/verify-qap-cp-0dnxh19u/pool_3_1.txt -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_3.dat"
+      }
+    ],
+    "case_count": 8,
+    "lazy_exit_cases": 1,
+    "lazy_checks": 366,
+    "finite_values": 33,
+    "worst_value_minus_optimum": 0.0,
+    "worst_precise_value_minus_optimum": -2.583999503258383e-07
+  },
+  "scaling": {
+    "build": {
+      "commit": "f6b2bbe0aeafd8dd309bf0df07397a948ef10b7d",
+      "source_sha256": {
+        "latest/dnn.C": "f9e5776200d7fc8dbc448e85fc4208dfaa27d33a2a9a9b53b4f9e58b340e2bab",
+        "latest/dnn.h": "a4453583e543e92386bd2427a77c26c8150f34dee6990f35e409db81c166acb1",
+        "latest/dnncut.C": "3b9cd961f16ec052b6061c26be25028ed3580477dfc0d3a56ea4c3c9e014fbc5",
+        "latest/dnncut.h": "d5c67469fc3d63a0f0f8205d67839a9d8f3fed2c09db6dd7a74c01b9f83bfe6a",
+        "latest/settings.C": "777b68340b0073e55e10a13c66d0f0cee069784b155213d20e6bb12ab1193eac",
+        "experiments/dnn_cuts/dnncuts.C": "3123f86d00264ddba9f6c120907ec890a40b32f78f6f6b660ee5fc864cceb082"
+      },
+      "linked_object_sha256": {
+        "dnn.o": "55aa8c466a6846594e8645069c78c7d1b43737f289853ef03a8ba18477ffd5cf",
+        "dnncut.o": "44d8f42838ad581a2f411284bd2d809a99ed070ccc6b4d9ff28bc71c87d05ba7",
+        "settings.o": "4a30b12e7776020f7a71864a175c524ffeefc5696144a303421f07b6b82bc28b"
+      },
+      "driver_sha256": "c198da4fdbb9895f1f8d0acfd2d5b6a645e9aac4b6da207f0205d394f199da2f",
+      "command": "g++ -O2 -std=gnu++17 -Wno-register -ffp-contract=off -DHAVE_DNN -I. /tmp/verify-qap-cp-0dnxh19u/driver_scaling.C qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o -o /tmp/verify-qap-cp-0dnxh19u/verify_scaling -lm /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-6cdc3b4a.so -Wl,-rpath,/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs",
+      "temporary_driver_sha256": "79b370538db96b71ae66802169589747f0d2fec3d36778e8904c539945baaedf"
+    },
+    "cases": [
+      {
+        "sample": 0,
+        "side": 0,
+        "free_order": 7,
+        "exact_optimum": -2526,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -2526.0000071203,
+        "best_value_minus_optimum": -7.120299869711744e-06,
+        "best_precise_value_minus_optimum": -7.120299869711744e-06,
+        "quiet_value": -2554.4382812947,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "scale_on": true,
+          "transition_to_plain": false
+        },
+        "fixture_sha256": "3243cb2abdd7a0f64d44aade000f47be45b979fa57ee984089d8ff44fba7e02b",
+        "overridden_environment": {
+          "DNN_CP_DSCALE": ".5",
+          "DNN_CP_DSCALE_UNTIL": "0"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_scaling -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -1526 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_scaling /tmp/verify-qap-cp-0dnxh19u/random_0.dat"
+      },
+      {
+        "sample": 0,
+        "side": 1,
+        "free_order": 7,
+        "exact_optimum": -2526,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -2526.000004238352,
+        "best_value_minus_optimum": -4.238352175889304e-06,
+        "best_precise_value_minus_optimum": -4.238352175889304e-06,
+        "quiet_value": -2557.0747537112,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "scale_on": true,
+          "transition_to_plain": false
+        },
+        "fixture_sha256": "3243cb2abdd7a0f64d44aade000f47be45b979fa57ee984089d8ff44fba7e02b",
+        "overridden_environment": {
+          "DNN_CP_DSCALE": ".5",
+          "DNN_CP_DSCALE_UNTIL": "0"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_scaling -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -1526 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_scaling /tmp/verify-qap-cp-0dnxh19u/random_0.dat"
+      },
+      {
+        "sample": 1,
+        "side": 0,
+        "free_order": 6,
+        "exact_optimum": 759,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": 758.9999992855471,
+        "best_value_minus_optimum": -7.144528808566974e-07,
+        "best_precise_value_minus_optimum": -7.144528808566974e-07,
+        "quiet_value": 742.6147605973,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "scale_on": true,
+          "transition_to_plain": true
+        },
+        "fixture_sha256": "04b0fa4d773673ad033a9c0fc1f5192d42388b0c2a6789a47a5ef84b5804d592",
+        "overridden_environment": {
+          "DNN_CP_DSCALE": ".5",
+          "DNN_CP_DSCALE_UNTIL": "22"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_scaling -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 1759 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_scaling -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_1.dat"
+      },
+      {
+        "sample": 1,
+        "side": 1,
+        "free_order": 6,
+        "exact_optimum": 759,
+        "status": "converged",
+        "iterations": 270,
+        "finite_values": 5,
+        "best_value": 759.0,
+        "best_value_minus_optimum": 0.0,
+        "best_precise_value_minus_optimum": -5.597800054601976e-06,
+        "quiet_value": 756.1915552795,
+        "lazy_checks": 26,
+        "lazy_exit_values": [
+          759.0,
+          759.0
+        ],
+        "activation": {
+          "scale_on": true,
+          "transition_to_plain": true
+        },
+        "fixture_sha256": "04b0fa4d773673ad033a9c0fc1f5192d42388b0c2a6789a47a5ef84b5804d592",
+        "overridden_environment": {
+          "DNN_CP_DSCALE": ".5",
+          "DNN_CP_DSCALE_UNTIL": "22"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_scaling -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 1759 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_scaling -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_1.dat"
+      },
+      {
+        "sample": 2,
+        "side": 0,
+        "free_order": 7,
+        "exact_optimum": -678,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -678.9473272493966,
+        "best_value_minus_optimum": -0.9473272493966078,
+        "best_precise_value_minus_optimum": -0.9473272493966078,
+        "quiet_value": -707.2554080566,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "scale_on": true,
+          "transition_to_plain": false
+        },
+        "fixture_sha256": "dee883752874d5dfc169f49239d1b97dcfdd10e1b876e5cc6c384b79fda2e5b0",
+        "overridden_environment": {
+          "DNN_CP_DSCALE": ".5",
+          "DNN_CP_DSCALE_UNTIL": "0"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_scaling -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 322 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_scaling /tmp/verify-qap-cp-0dnxh19u/random_2.dat"
+      },
+      {
+        "sample": 2,
+        "side": 1,
+        "free_order": 7,
+        "exact_optimum": -678,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -679.2249114236,
+        "best_value_minus_optimum": -1.2249114236000196,
+        "best_precise_value_minus_optimum": -1.2249114236000196,
+        "quiet_value": -718.0246320568,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "scale_on": true,
+          "transition_to_plain": false
+        },
+        "fixture_sha256": "dee883752874d5dfc169f49239d1b97dcfdd10e1b876e5cc6c384b79fda2e5b0",
+        "overridden_environment": {
+          "DNN_CP_DSCALE": ".5",
+          "DNN_CP_DSCALE_UNTIL": "0"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_scaling -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 322 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_scaling /tmp/verify-qap-cp-0dnxh19u/random_2.dat"
+      },
+      {
+        "sample": 3,
+        "side": 0,
+        "free_order": 6,
+        "exact_optimum": -3467,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -3467.0000065485638,
+        "best_value_minus_optimum": -6.548563760588877e-06,
+        "best_precise_value_minus_optimum": -6.548563760588877e-06,
+        "quiet_value": -3468.406558544,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "scale_on": true,
+          "transition_to_plain": true
+        },
+        "fixture_sha256": "0a5f0eb6e58b6a0a26a23954e386d3b8c933c51f4d8e2b937fc7b5bed19f63f7",
+        "overridden_environment": {
+          "DNN_CP_DSCALE": ".5",
+          "DNN_CP_DSCALE_UNTIL": "22"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_scaling -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -2467 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_scaling -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_3.dat"
+      },
+      {
+        "sample": 3,
+        "side": 1,
+        "free_order": 6,
+        "exact_optimum": -3467,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -3467.0000001597905,
+        "best_value_minus_optimum": -1.5979048839653842e-07,
+        "best_precise_value_minus_optimum": -1.5979048839653842e-07,
+        "quiet_value": -3467.5728195491,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "scale_on": true,
+          "transition_to_plain": true
+        },
+        "fixture_sha256": "0a5f0eb6e58b6a0a26a23954e386d3b8c933c51f4d8e2b937fc7b5bed19f63f7",
+        "overridden_environment": {
+          "DNN_CP_DSCALE": ".5",
+          "DNN_CP_DSCALE_UNTIL": "22"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_scaling -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -2467 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_scaling -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_3.dat"
+      }
+    ],
+    "case_count": 8,
+    "lazy_exit_cases": 1,
+    "lazy_checks": 362,
+    "finite_values": 33,
+    "worst_value_minus_optimum": 0.0,
+    "worst_precise_value_minus_optimum": -1.5979048839653842e-07
+  },
+  "equalities": {
+    "build": {
+      "commit": "f734af31b50893a1bbb0b118e4ce605a035ed842",
+      "source_sha256": {
+        "latest/dnn.C": "391698e83c4abba32c38ac22003bdad21b2b43d86fc42c07bd45a36a648e7379",
+        "latest/dnn.h": "8e223bfcc41dba3e5daa34681e7c7f99b16e514bfb5b6fc617494f09bbb8e06e",
+        "latest/dnncut.C": "49874a4801e7d7955a9bffdbbbb6c6f633e341b5b8883fc86b51721a08dab23a",
+        "latest/dnncut.h": "d5c67469fc3d63a0f0f8205d67839a9d8f3fed2c09db6dd7a74c01b9f83bfe6a",
+        "latest/settings.C": "510d55ac14d207cd451e76ff1f3220610ff18c0afe7b9351758802d19871b5bd",
+        "experiments/dnn_cuts/dnncuts.C": "3123f86d00264ddba9f6c120907ec890a40b32f78f6f6b660ee5fc864cceb082"
+      },
+      "linked_object_sha256": {
+        "dnn.o": "070cf782c78753849f7fe1d6be7a895380736acf837ce28df1eac287f6422069",
+        "dnncut.o": "997b397504fce39b33c24b11d6244674080b1313d15292ec23961c6eb6a73167",
+        "settings.o": "69d98aa7524fef09a1eeddd3d7063be09cc9fc4163e210fba94a5674b16714d2"
+      },
+      "driver_sha256": "bb262395866c3c55b31ad82754c786321e06efbee382f6e816c5f115b9bd807a",
+      "command": "g++ -O2 -std=gnu++17 -Wno-register -ffp-contract=off -DHAVE_DNN -I. /tmp/verify-qap-cp-0dnxh19u/driver_equalities.C qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o -o /tmp/verify-qap-cp-0dnxh19u/verify_equalities -lm /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs/libscipy_openblas-6cdc3b4a.so -Wl,-rpath,/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs",
+      "temporary_driver_sha256": "79b370538db96b71ae66802169589747f0d2fec3d36778e8904c539945baaedf"
+    },
+    "cases": [
+      {
+        "sample": 0,
+        "side": 0,
+        "free_order": 7,
+        "exact_optimum": -2526,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -2526.000001918,
+        "best_value_minus_optimum": -1.9180001800123136e-06,
+        "best_precise_value_minus_optimum": -1.9180001800123136e-06,
+        "quiet_value": -2540.683380404,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_cardinality_residual": 0.005322,
+          "max_row_residual": 0.02231
+        },
+        "fixture_sha256": "3243cb2abdd7a0f64d44aade000f47be45b979fa57ee984089d8ff44fba7e02b",
+        "overridden_environment": {
+          "DNN_CP_REGION_EQ": "1"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_equalities -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -1526 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_equalities /tmp/verify-qap-cp-0dnxh19u/random_0.dat"
+      },
+      {
+        "sample": 0,
+        "side": 1,
+        "free_order": 7,
+        "exact_optimum": -2526,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -2526.0000079325,
+        "best_value_minus_optimum": -7.93250001152046e-06,
+        "best_precise_value_minus_optimum": -7.93250001152046e-06,
+        "quiet_value": -2546.2213999167,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_cardinality_residual": 0.01074,
+          "max_row_residual": 0.01803
+        },
+        "fixture_sha256": "3243cb2abdd7a0f64d44aade000f47be45b979fa57ee984089d8ff44fba7e02b",
+        "overridden_environment": {
+          "DNN_CP_REGION_EQ": "1"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_equalities -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -1526 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_equalities /tmp/verify-qap-cp-0dnxh19u/random_0.dat"
+      },
+      {
+        "sample": 1,
+        "side": 0,
+        "free_order": 6,
+        "exact_optimum": 759,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": 758.9999935790262,
+        "best_value_minus_optimum": -6.420973818421771e-06,
+        "best_precise_value_minus_optimum": -6.420973818421771e-06,
+        "quiet_value": 741.1823501315,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_cardinality_residual": 0.04467,
+          "max_row_residual": 0.01287
+        },
+        "fixture_sha256": "04b0fa4d773673ad033a9c0fc1f5192d42388b0c2a6789a47a5ef84b5804d592",
+        "overridden_environment": {
+          "DNN_CP_REGION_EQ": "1"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_equalities -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 1759 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_equalities -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_1.dat"
+      },
+      {
+        "sample": 1,
+        "side": 1,
+        "free_order": 6,
+        "exact_optimum": 759,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": 758.9999944761,
+        "best_value_minus_optimum": -5.523899972104118e-06,
+        "best_precise_value_minus_optimum": -5.523899972104118e-06,
+        "quiet_value": 728.3462005818,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_cardinality_residual": 0.05219,
+          "max_row_residual": 0.01283
+        },
+        "fixture_sha256": "04b0fa4d773673ad033a9c0fc1f5192d42388b0c2a6789a47a5ef84b5804d592",
+        "overridden_environment": {
+          "DNN_CP_REGION_EQ": "1"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_equalities -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 1759 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_equalities -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_1.dat"
+      },
+      {
+        "sample": 2,
+        "side": 0,
+        "free_order": 7,
+        "exact_optimum": -678,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -680.3643609970607,
+        "best_value_minus_optimum": -2.3643609970606576,
+        "best_precise_value_minus_optimum": -2.3643609970606576,
+        "quiet_value": -716.3135948075,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_cardinality_residual": 0.02817,
+          "max_row_residual": 0.01024
+        },
+        "fixture_sha256": "dee883752874d5dfc169f49239d1b97dcfdd10e1b876e5cc6c384b79fda2e5b0",
+        "overridden_environment": {
+          "DNN_CP_REGION_EQ": "1"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_equalities -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 322 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_equalities /tmp/verify-qap-cp-0dnxh19u/random_2.dat"
+      },
+      {
+        "sample": 2,
+        "side": 1,
+        "free_order": 7,
+        "exact_optimum": -678,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 5,
+        "best_value": -678.0,
+        "best_value_minus_optimum": 0.0,
+        "best_precise_value_minus_optimum": -2.9231000553409103e-06,
+        "quiet_value": -712.1457230113,
+        "lazy_checks": 48,
+        "lazy_exit_values": [
+          -678.0
+        ],
+        "activation": {
+          "max_cardinality_residual": 0.0243,
+          "max_row_residual": 0.0114
+        },
+        "fixture_sha256": "dee883752874d5dfc169f49239d1b97dcfdd10e1b876e5cc6c384b79fda2e5b0",
+        "overridden_environment": {
+          "DNN_CP_REGION_EQ": "1"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_equalities -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c 322 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_equalities /tmp/verify-qap-cp-0dnxh19u/random_2.dat"
+      },
+      {
+        "sample": 3,
+        "side": 0,
+        "free_order": 6,
+        "exact_optimum": -3467,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -3467.0000000961,
+        "best_value_minus_optimum": -9.609993867343292e-08,
+        "best_precise_value_minus_optimum": -9.609993867343292e-08,
+        "quiet_value": -3472.4948794312,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_cardinality_residual": 0.002113,
+          "max_row_residual": 0.004053
+        },
+        "fixture_sha256": "0a5f0eb6e58b6a0a26a23954e386d3b8c933c51f4d8e2b937fc7b5bed19f63f7",
+        "overridden_environment": {
+          "DNN_CP_REGION_EQ": "1"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_equalities -prefix -side 0 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -2467 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_equalities -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_3.dat"
+      },
+      {
+        "sample": 3,
+        "side": 1,
+        "free_order": 6,
+        "exact_optimum": -3467,
+        "status": "iter_limit",
+        "iterations": 500,
+        "finite_values": 4,
+        "best_value": -3467.0000006585,
+        "best_value_minus_optimum": -6.585000846826006e-07,
+        "best_precise_value_minus_optimum": -6.585000846826006e-07,
+        "quiet_value": -3475.3274788633,
+        "lazy_checks": 48,
+        "lazy_exit_values": [],
+        "activation": {
+          "max_cardinality_residual": 0.004262,
+          "max_row_residual": 0.003693
+        },
+        "fixture_sha256": "0a5f0eb6e58b6a0a26a23954e386d3b8c933c51f4d8e2b937fc7b5bed19f63f7",
+        "overridden_environment": {
+          "DNN_CP_REGION_EQ": "1"
+        },
+        "command": "/tmp/verify-qap-cp-0dnxh19u/verify_equalities -prefix -side 1 -I 25 -k 20 -cpsep 10:10:100:20 -cpiters 500 -cpquiet 12 -c -2467 -dumpY /tmp/verify-qap-cp-0dnxh19u/state_equalities -x 0:4 /tmp/verify-qap-cp-0dnxh19u/random_3.dat"
+      }
+    ],
+    "case_count": 8,
+    "lazy_exit_cases": 1,
+    "lazy_checks": 384,
+    "finite_values": 33,
+    "worst_value_minus_optimum": 0.0,
+    "worst_precise_value_minus_optimum": -9.609993867343292e-08
+  }
+}
