@@ -35,6 +35,36 @@ The tai60b test shared a 585,899,572.815 seed certificate after 100 ordinary and
 
 The solver's `make test` passed, including all 7 reference cases with exact node counts. The optional AWS coordinator scenario skipped because boto3 and moto were unavailable. Brute-force seeds 2 and 3 each passed 4,536 checks. The separate coarse validation exhausted small asymmetric QAPs in both region orientations, including four reduced-node cases and signed dyadic RHS values. Eight active cases produced 32 finite CP/quiet certificates and 80 lazy checks. The maximum printed certificate minus the exact optimum was −1.0169e−6. The follow-up validation included order-six random coefficients and four labels. Eight active cases produced 33 finite certificates and 80 lazy checks, with no printed bound above the optimum.
 
+## Longer tai60b replay
+
+Both arms ran 600 continuation iterations from the same original checkpoint with the original frozen 40-cut pool. They used one BLAS thread each and overlapped on the same host. Every certificate through iteration 120 matched the earlier run exactly. Each arm made 60 certified checks with zero failures.
+
+| Iteration | Regional running best | Coarse running best | Coarse gain |
+|---:|---:|---:|---:|
+| 120 | 594,804,614.480 | 595,274,673.453 | +470,058.973 |
+| 200 | 598,024,306.937 | 598,380,849.173 | +356,542.235 |
+| 300 | 600,595,694.753 | 600,886,128.470 | +290,433.718 |
+| 400 | 601,990,875.764 | 602,217,030.203 | +226,154.439 |
+| 500 | 602,872,949.445 | 603,021,045.822 | +148,096.377 |
+| 600 | 603,671,585.529 | 603,777,531.952 | +105,946.422 |
+
+The gain peaked at 476,320.084 at iteration 130, then fell to 105,946.422 at iteration 600. Twenty-six coarse multipliers were active at the end. The course of both certificates stayed below 604 million. The final coarse certificate was 4.44 million below the cutoff, and the final gain closed 2.33% of the regional shortfall.
+
+| Certified target | Regional iteration | Coarse iteration | Regional CPU s | Coarse CPU s, including setup |
+|---:|---:|---:|---:|---:|
+| 594,000,000 | 100 | 90 | 156.56 | 147.65 |
+| 600,000,000 | 280 | 270 | 472.70 | 476.24 |
+| 602,000,000 | 410 | 390 | 681.93 | 679.09 |
+| 602,800,000 | 480 | 460 | 793.95 | 796.38 |
+| 603,000,000 | 520 | 480 | 857.81 | 831.09 |
+| 603,100,000 | 520 | 510 | 857.81 | 880.65 |
+| 603,200,000 | 530 | 520 | 873.27 | 897.01 |
+| 603,671,585.529 | 600 | 580 | 986.79 | 1,000.82 |
+
+Regional solve CPU was 987.1 seconds. Coarse solve CPU was 1,032.2 seconds, with 2.16 seconds of setup. At the regional CPU budget, the last eligible coarse check was iteration 570 and its certificate trailed by 51,004.529. Charging the original separator's 1.41 seconds still left iteration 570 as the last eligible check. The 603 million threshold favored coarse cuts on this host and run. Nearby thresholds and the final regional certificate favored the regional arm's measured CPU. The overlapping runs make these CPU comparisons screening evidence.
+
+The fixed coarse pool preserved an iteration advantage at several thresholds. Its absolute bound gain shrank over the longer run, and the final certificate remained below the regional certificate at the shared CPU budget. This comparison leaves near-cutoff and converged bound impact unmeasured.
+
 ## Reproduction
 
 Use a single BLAS thread. This Linux build linked the SciPy-supplied OpenBLAS 32-bit interface. Set `blas_dir` to the directory that contains the library on the current machine.
@@ -59,3 +89,24 @@ python3 experiments/coarse_label_261117/run_gate.py /tmp/coarse-t6 tho40_d5 \
 ```
 
 `local_control.py` solves an outer LP with the exact local binary moment hull for every union of coarse labels and the local configuration affine constraints. It can filter LP-redundant directions and test numerical PSD witnesses by convex mixing. A positive LP violation alone leaves PSD nonredundancy open. This small local model does not establish global QAP bound improvement.
+
+The longer tai60b replay uses the original checkpoint from the 120-iteration gate and the byte-identical recorded coarse pool. From the repository root, use a fresh output directory and run the pair concurrently with one BLAS thread each.
+
+```bash
+seed=/tmp/coarse-gate/tai60b_d2/seed.cp
+pool=experiments/coarse_label_261117/results/tai60b_d2/coarse.pool
+late=/tmp/coarse-gate/tai60b_d2_600
+mkdir "$late"
+export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+args=(-x 44:45,43:58 -u 608215055 -H 0 -k 1000 -cpsep 100:1000
+      -p infra/phase1/recipes/tai60b.par -side 0 -warmY
+      -regions infra/phase1/recipes/tai60b.regions -cpiters 600 -startcp "$seed")
+experiments/dnn_cuts/dnncuts "${args[@]}" qaplib/tai60b.dat > "$late/regional.log" 2>&1 &
+regional_pid=$!
+experiments/dnn_cuts/dnncuts "${args[@]}" -coarse "$pool" qaplib/tai60b.dat > "$late/coarse.log" 2>&1 &
+coarse_pid=$!
+wait "$regional_pid"
+wait "$coarse_pid"
+python3 experiments/coarse_label_261117/summarize_late_tai.py \
+  "$late" /tmp/coarse-gate/tai60b_d2/summary.json
+```
