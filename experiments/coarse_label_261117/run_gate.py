@@ -19,7 +19,7 @@ CASES = {
     "tho40_d3": ("tho40t", "tho40c", "26:10,8:0,2:32", 240516, 1, 300, 400, 500),
     "tai60b_d2": ("tai60b", "tai60b", "44:45,43:58", 608215055, 0, 100, 200, 300),
 }
-SOLVER_CHECK = re.compile(r"^it\s+(\d+) lb .*? cpu (\S+)$", re.M)
+SOLVER_CHECK = re.compile(r"^it\s+(\d+) lb .*? cpu (\S+)(?: extra)?$", re.M)
 CP_CHECK = re.compile(r"^cp it\s+(\d+) cert (\S+)", re.M)
 SOLVE = re.compile(r"^cp solve  lb (\S+).*?status (\S+)  iters (\d+)  cpu (\S+)  certs (\d+) failures (\d+)", re.M)
 FINAL = re.compile(r"^FINAL best_lb (\S+) first_lb (\S+)", re.M)
@@ -45,6 +45,14 @@ def parse(log, process_cpu=None):
     for it, cert in CP_CHECK.findall(text):
         running_best = max(running_best, float(cert))
         trajectory.append({"it": int(it), "best": running_best, "cpu": cp_cpu[int(it)]})
+    # A lazy exit can recover a stronger certified value than any check's
+    # trace reported. Attribute it to the end of the solve, at actual CPU.
+    if trajectory and float(lb) > running_best:
+        terminal = {"it": int(iters), "best": float(lb), "cpu": float(cpu)}
+        if terminal["it"] == trajectory[-1]["it"]:
+            trajectory[-1] = terminal
+        else:
+            trajectory.append(terminal)
     coarse = re.findall(r"coarse (\d+) active (\d+) sum_nu (\S+) maxviol (\S+)/", text)
     setup = re.search(r"setup cpu (\S+)", text)
     return {"lb": float(lb), "best": best, "first": first, "status": status, "iters": int(iters),
