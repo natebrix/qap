@@ -73,8 +73,8 @@ stopped part-way, not a solve of tai50b.**
 
 ## Status
 
-- Levels complete: depths 1 to 7; 3,899 nodes below the root, 673,874 DNN iterations, 223,420 CPU-s = 62.1 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
-- Open nodes now: ? at depth 8 (`open/open_8.txt`).
+- Levels complete: depths 1 to 6 (57.3 core-hours, 3,269 nodes); depth 7 is partial (630 of 704 nodes), and with it: 3,899 nodes below the root, 673,874 DNN iterations, 223,420 CPU-s = 62.1 core-hours (the root: 6,470 iterations, 4,341 CPU-s, run in `../tai50b_size`).
+- Open nodes: depth 7 unfinished (`open/open_7.txt` lists its 704 nodes); depth 8 not built.
 - Incumbents found: none yet (the search starts from 458,821,518 = best known + 1).
 - Path of the best known solution: 7 nodes bounded on it, **0 violations** (fathomed, or a certified bound above 458,821,517). Largest certified bound on it: 458,516,041.5649.
 
