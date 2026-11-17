@@ -23,6 +23,7 @@ AMD EPYC 9V74, one BLAS thread. Solver code was committed at `6e53f4ff` before t
 | tho40t d5, 40 cuts on 4–5 elements | 500 | 240,346.010 | 240,352.808 | +6.798 | +12.586 | 57.86 | 69.76 | −29.702 |
 | tho40t d3, 40 cuts on 4–5 elements | 500 | 238,341.098 | 238,350.449 | +9.351 | +9.351 | 82.60 | 93.90 | −24.728 |
 | tho40t d5, 12 screened cuts on 6 elements | 500 | 240,346.010 | 240,346.765 | +0.755 | +7.226 | 57.86 | 75.68 | −60.813 |
+| tai60b d2, 40 cuts on 4–5 elements | 120 | 594,804,614.480 | 595,274,673.453 | +470,058.973 | +470,058.973 | 188.90 | 203.24 | −297,998.806 |
 
 The tho40t tests show small gains at equal iterations and weaker certificates at equal CPU. None reached the cutoff. Several additional directions were active, so the weak outcome was not caused by a disabled pool. At iteration 500, the two 40-cut experiments had 37 and 34 active coarse multipliers. Regional P-steps took about 3.5–4.7 ms and the coarse variants about 12.8–14.1 ms. D5's 40-cut pool included four cut directions with numerical PSD witnesses against all union binary moment hulls, while 25 were already implied by those hulls and the affine equations in the local LP model.
 
@@ -30,7 +31,9 @@ The higher-order pool used 23 distinct subsets from 12 flow seeds and 12 random 
 
 The three tho40t comparisons do not support a larger subtree gate. They test selected fixed pools at finite budgets and leave the full optimal objective impact of this cut family unresolved.
 
-The solver's `make test` passed, including all 7 reference cases with exact node counts. Brute-force seeds 2 and 3 each passed 4,536 checks. The separate coarse validation exhausted small asymmetric QAPs in both region orientations, including four reduced-node cases and signed dyadic RHS values. Eight active cases produced 32 finite CP/quiet certificates and 80 lazy checks. The maximum printed certificate minus the exact optimum was −1.0169e−6. The follow-up validation included order-six random coefficients and four labels; eight active cases produced 33 finite certificates and 80 lazy checks, with no printed bound above the optimum.
+The tai60b test shared a 585,899,572.815 seed certificate after 100 ordinary and 200 regional CP iterations. Both fixed first-side indices exhausted the original two-element cluster. The four original cells therefore had residual capacities [14, 0, 8, 36], with 81 and 243 local configurations on four and five elements. The regional pool began with 3,000 cuts over 69 mapped regions. The final coarse pool had 32 active multipliers. Its P-step averaged 71.4 ms versus 21.6 ms, and the separator plus projector setup cost 3.04 CPU s. The candidate reached the regional arm's final certificate at 202.81 check CPU seconds versus 188.80. Earlier shared thresholds also took more checked CPU. The +470,059 gain at 120 iterations leaves about 12.94 million to the cutoff. This test is at an early certificate and does not settle the potential near the production bound.
+
+The solver's `make test` passed, including all 7 reference cases with exact node counts. The optional AWS coordinator scenario skipped because boto3 and moto were unavailable. Brute-force seeds 2 and 3 each passed 4,536 checks. The separate coarse validation exhausted small asymmetric QAPs in both region orientations, including four reduced-node cases and signed dyadic RHS values. Eight active cases produced 32 finite CP/quiet certificates and 80 lazy checks. The maximum printed certificate minus the exact optimum was −1.0169e−6. The follow-up validation included order-six random coefficients and four labels. Eight active cases produced 33 finite certificates and 80 lazy checks, with no printed bound above the optimum.
 
 ## Reproduction
 

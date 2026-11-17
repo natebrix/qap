@@ -17,7 +17,7 @@ ROOT = HERE.parents[1]
 CASES = {
     "tho40_d5": ("tho40t", "tho40c", "26:10,8:0,2:32,6:39,33:24", 240516, 1, 300, 400, 500),
     "tho40_d3": ("tho40t", "tho40c", "26:10,8:0,2:32", 240516, 1, 300, 400, 500),
-    "tai60b_d2": ("tai60b", "tai60b", "44:45,43:58", 608215055, 0, 100, 200, 300),
+    "tai60b_d2": ("tai60b", "tai60b", "44:45,43:58", 608215055, 0, 100, 200, 120),
 }
 SOLVER_CHECK = re.compile(r"^it\s+(\d+) lb .*? cpu (\S+)(?: extra)?$", re.M)
 CP_CHECK = re.compile(r"^cp it\s+(\d+) cert (\S+)", re.M)
@@ -73,10 +73,21 @@ def compare(regional, coarse, separation_cpu):
     budget = regional["cpu"]
     eligible = [p for p in coarse["trajectory"] if p["cpu"] + extra_cpu <= budget]
     at_budget = eligible[-1]["best"] if eligible else coarse["first"]
+    time_to_targets = []
+    previous = -float("inf")
+    for p in regional["trajectory"]:
+        if p["best"] <= previous:
+            continue
+        previous = p["best"]
+        reached = next((q for q in coarse["trajectory"] if q["best"] >= p["best"]), None)
+        if reached:
+            time_to_targets.append({"target": p["best"], "regional_cpu": p["cpu"],
+                                    "coarse_cpu_with_separation": reached["cpu"] + extra_cpu})
     return {"gain_at_final_check": coarse["best"] - regional["best"],
             "max_same_iteration_gain": max(p["gain"] for p in matched),
             "gain_at_regional_cpu_budget": at_budget - regional["best"],
-            "matched_checks": [p for p in matched if p["it"] % 100 == 0]}
+            "matched_checks": [p for p in matched if p["it"] % 100 == 0],
+            "time_to_shared_targets": time_to_targets}
 
 
 def run_case(name, work, args):
