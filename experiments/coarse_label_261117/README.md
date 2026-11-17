@@ -30,7 +30,7 @@ The higher-order pool used 23 distinct subsets from 12 flow seeds and 12 random 
 
 The three tho40t comparisons do not support a larger subtree gate. They test selected fixed pools at finite budgets and leave the full optimal objective impact of this cut family unresolved.
 
-The solver's `make test` passed, including all 7 reference cases with exact node counts. Brute-force seeds 2 and 3 each passed 4,536 checks. The separate coarse validation exhausted small asymmetric QAPs in both region orientations, including four reduced-node cases and signed dyadic RHS values. Eight active cases produced 32 finite CP/quiet certificates and 80 lazy checks. The maximum certificate minus the exact optimum was −1.0169e−6.
+The solver's `make test` passed, including all 7 reference cases with exact node counts. Brute-force seeds 2 and 3 each passed 4,536 checks. The separate coarse validation exhausted small asymmetric QAPs in both region orientations, including four reduced-node cases and signed dyadic RHS values. Eight active cases produced 32 finite CP/quiet certificates and 80 lazy checks. The maximum printed certificate minus the exact optimum was −1.0169e−6. The follow-up validation included order-six random coefficients and four labels; eight active cases produced 33 finite certificates and 80 lazy checks, with no printed bound above the optimum.
 
 ## Reproduction
 

@@ -13,7 +13,7 @@ import tempfile
 
 
 def synthetic_pool(m, side, rng):
-    k = 3
+    k = 4 if side == 1 else 3
     labels = [a % k for a in range(m)]
     cuts = []
     for i, j in ((0, 1), (2, 3), (4, 5)):
@@ -24,9 +24,10 @@ def synthetic_pool(m, side, rng):
                 single[g] = -sign * 1024
                 pair = [sign * 1024 if a == g else 0 for a, _ in itertools.product(range(k), repeat=2)]
                 cuts.append(([i, j], single + pair))
-    for _ in range(8):
-        subset = sorted(rng.sample(range(m), 4))
-        cuts.append((subset, [rng.randint(-1024, 1024) for _ in range(4 * k + 6 * k ** 2)]))
+    for t in (4,) * 8 + (6,) * 2:
+        subset = sorted(rng.sample(range(m), t))
+        ncoef = t * k + t * (t - 1) // 2 * k ** 2
+        cuts.append((subset, [rng.randint(-1024, 1024) for _ in range(ncoef)]))
 
     def evaluate(features, coefficients):
         value = sum(coefficients[i * k + a] for i, a in enumerate(features))
