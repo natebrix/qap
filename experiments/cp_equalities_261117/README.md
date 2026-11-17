@@ -1,6 +1,8 @@
 # Regional equalities in CP-ADMM
 
-Implementation `0fc7508b`, based on `ba47c211`. Enable with
+Implementation `0fc7508b`, based on `ba47c211`. The warm replay also includes
+`f734af31`, which obtains the capacity from the region's membership signature
+to handle a repeated index in an imported pool. Enable with
 `DNN_CP_REGION_EQ=1`. The default is zero.
 The new setting changes the recorded settings hash. The replay harness uses
 `--allow-settings-change` to reuse stock checkpoints for both arms.
@@ -74,3 +76,32 @@ at check 400 was `571.3551`, up `0.2309` from `571.1242`. The searches took
 seconds were 1.42 and 1.91 respectively including search and startup. This
 control used `tho40c.par` with a `3:4` grid, depth range `0:11`, initial DNN
 give-up set to 40, and the phase cap of 400.
+
+## Warm replay with production stopping
+
+The tho40t depth-three node `26:10,8:0,2:32` was replayed from the same
+production parent checkpoint in both arms, including fp32 Y/Z and the cut
+pool. Both retained 1,482 inherited cuts and reached `237871.8951` after
+110 first-solve iterations. `tho40c.par` was used with production separation,
+penalty and handover, with one OpenBLAS thread. No phase cap was added.
+
+| Phase check | Off | On | On minus off |
+| ---: | ---: | ---: | ---: |
+| 100 | 237926.8980 | 237932.9462 | 6.0482 |
+| 200 | 238277.7695 | 238286.4853 | 8.7158 |
+| 300 | 238429.5377 | 238431.0371 | 1.4994 |
+| 400 | 238493.9883 | 238495.4900 | 1.5017 |
+| 600 | 238561.3236 | 238562.8141 | 1.4905 |
+| 690, handover | 238577.8109 | 238579.4667 | 1.6558 |
+| CP CPU seconds | 109.99 | 114.56 | 4.57 |
+
+Both reached `238000`, `238300`, `238400` and `238500` on identical checks.
+The enabled arm reached `238200` and `238550` one check earlier at 170 and
+550 iterations. Both handed over at check 690, far below cutoff `240514.05`.
+CPU includes ordinary shared-workspace variation. The two arms were run
+back to back using the same binary and parent state.
+
+```sh
+python3 experiment_run_261117/replay.py run equality-warm-off tho40-d3-hard qap-equalities/latest/bnbdrv
+python3 experiment_run_261117/replay.py run equality-warm-on tho40-d3-hard qap-equalities/latest/bnbdrv --env DNN_CP_REGION_EQ=1
+```
