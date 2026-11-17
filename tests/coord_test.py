@@ -87,6 +87,10 @@ def public_problems(r, private=False):
     if s["files"].get("params") != "params.par" or \
             b.get_bytes(key("params.par")) != b.get_bytes(f"runs/{r.run_id}/params.par"):
         problems.append("params.par is not the params file the run was given")
+    # a --trace run's tree: at the end every branched node's subtree is closed (coord/tree.py)
+    sub = s["nodes"].get("subtrees_by_depth")
+    if s["files"].get("tree") and not (sub and sum(sub["branched"]) > 0 and sub["branched"] == sub["closed"]):
+        problems.append(f"status.json subtrees_by_depth {sub}: not every branched node closed")
     h = json.loads(b.get_bytes(key("history.json")) or b"[]")
     if len(h) < 2 or h[-1]["nodes"] != want[0][0] or any(x["wall_s"] > y["wall_s"] for x, y in zip(h, h[1:])):
         problems.append(f"history.json: {len(h)} samples, not ending on the totals or not in time order")

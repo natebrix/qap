@@ -22,6 +22,10 @@ serial     nug12 QPB with the optimum as upper bound and without one (the
              trace and whose line (r<facility>, c<location>) each child fixes
            * the values agree with the outcome (a fathomed node's bound above
              the cutoff, a branched node's not)
+           * the live tree (coord/tree.py) fed the lines in trace order, with
+             the root's last, and shuffled: at every seventh of them its closed
+             subtrees by depth (kept as the lines come) are those a pass over
+             its nodes finds, and at the end every branched node's is closed
 killed     a solver SIGKILLed after its -k checkpoints (nug15): its trace cut to
            the lines the last checkpoint accounts for (coord/worker.py
            traced_nodes and keep_lines, as for a killed unit), then the trace of
@@ -43,7 +47,8 @@ coordkill  the same with nug17 QPB in 4-second units, the worker SIGKILLed once
            final tree is the serial run's: every node once as a child row, its
            parent, outcome, subtree size and fathoms. qapctl publish then
            rebuilds it from the traces (as a restarted coordinator does) into
-           the same files: the same ids.
+           the same files: the same ids. The final status.json counts every
+           branched node of the serial run, by depth, and every one closed.
 
 At most two solver processes run at once.
 """
@@ -174,6 +179,52 @@ def tree_problems(rows):
     return bad
 
 
+def counted_closed(t):
+    """a LiveTree's closed subtrees by depth, by one pass over its nodes (a
+    parent's id is below its children's), for coord/tree.py's running counts"""
+    n = len(t)
+    got, still = [0] * n, [False] * n
+    for i in range(n - 1, -1, -1):
+        if t.out[i] == ord("B") and (not t.rec[i] or t.kids[i] < 0 or got[i] != t.kids[i]):
+            still[i] = True
+        if i:
+            got[t.par[i]] += 1
+            still[t.par[i]] |= still[i]
+    branched, closed = [0] * (t.mx[0] + 1), [0] * (t.mx[0] + 1)
+    for i in range(n):
+        if t.out[i] == ord("B"):
+            branched[t.dep[i]] += 1
+            closed[t.dep[i]] += not still[i]
+    last = max((d for d, v in enumerate(branched) if v), default=-1)
+    return {"branched": branched[:last + 1], "closed": closed[:last + 1]}
+
+
+def closed_problems(trace):
+    """coord/tree.py's closed subtrees, kept as the lines come, against a count"""
+    import random
+    from coord.tree import LiveTree
+    lines = [ln for ln in open(trace, "rb").read().split(b"\n") if ln.startswith(b"node ")]
+    root = [ln for ln in lines if ln.split()[2] == b"-"]
+    rest = [ln for ln in lines if ln.split()[2] != b"-"]
+    shuffled = rest[:]
+    random.Random(1).shuffle(shuffled)
+    bad = []
+    for how, seq in (("in trace order", lines), ("root last", rest + root), ("shuffled", shuffled + root)):
+        t, done = LiveTree(), 0
+        for k in range(1, 8):
+            cut = len(seq) * k // 7
+            t.ingest(b"\n".join(seq[done:cut]))
+            done = cut
+            if t.subtrees_by_depth() != counted_closed(t):
+                bad.append(f"closed subtrees {how}, {cut} of {len(seq)} lines: kept {t.subtrees_by_depth()}, "
+                           f"counted {counted_closed(t)}")
+                break
+        final = t.subtrees_by_depth()
+        if final["branched"] != final["closed"] or sum(final["branched"]) != sum(ln.split()[7] == b"B" for ln in lines):
+            bad.append(f"closed subtrees {how}, all lines: {final}")
+    return bad
+
+
 def stats_problems(rows, st):
     """the trace against the statistics of the state file the run wrote"""
     bad = []
@@ -230,7 +281,7 @@ def serial(tmp):
         rows, on, off = read_trace(trace), State(s_on), State(s_off)
         problems = same_stats(on, off)
         problems = ([f"the trace changed the statistics: {', '.join(problems)}"] if problems else []) \
-            + stats_problems(rows, on) + tree_problems(rows)
+            + stats_problems(rows, on) + tree_problems(rows) + closed_problems(trace)
         bad += bool(problems)
         node, fathom, enum, fw = on.counters
         print(f"{'ok  ' if not problems else 'FAIL'} {tag}: {len(rows)} lines = node counter {node} + popped "
@@ -429,6 +480,14 @@ def coord(tmp, kill, dnn=None):
     # the live tree, as published while the run went on, then rebuilt
     live = published_tree(b, tag)
     bad |= published_tree_problems(f"{tag} live tree", read_trace(ref), live)
+    # the final status: every branched node of the serial run, by depth, and its subtree closed
+    sub = json.loads(b.get_bytes(f"public/runs/{tag}/status.json") or b"{}").get("nodes", {}).get("subtrees_by_depth")
+    want = collections.Counter(r["depth"] for r in read_trace(ref) if r["outcome"] == "B")
+    want = [want[d] for d in range(max(want) + 1)] if want else []
+    ok = sub == {"branched": want, "closed": want}
+    print(f"{'ok  ' if ok else 'FAIL'} {tag} status.json subtrees_by_depth: "
+          f"{'every branched node closed, ' + str(sum(want)) + ' by depth' if ok else f'{sub}, want {want} closed'}")
+    bad |= 0 if ok else 1
     r = subprocess.run([sys.executable, "-m", "coord.qapctl", "publish", tag, "--backend", be],
                        cwd=ROOT, env=ENV, capture_output=True, text=True)
     rebuilt = published_tree(b, tag)
