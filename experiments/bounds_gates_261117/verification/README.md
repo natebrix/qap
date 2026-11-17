@@ -22,6 +22,17 @@ python3 experiments/bounds_gates_261117/verification/verify_geometry.py
 
 The second command uses NumPy and passed 2,690 comparisons. It builds explicit dense lifted normals to check scaled overlap kernels, regional identities on all 120 permutations at order 5, and the exact full norm and dyadic RHS of a cross-label cut on groups of unequal capacity.
 
+## Coarse cut normalization
+
+On the measured tho40 depth-5 pool, replacing each cut with its minimum lifted Frobenius norm representative modulo local affine equations gave original-to-minimum norm ratios from 1.0066 to 1.0471, with median 1.0165. All unrounded residuals agreed after translating the RHS on every enumerated feasible label configuration. Dyadic re-quantization and exact RHS recomputation preserved a 1.0165 median and 1.0474 maximum ratio after accounting for positive rescaling. [Norm audit results](coarse_norm.json)
+
+Pass the original separator's `coarse.json` from `tho40_d5` to the verifier. The source SHA-256 is recorded in the result.
+
+```bash
+OPENBLAS_NUM_THREADS=1 python3 experiments/bounds_gates_261117/verification/verify_coarse_norm.py \
+  ../coarse-runs/tho40_d5/coarse.json
+```
+
 ## Certificate review
 
 - **Coarse-label cuts.** The loader recomputes the RHS in integer arithmetic over every capacity-feasible local coarse assignment. The symmetric matrix uses two half-coefficients per off-diagonal placement pair. Sparse projection, regional overlap corrections, and certificate assembly use this same normal. The exact fixtures exercise both signs of cross-label assignment identities, including RHS ±1. They check validity and activation. The benchmark separator is responsible for finding inequalities that add geometric strength. Coarse rows stay at the selected node.
