@@ -95,12 +95,34 @@ def main():
     print(row("production (warm chain from the root)", pp, pk, p))
     for path in sorted(glob.glob(os.path.join(HERE, "runs", "*", "nodes.txt"))):
         name = os.path.basename(os.path.dirname(path))
-        if name == "parent":
+        if name == "parent" or "stopped" in open(os.path.join(os.path.dirname(path), "cmd.txt")).read():
             continue
         parent, kids = read_arm(path)
         if parent is None:
             continue
-        print(row(name, parent, kids, p) + ("" if any(True for _ in kids) else " (no children yet)"))
+        done = "exit" in open(os.path.join(os.path.dirname(path), "cmd.txt")).read()
+        print(row(name, parent, kids, p) + ("" if done else " (running)"))
+    fidelity(pk)
+
+
+def fidelity(pk):
+    """the r1 arm against production's r1 children, child by child: the same fixes, bounded from a
+    weaker parent state (production's 43:58 came warm down the chain from the root)"""
+    path = os.path.join(HERE, "runs", "r1", "nodes.txt")
+    if not os.path.exists(path):
+        return
+    prod = {k["fix"]: k for k in pk}
+    _, kids = read_arm(path)
+    print("\nr1 arm against production, child by child (short = cutoff - lb; negative: fathomed with room):\n")
+    print("| child | arm | arm short | production | production short | arm - production | arm CPU s | production CPU s | production subtree |")
+    print("|---|---|---|---|---|---|---|---|---|")
+    same = 0
+    for k in kids:
+        q = prod[k["fix"]]
+        same += (k["out"] == "B") == (q["out"] == "B")
+        a, b = k["cutoff"] - k["lb"], q["cutoff"] - q["lb"]
+        print(f"| {k['fix']} | {k['out']} | {a:,.0f} | {q['out']} | {b:,.0f} | {a - b:,.0f} | {k['cpu']:,.0f} | {q['cpu']:,.0f} | {q['size']:,} |")
+    print(f"\n{same} of {len(kids)} children branch or fathom as in production.")
 
 
 if __name__ == "__main__":
