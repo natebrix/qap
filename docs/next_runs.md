@@ -5,6 +5,18 @@ cut phase (no solver change), against 1,308 as tho40-b runs, and tai50b at about
 with cluster-region cuts. This page decides what that means for tho40-b and plans a tai50b run of
 record. The subtree A/B in `experiments/tho40b_analysis/giveup_ab/` settles tho40's settings first.
 
+## tai50b: solved (Nov 17)
+
+**tai50b's optimum is 458,821,517**, proved twice, from incumbent 458,821,518 (the best known + 1), the
+solution found by the search each time:
+- **The run of record, `tai50b-261116`** (one Spot c7a.16xlarge, 64 slots, cognac 1e75fe3's recipe):
+  finished 04:35 UTC Nov 17, 8,216 nodes (8,010 fathomed, 1 enumerated), 4.4 hours wall, 477,579 CPU s
+  (133 c7a core-hours; the plan said about 140). The website's run page has the tree by depth.
+- **The laptop** (`experiments/bound_lab/laptop/README.md`, the same settings and regions, Accelerate in
+  place of OpenBLAS): 8,206 nodes, 11.0 hours on 10 cores. The two agree node for node through depth 5
+  (1 / 50 / 490 / 576 / 282 / 782) and by a few per cent below, where the two BLAS libraries round apart.
+- Still open as a check: a second route (another region family, as for tai35b and tai40b).
+
 ## For the launcher (Nov 16, 21:00 UTC)
 
 Runs are launched from the laptop or desktop with `infra/phase1/start.sh PROBLEM` (`infra/phase1/README.md`,
@@ -20,9 +32,7 @@ Starting a run); the cloud sessions make no AWS calls. Where things stand:
 - **tai50b is solved on the laptop** (Nov 16, `experiments/bound_lab/laptop/README.md`): from 458,821,518
   the tree closed at 458,821,517 in 8,206 nodes, 11.0 hours on 10 cores, the solution found by the search
   and verified by the coordinator. A rehearsal on one machine, not yet a run of record.
-- **Next: tai50b's run of record** (below), now a confirmation: `git pull origin cognac`, then
-  `infra/phase1/start.sh tai50b` with its defaults (`recipes/tai50b.par`, incumbent 458,821,518, one Spot
-  c7a.16xlarge, 72 h). Expect about 8,200 nodes, about 170 c7a core-hours: 3-6 hours on 64 cores.
+- **Next: tai60b** (above), two m7a.16xlarge, 128 slots: `infra/phase1/start.sh tai60b`.
 - **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), two Spot instances.
 
 ## tai60b: after tai50b (Nov 17)
