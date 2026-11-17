@@ -46,3 +46,27 @@ once: the work lost in the interrupted processes, about 1.5 hours on 4 cores at 
 kept, the others were redone the same way. Both restarts came 70 to 90 minutes after the session's last turn, so
 they look like the container being recycled while the session is idle; from here the session checks in every
 40 minutes.
+
+## Stopped, 2026-11-17 01:17 UTC, at the repository owner's request
+
+Not on a stop condition: the owner said the estimate is good enough and the run can stop. **This is a rehearsal
+stopped part-way, not a solve of tai50b.**
+
+- **Complete levels: depths 1 to 6** [m]: 3,269 nodes below the root, 206,252 CPU-s = 57.3 core-hours (58.5 with
+  the root), against 101.7 (E2) and 137.5 (E3) core-hours predicted for the same six levels. Not counted: the work
+  lost in the two container restarts (under 2 core-hours each at most).
+- **Depth 7, interrupted** [m]: its row in the table below is partial. 630 of its 704 nodes were bounded when it
+  stopped (606 fathomed on the first solve, 8 in the cut phase, 16 branched), 17,168 CPU-s; 41 of its 48 chunks
+  had finished. Its on-path node was bounded and branched, 305,475 short of 458,821,517.
+- **What is not known** [e]: depths 7 and below. Depth 7 had 704 nodes where the estimate had 129 (E2) and 308
+  (E3), and levels 4 to 7 each branched 16 to 23 nodes, so the tree had not started to narrow when the run
+  stopped; each such level cost 7 to 15 core-hours. The earlier estimate's range (60 to 250 core-hours) is
+  consistent with what was measured, with the measured levels at or below its low side, but the run does not
+  show where the tree ends.
+- Path of the best known solution through depth 7: 7 nodes, all branched, no certified bound above 458,821,517.
+  No incumbent below 458,821,518 found. The pooled-solve fault occurred twice (depths 2 and 3), recovered by
+  `pool_retry.patch` both times.
+- **To resume** (container alive: `runs/open_7.state`, `runs/in_7_*.state`, `runs/store`, the finished chunks'
+  `out.state` are on disk): `rm stop; ./bfs.sh runs/open_7.state 7 48` redoes only the unfinished chunks of
+  depth 7 and goes on. Container gone: `open/open_7.txt` lists the 704 open nodes with their fixes (see Resuming
+  above).
