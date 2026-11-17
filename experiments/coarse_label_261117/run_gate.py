@@ -118,7 +118,8 @@ def run_case(name, work, args):
     results = {}
     for arm, flags in (("regional", []), ("coarse", ["-coarse", cuts])):
         log = work / f"{arm}.log"
-        results[arm] = parse(log, run(phase + flags + [instance], log))
+        process_cpu = None if arm == "regional" and args.reuse_regional else run(phase + flags + [instance], log)
+        results[arm] = parse(log, process_cpu)
     summary = {"case": name, "fixes": fixes, "ub": ub, "seed_process_cpu": seed_cpu,
                "seed": parse(work / "seed.log") if not args.reuse_seed else None,
                "n_cuts": len(screened["retained_ranks"]) if screened else cut_data["n_cuts"],
@@ -135,6 +136,7 @@ def main():
     parser.add_argument("output", type=Path)
     parser.add_argument("cases", nargs="+", choices=CASES)
     parser.add_argument("--reuse-seed", action="store_true")
+    parser.add_argument("--reuse-regional", action="store_true", help="use the existing regional.log from this checkpoint")
     parser.add_argument("--seed-iters", type=int)
     parser.add_argument("--continuation-iters", type=int)
     parser.add_argument("--sizes", type=int, nargs="+", default=[4, 5])

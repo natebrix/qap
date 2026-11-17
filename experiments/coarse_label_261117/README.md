@@ -12,7 +12,25 @@ The driver loads the selected recipe's numerical DNN settings, including `dnn.be
 
 Both continuations restart the ADMM iteration and eigensolver schedule from that same checkpoint and the same regional multipliers. They refresh regional triangles every 100 iterations. The cut arm additionally loads the fixed coarse pool at zero multipliers. The scripts compare certified running best bounds at equal iterations and at the regional arm's CPU budget, charging the separator and coarse projector's setup to the cut arm. The seed is shared, so its CPU is outside the comparison budget.
 
-The gate models a frozen same-node continuation. It uses the production numerical recipe and region sets, with a cold first solve and explicit phase lengths. It omits production branch-and-bound inheritance and context-dependent phase stopping. The measured terrain is a finite-budget certificate trajectory. The pool has no child substitution, and the setup makes no claim about the converged relaxation optimum.
+The gate models a frozen same-node continuation. It uses the production numerical recipe and region sets, with a cold first solve and explicit phase lengths. It omits production branch-and-bound inheritance and context-dependent phase stopping. The gate measures finite-budget certificate trajectories. The pool has no child substitution, and the setup makes no claim about the converged relaxation optimum.
+
+## Results
+
+AMD EPYC 9V74, one BLAS thread. Solver code was committed at `6e53f4ff` before the comparisons. The d5 checkpoint was generated earlier with the same regional projection arithmetic and numerical settings. All reported lower bounds include the reduced-QAP shift.
+
+| Node and fixed pool | Continuation iterations per arm | Regional certified bound | Coarse certified bound | Final gain | Maximum equal-iteration gain | Regional CPU s | Coarse CPU s, including separation/setup | Equal-CPU gain |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| tho40t d5, 40 cuts on 4–5 elements | 500 | 240,346.010 | 240,352.808 | +6.798 | +12.586 | 57.86 | 69.76 | −29.702 |
+| tho40t d3, 40 cuts on 4–5 elements | 500 | 238,341.098 | 238,350.449 | +9.351 | +9.351 | 82.60 | 93.90 | −24.728 |
+| tho40t d5, 12 screened cuts on 6 elements | 500 | 240,346.010 | 240,346.765 | +0.755 | +7.226 | 57.86 | 75.68 | −60.813 |
+
+The tho40t tests show small gains at equal iterations and weaker certificates at equal CPU. None reached the cutoff. Several additional directions were active, so the weak outcome was not caused by a disabled pool. At iteration 500, the two 40-cut experiments had 37 and 34 active coarse multipliers. Regional P-steps took about 3.5–4.7 ms and the coarse variants about 12.8–14.1 ms. D5's 40-cut pool included four cut directions with numerical PSD witnesses against all union binary moment hulls, while 25 were already implied by those hulls and the affine equations in the local LP model.
+
+The higher-order pool used 23 distinct subsets from 12 flow seeds and 12 random draws. Each subset had 4,096 configurations. There were 20 positive candidates. The union LP excluded eight, leaving 12 tested directions, of which 10 were active at iteration 500. The local PSD mixing check supplied no positive witness for this pool. The higher-order comparison reused the d5 regional baseline from the same checkpoint and executable. Its ranking, local control and projector setup consumed about 10.49 CPU s.
+
+The three tho40t comparisons do not support a larger subtree gate. They test selected fixed pools at finite budgets and leave the full optimal objective impact of this cut family unresolved.
+
+The solver's `make test` passed, including all 7 reference cases with exact node counts. Brute-force seeds 2 and 3 each passed 4,536 checks. The separate coarse validation exhausted small asymmetric QAPs in both region orientations, including four reduced-node cases and signed dyadic RHS values. Eight active cases produced 32 finite CP/quiet certificates and 80 lazy checks. The maximum certificate minus the exact optimum was −1.0169e−6.
 
 ## Reproduction
 
@@ -32,8 +50,9 @@ python3 experiments/coarse_label_261117/local_control.py \
 mkdir -p /tmp/coarse-t6/tho40_d5
 ln -s /tmp/coarse-gate/tho40_d5/seed.cp /tmp/coarse-t6/tho40_d5/seed.cp
 ln -s /tmp/coarse-gate/tho40_d5/seed.Y.bin /tmp/coarse-t6/tho40_d5/seed.Y.bin
+ln -s /tmp/coarse-gate/tho40_d5/regional.log /tmp/coarse-t6/tho40_d5/regional.log
 python3 experiments/coarse_label_261117/run_gate.py /tmp/coarse-t6 tho40_d5 \
-  --reuse-seed --sizes 6 --samples 12 --cut-count 20 --binary-filter
+  --reuse-seed --reuse-regional --sizes 6 --samples 12 --cut-count 20 --binary-filter
 ```
 
 `local_control.py` solves an outer LP with the exact local binary moment hull for every union of coarse labels and the local configuration affine constraints. It can filter LP-redundant directions and test numerical PSD witnesses by convex mixing. A positive LP violation alone leaves PSD nonredundancy open. This small local model does not establish global QAP bound improvement.
