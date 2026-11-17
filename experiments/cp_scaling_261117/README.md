@@ -139,3 +139,58 @@ check 200.
 
 Both pooled screens left the promotion gate unmet. Scaling is opt-in.
 The measurements cover early phase progress at the stated depths.
+
+## tai60b checkpoint screen
+
+The real depth-2 node `44:45,43:58` lies on the known solution path in
+`QAPSOLN/tai60b.sln`. The native cold node screen used the production
+recipe and a 120-iteration cut phase cap. It stopped at 905 seconds of
+wall time without a completed node trace. That cap applies to the cut
+phase. The native scaled arm did not start.
+
+The bounded checkpoint route used the regional control from the
+coarse-label experiment on the same node, with 100 ordinary iterations
+and 200 CP iterations. It supplied a common certificate of
+585,899,572.81482148, full-precision `Y/Z`, and 3,000 regional cuts.
+The checkpoint SHA-256 was
+`0789be81533b4e6ae42f31d841114cc40dc19fc80d17d92a90ee919172bdc60b`.
+Both replays restarted the solver from that checkpoint, held the pool
+fixed through 60 iterations, used the same production region file and
+`w=0.36,wc=2.88`, and certified against cutoff 608,215,054.05. The .25 arm
+used its scaled metric for 30 iterations and switched at iteration 31.
+
+The checkpoint reader for this screen was the coarse experiment's
+`dnncuts.C` at `d38cacbb` linked to the scaling objects at `d175ac1f`.
+To build that reader, remove the `DNNCoarsePool` setup block and the
+`cpp.pool_final_out` assignment from the driver source, then replace the
+driver source in the `dnncuts` make target with that source. Both arms
+read the checkpoint with the same literal instance path used in the
+writer and run the following solver arguments from the scaling repo.
+
+```sh
+args=(-x 44:45,43:58 -u 608215055 -H 0 -k 1000 -cpsep 100:1000
+      -p infra/phase1/recipes/tai60b.par -side 0 -warmY
+      -regions infra/phase1/recipes/tai60b.regions -cpiters 60
+      -startcp ../coarse-runs/tai60b_d2/seed.cp qaplib/tai60b.dat)
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 DNN_CP_DSCALE=0 checkpoint-driver "${args[@]}"
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 DNN_CP_DSCALE=0.25 \
+  DNN_CP_DSCALE_UNTIL=30 checkpoint-driver "${args[@]}"
+```
+
+| Exponent and window | Check-60 certificate | CPU through check 60 | Full phase CPU |
+|---|---:|---:|---:|
+| 0 | 591,774,673.3182677 | 90.54 s | 90.7 s |
+| .25 for 30 iterations | 591,901,546.0175439 | 88.95 s | 89.3 s |
+
+Both arms reached the stock check-60 target at check 60. For the stock
+check-50 target of 591,002,881.4694202, the scaled arm reached it at
+check 60, having certified 590,900,283.1480473 at check 50. Both arms
+produced six certificates with zero certificate failures. The roughly
+1.8% check-60 CPU difference is within screening noise on this shared
+machine. The cutoff lay over 16 million above both final certificates.
+This run covers a same-node CP restart, with the full native path and
+cutoff-near behavior unmeasured.
+
+The three matched screens gave no iteration reduction to their stock
+endpoints and no promotion signal. The implementation remains off by
+default.
