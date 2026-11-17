@@ -1,0 +1,37 @@
+make -C latest
+make[1]: Entering directory '/workspace/scratch/8b0ec9b8338c/qap_conditioned/latest'
+g++ -O3 -march=native -ffp-contract=off -DBNB_STANDALONE -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o lap.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o svd.o sa_qap.o stats.o console.o lgb_train.o state.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm ../src/MESCHACH/meschach.a -L/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs -l:libscipy_openblas-6cdc3b4a.so -Wl,-rpath,/opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages/scipy.libs
+make[1]: Leaving directory '/workspace/scratch/8b0ec9b8338c/qap_conditioned/latest'
+python3 tests/brute_force.py
+168 instances x 9 params x 3 upper-bound modes = 4536 solver runs (seed 1, files in /tmp/qap-bf-eb54bmzt)
+
+4536/4536 passed
+python3 tests/resume_test.py
+ok   nug15: 61 slices, nodes 1964 / 1278 / 2, objective 1150
+ok   had14: 17 slices, nodes 370 / 211 / 0, objective 2724
+ok   tai12b: 53 slices, nodes 1884 / 1089 / 23, objective 39464925
+ok   chr12a: 18 slices, nodes 1129 / 691 / 2, objective 9552
+ok   nug14: 129 slices, nodes 5720 / 3628 / 94, objective 1014
+
+5/5 resume cases identical
+python3 tests/parallel_test.py
+ok   nug15 --ub opt: serial 1964 / 1278 / 2, fw 271227; parallel 1964 / 1278 / 2, fw 271227
+ok   tai12b --ub opt: serial 1884 / 1089 / 23, fw 299892; parallel 1884 / 1089 / 23, fw 299892
+ok   had14 --ub opt: serial 370 / 211 / 0, fw 77250; parallel 370 / 211 / 0, fw 77250
+ok   nug14 no upper bound: found 1014.0, optimum 1014
+ok   tai12b no upper bound: found 39464925.0, optimum 39464925
+ok   nug16a interrupted and resumed: serial 9867 / 6969 / 0, fw 999183; resumed 9867 / 6969 / 0, fw 999183
+
+all parallel checks passed
+python3 bench/bench.py check
+     nug12: ok       nodes=       246  time=    1.111s  wall=0.22s
+     nug14: ok       nodes=      2179  time=    2.968s  wall=2.06s
+     nug15: ok       nodes=      1964  time=    2.301s  wall=1.43s
+    nug16b: ok       nodes=      3187  time=    3.131s  wall=2.23s
+     had12: ok       nodes=       114  time=    1.061s  wall=0.19s
+     had14: ok       nodes=       370  time=    1.195s  wall=0.40s
+     had16: ok       nodes=      3251  time=    4.855s  wall=3.98s
+
+wrote bench/results/check-20261103-182813/  (7 instances, 0 not ok)
+
+regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
