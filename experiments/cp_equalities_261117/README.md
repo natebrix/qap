@@ -134,10 +134,7 @@ The check histories record the common checkpoints. The fathoming iteration
 and final certificate are taken from the phase summary. The enabled arm
 fathomed 24 iterations earlier, a 3.5% reduction. The depth-three arm reached
 the same handover iteration with 1.66 more bound units. The CPU samples are
-indicative under shared load. The tested configuration stays off by default,
-and testing stopped at the node gate. The replays cover two warm tho40t
-nodes at `wc=2.88`. The effect on other node types, penalties or problem
-families is open.
+indicative under shared load.
 
 ```sh
 python3 experiment_run_261117/replay.py run equality-warm-off tho40-d3-hard qap-equalities/latest/bnbdrv
@@ -145,3 +142,36 @@ python3 experiment_run_261117/replay.py run equality-warm-on tho40-d3-hard qap-e
 python3 experiment_run_261117/replay.py run equality-warm-off tho40-d5-hard qap-equalities/latest/bnbdrv
 python3 experiment_run_261117/replay.py run equality-warm-on tho40-d5-hard qap-equalities/latest/bnbdrv --env DNN_CP_REGION_EQ=1
 ```
+
+## Complete warm subtree
+
+The node `26:10,8:0,3:32` and all descendants were evaluated from the same
+stock checkpoint. Both arms used the production recipe and cutoff, with
+`--allow-settings-change -r INPUT -o OUTPUT -k 120 -t 800`. The 800 CPU-second
+limit was inactive in both arms. Each final state had zero open nodes and
+incumbent `240516`. Both explored the same 38 assignments in the same order,
+with a single column-seven split and 37 children. The counts below are from
+the node and DNN traces and exclude the already completed parent work.
+
+| Subtree measure | Off | On |
+| --- | ---: | ---: |
+| Nodes evaluated | 38 | 38 |
+| First-solve DNN fathoms | 36 | 36 |
+| CP fathoms | 1 | 1 |
+| First-solve DNN iterations | 1270 | 1436 |
+| CP iterations | 541 | 526 |
+| Total DNN iterations | 1811 | 1962 |
+| Process CPU seconds, shared host | 272.65 | 277.86 |
+
+The enabled root handed over after 410 CP iterations with certificate
+`239692.3589`, compared with 420 and `239693.8452` off. Both arms also ran CP
+on the child fixed at `2:7`, with the kept penalty `w=0.36`. The off and on
+child phases fathomed after 121 and 116 iterations, with certificates
+`240514.8589` and `240514.2487`. Across the subtree the enabled arm needed
+15 fewer CP iterations and 166 more first-solve iterations. Its total DNN
+work increased by 151 iterations (8.34%).
+
+The setting stays off by default. The production-recipe warm tho40t evidence
+includes one cutoff reached earlier, one unchanged handover, and one unchanged
+tree with higher total iteration count. The effect on other problem families
+and broader node samples remains open.
