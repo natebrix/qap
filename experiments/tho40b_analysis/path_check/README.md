@@ -101,3 +101,24 @@ python3 dive.py OUT --warm --params ../infra/phase1/recipes/tho40c.par --resume
 
 `--resume` (Nov 16) keeps the nodes OUT already holds, so an interrupted dive goes on where it stopped;
 a depth-1 node takes about 11 minutes here with these settings.
+
+## sko42 (Nov 17): PASS
+
+For the laptop's sko42 solve (`infra/laptop/solve.sh sko42`): `experiments/estimates/sko42/sko42.par`
+(the Nov 12 setting C: the grid cut phase at zone 0.010), `qaplib/sko42t.dat` (sko42.dat with A and B
+swapped: `--transposed`), `SYM/sko42t.sym`, grid 6 x 7, from 15,814 (the best known + 2; sko42's values
+are even), warm, on cognac 2a6adef (`warm_sko42.tsv`):
+
+- 40 nodes, depths 0 to 39; every one branched and kept the path child; the leaf, enumerated, is
+  15,812, the solution. The highest bound on the path is 15,812.0000, from depth 9 on. 1,767 CPU s here.
+- **A symmetry axis through the root's facility.** The root branches on facility 36, whose location in
+  the solution is on the grid's middle column, so two images of the solution survive the root's set J1
+  and the J2/J3 sets decide below it. `dive.py` stopped there; it now follows the images whose child the
+  solver created at each node, read from the node's state file (here only one image's child existed at
+  every node). The tho40 dive with tho40-b's settings gives the Nov 15 `warm.tsv` again, node for node
+  (bounds, lines, children).
+
+```
+python3 dive.py OUT --warm --instance qaplib/sko42t.dat --sln sko42.sln --transposed \
+  --params ../experiments/estimates/sko42/sko42.par --sym SYM/sko42t.sym --grid 6x7 --plus 2
+```

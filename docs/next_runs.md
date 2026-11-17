@@ -35,6 +35,18 @@ Starting a run); the cloud sessions make no AWS calls. Where things stand:
 - **Next: tai60b** (above), two m7a.16xlarge, 128 slots: `infra/phase1/start.sh tai60b`.
 - **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), two Spot instances.
 
+## sko42 on the laptop (Nov 17), beside tho40 on AWS
+
+Not open: Fujii et al. solved it in 2021 (15,812; 6.0e6 nodes, 5.12e5 s on 5,184 cores, about 740,000
+core-hours). A benchmark against theirs, and a check of the grid estimate (`experiments/estimates/README.md`:
+setting C, 8.0e4-1.2e5 nodes, 506-549 cloud-box core-hours, 370-710 at the 95% ends; about 30 hours on
+the laptop's 10 slots).
+- **Path check:** PASS (`experiments/tho40b_analysis/path_check/README.md`, sko42).
+- **Run:** `caffeinate -i infra/laptop/solve.sh sko42` (`sko42t.dat`, its grid's symmetry, `sko42.par`,
+  incumbent 15,814, 10 slots). Interrupted, the same command goes on from its store; it stops itself if
+  the disk falls under 10 GB. Results in `infra/laptop/runs/sko42/` (`results.txt`, `run.log`,
+  `export/` with the traces); commit them.
+
 ## tai60b: after tai50b (Nov 17)
 
 The next solve after tai50b, before tho40: about a tenth of tho40's work by the estimates.

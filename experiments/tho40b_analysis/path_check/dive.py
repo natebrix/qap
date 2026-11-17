@@ -19,9 +19,10 @@ is the child on the chosen line that agrees with the solution:
 
 The solution is QAPSOLN/<sln> (a permutation of the instance it names; --transposed
 when the run's instance swaps A and B, as tho40t.dat does tho40.dat, so the solution
-is inverted). The symmetry file keeps one image of it under the instance's grid
-symmetries: the one whose location for the root's branching facility is in the
-file's root set (J1). Only a grid of r x c locations, numbered row-major, is handled.
+is inverted). The symmetry file cuts the solution's images under the grid's
+symmetries: its root set (J1) at the root, its J2/J3 sets below. The dive follows the
+images whose child the solver created at each node, read from the node's state file.
+Only a grid of r x c locations, numbered row-major, is handled.
 
 Passes when every node on the path branches (B), keeps the path child, and the last
 one, enumerated (E), yields the solution's value. Writes OUTDIR/path.tsv and each
@@ -40,13 +41,6 @@ import time
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.."))
 LATEST = os.path.join(ROOT, "latest")
-
-
-def read_sym_root(path):
-    """the root set J1 of a symmetry file (0-based locations); see latest/branch.C read_symmetry"""
-    t = open(path).read().split()
-    k = int(t[0])
-    return {int(x) - 1 for x in t[1:1 + k]}
 
 
 def images(q, rows, cols):
@@ -102,9 +96,13 @@ def main():
         for i, j in enumerate(p):
             q[j] = i
     rows, cols = map(int, a.grid.split("x"))
-    J1 = read_sym_root(os.path.join(LATEST, a.sym))
-    cands = images(q, rows, cols)
-    qq = None   # the image the symmetry keeps, chosen once the root's line is known
+    cands = images(q, rows, cols)   # the solution's images under the grid's symmetries
+    # the images the search can still reach: at each node, those whose child on the chosen line the
+    # solver created and kept (Nov 17, sko42: the root's facility lies on a symmetry axis, so two
+    # images survive the root's J1 set and the J2/J3 sets decide further down; the state file says
+    # which children exist, so the rule need not be copied here). The dive follows the first.
+    live = [list(c) for c in cands]
+    qq = live[0]
 
     prefix = []
     summary = open(f"{out}/path.tsv", "w")
@@ -147,18 +145,23 @@ def main():
         nxt = None
         if outcome == "B":
             idx = int(line[1:])
-            if qq is None:
-                keep = [c for c in cands if line[0] == "r" and c[idx] in J1]
-                if len(keep) != 1:
-                    print(f"the root branched on {line}: {len(keep)} images of the solution in its root set; "
-                          "a symmetry axis through it is not handled", flush=True)
-                    return 2
-                qq = keep[0]
-            inv = [0] * n
-            for f, l in enumerate(qq):
-                inv[l] = f
-            nxt = (idx, qq[idx]) if line[0] == "r" else (inv[idx], idx)
-            match = [nd for nd in nodes if nd[0] == k + 1 and nd[2][nxt[0]] == nxt[1]]
+            def child(c):   # the image c's child on this line: (facility, location)
+                if line[0] == "r":
+                    return (idx, c[idx])
+                return (c.index(idx), idx)
+            found = []
+            for c in live:
+                f_, l_ = child(c)
+                m_ = [nd for nd in nodes if nd[0] == k + 1 and nd[2][f_] == l_]
+                if m_:
+                    found.append((c, (f_, l_), m_))
+            if found:
+                live = [c for c, _, _ in found]
+                qq, nxt, match = found[0]
+                if len({x[1] for x in found}) > 1:
+                    print(f"depth {k}: {len(found)} images reachable, following the first", flush=True)
+            else:
+                nxt, match = child(qq), []
             kept = "yes" if match else "NO"
             pred = f"{match[0][1]:.2f}" if match else ""
         row = [k, f"{prefix[-1][0]}:{prefix[-1][1]}" if prefix else "root", outcome, qpb, dnn,
@@ -170,7 +173,7 @@ def main():
         if outcome == "E":
             ok = inc is not None and inc[0] == best
             print(f"enumerated at depth {k}: incumbent {inc[0]:.0f}, "
-                  f"{'the solution' if ok and inc[1] == qq else 'another permutation' if ok else 'NOT the solution value'}")
+                  f"{'the solution' if ok and list(inc[1]) in [list(c) for c in cands] else 'another permutation' if ok else 'NOT the solution value'}")
             print("PASS" if ok else "FAIL")
             verdict = 0 if ok else 1
             break
