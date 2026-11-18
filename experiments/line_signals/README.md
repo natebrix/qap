@@ -101,14 +101,18 @@ it. A child's setup (allocation, the first full eigendecomposition) is a fixed p
 
 `infra/laptop/solve.sh tai35b` from the experiment build (coordinator local mode, 2 slots per arm, the
 incumbent the optimum + 1, `tai/tai35b.par` = tai50b's production settings, rule 9 through depth 6 and
-rule 2 below). All three arms were stopped by the container restart at 06:45 UTC and resumed from their
-stores (the trace counts the redone nodes again: 1,017 against the coordinator's 972 for the base).
+rule 2 below). The first three arms were stopped by the container restart at 06:45 UTC and resumed from
+their stores. Nodes are the node trace's (one line per node, `qapctl export`): the coordinator's own
+total varies with restarts and unit splits (972 and 923 for the same tree). **The production tree is
+reproducible**: a second run, not interrupted (`tai35b_base2`), has the same 1,017 nodes at every depth;
+its CPU is 7% higher on the loaded box, which is the CPU noise.
 
 | arm | `QAP_LA` | nodes | CPU s | of which the lookahead | CPU s net of the lookahead | wall, 2 slots |
 |---|---|---|---|---|---|---|
-| production branching | - | 972 | 6,931 | - | 6,931 | 63 min |
-| rule 9's two lines, judged by the DNN, depths 0-6 | 1:30:0:6 | 1,001 | 8,682 | 1,672 (21 nodes) | 7,010 | 96 min |
-| 4 rows and 4 columns, depths 0-2 | 4:30:0:2 | **765** | 8,900 | 2,803 (6 nodes) | **6,097** | 100 min |
+| production branching | - | 1,017 | 6,931 | - | 6,931 | 63 min |
+| production branching, again | - | 1,017 | 7,390 | - | 7,390 | 61 min |
+| rule 9's two lines, judged by the DNN, depths 0-6 | 1:30:0:6 | 1,046 | 8,682 | 1,672 (21 nodes) | 7,010 | 96 min |
+| 4 rows and 4 columns, depths 0-2 | 4:30:0:2 | **780** | 8,900 | 2,803 (6 nodes) | **6,097** | 100 min |
 
 Every arm closed the tree at the optimum 283,315,445, found by the search.
 
@@ -116,11 +120,11 @@ Every arm closed the tree at the optimum 283,315,445, found by the search.
   production's 20, the same tree size. Both DNN arms branch the root on c26 where production takes r19
   (8 lines compared: c26's children 23M short in sum after 30 pooled iterations, r19's 43M, r18's 46M, the
   other five 140M or more).
-- **Four lines a side at depths 0-2: 21% fewer nodes, 12% less CPU net of the lookahead**, all of it below
+- **Four lines a side at depths 0-2: 23% fewer nodes, 12-17% less CPU net of the lookahead**, all of it below
   depth 2: depths 3-5 branch 2, 2, 2 times against 4, 5, 2, and hold 225 nodes against 382. Its three
   depth-2 choices (c23, c23, c22) are not rule 9's lines.
 - **The lookahead costs more than it saves at this size**: 2,803 CPU s for 6 nodes (about 470 s a node:
-  8 lines, about 260 pooled child solves of 30 iterations, 1.8 s each at m = 33), against 830 s saved, so
-  +28% CPU in all. The cost scales with a node's children and the iteration cost, the saving with the
+  8 lines, about 260 pooled child solves of 30 iterations, 1.8 s each at m = 33), against 830-1,290 s saved,
+  so +20-28% CPU in all. The cost scales with a node's children and the iteration cost, the saving with the
   subtree under the node: at tai60b's depth 2 the subtrees run to 1.7M CPU s and more, against about
   12,000 s for an 8-line lookahead there (464 children, 30 iterations at 0.86 s).
