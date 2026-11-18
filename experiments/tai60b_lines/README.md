@@ -106,4 +106,8 @@ their last checkpoints (01:27-01:31). `supervise.sh` trimmed each checkpoint (c2
 r45 10, r8 9, each with the one DNN state they use) and resumed them at 01:32-01:33: 5.4 GB in all,
 against 12.6 GB before.
 
+A fourth container restart at about 03:05 stopped c26 5 minutes after its 03:00 checkpoint;
+`supervise.sh` trimmed it (30 children kept) and resumed it at 03:06. At that point c26 had 16 branching
+children in its first 28.
+
 Projected finish of c26 from its CPU per child so far: about 07:30 UTC Nov 18.
