@@ -18,7 +18,7 @@
 # Environment: SLOTS (default: the cores less 2), OUT, MIN_FREE_GB (10: the run is stopped below it),
 # and for tests PARAMS (a params file relative to the repository), UB, COORD (unit sizing).
 #
-# ESTIMATE=SOLVE_S:DIVE_S[:B] makes it an estimate run (docs/estimates_plan.md; coord/dives.py): the
+# ESTIMATE=SOLVE_S:DIVE_S[:B[:SAMPLE[:W]]] (as node.sh's QAP_ESTIMATE) makes it an estimate run (docs/estimates_plan.md; coord/dives.py): the
 # solve for SOLVE_S seconds of its wall time, then paused, and DIVE_S seconds of survivor dives per
 # open unit (weights exp(B x), default 0.4) as run PROBLEM-est-dives; OUT/estimate.txt at the end.
 # The run is PROBLEM-est (OUT default infra/laptop/runs/PROBLEM-est/), and the same command resumes
@@ -35,8 +35,8 @@ SLOTS=${SLOTS:-$(( $( (sysctl -n hw.ncpu 2> /dev/null || nproc) ) - 2 ))}
 EST=${ESTIMATE:-}
 EST_SOLVE= EST_DIVE= EST_B=
 if [ -n "$EST" ]; then
-  IFS=: read -r EST_SOLVE EST_DIVE EST_B <<< "$EST"
-  EST_B=${EST_B:-0.4}
+  IFS=: read -r EST_SOLVE EST_DIVE EST_B EST_SAMPLE EST_W <<< "$EST"
+  EST_B=${EST_B:-0.4} EST_SAMPLE=${EST_SAMPLE:-1} EST_W=${EST_W:-unif}
   [ -n "$EST_SOLVE" ] && [ -n "$EST_DIVE" ] || { echo "ESTIMATE must be SOLVE_S:DIVE_S[:B]"; exit 2; }
   OUT=${OUT:-$R/infra/laptop/runs/$P-est}
   RUN=$P-est
@@ -108,7 +108,7 @@ if [ -n "$EST" ]; then
     >> "$OUT/worker.log" 2>&1 &
   wpid=$!
   $PY -m coord.qapctl estimate-flow "$RUN" --backend "$BK" --solve-wall "$EST_SOLVE" --dive-budget "$EST_DIVE" \
-    --dive-b "$EST_B" >> "$OUT/coord.log" 2>&1
+    --dive-b "$EST_B" --dive-sample "$EST_SAMPLE" --dive-weights "$EST_W" >> "$OUT/coord.log" 2>&1
   rc=$?
   wait $wpid 2> /dev/null
   if [ $rc = 0 ] && [ -s "$ST/store/runs/$RUN-dives/results.txt" ]; then

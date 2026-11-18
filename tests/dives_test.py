@@ -60,6 +60,9 @@ def main():
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--seconds", type=float, default=6)
     ap.add_argument("--flow", action="store_true", help="also qapctl estimate-flow with a worker --follow")
+    ap.add_argument("--dive-b", default="0.4", help="the dives' mode: survivor b, or kQ for Knuth's dives")
+    ap.add_argument("--dive-sample", default="1", help="the share of the open nodes sampled")
+    ap.add_argument("--dive-weights", default="unif", choices=["unif", "qpb"])
     a = ap.parse_args()
     dat = os.path.join(ROOT, "qaplib", f"{a.instance}.dat")
     env = dict(os.environ, VECLIB_MAXIMUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
@@ -91,7 +94,8 @@ def main():
               print(f"FAIL: the solve finished or left nothing queued ({counts}); use fewer --seconds")
               return 1
           print(f"paused: {counts}")
-          qapctl("dives", run, "--as", dv, "--backend", be, "--budget", "3", "--dive-b", "0.4", env=env)
+          qapctl("dives", run, "--as", dv, "--backend", be, "--budget", "3", "--dive-b", a.dive_b,
+               "--dive-sample", a.dive_sample, "--dive-weights", a.dive_weights, env=env)
           w = popen("worker", dv, "--backend", be, "--slots", "2", "--workdir", f"{d}/w2", "--exit-when-idle", "5",
                     log=f"{d}/w2.log")
           c = popen("coordinator", dv, "--backend", be, log=f"{d}/c2.log")
@@ -148,6 +152,7 @@ def flow(a, dat, env, true_nodes):
             w = popen("worker", run, "--backend", be, "--slots", "2", "--workdir", f"{d}/w", "--follow",
                       log=f"{d}/w.log")
             c = popen("estimate-flow", run, "--backend", be, "--solve-wall", str(a.seconds), "--dive-budget", "3",
+                      "--dive-b", a.dive_b, "--dive-sample", a.dive_sample, "--dive-weights", a.dive_weights,
                       log=f"{d}/c.log")
             rc = c.wait(timeout=900)
             wrc = w.wait(timeout=300)

@@ -114,8 +114,13 @@ def main(argv=None):
     p.add_argument("--out", help="nodes: the file to write (.gz: gzipped); export: the directory to write "
                                  "nodes.txt.gz, dnn.txt.gz and manifest.json in (coord/export.py)")
     p.add_argument("--as", dest="as_run", help="dives: the new run's name")
-    p.add_argument("--dive-b", type=float, default=0.4,
-                   help="dives: b of the survivor weights exp(b x), x = shortfall / the depth's median (0: uniform)")
+    p.add_argument("--dive-b", default="0.4",
+                   help="dives: b of the survivor weights exp(b x), x = shortfall / the depth's median (0: uniform); "
+                        "kQ: Knuth's dives, one child a level by g^Q of its QPB bound (bushy trees)")
+    p.add_argument("--dive-sample", type=float, default=1.0,
+                   help="dives: the share of the open nodes sampled (each weighted 1/pi; 1: all)")
+    p.add_argument("--dive-weights", choices=["unif", "qpb"], default="unif",
+                   help="dives, --dive-sample: the open nodes' sampling weights (qpb: g^2 of their own QPB bound)")
     p.add_argument("--follow", action="store_true",
                    help="worker: when the run pauses for an estimate (estimate-flow), go on with its dives run")
     p.add_argument("--solve-wall", type=float, help="estimate-flow: s of the run's wall time the solve gets")
@@ -184,7 +189,8 @@ def main(argv=None):
         from coord.dives import estimate_flow
         if a.solve_wall is None or a.dive_budget is None:
             p.error("estimate-flow: --solve-wall and --dive-budget are required")
-        out = estimate_flow(b, a.run, a.solve_wall, a.dive_budget, dive_b=a.dive_b, poll=a.poll, log=log)
+        out = estimate_flow(b, a.run, a.solve_wall, a.dive_budget, dive_b=a.dive_b, poll=a.poll, log=log,
+                            sample=a.dive_sample, weights=a.dive_weights)
         return 0 if out is not None else 3
     if a.command == "status":
         s = b.get_bytes(run_key(a.run, "status.json"))
@@ -206,7 +212,8 @@ def main(argv=None):
         from coord.dives import init_dives
         if not a.as_run:
             p.error("dives: --as NEW is required")
-        init_dives(b, a.run, a.as_run, dive_b=a.dive_b, budget=a.budget, log=log)
+        init_dives(b, a.run, a.as_run, dive_b=a.dive_b, budget=a.budget, log=log, sample=a.dive_sample,
+                   weights=a.dive_weights)
         return 0
     if a.command == "estimate":
         from coord.dives import estimate_run

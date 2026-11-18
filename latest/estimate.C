@@ -123,7 +123,10 @@ static void free_list(Node *&l) { while (l) list_head_remove(l); }
 struct Stratum {
   std::string key;
   int depth = 0;
-  std::vector<Rec> surv;           // its children that branched
+  double pi = 1.0;                 // its probability of being sampled (QAP_EST_SAMPLE): weight 1/pi
+  std::vector<Rec> surv;           // its children that branched (survivor dives)
+  std::vector<QAPAssignment> kids; // its children, unbounded (Knuth dives), and their probabilities
+  std::vector<double> kp;
   Est exact;
   double setup_cpu = 0.0;
   int dives = 0;
@@ -164,6 +167,34 @@ static size_t draw_survivor(const std::vector<Rec> &surv, double b, double mix, 
   return k;
 }
 
+// Knuth's step: probabilities of a node's children from their own QPB bounds, g^q (g the relative
+// gap against the root's QPB bound, as QAP_EST_CHILD_QPB), (1 - mix) w / sum + mix / count
+static std::vector<double> qpb_probs(QAP *q, const std::vector<QAPAssignment> &kids, BNBParameters *params,
+                                     int nlevel, double root_bound, double inc, double qexp, double mix)
+{
+  std::vector<double> w(kids.size(), 0.0);
+  double sw = 0.0;
+  for (size_t k = 0; k < kids.size(); k++) {
+    int level;
+    double rel_gap;
+    BNBParameters *pp = pick_param(kids[k], root_bound, inc, params, level, rel_gap, nlevel);
+    const double bq = node_qpb_bound(q, kids[k], pp);
+    const double g = bq < inc ? (inc - bq) / std::max(inc - root_bound, 1e-9) : 0.0;
+    w[k] = g > 0.0 ? pow(g, qexp) : 0.0;
+    sw += w[k];
+  }
+  for (double &x : w) x = sw > 0.0 ? (1.0 - mix) * x / sw + mix / kids.size() : 1.0 / kids.size();
+  return w;
+}
+
+static size_t draw_index(const std::vector<double> &p)
+{
+  double u = drand(), acc = 0.0;
+  size_t k = 0;
+  for (; k + 1 < p.size(); k++) { acc += p[k]; if (u <= acc) break; }
+  return k;
+}
+
 static void json_by_depth(std::ostream &o, const char *name, const std::map<int, double> &m)
 {
   o << "\"" << name << "\":{";
@@ -180,8 +211,14 @@ static void json_by_depth(std::ostream &o, const char *name, const std::map<int,
 static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBParameters *params, int nlevel,
                                     EstimateParameters *ep)
 {
-  const double b = atof(setting_s("QAP_EST_SURV"));
+  // QAP_EST_SURV=b: survivor dives, weights exp(b x); =kQ: Knuth's dives inside each stratum (one
+  // child a level, g^Q of its own QPB bound), for bushy trees where bounding every child costs the tree
+  const char *sv = setting_s("QAP_EST_SURV");
+  const bool knuth = sv[0] == 'k';
+  const double b = atof(knuth ? sv + 1 : sv);
   const double mix = setting_d("est.xbar_mix");
+  const double sample = setting_d("QAP_EST_SAMPLE");
+  const bool sample_qpb = std::string(setting_s("QAP_EST_SAMPLE_W")) == "qpb";
   const double budget = setting_d("QAP_EST_BUDGET");
   const char *dives_file = setting_s("QAP_EST_DIVES");
   if (const char *e = setting_s("QAP_EST_SEED"); *e) srand((unsigned)strtoul(e, NULL, 10));
@@ -193,8 +230,67 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
   std::ofstream out;
   if (*dives_file) out.open(dives_file, std::ofstream::app);
   out.precision(10);
-  std::cout << "survivor dives: b = " << b << ", mix = " << mix << ", budget " << budget << " s, root bound "
+  std::cout << (knuth ? "Knuth dives in strata: q = " : "survivor dives: b = ") << b << ", mix = " << mix
+            << ", budget " << budget << " s, sample " << sample << (sample_qpb ? " (by QPB)" : "") << ", root bound "
             << root_bound << ", incumbent " << inc << std::endl;
+
+  // QAP_EST_SAMPLE=F: each start node is a stratum with probability pi = min(1, F n w / sum w)
+  // (w = 1, or g^2 of its own QPB bound with QAP_EST_SAMPLE_W=qpb), the rest are not bounded;
+  // a stratum's estimate is weighted 1/pi (Horvitz-Thompson: unbiased). F = 1 keeps every node.
+  std::vector<QAPAssignment> starts;
+  while (stack != NULL) { starts.push_back(stack->data); list_head_remove(stack); }
+  std::vector<double> pis(starts.size(), 1.0);
+  if (sample < 1.0 && !starts.empty()) {
+    std::vector<double> w(starts.size(), 1.0);
+    std::vector<bool> capped(starts.size(), false);
+    if (sample_qpb) {
+      // a node its own QPB bound fathoms is kept (pi = 1: it costs one QPB bound); the rest weighted
+      // g^2, with est.xbar_mix's uniform share mixed in so that no pi is tiny (a near-zero pi is
+      // unbiased in expectation and low in practice: nug15 read 0.91 without it, Nov 18)
+      double sw = 0.0;
+      int nfree = 0;
+      for (size_t k = 0; k < starts.size(); k++) {
+        int level;
+        double rel_gap;
+        BNBParameters *pp = pick_param(starts[k], root_bound, inc, params, level, rel_gap, nlevel);
+        const double bq = node_qpb_bound(q, starts[k], pp);
+        if (bq > inc - DELTA) { capped[k] = true; w[k] = 0.0; continue; }
+        const double g = (inc - bq) / std::max(inc - root_bound, 1e-9);
+        w[k] = g * g;
+        sw += w[k];
+        nfree++;
+      }
+      for (size_t k = 0; k < starts.size(); k++)
+        if (!capped[k]) w[k] = sw > 0.0 ? (1.0 - mix) * w[k] / sw + mix / nfree : 1.0;
+    }
+    int nqpb = 0;
+    for (size_t k = 0; k < starts.size(); k++) nqpb += capped[k];
+    const double m = std::max(1.0, sample * (starts.size() - nqpb)) + nqpb;
+    for (int pass = 0; pass < 10; pass++) {     // inclusion probabilities, the capped ones' excess spread
+      double sw = 0.0, mm = m;
+      for (size_t k = 0; k < starts.size(); k++) { if (capped[k]) mm -= 1.0; else sw += w[k]; }
+      bool more = false;
+      for (size_t k = 0; k < starts.size(); k++) {
+        if (capped[k]) { pis[k] = 1.0; continue; }
+        pis[k] = sw > 0.0 && mm > 0.0 ? mm * w[k] / sw : 0.0;
+        if (pis[k] >= 1.0) { capped[k] = true; more = true; }
+      }
+      if (!more) break;
+    }
+  }
+  int kept = 0;
+  for (size_t k = 0; k < starts.size(); k++) {
+    if (pis[k] < 1.0 && !(drand() < pis[k])) { pis[k] = 0.0; continue; }
+    kept++;
+  }
+  for (size_t k = starts.size(); k-- > 0;)
+    if (pis[k] > 0.0) list_head_insert(stack, starts[k]);
+  if (out.is_open())
+    out << "{\"type\":\"sample\",\"open\":" << starts.size() << ",\"kept\":" << kept << ",\"fraction\":" << sample
+        << ",\"weights\":\"" << (sample_qpb ? "qpb" : "unif") << "\"}" << std::endl;
+  std::vector<double> kept_pi;
+  for (size_t k = 0; k < starts.size(); k++) if (pis[k] > 0.0) kept_pi.push_back(pis[k]);
+  size_t next_pi = 0;
 
   // the strata: each start node bounded, and its children
   std::vector<Stratum> strata;
@@ -206,11 +302,17 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
     Stratum h;
     h.key = fixes_of(a);
     h.depth = a.depth;
+    h.pi = next_pi < kept_pi.size() ? kept_pi[next_pi++] : 1.0;
     Rec r;
     Node *kids = bound_one(q, a, s, params, nlevel, root_bound, r);
     h.exact.add(a.depth, r.nodes, r.cpu);
     h.setup_cpu += r.cpu;
-    if (kids && r.branched) {
+    if (knuth && kids && r.branched) {
+      const double c0 = clock();
+      for (Node *k = kids; k != NULL; k = k->link) h.kids.push_back(k->data);
+      h.kp = qpb_probs(q, h.kids, params, nlevel, root_bound, inc, b, mix);
+      h.setup_cpu += (clock() - c0) / CLOCKS_PER_SEC;
+    } else if (kids && r.branched) {
       short_seen[a.depth].push_back(std::max(inc - r.bound, 0.0));
       for (Node *k = kids; k != NULL; k = k->link) {
         Rec c;
@@ -230,8 +332,10 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
     // and those survivors are processed again from a cold start. Only the estimator's own CPU
     // changes: the estimate takes each survivor's first bound, warm as the search's.
     static const long warm_keep = setting_i("QAP_EST_WARM_KEEP");
-    if ((long)strata.size() >= warm_keep)
+    if ((long)strata.size() >= warm_keep) {
       for (Rec &c : h.surv) c.a.set_warm(NULL);
+      for (QAPAssignment &c : h.kids) c.set_warm(NULL);
+    }
     spent += h.setup_cpu;
     if (out.is_open()) {
       out << "{\"type\":\"stratum\",\"key\":\"" << h.key << "\",\"depth\":" << h.depth << ",\"exact_nodes\":"
@@ -239,13 +343,41 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       json_by_depth(out, "exact_by_depth", h.exact.n);
       out << ",";
       json_by_depth(out, "exact_cpu_by_depth", h.exact.c);
-      out << ",\"survivors\":" << h.surv.size() << ",\"setup_cpu\":" << h.setup_cpu << "}" << std::endl;
+      out << ",\"survivors\":" << (knuth ? h.kids.size() : h.surv.size()) << ",\"setup_cpu\":" << h.setup_cpu
+          << ",\"pi\":" << h.pi << ",\"mode\":\"" << (knuth ? "knuth" : "surv") << "\"}" << std::endl;
     }
     strata.push_back(h);
   }
 
+  // one Knuth dive from stratum h: one child a level, by its own QPB bound
+  auto knuth_dive = [&](Stratum &h, Est &e, int &deepest, double &cost) {
+    deepest = h.depth + 1;
+    cost = 0.0;
+    size_t k = draw_index(h.kp);
+    QAPAssignment cur = h.kids[k];
+    double d = 1.0 / h.kp[k];
+    while (true) {
+      Rec r;
+      Node *kids = bound_one(q, cur, s, params, nlevel, root_bound, r);
+      cost += r.cpu;
+      e.add(cur.depth, d * r.nodes, d * r.cpu);
+      deepest = std::max(deepest, (int)cur.depth);
+      if (!kids || !r.branched) { free_list(kids); break; }
+      std::vector<QAPAssignment> ks;
+      for (Node *t = kids; t != NULL; t = t->link) ks.push_back(t->data);
+      free_list(kids);
+      const double c0 = clock();
+      std::vector<double> kp = qpb_probs(q, ks, params, nlevel, root_bound, inc, b, mix);
+      cost += (clock() - c0) / CLOCKS_PER_SEC;
+      k = draw_index(kp);
+      cur = ks[k];
+      d /= kp[k];
+    }
+  };
+
   // one dive from stratum h: its estimate below the stratum's exact part
   auto one_dive = [&](Stratum &h, Est &e, int &deepest, double &cost) {
+    if (knuth) { knuth_dive(h, e, deepest, cost); return; }
     deepest = h.depth + 1;
     cost = 0.0;
     double pk = 1.0;
@@ -280,7 +412,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
   };
 
   std::vector<size_t> live;
-  for (size_t i = 0; i < strata.size(); i++) if (!strata[i].surv.empty()) live.push_back(i);
+  for (size_t i = 0; i < strata.size(); i++) if (!strata[i].surv.empty() || !strata[i].kids.empty()) live.push_back(i);
   int total = 0;
   auto over = [&]() {
     if (budget > 0) return difftime(time(NULL), t0) >= budget;
@@ -311,6 +443,14 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       if (over() && pilot > 0) break;
       run(i);
     }
+  // QAP_EST_ALLOC=equal: the dives go round the strata in turn. The default, Neyman's allocation from
+  // the dives so far, puts few dives where the first ones were small: with Knuth's heavy tails that
+  // reads low (nug15: -6% with Neyman, Nov 18), so a fixed allocation is the unbiased choice there
+  // (auto: equal for Knuth's dives, Neyman for survivor dives, whose estimates measured unbiased under it)
+  static const std::string alloc = setting_s("QAP_EST_ALLOC");
+  const bool equal_alloc = alloc == "equal" || (alloc == "auto" && knuth);
+  size_t rr = 0;
+  while (!live.empty() && !over() && equal_alloc) run(live[rr++ % live.size()]);
   while (!live.empty() && !over()) {
     double best = -1.0;
     size_t pick = live[0];
@@ -319,7 +459,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       const double mu = h.s1 / h.dives;
       double sd = sqrt(std::max(h.s2 / h.dives - mu * mu, 0.0));
       sd = std::max(sd, mu);
-      const double w = sd / sqrt(std::max(h.cost, 1.0)) / h.dives;
+      const double w = sd / h.pi / sqrt(std::max(h.cost, 1.0)) / h.dives;
       if (w > best) { best = w; pick = i; }
     }
     run(pick);
@@ -329,11 +469,12 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
   QAPStatistics *res = new QAPStatistics(s->n, nlevel);
   double en = 0.0, ec = 0.0;
   for (const Stratum &h : strata) {
-    en += h.exact.nodes;
-    ec += h.exact.cpu;
-    if (h.dives > 0) ec += h.s1 / h.dives;
+    en += h.exact.nodes / h.pi;
+    ec += h.exact.cpu / h.pi;
+    if (h.dives > 0) ec += h.s1 / h.dives / h.pi;
   }
-  std::cout << "survivor dives: " << strata.size() << " strata (" << live.size() << " with survivors), " << total
+  std::cout << "estimator: " << kept << " of " << starts.size() << " start nodes sampled, "
+            << strata.size() << " strata (" << live.size() << " with children to dive), " << total
             << " dives, " << spent << " CPU s spent; estimate below the start nodes: exact part " << en
             << " nodes, CPU " << ec << " s (exact part and the dives' mean)" << std::endl;
   res->total_time = ec;

@@ -35,7 +35,7 @@ import zlib
 from .common import State, run_key, unit_key
 
 
-def init_dives(b, src, new, dive_b=0.4, budget=None, log=print):
+def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, weights="unif"):
     """create run NEW: a dives unit for every queued unit of SRC (paused, nothing leased)"""
     s = b.get_run(src)
     if s is None:
@@ -54,7 +54,7 @@ def init_dives(b, src, new, dive_b=0.4, budget=None, log=print):
         raise SystemExit(f"{src} has no queued units: nothing open to estimate")
     cfg = dict(s["config"])
     cfg.update({"kind": "dives", "source_run": src, "trace": False, "keep_unit_states": True,
-                "dive": {"b": dive_b}})
+                "dive": {"b": str(dive_b), "sample": sample, "weights": weights}})
     if budget is not None:
         cfg["budget"] = budget
     for name in ("instance.dat", "params.par", "incumbent.json"):
@@ -80,7 +80,9 @@ def init_dives(b, src, new, dive_b=0.4, budget=None, log=print):
         b.send(doc["lane"], {"run": new, "uid": doc["uid"]})
         b.update_unit(new, doc["uid"], {"sent_at": time.time()})
     log(f"dives: run {new} from {src}: {len(units)} units, {sum(u['nodes'] for u in units)} open nodes, "
-        f"{cfg['budget']:g} s each, weights exp({dive_b} x)")
+        f"{cfg['budget']:g} s each, " + (f"Knuth's dives, g^{str(dive_b)[1:]}" if str(dive_b).startswith("k")
+                                         else f"survivor dives, weights exp({dive_b} x)") +
+        (f", {sample:g} of the open nodes sampled ({weights})" if sample < 1 else ""))
     return new
 
 
@@ -88,7 +90,7 @@ def dive_seed(run_id, uid, attempt):
     return zlib.crc32(f"{run_id}/{uid}/{attempt}".encode())
 
 
-def read_lines(text):
+def read_lines(text, samples=None):
     strata, dives = {}, {}
     for line in text.splitlines():
         if not line.strip():
@@ -98,6 +100,8 @@ def read_lines(text):
             strata[x["key"]] = x
         elif x["type"] == "dive":
             dives.setdefault(x["key"], []).append(x)
+        elif x["type"] == "sample" and samples is not None:
+            samples.append(x)
     return strata, dives
 
 
@@ -106,34 +110,50 @@ def _by_depth(d):
 
 
 def combine(src_state, strata, dives, reps=400, seed=1):
-    """SRC's totals plus every stratum's exact part and the mean of its dives; a bootstrap over dives"""
+    """SRC's totals plus every stratum's exact part and the mean of its dives, each weighted 1/pi (the
+    stratum's probability of being sampled: 1 without QAP_EST_SAMPLE); a bootstrap over the dives within
+    each stratum and, where strata were sampled (pi < 1), over those strata"""
     nl, tl = src_state.arrays.get("n_level", []), src_state.arrays.get("t_level", [])
     done_n = {d: float(v) for d, v in enumerate(nl) if v}
     done_c = {d: float(v) for d, v in enumerate(tl) if v}
+    pi = {k: float(s.get("pi", 1.0)) or 1.0 for k, s in strata.items()}
     est_n, est_c = dict(), dict()
-    for s in strata.values():
+    for k, s in strata.items():
         for d, v in _by_depth(s.get("exact_by_depth")).items():
-            est_n[d] = est_n.get(d, 0.0) + v
+            est_n[d] = est_n.get(d, 0.0) + v / pi[k]
         for d, v in _by_depth(s.get("exact_cpu_by_depth")).items():
-            est_c[d] = est_c.get(d, 0.0) + v
+            est_c[d] = est_c.get(d, 0.0) + v / pi[k]
     for key, ds in dives.items():
+        w = pi.get(key, 1.0)
         for x in ds:
             for d, v in _by_depth(x.get("by_depth")).items():
-                est_n[d] = est_n.get(d, 0.0) + v / len(ds)
+                est_n[d] = est_n.get(d, 0.0) + v / len(ds) / w
             for d, v in _by_depth(x.get("cpu_by_depth")).items():
-                est_c[d] = est_c.get(d, 0.0) + v / len(ds)
-    exact_n = sum(s["exact_nodes"] for s in strata.values())
-    exact_c = sum(s["exact_cpu"] for s in strata.values())
-    rest_n = exact_n + sum(statistics.fmean(x["nodes"] for x in ds) for ds in dives.values())
-    rest_c = exact_c + sum(statistics.fmean(x["cpu"] for x in ds) for ds in dives.values())
+                est_c[d] = est_c.get(d, 0.0) + v / len(ds) / w
+    def part(k, pick=None):
+        s = strata[k]
+        ds = dives.get(k, [])
+        if pick is not None and ds:
+            ds = pick(ds)
+        n = s["exact_nodes"] + (statistics.fmean(x["nodes"] for x in ds) if ds else 0.0)
+        c = s["exact_cpu"] + (statistics.fmean(x["cpu"] for x in ds) if ds else 0.0)
+        return n / pi[k], c / pi[k]
+    rest_n = rest_c = 0.0
+    for k in strata:
+        n, c = part(k)
+        rest_n += n
+        rest_c += c
     rng = random.Random(seed)
+    fixed = [k for k in strata if pi[k] >= 1.0]
+    sampled = [k for k in strata if pi[k] < 1.0]
     boots_n, boots_c = [], []
+    redraw = lambda ds: [ds[rng.randrange(len(ds))] for _ in ds]
     for _ in range(reps):
-        bn, bc = exact_n, exact_c
-        for ds in dives.values():
-            pick = [ds[rng.randrange(len(ds))] for _ in ds]
-            bn += statistics.fmean(x["nodes"] for x in pick)
-            bc += statistics.fmean(x["cpu"] for x in pick)
+        bn = bc = 0.0
+        for k in fixed + ([sampled[rng.randrange(len(sampled))] for _ in sampled] if sampled else []):
+            n, c = part(k, redraw)
+            bn += n
+            bc += c
         boots_n.append(bn)
         boots_c.append(bc)
     boots_n.sort()
@@ -178,6 +198,8 @@ def report(e):
         f"{e['strata']} open nodes ({e['with_survivors']} with children that branch), {e['dives']} dives in "
         f"{e['dived']} of them, deepest dive node at depth {e['deepest_dive']}; estimator {_cpu(e['estimator_cpu'])}",
     ]
+    if e.get("open_nodes") and e.get("open_sampled", 0) < e["open_nodes"]:
+        lines.append(f"{e['open_sampled']:,} of the {e['open_nodes']:,} open nodes sampled (each weighted 1/pi)")
     if e["strata_with_survivors_not_dived"]:
         lines.append(f"LOW: {e['strata_with_survivors_not_dived']} open nodes with branching children got no dive: "
                      f"their exact part only is counted")
@@ -207,6 +229,7 @@ def estimate_run(b, run_id, out=None, log=print):
         f.write(b.get_bytes(src["totals_key"]) or b.get_bytes(run_key(run_id, "totals.state")))
     st = State(p)
     strata, dives = {}, {}
+    samples = []
     pending = 0
     for u in b.all_units(run_id):
         if u.get("status") != "merged":
@@ -215,12 +238,15 @@ def estimate_run(b, run_id, out=None, log=print):
         data = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "dives.jsonl"))
         if data is None:
             continue
-        s1, d1 = read_lines(data.decode())
+        s1, d1 = read_lines(data.decode(), samples)
         strata.update(s1)
         for k, v in d1.items():
             dives.setdefault(k, []).extend(v)
     e = combine(st, strata, dives)
     e["source_run"] = src["src"]
+    if samples:
+        e["open_nodes"] = sum(x.get("open", 0) for x in samples)
+        e["open_sampled"] = sum(x.get("kept", 0) for x in samples)
     e["units_pending"] = pending
     text = report(e)
     if pending:
@@ -237,7 +263,7 @@ def estimate_run(b, run_id, out=None, log=print):
     return e
 
 
-def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b=0.4, poll=2.0, log=print):
+def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, log=print, sample=1.0, weights="unif"):
     """`qapctl estimate-flow RUN`: the estimate run, in place of `qapctl coordinator RUN` on the
     coordinating host. RUN is solved until solve_wall seconds after its start, paused (dives_run set
     on it, for the workers that follow it: `qapctl worker --follow`), its units left to return and
@@ -274,6 +300,6 @@ def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b=0.4, poll=2.0, log=
         log(f"estimate-flow: {run_id} has nothing open after the pause: the tree is closed")
         return c.finish()
     if b.get_run(new) is None:
-        init_dives(b, run_id, new, dive_b=dive_b, budget=dive_budget, log=log)
+        init_dives(b, run_id, new, dive_b=dive_b, budget=dive_budget, log=log, sample=sample, weights=weights)
     out = Coordinator(b, new, log=log).loop(poll=poll)
     return out

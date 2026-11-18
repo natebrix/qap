@@ -223,7 +223,10 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `DNN_ADMM_WARM_BETA` | environment | text | unset | text | experiment | F1:T:F2[:force]: a warm call's own penalty schedule |
 | `DNN_ADMM_WARM_DAMP` | environment | text | unset | text | experiment | D:K: both dual steps scaled by D for the first K iterations of a warm call |
 | `QAP_EST_SEED` | environment | text | unset | text | run | estimator: seed for rand() (unset: the fixed sequence) |
-| `QAP_EST_SURV` | environment | text | unset | text | run | estimator: b, survivor dives with weights exp(b x) (estimate.C; unset: Knuth's dives) |
+| `QAP_EST_SURV` | environment | text | unset | text | run | estimator: b, survivor dives with weights exp(b x); kQ, Knuth's dives inside each start node, g^Q of the child's QPB bound (estimate.C; unset: Knuth's dives from the root) |
+| `QAP_EST_SAMPLE` | environment | number | `1` | 0..1 | run | estimator, QAP_EST_SURV: the share of the start nodes sampled as strata (weighted 1/pi) |
+| `QAP_EST_ALLOC` | environment | text | `auto` | text | run | estimator, QAP_EST_SURV: neyman (dives where the variance per CPU s is; reads low with Knuth's heavy tails), equal (round the strata in turn), auto (equal for kQ, neyman for survivor dives) |
+| `QAP_EST_SAMPLE_W` | environment | text | `unif` | text | run | estimator, QAP_EST_SAMPLE: unif, or qpb (each start node weighted g^2 of its own QPB bound) |
 | `QAP_EST_BUDGET` | environment | number | `0` | 0..inf | run | estimator, survivor dives: stop starting dives after this many wall seconds (0: estimate.par's trials) |
 | `QAP_EST_WARM_KEEP` | environment | integer | `8` | 0..1000000 | run | estimator, survivor dives: the strata whose survivors keep their parent's DNN state (the rest restart cold) |
 | `QAP_EST_DIVES` | environment | text | unset | text | run | estimator, survivor dives: append a JSON line per stratum and per dive to this file |

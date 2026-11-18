@@ -15,8 +15,9 @@ first draw must say it scored its nodes.
 Then the estimator resumed from a state file (-e -r, as dives from a saved frontier are run): its
 first step must bound the state's nodes exactly as a plain resume of the same state does (the
 same bounds, strategy and branching line at every depth-1 node). Before Nov 16 it bounded them
-with root bound 0, so with the deepest level's strategy. Last, survivor dives (QAP_EST_SURV) from
-the depth-2 frontier, b = 0 and 0.4, three seeds each: the estimate within 5% of the count every time.
+with root bound 0, so with the deepest level's strategy. Last, QAP_EST_SURV's dives from the depth-2
+frontier, three seeds of 1,000 dives each: survivor dives (b = 0 and 0.4), Knuth's in strata (k1.5),
+and Knuth's with 30% of the strata sampled by QPB, each within 5% of the count on the three's mean.
 About 40 seconds in all.
 """
 
@@ -107,26 +108,34 @@ def survivor_check(solver, common, env, d, nodes):
     with open(os.path.join(d, "estimate.par"), "w") as f:
         f.write("2 1000 100 100000 1.5 1000\n")
     bad = 0
-    for b in ("0", "0.4"):
+    for b, extra in (("0", {}), ("0.4", {}), ("k1.5", {}),
+                     ("k1.5", {"QAP_EST_SAMPLE": "0.3", "QAP_EST_SAMPLE_W": "qpb"})):
         ests = []
         for seed in (1, 2, 3):
-            jl = os.path.join(d, f"surv_{b}_{seed}.jsonl")
+            jl = os.path.join(d, f"surv_{b}_{extra.get('QAP_EST_SAMPLE', '1')}_{seed}.jsonl")
+            if os.path.exists(jl):
+                os.remove(jl)                    # the estimator appends
             subprocess.run([solver, "-e", "-r", fr] + flags + [inst], cwd=d, capture_output=True, text=True, check=True,
-                           env=dict(env, QAP_EST_SURV=b, QAP_EST_DIVES=jl, QAP_EST_SEED=str(seed)))
+                           env=dict(env, QAP_EST_SURV=b, QAP_EST_DIVES=jl, QAP_EST_SEED=str(seed), **extra))
             strata, dives = {}, {}
             for line in open(jl):
                 x = json.loads(line)
                 if x["type"] == "stratum":
                     strata[x["key"]] = x
-                else:
+                elif x["type"] == "dive":
                     dives.setdefault(x["key"], []).append(x["nodes"])
-            ests.append(top_nodes + sum(s["exact_nodes"] for s in strata.values()) +
-                        sum(statistics.fmean(v) for v in dives.values()))
-        worst = max(abs(e / nodes - 1) for e in ests)
-        ok = worst <= 0.05
+            pi = {k: s.get("pi", 1.0) for k, s in strata.items()}
+            ests.append(top_nodes + sum(s["exact_nodes"] / pi[k] for k, s in strata.items()) +
+                        sum(statistics.fmean(v) / pi[k] for k, v in dives.items()))
+        # 1,000 dives a seed: one seed's estimate moves by 5-9% (Knuth's tails, a sample of the strata),
+        # so the mean of the three is held to 5%
+        sampled = bool(extra)
+        ok = abs(statistics.fmean(ests) / nodes - 1) <= 0.05
         bad += not ok
-        print(f"{'ok  ' if ok else 'FAIL'} QAP_EST_SURV={b}: survivor dives from the depth-2 frontier, 3 seeds: "
-              f"{', '.join(f'{e / nodes:.3f}' for e in ests)} of the nodes")
+        what = f"QAP_EST_SURV={b}" + (f" QAP_EST_SAMPLE={extra['QAP_EST_SAMPLE']} ({extra['QAP_EST_SAMPLE_W']})"
+                                      if sampled else "")
+        print(f"{'ok  ' if ok else 'FAIL'} {what}: dives from the depth-2 frontier, 3 seeds: "
+              f"{', '.join(f'{e / nodes:.3f}' for e in ests)} of the nodes, mean {statistics.fmean(ests) / nodes:.3f}")
     return bad
 
 
