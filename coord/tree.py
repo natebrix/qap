@@ -20,6 +20,13 @@ published again. A subtree only grows, so a grandchild once a boundary stays
 one, and a rebuild cuts the tree as the run did. On nug17 (41,443 nodes) that
 is 285 shards, 103 rows at the median, 1,667 at most. meta.json (TreeMeta in
 lib/qap/tree.ts, with layout, generatedAt and final) is written last.
+
+A branched node's subtree is closed when every child it made (the trace's kids)
+is in the tree and closed; a fathomed or enumerated node is closed at once. The
+tree keeps, for each node, how many children its subtree's branched nodes made
+that it does not hold yet (miss), as it keeps the subtree sizes: a branched node
+is closed when that is 0. subtrees_by_depth counts the branched and the closed
+ones by depth, for the run page's per-level table (status.json, coord/publish.py).
 """
 import json
 import math
@@ -73,6 +80,8 @@ class LiveTree:
         self.fat = array("i", [0])
         self.sub = array("d", [0.0])
         self.mx = array("h", [len(self.prefix)])
+        self.miss = array("i", [0])             # children of the subtree's branched nodes not in the tree yet
+        self.bids = array("i")                  # the branched nodes, in the order their lines came
         self.first = array("i", [-1])           # first child, next sibling
         self.nxt = array("i", [-1])
         self.child = {}                         # parent << 20 | facility << 10 | location -> id
@@ -103,6 +112,8 @@ class LiveTree:
                 self.duplicates += 1
             else:
                 self._fill(0, f)
+                # the root's children may have come first: each took one of the kids this adds
+                self.miss[0] += self._own_miss(0)
                 self.dirty.add(0)
             return
         pid = 0
@@ -123,14 +134,16 @@ class LiveTree:
         self.fix.append(a << 10 | b)
         for col, v in ((self.rec, 0), (self.out, 0), (self.qpb, NAN), (self.dnn, NAN), (self.cut, NAN),
                        (self.cutoff, NAN), (self.rule, -1), (self.line, 0), (self.kids, -1), (self.cpu, 0.0),
-                       (self.size, 1), (self.fat, 0), (self.sub, 0.0), (self.first, -1)):
+                       (self.size, 1), (self.fat, 0), (self.sub, 0.0), (self.first, -1), (self.miss, 0)):
             col.append(v)
         self.mx.append(int(f[1]))
         self.nxt.append(self.first[pid])
         self.first[pid] = i
         self._fill(i, f)
-        x, d = pid, self.dep[i]
+        own = self.miss[i] = self._own_miss(i)
+        x, d, gap = pid, self.dep[i], own - 1     # i fills one of its parent's kids
         while x != -1:
+            self.miss[x] += gap
             self.size[x] += 1
             self.fat[x] += self.fat[i]
             self.sub[x] += self.cpu[i]
@@ -159,6 +172,15 @@ class LiveTree:
         self.fat[i] += 1 if o in FATHOMED else 0
         self.sub[i] += self.cpu[i]
         self.outcomes[chr(o)] = self.outcomes.get(chr(o), 0) + 1
+        if o == ord("B"):
+            self.bids.append(i)
+
+    def _own_miss(self, i):
+        """the children node i made, all still to come: its kids if it branched
+        (1 if the trace did not say how many, so that it never closes), else 0"""
+        if self.out[i] != ord("B"):
+            return 0
+        return self.kids[i] if self.kids[i] >= 0 else 1
 
     # ---------------------------------------------------------------- reading
     def children(self, i):
@@ -211,6 +233,26 @@ class LiveTree:
     def take_dirty(self):
         d, self.dirty = self.dirty, set()
         return sorted(i for i in d if self.is_root(i))
+
+    def closed(self, i):
+        """node i's subtree is complete: fathomed or enumerated, or branched
+        with every child it made in the tree and closed"""
+        return self.out[i] != ord("B") or (self.rec[i] == 1 and self.miss[i] == 0)
+
+    def subtrees_by_depth(self):
+        """{"branched": [...], "closed": [...]} by depth: the branched nodes, and
+        those of them whose subtrees are closed (the root counts as branched
+        before its own line, as in outcome_counts)"""
+        branched = [0] * (self.mx[0] + 1)
+        closed = [0] * (self.mx[0] + 1)
+        dep, miss = self.dep, self.miss
+        for i in self.bids:
+            branched[dep[i]] += 1
+            closed[dep[i]] += miss[i] == 0
+        if not self.rec[0]:
+            branched[dep[0]] += 1
+        last = max((d for d, v in enumerate(branched) if v), default=-1)
+        return {"branched": branched[:last + 1], "closed": closed[:last + 1]}
 
     def outcome_counts(self):
         out = dict(self.outcomes)

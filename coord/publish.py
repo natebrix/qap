@@ -5,7 +5,9 @@ the store:
 
   status.json    what the run is doing: status, units, incumbent, CPU, and
                  the open nodes by depth (as handed out in queued and running
-                 units); the names of the other files
+                 units); for a --trace run, the branched nodes by depth and
+                 how many of them have closed subtrees (every child bounded
+                 and closed, coord/tree.py); the names of the other files
   totals.state   the merged statistics (QAP-STATE 7, no open nodes): every
                  per-level table of the solver's report, the DNN ones too
   report.txt     the solver's report for them: the RESULTS head, the
@@ -156,6 +158,8 @@ class Publisher:
             try:
                 if self.tree.publish(final, now):
                     status["files"]["tree"] = "tree/meta.json"
+                    # by depth, the branched nodes and those whose subtrees are closed (coord/tree.py)
+                    status["nodes"]["subtrees_by_depth"] = self.tree.tree.subtrees_by_depth()
             except Exception as e:      # the tree must never stop the status, nor the run
                 c.log(f"coordinator: publishing the tree failed: {e!r}")
         sample = {"t": iso(now), "wall_s": round(wall, 1), "nodes": node, "fathomed": fathom,

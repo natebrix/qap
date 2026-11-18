@@ -34,6 +34,11 @@ Starting a run); the cloud sessions make no AWS calls. Where things stand:
   and verified by the coordinator. A rehearsal on one machine, not yet a run of record.
 - **Next: tai60b** (above), two m7a.16xlarge, 128 slots: `infra/phase1/start.sh tai60b`.
 - **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), two Spot instances.
+- **After tai60b, before or beside tho40 (Nov 17):** the rule 9 A/B on tai50b, one Spot c7a.16xlarge,
+  about 4.5 hours: `infra/phase1/start.sh tai50b`, run name `tai50b-r9`, params
+  `infra/phase1/recipes/tai50b_r9.par`, private status (`experiments/rule9_bottom/README.md`). It
+  decides whether rule 2 leaves the bottom block of every recipe, tho40c's included, so it is worth
+  having before tho40 starts.
 
 ## sko42 on the laptop (Nov 17), beside tho40 on AWS
 
