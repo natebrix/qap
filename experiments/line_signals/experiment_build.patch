@@ -1,5 +1,5 @@
 diff --git a/latest/bnb.C b/latest/bnb.C
-index d62cae56..4592c18d 100644
+index d62cae56..cf932807 100644
 --- a/latest/bnb.C
 +++ b/latest/bnb.C
 @@ -88,6 +88,7 @@ static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
@@ -10,7 +10,7 @@ index d62cae56..4592c18d 100644
  //#include <time.h>
  
  /*
-@@ -1146,6 +1147,198 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+@@ -1146,6 +1147,199 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
  	qpbp->improve   = false;
  	qpbp->nofathom_patience = 0;   // only node bounds use patience
  	set_branch_parameters(bp, param, use_J, reorder);
@@ -50,7 +50,8 @@ index d62cae56..4592c18d 100644
 +	  // bound ran and missed, the candidates are the K rows and the K columns with the largest marginal
 +	  // scores (columns only with no symmetry left); every child of a candidate that QPB's U does not
 +	  // already drop is solved warm from the node's state (the children's own start) for CAP ADMM
-+	  // iterations, no give-up, no pool, no cut phase; the node branches on the line whose children's
++	  // iterations, no give-up, no cut phase, under the node's cut pool where it has one (dnn_pool_bound,
++	  // the pool's cuts as they are); the node branches on the line whose children's
 +	  // shortfall sum (cutoff - lb where positive) is least, ties to the larger marginal score.
 +	  // QAP_LA_SHORTLIST=m (default) or a (every line: K ignored).
 +	  {

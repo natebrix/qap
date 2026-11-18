@@ -1,4 +1,4 @@
-# Which signal picks the branching line? (Nov 18 2026, running)
+# Which signal picks the branching line? (Nov 18 2026)
 
 Question (Nathan, after the tai60b line study, `../tai60b_lines/`): rule 2 uses QPB's dual matrix U
 (how many children bound + U_ij fathoms, ties by the U sum); is there an equivalent that uses the DNN
@@ -26,9 +26,12 @@ each, every child's subtree solved to the end (b), and every child's cold first 
   - `QAP_LA=K:CAP:DMIN:DMAX`: a DNN lookahead rule. At a node of depth DMIN-DMAX whose DNN bound missed,
     the candidates are the K rows and K columns with the largest marginal scores (K = 1: rule 9's two
     lines); every child of a candidate that U does not drop is solved warm from the node's state (the
-    children's own start: Z and the conditioned Y) for CAP ADMM iterations, no give-up, no pool, no cut
-    phase; the node branches on the line whose children's shortfall sum (cutoff - lb where positive) is
-    least. `dnn-la:` lines on stderr give its choice, the candidates' scores and its CPU.
+    children's own start: Z and the conditioned Y) for CAP ADMM iterations, no give-up, no cut phase,
+    under the node's cut pool (`dnn_pool_bound`; without it the solves are noise on tai: every child open,
+    `runs/la_uncut.log`); the node branches on the line whose children's shortfall sum (cutoff - lb where
+    positive) is least. `QAP_LA_LINES=r1,c26,...` names the candidates instead. `dnn-la:` lines on stderr,
+    and in `QAP_LA_LOG`, give its choice, each candidate's marginal score, shortfall sum and open
+    children, and its CPU (`runs/la.log`: the whole-tree arms).
 - `dump.sh`: the dumps at the truth nodes (`dumps/`); `signals.py` scores the lines by each signal
   against the truth; `warm.py run|analyze`: every child of the study's lines warm from the node's
   (uncut) state, 200 iterations, the bound every 10 (so any cap up to 200).
@@ -180,3 +183,53 @@ Both closed the tree at the best known 637,250,948, found by the search.
 - **+13% nodes, +64% CPU net of the lookahead, +137% in all.** As at tai60b's 43:58, 30 iterations are
   too few at m = 39: after the lookahead 37 to 40 of each candidate line's 38 to 40 children are open at
   every node it judged, except one depth-1 line (c16, 27 of 39).
+
+### 7. tai40b's root with 150 iterations (`dumps/tai40b_root/la150.log`)
+
+The root alone (`bnbdrv -d 0`, `tai/tai40b.par`, the incumbent the best known + 1), the 30-iteration
+arm's 8 candidates, `QAP_LA=4:150:0:0`, two lines to a process (each process bounds the root again: the
+root bound is the same, 426,254,008.59). A child's solve stops when it fathoms.
+
+| line | marginal score | 30 iterations: shortfall sum, children open of 40 | 150 iterations | the truth |
+|---|---|---|---|---|
+| r23 | 0.084 | 419M, 40 | **4.0M, 3** (1st) | production's line: 1 of its 40 children branches, a path below |
+| r27 | 0.055 | 414M, 40 | 4.5M, 5 (2nd) | |
+| r12 | 0.066 | 415M, 40 | 7.0M, 6 (3rd) | |
+| c2 | 0.094 | 507M, 40 | 7.0M, 9 (4th) | rule 9's other line |
+| c27 | 0.071 | **188M**, 40 (1st) | 7.1M, 11 (5th) | the 30-iteration choice: 2 children branch, 829 nodes against 731 |
+| c31 | 0.093 | 383M, 40 | 8.6M, 12 | |
+| r34 | 0.061 | 442M, 40 | 9.5M, 14 | |
+| c23 | 0.058 | 288M, 40 | 11.5M, 12 | |
+
+- **150 iterations put production's line first and the 30-iteration choice 5th**: r23's children are
+  3 open after 150 iterations, c27's 11. Where the 30-iteration solves have fathomed nothing, the
+  shortfalls rank the lines by how far unconverged solves happen to be, not by their subtrees.
+- Cost: 3,965 CPU s for 318 pooled solves (28,601 iterations, 90 a solve), about 4x the 30-iteration
+  lookahead (1,037 s) and 54% of production's whole tai40b tree. On tai40b it cannot pay.
+
+## Verdict
+
+1. **Rule 2 has no DNN form, and no cheap signal ranks lines.** The DNN certificate's child bounds are
+   flat. On these instances rule 2 is its U-sum tie-break, since QPB is 13-29% under the cutoff, and
+   neither the U sum, the marginal score (rules 8, 9) nor QPB's lookahead (rule 4) agrees with the
+   truth (section 1).
+2. **The children's DNN solves do rank lines, once they converge far enough to fathom some
+   children**: 30 warm iterations at m = 28 to 33 (tho30; tai35b, pooled), about 150 at m = 39 (tai40b's
+   root). 30 are too few at m = 39 and m = 57, where every child is still open (tai40b, tai60b's 43:58).
+   The cap has to grow with n. A better stop is per child: iterate until it fathoms or its bound stalls
+   (the give-up's test), and score a line by its children left open and their shortfall.
+3. **A lookahead pays only where the subtree under the node is large against its cost.** Its cost is
+   lines x children x iterations x the iteration's cost: about 470 CPU s a node on tai35b (8 lines,
+   30 iterations), 4,000 s at tai40b's root (150 iterations), against whole trees of 7,000 to 7,400 s.
+   Neither instance gains in total CPU: +20-28% on tai35b, +137% on tai40b, while tai35b's best arm
+   saved 12-17% net of the lookahead. At tai60b the subtrees at depths 0-3 run to millions of CPU s
+   (43:58's at least 1.67M), and 8 lines at 150 iterations cost about 65,000 s at most
+   (8 x 58 x 150 x 0.93 s; fathomed children stop early), a few percent of such a subtree, against a 2x
+   spread among the lines there (`../tai60b_lines/`).
+4. **Not shown yet: that a longer cap picks the right line at n = 60.** The next test (not run):
+   tai60b's 43:58 with section 5's four lines at a cap of 150, one line to a process
+   (`CAP=150 dump.sh tai60b_la`, its `QAP_LA_LINES` split one line to a process; about 2.5 h on 4 cores). If it
+   ranks r1 and r45 first and c26 and r8 last, the rule to build is the lookahead at the top depths of
+   the big instances only (by depth, or by the node's estimated subtree), 4 to 6 lines a side, a cap
+   that grows with n or the per-child stop, and the chosen line's children started from their
+   lookahead state, since the search solves them again.
