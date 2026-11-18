@@ -3,7 +3,7 @@
 #   infra/phase1/collect.sh [RUN]     (default: the latest run under runs/; a run launched
 #                                     elsewhere is fetched into a new runs/RUN/)
 # Shows the run's instances, the coordinator's status.json, each host's last
-# steps, and results.txt and compare.txt when they exist. Everything it fetches
+# steps, and results.txt, compare.txt and an estimate run's estimate.txt when they exist. Everything it fetches
 # goes to runs/RUN/ (each host's out/ under hosts/HOST/). Safe to run at any time.
 set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
@@ -57,6 +57,11 @@ for h in $(aws s3 ls "s3://$B/runs/$RUN/hosts/" | awk '/PRE/ {print $2}' | tr -d
   tail -3 "$L/hosts/$h/out/steps.txt" | cut -c1-300 | sed 's/^/  /'
 done
 get results.txt && { echo; cat "$L/results.txt"; }
+# an estimate run (QAP_ESTIMATE; coord/dives.py): its estimate is its dives run's results
+if aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/results.txt" "$L/estimate.txt" 2> /dev/null; then
+  aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/estimate.json" "$L/estimate.json" 2> /dev/null
+  echo; echo "estimate (run $RUN-dives; $RUN stays paused, resumable):"; cat "$L/estimate.txt"
+fi
 # a --trace run's node and DNN traces (qapctl export, coord/export.py) go to QAP_EXPORT_DIR/RUN
 # (default infra/phase1/exports/RUN, kept out of git; the GitHub workflow keeps them as the job's
 # artifact), whatever their size. Finished or not: part-way (still running, or ended by its
