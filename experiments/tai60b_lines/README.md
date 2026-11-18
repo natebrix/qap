@@ -35,7 +35,7 @@ the build is production's, node for node (tai25b to depth 2: the same iterations
 3. Score each line by its children: how many fathom, the shortfall (cutoff - lb) of those that do
    not, and the CPU. Calibrate against production's subtrees under facility 1 once tai60b ends.
 
-## Results (partial, 00:50 UTC Nov 18)
+## Results (partial, 01:35 UTC Nov 18)
 
 `python3 experiments/tai60b_lines/score.py` (from the repository root) prints the table and the r1 check.
 Each arm bounds its children in descending order of the free index (location 59 down for a row,
@@ -46,9 +46,9 @@ facility 59 down for a column), so the arms have covered different children. Mar
 |---|---|---|---|---|---|
 | production r1 | 58 | 49 | 3 | 6 | path child 1:33 758k; 510k, 509k, 383k, 373k, 319k |
 | r1 (done 00:54) | 58 | 46 | 6 | 6 | path child 1:33 1,000k; 772k, 710k, 693k, 632k, 530k |
-| r45 | 45 | 33 | 4 | 8 | path child 45:26 1,029k; 719k, 665k, 662k, 651k, 329k, 175k, 11k |
-| r8 | 34 | 23 | 2 | 9 | path child 8:29 1,133k; 999k, 982k, 757k, 756k, 726k, 697k, 490k, 111k |
-| c26 | 21 | 12 | 0 | 9 | path child 45:26 1,029k; 810k, 809k, 727k, 661k, 623k, 611k, 536k, 457k |
+| r45 | 49 | 35 | 5 | 9 | path child 45:26 1,029k; 719k, 665k, 662k, 651k, 329k, 188k, 175k, 11k |
+| r8 | 49 | 36 | 2 | 11 | path child 8:29 1,133k; 999k, 982k, 853k, 757k, 756k, 726k, 697k, 490k, 416k, 111k |
+| c26 | 23 | 12 | 0 | 11 | path child 45:26 1,029k; 879k, 810k, 809k, 727k, 661k, 623k, 611k, 536k, 457k, 418k |
 
 A child that branches costs about 1,100 CPU s here (bounded, then set aside); one the first solve
 fathoms, about 45; one the cut phase fathoms, 300 to 1,000. In production the path child's subtree
@@ -65,13 +65,13 @@ but absolute subtree sizes will not transfer.
 **r1, production's line, leads; the marginal score has the order backwards.** r1 finished at 00:54 UTC
 with all 58 children as production's (`58 of 58 children branch or fathom as in production`): 6 branching
 children, the fewest of the four lines whatever their remaining children do: r45 already has 8, r8 and
-c26 9 each (r8 10 by 00:58). Its path child (1.00M short)
+c26 11 each at 01:35. Its path child (1.00M short)
 is also the least short. Against r8 and c26 that is dominance: each of their six worst children is
 further from the cutoff than r1's child of the same rank, and they have three more besides. r45 is closer:
 its path child is 45:26, the same node as c26's (both lines contain it), 1.03M short against r1's 1.00M.
-Its other branching children are mostly less short than r1's, but there are seven of them to r1's five,
-with 13 children to go. c26, the bound lab estimate's line and rule 9's choice from this state, branches on
-9 of its first 21 children. The four lines' order by children so far, r1, r45, r8, c26, is the reverse of
+Its other branching children are mostly less short than r1's, but there are eight of them to r1's five,
+with 9 children to go. c26, the bound lab estimate's line and rule 9's choice from this state, branches on
+11 of its first 23 children. The four lines' order by children so far, r1, r45, r8, c26, is the reverse of
 the marginal score's, as in `../tho30_solve/line_truth/`.
 
 **Restarts reproduce the arms exactly.** Container restarts at about 20:35 and 20:58 UTC Nov 17 killed
@@ -89,5 +89,9 @@ checkpoint's copy of 43:58's state, rounded to fp32 (`ship.bits = 32`) as produc
 store are. `supervise.sh` keeps the arms going: each minute it trims and resumes an arm that stopped part
 way, when the memory leaves room for it.
 
-Projected finishes from each arm's CPU per child so far: r1 about 01:05 UTC, r45 01:55, r8 03:15,
-c26 06:00 Nov 18.
+**A third container restart at about 01:32 UTC Nov 18** killed c26, r45 and r8 within 5 minutes of
+their last checkpoints (01:27-01:31). `supervise.sh` trimmed each checkpoint (c26 35 children kept,
+r45 10, r8 9, each with the one DNN state they use) and resumed them at 01:32-01:33: 5.4 GB in all,
+against 12.6 GB before.
+
+Projected finishes from each arm's CPU per child so far: r45 and r8 about 02:30 UTC, c26 07:00 Nov 18.
