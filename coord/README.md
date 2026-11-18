@@ -113,6 +113,16 @@ local `moto` server for tests). Both implement the same small interface
   and 1.06 on the first runs), and the resumed solve's totals equal a serial run's. On EC2:
   `QAP_ESTIMATE=SOLVE_S:DIVE_S[:B]` on every instance (`infra/phase1/node.sh`; start.sh asks
   for it under the other settings). On the laptop: `ESTIMATE=... infra/laptop/solve.sh PROBLEM`.
+  `node.sh` in its local mode against moto, from a clean archive, gave three outcomes (Nov 18):
+  - **nug18, `QAP_ESTIMATE=8:4`:** paused at 8 s, 15 dives units holding 409 open nodes; the
+    worker followed. The estimate: 131,122 nodes (5-95%: 125,933 to 137,343) against 136,207,
+    and 40.2 CPU s against 40.1.
+  - **nug18 at 25 s:** the tree closed inside the budget. That is the solve's answer, and the
+    check passed.
+  - **nug17 at 3 s:** the tree closed while the units returned. Nothing was open, so the run
+    finished as a solve.
+
+  Workers see a pause at their next status look, up to 10 s later, and finish the unit they hold.
 
 With a fixed incumbent the totals equal a serial run's exactly, whatever
 fails (`tests/coord_test.py`, `make coord`: nug17 with 0.3-second units,

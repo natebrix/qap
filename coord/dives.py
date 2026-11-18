@@ -269,6 +269,10 @@ def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b=0.4, poll=2.0, log=
             break
         time.sleep(poll)
     c._save_totals()
+    if b.get_run(new) is None and not b.units_by_status(run_id, "queued"):
+        # the tree closed while its units returned: nothing is open, the solve is the answer
+        log(f"estimate-flow: {run_id} has nothing open after the pause: the tree is closed")
+        return c.finish()
     if b.get_run(new) is None:
         init_dives(b, run_id, new, dive_b=dive_b, budget=dive_budget, log=log)
     out = Coordinator(b, new, log=log).loop(poll=poll)
