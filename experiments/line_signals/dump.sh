@@ -2,7 +2,7 @@
 # Dump what the branching rules read at the line-truth nodes (README.md): QPB's U, the bound, the cutoff,
 # the DNN marginals and every line's lookahead score, with the experiment build's QAP_LINE_SCORES
 # (line_signals.patch on the tai60b line study's build; never cognac's latest/).
-#   dump.sh tho30 NODE | tho40 NODE | tai60b
+#   dump.sh tho30 NODE | tho40 NODE | tai60b | tai60b_la
 set -euo pipefail
 D=$(cd "$(dirname "$0")"; pwd)
 R=$(cd "$D/../.."; pwd)
@@ -28,4 +28,11 @@ case $1 in
     QAP_LINE_SCORES=2 QAP_LINE_SCORES_LA=1 QAP_XBAR_DEBUG=2 ./bnbdrv -p "$R/infra/phase1/recipes/tai60b.par" \
       -r "$D/dumps/tai60b.in.state" -d 2 "$R/qaplib/tai60b.dat" > "$D/dumps/tai60b_43-58.out" 2> "$D/dumps/tai60b_43-58.err"
     rm -f "$D/dumps/tai60b.in.state" ;;
+  tai60b_la)   # the same 43:58, branched by the DNN lookahead over the line study's four lines (README.md, 5)
+    L=$R/experiments/tai60b_lines
+    python3 -I "$R/experiments/bound_lab/tho40_search/cutstate.py" "$L/runs/parent/out.state" "$D/dumps/tai60b_la.in.state" 2 43:58
+    QAP_LA=1:${CAP:-30}:2:2 QAP_LA_LINES=r1,r45,c26,r8 QAP_LA_LOG=$D/dumps/tai60b_la.log QAP_XBAR_DEBUG=1 ./bnbdrv \
+      -p "$R/infra/phase1/recipes/tai60b.par" -r "$D/dumps/tai60b_la.in.state" -d 2 "$R/qaplib/tai60b.dat" \
+      > "$D/dumps/tai60b_la.out" 2> "$D/dumps/tai60b_la.err"
+    rm -f "$D/dumps/tai60b_la.in.state" ;;
 esac

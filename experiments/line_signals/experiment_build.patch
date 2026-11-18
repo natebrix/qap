@@ -1,5 +1,5 @@
 diff --git a/latest/bnb.C b/latest/bnb.C
-index d62cae56..9ed7c9d9 100644
+index d62cae56..4592c18d 100644
 --- a/latest/bnb.C
 +++ b/latest/bnb.C
 @@ -88,6 +88,7 @@ static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
@@ -10,7 +10,7 @@ index d62cae56..9ed7c9d9 100644
  //#include <time.h>
  
  /*
-@@ -1146,6 +1147,183 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+@@ -1146,6 +1147,198 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
  	qpbp->improve   = false;
  	qpbp->nofathom_patience = 0;   // only node bounds use patience
  	set_branch_parameters(bp, param, use_J, reorder);
@@ -82,11 +82,26 @@ index d62cae56..9ed7c9d9 100644
 +	      std::vector<int> by(m);
 +	      for (int a = 0; a < m; a++) by[a] = a;
 +	      std::sort(by.begin(), by.end(), [&](int a, int b) { return rs[a] != rs[b] ? rs[a] > rs[b] : a < b; });
++	      // QAP_LA_LINES=r1,c26,...: these lines (original indices) as the candidates instead
++	      static const char *la_lines = getenv("QAP_LA_LINES");
++	      if (la_lines && *la_lines) {
++		for (const char *f = la_lines; f && *f; ) {
++		  char side; int idx;
++		  if (sscanf(f, "%c%d", &side, &idx) == 2) {
++		    const std::vector<int> &v = side == 'r' ? frow : fcol;
++		    for (int a = 0; a < m; a++)
++		      if (v[a] == idx) cand.push_back({side == 'r', a, side == 'r' ? rs[a] : cs[a], 0.0, 0});
++		  }
++		  f = strchr(f, ',');
++		  if (f) f++;
++		}
++	      } else {
 +	      for (int t = 0; t < m && (la_all || t < la_k); t++) cand.push_back({true, by[t], rs[by[t]], 0.0, 0});
 +	      if (cols_ok) {
 +		for (int a = 0; a < m; a++) by[a] = a;
 +		std::sort(by.begin(), by.end(), [&](int a, int b) { return cs[a] != cs[b] ? cs[a] > cs[b] : a < b; });
 +		for (int t = 0; t < m && (la_all || t < la_k); t++) cand.push_back({false, by[t], cs[by[t]], 0.0, 0});
++	      }
 +	      }
 +	      static const int warm_y = (int)setting_i("dnn.warm_y");
 +	      const double cutoff = inc - DELTA;
