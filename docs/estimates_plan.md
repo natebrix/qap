@@ -212,7 +212,15 @@ Tests: the moto backend and a local run, as for the solve.
    core-hours, and a 1-2 h estimate on 64-128 slots costs a fraction of that. Or tai60b with a
    2-hour budget, which is the hard case.
 4. **The settings A/Bs (2a)**, as paired strata, on the instance the next run is for.
-5. **The estimates of record** for the candidate instances, under the settings chosen in 4.
+5. **The estimates of record** under the settings chosen in 4 (Nathan, Nov 18): tho40, sko49, wil50
+   and tai60b. tai60b is the reference: its truth is known (331,149 nodes, 3,597 core-hours), and the
+   settings are expected to improve on it substantially.
+
+Step 1's first results (`experiments/estimator_replay/`, Nov 18):
+- today's design gives 5-9% of tai60b's CPU at any number of dives;
+- survivor dives with adaptive strata are within 20% three times in four, at 30% of the tree's CPU.
+An estimate run should therefore be the start of a solve, breadth-first for a fixed wall-clock budget,
+with survivor dives on its open nodes.
 
 Running beside this: the `tai50b-r9` result (rule 2, tonight), the tai60b 43:58 lookahead test (the
 cloud box, 2.5 h), and sko42's zone runs on the laptop.
