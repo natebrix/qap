@@ -1,4 +1,4 @@
-# Estimator designs replayed on finished trees (Nov 18 2026, in progress)
+# Estimator designs replayed on finished trees (Nov 18 2026)
 
 Step 1 of `docs/estimates_plan.md`. Pick the estimator's design offline, on trees whose totals are known,
 before any of it runs on AWS. `replay.py` takes each design's dives on a finished run's tree instead of
@@ -86,9 +86,69 @@ small to test a budget: survivor dives cover most of the tree. y2000 gives 0.23-
    - the coordinator solves breadth-first for a fixed wall-clock budget, and survivor dives estimate
      the open nodes' subtrees;
    - continuing loses only the dives' own extra nodes.
-3. **Not tried yet:**
-   - better survivor weights: a fitted size model from shortfall and depth, the bound lab's survive
-     rule;
-   - the estimate by depth: where the remaining work is;
-   - the dives' own nodes kept for the solve;
-   - the trees of other instances (tho40ab's subtrees, nug30's).
+3. **The weights among the survivors are the lever** (next section). With the true subtree sizes as
+   weights (the oracle), 10% of the tree is within 20% 95% of the time on tai60b. The best weights a
+   node's own bound gives need 30% for 90%.
+4. **Not tried yet:** the dives' own nodes kept for the solve. In the replay every node a survivor
+   dive bounds is a node of the tree, so none of the estimate's CPU is outside the solve's own work.
+
+## Round 2: weights, depth, another tree (Nov 18)
+
+New in `replay.py`:
+- survivor weights `xB`: exp(B x), with x the shortfall over the median shortfall of the branched
+  nodes at the child's depth;
+- `o`: the oracle, each survivor's true subtree CPU, the zero-variance ideal;
+- `--bydepth`: the node estimate by depth band;
+- subtree traces (k counts from the subtree's root).
+
+**What predicts a survivor's subtree** (`size_model.py`, `size_features.py`). This is a within-sibling
+regression of log subtree CPU on what a node records once it is bounded:
+
+| tree | survivors | shortfall / depth's median: slope, R^2 | + own CPU, + QPB shortfall: R^2 |
+|---|---|---|---|
+| tai60b-261117 | 5,463 | 0.40, 0.19 | 0.24 |
+| tai50b-261116 | 109 | 0.83, 0.63 | 0.63 |
+| tho40ab-0 (subtree) | 560 | 0.36, 0.32 | 0.32 |
+| nug30-c7a | 122 | 0.64, 0.68 | |
+
+The shortfall is the only useful signal, and a weak one on tai60b. A node's own CPU has opposite
+signs on two trees, and QPB's shortfall adds nothing.
+
+**tai60b-261117, k = 3, 20 replays each** (`out/tai60b_weights.md`). CPU estimate over the truth:
+
+| design, weights | budget | median | 10-90% | within 20% | within 2x |
+|---|---|---|---|---|---|
+| split-short-s90, exp(0.4 x) | 20% | 0.82 | 0.65-1.20 | 45% | 100% |
+| split-short-s90, exp(0.4 x) | 30% | 0.92 | 0.85-0.99 | **90%** | 100% |
+| split-short-s80, exp(0.8 x) | 30% | 0.85 | 0.74-0.97 | 70% | 100% |
+| split-short-s80, oracle | 10% | 1.01 | 0.84-1.11 | 95% | 100% |
+| split-short-s80, oracle | 20% | 0.98 | 0.95-1.07 | 100% | 100% |
+
+- exp(0.4 x), tai60b's own slope, is better than shortfall^1 (90% against 75% within 20% at 30%).
+- **By depth**, median estimate over the truth at 30% with exp(0.4 x):
+
+  | depths | 0-3 | 4-8 | 9-13 | 14-23 | 24 and below |
+  |---|---|---|---|---|---|
+  | estimate / truth | 1.00 | 0.99 | 1.00 | 0.69 | 0 |
+
+  The deep levels hold few nodes and little CPU. The oracle gets depths 14-23 right (0.99), but not
+  24 and below.
+
+**tho40ab-0** (a depth-2 subtree of tho40, 22,439 nodes, 43 CPU h, at most 8 levels deep;
+`out/tho40ab_grid.md`):
+- Even today's design is right there: 0.99 to 1.03 at 20-30% of the subtree, 77-100% within 20%.
+- Survivor dives cost at least 26% of it: the pilot alone bounds most of a tree this small.
+- A shallow, bushy tree is the case Knuth's dives were made for. tai60b's two deep chains are the
+  case they miss.
+
+## Where this leaves the estimate runs
+
+- **The instances differ.** tho40's subtrees are shallow and bushy, and a Knuth estimate works there.
+  tai-b's trees are chains with heavy subtrees off them. Of the estimates of record, wil50 and sko49
+  are grids like tho40; tai60b is the chain case, and its truth is known.
+- **For a chain-like tree, plan an estimate at 20-30% of the tree's CPU, and make it the first part
+  of the solve:**
+  - expand exactly the strata with the largest shortfall, in the order a best-first solve would;
+  - give the rest to survivor dives weighted exp(0.4 x).
+- **Every estimate should report its depth profile against the deepest level its dives reached.**
+  When the deep bands are empty, the estimate is low, and the report says so.

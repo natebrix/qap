@@ -85,7 +85,8 @@ class Tree:
             if p in self.id: self.kids[self.id[p]].append(self.id[k])
             else: orphans += 1
         self.orphans = orphans
-        self.root = self.id[""]
+        tops = [self.id[k] for k in keys if k and (k.rsplit(",", 1)[0] if "," in k else "") not in self.id]
+        self.root = self.id[""] if "" in self.id else min(tops, key=lambda i: self.depth[i])   # a subtree's trace: its root
         self.opt = max(c for c in self.cutoff if not math.isnan(c)) + 0.95   # the first cutoff: incumbent - 1 + 0.05
         self.root_qpb = self.qpb[self.root]
         # subtree totals
@@ -111,6 +112,15 @@ class Tree:
             self._prep[key] = (ks, p, cum(p))
         return self._prep[key]
 
+    def med_short(self, d):
+        if not hasattr(self, "_med"):
+            by = defaultdict(list)
+            for i in range(len(self.depth)):
+                if self.branched[i]: by[self.depth[i]].append(max(self.cutoff[i] - self.best[i], 0.0))
+            self._med = {k: max(statistics.median(v), 1e-9) for k, v in by.items()}
+            self._med_all = max(statistics.median([x for v in by.values() for x in v]), 1e-9)
+        return self._med.get(d, self._med_all)
+
     def surv_probs(self, i, q, mix=0.1):
         key = ("s", i, q)
         if key not in self._prep:
@@ -121,7 +131,13 @@ class Tree:
             if surv:
                 if q == 0: p = [1 / len(surv)] * len(surv)
                 else:
-                    w = [max(self.cutoff[j] - self.best[j], 0.0) ** q for j in surv]; s = sum(w)
+                    if isinstance(q, tuple) and q[0] == "o":      # the oracle: each survivor's true subtree CPU
+                        w = [self.C[j] for j in surv]
+                    elif isinstance(q, tuple) and q[0] == "x":    # exp(b x), x = shortfall / the depth's median
+                        w = [math.exp(min(q[1] * max(self.cutoff[j] - self.best[j], 0.0) / self.med_short(self.depth[j]), 50.0)) for j in surv]
+                    else:
+                        w = [max(self.cutoff[j] - self.best[j], 0.0) ** q for j in surv]
+                    s = sum(w)
                     p = [((1 - mix) * x / s + mix / len(surv)) if s > 0 else 1 / len(surv) for x in w]
             else: p = []
             self._prep[key] = (surv, p, cum(p), fn, fc)
@@ -139,12 +155,14 @@ def draw(rng, cp):
     return min(bisect.bisect_left(cp, u), len(cp) - 1)
 
 
-def dive(T, start, d0, mode, q, rng, paid):
+def dive(T, start, d0, mode, q, rng, paid, bd=None):
     """one dive from node start with weight d0; returns (nodes, cpu) estimate and the CPU newly paid"""
     en = ec = 0.0; cost = 0.0; i = start; d = d0; last = T.depth[start]
+    if bd is not None: bd.clear()
     while True:
         if i not in paid: paid.add(i); cost += T.cpu[i]
         en += d * T.cnt[i]; ec += d * T.cpu[i]; last = T.depth[i]
+        if bd is not None: bd[T.depth[i]] = bd.get(T.depth[i], 0.0) + d * T.cnt[i]
         if not T.branched[i]: break
         if mode == "knuth":
             ks, p, cp = T.knuth_probs(i, q)
@@ -154,6 +172,7 @@ def dive(T, start, d0, mode, q, rng, paid):
                 if j not in paid: paid.add(j); cost += T.cpu[j]
             surv, p, cp, fn, fc = T.surv_probs(i, q)
             en += d * fn; ec += d * fc
+            if bd is not None and fn: bd[T.depth[i] + 1] = bd.get(T.depth[i] + 1, 0.0) + d * fn
             if not surv:
                 if T.kids[i]: last = T.depth[i] + 1
                 break
@@ -170,6 +189,7 @@ MAXDIVES = 20_000   # dives the memo makes free (every node on their paths paid)
 def run_design(T, design, k, budget_cpu, rng, q):
     """one replication: returns (est nodes, est cpu, cpu spent, deepest depth reached)"""
     n = len(T.depth)
+    k += T.depth[T.root]   # k counts from the tree's root (a subtree's trace starts below depth 0)
     top = [i for i in range(n) if T.depth[i] < k]
     strata = [i for i in range(n) if T.depth[i] == k]
     paid = set(top) | set(strata)
@@ -226,6 +246,7 @@ def run_split(T, k, budget_cpu, rng, q, fresh, structure=0.5, n0=2, by="var"):
     until `structure` of the budget is spent; then Neyman dives to the budget. fresh: the final estimate
     uses only the dives taken after the structure was fixed (unbiased), else every dive of a stratum."""
     n = len(T.depth)
+    k += T.depth[T.root]
     top = [i for i in range(n) if T.depth[i] < k]
     strata = [i for i in range(n) if T.depth[i] == k]
     paid = set(top) | set(strata)
@@ -233,12 +254,19 @@ def run_split(T, k, budget_cpu, rng, q, fresh, structure=0.5, n0=2, by="var"):
     base_n = sum(T.cnt[i] for i in top) + sum(T.cnt[s] for s in strata if not T.branched[s])
     base_c = sum(T.cpu[i] for i in top) + sum(T.cpu[s] for s in strata if not T.branched[s])
     H = [s for s in strata if T.branched[s]]
-    st = {}
+    st = {}; sd_ = {}
     deep = k
+    exact_d = defaultdict(float)
+    for i in top: exact_d[T.depth[i]] += T.cnt[i]
+    for i in strata:
+        if not T.branched[i]: exact_d[T.depth[i]] += T.cnt[i]
+    bd = {}
     def add(s):
         nonlocal spent, deep
-        en, ec, c, last = dive(T, s, 1.0, "surv", q, rng, paid)
+        en, ec, c, last = dive(T, s, 1.0, "surv", q, rng, paid, bd)
         spent += c; deep = max(deep, last)
+        acc = sd_.setdefault(s, defaultdict(float))
+        for dd, v in bd.items(): acc[dd] += v
         x = st.setdefault(s, [0, 0.0, 0.0, 0.0, 0.0])
         x[0] += 1; x[1] += en; x[2] += ec; x[3] += ec * ec
         x[4] = c if x[0] == 1 else 0.7 * x[4] + 0.3 * c
@@ -251,17 +279,17 @@ def run_split(T, k, budget_cpu, rng, q, fresh, structure=0.5, n0=2, by="var"):
     while spent < structure * budget_cpu and H:
         h = max(H, key=key)
         if key(h) <= 0: break
-        H.remove(h); st.pop(h, None)
-        base_n += T.cnt[h]; base_c += T.cpu[h]
+        H.remove(h); st.pop(h, None); sd_.pop(h, None)
+        base_n += T.cnt[h]; base_c += T.cpu[h]; exact_d[T.depth[h]] += T.cnt[h]
         for j in T.kids[h]:
             if j not in paid: paid.add(j); spent += T.cpu[j]
             if T.branched[j]:
                 H.append(j)
                 for _ in range(n0): add(j)
             else:
-                base_n += T.cnt[j]; base_c += T.cpu[j]
+                base_n += T.cnt[j]; base_c += T.cpu[j]; exact_d[T.depth[j]] += T.cnt[j]
     if fresh:
-        st.clear()
+        st.clear(); sd_.clear()
         for s in H:
             for _ in range(n0): add(s)
     total = sum(st[s][0] for s in H)
@@ -277,7 +305,16 @@ def run_split(T, k, budget_cpu, rng, q, fresh, structure=0.5, n0=2, by="var"):
             if spent >= budget_cpu: break
     en = base_n + sum(st[s][1] / st[s][0] for s in H)
     ec = base_c + sum(st[s][2] / st[s][0] for s in H)
+    global LAST_BYDEPTH
+    LAST_BYDEPTH = dict(exact_d)
+    for s in H:
+        for dd, v in sd_[s].items(): LAST_BYDEPTH[dd] = LAST_BYDEPTH.get(dd, 0.0) + v / st[s][0]
     return en, ec, spent, deep
+
+
+LAST_BYDEPTH = None
+BANDS = []
+TRUE_D = {}
 
 
 def main():
@@ -288,19 +325,27 @@ def main():
     ap.add_argument("--reps", type=int, default=100)
     ap.add_argument("--designs", default="y2000:1.5,strat:1.5,surv:0,survq:1")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--bydepth", action="store_true", help="split designs: the node estimate by depth band")
     a = ap.parse_args()
     nodes = load_shards(a.trace) if os.path.isdir(a.trace) else load_trace(a.trace)
     T = Tree(nodes)
     N, C = T.N[T.root], T.C[T.root]
+    global BANDS, TRUE_D
+    TRUE_D = defaultdict(int)
+    for i in range(len(T.depth)): TRUE_D[T.depth[i]] += T.cnt[i]
+    dm = T.maxd[T.root]; r0 = T.depth[T.root]
+    edges = [r0, r0 + 4, r0 + 9, r0 + 14, r0 + 24, r0 + 34, dm + 1]
+    BANDS = [(lo, hi - 1) for lo, hi in zip(edges, edges[1:]) if lo < hi and lo <= dm]
     print(f"# {a.trace}: {N:,} nodes, {C/3600:,.1f} CPU h, deepest {T.maxd[T.root]}, {T.orphans} orphans")
     print("| k | design | q | budget | median est/true nodes | 10-90% | median est/true CPU | 10-90% | within 20% (CPU) | within 2x (CPU) | CPU spent / true | deepest reached (median) |")
     print("|---|---|---|---|---|---|---|---|---|---|---|---|")
     rng = random.Random(a.seed)
     for k in map(int, a.k.split(",")):
         for dq in a.designs.split(","):
-            design, q = dq.split(":"); q = float(q)
+            design, qs = dq.split(":")
+            q = ("o",) if qs == "o" else (("x", float(qs[1:])) if qs.startswith("x") else float(qs))
             for b in map(float, a.budget.split(",")):
-                rn, rc, sp, dp = [], [], [], []
+                rn, rc, sp, dp = [], [], [], []; bands = defaultdict(list)
                 for _ in range(a.reps):
                     if design.startswith("split"):
                         # split[fresh][-var|-mean|-short][-sN: the structure's share of the budget, %]
@@ -310,11 +355,18 @@ def main():
                     else:
                         en, ec, spent, dd = run_design(T, "surv" if design == "survq" else design, k, b * C, rng, q)
                     rn.append(en / N); rc.append(ec / C); sp.append(spent / C); dp.append(dd)
+                    if a.bydepth and LAST_BYDEPTH is not None and design.startswith("split"):
+                        for lo, hi in BANDS:
+                            tru = sum(TRUE_D.get(x, 0) for x in range(lo, hi + 1))
+                            if tru: bands[(lo, hi)].append(sum(LAST_BYDEPTH.get(x, 0.0) for x in range(lo, hi + 1)) / tru)
                 rn.sort(); rc.sort()
                 pct = lambda xs, f: xs[min(int(f * len(xs)), len(xs) - 1)]
                 w20 = sum(0.8 <= x <= 1.2 for x in rc) / len(rc); w2 = sum(0.5 <= x <= 2 for x in rc) / len(rc)
-                print(f"| {k} | {design} | {q:g} | {b:g} | {pct(rn,.5):.2f} | {pct(rn,.1):.2f}-{pct(rn,.9):.2f} | "
+                qtxt = qs
+                print(f"| {k} | {design} | {qtxt} | {b:g} | {pct(rn,.5):.2f} | {pct(rn,.1):.2f}-{pct(rn,.9):.2f} | "
                       f"{pct(rc,.5):.2f} | {pct(rc,.1):.2f}-{pct(rc,.9):.2f} | {w20:.0%} | {w2:.0%} | {statistics.fmean(sp):.3f} | {statistics.median(dp):.0f} |", flush=True)
+                if bands:
+                    print("|  |  | nodes by depth, median est/true: " + "; ".join(f"{lo}-{hi}: {statistics.median(v):.2f}" for (lo, hi), v in sorted(bands.items())) + " |  |  |  |  |  |  |  |  |", flush=True)
 
 
 if __name__ == "__main__":
