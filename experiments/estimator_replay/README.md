@@ -154,3 +154,33 @@ signs on two trees, and QPB's shortfall adds nothing.
   - give the rest to survivor dives weighted exp(0.4 x).
 - **Every estimate should report its depth profile against the deepest level its dives reached.**
   When the deep bands are empty, the estimate is low, and the report says so.
+
+## Round 3: what the as-built dives run costs after a pause (`dive_cost.py`, Nov 18)
+
+The coordinator's flow is: solve, pause, then bound every open node and, where it branches, all
+of its children (each stratum's setup), and at least 2 pilot dives per stratum with survivors.
+None of that is capped by the per-unit budget. `dive_cost.py` prices it on the recorded trees,
+with the solve approximated as breadth-first to a share of the CPU:
+
+| tree | solve to | open nodes | setup | 2 pilot dives | solve + setup + pilot |
+|---|---|---|---|---|---|
+| tai50b-261116 (133 CPU h) | 25% | 773 | 32% | 23% | 79% of the tree |
+| tai50b-261116 | 37% | 1,007 | 28% | 27% | 92% |
+| tai60b-261117 (3,597 CPU h) | 10% | 7,742 | 26% | 35% | 71% |
+| tai60b-261117 | 16% | 26,518 | 41% | 37% | 94% |
+| tai60b-261117 | 25% | 42,843 | 37% | 28% | 90% |
+
+**As built, an estimate of these trees costs nearly as much as the rest of the solve.** Most of
+it is tree work the solve would do anyway: every open node bounded, and the walks down the heavy
+subtrees. The replay's designs were cheaper for two reasons: they expanded only the
+largest-shortfall strata, not the whole frontier, and their dives started from a few hundred
+strata, not tens of thousands of open nodes. Before an estimate run on a tree like tai60b, the flow
+needs three changes:
+1. **Sample the open nodes** instead of bounding all of them: probabilities from the parent's
+   shortfall, Horvitz-Thompson weights. This is still unbiased, at a cost proportional to the
+   sample.
+2. **A best-first solve before the pause**: the largest shortfalls first, as `split-short`, so the
+   heavy part is solved exactly and the open nodes left are light.
+3. **The budget caps the setup and the pilot too**, with the strata it never reached reported.
+
+Each can be tried in the replay before any of it is built.
