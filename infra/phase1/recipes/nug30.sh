@@ -1,6 +1,8 @@
 # nug30, the Phase 1 acceptance run (docs/distributed/plan.md section 11): the
 # Nov 8 record recipe of experiments/nug30_solve/README.md (rule 9,
-# nug_deep_xbar9_all.par, DNN at depths 1-7) with one change: QAP_DNN_SHIP=64
+# nug_deep_xbar9_all.par, DNN at depths 1-7; since Nov 18 nug30.par has the DNN
+# bound at every depth and rule 9 in its bottom block too, experiments/rule9_bottom,
+# so it no longer gives the record's tree) with one change: QAP_DNN_SHIP=64
 # instead of 32. With 64 a node restored from a state file starts its DNN from
 # its parent's exact doubles, so the coordinator's tree, cut into units at
 # other places than bench/parallel.py's, is the same tree: the same nodes,
@@ -19,7 +21,7 @@ INSTANCE=qaplib/nug30.dat
 PARAMS=../infra/phase1/recipes/nug30.par   # relative to latest/: nug_deep_xbar9_all.par plus the [settings] below
 OPT=6124          # the known optimum, which the check expects
 UB=6124           # the incumbent given to the solver (--no-ub drops it)
-EXTRA=""          # the DNN depths (dnn.depths = 1:7) are in the params file
+EXTRA=""          # the DNN depths (dnn.depths = 1:28 since Nov 18, the record's 1:7 before) are in the params file
 ENV=""            # experiment switches (DNN_*) would go here, as --env K=V
 # units of about a minute (the whole tree is about 1,300 CPU s on the M2 Pro),
 # so that units return, split and are stolen as they will at scale
