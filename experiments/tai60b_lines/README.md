@@ -1,4 +1,4 @@
-# tai60b: which line at the heaviest node? (Nov 17-18 2026, running: partial results)
+# tai60b: which line at the heaviest node? (Nov 17-18 2026)
 
 Question (Nathan, after tai60b's estimate came in at a third of the tree): would stronger branching
 pay? The evidence says where: line choice matters most where the subtrees are largest, at the top
@@ -35,20 +35,24 @@ the build is production's, node for node (tai25b to depth 2: the same iterations
 3. Score each line by its children: how many fathom, the shortfall (cutoff - lb) of those that do
    not, and the CPU. Calibrate against production's subtrees under facility 1 once tai60b ends.
 
-## Results (partial, 02:20 UTC Nov 18: r1, r45 and r8 done, c26 running)
+## Results (all four arms done, 04:36 UTC Nov 18)
 
 `python3 experiments/tai60b_lines/score.py` (from the repository root) prints the table and the r1 check.
 Each arm bounds its children in descending order of the free index (location 59 down for a row,
-facility 59 down for a column), so the arms have covered different children. Marginal score at 43:58
+facility 59 down for a column). Marginal score at 43:58
 (`QAP_LINE_RANK`, this state): c26 0.145, r45 0.142, r8 0.139, r1 0.100 (13th); c26 is also rule 9's choice.
 
-| arm | children bounded (of 58) | first solve fathomed (D) | cut phase fathomed (C) | branched | branched children's shortfall |
-|---|---|---|---|---|---|
-| production r1 | 58 | 49 | 3 | 6 | path child 1:33 758k; 510k, 509k, 383k, 373k, 319k |
-| r1 (done 00:54) | 58 | 46 | 6 | 6 | path child 1:33 1,000k; 772k, 710k, 693k, 632k, 530k |
-| r45 (done 02:09) | 58 | 42 | 6 | 10 | path child 45:26 1,029k; 719k, 665k, 662k, 651k, 329k, 222k, 188k, 175k, 11k |
-| r8 (done 01:55) | 58 | 44 | 2 | 12 | path child 8:29 1,133k; 999k, 982k, 853k, 757k, 756k, 726k, 697k, 691k, 490k, 416k, 111k |
-| c26 | 25 | 12 | 0 | 13 | path child 45:26 1,029k; 879k, 810k, 809k, 727k, 703k, 661k, 623k, 611k, 536k, 479k, 457k, 418k |
+| arm | first solve fathomed (D) | cut phase fathomed (C) | branched | branched children's shortfall | children's CPU s | rough subtree |
+|---|---|---|---|---|---|---|
+| production r1 | 49 | 3 | 6 | path child 1:33 758k; 510k, 509k, 383k, 373k, 319k | 10,246 | 19,638 (merged by 16:03 Nov 17) |
+| r1 (done 00:54) | 46 | 6 | 6 | path child 1:33 1,000k; 772k, 710k, 693k, 632k, 530k | 12,449 | 19,600 (1.0x) |
+| r45 (done 02:09) | 42 | 6 | 10 | path child 45:26 1,029k; 719k, 665k, 662k, 651k, 329k, 222k, 188k, 175k, 11k | 16,615 | 22,900 (1.2x) |
+| c26 (done 04:36) | 38 | 0 | 20 | path child 45:26 1,029k; 923k, 879k, 832k, 810k, 809k, 756k, 727k, 703k, 661k, 657k, 656k, 650k, 623k, 623k, 611k, 536k, 479k, 457k, 418k | 23,400 | 38,800 (2.0x) |
+| r8 (done 01:55) | 44 | 2 | 12 | path child 8:29 1,133k; 999k, 982k, 853k, 757k, 756k, 726k, 697k, 691k, 490k, 416k, 111k | 15,969 | 67,100 (3.4x) |
+
+Each line has 58 children. The rough subtree is the model below, from production's subtrees under r1 as
+merged by 16:03 UTC Nov 17 (7,369 nodes under 43:58 were still to bound then: the sizes are partial,
+the ratios between lines are what the model gives).
 
 A child that branches costs about 1,100 CPU s here (bounded, then set aside); one the first solve
 fathoms, about 45; one the cut phase fathoms, 300 to 1,000. In production the path child's subtree
@@ -64,27 +68,29 @@ but absolute subtree sizes will not transfer.
 
 **r1, production's line, leads; the marginal score has the order backwards.** r1 finished at 00:54 UTC
 with all 58 children as production's (`58 of 58 children branch or fathom as in production`): 6 branching
-children, the fewest of the four lines: r8 finished at 01:55 with 12, r45 at 02:09 with 10, and c26 has 13
-after 25.
+children, the fewest of the four lines: r45 has 10, r8 12 and c26 20.
 Its path child (1.00M short) is also the least short. Against r8 and c26 that is dominance: each of their
-six worst children is further from the cutoff than r1's child of the same rank, and they have six more
-besides. r45 is closer:
+six worst children is further from the cutoff than r1's child of the same rank, and they have 6 and 14
+more besides. r45 is closer:
 its path child is 45:26, the same node as c26's (both lines contain it), 1.03M short against r1's 1.00M.
 Its other branching children are mostly less short than r1's, but there are nine of them to r1's five.
-c26, the bound lab estimate's line and rule 9's choice from this state, branches on 13 of its first 25
-children; rule 9 chose between c26 and r45 (rule 8's two lines here) and took the worse. The four lines' order by children so far, r1, r45, r8, c26, is the reverse of
-the marginal score's, as in `../tho30_solve/line_truth/`.
+c26, the bound lab estimate's line and rule 9's choice from this state, branches on 20 of its 58
+children, more than any other line; rule 9 chose between c26 and r45 (rule 8's two lines here) and took
+the worse. The four lines' order by branching children, r1, r45, r8, c26, is the reverse of the marginal
+score's, as in `../tho30_solve/line_truth/`.
 
-**Rough subtree sizes: r1 smallest, r45 about 1.2x, c26 at least 1.5x, r8 about 3.4x.** Production's
+**Rough subtree sizes: r1 smallest, r45 about 1.2x, c26 about 2.0x, r8 about 3.4x.** Production's
 subtrees under r1 give a scale: its five branching children off the path, 319k to 510k short, had 170 to
 2,223 nodes (log size on shortfall: an e-fold every 127k, from 5 noisy points), and the path child 1:33
 16,406, five times the rest. Weighting each line's branching children by exp(shortfall/127k), relative to
-r1's, and its path child the same way: r1 19,600 nodes (production's own), r45 22,900, r8 67,100, c26 30,000
-from its first 25 children. The arms' children are 0.16M-0.31M shorter of the cutoff than production's, but
+r1's, and its path child the same way: r1 19,600 nodes (production's own), r45 22,900, c26 38,800,
+r8 67,100. c26 and r45 share their path child, 45:26 (20,500 on this model); c26's other 19 branching
+children add 18,300 to r45's 2,400. r8 has fewer branching children than c26 but is larger: its path child
+is 133k shorter of the cutoff than r1's (46,500) and its other children are further from it. The arms' children are 0.16M-0.31M shorter of the cutoff than production's, but
 a common shift cancels in these ratios. The path child carries most of it: r45's 45:26 is 29k shorter of the
 cutoff than r1's 1:33, a factor 1.26 on this slope, which outweighs r45's lighter other children (0.75x).
 That rests on extending the slope to a different node on the optimum's path; r1 against r45 is within this
-model's error, r8 and c26 are not.
+model's error, c26 and r8 are not.
 
 **Restarts reproduce the arms exactly.** Container restarts at about 20:35 and 20:58 UTC Nov 17 killed
 the first attempt (`runs/*/*.attempt1.txt`, started 17:37 and 18:03) and a second one before its first
@@ -110,4 +116,28 @@ A fourth container restart at about 03:05 stopped c26 5 minutes after its 03:00 
 `supervise.sh` trimmed it (30 children kept) and resumed it at 03:06. At that point c26 had 16 branching
 children in its first 28.
 
-Projected finish of c26 from its CPU per child so far (658 s; 17 branching children in its first 29): about 08:45 UTC Nov 18.
+c26 finished at 04:36 UTC, four hours ahead of a projection made from its first 29 children: its
+branching children are consecutive (every free facility from 47 down to 26, 20 in a row), and the last 26
+fathomed in the first solve at about 48 CPU s each.
+
+## Verdict
+
+- **Production's line, r1, is the best of the four** by every measure here: the fewest branching
+  children (6), the path child closest to the cutoff, the least CPU, the smallest rough subtree.
+- **Rule 9's pick depends on the parent's state, and the wrong pick costs about 2x.** Production's rule 9
+  chose r1 from production's state (43:58 1.11M short). From the arms' weaker state (1.76M short, the same
+  node and settings) rule 9 compared c26 and r45, rule 8's two lines, by their children's QPB, and chose
+  c26: 20 branching children to r1's 6, about 2x r1's subtree; r45 would have cost about 1.2x.
+- **The marginal score ranks these lines in reverse.** By score c26, r45, r8, then r1 13th; by branching
+  children r1, r45, r8, c26; by rough size r1, r45, c26, r8. The children's first-solve shortfall, which
+  ranks lines by their subtrees in `../tho30_solve/line_truth/`, picks r1 here as well.
+- **Choosing by the children's bounds is affordable at a node this heavy.** Bounding all 58 children of
+  one line cost 12,000-23,000 CPU s here; the four lines, 68,000. Production's subtree under 43:58 had used
+  1.67M CPU s by 16:03 Nov 17 with 7,369 nodes still to bound, so the four-way choice is at most 4% of it,
+  against a 2x loss from the wrong line. Most nodes are far lighter, so this pays only where a subtree is
+  known to be large (an estimate's heavy nodes, the top of the tree).
+
+Limits: one node; the sizes rest on a slope fit to five subtrees; the arms' parent is weaker than
+production's (the order between lines should hold, the absolute sizes will not). Step 3 of the design,
+calibrating against production's subtrees once tai60b ends, refits the slope on complete subtrees; it
+covers r1 only, since production branched no other line here.
