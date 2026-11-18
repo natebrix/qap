@@ -110,4 +110,4 @@ A fourth container restart at about 03:05 stopped c26 5 minutes after its 03:00 
 `supervise.sh` trimmed it (30 children kept) and resumed it at 03:06. At that point c26 had 16 branching
 children in its first 28.
 
-Projected finish of c26 from its CPU per child so far: about 07:30 UTC Nov 18.
+Projected finish of c26 from its CPU per child so far (658 s; 17 branching children in its first 29): about 08:45 UTC Nov 18.
