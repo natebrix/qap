@@ -5,6 +5,22 @@ cut phase (no solver change), against 1,308 as tho40-b runs, and tai50b at about
 with cluster-region cuts. This page decides what that means for tho40-b and plans a tai50b run of
 record. The subtree A/B in `experiments/tho40b_analysis/giveup_ab/` settles tho40's settings first.
 
+## tai60b: solved (Nov 18)
+
+**tai60b's optimum is 608,215,054**, QAPLIB's best known, proved from incumbent 608,215,055 (the best
+known + 1), the solution found by the search:
+- **The run of record, `tai60b-261117`** (two m7a.16xlarge, 128 slots, cognac 8df9573's recipe
+  `recipes/tai60b.par`): finished 13:11 UTC Nov 18, 331,149 nodes (323,657 fathomed, 1 enumerated),
+  30.3 hours wall, 12,948,961 CPU s (3,597 m7a core-hours, 150 CPU-days; 93% of the slots busy). The
+  root's bound after its cut phase, 605,315,696.64, is the bound lab's. The website's run page has the
+  tree by depth.
+- **Interrupted once:** the Spot instance running the coordinator was interrupted at 13:57 UTC Nov 17;
+  relaunched on demand at 14:31, the run went on from its store.
+- **11 times the estimate:** the dives said 29,357 nodes (21,502-38,340) and 279 cloud-box core-hours
+  (about 400 on m7a). The tree is wide at depths 9-11 (90,413 nodes) and again at 20-22 (74,599). Why is
+  not yet studied; the collected node trace has what it needs. The line choice at the top is studied in
+  `experiments/tai60b_lines/` and `experiments/line_signals/`.
+
 ## tai50b: solved (Nov 17)
 
 **tai50b's optimum is 458,821,517**, proved twice, from incumbent 458,821,518 (the best known + 1), the
@@ -32,7 +48,8 @@ Starting a run); the cloud sessions make no AWS calls. Where things stand:
 - **tai50b is solved on the laptop** (Nov 16, `experiments/bound_lab/laptop/README.md`): from 458,821,518
   the tree closed at 458,821,517 in 8,206 nodes, 11.0 hours on 10 cores, the solution found by the search
   and verified by the coordinator. A rehearsal on one machine, not yet a run of record.
-- **Next: tai60b** (above), two m7a.16xlarge, 128 slots: `infra/phase1/start.sh tai60b`.
+- **tai60b is solved** (Nov 18, above). Left to do: collect it with its traces (`collect.sh tai60b-261117`)
+  and commit `infra/phase1/runs/tai60b-261117/`.
 - **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), two Spot instances.
 - **After tai60b, before or beside tho40 (Nov 17):** the rule 9 A/B on tai50b, one Spot c7a.16xlarge,
   about 4.5 hours: `infra/phase1/start.sh tai50b`, run name `tai50b-r9`, params
