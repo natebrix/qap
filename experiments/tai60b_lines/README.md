@@ -45,7 +45,7 @@ facility 59 down for a column), so the arms have covered different children. Mar
 | arm | children bounded (of 58) | first solve fathomed (D) | cut phase fathomed (C) | branched | branched children's shortfall |
 |---|---|---|---|---|---|
 | production r1 | 58 | 49 | 3 | 6 | path child 1:33 758k; 510k, 509k, 383k, 373k, 319k |
-| r1 | 54 | 42 | 6 | 6 | path child 1:33 1,000k; 772k, 710k, 693k, 632k, 530k |
+| r1 (done 00:54) | 58 | 46 | 6 | 6 | path child 1:33 1,000k; 772k, 710k, 693k, 632k, 530k |
 | r45 | 45 | 33 | 4 | 8 | path child 45:26 1,029k; 719k, 665k, 662k, 651k, 329k, 175k, 11k |
 | r8 | 34 | 23 | 2 | 9 | path child 8:29 1,133k; 999k, 982k, 757k, 756k, 726k, 697k, 490k, 111k |
 | c26 | 21 | 12 | 0 | 9 | path child 45:26 1,029k; 810k, 809k, 727k, 661k, 623k, 611k, 536k, 457k |
@@ -57,14 +57,15 @@ is most of the line's (1:33: 16,406 nodes; the other five 170 to 2,223).
 **The arms are weaker than production, by the same amount for every line.** Their 43:58 is 1.76M
 short against production's 1.11M: their 44:45 came cold from `-F` (4.1M short against production's
 1.89M, warm from the root). Yet r1's children branch or fathom exactly as production's did, 54 of 54
-so far, and the same six branch, each 0.16M to 0.31M further from the cutoff than in production. Five
+and the same six branch, each 0.16M to 0.31M further from the cutoff than in production. Five
 that production's first solve fathomed (a few thousand over the cutoff) need the cut phase here, at 2-3x
 production's CPU. Every arm starts from one parent state, so the comparison between lines should hold,
 but absolute subtree sizes will not transfer.
 
-**r1, production's line, leads; the marginal score has the order backwards.** r1 has 4 children left,
-and production fathomed all 4. It will end with 6 branching children, the fewest of the four lines
-whatever their remaining children do: r45 already has 8, r8 and c26 9 each. Its path child (1.00M short)
+**r1, production's line, leads; the marginal score has the order backwards.** r1 finished at 00:54 UTC
+with all 58 children as production's (`58 of 58 children branch or fathom as in production`): 6 branching
+children, the fewest of the four lines whatever their remaining children do: r45 already has 8, r8 and
+c26 9 each (r8 10 by 00:58). Its path child (1.00M short)
 is also the least short. Against r8 and c26 that is dominance: each of their six worst children is
 further from the cutoff than r1's child of the same rank, and they have three more besides. r45 is closer:
 its path child is 45:26, the same node as c26's (both lines contain it), 1.03M short against r1's 1.00M.
