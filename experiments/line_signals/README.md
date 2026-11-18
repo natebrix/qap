@@ -207,6 +207,28 @@ root bound is the same, 426,254,008.59). A child's solve stops when it fathoms.
 - Cost: 3,965 CPU s for 318 pooled solves (28,601 iterations, 90 a solve), about 4x the 30-iteration
   lookahead (1,037 s) and 54% of production's whole tai40b tree. On tai40b it cannot pay.
 
+### 8. tai60b's 43:58 with 150 iterations (`dumps/tai60b_la150/la150.log`)
+
+Section 5's node and four lines, with `QAP_LA=1:150:2:2`, one line to a process (`QAP_LA_LINES`); a
+child's solve stops when it fathoms.
+
+| line | truth (rough subtree, `../tai60b_lines/`) | 30 iterations: shortfall sum, open of 58 | 150 iterations: shortfall sum, open | CPU s, 150 |
+|---|---|---|---|---|
+| r1 | 19,600 (1.0x) | 236M, 47 (3rd) | **10.5M, 12 (1st)** | 3,586 |
+| r45 | 22,900 (1.2x) | 162M, 53 (1st) | 11.4M, 16 (2nd) | 4,562 |
+| r8 | 67,100 (3.4x) | 236M, 45 (4th) | 17.1M, 14 (3rd) | 3,691 |
+| c26 | 38,800 (2.0x; rule 9's choice there) | 191M, 58 (2nd) | 23.1M, 20 (4th) | 4,738 |
+
+- **150 iterations rank the two best lines first, and rule 9's c26 and the worst line, r8, last**:
+  Spearman +0.8 against the truth, where 30 iterations gave r45, c26, r1, r8. The shortfall sum is
+  the better score: the count of open children puts r8 second.
+- **Cost**: 16,576 CPU s for the four lines (232 pooled solves, 67 to 86 iterations each on average:
+  fathomed children stop early), about 4.6 core-hours. Eight lines would be about 9 core-hours,
+  0.6% of what this node's subtree cost in the run (`../tai60b_postmortem/`: 155,432 nodes, 1,586
+  CPU h).
+- This is section 7's result at n = 60: a cap of about 150 iterations is enough at m = 39 and
+  at m = 57. That settles Verdict 4's open question.
+
 ## Verdict
 
 1. **Rule 2 has no DNN form, and no cheap signal ranks lines.** The DNN certificate's child bounds are
@@ -226,10 +248,17 @@ root bound is the same, 426,254,008.59). A child's solve stops when it fathoms.
    (43:58's at least 1.67M), and 8 lines at 150 iterations cost about 65,000 s at most
    (8 x 58 x 150 x 0.93 s; fathomed children stop early), a few percent of such a subtree, against a 2x
    spread among the lines there (`../tai60b_lines/`).
-4. **Not shown yet: that a longer cap picks the right line at n = 60.** The next test (not run):
-   tai60b's 43:58 with section 5's four lines at a cap of 150, one line to a process
-   (`CAP=150 dump.sh tai60b_la`, its `QAP_LA_LINES` split one line to a process; about 2.5 h on 4 cores). If it
-   ranks r1 and r45 first and c26 and r8 last, the rule to build is the lookahead at the top depths of
-   the big instances only (by depth, or by the node's estimated subtree), 4 to 6 lines a side, a cap
-   that grows with n or the per-child stop, and the chosen line's children started from their
-   lookahead state, since the search solves them again.
+4. **At n = 60 a longer cap picks the right line** (section 8, Nov 18). At 43:58, 150
+   iterations rank r1 and r45 first and c26 and r8 last, for about 4.6 core-hours over four lines.
+   The rule to build:
+   - the lookahead at the top depths of the big instances only: by depth, or by the node's
+     estimated subtree;
+   - 4 to 6 lines a side;
+   - a cap of about 150 iterations, or the per-child stop;
+   - the shortfall sum as the score;
+   - the chosen line's children started from their lookahead state, since the search solves them
+     again.
+
+   On tai60b that means the 16 chain nodes of depths 1-8, whose branchings decide two thirds of the
+   CPU (`../tai60b_postmortem/`). A test before it goes in: paired subtrees of tai60b's chain nodes
+   under the rule and without it (`docs/estimates_plan.md`, 2a, H-strong).

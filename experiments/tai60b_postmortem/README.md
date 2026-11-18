@@ -2,7 +2,8 @@
 
 The run closed the tree at 608,215,054 in 331,149 nodes and 3,597 m7a core-hours, against an estimate
 of 29,357 nodes and 279 cloud-box core-hours (`docs/next_runs.md`). From the website's public tree
-shards (`chains.py`, `chains.txt`); the collected node trace will replace them when it is committed.
+shards (`chains.py`, `chains.txt`). The collected node trace, committed Nov 18
+(`infra/phase1/runs/tai60b-261117/nodes.txt.gz`), has the same 331,149 nodes and 3,597 CPU h.
 
 ## The tree is two chains and the subtrees hanging off them [m]
 

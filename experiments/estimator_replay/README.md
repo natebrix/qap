@@ -8,7 +8,9 @@ spend: the recorded CPU of every node the design would bound, each node paid onc
     python3 -I replay.py TRACE --k 3 --budget 0.1,0.2,0.3 --reps 20 --designs y2000:1.5,survq:1,split-short-s90:1
 
 TRACE is a node trace, or a directory of the website's tree shards. tai60b-261117's shards were
-fetched with `fetch_tree.py tai60b-261117 DIR` (the collected trace will replace them).
+fetched with `fetch_tree.py tai60b-261117 DIR`; the collected trace,
+`infra/phase1/runs/tai60b-261117/nodes.txt.gz` (committed Nov 18), reads the same: 331,149 nodes,
+3,596.7 CPU h, no orphans.
 `sanity.py TREE DIVES` checks that the dives are unbiased (from the root); `predict.py TREE` measures
 how well the shortfall ranks a node's surviving children by their subtrees.
 
