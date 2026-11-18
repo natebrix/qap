@@ -29,6 +29,7 @@ import time
 from .common import (LANES, SOLVER, State, fmt_secs, new_unit, plan_split, read_instance, run_key,
                      solver_tables, unit_key, verify_incumbent, write_unit_state)
 from . import warm
+from .backend import check_queue_name
 from .publish import Publisher
 
 PENDING = ("queued", "leased", "done", "returned", "failed")
@@ -222,7 +223,7 @@ class Coordinator:
                 self.b.put_unit(self.run_id, doc)
                 have = doc
             if not have.get("sent_at"):
-                self.b.send(have["lane"], {"run": self.run_id, "uid": uid})
+                self.b.send(self.run_id, have["lane"], {"run": self.run_id, "uid": uid})
                 self.b.update_unit(self.run_id, uid, {"sent_at": time.time()})
         return len(sizes)
 
@@ -249,7 +250,7 @@ class Coordinator:
             if u["attempt"] < self.cfg["max_attempts"]:
                 if self.b.update_unit(self.run_id, u["uid"], {"status": "queued", "sent_at": now},
                                       expect={"status": "failed", "attempt": u["attempt"]}):
-                    self.b.send(u["lane"], {"run": self.run_id, "uid": u["uid"]})
+                    self.b.send(self.run_id, u["lane"], {"run": self.run_id, "uid": u["uid"]})
                     self.log(f"coordinator: unit {u['uid']} failed (rc {u.get('rc')}), re-queued")
             else:
                 self.b.update_unit(self.run_id, u["uid"], {"status": "dead"}, expect={"status": "failed"})
@@ -257,13 +258,13 @@ class Coordinator:
         lease = self.cfg["lease_s"]
         for u in self.b.units_by_status(self.run_id, "queued"):
             if not u.get("sent_at"):        # created, crash before the send
-                self.b.send(u["lane"], {"run": self.run_id, "uid": u["uid"]})
+                self.b.send(self.run_id, u["lane"], {"run": self.run_id, "uid": u["uid"]})
                 self.b.update_unit(self.run_id, u["uid"], {"sent_at": now}, expect={"status": "queued"})
         for u in self.b.units_by_status(self.run_id, "leased"):
             # a lease that ran out long ago: its message should have come back;
             # send another in case it was lost (duplicates are harmless)
             if u.get("lease_until", now) < now - 2 * lease and u.get("resent_for") != u["attempt"]:
-                self.b.send(u["lane"], {"run": self.run_id, "uid": u["uid"]})
+                self.b.send(self.run_id, u["lane"], {"run": self.run_id, "uid": u["uid"]})
                 self.b.update_unit(self.run_id, u["uid"], {"resent_for": u["attempt"]},
                                    expect={"status": "leased", "attempt": u["attempt"]})
                 self.log(f"coordinator: unit {u['uid']} lease expired at attempt {u['attempt']}; re-sent")
@@ -278,7 +279,7 @@ class Coordinator:
             return
         leased = self.b.units_by_status(self.run_id, "leased")
         idle = self.cfg["slots"] - len(leased)
-        queued = sum(self.b.depth(l) for l in LANES)
+        queued = sum(self.b.depth(self.run_id, l) for l in LANES)
         if idle <= 0 or queued > 0:
             return
         asked = sum(1 for u in leased if u.get("return_requested"))
@@ -296,7 +297,7 @@ class Coordinator:
         for u in self.b.units_by_status(self.run_id, "leased"):
             if self.b.update_unit(self.run_id, u["uid"], {"status": "queued", "worker": None, "sent_at": time.time()},
                                   expect={"status": "leased", "attempt": u["attempt"]}):
-                self.b.send(u["lane"], {"run": self.run_id, "uid": u["uid"]})
+                self.b.send(self.run_id, u["lane"], {"run": self.run_id, "uid": u["uid"]})
                 n += 1
         self.log(f"coordinator: {n} leased units re-queued")
         return n
@@ -319,7 +320,7 @@ class Coordinator:
         dc = t.arrays.get("dnn_counts", [0, 0])
         wall = now - self.t0
         doc = {"run": self.run_id, "status": self.run.get("status"), "updated": now, "wall_s": wall,
-               "units": counts, "queue": {l: self.b.depth(l) for l in LANES},
+               "units": counts, "queue": {l: self.b.depth(self.run_id, l) for l in LANES},
                "nodes": t.counters[0], "fathomed": t.counters[1], "dnn_nodes": dc[0], "dnn_fathomed": dc[1],
                "cpu_s": t.times[0], "busy_wall_s": self.busy_wall, "units_merged": self.units_merged,
                "busy_fraction_merged": self.busy_wall / (self.cfg["slots"] * wall) if wall > 0 else 0,
@@ -383,6 +384,10 @@ class Coordinator:
             report = self.report(p, wall)
         self.b.put_bytes(run_key(self.run_id, "results.txt"), (report + "\n").encode())
         self.run = self.b.update_run(self.run_id, {"status": "finished", "finished_at": now, "wall_s": wall})
+        try:
+            drop_queues(self.b, self.run_id)   # its workers see it finished; nothing is sent to it again
+        except Exception as e:
+            self.log(f"coordinator: deleting the run's queues failed: {e!r}")
         # the run is over: no node will start from a parent state again
         for key in self.b.list(run_key(self.run_id, "warm") + "/"):
             try:
@@ -424,6 +429,9 @@ class Coordinator:
     def loop(self, poll=2.0, max_wall=None):
         if not self.run.get("started_at"):
             self.run = self.b.update_run(self.run_id, {"started_at": self.t0})
+        if self.run.get("status") in ("running", "paused"):
+            ensure_queues(self.b, self.run_id, log=self.log)
+            self.run = self.b.get_run(self.run_id)
         while True:
             if self.run.get("status") == "stopped":
                 self.log(f"coordinator: run {self.run_id} was stopped (qapctl stop)")
@@ -443,6 +451,33 @@ class Coordinator:
             time.sleep(poll)
 
 
+def ensure_queues(b, run_id, log=print, resend=False):
+    """the run's queues, created if missing (idempotent). A run from before per-run queues (its
+    record has no "queues": its messages are in the old shared lanes, which no worker reads now),
+    a run whose queues were deleted, or resend: each queued unit is sent again. A unit sent twice
+    is harmless: the second copy finds it taken and is deleted (coord/worker.py, _lease)."""
+    b.create_queues(run_id)
+    run = b.get_run(run_id)
+    if run is None or (run.get("queues") == "run" and not resend):
+        return 0
+    n = 0
+    for u in b.units_by_status(run_id, "queued"):
+        b.send(run_id, u["lane"], {"run": run_id, "uid": u["uid"]})
+        n += 1
+    b.update_run(run_id, {"queues": "run"})
+    if n:
+        log(f"coordinator: run {run_id}: {n} queued units sent to its queues")
+    return n
+
+
+def drop_queues(b, run_id):
+    """delete a run's queues (finished or stopped: nothing will run again); the record says so,
+    so that a later ensure_queues sends its queued units again"""
+    b.delete_queues(run_id)
+    if b.get_run(run_id) is not None:
+        b.update_run(run_id, {"queues": None})
+
+
 def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, frontier_depth=0, log=print,
              visibility="public"):
     """the frontier pass, run here (as bench/parallel.py does): the root, or the
@@ -451,6 +486,7 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     import subprocess
     if backend.get_run(run_id):
         raise SystemExit(f"run {run_id} exists")
+    check_queue_name(run_id)   # before the frontier pass, which can take hours
     tmp = tempfile.mkdtemp(prefix=f"qapinit-{run_id}-")
     sdir = os.path.dirname(os.path.abspath(solver))
     frontier = os.path.join(tmp, "frontier.state")
@@ -481,8 +517,9 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     if st.perm and all(x != "-1" for x in st.perm):
         inc["perm"] = [int(x) for x in st.perm]
     backend.put_bytes(run_key(run_id, "incumbent.json"), json.dumps(inc).encode())
+    backend.create_queues(run_id)
     backend.put_run(run_id, {"run_id": run_id, "status": "running", "created": time.time(), "incumbent": inc,
-                             "visibility": visibility,
+                             "visibility": visibility, "queues": "run",
                              "config": cfg, "solver": {"flags": flags, "env": env, "ub": ub,
                                                        "params": os.path.basename(params),
                                                        "instance": os.path.basename(instance)}})

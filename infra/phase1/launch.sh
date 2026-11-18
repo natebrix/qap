@@ -34,8 +34,8 @@
 #
 # It creates, once per account and region, and keeps for later runs: the
 # coordinator's storage (`qapctl aws-setup`: a private bucket
-# qap-coord-<account>-<region>, the SQS queues qap-units-large and -small, the
-# DynamoDB tables qap-runs and qap-units), an instance role that may use those
+# qap-coord-<account>-<region> and the DynamoDB tables qap-runs and qap-units; each
+# run creates its own SQS queues qap-units-RUN-large and -small), an instance role that may use those
 # and nothing else, and a security group with no inbound rules. Then it uploads
 # the committed source and launches the instance (node.sh does the rest).
 # Then: infra/phase1/collect.sh RUN (progress and results), cleanup.sh.
@@ -110,7 +110,7 @@ fi
 
 # --- the coordinator's storage (idempotent; the same definitions as the moto tests)
 if [ "$DRY" = 1 ]; then echo "  [dry-run] python3 -m coord.qapctl aws-setup --backend '$BK'" | mask >&2
-else (cd "$R" && python3 -m coord.qapctl aws-setup --backend "$BK" > /dev/null); say "storage ready: s3://$B, queues qap-units-*, tables qap-runs and qap-units"; fi
+else (cd "$R" && python3 -m coord.qapctl aws-setup --backend "$BK" > /dev/null); say "storage ready: s3://$B, tables qap-runs and qap-units (each run creates its queues qap-units-RUN-*)"; fi
 
 # --- the run: new, resumed, or finished; at most one coordinating instance
 ST=$(bk status "$RUN" 2> /dev/null || echo none)
@@ -122,7 +122,7 @@ COORD_LIVE=$(live all)
 OTHERS=$(aws ec2 describe-instances --filters Name=tag:qap-role,Values=all Name=instance-state-name,Values=pending,running \
   --query "Reservations[].Instances[].Tags[?Key=='qap-phase1'].Value[]" --output text | tr -s '[:space:]' '\n' \
   | grep -vx -e "$RUN" -e '' -e None | sort -u | tr '\n' ' ' || true)
-[ -z "${OTHERS// /}" ] || say "note: run(s) $OTHERS also running in $REGION; runs share the queues, so each is slower while they overlap"
+[ -z "${OTHERS// /}" ] || say "note: run(s) $OTHERS also running in $REGION (each run has its own queues; they share the vCPU quota)"
 if [ "$ROLE" = all ]; then
   [ -z "$COORD_LIVE" ] || { echo "run $RUN already has a coordinating instance ($COORD_LIVE); add capacity with --worker-only"; exit 1; }
   case $ST in
@@ -162,7 +162,7 @@ POLICY="{\"Version\":\"2012-10-17\",\"Statement\":[
   \"Resource\":\"arn:aws:s3:::qap-coord-$ACCT-*/runs/*\"},
  {\"Effect\":\"Allow\",\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::qap-coord-$ACCT-*/public/runs/*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"sqs:ReceiveMessage\",\"sqs:SendMessage\",\"sqs:DeleteMessage\",\"sqs:ChangeMessageVisibility\",
-  \"sqs:GetQueueUrl\",\"sqs:GetQueueAttributes\"],\"Resource\":\"arn:aws:sqs:*:$ACCT:qap-units-*\"},
+  \"sqs:GetQueueUrl\",\"sqs:GetQueueAttributes\",\"sqs:CreateQueue\",\"sqs:DeleteQueue\"],\"Resource\":\"arn:aws:sqs:*:$ACCT:qap-units-*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:PutItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],
   \"Resource\":[\"arn:aws:dynamodb:*:$ACCT:table/qap-runs\",\"arn:aws:dynamodb:*:$ACCT:table/qap-units\",
                \"arn:aws:dynamodb:*:$ACCT:table/qap-units/index/*\"]}]}"

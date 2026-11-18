@@ -64,6 +64,12 @@ only for the dives run's tail.
 (b) and (c) are small changes but leave the coupling in place. For experiments, (a) is the one that
 makes arms independent.
 
+**Status, Nov 19: done, (a).** Each run has the queues `qap-units-RUN-large` and `-small`, created
+with it and deleted when it finishes or is stopped; the foreign-message code is gone. A run from
+before gets its queues when its coordinator next starts (its queued units are sent to them).
+`tests/coord_test.py` `tworuns` and `awstworuns`: one run paused with units queued while the other
+finishes, then resumed (`coord/README.md`).
+
 ## 2. An A/B is launched by typing at prompts
 
 **What we saw.** The baseline arm's recipe has

@@ -19,10 +19,17 @@ python3 -m coord.qapctl local RUN --backend local:DIR ...        # init + both, 
 
 Backends: `local:DIR` (one machine: a directory for the store, one SQLite
 database in WAL mode for the queue and the ledger) and
-`aws:BUCKET[/PREFIX]?region=R&name=N` (S3, two SQS queues, two DynamoDB
-tables; `qapctl aws-setup` creates them; `&endpoint=URL` points it at a
+`aws:BUCKET[/PREFIX]?region=R&name=N` (S3, two DynamoDB tables, which
+`qapctl aws-setup` creates, and SQS queues; `&endpoint=URL` points it at a
 local `moto` server for tests). Both implement the same small interface
-(`backend.py`).
+(`backend.py`). Each run has its own two lanes, large and small (SQS: the queues
+`N-units-RUN-large` and `-small`; local: its rows of the messages table), created
+with the run and deleted when it finishes or is stopped (a paused run keeps them),
+so runs on one backend never see each other's messages. Until Nov 19 every run
+shared two queues, and another run's large units kept a run's small ones unread
+(`docs/review_nov18_runs.md`, item 1). A run from before that, or one whose queues
+are gone, gets them when its coordinator starts, which sends its queued units to
+them (`ensure_queues`; a unit sent twice is harmless).
 
 ## How a run works
 
@@ -107,9 +114,8 @@ local `moto` server for tests). Both implement the same small interface
 
   `qapctl estimate-flow RUN --solve-wall S --dive-budget T` does all of it in place of the
   coordinator, restartably; `worker --follow` goes from RUN to RUN-dives. SRC stays paused:
-  `qapctl resume` sends its queued units again and the solve goes on. A paused run's messages
-  are hidden 5 minutes by the workers of other runs (`PAUSED_HIDE_S`), or a dives run would
-  starve behind them. `tests/dives_test.py [--flow]` (nug17): the estimate within 15% (1.03
+  `qapctl resume` sends its queued units again and the solve goes on. The dives run has
+  queues of its own, so SRC's queued messages wait in SRC's. `tests/dives_test.py [--flow]` (nug17): the estimate within 15% (1.03
   and 1.06 on the first runs), and the resumed solve's totals equal a serial run's. On EC2:
   `QAP_ESTIMATE=SOLVE_S:DIVE_S[:B]` on every instance (`infra/phase1/node.sh`; start.sh asks
   for it under the other settings). On the laptop: `ESTIMATE=... infra/laptop/solve.sh PROBLEM`.
@@ -138,7 +144,9 @@ about 90 units a run):
 | drain | SIGTERM to the worker's process group mid-run | = serial |
 | noub | no incumbent: the run finds the optimum and publishes it verified | optimum |
 | aws | normal, on S3/SQS/DynamoDB (a local moto server, region eu-north-1, where a new bucket must name its region) | = serial |
-| tworuns | two runs on one backend at once: they share the queues, and a worker leaves the other run's messages alone (it used to delete them, which stranded that run's units) | both = serial |
+| tworuns | two runs on one backend at once, each on its own queues: run a paused partway with units queued (its worker drained), run b finishes meanwhile, then a resumed with a new worker | both = serial |
+| awstworuns | tworuns on S3/SQS/DynamoDB (moto); no queue left once both finish | both = serial |
+| stopped | `qapctl stop` partway; a run stopped before any worker came has its queues deleted; another run then finishes | = serial |
 
 On wil50 (`experiments/wil50_feasibility/coord_search/README.md`): the
 node-10 subtree with the production settings, one 4-slot worker: the same

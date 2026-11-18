@@ -5,9 +5,9 @@ sections 3-4), behind one small interface with two implementations:
                      (WAL, shared by the coordinator and the worker processes on
                      one machine) for the queue and the ledger
   aws:BUCKET[/PREFIX][?region=R&name=N]
-                     S3 for the store, two SQS queues (units-large,
-                     units-small) and two DynamoDB tables (runs, units) named
-                     after N (default "qap"); `qapctl aws-setup` creates them
+                     S3 for the store, SQS queues and two DynamoDB tables
+                     (runs, units) named after N (default "qap"); `qapctl
+                     aws-setup` creates the bucket and the tables
 
 The three parts:
 
@@ -16,7 +16,12 @@ The three parts:
   Queue   at-least-once messages with a visibility timeout, the lease: a
           received message is invisible until its visibility runs out, the
           worker extends it while it works and deletes it when the unit is
-          recorded; two lanes polled in order (large first)
+          recorded; two lanes polled in order (large first). Each run has its
+          own pair of lanes (SQS: queues <name>-units-<run>-large and -small),
+          created when the run is (create_queues) and deleted when it is over
+          (delete_queues), so runs on one backend never see each other's
+          messages (docs/review_nov18_runs.md, item 1: shared lanes let one
+          run's large units keep another's small ones from ever being read)
   Ledger  the runs and units tables. Every unit update is conditional
           (expected status, attempt), so a late or duplicate worker cannot
           overwrite a newer attempt and nothing is merged twice; merge
@@ -24,6 +29,7 @@ The three parts:
 """
 import json
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -68,9 +74,14 @@ class LocalBackend:
               CREATE TABLE IF NOT EXISTS counters (run_id TEXT, name TEXT, value INTEGER,
                                                    PRIMARY KEY (run_id, name));
               CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, lane TEXT,
-                                                   body TEXT, visible_at REAL, receive_count INTEGER);
-              CREATE INDEX IF NOT EXISTS messages_vis ON messages (lane, visible_at);
+                                                   body TEXT, visible_at REAL, receive_count INTEGER, run TEXT);
             """)
+            # a ledger from before per-run queues: its messages get their run from their body
+            if "run" not in [r[1] for r in c.execute("PRAGMA table_info(messages)")]:
+                c.execute("ALTER TABLE messages ADD COLUMN run TEXT")
+                c.execute("UPDATE messages SET run = json_extract(body, '$.run')")
+            c.execute("DROP INDEX IF EXISTS messages_vis")
+            c.execute("CREATE INDEX IF NOT EXISTS messages_run ON messages (run, lane, visible_at)")
 
     def _conn(self):
         # one connection per thread and process (worker slots are threads; a
@@ -169,19 +180,26 @@ class LocalBackend:
                 pass
         return out
 
-    # queue
-    def send(self, lane, body):
-        with self._tx() as c:
-            c.execute("INSERT INTO messages (lane, body, visible_at, receive_count) VALUES (?, ?, ?, 0)",
-                      (lane, json.dumps(body), time.time()))
+    # queue (one table; a run's lanes are its rows)
+    def create_queues(self, run):
+        check_queue_name(run)
 
-    def receive(self, lanes, visibility):
+    def delete_queues(self, run):
+        with self._tx() as c:
+            c.execute("DELETE FROM messages WHERE run = ?", (run,))
+
+    def send(self, run, lane, body):
+        with self._tx() as c:
+            c.execute("INSERT INTO messages (run, lane, body, visible_at, receive_count) VALUES (?, ?, ?, ?, 0)",
+                      (run, lane, json.dumps(body), time.time()))
+
+    def receive(self, run, lanes, visibility):
         now = time.time()
         c = self._tx()
         try:
             for lane in lanes:
-                row = c.execute("SELECT id, body, receive_count FROM messages WHERE lane = ? AND visible_at <= ? "
-                                "ORDER BY id LIMIT 1", (lane, now)).fetchone()
+                row = c.execute("SELECT id, body, receive_count FROM messages WHERE run = ? AND lane = ? "
+                                "AND visible_at <= ? ORDER BY id LIMIT 1", (run, lane, now)).fetchone()
                 if row:
                     c.execute("UPDATE messages SET visible_at = ?, receive_count = receive_count + 1 WHERE id = ?",
                               (now + visibility, row[0]))
@@ -204,9 +222,9 @@ class LocalBackend:
         with self._tx() as c:
             c.execute("DELETE FROM messages WHERE id = ?", (msg.handle,))
 
-    def depth(self, lane):
-        return self._conn().execute("SELECT COUNT(*) FROM messages WHERE lane = ? AND visible_at <= ?",
-                                    (lane, time.time())).fetchone()[0]
+    def depth(self, run, lane):
+        return self._conn().execute("SELECT COUNT(*) FROM messages WHERE run = ? AND lane = ? AND visible_at <= ?",
+                                    (run, lane, time.time())).fetchone()[0]
 
     # ledger: runs
     def put_run(self, run_id, doc):
@@ -302,6 +320,26 @@ class LocalBackend:
         return [json.loads(r[0]) for r in self._conn().execute("SELECT doc FROM units WHERE run_id = ?", (run_id,))]
 
 
+# SQS: a queue name is at most 80 letters, digits, - and _; <name>-units-<run>-large must fit
+RUN_NAME = re.compile(r"^[A-Za-z0-9_-]{1,58}$")
+
+
+def check_queue_name(run):
+    if not RUN_NAME.match(run):
+        raise ValueError(f"run name {run!r}: 1-58 letters, digits, - and _ (its queues are named after it)")
+
+
+def _sqs_code(e):
+    """'gone' for a queue that does not exist, 'recent' for a name deleted under 60 seconds ago
+    (the query protocol's AWS.SimpleQueueService.* codes or the JSON protocol's), else None"""
+    code = getattr(e, "response", {}).get("Error", {}).get("Code", "")
+    if code.endswith("NonExistentQueue") or code.endswith("QueueDoesNotExist"):
+        return "gone"
+    if code.endswith("QueueDeletedRecently"):
+        return "recent"
+    return None
+
+
 def _matches(doc, expect):
     for k, v in (expect or {}).items():
         if isinstance(v, (tuple, list, set)):
@@ -349,9 +387,6 @@ class AwsBackend:
             loc = {} if self.region == "us-east-1" else \
                 {"CreateBucketConfiguration": {"LocationConstraint": self.region}}
             self.s3.create_bucket(Bucket=self.bucket, **loc)
-        for lane in ("large", "small"):
-            self.sqs.create_queue(QueueName=f"{self.name}-units-{lane}",
-                                  Attributes={"VisibilityTimeout": "1800", "MessageRetentionPeriod": "1209600"})
         existing = self.ddb.list_tables()["TableNames"]
         if f"{self.name}-runs" not in existing:
             self.ddb.create_table(TableName=f"{self.name}-runs", BillingMode="PAY_PER_REQUEST",
@@ -455,38 +490,100 @@ class AwsBackend:
                 out.append((k[len(self.prefix) + 1:] if self.prefix else k, o["LastModified"].timestamp()))
         return sorted(out)
 
-    # queue
-    def _url(self, lane):
-        if lane not in self._qurl:
-            self._qurl[lane] = self.sqs.get_queue_url(QueueName=f"{self.name}-units-{lane}")["QueueUrl"]
-        return self._qurl[lane]
+    # queue: a run's lanes are the queues <name>-units-<run>-<lane>
+    def _qname(self, run, lane):
+        check_queue_name(run)
+        return f"{self.name}-units-{run}-{lane}"
 
-    def send(self, lane, body):
-        self.sqs.send_message(QueueUrl=self._url(lane), MessageBody=json.dumps(body))
+    def _url(self, run, lane):
+        """the queue's URL, None when it does not exist (not created yet, or deleted with its run)"""
+        k = (run, lane)
+        if k not in self._qurl:
+            try:
+                self._qurl[k] = self.sqs.get_queue_url(QueueName=self._qname(run, lane))["QueueUrl"]
+            except Exception as e:
+                if _sqs_code(e) == "gone":
+                    return None
+                raise
+        return self._qurl[k]
 
-    def receive(self, lanes, visibility):
+    def create_queues(self, run):
+        for lane in ("large", "small"):
+            for i in range(10):
+                try:
+                    self._qurl[(run, lane)] = self.sqs.create_queue(
+                        QueueName=self._qname(run, lane),
+                        Attributes={"VisibilityTimeout": "1800", "MessageRetentionPeriod": "1209600"})["QueueUrl"]
+                    break
+                except Exception as e:
+                    if _sqs_code(e) != "recent":
+                        raise
+                    time.sleep(10)          # SQS: 60 seconds after a delete before the name is free again
+            else:
+                raise RuntimeError(f"queue {self._qname(run, lane)}: deleted recently, still not free after 100 s")
+
+    def delete_queues(self, run):
+        for lane in ("large", "small"):
+            u = self._url(run, lane)
+            self._qurl.pop((run, lane), None)
+            if u:
+                try:
+                    self.sqs.delete_queue(QueueUrl=u)
+                except Exception as e:
+                    if _sqs_code(e) != "gone":
+                        raise
+
+    def send(self, run, lane, body):
+        u = self._url(run, lane)
+        if u is None:
+            raise RuntimeError(f"run {run} has no queue {self._qname(run, lane)}: create_queues first")
+        self.sqs.send_message(QueueUrl=u, MessageBody=json.dumps(body))
+
+    def receive(self, run, lanes, visibility):
         for lane in lanes:
-            r = self.sqs.receive_message(QueueUrl=self._url(lane), MaxNumberOfMessages=1,
-                                         VisibilityTimeout=int(visibility), WaitTimeSeconds=1,
-                                         AttributeNames=["ApproximateReceiveCount"])
+            u = self._url(run, lane)
+            if u is None:
+                continue
+            try:
+                r = self.sqs.receive_message(QueueUrl=u, MaxNumberOfMessages=1,
+                                             VisibilityTimeout=int(visibility), WaitTimeSeconds=1,
+                                             AttributeNames=["ApproximateReceiveCount"])
+            except Exception as e:
+                if _sqs_code(e) != "gone":
+                    raise
+                self._qurl.pop((run, lane), None)   # deleted with its run: the worker sees it over
+                continue
             for m in r.get("Messages", []):
-                return Message((lane, m["ReceiptHandle"]), json.loads(m["Body"]), lane,
+                return Message((u, m["ReceiptHandle"]), json.loads(m["Body"]), lane,
                                int(m["Attributes"].get("ApproximateReceiveCount", "1")))
         return None
 
     def extend(self, msg, visibility):
-        lane, h = msg.handle
-        self.sqs.change_message_visibility(QueueUrl=self._url(lane), ReceiptHandle=h, VisibilityTimeout=int(visibility))
+        u, h = msg.handle
+        self.sqs.change_message_visibility(QueueUrl=u, ReceiptHandle=h, VisibilityTimeout=int(visibility))
 
     def release(self, msg):
         self.extend(msg, 0)
 
     def delete_message(self, msg):
-        lane, h = msg.handle
-        self.sqs.delete_message(QueueUrl=self._url(lane), ReceiptHandle=h)
+        u, h = msg.handle
+        try:
+            self.sqs.delete_message(QueueUrl=u, ReceiptHandle=h)
+        except Exception as e:
+            if _sqs_code(e) != "gone":
+                raise
 
-    def depth(self, lane):
-        a = self.sqs.get_queue_attributes(QueueUrl=self._url(lane), AttributeNames=["ApproximateNumberOfMessages"])
+    def depth(self, run, lane):
+        u = self._url(run, lane)
+        if u is None:
+            return 0
+        try:
+            a = self.sqs.get_queue_attributes(QueueUrl=u, AttributeNames=["ApproximateNumberOfMessages"])
+        except Exception as e:
+            if _sqs_code(e) != "gone":
+                raise
+            self._qurl.pop((run, lane), None)
+            return 0
         return int(a["Attributes"]["ApproximateNumberOfMessages"])
 
     # ledger: runs

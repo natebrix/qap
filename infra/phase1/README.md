@@ -200,13 +200,16 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
   snapshot), so cents per run. Storage, queues and tables cost cents a month.
 - **What it creates,** once per account and region, kept for later runs:
   - the coordinator's storage, by `qapctl aws-setup`: a private bucket
-    `qap-coord-<account>-<region>` (also the source tarballs under `src/`), the
-    SQS queues `qap-units-large` and `qap-units-small`, and the DynamoDB tables
-    `qap-runs` and `qap-units` (on-demand capacity);
+    `qap-coord-<account>-<region>` (also the source tarballs under `src/`) and
+    the DynamoDB tables `qap-runs` and `qap-units` (on-demand capacity). Each run
+    has its own SQS queues, `qap-units-RUN-large` and `-small`: created with the
+    run, deleted when it finishes or is stopped (kept while it is paused);
   - an IAM role and instance profile `qap-phase1-instance`, which may only make
     the calls `coord/backend.py` makes on those (read and write `runs/`, read
-    `src/`, write `public/runs/`, send, receive and delete on the two queues,
-    items on the two tables) and nothing else;
+    `src/`, write `public/runs/`, create, use and delete the `qap-units-*` queues,
+    items on the two tables) and nothing else. Since Nov 19 the role may create
+    and delete queues: the first launch after that comes from the laptop, which
+    rewrites the role's policy (the GitHub workflow's role cannot);
   - a security group `qap-phase1` in the default VPC, with no inbound rules.
 - **Disk and failures** (after tho40-a, Nov 14, whose 32 GB disk filled in 30
   minutes): `--disk GB` sizes the root disk (default 32; tho40 at 64 workers:
@@ -220,11 +223,14 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
   reaches the other units when that unit returns and is merged (the
   coordinator verifies and publishes it then), so at most one unit budget
   later: 60 CPU seconds with the nug30 recipe, 30 minutes with the default.
-- **Several runs at once:** the runs in a region share the two queues. A
-  worker that receives another run's message hides it for a second and leaves
-  it (before Nov 8 it deleted it, which stranded that run's unit), so
-  overlapping runs are correct but slower. `launch.sh` says when another run is
-  coordinating.
+- **Several runs at once:** each run has its own queues (since Nov 19), so runs
+  in a region are independent: a worker receives only its run's units. Before,
+  every run shared two queues, and another run's large units kept a run's small
+  ones from ever being read (the tail of `tho40-est-dives`, Nov 18:
+  `docs/review_nov18_runs.md`, item 1). A run created before Nov 19 gets its
+  queues when its coordinator next starts, which sends its queued units to them;
+  the old shared queues are then unused (`cleanup.sh --storage` deletes them with
+  the rest).
 - **Interrupted or stopped runs:** `launch.sh RUN` resumes a run that exists;
   `--recipe` is then not needed. Relaunch on the same `--type`: the run's slot
   count is fixed when it is created, and the coordinator sizes its queue

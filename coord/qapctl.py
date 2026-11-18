@@ -58,7 +58,7 @@ if __package__ in (None, ""):
 
 from coord.backend import open_backend  # noqa: E402
 from coord.common import ROOT, SOLVER, run_key, unit_key  # noqa: E402
-from coord.coordinator import Coordinator, init_run  # noqa: E402
+from coord.coordinator import Coordinator, drop_queues, ensure_queues, init_run  # noqa: E402
 from coord.worker import Worker  # noqa: E402
 
 
@@ -234,13 +234,9 @@ def main(argv=None):
     if a.command in ("pause", "resume"):
         b.update_run(a.run, {"status": "paused" if a.command == "pause" else "running"})
         if a.command == "resume":
-            # a paused run's messages may be hidden by other runs' workers (a dives run's hides them
-            # 5 minutes: coord/worker.py PAUSED_HIDE_S): send each queued unit again, so the run goes
-            # on at once; the copy that comes second finds its unit taken and is deleted
-            n = 0
-            for u in b.units_by_status(a.run, "queued"):
-                b.send(u["lane"], {"run": a.run, "uid": u["uid"]})
-                n += 1
+            # each queued unit sent again: the run's queues may be new (a run from before per-run
+            # queues) or its messages past SQS's 14-day retention; a second copy is harmless
+            n = ensure_queues(b, a.run, log=log, resend=True)
             log(f"run {a.run}: resumed ({n} queued units sent again)")
         else:
             log(f"run {a.run}: paused")
@@ -251,8 +247,8 @@ def stop_run(b, run_id, log=print):
     """give up a run for good: status stopped, its wall time the last the
     coordinator recorded, and a final public status (the catalog and the site
     show it stopped, no longer live). Its coordinator and workers exit at their
-    next look at the run, and other runs' workers delete its queued units'
-    messages. Its instances are terminated separately (infra/phase1/cleanup.sh)."""
+    next look at the run, and its queues are deleted with the messages in them.
+    Its instances are terminated separately (infra/phase1/cleanup.sh)."""
     run = b.get_run(run_id)
     if run is None:
         log(f"no run {run_id}")
@@ -265,6 +261,7 @@ def stop_run(b, run_id, log=print):
     if run.get("status") != "stopped":   # a second stop keeps the first one's times
         fields.update({"wall_s": last.get("wall_s"), "finished_at": last.get("updated")})
     b.update_run(run_id, fields)
+    drop_queues(b, run_id)   # its coordinator and workers exit at their next look; nothing runs it again
     # the saved totals, without replaying the merges after them: a replay fetches
     # those units' output states, gigabytes each in a run like tho40-a
     c = Coordinator(b, run_id, log=log, replay=False)

@@ -1,7 +1,7 @@
 """The worker supervisor (docs/distributed/plan.md 4.1-4.3, 8.4): one per
 machine, `slots` solver processes, each slot a thread that
 
-  receives a unit from the queue (the message's visibility is the lease),
+  receives a unit from its run's queue (the message's visibility is the lease),
   leases it in the ledger (conditional: queued, or a lease that ran out),
   runs  bnbdrv -p P <flags> -u INC -U inc.txt -r in.state -o out.state -t BUDGET -k CKPT  instance,
   heartbeats every heartbeat_s while it runs: extends the message and the
@@ -39,12 +39,6 @@ import time
 
 from . import warm
 from .common import LANES, ROOT, SOLVER, State, run_key, unit_key
-
-# every run on a backend shares its queues: a worker that receives another
-# run's message hides it this long (and waits a poll) and leaves it for that
-# run's workers
-FOREIGN_HIDE_S = 1
-PAUSED_HIDE_S = 300   # a paused run's messages, received by another run's worker
 
 
 def traced_nodes(state):
@@ -88,7 +82,6 @@ class Worker:
         self.log = log
         self.exit_when_idle = exit_when_idle
         self.grace = grace
-        self._others = {}   # another run's id -> (over, when looked up)
         self._pushed = set()  # parent states this worker knows are in the store (coord/warm.py)
         self.workdir = os.path.abspath(workdir or os.path.join("/tmp", f"qapworker-{run_id}-{os.getpid()}"))
         os.makedirs(self.workdir, exist_ok=True)
@@ -141,20 +134,6 @@ class Worker:
             self.log(f"worker {self.name}: {free / 1e9:.1f} GB free on {self.workdir}, under "
                      f"{need / 1e9:g} GB: taking no unit until there is room")
         return False
-
-    def _other_status(self, run_id, ttl=60):
-        """another run's status, cached ttl seconds (None: gone)"""
-        now = time.time()
-        hit = self._others.get(run_id)
-        if hit is None or now - hit[1] > ttl:
-            doc = self.b.get_run(run_id)
-            hit = (doc.get("status") if doc else None, now)
-            self._others[run_id] = hit
-        return hit[0]
-
-    def _run_over(self, run_id, ttl=60):
-        """another run is stopped, finished or gone"""
-        return self._other_status(run_id, ttl) in (None, "stopped", "finished")
 
     # ------------------------------------------------------------ one unit
     def _lease(self, msg):
@@ -485,26 +464,12 @@ class Worker:
             if not self._room():
                 time.sleep(max(poll, 30))
                 continue
-            msg = self.b.receive(list(LANES), self.cfg["lease_s"])
+            msg = self.b.receive(self.run_id, list(LANES), self.cfg["lease_s"])
             if msg is None:
                 with self.lock:
                     if self.busy == 0 and self.exit_when_idle and time.time() - self.idle_since > self.exit_when_idle:
                         return
                 time.sleep(poll)
-                continue
-            if msg.body.get("run", self.run_id) != self.run_id:
-                # another run's unit: deleting the message would strand it (a
-                # coordinator sends a queued unit once), unless that run is over
-                # (qapctl stop: tho40-a left 139 queued units' messages, Nov 14)
-                if self._run_over(msg.body["run"]):
-                    self.b.delete_message(msg)
-                elif self._other_status(msg.body["run"]) == "paused":
-                    # a paused run's units wait (a dives run reads them: coord/dives.py): out of the
-                    # way for a while, and on to the next message at once, or they starve this run
-                    self.b.extend(msg, PAUSED_HIDE_S)
-                else:
-                    self.b.extend(msg, FOREIGN_HIDE_S)
-                    time.sleep(poll)
                 continue
             unit = self._lease(msg)
             if unit is None:

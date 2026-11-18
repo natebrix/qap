@@ -32,6 +32,7 @@ import tempfile
 import time
 import zlib
 
+from .backend import check_queue_name
 from .common import State, run_key, unit_key
 
 
@@ -42,6 +43,7 @@ def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, we
         raise SystemExit(f"no run {src}")
     if b.get_run(new):
         raise SystemExit(f"run {new} exists")
+    check_queue_name(new)
     if s.get("config", {}).get("kind") == "dives":
         raise SystemExit(f"{src} is a dives run")
     counts = b.count_by_status(src)
@@ -68,8 +70,9 @@ def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, we
     b.put_bytes(run_key(new, "source_totals.json"), json.dumps({"src": src, "totals_key": tk,
                                                                 "last_seq": meta.get("last_seq", 0)}).encode())
     inc = json.loads(b.get_bytes(run_key(src, "incumbent.json")) or b"{}")
+    b.create_queues(new)
     b.put_run(new, {"run_id": new, "status": "running", "created": time.time(), "incumbent": inc,
-                    "visibility": "private", "config": cfg, "solver": s["solver"]})
+                    "visibility": "private", "queues": "run", "config": cfg, "solver": s["solver"]})
     now = time.time()
     for u in units:
         doc = {k: u[k] for k in ("uid", "parent", "nodes", "depth_min", "depth_max", "by_depth", "min_bound",
@@ -77,7 +80,7 @@ def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, we
         doc.update({"run": new, "status": "queued", "attempt": 0, "budget": cfg["budget"], "created": now,
                     "warm": u.get("warm", [])})
         b.put_unit(new, doc)
-        b.send(doc["lane"], {"run": new, "uid": doc["uid"]})
+        b.send(new, doc["lane"], {"run": new, "uid": doc["uid"]})
         b.update_unit(new, doc["uid"], {"sent_at": time.time()})
     log(f"dives: run {new} from {src}: {len(units)} units, {sum(u['nodes'] for u in units)} open nodes, "
         f"{cfg['budget']:g} s each, " + (f"Knuth's dives, g^{str(dive_b)[1:]}" if str(dive_b).startswith("k")

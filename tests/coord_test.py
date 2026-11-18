@@ -21,9 +21,15 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
              (totals then depend on timing; only the objective is checked)
   aws        `normal` on the AWS backend against a local moto server
              (needs boto3 and moto: --python VENV/bin/python)
-  tworuns    two runs on one backend at the same time: they share the
-             queues, so each run's worker also receives the other's messages;
-             both must reproduce the serial totals
+  awstworuns `tworuns` on the AWS backend (moto): each run's SQS queues, and
+             none left once both have finished
+  tworuns    two runs on one backend at the same time, each on its own
+             queues; one is paused partway with units queued (as an estimate
+             leaves its solve) and the other must finish meanwhile; the paused
+             one is resumed and finishes; both must reproduce the serial totals
+  stopped    qapctl stop partway: the coordinator and worker exit, the public
+             status says stopped, purge-states deletes the state files; a run
+             stopped before any worker came has its queues deleted
 
 Every scenario also checks the public status (coord/publish.py), published
 every second: status.json final, with the run's totals; totals.state the same
@@ -160,26 +166,67 @@ def wait_all(procs, timeout):
         p.wait(timeout=max(1, timeout - (time.time() - t0)))
 
 
-def two_runs(name, py, base, inst, opt):
-    be = f"local:{os.path.join(base, name)}"
+def two_runs(name, py, base, inst, opt, aws_endpoint=None):
+    """two runs on one backend, each on its own queues (docs/review_nov18_runs.md, item 1): run a
+    is paused once it has merged a few units, run b must finish while a stays paused with its
+    units queued, then a is resumed and finishes"""
+    from coord.backend import open_backend
+    be = f"local:{os.path.join(base, name)}" if not aws_endpoint else \
+        f"aws:qaptest/{name}?region=eu-north-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
     runs = [Run(py, be, f"{name}_{x}", inst, opt) for x in "ab"]
+    a, b = runs
+    store = open_backend(be)
+    problems = []
     try:
+        if aws_endpoint:
+            a.ctl("aws-setup", *a.args)
         for r in runs:
             r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
-        procs = [p for r in runs for p in (r.coordinator(), r.worker("w1"))]
+        pa = [a.coordinator(), a.worker("w1")]
+        pb = [b.coordinator(), b.worker("w1")]
+        t_end = time.time() + 60
+        while time.time() < t_end and store.count_by_status(a.run_id).get("merged", 0) < 3:
+            time.sleep(0.05)
+        a.ctl("pause", a.run_id, *a.args, log=os.path.join(a.tmp, "pause.log"))
+        # its worker drained (it looks at the run's status every 10 s, longer than this run takes),
+        # as an estimate's instances go: the running units return their open nodes
+        pa[1].send_signal(signal.SIGTERM)
         try:
-            wait_all(procs, 120)
+            pa[1].wait(timeout=60)
         except subprocess.TimeoutExpired:
-            pass                                # a stranded run never finishes: reported below
+            problems.append("run a's worker did not drain")
+        try:
+            wait_all(pb, 120)
+        except subprocess.TimeoutExpired:
+            problems.append("run b did not finish while run a was paused")
+        if store.get_run(a.run_id).get("status") != "paused":
+            problems.append(f"run a is {store.get_run(a.run_id).get('status')}, not paused")
+        if not store.count_by_status(a.run_id).get("queued"):
+            problems.append(f"run a was paused with nothing queued ({store.count_by_status(a.run_id)}): "
+                            f"the scenario did not test a paused run's units")
+        a.ctl("resume", a.run_id, *a.args, log=os.path.join(a.tmp, "pause.log"))
+        pa[1] = a.worker("w2")
+        try:
+            wait_all(pa, 120)
+        except subprocess.TimeoutExpired:
+            problems.append("run a did not finish after its resume")
         got = [totals(r.results()) for r in runs]
-        from coord.backend import open_backend
-        units = [u for r in runs for u in open_backend(be).all_units(r.run_id)]
-        r0 = runs[0]
-        r0.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
-                    "returned": sum(u.get("outcome") == "returned" for u in units),
-                    "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
-        r0.tmp = " and ".join(r.tmp for r in runs)
-        return (got[0] if got[0] == got[1] else (None, None, None)), r0
+        if got[0] != got[1]:
+            problems.append(f"the two runs' totals differ: {got[0]} and {got[1]}")
+        left = sum(store.depth(r.run_id, lane) for r in runs for lane in ("large", "small"))
+        if left:
+            problems.append(f"{left} messages left in the finished runs' queues")
+        if aws_endpoint:
+            q = store.sqs.list_queues(QueueNamePrefix=f"{store.name}-units-").get("QueueUrls", [])
+            if q:
+                problems.append(f"queues left after both runs finished: {q}")
+        units = [u for r in runs for u in store.all_units(r.run_id)]
+        a.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
+                   "returned": sum(u.get("outcome") == "returned" for u in units),
+                   "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
+        a.public = problems
+        a.tmp = " and ".join(r.tmp for r in runs)
+        return got[1], a
     finally:
         for r in runs:
             r.cleanup()
@@ -189,8 +236,8 @@ def stopped_run(name, py, base, inst, opt):
     """qapctl stop on a run partway (a): its coordinator and worker exit, its
     public status and catalog entry say stopped and final, purge-states
     deletes its unit state files. A run stopped before any worker came (c)
-    leaves its queued units' messages; a run (b) on the same queues then
-    finishes, its worker deleting them."""
+    has its queues deleted with its queued units' messages; a run (b) on the
+    same backend then finishes."""
     import glob
     import json
     from coord.backend import open_backend
@@ -220,16 +267,16 @@ def stopped_run(name, py, base, inst, opt):
         if left:
             problems.append(f"{len(left)} state files left after purge-states")
         c.ctl(*c.init, log=os.path.join(c.tmp, "init.log"))
+        queued = sum(store.depth(c.run_id, lane) for lane in LANES)
         c.ctl("stop", c.run_id, *c.args, log=os.path.join(c.tmp, "stop.log"))
-        queued = sum(store.depth(lane) for lane in LANES)
+        depth = sum(store.depth(c.run_id, lane) for lane in LANES)
+        if depth or not queued:
+            problems.append(f"{depth} messages left in the stopped run's queues, of its {queued}")
         b.ctl(*b.init, log=os.path.join(b.tmp, "init.log"))
         try:
             wait_all([b.coordinator(), b.worker("w1")], 120)
         except subprocess.TimeoutExpired:
             problems.append("the second run did not finish")
-        depth = sum(store.depth(lane) for lane in LANES)
-        if depth or not queued:
-            problems.append(f"{depth} messages left in the queues, of the stopped runs' {queued}")
         b.public = problems
         b.stats = {"units": len(store.all_units(b.run_id)), "retried": 0, "returned": 0, "resumed": 0}
         return totals(b.results()), b
@@ -239,8 +286,8 @@ def stopped_run(name, py, base, inst, opt):
 
 
 def scenario(name, py, base, inst, opt, aws_endpoint=None):
-    if name == "tworuns":
-        return two_runs(name, py, base, inst, opt)
+    if name in ("tworuns", "awstworuns"):
+        return two_runs(name, py, base, inst, opt, aws_endpoint if name == "awstworuns" else None)
     if name == "stopped":
         return stopped_run(name, py, base, inst, opt)
     if name == "aws":
@@ -363,7 +410,7 @@ def main():
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,crash_marked,crash_applied,crash_saving,"
-                                      "drain,noub,fixes,aws,tworuns,stopped")
+                                      "drain,noub,fixes,aws,tworuns,awstworuns,stopped")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args()
     ref = serial(a.instance, int(a.opt))
@@ -373,7 +420,7 @@ def main():
     endpoint = None
     bad = 0
     for name in a.only.split(","):
-        if name == "aws" and server is None:
+        if name in ("aws", "awstworuns") and server is None:
             try:
                 import importlib
                 subprocess.run([a.python, "-c", "import boto3, moto"], check=True)

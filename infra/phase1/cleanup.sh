@@ -43,11 +43,13 @@ if [ "$STORAGE" = 1 ]; then
   ACCT=$(aws sts get-caller-identity --query Account --output text)
   B=qap-coord-$ACCT-$REGION
   echo "this deletes every coordinator run in $REGION: the ledger (tables qap-runs, qap-units),"
-  echo "the queues (qap-units-large, qap-units-small) and s3://$B with all results and logs"
+  echo "every run's queues (qap-units-*) and s3://$B with all results and logs"
   read -r -p "delete them? [y/N] " a
   [ "$a" = y ] || exit 0
-  for q in qap-units-large qap-units-small; do
-    U=$(aws sqs get-queue-url --queue-name $q --query QueueUrl --output text 2> /dev/null) && aws sqs delete-queue --queue-url "$U" && echo "deleted queue $q"
+  # each run's queues (qap-units-RUN-large and -small), and the shared pair runs used before Nov 19
+  for U in $(aws sqs list-queues --queue-name-prefix qap-units- --query 'QueueUrls[]' --output text 2> /dev/null); do
+    [ "$U" = None ] && continue
+    aws sqs delete-queue --queue-url "$U" && echo "deleted queue ${U##*/}"
   done
   for t in qap-runs qap-units; do
     aws dynamodb delete-table --table-name $t > /dev/null 2>&1 && echo "deleted table $t"
