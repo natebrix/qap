@@ -144,7 +144,7 @@ c26 and r8 (`QAP_LA_LINES`), 30 pooled iterations a child (`dumps/tai60b_la_cap3
 - It picks r45, 1.2x the best line, where rule 9 from the same state picks c26 at 2.0x. Not r1.
 - **30 iterations are too few at n = 60.** The full first solves of the line study fathom 52 of r1's
   58 children; after 30 warm pooled iterations 47 are still open, and the counts of open children
-  rank the lines the wrong way round (r8 fewest). On tai35b (m = 33) 30 iterations already fathomed 20
+  rank the lines the wrong way round (r8 fewest). On tai35b (m = 33) 30 iterations already fathomed 21
   to 29 of a good line's 34 children. The cap has to grow with the instance.
 - Cost: 6,364 CPU s for 229 pooled solves (28 s each, about 0.93 s an iteration), about 0.4% of the node's
   subtree in production (at least 1.67M CPU s). A cap of 100 to 150 iterations would cost 3-5x that and
