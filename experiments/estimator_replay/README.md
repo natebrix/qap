@@ -184,3 +184,46 @@ needs three changes:
 3. **The budget caps the setup and the pilot too**, with the strata it never reached reported.
 
 Each can be tried in the replay before any of it is built.
+
+## Round 4: the flow with the fixes (`flow.py`, Nov 18)
+
+Each replay runs the whole flow:
+1. the solve, to a share of the tree's CPU, breadth-first (`bfs`) or best-first (`best`);
+2. its open nodes Poisson-sampled with weights uniform, QPB (g^2 of each node's own QPB bound) or
+   parent (exp(0.4 x) of its parent's shortfall), weighted 1/pi;
+3. Knuth's or survivor dives below each sampled node, all under one total budget.
+
+Knuth's dives go round the strata in turn. Neyman's allocation read low with their tails (the
+estimator measured -6% on nug15 against -0.7% with equal turns). Grids: `out/flow_tai60b.md`,
+`out/flow_tai50b.md`, `out/flow_tho40ab.md`.
+
+| tree | best design | median est/true CPU | 10-90% | within 20% | cost / tree |
+|---|---|---|---|---|---|
+| tho40ab-0 (bushy) | solve 2%, sample 20% by QPB, Knuth, 10% budget | 0.98 | 0.85-1.22 | 85% | 0.10 |
+| tho40ab-0 | the same at 20% | 1.05 | 0.93-1.25 | 90% | 0.20 |
+| tho40ab-0 | solve 2%, every open node, Knuth | 0.95-1.01 | | 90-95% | 0.25-0.30 |
+| tai60b-261117 (chains) | solve 10% bfs, sample 10% (parent or QPB), survivor, 20% budget | 0.84-0.88 | 0.74-1.31 | 70% | 0.19-0.20 |
+| tai60b-261117 | the same, best-first, solve 5% | 0.87 | 0.60-1.42 | 50% | 0.20 |
+| tai50b-261116 | (no design within 20% more than 25% of the time) | | | | |
+
+- **Sampling the open nodes (fix 1) is what makes the flow affordable.** On tai60b it beats the
+  earlier split designs at the same cost: 70% against 45-60% within 20% at 20% of the tree.
+- **Best-first before the pause (fix 2) does not help.** Its best tai60b row is 50% within 20%,
+  and the breadth-first solve is the coordinator's own order anyway.
+- **Capping the setup (fix 3)** comes with the sampling: the setup is the sample's, not the frontier's.
+- **The dives must fit the tree.** Knuth's dives on a bushy tree; survivor dives on a chain tree,
+  where Knuth's never converge (tai50b: a median of 0.68 even after 200,000 dives).
+- tai50b's tree is too small for any of this: its estimate costs about what solving it does.
+
+**Built** (9f71ab2d): `QAP_EST_SURV=kQ` (Knuth's dives in strata), `QAP_EST_SAMPLE` /
+`QAP_EST_SAMPLE_W` (open nodes sampled, each weighted 1/pi), `QAP_EST_ALLOC`, and
+`QAP_ESTIMATE=SOLVE_S:DIVE_S:B:SAMPLE:W`. Two of the estimator's own early readings were biased low
+and are fixed:
+- nug15, Knuth's dives under Neyman's allocation: -5%;
+- QPB-weighted sampling: -9%, because nodes their QPB bound fathoms were almost never drawn; they
+  are now always kept.
+
+After the fixes, nug15 reads 0.96-1.01 on the mean in every mode (`tests/estimate_test.py`), and
+nug17 through the whole flow 0.998 with Knuth's dives and 20% sampling. **First runs**:
+`tai50b-est` (survivor dives, every open node: the machinery's smoke test) and `tho40-est`
+(`1:600:k1.5:0.2:qpb`: the first grid estimate).
