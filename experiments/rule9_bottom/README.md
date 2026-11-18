@@ -117,3 +117,15 @@ were launched with rule 2 at the bottom).
 The 80-character line limit of the params reader (`latest/util.C`) turned up here: a longer comment
 on a value's line made the whole file read as "not valid". The reader now skips a line's rest at any
 length.
+
+### nug30 with the new `nug30.par` (Nov 18)
+
+Neutral with the optimum as the incumbent, as the record's tree said it would be. The Nov 8 record
+(`../wil50_feasibility/tuning/refine/nug30_rule9_j8_m2pro.log`) has 3,705 nodes, 3,704 of them
+DNN nodes: nothing branched at depth 7, so neither the bottom block nor the DNN bound past depth 7
+was ever reached. The new recipe on the cloud box (4 workers, OpenBLAS, `bench/parallel.py`,
+`nug30_dnn1-28.log`): 3,688 nodes, 3,687 DNN and 3,547 fathomed, the deepest at depth 6 (100
+nodes, all fathomed); 2,583 CPU s, 657 s wall (the M2 Pro's 1,270 s at about 2x per core). The
+small difference in nodes is the solver and the platform since Nov 8, not this change. Where the
+change matters is a node that gets past the DNN bound: the Oct 29 laptop run's two unfathomed
+depth-7 nodes became 580,000 QPB nodes (`../nug30_solve/README.md`).
