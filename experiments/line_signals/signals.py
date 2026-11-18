@@ -113,6 +113,8 @@ def truth_tables():
 
 def dump_name(node_name):
     inst, node = node_name.split()[:2]
+    if inst == "tai60b":
+        return os.path.join(HERE, "dumps", "tai60b_43-58.err")
     return os.path.join(HERE, "dumps", inst + "_" + node.replace(":", "-").replace(",", "-") + ".err")
 
 
