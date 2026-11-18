@@ -1,0 +1,40 @@
+open nodes in merged units 16,889, kept (strata) 3,479 (20.6%)
+
+| stratum depth | strata | sum 1/pi (open nodes they stand for) | pi median | branched (kids) | dives | dives/branched stratum |
+|---|---|---|---|---|---|---|
+| 2 | 27 | 101 | 0.269 | 23 | 158 | 6.9 |
+| 3 | 1,601 | 7,721 | 0.213 | 815 | 3,856 | 4.7 |
+| 4 | 1,293 | 6,418 | 0.207 | 258 | 3,011 | 11.7 |
+| 5 | 505 | 2,787 | 0.188 | 11 | 139 | 12.6 |
+| 6 | 53 | 317 | 0.170 | 1 | 1 | 1.0 |
+
+| stratum depth | dives | ended at depth+1 | +2 | +3 | +4 | deepest |
+|---|---|---|---|---|---|---|
+| 2 | 158 | 92.4% | 6.96% | 0.633% | 0.000% | 5 |
+| 3 | 3,856 | 95.6% | 4.15% | 0.207% | 0.000% | 6 |
+| 4 | 3,011 | 99.3% | 0.73% | 0.000% | 0.000% | 6 |
+| 5 | 139 | 100.0% | 0.00% | 0.000% | 0.000% | 6 |
+| 6 | 1 | 100.0% | 0.00% | 0.000% | 0.000% | 7 |
+
+rest = strata's own nodes 17,345 (304.3 CPU h) + dives 1,832,191 (4,085.9 CPU h) = 1,849,535 nodes, 4,390.2 CPU h  (estimate.json rest: 1,849,535, 4,390.2)
+nodes: largest dive contributions as a share of the rest: top 1: 10.3%, top 10: 57.7%, top 100: 83.8%, top 1000: 97.2%
+CPU: largest dive contributions as a share of the rest: top 1: 5.6%, top 10: 37.3%, top 100: 67.1%, top 1000: 91.3%
+
+| depth | rest nodes (dives) | dives contributing | largest one's share | top-10 share | rest CPU h (dives) |
+|---|---|---|---|---|---|
+| 3 | 3,011 | 158 | 6.1% | 51.5% | 66.1 |
+| 4 | 169,102 | 3,868 | 3.2% | 20.6% | 1,351.2 |
+| 5 | 649,702 | 3,180 | 8.0% | 17.3% | 1,755.5 |
+| 6 | 1,010,194 | 169 | 18.4% | 97.4% | 912.9 |
+| 7 | 182 | 1 | 100.0% | 100.0% | 0.2 |
+
+| open node depth | open nodes (sum 1/pi) | subtree nodes per open node | CPU s per open node | branched (weighted) |
+|---|---|---|---|---|
+| 2 | 101 | 897.8 | 9,911 | 80.9% |
+| 3 | 7,721 | 216.4 | 1,738 | 46.8% |
+| 4 | 6,418 | 13.0 | 210 | 17.3% |
+| 5 | 2,787 | 1.6 | 12 | 1.7% |
+| 6 | 317 | 1.6 | 8 | 1.4% |
+
+never-leased units: u1.11.0 depth 5-5 36 nodes, u10.24.0.0 depth 5-6 48 nodes, u10.39.1.0 depth 5-6 69 nodes, u11.26.0.0 depth 5-6 47 nodes, u2.0.0 depth 5-5 36 nodes, ...
+their 585 open nodes would add about 950 nodes and 1.7 CPU h (0.1% and 0.0% of the estimate)
