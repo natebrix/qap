@@ -392,6 +392,8 @@ class Worker:
         env.update(self.sol.get("env", {}))
         env.update({"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1",
                     "QAP_EST_SURV": str(self.cfg.get("dive", {}).get("b", 0.4)),
+                    "QAP_EST_SAMPLE": str(self.cfg.get("dive", {}).get("sample", 1.0)),
+                    "QAP_EST_SAMPLE_W": str(self.cfg.get("dive", {}).get("weights", "unif")),
                     "QAP_EST_BUDGET": str(unit["budget"]), "QAP_EST_DIVES": divesf,
                     "QAP_EST_SEED": str(dive_seed(self.run_id, uid, attempt))})
         env.pop("QAP_NODE_TRACE", None)

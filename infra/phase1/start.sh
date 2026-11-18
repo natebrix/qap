@@ -290,18 +290,18 @@ if yesno "Change the other settings (data file, solver flags, disk, units, publi
     # an estimate run (docs/estimates_plan.md): the solve for SOLVE_HOURS of its wall time, then
     # DIVE_SECONDS of survivor dives per open unit; the solve stays paused, resumable
     while :; do
-      ask ESTIMATE "Estimate run: SOLVE_HOURS:DIVE_SECONDS[:B] (e.g. 2:1800; none: a solve)" "${ESTIMATE:-none}"
+      ask ESTIMATE "Estimate run: SOLVE_HOURS:DIVE_SECONDS[:B[:SAMPLE[:unif|qpb]]] (e.g. 2:1800, or 1:900:k1.5:0.2:qpb for a bushy tree; none: a solve)" "${ESTIMATE:-none}"
       [ "$ESTIMATE" = none ] && ESTIMATE="" && break
-      [[ $ESTIMATE =~ ^[0-9]+(\.[0-9]+)?:[0-9]+(:[0-9.]+)?$ ]] && break
-      echo "SOLVE_HOURS:DIVE_SECONDS[:B], or none"; [ "$YES" = 1 ] && exit 1
+      [[ $ESTIMATE =~ ^[0-9]+(\.[0-9]+)?:[0-9]+(:k?[0-9.]+(:[0-9.]+(:(unif|qpb))?)?)?$ ]] && break
+      echo "SOLVE_HOURS:DIVE_SECONDS[:B[:SAMPLE[:unif|qpb]]], or none"; [ "$YES" = 1 ] && exit 1
     done
   fi
   ask DISK "Disk per instance, GB" "$DISK"
 fi
 EST_ENV=""
 if [ -n "${ESTIMATE:-}" ]; then
-  IFS=: read -r EH ED EB <<< "$ESTIMATE"
-  EST_ENV="QAP_ESTIMATE=$(python3 -c "print(int(float('$EH') * 3600))"):$ED${EB:+:$EB}"
+  IFS=: read -r EH ED EREST <<< "$ESTIMATE"
+  EST_ENV="QAP_ESTIMATE=$(python3 -c "print(int(float('$EH') * 3600))"):$ED${EREST:+:$EREST}"
 fi
 
 # --- the launch, shown in full (a new run: the params file and, with a best known, an answer for the incumbent)
@@ -316,7 +316,7 @@ if [ "$MODE" = new ]; then
   note "incumbent  ${UB:-none}$UBNOTE"
   note "units      $COORD"
   note "status     $VIS"
-  [ -n "$EST_ENV" ] && note "estimate   the solve for ${EH} h of its wall time, then $ED s of survivor dives a unit as run $RUN-dives (${EST_ENV}); the solve stays paused"
+  [ -n "$EST_ENV" ] && note "estimate   the solve for ${EH} h of its wall time, then $ED s of dives a unit as run $RUN-dives (${EST_ENV}); the solve stays paused"
 fi
 note "instances  $N x $TYPE, $MARKET, $REGION: $SLOTS slots each ($CORES cores$([ -n "$MEM" ] && echo ", $((MEM / 1024)) GiB"))$([ "$MODE" = new ] && echo ", the run sized for $TOTAL slots")"
 [ -n "$PRICE" ] && note "cost       about \$$(python3 -c "print(f'{$PRICE * $N * 24:.0f}')") a day at today's Spot price"

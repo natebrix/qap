@@ -106,7 +106,10 @@ static Setting TABLE[] = {
   ENVVAR("DNN_ADMM_WARM_DAMP", 's', "", 0, 0, SET_EXPERIMENT, "D:K: both dual steps scaled by D for the first K iterations of a warm call"),
   // ---- this run (environment, -p)
   ENVVAR("QAP_EST_SEED", 's', "", 0, 0, SET_RUN, "estimator: seed for rand() (unset: the fixed sequence)"),
-  ENVVAR("QAP_EST_SURV", 's', "", 0, 0, SET_RUN, "estimator: b, survivor dives with weights exp(b x) (estimate.C; unset: Knuth's dives)"),
+  ENVVAR("QAP_EST_SURV", 's', "", 0, 0, SET_RUN, "estimator: b, survivor dives with weights exp(b x); kQ, Knuth's dives inside each start node, g^Q of the child's QPB bound (estimate.C; unset: Knuth's dives from the root)"),
+  ENVVAR("QAP_EST_SAMPLE", 'd', "1", 0, 1, SET_RUN, "estimator, QAP_EST_SURV: the share of the start nodes sampled as strata (weighted 1/pi)"),
+  ENVVAR("QAP_EST_ALLOC", 's', "auto", 0, 0, SET_RUN, "estimator, QAP_EST_SURV: neyman (dives where the variance per CPU s is; reads low with Knuth's heavy tails), equal (round the strata in turn), auto (equal for kQ, neyman for survivor dives)"),
+  ENVVAR("QAP_EST_SAMPLE_W", 's', "unif", 0, 0, SET_RUN, "estimator, QAP_EST_SAMPLE: unif, or qpb (each start node weighted g^2 of its own QPB bound)"),
   ENVVAR("QAP_EST_BUDGET", 'd', "0", 0, INF, SET_RUN, "estimator, survivor dives: stop starting dives after this many wall seconds (0: estimate.par's trials)"),
   ENVVAR("QAP_EST_WARM_KEEP", 'i', "8", 0, 1000000, SET_RUN, "estimator, survivor dives: the strata whose survivors keep their parent's DNN state (the rest restart cold)"),
   ENVVAR("QAP_EST_DIVES", 's', "", 0, 0, SET_RUN, "estimator, survivor dives: append a JSON line per stratum and per dive to this file"),

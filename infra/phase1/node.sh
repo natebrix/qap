@@ -35,6 +35,8 @@
 # paused and RUN-dives, DIVE_S seconds of survivor dives per open unit (weights exp(B x),
 # default 0.4), the workers following (`worker --follow`); out/estimate.txt at the end,
 # no reference run. The solve stays paused in the store: `qapctl resume RUN` goes on.
+# QAP_ESTIMATE=SOLVE_S:DIVE_S:B:SAMPLE:W: B = kQ for Knuth's dives (bushy trees), SAMPLE the
+# share of the open nodes sampled (default 1), W their weights, unif or qpb (coord/dives.py).
 #
 # Local test (any Linux; no dnf, no shutdown): QAP_LOCAL=1, QAP_BACKEND pointing
 # at a moto server (aws:B?region=eu-north-1&endpoint=http://127.0.0.1:PORT),
@@ -58,8 +60,8 @@ GATES=${QAP_GATES:-"bruteforce resume parallel regression dnncheck coord"}
 EST=${QAP_ESTIMATE:-}
 EST_SOLVE= EST_DIVE= EST_B=
 if [ -n "$EST" ]; then
-  IFS=: read -r EST_SOLVE EST_DIVE EST_B <<< "$EST"
-  EST_B=${EST_B:-0.4}
+  IFS=: read -r EST_SOLVE EST_DIVE EST_B EST_SAMPLE EST_W <<< "$EST"
+  EST_B=${EST_B:-0.4} EST_SAMPLE=${EST_SAMPLE:-1} EST_W=${EST_W:-unif}
   [ -n "$EST_SOLVE" ] && [ -n "$EST_DIVE" ] || { echo "QAP_ESTIMATE must be SOLVE_S:DIVE_S[:B]"; exit 2; }
   REFERENCE=0
 fi
@@ -203,7 +205,8 @@ worker_loop() {
 }
 coord_loop() {
   local n=0 rc cmd=(coordinator "$RUN")
-  [ -n "$EST" ] && cmd=(estimate-flow "$RUN" --solve-wall "$EST_SOLVE" --dive-budget "$EST_DIVE" --dive-b "$EST_B")
+  [ -n "$EST" ] && cmd=(estimate-flow "$RUN" --solve-wall "$EST_SOLVE" --dive-budget "$EST_DIVE" --dive-b "$EST_B"
+                        --dive-sample "$EST_SAMPLE" --dive-weights "$EST_W")
   while :; do
     $PY -m coord.qapctl "${cmd[@]}" --backend "$BK" >> "$OUT/coordinator.log" 2>&1 &
     echo $! > "$OUT/coordinator.pid"
