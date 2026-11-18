@@ -113,6 +113,7 @@ its CPU is 7% higher on the loaded box, which is the CPU noise.
 | production branching, again | - | 1,017 | 7,390 | - | 7,390 | 61 min |
 | rule 9's two lines, judged by the DNN, depths 0-6 | 1:30:0:6 | 1,046 | 8,682 | 1,672 (21 nodes) | 7,010 | 96 min |
 | 4 rows and 4 columns, depths 0-2 | 4:30:0:2 | **780** | 8,900 | 2,803 (6 nodes) | **6,097** | 100 min |
+| 4 rows and 4 columns, depth 2 only | 4:30:2:2 | 946 | 8,944 | 1,583 (3 nodes) | 7,361 | 78 min |
 
 Every arm closed the tree at the optimum 283,315,445, found by the search.
 
@@ -123,6 +124,14 @@ Every arm closed the tree at the optimum 283,315,445, found by the search.
 - **Four lines a side at depths 0-2: 23% fewer nodes, 12-17% less CPU net of the lookahead**, all of it below
   depth 2: depths 3-5 branch 2, 2, 2 times against 4, 5, 2, and hold 225 nodes against 382. Its three
   depth-2 choices (c23, c23, c22) are not rule 9's lines.
+- **At depth 2 alone it does little**: production's root and depth 1 (r19, then r18 three times), then
+  the lookahead at production's three depth-2 nodes (c23, c6, c22, against rule 9's c5). 7% fewer nodes,
+  all at depth 5 (93 against 155), and 7,361 CPU s net of the lookahead, within the noise of production's
+  two runs. The three depth-2 nodes it branches are the depths 0-2 arm's three, the same pairs of fixes
+  reached in the other order (r19 then r18, against c26 then r19 or r18); it picks the same line at two
+  (c23, c22) and another at the third (c6 against c23), since the node's warm state depends on its
+  parent, as the line study found for rule 9. The depths 0-2 arm's saving starts at the root: c26
+  leaves 2 of its children to branch, where r19 leaves 3, so depth 2 holds 68 nodes against 102.
 - **The lookahead costs more than it saves at this size**: 2,803 CPU s for 6 nodes (about 470 s a node:
   8 lines, about 260 pooled child solves of 30 iterations, 1.8 s each at m = 33), against 830-1,290 s saved,
   so +20-28% CPU in all. The cost scales with a node's children and the iteration cost, the saving with the
@@ -149,3 +158,25 @@ c26 and r8 (`QAP_LA_LINES`), 30 pooled iterations a child (`dumps/tai60b_la_cap3
 - Cost: 6,364 CPU s for 229 pooled solves (28 s each, about 0.93 s an iteration), about 0.4% of the node's
   subtree in production (at least 1.67M CPU s). A cap of 100 to 150 iterations would cost 3-5x that and
   is still a small fraction.
+
+### 6. tai40b, the whole tree (`runs/tai40b_*`)
+
+The same set-up as tai35b (`tai/tai40b.par`, the incumbent the best known + 1, 2 slots):
+
+| arm | `QAP_LA` | nodes | CPU s | of which the lookahead | CPU s net of the lookahead | wall, 2 slots |
+|---|---|---|---|---|---|---|
+| production branching | - | 731 | 7,379 | - | 7,379 | 89 min |
+| 4 rows and 4 columns, depths 0-2 | 4:30:0:2 | 829 | 17,461 | 5,368 (6 nodes) | 12,093 | 213 min |
+
+Both closed the tree at the best known 637,250,948, found by the search.
+
+- **Production's tree is a path**: the root branches on r23, and at depths 1 to 19 one child of each
+  node branches and the other 38 to 39 are fathomed. There is little to save.
+- **The lookahead took the wrong root line**: c27, where production takes r23. At the root every child
+  of all 8 candidate lines was still open after 30 pooled iterations (40 of 40), so the scores are the
+  shortfalls of solves that have not converged: r23's children 419M short in sum, c27's 188M. Under c27,
+  2 children branch at depth 1 and 3 at depth 2 (depths 2 and 3 hold 78 and 114 nodes, against 39 and 38),
+  and those are the heavy nodes: 2.4 core-hours at depths 1-2 against 0.5, 1.2 of them the lookahead's.
+- **+13% nodes, +64% CPU net of the lookahead, +137% in all.** As at tai60b's 43:58, 30 iterations are
+  too few at m = 39: after the lookahead 37 to 40 of each candidate line's 38 to 40 children are open at
+  every node it judged, except one depth-1 line (c16, 27 of 39).
