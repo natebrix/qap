@@ -128,3 +128,24 @@ Every arm closed the tree at the optimum 283,315,445, found by the search.
   so +20-28% CPU in all. The cost scales with a node's children and the iteration cost, the saving with the
   subtree under the node: at tai60b's depth 2 the subtrees run to 1.7M CPU s and more, against about
   12,000 s for an 8-line lookahead there (464 children, 30 iterations at 0.86 s).
+
+### 5. tai60b's 43:58, the lookahead over the line study's four lines (`dump.sh tai60b_la`)
+
+The node in the line study's state (`../tai60b_lines/`), bounded as there, then the lookahead over r1, r45,
+c26 and r8 (`QAP_LA_LINES`), 30 pooled iterations a child (`dumps/tai60b_la_cap30.log`):
+
+| line | truth (rough subtree, `../tai60b_lines/`) | children open after 30 iterations | shortfall sum | rank |
+|---|---|---|---|---|
+| r1 | 19,600 (1.0x) | 47 of 58 | 236M | 3 |
+| r45 | 22,900 (1.2x) | 53 | **162M** | 1 (chosen) |
+| c26 | 38,800 (2.0x; rule 9's choice) | 58 | 191M | 2 |
+| r8 | 67,100 (3.4x) | 45 | 236M | 4 |
+
+- It picks r45, 1.2x the best line, where rule 9 from the same state picks c26 at 2.0x. Not r1.
+- **30 iterations are too few at n = 60.** The full first solves of the line study fathom 52 of r1's
+  58 children; after 30 warm pooled iterations 47 are still open, and the counts of open children
+  rank the lines the wrong way round (r8 fewest). On tai35b (m = 33) 30 iterations already fathomed 20
+  to 29 of a good line's 34 children. The cap has to grow with the instance.
+- Cost: 6,364 CPU s for 229 pooled solves (28 s each, about 0.93 s an iteration), about 0.4% of the node's
+  subtree in production (at least 1.67M CPU s). A cap of 100 to 150 iterations would cost 3-5x that and
+  is still a small fraction.
