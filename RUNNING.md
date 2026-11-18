@@ -64,7 +64,7 @@ Other flags (`./bnbdrv` with no arguments prints help):
 | `-d X` | stop at tree depth X (overrides the params file) |
 | `-f X` | scale reported times by X |
 | `-h` | run the heuristic only (no branch and bound) |
-| `-e` | estimate tree size with Knuth-style dives (`latest/estimate.C`). Reads `./estimate.par`: six numbers, `start_dive_level trials print_every print_everything_every score_exponent ignore_depth` (the checked-in file is `2 1000 100 100 1.5 1000`). Without the file it silently uses the defaults in `estimate.h` (10,000 trials, exponent 1.0). Pass the known optimum with `-u`: dives are weighted by it. `rand()` is seeded only when `QAP_EST_SEED` is set, so set a different seed per process when running several in parallel; `QAP_EST_HIST=F` writes the per-dive history (depth, node estimate, time estimate) to F instead of `dive_history_nug25_2.txt` |
+| `-e` | estimate tree size with Knuth-style dives (`latest/estimate.C`). Reads `./estimate.par`: six numbers, `start_dive_level trials print_every print_everything_every score_exponent ignore_depth` (the checked-in file is `2 1000 100 100 1.5 1000`). Without the file it silently uses the defaults in `estimate.h` (10,000 trials, exponent 1.0). Pass the known optimum with `-u`: dives are weighted by it. `rand()` is seeded only when `QAP_EST_SEED` is set, so set a different seed per process when running several in parallel; `QAP_EST_HIST=F` writes the per-dive history (depth, node estimate, time estimate) to F instead of `dive_history_nug25_2.txt`. `QAP_EST_SURV=b` (Nov 18) replaces Knuth's dives with survivor dives: every node of the start stack (`-e -r F`: the state's open nodes) is a stratum, bounded with its children; a dive goes on into a child that branches (weights exp(b x), x the shortfall over the depth's median), bounding all of each node's children, so it ends where the tree does. `QAP_EST_BUDGET` (wall seconds), `QAP_EST_DIVES` (JSON lines: coord/dives.py adds them up), `QAP_EST_WARM_KEEP`; experiments/estimator_replay for why |
 | `-b` | benchmark mode |
 | `-c` / `-a F` | interactive console / run console commands from file F |
 | `-l F` | log file |
@@ -223,6 +223,10 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `DNN_ADMM_WARM_BETA` | environment | text | unset | text | experiment | F1:T:F2[:force]: a warm call's own penalty schedule |
 | `DNN_ADMM_WARM_DAMP` | environment | text | unset | text | experiment | D:K: both dual steps scaled by D for the first K iterations of a warm call |
 | `QAP_EST_SEED` | environment | text | unset | text | run | estimator: seed for rand() (unset: the fixed sequence) |
+| `QAP_EST_SURV` | environment | text | unset | text | run | estimator: b, survivor dives with weights exp(b x) (estimate.C; unset: Knuth's dives) |
+| `QAP_EST_BUDGET` | environment | number | `0` | 0..inf | run | estimator, survivor dives: stop starting dives after this many wall seconds (0: estimate.par's trials) |
+| `QAP_EST_WARM_KEEP` | environment | integer | `8` | 0..1000000 | run | estimator, survivor dives: the strata whose survivors keep their parent's DNN state (the rest restart cold) |
+| `QAP_EST_DIVES` | environment | text | unset | text | run | estimator, survivor dives: append a JSON line per stratum and per dive to this file |
 | `QAP_DNN_WARM_DIR` | environment | text | unset | text | run | parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline) |
 | `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error |
 | `par.file` | `-p` | text | unset | text | run | -p: the params file |

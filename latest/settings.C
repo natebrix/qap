@@ -106,6 +106,10 @@ static Setting TABLE[] = {
   ENVVAR("DNN_ADMM_WARM_DAMP", 's', "", 0, 0, SET_EXPERIMENT, "D:K: both dual steps scaled by D for the first K iterations of a warm call"),
   // ---- this run (environment, -p)
   ENVVAR("QAP_EST_SEED", 's', "", 0, 0, SET_RUN, "estimator: seed for rand() (unset: the fixed sequence)"),
+  ENVVAR("QAP_EST_SURV", 's', "", 0, 0, SET_RUN, "estimator: b, survivor dives with weights exp(b x) (estimate.C; unset: Knuth's dives)"),
+  ENVVAR("QAP_EST_BUDGET", 'd', "0", 0, INF, SET_RUN, "estimator, survivor dives: stop starting dives after this many wall seconds (0: estimate.par's trials)"),
+  ENVVAR("QAP_EST_WARM_KEEP", 'i', "8", 0, 1000000, SET_RUN, "estimator, survivor dives: the strata whose survivors keep their parent's DNN state (the rest restart cold)"),
+  ENVVAR("QAP_EST_DIVES", 's', "", 0, 0, SET_RUN, "estimator, survivor dives: append a JSON line per stratum and per dive to this file"),
   ENVVAR("QAP_DNN_WARM_DIR", 's', "", 0, 0, SET_RUN, "parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline)"),
   ENVVAR("QAP_ALLOW_UNKNOWN", 'i', "0", 0, 1, SET_RUN, "1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error"),
   {"par.file", NULL, NULL, 's', "", 0, 0, SET_RUN, "-p: the params file"},

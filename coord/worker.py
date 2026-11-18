@@ -44,6 +44,7 @@ from .common import LANES, ROOT, SOLVER, State, run_key, unit_key
 # run's message hides it this long (and waits a poll) and leaves it for that
 # run's workers
 FOREIGN_HIDE_S = 1
+PAUSED_HIDE_S = 300   # a paused run's messages, received by another run's worker
 
 
 def traced_nodes(state):
@@ -78,8 +79,9 @@ def keep_lines(src, dst, k):
 
 class Worker:
     def __init__(self, backend, run_id, slots, solver=SOLVER, workdir=None, log=print,
-                 exit_when_idle=None, grace=90.0):
+                 exit_when_idle=None, grace=90.0, follow=False):
         self.b = backend
+        self.follow = follow   # a run paused for its estimate: return, for qapctl to go on with its dives run
         self.run_id = run_id
         self.slots = slots
         self.solver = os.path.abspath(solver)
@@ -140,15 +142,19 @@ class Worker:
                      f"{need / 1e9:g} GB: taking no unit until there is room")
         return False
 
-    def _run_over(self, run_id, ttl=60):
-        """another run is stopped, finished or gone (its status cached ttl seconds)"""
+    def _other_status(self, run_id, ttl=60):
+        """another run's status, cached ttl seconds (None: gone)"""
         now = time.time()
         hit = self._others.get(run_id)
         if hit is None or now - hit[1] > ttl:
             doc = self.b.get_run(run_id)
-            hit = (doc is None or doc.get("status") in ("stopped", "finished"), now)
+            hit = (doc.get("status") if doc else None, now)
             self._others[run_id] = hit
         return hit[0]
+
+    def _run_over(self, run_id, ttl=60):
+        """another run is stopped, finished or gone"""
+        return self._other_status(run_id, ttl) in (None, "stopped", "finished")
 
     # ------------------------------------------------------------ one unit
     def _lease(self, msg):
@@ -180,6 +186,8 @@ class Worker:
         wd = os.path.join(self.workdir, f"slot{slot}", f"{unit['uid']}.a{unit['attempt']}")
         os.makedirs(wd, exist_ok=True)
         try:
+            if self.cfg.get("kind") == "dives":
+                return self._attempt_dives(slot, msg, unit, wd)
             return self._attempt(slot, msg, unit, wd)
         finally:
             if os.environ.get("QAP_KEEP_WORKDIR") != "1":
@@ -359,6 +367,96 @@ class Worker:
         self.b.delete_message(msg)
         return outcome
 
+    def _attempt_dives(self, slot, msg, unit, wd):
+        """a dives run's unit (coord/dives.py): the estimator's survivor dives (bnbdrv -e, QAP_EST_SURV)
+        from the unit's open nodes for its budget of wall seconds. The state file and its parents are
+        the source run's, read where it keeps them. The result is the estimator's dives.jsonl; a
+        drained or killed attempt saves nothing and gives the unit back, whole."""
+        from .dives import dive_seed
+        uid, attempt = unit["uid"], unit["attempt"]
+        inp, divesf, logf = (os.path.join(wd, x) for x in ("in.state", "dives.jsonl", "solver.log"))
+        if not self.b.get_file(unit["in_key"], inp):
+            raise RuntimeError(f"unit {uid}: no {unit['in_key']}")
+        warm.fetch(self.b, self.cfg.get("source_run", self.run_id), inp, log=self.log)
+        flags = list(self.sol["flags"])
+        while "-F" in flags:
+            k = flags.index("-F")
+            del flags[k:k + 2]
+        inc_data = self.b.get_bytes(run_key(self.run_id, "incumbent.json"))
+        inc = json.loads(inc_data) if inc_data else {}
+        ub = min(x for x in (self.sol.get("ub"), inc.get("obj")) if x is not None) \
+            if (self.sol.get("ub") is not None or inc.get("obj") is not None) else None
+        cmd = [self.solver, "-p", self.params] + flags + (["-u", repr(ub)] if ub is not None and ub < 1e99 else []) + \
+            ["-e", "-r", inp, self.inst]
+        env = dict(os.environ)
+        env.update(self.sol.get("env", {}))
+        env.update({"OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "VECLIB_MAXIMUM_THREADS": "1",
+                    "QAP_EST_SURV": str(self.cfg.get("dive", {}).get("b", 0.4)),
+                    "QAP_EST_BUDGET": str(unit["budget"]), "QAP_EST_DIVES": divesf,
+                    "QAP_EST_SEED": str(dive_seed(self.run_id, uid, attempt))})
+        env.pop("QAP_NODE_TRACE", None)
+        env.pop("QAP_DNN_TRACE", None)
+        t0 = time.time()
+        with open(logf, "w") as lf:
+            proc = subprocess.Popen(cmd, cwd=os.path.join(ROOT, "latest"), stdout=lf, stderr=subprocess.STDOUT,
+                                    env=env, start_new_session=True)
+        killed, lost, drain_at, last_hb = False, False, None, time.time()
+        hb = self.cfg["heartbeat_s"]
+        while True:
+            try:
+                rc = proc.wait(timeout=min(1.0, hb))
+                break
+            except subprocess.TimeoutExpired:
+                pass
+            now = time.time()
+            if self.draining.is_set() and drain_at is None:
+                drain_at = now
+            if drain_at is not None and now - drain_at > self.grace and not killed:
+                proc.kill()
+                killed = True
+            if now - last_hb < hb:
+                continue
+            last_hb = now
+            try:
+                self.b.extend(msg, self.cfg["lease_s"])
+                if self.b.update_unit(self.run_id, uid, {"lease_until": now + self.cfg["lease_s"]},
+                                      expect={"status": "leased", "attempt": attempt}) is None:
+                    proc.kill()
+                    killed = lost = True
+            except Exception as e:
+                self.log(f"worker {self.name} slot {slot}: heartbeat error {e!r}")
+        wall = time.time() - t0
+        if killed and not lost:
+            # drained: nothing kept (a cut file would favour the cheap dives that finished)
+            self.b.update_unit(self.run_id, uid, {"status": "queued", "worker": None},
+                               expect={"status": "leased", "attempt": attempt})
+            self.b.release(msg)
+            return "released"
+        outcome = None if lost else ("done" if rc == 0 and os.path.exists(divesf) else "failed")
+        cpu = 0.0
+        if os.path.exists(divesf):
+            for line in open(divesf):
+                try:
+                    x = json.loads(line)
+                    cpu += x.get("setup_cpu", 0.0) + x.get("cost", 0.0)
+                except ValueError:
+                    pass
+        prefix = unit_key(self.run_id, uid, f"a{attempt}")
+        result = {"uid": uid, "attempt": attempt, "worker": self.name, "slot": slot, "rc": rc, "outcome": outcome,
+                  "wall": wall, "cpu": cpu, "killed": killed, "host": self.host, "finished_at": time.time()}
+        if outcome == "done":
+            self.b.put_file(prefix + "/dives.jsonl", divesf)
+        self.b.put_file(prefix + "/solver.log", logf)
+        self.b.put_bytes(prefix + "/result.json", json.dumps(result).encode())
+        if outcome is not None:
+            ok = self.b.update_unit(self.run_id, uid, {"status": outcome, "rc": rc, "wall": wall, "cpu": cpu,
+                                                       "finished_at": result["finished_at"], "host": self.host},
+                                    expect={"status": "leased", "attempt": attempt})
+            if ok is None:
+                self.log(f"worker {self.name}: unit {uid} attempt {attempt} lost its lease; result discarded")
+        self.b.delete_message(msg)
+        return outcome
+
     @staticmethod
     def _write_inc(path, inc):
         tmp = path + ".tmp"
@@ -378,6 +476,8 @@ class Worker:
                 if self._refresh_run().get("status") in ("finished", "stopped"):
                     return
             if self.run.get("status") == "paused":
+                if self.follow and self.run.get("dives_run"):
+                    return
                 time.sleep(poll)
                 continue
             if not self._room():
@@ -396,6 +496,10 @@ class Worker:
                 # (qapctl stop: tho40-a left 139 queued units' messages, Nov 14)
                 if self._run_over(msg.body["run"]):
                     self.b.delete_message(msg)
+                elif self._other_status(msg.body["run"]) == "paused":
+                    # a paused run's units wait (a dives run reads them: coord/dives.py): out of the
+                    # way for a while, and on to the next message at once, or they starve this run
+                    self.b.extend(msg, PAUSED_HIDE_S)
                 else:
                     self.b.extend(msg, FOREIGN_HIDE_S)
                     time.sleep(poll)

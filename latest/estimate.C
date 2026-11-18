@@ -5,6 +5,10 @@
 #include <fstream>
 #include <vector>
 #include <cstdlib>
+#include <algorithm>
+#include <map>
+#include <string>
+#include <ctime>
 #include "settings.h"
 
 // One line per printed dive: depth, node estimate, time estimate.
@@ -47,10 +51,302 @@ void print_dive(std::ostream &outs,
 
 }
 
+/*
+ Survivor dives (QAP_EST_SURV=b; docs/estimates_plan.md, experiments/estimator_replay):
+
+ Every node of the start stack (a state file's open nodes with -e -r F) is a stratum. Each is
+ bounded once and so are its children, exactly: the nodes that do not branch are counted as they
+ are. A dive from a stratum takes one of its children that branched (a survivor), with probability
+ p = (1 - mix) w / sum w + mix / count, w = exp(b x), x = the survivor's shortfall (incumbent - its
+ bound) over the median shortfall of the branched nodes this process has bounded at that depth
+ (mix = est.xbar_mix; b = 0: uniform). It processes the survivor again to get its children, bounds
+ all of them, counts the ones that do not branch with weight d = 1 / (p1 p2 ...), and goes on into
+ one that branches, until none does. Each dive is an unbiased estimate of the stratum's subtree
+ below its exact part (Purdom's partial backtracking; the dives never end on a child the search
+ fathoms in one bound, as Knuth's do in a DNN tree: 93-99% of a depth's nodes are fathomed).
+
+ Dives go to the strata by a pilot of 2 each, then by s_h / sqrt(c_h) / n_h (Neyman at fixed cost,
+ s_h floored at the stratum's mean), until QAP_EST_BUDGET seconds of wall time have passed (checked
+ between dives: a dive in progress finishes, so no expensive dive is cut) or, without a budget, the
+ estimate.par trials. QAP_EST_DIVES=file: a JSON line per stratum (its exact part) and per dive
+ (its estimate, by depth, its deepest node and its own CPU cost); coord's `qapctl estimate` adds
+ the strata up. Node and CPU figures are the search's: a node's CPU is what bnb() spent on it.
+*/
+namespace {
+struct Rec {                       // one node as bounded: its own statistics, how it ended
+  QAPAssignment a;
+  double cpu = 0.0;
+  double bound = NAN;
+  int nodes = 0;                   // 1, or 0 when it was discarded on its inherited bound
+  bool branched = false;
+};
+
+struct Est {                       // an estimate by depth: nodes and CPU
+  std::map<int, double> n, c;
+  double nodes = 0.0, cpu = 0.0;
+  void add(int d, double nn, double cc) { n[d] += nn; c[d] += cc; nodes += nn; cpu += cc; }
+};
+
+static std::string fixes_of(const QAPAssignment &a)
+{
+  std::string f;
+  char b[32];
+  for (int k = 0; k < a.nfix; k++) {
+    snprintf(b, sizeof b, "%s%d:%d", k ? "," : "", (int)a.history[k], (int)a.p[a.history[k]]);
+    f += b;
+  }
+  return f;
+}
+
+// bound one node with the search's own code: bnb() on it alone with max_depth = its depth, so its
+// children come back unprocessed (set aside, not counted). Their bound is the node's, as bnb leaves it.
+static Node *bound_one(QAP *q, const QAPAssignment &a, QAPSolution *s, BNBParameters *params, int nlevel,
+                       double root_bound, Rec &r)
+{
+  Node *one = new Node;
+  one->data = a;
+  one->link = NULL;
+  QAPStatistics st(s->n, nlevel);
+  st.root_bound = root_bound;
+  st.stack_size = 1;
+  bnb(q, one, s, &st, 0, 0, params, nlevel, a.depth, false, -1);
+  r.a = a;
+  r.cpu = st.total_time;
+  r.nodes = (int)st.node;
+  r.branched = one != NULL;
+  r.bound = one ? one->data.bound : NAN;
+  return one;
+}
+
+static void free_list(Node *&l) { while (l) list_head_remove(l); }
+
+struct Stratum {
+  std::string key;
+  int depth = 0;
+  std::vector<Rec> surv;           // its children that branched
+  Est exact;
+  double setup_cpu = 0.0;
+  int dives = 0;
+  double s1 = 0.0, s2 = 0.0, cost = 0.0;   // CPU estimate sum, sum of squares; cost per dive (EMA)
+};
+
+static std::map<int, std::vector<double>> short_seen;   // shortfalls of branched nodes, by depth
+
+static double median_short(int d, const std::vector<Rec> &sib, double inc)
+{
+  std::vector<double> v;
+  auto it = short_seen.find(d);
+  if (it != short_seen.end() && it->second.size() >= 3) v = it->second;
+  else for (const Rec &r : sib) v.push_back(std::max(inc - r.bound, 0.0));
+  if (v.empty()) return 1.0;
+  std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());
+  return std::max(v[v.size() / 2], 1e-9);
+}
+
+static size_t draw_survivor(const std::vector<Rec> &surv, double b, double mix, double inc, double &prob)
+{
+  const int d = surv[0].a.depth;
+  const double med = median_short(d, surv, inc);
+  std::vector<double> w(surv.size());
+  double sw = 0.0;
+  for (size_t k = 0; k < surv.size(); k++) {
+    const double x = std::max(inc - surv[k].bound, 0.0) / med;
+    w[k] = b == 0.0 ? 1.0 : exp(std::min(b * x, 50.0));
+    sw += w[k];
+  }
+  std::vector<double> pr(surv.size());
+  for (size_t k = 0; k < surv.size(); k++)
+    pr[k] = sw > 0.0 ? (1.0 - mix) * w[k] / sw + mix / surv.size() : 1.0 / surv.size();
+  double u = drand(), acc = 0.0;
+  size_t k = 0;
+  for (; k + 1 < surv.size(); k++) { acc += pr[k]; if (u <= acc) break; }
+  prob = pr[k];
+  return k;
+}
+
+static void json_by_depth(std::ostream &o, const char *name, const std::map<int, double> &m)
+{
+  o << "\"" << name << "\":{";
+  bool first = true;
+  for (auto &kv : m) {
+    if (kv.second == 0.0) continue;
+    o << (first ? "" : ",") << "\"" << kv.first << "\":" << kv.second;
+    first = false;
+  }
+  o << "}";
+}
+}  // namespace
+
+static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBParameters *params, int nlevel,
+                                    EstimateParameters *ep)
+{
+  const double b = atof(setting_s("QAP_EST_SURV"));
+  const double mix = setting_d("est.xbar_mix");
+  const double budget = setting_d("QAP_EST_BUDGET");
+  const char *dives_file = setting_s("QAP_EST_DIVES");
+  if (const char *e = setting_s("QAP_EST_SEED"); *e) srand((unsigned)strtoul(e, NULL, 10));
+  // the relative gaps that pick each node's strategy are against the root's QPB bound: a state
+  // file's (-e -r), else computed here as a -F run does (driver.C)
+  const double root_bound = !std::isnan(est_resume_root_bound) ? est_resume_root_bound : root_qpb_bound(q, params);
+  const double inc = s->getObjective();
+  const time_t t0 = time(NULL);
+  std::ofstream out;
+  if (*dives_file) out.open(dives_file, std::ofstream::app);
+  out.precision(10);
+  std::cout << "survivor dives: b = " << b << ", mix = " << mix << ", budget " << budget << " s, root bound "
+            << root_bound << ", incumbent " << inc << std::endl;
+
+  // the strata: each start node bounded, and its children
+  std::vector<Stratum> strata;
+  Est exact_all;
+  double spent = 0.0;
+  while (stack != NULL) {
+    QAPAssignment a = stack->data;
+    list_head_remove(stack);
+    Stratum h;
+    h.key = fixes_of(a);
+    h.depth = a.depth;
+    Rec r;
+    Node *kids = bound_one(q, a, s, params, nlevel, root_bound, r);
+    h.exact.add(a.depth, r.nodes, r.cpu);
+    h.setup_cpu += r.cpu;
+    if (kids && r.branched) {
+      short_seen[a.depth].push_back(std::max(inc - r.bound, 0.0));
+      for (Node *k = kids; k != NULL; k = k->link) {
+        Rec c;
+        Node *gk = bound_one(q, k->data, s, params, nlevel, root_bound, c);
+        h.setup_cpu += c.cpu;
+        if (c.branched) {
+          short_seen[c.a.depth].push_back(std::max(inc - c.bound, 0.0));
+          h.surv.push_back(c);     // counted by the dives (weight 1/p), not here
+        } else
+          h.exact.add(c.a.depth, c.nodes, c.cpu);
+        free_list(gk);
+      }
+    }
+    free_list(kids);
+    // a survivor holds a reference to its parent's (the stratum's) DNN state, for the dives that
+    // process it again: past QAP_EST_WARM_KEEP strata it lets go (at n = 60 a state is tens of MB),
+    // and those survivors are processed again from a cold start. Only the estimator's own CPU
+    // changes: the estimate takes each survivor's first bound, warm as the search's.
+    static const long warm_keep = setting_i("QAP_EST_WARM_KEEP");
+    if ((long)strata.size() >= warm_keep)
+      for (Rec &c : h.surv) c.a.set_warm(NULL);
+    spent += h.setup_cpu;
+    if (out.is_open()) {
+      out << "{\"type\":\"stratum\",\"key\":\"" << h.key << "\",\"depth\":" << h.depth << ",\"exact_nodes\":"
+          << h.exact.nodes << ",\"exact_cpu\":" << h.exact.cpu << ",";
+      json_by_depth(out, "exact_by_depth", h.exact.n);
+      out << ",";
+      json_by_depth(out, "exact_cpu_by_depth", h.exact.c);
+      out << ",\"survivors\":" << h.surv.size() << ",\"setup_cpu\":" << h.setup_cpu << "}" << std::endl;
+    }
+    strata.push_back(h);
+  }
+
+  // one dive from stratum h: its estimate below the stratum's exact part
+  auto one_dive = [&](Stratum &h, Est &e, int &deepest, double &cost) {
+    deepest = h.depth + 1;
+    cost = 0.0;
+    double pk = 1.0;
+    size_t k = draw_survivor(h.surv, b, mix, inc, pk);
+    Rec cur = h.surv[k];
+    double d = 1.0 / pk;
+    while (true) {
+      e.add(cur.a.depth, d * cur.nodes, d * cur.cpu);
+      deepest = std::max(deepest, cur.a.depth);
+      Rec again;
+      Node *kids = bound_one(q, cur.a, s, params, nlevel, root_bound, again);   // its children, again
+      cost += again.cpu;
+      std::vector<Rec> surv;
+      for (Node *t = kids; t != NULL; t = t->link) {
+        Rec c;
+        Node *gk = bound_one(q, t->data, s, params, nlevel, root_bound, c);
+        cost += c.cpu;
+        deepest = std::max(deepest, c.a.depth);
+        if (c.branched) {
+          short_seen[c.a.depth].push_back(std::max(inc - c.bound, 0.0));
+          surv.push_back(c);
+        } else
+          e.add(c.a.depth, d * c.nodes, d * c.cpu);
+        free_list(gk);
+      }
+      free_list(kids);
+      if (surv.empty()) break;
+      k = draw_survivor(surv, b, mix, inc, pk);
+      cur = surv[k];
+      d /= pk;
+    }
+  };
+
+  std::vector<size_t> live;
+  for (size_t i = 0; i < strata.size(); i++) if (!strata[i].surv.empty()) live.push_back(i);
+  int total = 0;
+  auto over = [&]() {
+    if (budget > 0) return difftime(time(NULL), t0) >= budget;
+    return total >= ep->trials;
+  };
+  auto run = [&](size_t i) {
+    Stratum &h = strata[i];
+    Est e;
+    int deepest;
+    double cost;
+    one_dive(h, e, deepest, cost);
+    h.dives++;
+    h.s1 += e.cpu;
+    h.s2 += e.cpu * e.cpu;
+    h.cost = h.dives == 1 ? cost : 0.7 * h.cost + 0.3 * cost;
+    spent += cost;
+    total++;
+    if (out.is_open()) {
+      out << "{\"type\":\"dive\",\"key\":\"" << h.key << "\",\"nodes\":" << e.nodes << ",\"cpu\":" << e.cpu << ",";
+      json_by_depth(out, "by_depth", e.n);
+      out << ",";
+      json_by_depth(out, "cpu_by_depth", e.c);
+      out << ",\"deepest\":" << deepest << ",\"cost\":" << cost << "}" << std::endl;
+    }
+  };
+  for (int pilot = 0; pilot < 2; pilot++)
+    for (size_t i : live) {
+      if (over() && pilot > 0) break;
+      run(i);
+    }
+  while (!live.empty() && !over()) {
+    double best = -1.0;
+    size_t pick = live[0];
+    for (size_t i : live) {
+      const Stratum &h = strata[i];
+      const double mu = h.s1 / h.dives;
+      double sd = sqrt(std::max(h.s2 / h.dives - mu * mu, 0.0));
+      sd = std::max(sd, mu);
+      const double w = sd / sqrt(std::max(h.cost, 1.0)) / h.dives;
+      if (w > best) { best = w; pick = i; }
+    }
+    run(pick);
+  }
+
+  // the estimate of the start nodes' subtrees: each stratum's exact part plus its dives' mean
+  QAPStatistics *res = new QAPStatistics(s->n, nlevel);
+  double en = 0.0, ec = 0.0;
+  for (const Stratum &h : strata) {
+    en += h.exact.nodes;
+    ec += h.exact.cpu;
+    if (h.dives > 0) ec += h.s1 / h.dives;
+  }
+  std::cout << "survivor dives: " << strata.size() << " strata (" << live.size() << " with survivors), " << total
+            << " dives, " << spent << " CPU s spent; estimate below the start nodes: exact part " << en
+            << " nodes, CPU " << ec << " s (exact part and the dives' mean)" << std::endl;
+  res->total_time = ec;
+  return res;
+}
+
 QAPStatistics *estimate(QAP *q,Node *&stack,QAPSolution *s,
 			BNBParameters *params,int nlevel,
 			EstimateParameters *ep)
 {
+  // QAP_EST_SURV=b: survivor dives (estimate_surv below) in place of Knuth's
+  if (*setting_s("QAP_EST_SURV")) return estimate_surv(q, stack, s, params, nlevel, ep);
+
   std::ofstream dive_hist;
 
   Node *p, *path;

@@ -25,6 +25,15 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
         units' messages. Terminate its instances apart: infra/phase1/cleanup.sh)
   python3 -m coord.qapctl purge-states RUN --backend B   (a stopped or finished run: delete its
         unit state files, the bulk of its store; ledger, totals, results, logs, traces stay)
+  python3 -m coord.qapctl dives SRC --as NEW --backend B [--dive-b 0.4] [--budget S]
+        (SRC paused, its units returned and merged: run NEW, one unit of survivor dives per queued
+        unit of SRC, S wall seconds each; then the coordinator and workers of NEW: coord/dives.py)
+  python3 -m coord.qapctl estimate NEW --backend B [--out DIR]   (SRC's work so far plus the
+        dives' estimate of the rest, by depth: estimate.txt and estimate.json)
+  python3 -m coord.qapctl estimate-flow RUN --backend B --solve-wall S --dive-budget T [--dive-b 0.4]
+        (in place of `coordinator RUN`: the solve for S s of its wall time, then pause, dives of T s a
+        unit as RUN-dives, coordinated to the end; workers started with `worker RUN --follow` go
+        from the one to the other)
 
 Unit sizing and timing (init): --budget (CPU s a unit may run before it
 returns its open nodes, default 1800), --target-unit-cpu (estimated CPU per
@@ -69,7 +78,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
                                        "aws-setup", "requeue-leased", "publish", "nodes", "export", "stop",
-                                       "purge-states"])
+                                       "purge-states", "dives", "estimate", "estimate-flow"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
     p.add_argument("--instance")
@@ -104,6 +113,13 @@ def main(argv=None):
     p.add_argument("--workdir")
     p.add_argument("--out", help="nodes: the file to write (.gz: gzipped); export: the directory to write "
                                  "nodes.txt.gz, dnn.txt.gz and manifest.json in (coord/export.py)")
+    p.add_argument("--as", dest="as_run", help="dives: the new run's name")
+    p.add_argument("--dive-b", type=float, default=0.4,
+                   help="dives: b of the survivor weights exp(b x), x = shortfall / the depth's median (0: uniform)")
+    p.add_argument("--follow", action="store_true",
+                   help="worker: when the run pauses for an estimate (estimate-flow), go on with its dives run")
+    p.add_argument("--solve-wall", type=float, help="estimate-flow: s of the run's wall time the solve gets")
+    p.add_argument("--dive-budget", type=float, help="estimate-flow: wall s of survivor dives per dives unit")
     p.add_argument("--exit-when-idle", type=float)
     p.add_argument("--max-wall", type=float)
     a = p.parse_args(argv)
@@ -144,9 +160,32 @@ def main(argv=None):
         out = Coordinator(b, a.run, log=log).loop(poll=a.poll, max_wall=a.max_wall)
         return 0 if out is not None else 3
     if a.command == "worker":
-        Worker(b, a.run, a.slots, solver=a.solver, workdir=a.workdir, log=log,
-               exit_when_idle=a.exit_when_idle).run_forever()
-        return 0
+        run = a.run
+        while True:
+            w = Worker(b, run, a.slots, solver=a.solver, workdir=a.workdir, log=log,
+                       exit_when_idle=a.exit_when_idle, follow=a.follow)
+            w.run_forever()
+            r = b.get_run(run) or {}
+            nxt = r.get("dives_run")
+            if not a.follow or w.draining.is_set() or r.get("status") != "paused" or not nxt:
+                return 0
+            # --follow: the run paused for an estimate (qapctl estimate-flow): on to its dives run,
+            # which exists once the run's units have returned and merged
+            for _ in range(720):
+                if b.get_run(nxt) is not None:
+                    break
+                time.sleep(5)
+            else:
+                log(f"worker: {run} paused for {nxt}, which did not appear in an hour")
+                return 1
+            log(f"worker: {run} paused for its estimate: on to {nxt}")
+            run = nxt
+    if a.command == "estimate-flow":
+        from coord.dives import estimate_flow
+        if a.solve_wall is None or a.dive_budget is None:
+            p.error("estimate-flow: --solve-wall and --dive-budget are required")
+        out = estimate_flow(b, a.run, a.solve_wall, a.dive_budget, dive_b=a.dive_b, poll=a.poll, log=log)
+        return 0 if out is not None else 3
     if a.command == "status":
         s = b.get_bytes(run_key(a.run, "status.json"))
         print(s.decode() if s else json.dumps(b.get_run(a.run), indent=1))
@@ -163,6 +202,16 @@ def main(argv=None):
         if not a.out:
             p.error("nodes needs --out FILE")
         return write_nodes(b, a.run, a.out, log=log)
+    if a.command == "dives":
+        from coord.dives import init_dives
+        if not a.as_run:
+            p.error("dives: --as NEW is required")
+        init_dives(b, a.run, a.as_run, dive_b=a.dive_b, budget=a.budget, log=log)
+        return 0
+    if a.command == "estimate":
+        from coord.dives import estimate_run
+        estimate_run(b, a.run, out=a.out, log=log)
+        return 0
     if a.command == "export":
         if not a.out:
             p.error("export needs --out DIR")
@@ -177,7 +226,17 @@ def main(argv=None):
         return 0
     if a.command in ("pause", "resume"):
         b.update_run(a.run, {"status": "paused" if a.command == "pause" else "running"})
-        log(f"run {a.run}: {a.command}d")
+        if a.command == "resume":
+            # a paused run's messages may be hidden by other runs' workers (a dives run's hides them
+            # 5 minutes: coord/worker.py PAUSED_HIDE_S): send each queued unit again, so the run goes
+            # on at once; the copy that comes second finds its unit taken and is deleted
+            n = 0
+            for u in b.units_by_status(a.run, "queued"):
+                b.send(u["lane"], {"run": a.run, "uid": u["uid"]})
+                n += 1
+            log(f"run {a.run}: resumed ({n} queued units sent again)")
+        else:
+            log(f"run {a.run}: paused")
         return 0
 
 

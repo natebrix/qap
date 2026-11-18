@@ -181,6 +181,19 @@ The hypotheses, with the evidence for each:
 
 ### 2biii. The coordinator: estimate runs
 
+**Built, Nov 18** (step 2), as the replay revised it:
+- the estimate is the start of a solve;
+- survivor dives in `latest/estimate.C` (`QAP_EST_SURV`): unbiased on nug15, within 2% for every
+  seed and weight;
+- dives runs and `qapctl dives`, `estimate`, `estimate-flow` and `worker --follow`
+  (`coord/dives.py`, `coord/README.md`);
+- `QAP_ESTIMATE` in `node.sh` and start.sh's prompt (`infra/phase1/README.md`);
+- `ESTIMATE=` for `infra/laptop/solve.sh`;
+- `tests/dives_test.py`: nug17's estimate within 15%, and the paused solve resumed to the
+  serial totals.
+
+The design below was written before the replay.
+
 A run kind `estimate` beside `solve`. The design:
 - **init:** the frontier pass as today (`--frontier-depth k`). Its nodes become strata, not units.
 - **Units:** (stratum, seed, dives, budget T). The worker runs `bnbdrv -e -r stratum.state` with the

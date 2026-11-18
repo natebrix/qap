@@ -93,6 +93,27 @@ local `moto` server for tests). Both implement the same small interface
   start from it; the run's parents when it finishes. `qapctl stop` gives a run
   up, `qapctl purge-states` deletes a stopped or finished run's state files.
 
+- **Estimate runs** (`coord/dives.py`; `docs/estimates_plan.md`). An estimate is the start
+  of a solve. The solve runs for a wall-clock budget, then `qapctl pause` (or `estimate-flow`)
+  pauses it, and its units return their open nodes. Then `qapctl dives SRC --as NEW` makes a
+  dives run: one unit per queued unit of SRC, which reads SRC's state file and parent states
+  where SRC keeps them, never copies or deletes them. Its worker runs the estimator's survivor
+  dives (`bnbdrv -e -r`, `QAP_EST_SURV`, `latest/estimate.C`) for the unit's budget of wall
+  seconds and keeps their JSON lines (`dives.jsonl`). Its coordinator merges units without
+  splitting them. Its `results.txt` is `qapctl estimate NEW`'s report:
+  - SRC's merged totals plus every open node's exact part and its dives' mean, by depth;
+  - a bootstrap interval;
+  - the deepest level the dives reached, and the open nodes no dive reached.
+
+  `qapctl estimate-flow RUN --solve-wall S --dive-budget T` does all of it in place of the
+  coordinator, restartably; `worker --follow` goes from RUN to RUN-dives. SRC stays paused:
+  `qapctl resume` sends its queued units again and the solve goes on. A paused run's messages
+  are hidden 5 minutes by the workers of other runs (`PAUSED_HIDE_S`), or a dives run would
+  starve behind them. `tests/dives_test.py [--flow]` (nug17): the estimate within 15% (1.03
+  and 1.06 on the first runs), and the resumed solve's totals equal a serial run's. On EC2:
+  `QAP_ESTIMATE=SOLVE_S:DIVE_S[:B]` on every instance (`infra/phase1/node.sh`; start.sh asks
+  for it under the other settings). On the laptop: `ESTIMATE=... infra/laptop/solve.sh PROBLEM`.
+
 With a fixed incumbent the totals equal a serial run's exactly, whatever
 fails (`tests/coord_test.py`, `make coord`: nug17 with 0.3-second units,
 about 90 units a run):

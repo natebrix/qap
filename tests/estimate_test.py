@@ -15,7 +15,9 @@ first draw must say it scored its nodes.
 Then the estimator resumed from a state file (-e -r, as dives from a saved frontier are run): its
 first step must bound the state's nodes exactly as a plain resume of the same state does (the
 same bounds, strategy and branching line at every depth-1 node). Before Nov 16 it bounded them
-with root bound 0, so with the deepest level's strategy. About 20 seconds in all.
+with root bound 0, so with the deepest level's strategy. Last, survivor dives (QAP_EST_SURV) from
+the depth-2 frontier, b = 0 and 0.4, three seeds each: the estimate within 5% of the count every time.
+About 40 seconds in all.
 """
 
 import argparse
@@ -67,6 +69,7 @@ def main():
             failed += not ok
             print(f"{'ok  ' if ok else 'FAIL'} QAP_EST_CHILD_QPB={arm}: {len(n_est)} dives, nodes {rn:.3f}, CPU {rt:.3f} of the run's")
         failed += resume_check(a.solver, common, env, d)
+        failed += survivor_check(a.solver, common, env, d, nodes)
     print("estimator: all checks passed" if not failed else f"estimator: {failed} checks failed")
     return 1 if failed else 0
 
@@ -89,6 +92,42 @@ def resume_check(solver, common, env, d):
     print(f"{'ok  ' if ok else 'FAIL'} -e -r: step 1 bounds the state's {len(a)} depth-1 nodes as a plain resume "
           f"does ({sum(x == y for x, y in zip(a, b))} of {len(a)} lines identical)")
     return 0 if ok else 1
+
+
+def survivor_check(solver, common, env, d, nodes):
+    """QAP_EST_SURV (survivor dives, estimate.C) from the depth-2 frontier, 3 seeds x 1,000 dives each,
+    b = 0 and 0.4: the frontier's nodes plus each stratum's exact part and dive mean must come within 5%
+    of the count (on nug15 every seed and weight is within 2%, Nov 18); failures counted"""
+    import json
+    flags, inst = common[:-1], common[-1]
+    fr = os.path.join(d, "f2.state")
+    top = subprocess.run([solver] + flags + ["-d", "2", "-o", fr, inst], cwd=d, capture_output=True, text=True,
+                         check=True, env=env).stdout
+    top_nodes = int(re.search(r"Nodes:\s*(\d+)", top).group(1))
+    with open(os.path.join(d, "estimate.par"), "w") as f:
+        f.write("2 1000 100 100000 1.5 1000\n")
+    bad = 0
+    for b in ("0", "0.4"):
+        ests = []
+        for seed in (1, 2, 3):
+            jl = os.path.join(d, f"surv_{b}_{seed}.jsonl")
+            subprocess.run([solver, "-e", "-r", fr] + flags + [inst], cwd=d, capture_output=True, text=True, check=True,
+                           env=dict(env, QAP_EST_SURV=b, QAP_EST_DIVES=jl, QAP_EST_SEED=str(seed)))
+            strata, dives = {}, {}
+            for line in open(jl):
+                x = json.loads(line)
+                if x["type"] == "stratum":
+                    strata[x["key"]] = x
+                else:
+                    dives.setdefault(x["key"], []).append(x["nodes"])
+            ests.append(top_nodes + sum(s["exact_nodes"] for s in strata.values()) +
+                        sum(statistics.fmean(v) for v in dives.values()))
+        worst = max(abs(e / nodes - 1) for e in ests)
+        ok = worst <= 0.05
+        bad += not ok
+        print(f"{'ok  ' if ok else 'FAIL'} QAP_EST_SURV={b}: survivor dives from the depth-2 frontier, 3 seeds: "
+              f"{', '.join(f'{e / nodes:.3f}' for e in ests)} of the nodes")
+    return bad
 
 
 if __name__ == "__main__":

@@ -29,7 +29,12 @@
 # recipes/, which launch.sh --recipe-file writes from the user data; it wins over
 # QAP_RECIPE), QAP_RUN_WAIT_MIN (a worker's wait for its run to exist; default 30),
 # QAP_VISIBILITY (public or private: the coordinator's public status,
-# coord/publish.py; for a new run only).
+# coord/publish.py; for a new run only). QAP_ESTIMATE=SOLVE_S:DIVE_S[:B] (on every
+# instance of the run; docs/estimates_plan.md): an estimate run, `qapctl estimate-flow`
+# in place of the coordinator: the solve for SOLVE_S seconds of its wall time, then
+# paused and RUN-dives, DIVE_S seconds of survivor dives per open unit (weights exp(B x),
+# default 0.4), the workers following (`worker --follow`); out/estimate.txt at the end,
+# no reference run. The solve stays paused in the store: `qapctl resume RUN` goes on.
 #
 # Local test (any Linux; no dnf, no shutdown): QAP_LOCAL=1, QAP_BACKEND pointing
 # at a moto server (aws:B?region=eu-north-1&endpoint=http://127.0.0.1:PORT),
@@ -50,6 +55,14 @@ NO_UB=${QAP_NO_UB:-0}
 REFERENCE=${QAP_REFERENCE:-1}
 GATES=${QAP_GATES:-"bruteforce resume parallel regression dnncheck coord"}
 [ "$GATES" = none ] && GATES=""
+EST=${QAP_ESTIMATE:-}
+EST_SOLVE= EST_DIVE= EST_B=
+if [ -n "$EST" ]; then
+  IFS=: read -r EST_SOLVE EST_DIVE EST_B <<< "$EST"
+  EST_B=${EST_B:-0.4}
+  [ -n "$EST_SOLVE" ] && [ -n "$EST_DIVE" ] || { echo "QAP_ESTIMATE must be SOLVE_S:DIVE_S[:B]"; exit 2; }
+  REFERENCE=0
+fi
 IMDS=${QAP_IMDS:-}
 [ "$LOCAL" = 1 ] || IMDS=${IMDS:-http://169.254.169.254}
 PY=python3
@@ -167,14 +180,20 @@ spot_watch() {
 spot_watch &
 
 # --- the worker and the coordinator, each restarted if it dies before the run is finished
+# (an estimate run is over when the solve finished inside its budget or its dives run finished)
+run_done() {
+  [ "$(bk status "$RUN")" = finished ] && return 0
+  [ -n "$EST" ] && [ "$(bk status "$RUN-dives")" = finished ]
+}
 worker_loop() {
-  local n=0 rc
+  local n=0 rc follow=()
+  [ -n "$EST" ] && follow=(--follow)
   while [ ! -f "$OUT/draining" ] && [ ! -f "$OUT/stopping" ]; do
-    $PY -m coord.qapctl worker "$RUN" --backend "$BK" --slots "$SLOTS" --workdir "$R/work" >> "$OUT/worker.log" 2>&1 &
+    $PY -m coord.qapctl worker "$RUN" --backend "$BK" --slots "$SLOTS" --workdir "$R/work" ${follow[@]+"${follow[@]}"} >> "$OUT/worker.log" 2>&1 &
     echo $! > "$OUT/worker.pid"
     wait $!; rc=$?
     rm -f "$OUT/worker.pid"
-    [ "$(bk status "$RUN")" = finished ] && return 0
+    run_done && return 0
     [ -f "$OUT/draining" ] || [ -f "$OUT/stopping" ] && return 1
     n=$((n + 1)); step "worker exited ($rc) before the run finished; restart $n of 5"
     [ $n -ge 5 ] && return 1
@@ -183,9 +202,10 @@ worker_loop() {
   return 1
 }
 coord_loop() {
-  local n=0 rc
+  local n=0 rc cmd=(coordinator "$RUN")
+  [ -n "$EST" ] && cmd=(estimate-flow "$RUN" --solve-wall "$EST_SOLVE" --dive-budget "$EST_DIVE" --dive-b "$EST_B")
   while :; do
-    $PY -m coord.qapctl coordinator "$RUN" --backend "$BK" >> "$OUT/coordinator.log" 2>&1 &
+    $PY -m coord.qapctl "${cmd[@]}" --backend "$BK" >> "$OUT/coordinator.log" 2>&1 &
     echo $! > "$OUT/coordinator.pid"
     wait $!; rc=$?
     rm -f "$OUT/coordinator.pid"
@@ -214,7 +234,8 @@ if [ "$ROLE" = worker ]; then
   for i in $(seq $((WAIT_MIN * 2))); do [ "$ST" != none ] && break; sleep 30; ST=$(bk status "$RUN"); done
   [ "$ST" = none ] && { step "no run $RUN after $WAIT_MIN minutes: stopping"; exit 1; }
   [ "$ST" = finished ] && { step "run $RUN is finished: nothing to do"; exit 0; }
-  step "worker: $SLOTS slots on run $RUN ($ST)"
+  run_done && { step "run $RUN's estimate is finished: nothing to do"; exit 0; }
+  step "worker: $SLOTS slots on run $RUN ($ST)$([ -n "$EST" ] && echo ", following it to $RUN-dives")"
   worker_loop; rc=$?
   step "worker: $([ $rc = 0 ] && echo "run $RUN finished" || echo stopped) ($(grep -c ' -> ' "$OUT/worker.log" 2> /dev/null) units)"
   exit 0
@@ -222,6 +243,7 @@ fi
 
 # role all: the run
 if [ "$ST" = finished ]; then step "run $RUN is finished already: nothing to do"; exit 0; fi
+if run_done; then step "run $RUN's estimate is finished already: nothing to do"; exit 0; fi
 if [ "$ST" = none ]; then
   RF=infra/phase1/recipes/${QAP_RECIPE:-}.sh; RN=recipes/${QAP_RECIPE:-}.sh
   [ -n "${QAP_RECIPE_FILE:-}" ] && RF=$QAP_RECIPE_FILE && RN="the recipe launch.sh sent (runs/$RUN/recipe.sh on the laptop)"
@@ -257,6 +279,16 @@ if [ -f "$OUT/draining" ]; then
 fi
 wait $CL; CR=$?
 [ -f "$OUT/stopping" ] && { step "stopped: the coordinator failed 5 times (out/coordinator.log)"; exit 1; }
+if [ -n "$EST" ] && [ "$(bk status "$RUN")" != finished ]; then
+  # an estimate run: its dives run's results.txt is the estimate (coord/dives.py)
+  if [ $WR != 0 ] || [ $CR != 0 ] || ! bk get "runs/$RUN-dives/results.txt" "$OUT/estimate.txt"; then
+    step "the estimate did not finish (worker $WR, estimate-flow $CR): see out/worker.log, out/coordinator.log"; exit 1
+  fi
+  bk get "runs/$RUN-dives/estimate.json" "$OUT/estimate.json" || :
+  step "estimate: $(grep -E '^estimated tree' "$OUT/estimate.txt")"
+  step "the solve $RUN is paused in the store: qapctl resume $RUN goes on with it"
+  exit 0
+fi
 if [ $WR != 0 ] || [ $CR != 0 ] || ! bk get "runs/$RUN/results.txt" "$OUT/results.txt"; then
   step "the run did not finish (worker $WR, coordinator $CR): see out/worker.log, out/coordinator.log"; exit 1
 fi

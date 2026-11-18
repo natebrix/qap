@@ -169,6 +169,14 @@ class Coordinator:
 
     def _apply(self, u):
         """add a merged unit's result to the totals and queue its open nodes"""
+        if self.cfg.get("kind") == "dives":
+            # a dives unit (coord/dives.py) adds no nodes and returns none; its state file is the
+            # source run's, which must keep it (never in self.spent); `qapctl estimate` reads its dives
+            self.busy_wall += u.get("wall", 0.0)
+            self.units_merged += 1
+            self.last_seq = max(self.last_seq, u["merged_seq"])
+            self.dirty = True
+            return
         p = self._path("out.state")
         key = unit_key(self.run_id, u["uid"], f"a{u['attempt']}", "out.state")
         if not self.b.get_file(key, p):
@@ -368,7 +376,11 @@ class Coordinator:
         p = self._path("final.state")
         t.write(p, [])
         self.b.put_file(run_key(self.run_id, "final.state"), p)
-        report = self.report(p, wall)
+        if self.cfg.get("kind") == "dives":
+            from .dives import estimate_run, report as dives_report
+            report = dives_report(estimate_run(self.b, self.run_id, log=lambda *_: None))
+        else:
+            report = self.report(p, wall)
         self.b.put_bytes(run_key(self.run_id, "results.txt"), (report + "\n").encode())
         self.run = self.b.update_run(self.run_id, {"status": "finished", "finished_at": now, "wall_s": wall})
         # the run is over: no node will start from a parent state again

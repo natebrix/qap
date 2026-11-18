@@ -287,8 +287,21 @@ if yesno "Change the other settings (data file, solver flags, disk, units, publi
     ask EXTRA "Solver flags (paths relative to latest/; none for no flags)" "${EXTRA:-none}"; [ "$EXTRA" = none ] && EXTRA=""
     ask COORD "Unit sizing (qapctl init)" "$COORD"
     ask VIS "Public or private status" "$VIS"
+    # an estimate run (docs/estimates_plan.md): the solve for SOLVE_HOURS of its wall time, then
+    # DIVE_SECONDS of survivor dives per open unit; the solve stays paused, resumable
+    while :; do
+      ask ESTIMATE "Estimate run: SOLVE_HOURS:DIVE_SECONDS[:B] (e.g. 2:1800; none: a solve)" "${ESTIMATE:-none}"
+      [ "$ESTIMATE" = none ] && ESTIMATE="" && break
+      [[ $ESTIMATE =~ ^[0-9]+(\.[0-9]+)?:[0-9]+(:[0-9.]+)?$ ]] && break
+      echo "SOLVE_HOURS:DIVE_SECONDS[:B], or none"; [ "$YES" = 1 ] && exit 1
+    done
   fi
   ask DISK "Disk per instance, GB" "$DISK"
+fi
+EST_ENV=""
+if [ -n "${ESTIMATE:-}" ]; then
+  IFS=: read -r EH ED EB <<< "$ESTIMATE"
+  EST_ENV="QAP_ESTIMATE=$(python3 -c "print(int(float('$EH') * 3600))"):$ED${EB:+:$EB}"
 fi
 
 # --- the launch, shown in full (a new run: the params file and, with a best known, an answer for the incumbent)
@@ -303,6 +316,7 @@ if [ "$MODE" = new ]; then
   note "incumbent  ${UB:-none}$UBNOTE"
   note "units      $COORD"
   note "status     $VIS"
+  [ -n "$EST_ENV" ] && note "estimate   the solve for ${EH} h of its wall time, then $ED s of survivor dives a unit as run $RUN-dives (${EST_ENV}); the solve stays paused"
 fi
 note "instances  $N x $TYPE, $MARKET, $REGION: $SLOTS slots each ($CORES cores$([ -n "$MEM" ] && echo ", $((MEM / 1024)) GiB"))$([ "$MODE" = new ] && echo ", the run sized for $TOTAL slots")"
 [ -n "$PRICE" ] && note "cost       about \$$(python3 -c "print(f'{$PRICE * $N * 24:.0f}')") a day at today's Spot price"
@@ -314,6 +328,7 @@ yesno "Launch?" "$([ "$YES" = 1 ] && echo y || echo n)" || { echo "nothing launc
 # --- the recipe (a new run) and the launches
 COMMON=(--type "$TYPE" --region "$REGION" --limit $((HOURS * 60)) --disk "$DISK" --no-reference)
 NENV=""; [ "$SLOTS" = "$CORES" ] || NENV="QAP_SLOTS=$SLOTS"   # node.sh: the worker's slots on every instance
+[ -n "$EST_ENV" ] && NENV="${NENV:+$NENV }$EST_ENV"           # and an estimate run's flow, on every instance
 # a new run exists only once the first instance's qapctl init has bounded the root (hours for tai60b):
 # the other instances wait for it up to 4 hours instead of node.sh's 30 minutes
 WENV=$NENV; [ "$MODE" = new ] && WENV="${NENV:+$NENV }QAP_RUN_WAIT_MIN=240"

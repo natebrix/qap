@@ -150,6 +150,21 @@ the time limit), so the same command resumes a run.
   at and past the next value give their notes. 119 of the `.sln` files end their lines with `\r`, which first gave
   tai50b no incumbent: the value is now read as digits, and the launch stops if the incumbent
   was never asked.
+- **Estimate runs** (Nov 18, `docs/estimates_plan.md`, `coord/dives.py`). To launch one, answer
+  "Change the other settings?" with y and give "Estimate run" as `SOLVE_HOURS:DIVE_SECONDS[:B]`,
+  e.g. `2:1800`. Every instance then gets `QAP_ESTIMATE` (seconds), and `node.sh`:
+  - runs `qapctl estimate-flow` in the coordinator's place: the solve for SOLVE_HOURS of its
+    wall time, then the pause, its units returned, and run `RUN-dives` with DIVE_SECONDS of
+    survivor dives per open unit;
+  - runs `worker --follow` on every instance: the workers move to `RUN-dives` on their own;
+  - skips the reference run.
+
+  At the end `out/estimate.txt` (and the store's `runs/RUN-dives/results.txt`) holds the
+  estimate: the solve's nodes and CPU so far, the rest estimated, by depth, with a 5-95%
+  interval. The solve stays paused, so `qapctl resume RUN` (or a relaunch without the estimate)
+  goes on from where it stopped. A Spot relaunch resumes the flow at its step. Make the time
+  limit cover SOLVE_HOURS plus the dives: the dives take about DIVE_SECONDS per queued unit
+  over the slots.
 
 ## Running it (laptop)
 

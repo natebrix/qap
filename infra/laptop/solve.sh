@@ -17,6 +17,12 @@
 #
 # Environment: SLOTS (default: the cores less 2), OUT, MIN_FREE_GB (10: the run is stopped below it),
 # and for tests PARAMS (a params file relative to the repository), UB, COORD (unit sizing).
+#
+# ESTIMATE=SOLVE_S:DIVE_S[:B] makes it an estimate run (docs/estimates_plan.md; coord/dives.py): the
+# solve for SOLVE_S seconds of its wall time, then paused, and DIVE_S seconds of survivor dives per
+# open unit (weights exp(B x), default 0.4) as run PROBLEM-est-dives; OUT/estimate.txt at the end.
+# The run is PROBLEM-est (OUT default infra/laptop/runs/PROBLEM-est/), and the same command resumes
+# it at whatever step it was. The solve stays paused in the store: `qapctl resume` goes on with it.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 R=$(pwd)
@@ -26,9 +32,19 @@ P=${1:-}
 PY=${PYTHON:-python3}
 SLOTS=${SLOTS:-$(( $( (sysctl -n hw.ncpu 2> /dev/null || nproc) ) - 2 ))}
 [ "$SLOTS" -ge 1 ] || SLOTS=1
-OUT=${OUT:-$R/infra/laptop/runs/$P}
+EST=${ESTIMATE:-}
+EST_SOLVE= EST_DIVE= EST_B=
+if [ -n "$EST" ]; then
+  IFS=: read -r EST_SOLVE EST_DIVE EST_B <<< "$EST"
+  EST_B=${EST_B:-0.4}
+  [ -n "$EST_SOLVE" ] && [ -n "$EST_DIVE" ] || { echo "ESTIMATE must be SOLVE_S:DIVE_S[:B]"; exit 2; }
+  OUT=${OUT:-$R/infra/laptop/runs/$P-est}
+  RUN=$P-est
+else
+  OUT=${OUT:-$R/infra/laptop/runs/$P}
+  RUN=$P-laptop
+fi
 MIN_FREE_GB=${MIN_FREE_GB:-10}
-RUN=$P-laptop
 ST=$OUT/store
 BK="local:$ST"
 export VECLIB_MAXIMUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
@@ -58,6 +74,7 @@ COORDV=${COORD:-${RCOORD:-"--budget 600 --target-unit-cpu 600 --steal-after 60 -
 
 res=$OUT/results.txt
 if [ -s "$res" ]; then say "$P: finished before ($res)"; exit 0; fi
+if [ -n "$EST" ] && [ -s "$OUT/estimate.txt" ]; then say "$P: estimated before ($OUT/estimate.txt)"; exit 0; fi
 say "$P: $DAT${SYM:+, -s $SYM}, params $PAR, incumbent ${UBV:-none} (best known ${BEST:-?} + $STEP), $SLOTS slots, $(free_gb) GB free, commit $(git rev-parse --short HEAD)"
 make solver PYTHON="$PY" > "$OUT/build.log" 2>&1 || { say "build failed: $OUT/build.log"; exit 1; }
 
@@ -65,7 +82,7 @@ make solver PYTHON="$PY" > "$OUT/build.log" 2>&1 || { say "build failed: $OUT/bu
 ( while sleep 120; do
     if [ "$(free_gb)" -lt "$MIN_FREE_GB" ]; then
       say "disk below $MIN_FREE_GB GB: stopping the run (run this again once there is room)"
-      pkill -TERM -f "coord.qapctl (local|coordinator|worker) $RUN " 2> /dev/null
+      pkill -TERM -f "coord.qapctl (local|coordinator|worker|estimate-flow) $RUN( |$)" 2> /dev/null
       break
     fi
   done ) &
@@ -73,6 +90,41 @@ watch=$!
 trap 'kill $watch 2> /dev/null' EXIT
 
 status=$($PY infra/phase1/bk.py "$BK" status "$RUN" 2> /dev/null || echo none)
+if [ -n "$EST" ]; then
+  # an estimate run: init (a new run), then a worker that follows the run into its dives run and
+  # qapctl estimate-flow in the coordinator's place; both pick up where a stopped attempt left off
+  if [ "$status" = none ]; then
+    say "$P: a new estimate run (the root first, in qapctl init; status: $OUT/coord.log)"
+    $PY -m coord.qapctl init "$RUN" --backend "$BK" --instance "$R/$DAT" --params "$R/$PAR" \
+      ${UBV:+--ub "$UBV"} --slots "$SLOTS" ${SYM:+--extra "-s $R/latest/$SYM"} $COORDV \
+      --visibility private >> "$OUT/coord.log" 2>&1 || { say "init failed: $OUT/coord.log"; exit 1; }
+  else
+    say "$P: resuming the estimate run ($status, dives run $($PY infra/phase1/bk.py "$BK" status "$RUN-dives"))"
+    $PY -m coord.qapctl requeue-leased "$RUN" --backend "$BK" >> "$OUT/coord.log" 2>&1
+    [ "$($PY infra/phase1/bk.py "$BK" status "$RUN-dives")" = none ] \
+      || $PY -m coord.qapctl requeue-leased "$RUN-dives" --backend "$BK" >> "$OUT/coord.log" 2>&1
+  fi
+  $PY -m coord.qapctl worker "$RUN" --backend "$BK" --slots "$SLOTS" --workdir "$OUT/work" --follow \
+    >> "$OUT/worker.log" 2>&1 &
+  wpid=$!
+  $PY -m coord.qapctl estimate-flow "$RUN" --backend "$BK" --solve-wall "$EST_SOLVE" --dive-budget "$EST_DIVE" \
+    --dive-b "$EST_B" >> "$OUT/coord.log" 2>&1
+  rc=$?
+  wait $wpid 2> /dev/null
+  if [ $rc = 0 ] && [ -s "$ST/store/runs/$RUN-dives/results.txt" ]; then
+    cp "$ST/store/runs/$RUN-dives/results.txt" "$OUT/estimate.txt"
+    cp "$ST/store/runs/$RUN-dives/estimate.json" "$OUT/estimate.json" 2> /dev/null
+    say "$P: $(grep -E '^estimated tree' "$OUT/estimate.txt")"
+    say "$P: the estimate is in $OUT/estimate.txt; the solve $RUN is paused in the store"
+    exit 0
+  elif [ $rc = 0 ] && [ -s "$ST/store/runs/$RUN/results.txt" ]; then
+    cp "$ST/store/runs/$RUN/results.txt" "$res"
+    say "$P: the tree closed inside the solve's budget: $res"
+    exit 0
+  fi
+  say "$P: the estimate did not finish (exit $rc): run the same command again to go on; logs in $OUT"
+  exit 1
+fi
 case $status in
   none)
     say "$P: a new run (the root first, in qapctl init; status: $OUT/coord.log)"
