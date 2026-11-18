@@ -50,12 +50,15 @@ Starting a run); the cloud sessions make no AWS calls. Where things stand:
   and verified by the coordinator. A rehearsal on one machine, not yet a run of record.
 - **tai60b is solved** (Nov 18, above). Left to do: collect it with its traces (`collect.sh tai60b-261117`)
   and commit `infra/phase1/runs/tai60b-261117/`.
-- **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), two Spot instances.
+- **The Spot quota is 256 vCPUs since Nov 18** (it was 128): four c7a.16xlarge at once.
+- **Then tho40:** `infra/phase1/start.sh tho40` (`recipes/tho40c.par`), four Spot instances (256 slots)
+  once tai50b-r9 has ended and decided its bottom block.
 - **After tai60b, before or beside tho40 (Nov 17):** the rule 9 A/B on tai50b, one Spot c7a.16xlarge,
   about 4.5 hours: `infra/phase1/start.sh tai50b`, run name `tai50b-r9`, params
   `infra/phase1/recipes/tai50b_r9.par`, private status (`experiments/rule9_bottom/README.md`). It
   decides whether rule 2 leaves the bottom block of every recipe, tho40c's included, so it is worth
-  having before tho40 starts.
+  having before tho40 starts. **Launched Nov 18, about 14:40 UTC**; when it ends, `collect.sh tai50b-r9`
+  and commit `infra/phase1/runs/tai50b-r9/`.
 
 ## sko42 on the laptop (Nov 17), beside tho40 on AWS
 
@@ -137,7 +140,8 @@ It saves about 35 CPU-days at most, about half a day on one instance, or $5-10 a
    (`experiments/tho40b_analysis/path_check/dive.py`, its params given with `--params`). With the
    full block, it also needs the integration build reviewed and merged (`integration/REVIEW_cognac.md`).
 4. **Size:** 226 CPU-days is 3.6 days on one c7a.16xlarge, or 1.8 on two (`infra/phase1/start.sh
-   tho40`, two Spot instances: the quota is 128 vCPUs). The combined arm, if the
+   tho40`, two Spot instances: the quota is 128 vCPUs; since Nov 18 it is 256, four instances, 0.9 days;
+   tai60b's tree came in at 11 times its dives' estimate, above). The combined arm, if the
    subtree confirms it, would take 1.7-3.4 days on one. That is the "couple of days" target, on the
    quota there is.
 5. **Read the dives as likely low.** The estimator that produced 1,308 read about half the size of a
