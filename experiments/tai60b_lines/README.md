@@ -56,7 +56,7 @@ is most of the line's (1:33: 16,406 nodes; the other five 170 to 2,223).
 
 **The arms are weaker than production, by the same amount for every line.** Their 43:58 is 1.76M
 short against production's 1.11M: their 44:45 came cold from `-F` (4.1M short against production's
-1.89M, warm from the root). Yet r1's children branch or fathom exactly as production's did, 54 of 54
+1.89M, warm from the root). Yet r1's children branch or fathom exactly as production's did, all 58,
 and the same six branch, each 0.16M to 0.31M further from the cutoff than in production. Five
 that production's first solve fathomed (a few thousand over the cutoff) need the cut phase here, at 2-3x
 production's CPU. Every arm starts from one parent state, so the comparison between lines should hold,
