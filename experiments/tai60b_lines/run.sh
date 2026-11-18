@@ -8,9 +8,15 @@
 #                          'rule9' for the params' own choice), its children bounded warm from it, the
 #                          grandchildren of those that do not fathom set aside (-d 3 -o); a checkpoint
 #                          in runs/NAME/out.state every 300 CPU s (-k)
-#   run.sh resume NAME LINE  an arm killed part-way (no "exit" in its cmd.txt) from its last checkpoint;
+#   run.sh resume NAME LINE  an arm killed part-way (no "exit 0" in its cmd.txt: a container restart
+#                          leaves no exit line, the OOM killer "exit 137") from its last checkpoint;
 #                          its traces go on in the same files, so the nodes after that checkpoint come twice
 #                          (score.py keeps a node's last line)
+#   run.sh trim NAME       a stopped arm's checkpoint without its grandchildren (depth 4) and the DNN
+#                          states they hold (one per branched child, ~0.4 GB of RAM each): the whole
+#                          checkpoint moves to runs/NAME/setaside.K.state and out.state keeps the children
+#                          still to bound (trimstate.py). -d 3 never bounds the grandchildren, and they
+#                          come off the stack before any child, so the children are bounded as before
 #
 # Needs the experiment build: BUILD (default /home/user/wt-lines) is a worktree of cognac with
 # force_line.patch applied and `make -C latest`; production's latest/ does not have QAP_FORCE_LINE.
@@ -54,11 +60,19 @@ case ${1:-} in
     rm -f "$D/runs/$NAME/in.state" ;;
   resume)
     NAME=$2; LINE=$3
-    grep -q '^exit' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }
+    grep -q '^exit 0$' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }
     [ -s "$D/runs/$NAME/out.state" ] || { echo "$NAME has no checkpoint: run.sh arm $NAME $LINE"; exit 2; }
     F=""; [ "$LINE" = rule9 ] || F=2:$LINE
     QAP_FORCE_LINE=$F QAP_LINE_RANK=2 APPEND=1 go "$NAME" -p "$PAR" -r "$D/runs/$NAME/out.state" -d 3 \
       -o "$D/runs/$NAME/out.state" -k 300 "$R/qaplib/tai60b.dat"
     rm -f "$D/runs/$NAME/in.state" ;;
+  trim)
+    NAME=$2; S=$D/runs/$NAME/out.state
+    for p in $(pgrep -x bnbdrv); do
+      tr '\0' ' ' < /proc/$p/cmdline | grep -q "runs/$NAME/out.state" && { echo "$NAME is running"; exit 2; }
+    done
+    k=1; while [ -e "$D/runs/$NAME/setaside.$k.state" ]; do k=$((k+1)); done
+    mv "$S" "$D/runs/$NAME/setaside.$k.state"
+    python3 -I "$D/trimstate.py" "$D/runs/$NAME/setaside.$k.state" "$S" 3 ;;
   *) awk 'NR > 1 && /^set /{exit} NR > 1' "$0"; exit 2 ;;
 esac

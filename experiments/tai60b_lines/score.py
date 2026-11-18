@@ -101,7 +101,7 @@ def main():
         parent, kids = read_arm(path)
         if parent is None:
             continue
-        done = "exit" in open(os.path.join(os.path.dirname(path), "cmd.txt")).read()
+        done = "\nexit 0\n" in open(os.path.join(os.path.dirname(path), "cmd.txt")).read()   # 137: OOM-killed, resumed
         print(row(name, parent, kids, p) + ("" if done else " (running)"))
     fidelity(pk)
 

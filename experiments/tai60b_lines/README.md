@@ -1,4 +1,4 @@
-# tai60b: which line at the heaviest node? (Nov 17 2026, running: partial results)
+# tai60b: which line at the heaviest node? (Nov 17-18 2026, running: partial results)
 
 Question (Nathan, after tai60b's estimate came in at a third of the tree): would stronger branching
 pay? The evidence says where: line choice matters most where the subtrees are largest, at the top
@@ -30,37 +30,63 @@ the build is production's, node for node (tai25b to depth 2: the same iterations
    child bounded warm from it with the production settings (first solve, then the phase); the
    grandchildren of those that do not fathom set aside (`-d 3`). Arms: rule 9's own choice, the
    estimate's location 26, production's facility 1 if rule 9 does not pick it, and the next line by
-   marginal score. 4 processes on this box's 4 cores, about 2.3 GB each.
+   marginal score. 4 processes on this box's 4 cores, about 2.3 GB each to start, plus about 0.4 GB
+   for each child that branches: its DNN state stays in memory for the grandchildren set aside.
 3. Score each line by its children: how many fathom, the shortfall (cutoff - lb) of those that do
    not, and the CPU. Calibrate against production's subtrees under facility 1 once tai60b ends.
 
-## Results (partial, 20:03 UTC Nov 17)
+## Results (partial, 00:50 UTC Nov 18)
 
 `python3 experiments/tai60b_lines/score.py` (from the repository root) prints the table and the r1 check.
 Each arm bounds its children in descending order of the free index (location 59 down for a row,
-facility 59 down for a column), so at 20:03 the arms had covered different children:
+facility 59 down for a column), so the arms have covered different children. Marginal score at 43:58
+(`QAP_LINE_RANK`, this state): c26 0.145, r45 0.142, r8 0.139, r1 0.100 (13th); c26 is also rule 9's choice.
 
-| arm | children bounded | first solve fathomed (D) | cut phase fathomed (C) | branched | branched children's shortfall |
+| arm | children bounded (of 58) | first solve fathomed (D) | cut phase fathomed (C) | branched | branched children's shortfall |
 |---|---|---|---|---|---|
-| production r1 (all 58) | 58 | 49 | 3 | 6 | path child 1:33 758k; 510k, 509k, 383k, 373k, 319k |
-| r1 | 24 | 17 | 5 | 2 | 772k, 632k (path child 1:33 not reached) |
-| r45 | 27 | 23 | 1 | 3 | 719k, 665k, 175k (path child 45:26 not reached) |
-| r8 | 18 | 14 | 1 | 3 | 999k, 756k, 726k (path child 8:29 not reached) |
-| c26 | 17 | 12 | 0 | 5 | path child 45:26 1,029k; 810k, 623k, 611k, 457k |
+| production r1 | 58 | 49 | 3 | 6 | path child 1:33 758k; 510k, 509k, 383k, 373k, 319k |
+| r1 | 54 | 42 | 6 | 6 | path child 1:33 1,000k; 772k, 710k, 693k, 632k, 530k |
+| r45 | 45 | 33 | 4 | 8 | path child 45:26 1,029k; 719k, 665k, 662k, 651k, 329k, 175k, 11k |
+| r8 | 34 | 23 | 2 | 9 | path child 8:29 1,133k; 999k, 982k, 757k, 756k, 726k, 697k, 490k, 111k |
+| c26 | 21 | 12 | 0 | 9 | path child 45:26 1,029k; 810k, 809k, 727k, 661k, 623k, 611k, 536k, 457k |
 
-A child that branches costs about 1,240 CPU s here (bounded, then set aside); one the first solve
-fathoms, about 45 s.
+A child that branches costs about 1,100 CPU s here (bounded, then set aside); one the first solve
+fathoms, about 45; one the cut phase fathoms, 300 to 1,000. In production the path child's subtree
+is most of the line's (1:33: 16,406 nodes; the other five 170 to 2,223).
 
 **The arms are weaker than production, by the same amount for every line.** Their 43:58 is 1.76M
 short against production's 1.11M: their 44:45 came cold from `-F` (4.1M short against production's
-1.89M, warm from the root). Yet r1's first 24 children branch or fathom exactly as production's did
-(24 of 24). The two that branch, 1:59 and 1:39, are 0.31M and 0.26M further from the cutoff than
-production's. Two that production's first solve fathomed (1:57, 1:49, a few thousand over the cutoff)
-need the cut phase here. The phase costs 2-3x production's CPU. Every arm starts from one parent
-state, so the comparison between lines should hold, but absolute subtree sizes will not transfer.
+1.89M, warm from the root). Yet r1's children branch or fathom exactly as production's did, 54 of 54
+so far, and the same six branch, each 0.16M to 0.31M further from the cutoff than in production. Five
+that production's first solve fathomed (a few thousand over the cutoff) need the cut phase here, at 2-3x
+production's CPU. Every arm starts from one parent state, so the comparison between lines should hold,
+but absolute subtree sizes will not transfer.
 
-**So far c26 is the worst.** That is the bound lab estimate's line, and rule 9's choice from this weaker state. It has five
-branching children in its first 17, facilities 47 to 41 (except 43 and 44, fixed) one after another,
-and its path child is 1.03M short. Production's path child under r1 was 0.76M short (from a parent
-0.65M stronger). Too early for a ranking: each arm has 30-40 children to go. Projected finishes: r45
-about 21:45 UTC, r1 22:20, r8 23:20, c26 00:35 Nov 18.
+**r1, production's line, leads; the marginal score has the order backwards.** r1 has 4 children left,
+and production fathomed all 4. It will end with 6 branching children, the fewest of the four lines
+whatever their remaining children do: r45 already has 8, r8 and c26 9 each. Its path child (1.00M short)
+is also the least short. Against r8 and c26 that is dominance: each of their six worst children is
+further from the cutoff than r1's child of the same rank, and they have three more besides. r45 is closer:
+its path child is 45:26, the same node as c26's (both lines contain it), 1.03M short against r1's 1.00M.
+Its other branching children are mostly less short than r1's, but there are seven of them to r1's five,
+with 13 children to go. c26, the bound lab estimate's line and rule 9's choice from this state, branches on
+9 of its first 21 children. The four lines' order by children so far, r1, r45, r8, c26, is the reverse of
+the marginal score's, as in `../tho30_solve/line_truth/`.
+
+**Restarts reproduce the arms exactly.** Container restarts at about 20:35 and 20:58 UTC Nov 17 killed
+the first attempt (`runs/*/*.attempt1.txt`, started 17:37 and 18:03) and a second one before its first
+checkpoint; the arms restarted from scratch at 21:01 with a checkpoint every 300 CPU s. Every child bounded by both attempts (r1 24, c26 18, r45 30, r8 21) has the same
+outcome and the same bound values to the last digit printed, at 8% less CPU the second time.
+
+**c26 ran out of memory and resumed trimmed.** The OOM killer stopped c26 at 00:42 UTC (`exit 137`),
+with 4 arms at 14.9 GB in all: each branched child's DNN state, about 0.4 GB, stays in memory for its
+grandchildren. `run.sh trim c26` kept the 37 children still to bound and the one DNN state they warm-start from
+(the checkpoint went from 571 MB to 61 MB; the whole one is `runs/c26/setaside.1.state`, uncommitted), and
+it resumed at 00:50 from its 00:24 checkpoint (`resumed: 37 open nodes`). The children are bounded as
+before: `-d 3` never bounds the grandchildren. A child bounded after a resume warm-starts from the
+checkpoint's copy of 43:58's state, rounded to fp32 (`ship.bits = 32`) as production's warm starts from the
+store are. `supervise.sh` keeps the arms going: each minute it trims and resumes an arm that stopped part
+way, when the memory leaves room for it.
+
+Projected finishes from each arm's CPU per child so far: r1 about 01:05 UTC, r45 01:55, r8 03:15,
+c26 06:00 Nov 18.
