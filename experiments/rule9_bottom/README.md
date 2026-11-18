@@ -1,4 +1,4 @@
-# Rule 9 at the bottom of the tai-b trees: a whole-tree A/B on tai50b (Nov 17 2026)
+# Rule 9 at the bottom of the tai-b trees: a whole-tree A/B on tai50b (Nov 17-18 2026)
 
 Question (Nathan): every production recipe branches by rule 9 through depth 6 and by rule 2 below.
 Should rule 2 go entirely? `../bound_lab/rule2_ab/` said it made no difference on tho40, but there
@@ -68,3 +68,52 @@ merged, run still going) and tai50b-261116's (`infra/phase1/runs/tai50b-261116/n
   rule 9 at every depth in every tai-b recipe, and in tho40c.par, where it is harmless. Within 2%:
   no effect on tai50b, where the bottom is 35% of the CPU; tai60b's bottom is 75%, so then a
   subtree A/B on tai60b's depth-6 nodes before deciding. Worse: keep rule 2.
+
+## Result (Nov 18): rule 9 at every depth
+
+`tai50b-r9`: one Spot c7a.16xlarge, 64 slots, `recipes/tai50b_r9.par`
+(`infra/phase1/runs/tai50b-r9/results.txt`). Its node trace is in the laptop's export, not yet in
+the folder.
+
+| | base `tai50b-261116` (rule 2 below depth 6) | `tai50b-r9` (rule 9 everywhere) | change |
+|---|---|---|---|
+| nodes | 8,216 | 6,629 | **-19.3%** |
+| CPU | 477,579 s (132.7 core-h) | 419,520 s (116.5 core-h) | **-12.2%** |
+| wall, 64 slots | 15,817 s | 15,604 s | -1% |
+| slots busy | 46.9% | 41.7% | |
+| the tree closed at | 458,821,517, found by the search | the same | |
+
+By depth (from both `results.txt`):
+
+| depths | base nodes | r9 nodes | base CPU h | r9 CPU h |
+|---|---|---|---|---|
+| 0-6 (rule 9 in both) | 2,811 | 2,811 | 86.2 | 89.5 |
+| 7-8 | 914 | 914 | 12.4 | 12.9 |
+| 9-13 | 3,286 | 1,214 | 29.6 | 8.9 |
+| 14-20 | 841 | 1,126 | 4.0 | 4.5 |
+| 21-47 | 364 | 564 | 0.4 | 0.7 |
+
+- **The same tree through depth 8, node for node**: rule 9 is the top rule in both. The top's CPU
+  differs by 3.8% on identical nodes, which is the run-to-run noise.
+- **The bottom block's CPU falls by 42%** (46.4 to 27.0 core-hours), almost all of it at depths
+  9-13 (-70%). Deeper levels have more nodes under rule 9, but they are cheap.
+- Far beyond the noise: two solves of one setting on different BLAS libraries agree to 0.1% in nodes.
+
+**Decision** (the rule above: fewer nodes and less CPU by more than 2%): rule 9 replaces rule 2 in
+the bottom block of every recipe that runs the DNN bound there. Nathan: "There is no point in
+running anything with rule 2 at the bottom, when DNN is employed." Changed Nov 18:
+- `infra/phase1/recipes/tai50b.par`, `tai60b.par`, `tho40c.par`, `tho40.par`;
+- `nug30.par`, which also gets the DNN bound at every depth (`dnn.depths = 1:28`; the record's
+  1:7 stays in `latest/PARAM/nug_deep_xbar9_all.par`);
+- `experiments/estimates/sko42/sko42.par`, `sko49/sko49.par`, `tho40/tho40.par`, `tai50b/tai50b.par`;
+- a new `experiments/estimates/wil50/wil50.par`: wil50's settings, `fullrun.par` with rule 9.
+  `fullrun.par` stays as that run's record.
+
+Experiment arms and records keep rule 2 as they ran: `tho40-ship0/32.par`, `sko42_zone25.par` (the
+laptop's zone run, in progress), everything under `experiments/*` but the current settings. Runs in
+flight are unaffected: a run keeps the params it was initialized with (`tho40-est` and `tai50b-est`
+were launched with rule 2 at the bottom).
+
+The 80-character line limit of the params reader (`latest/util.C`) turned up here: a longer comment
+on a value's line made the whole file read as "not valid". The reader now skips a line's rest at any
+length.

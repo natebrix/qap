@@ -173,7 +173,8 @@ the same frontier with many dives. Two ways to compare settings:
   today, given two params files.
 
 The hypotheses, with the evidence for each:
-- **H-rule2:** rule 9 (or the DNN lookahead) in place of rule 2 below depth 6 (1b; `tai50b-r9`
+- **H-rule2: settled Nov 18.** `tai50b-r9`: -19% nodes, -12% CPU; rule 9 now replaces rule 2 in every recipe's
+  bottom block (`experiments/rule9_bottom/README.md`). Was: rule 9 (or the DNN lookahead) in place of rule 2 below depth 6 (1b; `tai50b-r9`
   first).
 - **H-zone:** a wider `cut.zone` (1a; sko42 on the laptop).
 - **H-strong:** a DNN lookahead at heavy nodes with a cap that grows with n (1c; the tai60b
