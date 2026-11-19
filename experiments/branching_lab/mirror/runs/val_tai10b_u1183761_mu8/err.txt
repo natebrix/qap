@@ -1,0 +1,28 @@
+QAP_MIRROR: rows 0,1 mu 8 at -1,-1
+QAP_MIRROR: rows 2,3 mu 8 at -1,-1
+QAP_MIRROR: rows 4,5 mu 8 at -1,-1
+QAP_MIRROR: rows 0,5 mu 8 at -1,-1
+QAP_MIRROR: rows 1,7 mu 8 at -1,-1
+QAP_MIRROR: rows 6,8 mu 8 at -1,-1
+mirror-check: depth 3 m 7 completions 5040 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+pool retry: depth 3, pooled first solve -450900 against the inherited 1.18376e+06; without the pool -450636
+cold retry: depth 3, warm first solve -450636 against the inherited 1.18376e+06; cold -459361
+mirror: depth 3 fixes 0:4 1:9 8:1 | pair 0,1 mu 8 D0 -468.0 | qpb -590329.3324 dnn -459360.5726 cut nan fate - | Delta(x first) -224544.7 Delta(x cut) nan rowsum_err 0.045 scale 737867
+mirror-check: depth 3 m 7 completions 5040 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+pool retry: depth 3, pooled first solve 505880 against the inherited 1.18376e+06; without the pool 505880
+cold retry: depth 3, warm first solve 505880 against the inherited 1.18376e+06; cold 505678
+mirror: depth 3 fixes 0:4 1:5 8:1 | pair 0,1 mu 8 D0 -372.0 | qpb 427659.0251 dnn 505677.6579 cut 505880.0000 fate - | Delta(x first) -85006.7 Delta(x cut) -84735.0 rowsum_err 0.0075 scale 624543
+mirror-check: depth 4 m 6 completions 720 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+pool retry: depth 4, pooled first solve 539675 against the inherited 1.18376e+06; without the pool 540037
+cold retry: depth 4, warm first solve 540037 against the inherited 1.18376e+06; cold 540386
+mirror: depth 4 fixes 0:4 1:5 8:1 9:2 | pair 0,1 mu 8 D0 -342.0 | qpb 516133.3612 dnn 540385.5214 cut 540385.5214 fate - | Delta(x first) -85741.7 Delta(x cut) -84851.9 rowsum_err 0.0069 scale 953186
+mirror-check: depth 4 m 6 completions 720 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+pool retry: depth 4, pooled first solve 349264 against the inherited 1.18376e+06; without the pool 349264
+cold retry: depth 4, warm first solve 349264 against the inherited 1.18376e+06; cold 349264
+mirror: depth 4 fixes 0:4 1:5 7:2 8:1 | pair 0,1 mu 8 D0 -342.0 | pair 1,7 mu 8 D0 -2127.0 | qpb 346881.7564 dnn 349263.7891 cut 349263.7891 fate - | Delta(x first) -84735.0 Delta(x cut) -84735.0 rowsum_err 0 scale 924865
+mirror-check: depth 5 m 5 completions 120 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+cold retry: depth 5, warm first solve 349264 against the inherited 1.18376e+06; cold 349264
+mirror: depth 5 fixes 0:4 1:5 2:0 7:2 8:1 | pair 0,1 mu 8 D0 -14564.0 | pair 1,7 mu 8 D0 -9498.0 | qpb 349264.0000 dnn 349263.9240 cut 349263.9240 fate - | Delta(x first) -84735.0 Delta(x cut) -84735.0 rowsum_err 0 scale 933809
+mirror-check: depth 6 m 4 completions 24 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+cold retry: depth 6, warm first solve 168440 against the inherited 1.18376e+06; cold 168440
+mirror: depth 6 fixes 0:4 1:5 2:0 3:3 7:2 8:1 | pair 0,1 mu 8 D0 -14564.0 | pair 2,3 mu 8 D0 -24220.0 | pair 1,7 mu 8 D0 1032.0 | qpb 168440.0000 dnn 168439.9460 cut 168439.9460 fate - | Delta(x first) -84735.0 Delta(x cut) -84735.0 rowsum_err 0 scale 938646

@@ -1,0 +1,262 @@
+diff --git a/latest/bnb.C b/latest/bnb.C
+index d62cae56..e8ce9b90 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -88,6 +88,7 @@ static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
+ #include <cmath>
+ #include <string>
+ #include "settings.h"
++#include "mirror_hook.h"   // EXPERIMENT ONLY (branching_lab/mirror)
+ //#include <time.h>
+ 
+ /*
+@@ -650,6 +651,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+       // (A',B',C') are (n-k) x (n-k) matrices.
+ 
+       reduceQAP(q, qr, node);
++      std::vector<MirrorApplied> mirror_ap = mirror_apply(q, qr, node);   // EXPERIMENT ONLY
++      double mirror_d_first = NAN, mirror_d_cut = NAN, mirror_rs_first = NAN, mirror_scale = NAN;
+ #ifdef HAVE_EVB3
+       if(param->which_bound == EVB3_BND) {
+ 	use_EVB3(qr);
+@@ -854,6 +857,22 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	  // with nu > 0 at its final mu_D. Either side; off by default
+ 	  static const int pool_cp = (int)setting_i("pool.cp");
+ 	  bool pool_cp_ran = false;
++	  // EXPERIMENT ONLY (branching_lab/mirror): QAP_MIRROR_AUTO picks the pair(s) and mu from the warm start's Y
++	  if (sp && !sp->Y.empty()) {
++	    std::vector<MirrorApplied> au = mirror_auto(q, qr, node, sp->Y, (inc - DELTA) - node.bound);
++	    if (!au.empty() && getenv("QAP_MIRROR_CHECK")) {   // re-check the reduced objective, as mirror_apply does
++	      std::vector<int> loc(m); for (int x = 0; x < m; x++) loc[x] = x; std::mt19937 rng(7); double worst = 0;
++	      std::vector<int> fr, fc; for (int a2 = 0; a2 < n; a2++) { if (node.p[a2] == NONE) fr.push_back(a2); if (node.pinv[a2] == NONE) fc.push_back(a2); }
++	      for (int t = 0; t < 200; t++) { std::shuffle(loc.begin(), loc.end(), rng);
++	        std::vector<int> pp(n); for (int a2 = 0; a2 < n; a2++) pp[a2] = node.p[a2]; for (int x = 0; x < m; x++) pp[fr[x]] = fc[loc[x]];
++	        double want = mirror_full_cost(q, pp);
++	        for (const auto &ap : mirror_ap) if (ap.pr.mu != 0) { auto p2 = pp; std::swap(p2[ap.pr.i], p2[ap.pr.k]); want += ap.pr.mu * (mirror_full_cost(q, pp) - mirror_full_cost(q, p2)); }
++	        for (const auto &ap : au) { auto p2 = pp; std::swap(p2[ap.pr.i], p2[ap.pr.k]); want += ap.pr.mu * (mirror_full_cost(q, pp) - mirror_full_cost(q, p2)); }
++	        worst = std::max(worst, fabs(QAPobjective(qr->A, qr->B, qr->C, qr->shift, (Index *)loc.data(), m) - want)); }
++	      fprintf(stderr, "mirror-check (auto): depth %d m %d completions 200 max|reduced - (cost + mu Delta)| %.6g\n", node.depth, m, worst);
++	    }
++	    mirror_ap.insert(mirror_ap.end(), au.begin(), au.end());
++	  }
+ 	  DNNResult r;
+ 	  if (have_pool) {
+ 	    DNNCutParams pc;
+@@ -915,6 +934,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	  bool cut_ran = false, cut_cp = false;
+ 	  dnn_ran = true;
+ 	  dnn_lb = r.lb;
++	  if (!mirror_ap.empty() && save && save->m == m) {
++	    mirror_d_first = mirror_delta_at(mirror_ap[0], save->Y, m); mirror_rs_first = mirror_rowsum_err(save->Y, m); mirror_scale = save->scale; }
+ 	  stats->anotherDNN(node.depth, r.status == DNN_FATHOMED, r.status == DNN_HOPELESS,
+ 	                    r.iterations, r.cpu);
+ 	  node.bound = std::max(node.bound, r.lb);
+@@ -1072,6 +1093,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	                             : dnn_cut_rounds(qr->A, qr->B, qr->C, qr->shift, inc - DELTA, dp,
+ 	                                              free_orig, n, cp, wc, r.lb, r.primal);
+ 	    cut_ran = true; cr_trace = cr; cut_lb = cr.best_lb;
++	    if (!mirror_ap.empty() && wc->m == m) mirror_d_cut = mirror_delta_at(mirror_ap[0], wc->Y, m);
+ 	    if (dnn_pool && cr.status != DNN_FATHOMED && !pool_out.cuts.empty() && wc->m == m) {
+ 	      dnn_pool_out = dnn_pool_encode(pool_out);
+ 	      cut_state = wc;
+@@ -1288,6 +1310,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	else
+ 	  stats->anotherFathom(node.depth);
+       }
++      if (!mirror_ap.empty()) {
++	fprintf(stderr, "mirror: depth %d fixes", node.depth);
++	for (int a2 = 0; a2 < n; a2++) if (node.p[a2] != NONE) fprintf(stderr, "%c%d:%d", a2 == 0 ? ' ' : ' ', a2, (int)node.p[a2]);
++	for (const auto &ap : mirror_ap) fprintf(stderr, " | pair %d,%d mu %.10g D0 %.1f", ap.pr.i, ap.pr.k, ap.pr.mu, ap.D0);
++	fprintf(stderr, " | qpb %.4f dnn %.4f cut %.4f fate %c | Delta(x first) %.1f Delta(x cut) %.1f rowsum_err %.2g scale %.6g\n",
++		bound, dnn_lb, cut_lb, dnn_fate ? dnn_fate : '-', mirror_d_first, mirror_d_cut, mirror_rs_first, mirror_scale);
++      }
+       if (trace) {
+ 	bool row;
+ 	int line;
+--- /dev/null	2026-11-18 23:20:57.323289529 +0000
++++ b/latest/mirror_hook.h
+@@ -0,0 +1,184 @@
++// mirror_hook.h: EXPERIMENT ONLY (experiments/branching_lab/mirror). Not a production change.
++//
++// QAP_MIRROR="i,k,mu[,a,b];..." : at a node where rows i and k are both fixed (and, with a,b given,
++// p(i) = a and p(k) = b), add mu * Delta_ik to the node's reduced objective before any bound:
++//   Delta_ik(p) = cost(p) - cost(p with the columns of i and k exchanged) = D0 + sum_{free l} D_l(p(l))
++//   D_l(c) = (A[i][l]-A[k][l]) (B[a][c]-B[b][c]) + (A[l][i]-A[l][k]) (B[c][a]-B[c][b])
++//   D0     = (A[i][i]-A[k][k]) (B[a][a]-B[b][b]) + (A[i][k]-A[k][i]) (B[a][b]-B[b][a])
++//            + C[i][a] + C[k][b] - C[i][b] - C[k][a] + sum_{fixed l != i,k} D_l(p(l))
++// mu * D_l(c) goes into the reduced linear term qr->C, mu * D0 into qr->shift (both rounded down,
++// LowerSum). Every bound then bounds min over the node of cost + sum mu Delta, and a node fathomed
++// on it holds no completion that is both below the cutoff and exchange-optimal for the pair.
++// mu = 0 changes nothing (the pair is only logged).
++// QAP_MIRROR_CHECK=1: at every node the hook applies to, compare the reduced objective with
++//   cost(p) + sum mu Delta(p) computed from the full problem, on every completion (m <= 8) or 500
++//   random ones; the largest difference goes to stderr ("mirror-check").
++// stderr "mirror:" lines: the node, its pairs, and Delta at the first solve's and the cut phase's
++//   final primal marginals (x_lc = Y_0,(lc)), with the DNN bounds.
++#ifndef MIRROR_HOOK_H
++#define MIRROR_HOOK_H
++#include <vector>
++#include <string>
++#include <random>
++#include <algorithm>
++#include <cstdio>
++#include <cstdlib>
++
++struct MirrorPair { int i, k, a, b; double mu; };
++struct MirrorApplied { MirrorPair pr; double D0; std::vector<double> D; };   // D: m x m local
++
++static const std::vector<MirrorPair> &mirror_pairs() {
++  static std::vector<MirrorPair> v = [] {
++    std::vector<MirrorPair> out;
++    const char *e = getenv("QAP_MIRROR");
++    if (!e || !*e) return out;
++    std::string s = e;
++    size_t pos = 0;
++    while (pos < s.size()) {
++      size_t end = s.find(';', pos); if (end == std::string::npos) end = s.size();
++      MirrorPair q; q.a = q.b = -1;
++      int got = sscanf(s.substr(pos, end - pos).c_str(), "%d,%d,%lf,%d,%d", &q.i, &q.k, &q.mu, &q.a, &q.b);
++      if (got != 3 && got != 5) { fprintf(stderr, "QAP_MIRROR: bad entry '%s'\n", s.substr(pos, end - pos).c_str()); exit(2); }
++      out.push_back(q);
++      pos = end + 1;
++    }
++    for (auto &q : out) fprintf(stderr, "QAP_MIRROR: rows %d,%d mu %.10g at %d,%d\n", q.i, q.k, q.mu, q.a, q.b);
++    return out;
++  }();
++  return v;
++}
++
++static double mirror_full_cost(QAP *q, const std::vector<int> &p) {
++  const int n = q->A->m; long double s = 0;
++  for (int u = 0; u < n; u++) { s += q->C->me[u][p[u]]; for (int v = 0; v < n; v++) s += (long double)q->A->me[u][v] * q->B->me[p[u]][p[v]]; }
++  return (double)s;
++}
++
++// returns the pairs applied (mu != 0 ones modify qr), with their local D matrices for logging
++static std::vector<MirrorApplied> mirror_apply(QAP *q, QAP *qr, const QAPAssignment &node) {
++  std::vector<MirrorApplied> out;
++  const auto &prs = mirror_pairs();
++  if (prs.empty()) return out;
++  const int n = node.n, m = n - node.nfix;
++  if (m < 2) return out;
++  MAT *A = q->A, *B = q->B, *C = q->C;
++  std::vector<int> fr, fc;
++  for (int r = 0; r < n; r++) if (node.p[r] == NONE) fr.push_back(r);
++  for (int c = 0; c < n; c++) if (node.pinv[c] == NONE) fc.push_back(c);
++  for (const auto &pr : prs) {
++    const int i = pr.i, k = pr.k;
++    if (node.p[i] == NONE || node.p[k] == NONE) continue;
++    const int a = node.p[i], b = node.p[k];
++    if (pr.a >= 0 && (a != pr.a || b != pr.b)) continue;
++    MirrorApplied ap; ap.pr = pr; ap.D.assign((size_t)m * m, 0.0);
++    auto Dl = [&](int l, int c) {
++      return (A->me[i][l] - A->me[k][l]) * (B->me[a][c] - B->me[b][c]) + (A->me[l][i] - A->me[l][k]) * (B->me[c][a] - B->me[c][b]); };
++    long double d0 = (A->me[i][i] - A->me[k][k]) * (B->me[a][a] - B->me[b][b]) + (A->me[i][k] - A->me[k][i]) * (B->me[a][b] - B->me[b][a])
++      + C->me[i][a] + C->me[k][b] - C->me[i][b] - C->me[k][a];
++    for (int l = 0; l < n; l++) if (node.p[l] != NONE && l != i && l != k) d0 += Dl(l, node.p[l]);
++    ap.D0 = (double)d0;
++    for (int x = 0; x < m; x++) for (int y = 0; y < m; y++) ap.D[(size_t)x * m + y] = Dl(fr[x], fc[y]);
++    if (pr.mu != 0) {
++      for (int x = 0; x < m; x++) for (int y = 0; y < m; y++) {
++        LowerSum c; c.add(qr->C->me[x][y]); c.add_product(pr.mu, ap.D[(size_t)x * m + y]); qr->C->me[x][y] = c.lower(); }
++      LowerSum s; s.add(qr->shift); s.add_product(pr.mu, ap.D0); qr->shift = s.lower();
++    }
++    out.push_back(ap);
++  }
++  static const int check = getenv("QAP_MIRROR_CHECK") ? atoi(getenv("QAP_MIRROR_CHECK")) : 0;
++  if (check && !out.empty()) {
++    std::vector<int> loc(m); for (int x = 0; x < m; x++) loc[x] = x;
++    std::mt19937 rng(12345);
++    double worst = 0; long cnt = 0; double worst_formula = 0;
++    std::vector<int> p(n);
++    auto one = [&]() {
++      for (int r = 0; r < n; r++) p[r] = node.p[r];
++      for (int x = 0; x < m; x++) p[fr[x]] = fc[loc[x]];
++      double red = QAPobjective(qr->A, qr->B, qr->C, qr->shift, (Index *)loc.data(), m);
++      double full = mirror_full_cost(q, p), want = full;
++      for (const auto &ap : out) {
++        std::vector<int> p2 = p; std::swap(p2[ap.pr.i], p2[ap.pr.k]);
++        double delta = full - mirror_full_cost(q, p2);
++        want += ap.pr.mu * delta;
++        double f = ap.D0; for (int x = 0; x < m; x++) f += ap.D[(size_t)x * m + loc[x]];
++        worst_formula = std::max(worst_formula, fabs(f - delta));
++      }
++      worst = std::max(worst, fabs(red - want)); cnt++;
++    };
++    if (m <= 8) { do one(); while (std::next_permutation(loc.begin(), loc.end())); }
++    else for (int t = 0; t < 500; t++) { std::shuffle(loc.begin(), loc.end(), rng); one(); }
++    fprintf(stderr, "mirror-check: depth %d m %d completions %ld max|reduced - (cost + mu Delta)| %.6g max|formula - Delta| %.6g\n",
++            node.depth, m, cnt, worst, worst_formula);
++  }
++  return out;
++}
++
++// Delta at the marginals x_lc = Y[0][1 + l*m + c] of a final primal iterate
++static double mirror_delta_at(const MirrorApplied &ap, const std::vector<double> &Y, int m) {
++  const int n1 = m * m + 1;
++  if ((int)Y.size() < n1) return NAN;
++  long double s = ap.D0;
++  for (int t = 0; t < m * m; t++) s += ap.D[t] * Y[1 + t];
++  return (double)s;
++}
++static double mirror_rowsum_err(const std::vector<double> &Y, int m) {
++  const int n1 = m * m + 1; if ((int)Y.size() < n1) return NAN;
++  double w = 0;
++  for (int x = 0; x < m; x++) { double s = 0; for (int y = 0; y < m; y++) s += Y[1 + x * m + y]; w = std::max(w, fabs(s - 1)); }
++  return w;
++}
++#endif
++
++// QAP_MIRROR_AUTO="F[:CAP[:THR[:K]]]" (EXPERIMENT ONLY): at a DNN node with a warm start that carries Y (the parent's
++// final Y conditioned on the node's new fix), for every pair of fixed rows compute Delta_ik at the warm start's
++// marginals; the K pairs (default 1) with the largest values above THR (default 0) get
++//   mu = min(CAP, F * gap / Delta(x_warm)) / K,  gap = cutoff - node.bound (the bound the node starts with),
++// rounded down to a multiple of 1/64 (so every coefficient stays exact). Applied after QPB, before the first DNN solve.
++static bool mirror_auto_params(double &F, double &CAP, double &THR, int &K) {
++  static double f = 0, cap = 64, thr = 0; static int k = 1; static int done = 0;
++  if (!done) { done = 1; const char *e = getenv("QAP_MIRROR_AUTO");
++    if (e && *e) { sscanf(e, "%lf:%lf:%lf:%d", &f, &cap, &thr, &k);
++      fprintf(stderr, "QAP_MIRROR_AUTO: F %g CAP %g THR %g K %d\n", f, cap, thr, k); } }
++  F = f; CAP = cap; THR = thr; K = k; return f > 0;
++}
++static std::vector<MirrorApplied> mirror_auto(QAP *q, QAP *qr, const QAPAssignment &node, const std::vector<double> &Ywarm, double gap) {
++  std::vector<MirrorApplied> out;
++  double F, CAP, THR; int K;
++  if (!mirror_auto_params(F, CAP, THR, K) || node.nfix < 2 || gap <= 0) return out;
++  const int n = node.n, m = n - node.nfix;
++  if ((int)Ywarm.size() < m * m + 1) return out;
++  MAT *A = q->A, *B = q->B, *C = q->C;
++  std::vector<int> fr, fc, fx;
++  for (int r = 0; r < n; r++) if (node.p[r] == NONE) fr.push_back(r); else fx.push_back(r);
++  for (int c = 0; c < n; c++) if (node.pinv[c] == NONE) fc.push_back(c);
++  std::vector<std::pair<double, MirrorApplied>> cand;
++  for (size_t u = 0; u < fx.size(); u++) for (size_t v = u + 1; v < fx.size(); v++) {
++    const int i = fx[u], k = fx[v], a = node.p[i], b = node.p[k];
++    MirrorApplied ap; ap.pr = {i, k, a, b, 0.0}; ap.D.assign((size_t)m * m, 0.0);
++    auto Dl = [&](int l, int c) {
++      return (A->me[i][l] - A->me[k][l]) * (B->me[a][c] - B->me[b][c]) + (A->me[l][i] - A->me[l][k]) * (B->me[c][a] - B->me[c][b]); };
++    long double d0 = (A->me[i][i] - A->me[k][k]) * (B->me[a][a] - B->me[b][b]) + (A->me[i][k] - A->me[k][i]) * (B->me[a][b] - B->me[b][a])
++      + C->me[i][a] + C->me[k][b] - C->me[i][b] - C->me[k][a];
++    for (int l : fx) if (l != i && l != k) d0 += Dl(l, node.p[l]);
++    ap.D0 = (double)d0;
++    for (int x = 0; x < m; x++) for (int y = 0; y < m; y++) ap.D[(size_t)x * m + y] = Dl(fr[x], fc[y]);
++    const double dw = mirror_delta_at(ap, Ywarm, m);
++    if (dw > THR) cand.push_back({dw, ap});
++  }
++  std::sort(cand.begin(), cand.end(), [](const std::pair<double, MirrorApplied> &x, const std::pair<double, MirrorApplied> &y) { return x.first > y.first; });
++  if ((int)cand.size() > K) cand.resize(K);
++  const int kk = cand.size();
++  for (auto &cd : cand) {
++    MirrorApplied ap = cd.second;
++    double mu = std::min(CAP, F * gap / cd.first) / kk;
++    mu = floor(mu * 64) / 64;
++    fprintf(stderr, "mirror-auto: depth %d pair %d,%d (at %d,%d) Delta(x warm) %.1f gap %.1f mu %.6g\n", node.depth, ap.pr.i, ap.pr.k, ap.pr.a, ap.pr.b, cd.first, gap, mu);
++    if (mu <= 0) continue;
++    ap.pr.mu = mu;
++    for (int x = 0; x < m; x++) for (int y = 0; y < m; y++) {
++      LowerSum c; c.add(qr->C->me[x][y]); c.add_product(mu, ap.D[(size_t)x * m + y]); qr->C->me[x][y] = c.lower(); }
++    LowerSum s; s.add(qr->shift); s.add_product(mu, ap.D0); qr->shift = s.lower();
++    out.push_back(ap);
++  }
++  return out;
++}

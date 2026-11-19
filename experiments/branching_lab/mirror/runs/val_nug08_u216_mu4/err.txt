@@ -1,0 +1,12 @@
+QAP_MIRROR: rows 0,1 mu 4 at -1,-1
+QAP_MIRROR: rows 2,5 mu 4 at -1,-1
+QAP_MIRROR: rows 3,6 mu 4 at -1,-1
+QAP_MIRROR: rows 1,4 mu 4 at -1,-1
+QAP_MIRROR: rows 0,7 mu 4 at -1,-1
+mirror-check: depth 3 m 5 completions 120 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+pool retry: depth 3, pooled first solve 30 against the inherited 214; without the pool 30
+cold retry: depth 3, warm first solve 30 against the inherited 214; cold 30
+mirror: depth 3 fixes 0:2 4:0 7:6 | pair 0,7 mu 4 D0 -2.0 | qpb 29.9915 dnn 30.0000 cut 30.0000 fate - | Delta(x first) -48.0 Delta(x cut) -48.0 rowsum_err 0 scale 63
+mirror-check: depth 4 m 4 completions 24 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+cold retry: depth 4, warm first solve 102 against the inherited 214; cold 102
+mirror: depth 4 fixes 0:2 3:1 4:0 7:6 | pair 0,7 mu 4 D0 10.0 | qpb 102.0000 dnn 102.0000 cut 102.0000 fate - | Delta(x first) -28.0 Delta(x cut) -28.0 rowsum_err 0 scale 64

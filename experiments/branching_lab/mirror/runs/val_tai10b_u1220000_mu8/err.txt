@@ -1,0 +1,20 @@
+QAP_MIRROR: rows 0,1 mu 8 at -1,-1
+QAP_MIRROR: rows 2,3 mu 8 at -1,-1
+QAP_MIRROR: rows 4,5 mu 8 at -1,-1
+QAP_MIRROR: rows 0,5 mu 8 at -1,-1
+QAP_MIRROR: rows 1,7 mu 8 at -1,-1
+QAP_MIRROR: rows 6,8 mu 8 at -1,-1
+mirror-check: depth 4 m 6 completions 720 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+pool retry: depth 4, pooled first solve 505880 against the inherited 1.18376e+06; without the pool 505880
+cold retry: depth 4, warm first solve 505880 against the inherited 1.18376e+06; cold 505880
+mirror: depth 4 fixes 0:4 1:5 8:1 9:9 | pair 0,1 mu 8 D0 -70797.0 | qpb 454171.1794 dnn 505879.8478 cut 505880.0000 fate - | Delta(x first) -85450.4 Delta(x cut) -84735.0 rowsum_err 0.0075 scale 328596
+mirror-check: depth 5 m 5 completions 120 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+pool retry: depth 5, pooled first solve 349264 against the inherited 1.18376e+06; without the pool 349264
+cold retry: depth 5, warm first solve 349264 against the inherited 1.18376e+06; cold 349264
+mirror: depth 5 fixes 0:4 1:5 7:2 8:1 9:9 | pair 0,1 mu 8 D0 -70767.0 | pair 1,7 mu 8 D0 4545.0 | qpb 342402.9749 dnn 349263.9190 cut 349263.9190 fate - | Delta(x first) -84735.0 Delta(x cut) -84735.0 rowsum_err 0 scale 282652
+mirror-check: depth 6 m 4 completions 24 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+cold retry: depth 6, warm first solve 698514 against the inherited 1.18789e+06; cold 698514
+mirror: depth 6 fixes 0:4 1:5 2:8 7:2 8:1 9:9 | pair 0,1 mu 8 D0 -73510.0 | pair 1,7 mu 8 D0 723.0 | qpb 698228.7753 dnn 698513.9125 cut 698514.0000 fate - | Delta(x first) -63077.8 Delta(x cut) -63682.0 rowsum_err 0.16 scale 285408
+mirror-check: depth 6 m 4 completions 24 max|reduced - (cost + mu Delta)| 0 max|formula - Delta| 0
+cold retry: depth 6, warm first solve 349264 against the inherited 1.18376e+06; cold 349264
+mirror: depth 6 fixes 0:4 1:5 2:0 7:2 8:1 9:9 | pair 0,1 mu 8 D0 -84989.0 | pair 1,7 mu 8 D0 -2826.0 | qpb 349264.0000 dnn 349263.9893 cut 349263.9893 fate - | Delta(x first) -84735.0 Delta(x cut) -84735.0 rowsum_err 0 scale 301528

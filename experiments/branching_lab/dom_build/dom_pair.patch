@@ -1,0 +1,1194 @@
+diff --git a/RUNNING.md b/RUNNING.md
+index 54e7a584..50cb4330 100644
+--- a/RUNNING.md
++++ b/RUNNING.md
+@@ -92,7 +92,7 @@ sees the same value. Where a setting lives follows from its class:
+ 
+ - **policy** (changes the search): a key in the params file's `[settings]`
+   section, after the positional blocks ("Params file format" below). The
+-  families are `dnn.*`, `cut.*`, `pool.*`, `ship.*`, `branch.*`, `est.*`,
++  families are `dnn.*`, `cut.*`, `pool.*`, `ship.*`, `branch.*`, `dom.*`, `est.*`,
+   `fw.*`. The flags `-x` and `-w` are aliases of `dnn.depths`, `dnn.maxgap`,
+   `dnn.giveup`, `dnn.warm` and `fw.patience`, and override the file.
+ - **experiment** (an A/B switch in flight): an environment variable (`DNN_*`).
+@@ -214,6 +214,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
+ | `branch.weighted` | par key | integer | `1` | 0..1 | policy | rules 1, 3 and 4: weight the U sums by the row's gap fraction |
+ | `branch.weight` | par key | number | `0.5` | 0..1 | policy | the weight of that fraction |
+ | `branch.xbar_lines` | par key | integer | `1` | 1..64 | policy | rule 9: candidate rows and columns per side from the DNN marginals |
++| `dom.pair` | par key | integer | `0` | 0..1 | policy | 1: drop a node, when popped and before any bound, if exchanging two of its fixed rows makes every completion strictly cheaper (pair exchange dominance, dominance.h; trace outcome X) |
+ | `fw.patience` | par key or `-w` | integer | `0` | 0..100000000 | policy | -w: Frank-Wolfe patience at lookahead/strong levels (0: off) |
+ | `est.xbar` | par key | number | `0` | 0..inf | policy | estimator: child weights x_ij^a from the DNN marginals (0: QPB scores) |
+ | `est.xbar_mix` | par key | number | `0.1` | 0..1 | policy | estimator: uniform share mixed into the x_ij^a weights |
+@@ -230,7 +231,8 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
+ | `QAP_EST_BUDGET` | environment | number | `0` | 0..inf | run | estimator, survivor dives: stop starting dives after this many wall seconds, counted from the end of the strata's setup (0: estimate.par's trials) |
+ | `QAP_EST_MIN_DIVES` | environment | integer | `1` | 1..1000000 | run | estimator, survivor dives: every stratum with children that branch gets this many dives whatever the budget (then QAP_EST_BUDGET) |
+ | `QAP_EST_SAMPLE_DEPTHS` | environment | text | unset | text | run | estimator, survivor dives: D:F,D:F,... a start node at depth D is a stratum with probability F, whatever QAP_EST_SAMPLE (unset: QAP_EST_SAMPLE for every depth) |
+-| `QAP_EST_WARM_KEEP` | environment | integer | `8` | 0..1000000 | run | estimator, survivor dives: the strata whose survivors keep their parent's DNN state (the rest restart cold) |
++| `QAP_EST_WARM_KEEP` | environment | integer | `8` | 0..1000000 | run | estimator: the strata whose children keep their parent's DNN state in memory (the rest spill it to a file, QAP_EST_SPILL_MB) |
++| `QAP_EST_SPILL_MB` | environment | number | `1000` | 0..1e+09 | run | estimator: MB of spilled strata states a process may write beside QAP_EST_DIVES (past it a stratum's children start cold, without the parent's pool) |
+ | `QAP_EST_DIVES` | environment | text | unset | text | run | estimator, survivor dives: append a JSON line per stratum and per dive to this file |
+ | `QAP_DNN_WARM_DIR` | environment | text | unset | text | run | parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline) |
+ | `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error |
+diff --git a/experiments/estimates/sko42/settings.golden b/experiments/estimates/sko42/settings.golden
+index 005eedd2..82105e20 100644
+--- a/experiments/estimates/sko42/settings.golden
++++ b/experiments/estimates/sko42/settings.golden
+@@ -1,4 +1,4 @@
+-settings 91 hash f0f67bfef2d59e5b
++settings 94 hash a3345383a24803fe
+ setting dnn.depths 1:40 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+@@ -79,6 +80,7 @@ setting QAP_EST_BUDGET 0 default run
+ setting QAP_EST_MIN_DIVES 1 default run
+ setting QAP_EST_SAMPLE_DEPTHS "" default run
+ setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
+ setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+@@ -87,5 +89,6 @@ setting QAP_DNN_TRACE_HIST 0 default diagnostic
+ setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
+ setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/sko42/tune/A.golden b/experiments/estimates/sko42/tune/A.golden
+index 3e72f9e4..c0cc5ce7 100644
+--- a/experiments/estimates/sko42/tune/A.golden
++++ b/experiments/estimates/sko42/tune/A.golden
+@@ -1,8 +1,9 @@
+-settings 65 hash 1af75c3f394a703f
++settings 94 hash 2c163c46de03fdf5
+ setting dnn.depths 1:7 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 200 par policy
+ setting dnn.warm 1 par policy
++setting dnn.giveup_warm 0 default policy
+ setting dnn.ext 20 par policy
+ setting dnn.gamma1 1.0 par policy
+ setting dnn.gamma 1.0 par policy
+@@ -15,7 +16,11 @@ setting dnn.beta 0.21 par policy
+ setting dnn.refresh 120 par policy
+ setting dnn.warm_y 2 par policy
+ setting dnn.beta_sched w=0.36 par policy
++setting dnn.dscale 0 default policy
++setting dnn.dscale0 1 default policy
++setting dnn.dscale_until 0 default policy
+ setting dnn.cross 2 par policy
++setting dnn.cross_first 0 default policy
+ setting dnn.lazycert 1 par policy
+ setting dnn.amx 0 default policy
+ setting ship.bits 64 par policy
+@@ -23,6 +28,8 @@ setting cut.zone 0 default policy
+ setting cut.maxdepth 1073741824 default policy
+ setting cut.side 0 default policy
+ setting cut.grid "" default policy
++setting cut.regions "" default policy
++setting cut.regions.hash "" default policy
+ setting cut.rounds 12 default policy
+ setting cut.iters 300 default policy
+ setting cut.k 1000 default policy
+@@ -39,27 +46,49 @@ setting cut.warmy 0 default policy
+ setting cut.damp1 "" default policy
+ setting cut.equip "" default policy
+ setting cut.cp "" default policy
++setting cut.giveup "" default policy
++setting cut.giveup_depth 0 default policy
+ setting cut.cp_iters 0 default policy
++setting cut.handover "" default policy
+ setting cut.cp_sweeps 1:1 default policy
++setting cut.cp_extrap "" default policy
++setting cut.cp_wc_gap 0 default policy
++setting cut.cp_wc_deficit 0 default policy
+ setting cut.cp_lazycert 0 default policy
++setting cut.xbar 0 default policy
+ setting pool.on 0 default policy
++setting dnn.retry 0 default policy
+ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+ setting par.hash ef779a194543773c par policy
+ setting DNN_R32 0 default experiment
+-setting DNN_ADMM_CROSS_FIRST 0 default experiment
+ setting DNN_FUSE 0 default experiment
+ setting DNN_ADMM_WARM_BETA "" default experiment
+ setting DNN_ADMM_WARM_DAMP "" default experiment
+ setting QAP_EST_SEED "" default run
++setting QAP_EST_SURV "" default run
++setting QAP_EST_SAMPLE 1 default run
++setting QAP_EST_ALLOC auto default run
++setting QAP_EST_SAMPLE_W unif default run
++setting QAP_EST_BUDGET 0 default run
++setting QAP_EST_MIN_DIVES 1 default run
++setting QAP_EST_SAMPLE_DEPTHS "" default run
++setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
++setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+ setting QAP_DNN_TRACE "" default diagnostic
++setting QAP_DNN_TRACE_HIST 0 default diagnostic
++setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
++setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/sko42/tune/B.golden b/experiments/estimates/sko42/tune/B.golden
+index be07a346..4a0ef9c3 100644
+--- a/experiments/estimates/sko42/tune/B.golden
++++ b/experiments/estimates/sko42/tune/B.golden
+@@ -1,8 +1,9 @@
+-settings 65 hash d279ca884789335d
++settings 94 hash 708c82882f07ae37
+ setting dnn.depths 1:4 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+ setting dnn.warm 1 par policy
++setting dnn.giveup_warm 0 default policy
+ setting dnn.ext 20 par policy
+ setting dnn.gamma1 1.0 par policy
+ setting dnn.gamma 1.0 par policy
+@@ -15,7 +16,11 @@ setting dnn.beta 0.3 par policy
+ setting dnn.refresh 40 par policy
+ setting dnn.warm_y 2 par policy
+ setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=0.7 par policy
++setting dnn.dscale 0 default policy
++setting dnn.dscale0 1 default policy
++setting dnn.dscale_until 0 default policy
+ setting dnn.cross 2 par policy
++setting dnn.cross_first 0 default policy
+ setting dnn.lazycert 1 par policy
+ setting dnn.amx 1 par policy
+ setting ship.bits 32 par policy
+@@ -23,6 +28,8 @@ setting cut.zone 0.0075 par policy
+ setting cut.maxdepth 1073741824 default policy
+ setting cut.side 1 par policy
+ setting cut.grid 6:7 par policy
++setting cut.regions "" default policy
++setting cut.regions.hash "" default policy
+ setting cut.rounds 12 par policy
+ setting cut.iters 200 par policy
+ setting cut.k 1000 default policy
+@@ -39,27 +46,49 @@ setting cut.warmy 1 par policy
+ setting cut.damp1 0.3 par policy
+ setting cut.equip "" default policy
+ setting cut.cp 100:1000 par policy
++setting cut.giveup "" default policy
++setting cut.giveup_depth 0 default policy
+ setting cut.cp_iters 0 default policy
++setting cut.handover "" default policy
+ setting cut.cp_sweeps 1:1 default policy
++setting cut.cp_extrap "" default policy
++setting cut.cp_wc_gap 0 default policy
++setting cut.cp_wc_deficit 0 default policy
+ setting cut.cp_lazycert 0 default policy
++setting cut.xbar 0 default policy
+ setting pool.on 1 par policy
++setting dnn.retry 0 default policy
+ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+ setting par.hash 62ffcd8f596e67a6 par policy
+ setting DNN_R32 0 default experiment
+-setting DNN_ADMM_CROSS_FIRST 0 default experiment
+ setting DNN_FUSE 0 default experiment
+ setting DNN_ADMM_WARM_BETA "" default experiment
+ setting DNN_ADMM_WARM_DAMP "" default experiment
+ setting QAP_EST_SEED "" default run
++setting QAP_EST_SURV "" default run
++setting QAP_EST_SAMPLE 1 default run
++setting QAP_EST_ALLOC auto default run
++setting QAP_EST_SAMPLE_W unif default run
++setting QAP_EST_BUDGET 0 default run
++setting QAP_EST_MIN_DIVES 1 default run
++setting QAP_EST_SAMPLE_DEPTHS "" default run
++setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
++setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+ setting QAP_DNN_TRACE "" default diagnostic
++setting QAP_DNN_TRACE_HIST 0 default diagnostic
++setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
++setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/sko42/tune/C.golden b/experiments/estimates/sko42/tune/C.golden
+index f53fd2b3..9e76498d 100644
+--- a/experiments/estimates/sko42/tune/C.golden
++++ b/experiments/estimates/sko42/tune/C.golden
+@@ -1,8 +1,9 @@
+-settings 65 hash cd0d65a61a970547
++settings 94 hash d83aa425dfd799ff
+ setting dnn.depths 1:4 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+ setting dnn.warm 1 par policy
++setting dnn.giveup_warm 0 default policy
+ setting dnn.ext 20 par policy
+ setting dnn.gamma1 1.0 par policy
+ setting dnn.gamma 1.0 par policy
+@@ -15,7 +16,11 @@ setting dnn.beta 0.3 par policy
+ setting dnn.refresh 40 par policy
+ setting dnn.warm_y 2 par policy
+ setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=0.7 par policy
++setting dnn.dscale 0 default policy
++setting dnn.dscale0 1 default policy
++setting dnn.dscale_until 0 default policy
+ setting dnn.cross 2 par policy
++setting dnn.cross_first 0 default policy
+ setting dnn.lazycert 1 par policy
+ setting dnn.amx 1 par policy
+ setting ship.bits 32 par policy
+@@ -23,6 +28,8 @@ setting cut.zone 0.010 par policy
+ setting cut.maxdepth 1073741824 default policy
+ setting cut.side 1 par policy
+ setting cut.grid 6:7 par policy
++setting cut.regions "" default policy
++setting cut.regions.hash "" default policy
+ setting cut.rounds 12 par policy
+ setting cut.iters 200 par policy
+ setting cut.k 1000 default policy
+@@ -39,27 +46,49 @@ setting cut.warmy 1 par policy
+ setting cut.damp1 0.3 par policy
+ setting cut.equip "" default policy
+ setting cut.cp 100:1000 par policy
++setting cut.giveup "" default policy
++setting cut.giveup_depth 0 default policy
+ setting cut.cp_iters 0 default policy
++setting cut.handover "" default policy
+ setting cut.cp_sweeps 1:1 default policy
++setting cut.cp_extrap "" default policy
++setting cut.cp_wc_gap 0 default policy
++setting cut.cp_wc_deficit 0 default policy
+ setting cut.cp_lazycert 0 default policy
++setting cut.xbar 0 default policy
+ setting pool.on 1 par policy
++setting dnn.retry 0 default policy
+ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+ setting par.hash ee7aa748730055da par policy
+ setting DNN_R32 0 default experiment
+-setting DNN_ADMM_CROSS_FIRST 0 default experiment
+ setting DNN_FUSE 0 default experiment
+ setting DNN_ADMM_WARM_BETA "" default experiment
+ setting DNN_ADMM_WARM_DAMP "" default experiment
+ setting QAP_EST_SEED "" default run
++setting QAP_EST_SURV "" default run
++setting QAP_EST_SAMPLE 1 default run
++setting QAP_EST_ALLOC auto default run
++setting QAP_EST_SAMPLE_W unif default run
++setting QAP_EST_BUDGET 0 default run
++setting QAP_EST_MIN_DIVES 1 default run
++setting QAP_EST_SAMPLE_DEPTHS "" default run
++setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
++setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+ setting QAP_DNN_TRACE "" default diagnostic
++setting QAP_DNN_TRACE_HIST 0 default diagnostic
++setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
++setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/sko49/settings.golden b/experiments/estimates/sko49/settings.golden
+index 09344bb5..2422f959 100644
+--- a/experiments/estimates/sko49/settings.golden
++++ b/experiments/estimates/sko49/settings.golden
+@@ -1,4 +1,4 @@
+-settings 91 hash 5a80a99fbf13fbdd
++settings 94 hash f1497e1a5ffd4d70
+ setting dnn.depths 1:47 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+@@ -79,6 +80,7 @@ setting QAP_EST_BUDGET 0 default run
+ setting QAP_EST_MIN_DIVES 1 default run
+ setting QAP_EST_SAMPLE_DEPTHS "" default run
+ setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
+ setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+@@ -87,5 +89,6 @@ setting QAP_DNN_TRACE_HIST 0 default diagnostic
+ setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 20 env diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
+ setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/sko49/tune/C.golden b/experiments/estimates/sko49/tune/C.golden
+index 504c7771..46d54fec 100644
+--- a/experiments/estimates/sko49/tune/C.golden
++++ b/experiments/estimates/sko49/tune/C.golden
+@@ -1,8 +1,9 @@
+-settings 65 hash fe7523f59cf88405
++settings 94 hash 69401f2bd665dd43
+ setting dnn.depths 1:4 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+ setting dnn.warm 1 par policy
++setting dnn.giveup_warm 0 default policy
+ setting dnn.ext 20 par policy
+ setting dnn.gamma1 1.0 par policy
+ setting dnn.gamma 1.0 par policy
+@@ -15,7 +16,11 @@ setting dnn.beta 0.3 par policy
+ setting dnn.refresh 40 par policy
+ setting dnn.warm_y 2 par policy
+ setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=0.7 par policy
++setting dnn.dscale 0 default policy
++setting dnn.dscale0 1 default policy
++setting dnn.dscale_until 0 default policy
+ setting dnn.cross 2 par policy
++setting dnn.cross_first 0 default policy
+ setting dnn.lazycert 1 par policy
+ setting dnn.amx 1 par policy
+ setting ship.bits 32 par policy
+@@ -23,6 +28,8 @@ setting cut.zone 0.010 par policy
+ setting cut.maxdepth 1073741824 default policy
+ setting cut.side 1 par policy
+ setting cut.grid 7:7 par policy
++setting cut.regions "" default policy
++setting cut.regions.hash "" default policy
+ setting cut.rounds 12 par policy
+ setting cut.iters 200 par policy
+ setting cut.k 1000 default policy
+@@ -39,27 +46,49 @@ setting cut.warmy 1 par policy
+ setting cut.damp1 0.3 par policy
+ setting cut.equip "" default policy
+ setting cut.cp 100:1000 par policy
++setting cut.giveup "" default policy
++setting cut.giveup_depth 0 default policy
+ setting cut.cp_iters 0 default policy
++setting cut.handover "" default policy
+ setting cut.cp_sweeps 1:1 default policy
++setting cut.cp_extrap "" default policy
++setting cut.cp_wc_gap 0 default policy
++setting cut.cp_wc_deficit 0 default policy
+ setting cut.cp_lazycert 0 default policy
++setting cut.xbar 0 default policy
+ setting pool.on 1 par policy
++setting dnn.retry 0 default policy
+ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+ setting par.hash ec45e664eee7f7fa par policy
+ setting DNN_R32 0 default experiment
+-setting DNN_ADMM_CROSS_FIRST 0 default experiment
+ setting DNN_FUSE 0 default experiment
+ setting DNN_ADMM_WARM_BETA "" default experiment
+ setting DNN_ADMM_WARM_DAMP "" default experiment
+ setting QAP_EST_SEED "" default run
++setting QAP_EST_SURV "" default run
++setting QAP_EST_SAMPLE 1 default run
++setting QAP_EST_ALLOC auto default run
++setting QAP_EST_SAMPLE_W unif default run
++setting QAP_EST_BUDGET 0 default run
++setting QAP_EST_MIN_DIVES 1 default run
++setting QAP_EST_SAMPLE_DEPTHS "" default run
++setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
++setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+ setting QAP_DNN_TRACE "" default diagnostic
++setting QAP_DNN_TRACE_HIST 0 default diagnostic
++setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
++setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/sko49/tune/Cw.golden b/experiments/estimates/sko49/tune/Cw.golden
+index a4fc2502..ee9a5a86 100644
+--- a/experiments/estimates/sko49/tune/Cw.golden
++++ b/experiments/estimates/sko49/tune/Cw.golden
+@@ -1,8 +1,9 @@
+-settings 65 hash 5cbcf2067d0f411c
++settings 94 hash 9dc7d72c37d0c260
+ setting dnn.depths 1:4 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+ setting dnn.warm 1 par policy
++setting dnn.giveup_warm 0 default policy
+ setting dnn.ext 20 par policy
+ setting dnn.gamma1 1.0 par policy
+ setting dnn.gamma 1.0 par policy
+@@ -15,7 +16,11 @@ setting dnn.beta 0.3 par policy
+ setting dnn.refresh 40 par policy
+ setting dnn.warm_y 2 par policy
+ setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=0.7 par policy
++setting dnn.dscale 0 default policy
++setting dnn.dscale0 1 default policy
++setting dnn.dscale_until 0 default policy
+ setting dnn.cross 2 par policy
++setting dnn.cross_first 0 default policy
+ setting dnn.lazycert 1 par policy
+ setting dnn.amx 1 par policy
+ setting ship.bits 32 par policy
+@@ -23,6 +28,8 @@ setting cut.zone 0.018 par policy
+ setting cut.maxdepth 1073741824 default policy
+ setting cut.side 1 par policy
+ setting cut.grid 7:7 par policy
++setting cut.regions "" default policy
++setting cut.regions.hash "" default policy
+ setting cut.rounds 12 par policy
+ setting cut.iters 200 par policy
+ setting cut.k 1000 default policy
+@@ -39,27 +46,49 @@ setting cut.warmy 1 par policy
+ setting cut.damp1 0.3 par policy
+ setting cut.equip "" default policy
+ setting cut.cp 100:1000 par policy
++setting cut.giveup "" default policy
++setting cut.giveup_depth 0 default policy
+ setting cut.cp_iters 0 default policy
++setting cut.handover "" default policy
+ setting cut.cp_sweeps 1:1 default policy
++setting cut.cp_extrap "" default policy
++setting cut.cp_wc_gap 0 default policy
++setting cut.cp_wc_deficit 0 default policy
+ setting cut.cp_lazycert 0 default policy
++setting cut.xbar 0 default policy
+ setting pool.on 1 par policy
++setting dnn.retry 0 default policy
+ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+ setting par.hash 8cb651a6e9da7cbd par policy
+ setting DNN_R32 0 default experiment
+-setting DNN_ADMM_CROSS_FIRST 0 default experiment
+ setting DNN_FUSE 0 default experiment
+ setting DNN_ADMM_WARM_BETA "" default experiment
+ setting DNN_ADMM_WARM_DAMP "" default experiment
+ setting QAP_EST_SEED "" default run
++setting QAP_EST_SURV "" default run
++setting QAP_EST_SAMPLE 1 default run
++setting QAP_EST_ALLOC auto default run
++setting QAP_EST_SAMPLE_W unif default run
++setting QAP_EST_BUDGET 0 default run
++setting QAP_EST_MIN_DIVES 1 default run
++setting QAP_EST_SAMPLE_DEPTHS "" default run
++setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
++setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+ setting QAP_DNN_TRACE "" default diagnostic
++setting QAP_DNN_TRACE_HIST 0 default diagnostic
++setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
++setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/tai50b/settings.golden b/experiments/estimates/tai50b/settings.golden
+index 42b2657f..2633f81f 100644
+--- a/experiments/estimates/tai50b/settings.golden
++++ b/experiments/estimates/tai50b/settings.golden
+@@ -1,4 +1,4 @@
+-settings 91 hash 2d2e930dd4892f6e
++settings 94 hash b7a99ddf33563a81
+ setting dnn.depths 1:48 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 600 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 1 par policy
+ setting est.xbar_mix 0.3 par policy
+@@ -79,6 +80,7 @@ setting QAP_EST_BUDGET 0 default run
+ setting QAP_EST_MIN_DIVES 1 default run
+ setting QAP_EST_SAMPLE_DEPTHS "" default run
+ setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
+ setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+@@ -87,5 +89,6 @@ setting QAP_DNN_TRACE_HIST 0 default diagnostic
+ setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
+ setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/tho40/settings.golden b/experiments/estimates/tho40/settings.golden
+index 74227e0a..9a9e2829 100644
+--- a/experiments/estimates/tho40/settings.golden
++++ b/experiments/estimates/tho40/settings.golden
+@@ -1,4 +1,4 @@
+-settings 91 hash ef87f58b91e422ae
++settings 94 hash 663d709af42d6025
+ setting dnn.depths 1:38 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 200 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 2 par policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+@@ -79,6 +80,7 @@ setting QAP_EST_BUDGET 0 default run
+ setting QAP_EST_MIN_DIVES 1 default run
+ setting QAP_EST_SAMPLE_DEPTHS "" default run
+ setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
+ setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+@@ -87,5 +89,6 @@ setting QAP_DNN_TRACE_HIST 0 default diagnostic
+ setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
+ setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/estimates/wil50/settings.golden b/experiments/estimates/wil50/settings.golden
+index 8c296e6f..ff441ca4 100644
+--- a/experiments/estimates/wil50/settings.golden
++++ b/experiments/estimates/wil50/settings.golden
+@@ -1,4 +1,4 @@
+-settings 91 hash f1daea6957a1aeff
++settings 94 hash 6813505f23b8756c
+ setting dnn.depths 1:48 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+@@ -79,6 +80,7 @@ setting QAP_EST_BUDGET 0 default run
+ setting QAP_EST_MIN_DIVES 1 default run
+ setting QAP_EST_SAMPLE_DEPTHS "" default run
+ setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
+ setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+@@ -87,5 +89,6 @@ setting QAP_DNN_TRACE_HIST 0 default diagnostic
+ setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 0 default diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
+ setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/experiments/wil50_feasibility/fullrun/settings.golden b/experiments/wil50_feasibility/fullrun/settings.golden
+index 4f383f9d..de7283c2 100644
+--- a/experiments/wil50_feasibility/fullrun/settings.golden
++++ b/experiments/wil50_feasibility/fullrun/settings.golden
+@@ -1,4 +1,4 @@
+-settings 91 hash 6f95e7a0c3fb3110
++settings 94 hash c431bf373dea5d57
+ setting dnn.depths 1:48 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting dom.pair 0 default policy
+ setting fw.patience 0 default policy
+ setting est.xbar 0 default policy
+ setting est.xbar_mix 0.1 default policy
+@@ -79,6 +80,7 @@ setting QAP_EST_BUDGET 0 default run
+ setting QAP_EST_MIN_DIVES 1 default run
+ setting QAP_EST_SAMPLE_DEPTHS "" default run
+ setting QAP_EST_WARM_KEEP 8 default run
++setting QAP_EST_SPILL_MB 1000 default run
+ setting QAP_EST_DIVES "" default run
+ setting QAP_DNN_WARM_DIR "" default run
+ setting QAP_ALLOW_UNKNOWN 0 default run
+@@ -87,5 +89,6 @@ setting QAP_DNN_TRACE_HIST 0 default diagnostic
+ setting QAP_NODE_TRACE "" default diagnostic
+ setting QAP_DNN_POOL_CHECK 20 env diagnostic
+ setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
++setting QAP_EST_CHILD_DNN 0 default run
+ setting QAP_EST_CHILD_QPB 0 default diagnostic
+ setting QAP_XBAR_DEBUG 0 default diagnostic
+diff --git a/latest/bnb.C b/latest/bnb.C
+index d62cae56..8e237d01 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -88,6 +88,7 @@ static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
+ #include <cmath>
+ #include <string>
+ #include "settings.h"
++#include "dominance.h"
+ //#include <time.h>
+ 
+ /*
+@@ -106,12 +107,14 @@ static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
+           incumbent yet)
+  outcome  Q, D, C fathomed by QPB, the DNN first solve, the cut phase (as the
+           fathoms-by-cause table counts them: Q is every other fathom); P
+-          discarded when popped (pop_f_level); E enumerated (three or fewer
+-          free facilities); B branched
++          discarded when popped (pop_f_level); X dropped when popped by pair
++          exchange dominance (dom.pair, dominance.h; dom_f_level); E
++          enumerated (three or fewer free facilities); B branched
+  rule     the params level that chose the line (pick_param); line r<facility>
+           or c<location>; kids the children created; all three "-" unless B
+  cpu      CPU seconds from the pop to the line
+- The node counter counts every line but P's: lines = node + sum(pop_f_level).
++ The node counter counts every line but P's and X's:
++ lines = node + sum(pop_f_level) + sum(dom_f_level).
+ */
+ static void node_trace(const char *file, const QAPAssignment &a, char outcome,
+ 		       double qpb, double dnn, double cut, double cutoff, double t0,
+@@ -507,6 +510,18 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+   static const char *node_trace_file = *setting_s("QAP_NODE_TRACE") ? setting_s("QAP_NODE_TRACE") : NULL;
+   const char *trace = dive ? NULL : node_trace_file;   // node_trace above
+ 
++  // pair exchange dominance (dom.pair, dominance.h): off by default
++  static const bool dom_pair = setting_i("dom.pair") != 0;
++  PairDominance pair_dom;
++  if (dom_pair) {
++    std::string why;
++    if (!pair_dom.init(q, why)) {
++      static bool told = false;
++      if (!told) std::cout << "dom.pair: the test is off for this instance: " << why << std::endl;
++      told = true;
++    }
++  }
++
+   // *********** branch and bound *********************
+   while (stack != NULL)
+     {
+@@ -571,6 +586,19 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	continue;
+       }
+ 
++      // Pair exchange dominance (dominance.h): some two fixed rows whose
++      // exchange makes every completion strictly cheaper, so the node holds
++      // no optimal solution. Independent of the incumbent and the bound.
++      if (dom_pair && node.nfix >= 2) {
++	int di, dk;
++	long long dv;
++	if (pair_dom.dominated(node, &di, &dk, &dv)) {
++	  stats->anotherDominated(node.depth);
++	  if (trace) node_trace(trace, node, 'X', NAN, NAN, NAN, s->getObjective() - DELTA, stats->ier_start_time);
++	  continue;
++	}
++      }
++
+       // determine how far down the tree we are, and choose
+       // the appropriate parameters object.
+       param = pick_param(node,stats->root_bound,s->getObjective(),
+diff --git a/latest/dominance.C b/latest/dominance.C
+new file mode 100644
+index 00000000..597e345f
+--- /dev/null
++++ b/latest/dominance.C
+@@ -0,0 +1,123 @@
++// Pair exchange dominance: see dominance.h.
++#include "dominance.h"
++#include "util.h"
++
++#include <algorithm>
++#include <climits>
++#include <cmath>
++
++static bool mat_symmetric(MAT *M)
++{
++  for (unsigned int i = 0; i < M->m; i++)
++    for (unsigned int j = i + 1; j < M->n; j++)
++      if (M->me[i][j] != M->me[j][i]) return false;
++  return true;
++}
++
++// v * scale as an exact integer of magnitude below lim, or false
++static bool scaled_int(double v, double scale, double lim, long long &out)
++{
++  const double s = v * scale;            // exact: a power-of-two scale
++  if (s != std::floor(s) || std::fabs(s) >= lim) return false;
++  out = (long long)s;
++  return true;
++}
++
++bool PairDominance::init(QAP *q, std::string &why)
++{
++  ok = false;
++  n = q->A->m;
++  if (!(DELTA > 0.5)) {
++    why = "the data are not integers evaluated exactly (set_fathom_tolerance)";
++    return false;
++  }
++  if (!mat_symmetric(q->A) || !mat_symmetric(q->B)) {
++    why = "A and B are not both symmetric after symmetrize_QAP";
++    return false;
++  }
++  const double L31 = 2147483648.0, L60 = 1152921504606846976.0;
++  A2.assign((size_t)n * n, 0);
++  B2.assign((size_t)n * n, 0);
++  C4.assign((size_t)n * n, 0);
++  for (int i = 0; i < n; i++)
++    for (int j = 0; j < n; j++) {
++      if (!scaled_int(q->A->me[i][j], 2.0, L31, A2[(size_t)i * n + j]) ||
++          !scaled_int(q->B->me[i][j], 2.0, L31, B2[(size_t)i * n + j]) ||
++          !scaled_int(q->C->me[i][j], 4.0, L60, C4[(size_t)i * n + j])) {
++        why = "an entry of 2A, 2B or 4C is not an integer of the supported size";
++        return false;
++      }
++    }
++  ok = true;
++  return true;
++}
++
++__int128 PairDominance::pair_min4(const QAPAssignment &node, int i, int k) const
++{
++  const int a = node.p[i], b = node.p[k];
++  __int128 v = (__int128)(a2(i, i) - a2(k, k)) * (b2(a, a) - b2(b, b))
++             + (__int128)c4(i, a) + c4(k, b) - c4(i, b) - c4(k, a);
++  std::vector<long long> x, y;
++  x.reserve(n);
++  y.reserve(n);
++  for (int l = 0; l < n; l++) {
++    const int c = node.p[l];
++    if (c >= 0) {
++      if (l != i && l != k)
++        v += (__int128)2 * (a2(i, l) - a2(k, l)) * (b2(a, c) - b2(b, c));
++    } else {
++      x.push_back(a2(i, l) - a2(k, l));
++    }
++  }
++  for (int c = 0; c < n; c++)
++    if (node.pinv[c] < 0) y.push_back(b2(a, c) - b2(b, c));
++  // x ascending against y descending: the minimum of sum x_l y_sigma(l)
++  std::sort(x.begin(), x.end());
++  std::sort(y.begin(), y.end(), [](long long u, long long w) { return u > w; });
++  __int128 s = 0;
++  for (size_t j = 0; j < x.size(); j++) s += (__int128)x[j] * y[j];
++  return v + 2 * s;
++}
++
++bool PairDominance::dominated(const QAPAssignment &node, int *pi, int *pk, long long *best4, bool full) const
++{
++  *pi = *pk = -1;
++  *best4 = LLONG_MIN;
++  if (!ok || node.n != n) return false;
++  // the fixed rows, in the order they were fixed; the node must be a
++  // consistent partial permutation (else: no test)
++  std::vector<int> rows;
++  int ncols = 0;
++  for (int l = 0; l < n; l++) if (node.p[l] >= 0) rows.push_back(node.p[l] >= n ? -1 : l);
++  for (int c = 0; c < n; c++) if (node.pinv[c] >= 0) ncols++;
++  if ((int)rows.size() != ncols || (int)rows.size() < 2) return false;
++  for (int l : rows) if (l < 0 || node.pinv[node.p[l]] != l) return false;
++  std::vector<int> order;
++  for (int h = 0; h < node.nfix; h++) {
++    const int r = node.history[h];
++    if (r >= 0 && r < n && node.p[r] >= 0) order.push_back(r);
++  }
++  if (order.size() != rows.size()) order = rows;   // (history incomplete: by index)
++
++  bool dom = false;
++  __int128 best = 0;
++  bool have = false;
++  for (size_t u = 0; u < order.size(); u++)
++    for (size_t w = u + 1; w < order.size(); w++) {
++      const __int128 v = pair_min4(node, order[u], order[w]);
++      if (!have || v > best) {
++        best = v; have = true;
++        *pi = order[u]; *pk = order[w];
++      }
++      if (v > 0) {
++        dom = true;
++        if (!full) goto done;
++      }
++    }
++done:
++  if (have) {
++    const __int128 cap = (__int128)LLONG_MAX;
++    *best4 = best > cap ? LLONG_MAX : (best < -cap ? -LLONG_MAX : (long long)best);
++  }
++  return dom;
++}
+diff --git a/latest/dominance.h b/latest/dominance.h
+new file mode 100644
+index 00000000..2f3aec4c
+--- /dev/null
++++ b/latest/dominance.h
+@@ -0,0 +1,72 @@
++/*
++============================================================
++
++ Pair exchange dominance (dom.pair; bnb.C, at pop, before any bound).
++
++ cost(p) = sum_uv A[u][v] B[p(u)][p(v)] + sum_u C[u][p(u)]. A node N fixes
++ row i at column a and row k at column b. For a completion p of N, let p' be
++ p with i and k exchanged (p'(i) = b, p'(k) = a), and Delta(p) = cost(p) -
++ cost(p'). With A and B symmetric (as they are after symmetrize_QAP):
++
++   Delta(p) = (A[i][i]-A[k][k]) (B[a][a]-B[b][b])
++            + C[i][a] + C[k][b] - C[i][b] - C[k][a]
++            + sum_{l != i,k} 2 (A[i][l]-A[k][l]) (B[a][p(l)]-B[b][p(l)])
++
++ The fixed rows l give a constant; over the free rows the sum is a linear
++ assignment problem with the rank-one cost x_l y_c, whose minimum is x sorted
++ ascending against y sorted descending (rearrangement inequality). If that
++ minimum is > 0 for some pair, every completion of N has a strictly cheaper
++ exchange image, so N holds no optimal solution and can be dropped. The
++ test does not read the incumbent, the bound, or the node's eliminated
++ variables (it minimises over all completions of the fixes, a superset of
++ the node's, so it is conservative where variables are eliminated).
++
++ Exactness: everything is computed in integers, on 2A, 2B and 4C (the
++ symmetrised matrix holds halves), so the value is 4 min Delta exactly and
++ the test is "> 0" with no tolerance: strict, so a tie never drops a node
++ (experiments/branching_lab/dominance/README.md, esc08a). The test is
++ available only when the original data are integers that the solver
++ evaluates exactly (DELTA > 0, set_fathom_tolerance), both matrices are
++ symmetric after symmetrize_QAP, and the scaled entries fit (|2A|, |2B| <
++ 2^31, |4C| < 2^60, so a 128-bit sum cannot overflow); otherwise it never
++ fires and init() says why.
++
++============================================================
++*/
++#ifndef DOMINANCE_H
++#define DOMINANCE_H
++
++#include <string>
++#include <vector>
++#include <cstdint>
++#include "qap.h"
++#include "assign.h"
++
++class PairDominance
++{
++public:
++  PairDominance() : ok(false), n(0) {}
++  // read q (the objective bnb() uses); false: the test is unavailable, why says why
++  bool init(QAP *q, std::string &why);
++  bool available() const { return ok; }
++
++  // true when some pair of fixed rows dominates the node. *pi, *pk: that pair
++  // (original row indices); *best4: 4 x its min Delta. With full, every pair is
++  // evaluated and *best4 is the largest 4 min Delta over the pairs (the pair
++  // that attains it in *pi, *pk); otherwise it stops at the first pair > 0.
++  // Fewer than two fixed rows: false, *pi = *pk = -1, *best4 = INT64_MIN.
++  bool dominated(const QAPAssignment &a, int *pi, int *pk, long long *best4, bool full = false) const;
++
++  // 4 min Delta for the pair (i, k) of fixed rows (no checks)
++  __int128 pair_min4(const QAPAssignment &a, int i, int k) const;
++
++private:
++  bool ok;
++  int n;
++  std::vector<long long> A2, B2, C4;   // 2A, 2B, 4C, row-major n x n
++  long long a2(int i, int j) const { return A2[(size_t)i * n + j]; }
++  long long b2(int i, int j) const { return B2[(size_t)i * n + j]; }
++  long long c4(int i, int j) const { return C4[(size_t)i * n + j]; }
++};
++
++#endif
+diff --git a/latest/makefile b/latest/makefile
+index 43389006..116b300c 100644
+--- a/latest/makefile
++++ b/latest/makefile
+@@ -32,7 +32,7 @@ LDLIBS = -lm
+ 
+ OBJS = qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o \
+        solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o \
+-       sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o
++       sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dominance.o
+ 
+ all:    bnb
+ 
+diff --git a/latest/settings.C b/latest/settings.C
+index d2a702d9..95657f5f 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -95,6 +95,7 @@ static Setting TABLE[] = {
+   POLICY("branch.weighted", NULL, 'i', "1", 0, 1, "rules 1, 3 and 4: weight the U sums by the row's gap fraction"),
+   POLICY("branch.weight", NULL, 'd', "0.5", 0, 1, "the weight of that fraction"),
+   POLICY("branch.xbar_lines", NULL, 'i', "1", 1, 64, "rule 9: candidate rows and columns per side from the DNN marginals"),
++  POLICY("dom.pair", NULL, 'i', "0", 0, 1, "1: drop a node, when popped and before any bound, if exchanging two of its fixed rows makes every completion strictly cheaper (pair exchange dominance, dominance.h; trace outcome X)"),
+   POLICY("fw.patience", NULL, 'i', "0", 0, 100000000, "-w: Frank-Wolfe patience at lookahead/strong levels (0: off)"),
+   POLICY("est.xbar", "QAP_EST_XBAR", 'd', "0", 0, INF, "estimator: child weights x_ij^a from the DNN marginals (0: QPB scores)"),
+   POLICY("est.xbar_mix", "QAP_EST_XBAR_MIX", 'd', "0.1", 0, 1, "estimator: uniform share mixed into the x_ij^a weights"),
+diff --git a/latest/settings.h b/latest/settings.h
+index fa749270..0725506a 100644
+--- a/latest/settings.h
++++ b/latest/settings.h
+@@ -13,7 +13,7 @@
+  Where a setting lives:
+    policy       changes the search: a key in the params file's
+                 [settings] section (keys dnn.*, cut.*, pool.*, ship.*,
+-                branch.*, est.*, fw.*). The flags -x and -w are aliases
++                branch.*, dom.*, est.*, fw.*). The flags -x and -w are aliases
+                 of dnn.depths/maxgap/giveup/warm and fw.patience and
+                 override the file. Recorded in state files.
+    experiment   an A/B switch in flight: an environment variable
+diff --git a/latest/state.C b/latest/state.C
+index 1e987933..0dec04dd 100644
+--- a/latest/state.C
++++ b/latest/state.C
+@@ -8,9 +8,12 @@
+ #include <map>
+ #include <string>
+ #include <vector>
++#include "settings.h"
+ 
+ static const char *STATE_MAGIC = "QAP-STATE";
+-static const int STATE_VERSION = 9;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts, 7: no settings record, 8: no @path DNN references (all still read)
++static const int STATE_VERSION = 10;  // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts, 7: no settings record, 8: no @path DNN references, 9: no dom_f_level (all still read)
++// Version 10 (dom_f_level after cut_t_level) is written only by a run with
++// dom.pair = 1; every other run writes version 9, byte for byte as before.
+ bool state_allow_settings_change = false;   // driver.C --allow-settings-change: a settings mismatch on -r is a warning
+ 
+ // version 7: by level, the DNN bound, its cut phase and the nodes discarded
+@@ -303,7 +306,8 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
+   f << std::setprecision(17);
+ 
+   const int n = s->n, L = stats->n + 1, m = stats->m;
+-  f << STATE_MAGIC << ' ' << STATE_VERSION << '\n';
++  const bool dom_rec = setting_i("dom.pair") != 0;
++  f << STATE_MAGIC << ' ' << (dom_rec ? STATE_VERSION : 9) << '\n';
+   f << "n " << n << " levels " << stats->n << " strategies " << m << '\n';
+   f << "incumbent " << s->obj << ' ' << s->ifs_found;
+   for (int i = 0; i < n; i++) f << ' ' << s->perm[i];
+@@ -337,6 +341,7 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
+     write_array(f, CUT_LEVEL_CTRS[0], stats->cut_n_level, L);
+     write_array(f, CUT_LEVEL_CTRS[1], stats->cut_f_level, L);
+     write_array(f, "cut_t_level", stats->cut_t_level, L);
++    if (dom_rec) write_array(f, "dom_f_level", stats->dom_f_level, L);   // version 10
+   }
+ 
+   // the parents' X the open nodes start from, each written once
+@@ -405,7 +410,7 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
+   int version, fn, fL, fm;
+   if (!(f >> tag >> version) || tag != STATE_MAGIC || version < 1 ||
+       version > STATE_VERSION)
+-    return fail(file, "not a version 1-8 state file");
++    return fail(file, "not a version 1-10 state file");
+   std::string t1, t2, t3;
+   if (!(f >> t1 >> fn >> t2 >> fL >> t3 >> fm) || t1 != "n")
+     return fail(file, "bad header");
+@@ -483,6 +488,12 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
+ 	stats->cut_n_level[i] = stats->cut_f_level[i] = 0;
+       }
+     }
++    // version 10 (a run with dom.pair = 1): the nodes pair exchange dominance dropped
++    if (version >= 10) {
++      if (!read_array(f, "dom_f_level", stats->dom_f_level, L)) return fail(file, "bad dom_f_level");
++    } else {
++      for (int i = 0; i < L; i++) stats->dom_f_level[i] = 0;
++    }
+   }
+ 
+   std::vector<WarmStart *> warms;
+diff --git a/latest/state.h b/latest/state.h
+index 8e55c71f..4f3fe339 100644
+--- a/latest/state.h
++++ b/latest/state.h
+@@ -37,6 +37,10 @@
+                                        popped, DNN computed/fathomed/given
+                                        up/iterations/CPU, cut phase run/
+                                        fathomed/CPU, by level)
++   dom_f_level ...                    (stats.n+1, version 10, written only
++                                       with dom.pair = 1: the nodes pair
++                                       exchange dominance dropped, by level;
++                                       every other run writes version 9)
+    warm_starts <count>
+    warm <m> <p[0..n-1]> <X[0][0..m-1]> ... <X[m-1][0..m-1]> <dnn_ext> <pool> <dnn>
+    ...                         (a branched node's X, see WarmStart in assign.h;
+diff --git a/latest/stats.C b/latest/stats.C
+index 557588cb..ae432aa5 100644
+--- a/latest/stats.C
++++ b/latest/stats.C
+@@ -1,5 +1,6 @@
+ #include "stats.h"
+ #include "util.h"
++#include "settings.h"
+ #include <iomanip>
+ #include <math.h>
+ #include <stdio.h>
+@@ -37,6 +38,7 @@ QAPStatistics::QAPStatistics()
+   dnn_t_level = NULL;
+   cut_n_level = cut_f_level = NULL;
+   cut_t_level = NULL;
++  dom_f_level = NULL;
+ 
+ #ifdef RECORD_STDDEV
+   rg_sum  = NULL;
+@@ -55,6 +57,7 @@ void QAPStatistics::alloc_dnn_levels()
+   cut_n_level = new_zero<ctr_type>(n+1);
+   cut_f_level = new_zero<ctr_type>(n+1);
+   cut_t_level = new_zero<double>(n+1);
++  dom_f_level = new_zero<ctr_type>(n+1);
+ }
+ 
+ void QAPStatistics::free_dnn_levels()
+@@ -63,6 +66,7 @@ void QAPStatistics::free_dnn_levels()
+   delete [] dnn_n_level;  delete [] dnn_f_level;  delete [] dnn_g_level;
+   delete [] dnn_i_level;  delete [] dnn_t_level;
+   delete [] cut_n_level;  delete [] cut_f_level;  delete [] cut_t_level;
++  delete [] dom_f_level;
+ }
+ 
+ QAPStatistics::QAPStatistics(int n_in,int m_in)
+@@ -146,6 +150,7 @@ QAPStatistics::QAPStatistics(const QAPStatistics &s)
+   this->cut_n_level = copy_array<ctr_type>(s.cut_n_level,s.n+1);
+   this->cut_f_level = copy_array<ctr_type>(s.cut_f_level,s.n+1);
+   this->cut_t_level = copy_array<double>(s.cut_t_level,s.n+1);
++  this->dom_f_level = copy_array<ctr_type>(s.dom_f_level,s.n+1);
+ 
+ #ifdef RECORD_STDDEV
+   rg_sum = copy_array<double>(s.rg_sum,s.n+1);
+@@ -200,6 +205,7 @@ void QAPStatistics::clear()
+       dnn_t_level[i] = 0.0;
+       cut_n_level[i] = cut_f_level[i] = 0;
+       cut_t_level[i] = 0.0;
++      dom_f_level[i] = 0;
+     }
+   for(int i=0; i<m; i++)
+     t_strat[i] = 0.0;
+@@ -340,6 +346,19 @@ void QAPStatistics::print_default(std::ostream& outs,int print_level) const
+ 
+   if (dnn_nodes > 0) print_dnn_levels();
+ 
++  // pair exchange dominance (dom.pair): its own table, only when it is on,
++  // so the output of a run without it stays as it was
++  if (setting_i("dom.pair")) {
++    unsigned long long total = 0;
++    for (int i = 0; i <= n; i++) total += dom_f_level[i];
++    fflush(stdout);
++    printf("\nPair exchange dominance: %llu nodes dropped\n", total);
++    printf("level  dropped\n");
++    for (int i = 0; i <= n; i++)
++      if (dom_f_level[i] > 0) printf("%2d  %10llu\n", i, dom_f_level[i]);
++    fflush(stdout);
++  }
++
+   outs << std::endl;
+ }
+ 
+@@ -373,7 +392,7 @@ void QAPStatistics::print_dnn_levels() const
+   for (i = 0; (i <= n) && (n_level[i] == 0); i++);
+   for (; (i <= n) && (n_level[i] > 0); i++) {
+     long long qpb = (long long)f_level[i] - (long long)pop_f_level[i]
+-      - (long long)dnn_f_level[i] - (long long)cut_f_level[i];
++      - (long long)dnn_f_level[i] - (long long)cut_f_level[i] - (long long)dom_f_level[i];
+     printf("%2d  %10llu\t%8lld\t%8llu\t%8llu\t%8llu\n", i, f_level[i], qpb,
+ 	   dnn_f_level[i], cut_f_level[i], pop_f_level[i]);
+   }
+@@ -513,6 +532,13 @@ void QAPStatistics::anotherDiscard(int depth)
+   pop_f_level[depth]++;
+ }
+ 
++void QAPStatistics::anotherDominated(int depth)
++{
++  anotherFathom(depth);
++  if (depth > n) depth = n;
++  dom_f_level[depth]++;
++}
++
+ void QAPStatistics::anotherDNN(int depth, bool fathomed, bool gave_up, int iterations, double cpu)
+ {
+   dnn_nodes++;
+@@ -654,6 +680,7 @@ void QAPStatistics::merge_stats(QAPStatistics *new_stats,
+     cut_n_level[i] += new_stats->cut_n_level[i];
+     cut_f_level[i] += new_stats->cut_f_level[i];
+     cut_t_level[i] += new_stats->cut_t_level[i];
++    dom_f_level[i] += new_stats->dom_f_level[i];
+   }
+ 
+ #ifdef RECORD_STDDEV
+@@ -707,6 +734,9 @@ void QAPStatistics::scale(double factor)
+   for(int i=0;i<=n;i++)     // part of f_level; the DNN arrays, like the DNN totals, are not scaled
+     pop_f_level[i] = ctr_type1(factor*pop_f_level[i]);
+ 
++  for(int i=0;i<=n;i++)     // part of f_level, like pop_f_level
++    dom_f_level[i] = ctr_type1(factor*dom_f_level[i]);
++
+   for(int i=0;i<=n;i++)
+     t_level[i] = factor*t_level[i];
+ 
+diff --git a/latest/stats.h b/latest/stats.h
+index be5f0910..bd68c0d1 100644
+--- a/latest/stats.h
++++ b/latest/stats.h
+@@ -71,6 +71,9 @@ public:
+   // a node popped with bound > incumbent - DELTA (the incumbent improved
+   // since it was pushed): a fathom, counted also in pop_f_level
+   void anotherDiscard(int depth);
++  // a node popped and dropped by pair exchange dominance (dom.pair): a
++  // fathom, counted also in dom_f_level
++  void anotherDominated(int depth);
+   // the DNN bound ran on a node (bnb -x); gave_up: it stopped as hopeless
+   void anotherDNN(int depth, bool fathomed, bool gave_up, int iterations, double cpu);
+   // the cut phase ran on a node after a DNN miss (QAP_DNN_CUT_ZONE)
+@@ -131,6 +134,7 @@ public:
+   // By level, from QAP-STATE 7: the DNN bound and its cut phase, and the
+   // nodes discarded when popped. Every fathom at a level has one cause, so
+   //   f_level = pop_f_level + (QPB fathoms) + dnn_f_level + cut_f_level
++  //             + dom_f_level
+   // (the DNN bound runs only where QPB misses, the cut phase only where the
+   // DNN bound misses). Not weighted in dive mode, like the DNN totals.
+   ctr_type *pop_f_level;  // discarded when popped
+@@ -142,6 +146,8 @@ public:
+   ctr_type *cut_n_level;  // cut phase run
+   ctr_type *cut_f_level;  // ... and fathomed
+   double   *cut_t_level;  // its CPU seconds
++  ctr_type *dom_f_level;  // dropped by pair exchange dominance (dom.pair;
++                          // in state files from version 10, written only with dom.pair = 1)
+ 
+ #ifdef RECORD_STDDEV
+   double *rg_sum;

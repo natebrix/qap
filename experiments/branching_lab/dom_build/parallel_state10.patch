@@ -1,0 +1,13 @@
+diff --git a/bench/parallel.py b/bench/parallel.py
+index fee2467f..253c66d1 100644
+--- a/bench/parallel.py
++++ b/bench/parallel.py
+@@ -191,6 +191,8 @@ class State:
+         # the current version when the file read had a settings record (8 and
+         # up), else 7, the last version without one: a reader of 8+ requires it
+         magic = "QAP-STATE 9" if self.settings is not None else "QAP-STATE 7"
++        if "dom_f_level" in self.arrays:    # version 10: a run with dom.pair = 1 (latest/state.C)
++            magic = "QAP-STATE 10"
+         out = [magic,
+                f"n {self.n} levels {self.levels} strategies {self.strategies}",
+                " ".join(["incumbent", repr(self.obj), str(self.found)] + list(self.perm)),

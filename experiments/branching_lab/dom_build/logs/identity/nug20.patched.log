@@ -1,0 +1,181 @@
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/experiments/branching_lab/dom_build/par/default.par
+incumbent: 2572
+input file: ../qaplib/nug20.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	4	150/100/25	30	30	
+0.12	4	7	150/100/12	3	30	
+-1	1000	2	100/ 75/--	--	30	
+
+settings 94 hash 7793fbb45d5be568
+setting dnn.depths "" default policy
+setting dnn.maxgap 1 default policy
+setting dnn.giveup 0 default policy
+setting dnn.warm 0 default policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 default policy
+setting dnn.gamma1 1.0 default policy
+setting dnn.gamma 1.0 default policy
+setting dnn.cheb 3 default policy
+setting dnn.tight_lam 2 default policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 default policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 default policy
+setting dnn.refresh 120 default policy
+setting dnn.warm_y 2 default policy
+setting dnn.beta_sched w=0.36 default policy
+setting dnn.dscale 0 default policy
+setting dnn.dscale0 1 default policy
+setting dnn.dscale_until 0 default policy
+setting dnn.cross 2 default policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 default policy
+setting dnn.amx 0 default policy
+setting ship.bits 32 default policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.regions "" default policy
+setting cut.regions.hash "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.giveup "" default policy
+setting cut.giveup_depth 0 default policy
+setting cut.cp_iters 0 default policy
+setting cut.handover "" default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_extrap "" default policy
+setting cut.cp_wc_gap 0 default policy
+setting cut.cp_wc_deficit 0 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 0 default policy
+setting dnn.retry 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting dom.pair 0 default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash 9639162d40ec5a9e par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_EST_SURV "" default run
+setting QAP_EST_SAMPLE 1 default run
+setting QAP_EST_ALLOC auto default run
+setting QAP_EST_SAMPLE_W unif default run
+setting QAP_EST_BUDGET 0 default run
+setting QAP_EST_MIN_DIVES 1 default run
+setting QAP_EST_SAMPLE_DEPTHS "" default run
+setting QAP_EST_WARM_KEEP 8 default run
+setting QAP_EST_SPILL_MB 1000 default run
+setting QAP_EST_DIVES "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/branching_lab/dom_build/par/default.par flag run
+setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE /tmp/claude-0/-home-user/92b66c47-7a9f-5ca5-8a65-57e14ac5b075/scratchpad/identity/nug20.patched.trace env diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_DNN 0 default run
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+branching_weight() = 0.5
+read symmetry info from ./SYM/nug20.sym
+New objective value: 2570
+  ---- RESULTS ----
+
+    Total Time: 115.563 seconds 
+         Nodes: 476886 / 377882 / 1
+    root bound: 2245.16
+ fw iterations: 17777890
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    0.04
+ 1           6	0.0000	0.0000	    0.39
+ 2          98	0.0102	0.1355	    5.25
+ 3        1468	0.0531	0.4236	    9.35
+ 4       13566	0.3022	0.6790	   40.17
+ 5       48605	0.5175	0.6097	   13.90
+ 6      137279	0.7795	0.6440	   20.43
+ 7      150867	0.8540	0.6955	   16.46
+ 8       87186	0.8961	0.7309	    7.13
+ 9       29254	0.9149	0.7506	    1.98
+10        6832	0.9160	0.7617	    0.39
+11        1368	0.8984	0.7642	    0.07
+12         294	0.9184	0.7600	    0.01
+13          48	0.8542	0.8163	    0.00
+14           9	0.7778	0.7500	    0.00
+15           3	0.6667	0.8000	    0.00
+16           1	0.0000	0.7500	    0.00
+17           1	0.0000	N/A	    0.00
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000  | 6 
+ 2 |   0.9592   0.0204   0.0204  | 98 
+ 3 |   0.0000   0.8392   0.1608  | 1468 
+ 4 |   0.0000   0.5006   0.4994  | 13566 
+ 5 |   0.0000   0.0000   1.0000  | 48605 
+ 6 |   0.0000   0.0000   1.0000  | 137279 
+ 7 |   0.0000   0.0000   1.0000  | 150867 
+ 8 |   0.0000   0.0000   1.0000  | 87186 
+ 9 |   0.0000   0.0000   1.0000  | 29254 
+10 |   0.0000   0.0000   1.0000  | 6832 
+11 |   0.0000   0.0000   1.0000  | 1368 
+12 |   0.0000   0.0000   1.0000  | 294 
+13 |   0.0000   0.0000   1.0000  | 48 
+14 |   0.0000   0.0000   1.0000  | 9 
+15 |   0.0000   0.0000   1.0000  | 3 
+16 |   0.0000   0.0000   1.0000  | 1 
+17 |   0.0000   0.0000   1.0000  | 1 
+nodes     101     8025   468760 
+time     5.66    47.25    62.66 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.813587	0.051698
+ 2| 0.512746	0.150876
+ 3| 0.263486	0.126406
+ 4| 0.138941	0.097027
+ 5| 0.074666	0.060366
+ 6| 0.073925	0.054276
+ 7| 0.058981	0.043194
+ 8| 0.046629	0.034343
+ 9| 0.038088	0.028085
+10| 0.032314	0.022966
+11| 0.028041	0.020093
+12| 0.023941	0.015448
+13| 0.021064	0.013088
+14| 0.012766	0.006453
+15| 0.008964	0.002289
+16| 0.006119	0.000000
+17| 0.006119	0.000000
+
+eigendecompositions for W and U: 561254 computed, 392516 reused from the per-size cache

@@ -1,0 +1,20 @@
+QAP_MIRROR: rows 0,1 mu 0.25 at -1,-1
+QAP_MIRROR: rows 2,3 mu 0.25 at -1,-1
+QAP_MIRROR: rows 4,5 mu 0.25 at -1,-1
+QAP_MIRROR: rows 0,5 mu 0.25 at -1,-1
+QAP_MIRROR: rows 1,7 mu 0.25 at -1,-1
+QAP_MIRROR: rows 6,8 mu 0.25 at -1,-1
+mirror-check: depth 4 m 6 completions 720 max|reduced - (cost + mu Delta)| 4.65661e-10 max|formula - Delta| 0
+pool retry: depth 4, pooled first solve 1.16258e+06 against the inherited 1.18376e+06; without the pool 1.16258e+06
+cold retry: depth 4, warm first solve 1.16258e+06 against the inherited 1.18376e+06; cold 1.16225e+06
+mirror: depth 4 fixes 0:4 1:5 8:1 9:9 | pair 0,1 mu 0.25 D0 -70797.0 | qpb 1106788.5348 dnn 1162248.5580 cut 1162576.2500 fate - | Delta(x first) -77696.3 Delta(x cut) -84735.0 rowsum_err 0.0076 scale 328704
+mirror-check: depth 5 m 5 completions 120 max|reduced - (cost + mu Delta)| 4.65661e-10 max|formula - Delta| 0
+pool retry: depth 5, pooled first solve 1.15768e+06 against the inherited 1.18376e+06; without the pool 1.15768e+06
+cold retry: depth 5, warm first solve 1.15768e+06 against the inherited 1.18376e+06; cold 1.15768e+06
+mirror: depth 5 fixes 0:4 1:5 7:2 8:1 9:9 | pair 0,1 mu 0.25 D0 -70767.0 | pair 1,7 mu 0.25 D0 4545.0 | qpb 1129151.4110 dnn 1157681.9764 cut 1157681.9764 fate - | Delta(x first) -84735.0 Delta(x cut) -84735.0 rowsum_err 0 scale 212677
+mirror-check: depth 6 m 4 completions 24 max|reduced - (cost + mu Delta)| 4.65661e-10 max|formula - Delta| 0
+cold retry: depth 6, warm first solve 1.17282e+06 against the inherited 1.18789e+06; cold 1.17282e+06
+mirror: depth 6 fixes 0:4 1:5 2:8 7:2 8:1 9:9 | pair 0,1 mu 0.25 D0 -73510.0 | pair 1,7 mu 0.25 D0 723.0 | qpb 1172821.2500 dnn 1172821.2342 cut 1172821.2342 fate - | Delta(x first) -61059.0 Delta(x cut) -61059.0 rowsum_err 0 scale 224486
+mirror-check: depth 6 m 4 completions 24 max|reduced - (cost + mu Delta)| 4.65661e-10 max|formula - Delta| 0
+cold retry: depth 6, warm first solve 1.15768e+06 against the inherited 1.18376e+06; cold 1.15768e+06
+mirror: depth 6 fixes 0:4 1:5 2:0 7:2 8:1 9:9 | pair 0,1 mu 0.25 D0 -84989.0 | pair 1,7 mu 0.25 D0 -2826.0 | qpb 1156986.0024 dnn 1157681.9761 cut 1157681.9761 fate - | Delta(x first) -84735.0 Delta(x cut) -84735.0 rowsum_err 0 scale 225220

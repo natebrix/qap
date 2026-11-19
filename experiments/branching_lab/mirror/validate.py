@@ -48,8 +48,8 @@ for d in sorted(glob.glob(f'{H}/runs/val_*')):
     worst = 0; nodes = 0; viol = 0; claim = 0; maxexcess = -np.inf; tight = 0
     for ln in err:
         if ln.startswith('mirror-check'):
-            t = ln.split(); a, b = float(t[10]), float(t[14]); tot['checks'] += 1
-            if a != 0 or b != 0: tot['check_bad'] += 1
+            t = ln.split(); a, b = float(t[13]), float(t[17]); tot['checks'] += 1
+            if abs(a) > 1e-6 or abs(b) > 1e-6: tot['check_bad'] += 1   # double rounding of ~4e7 values: ~1e-9
         if ln.startswith('mirror: '):
             head, *rest = ln.split(' | ')
             fx = {int(s.split(':')[0]): int(s.split(':')[1]) for s in head.split()[4:]}
