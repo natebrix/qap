@@ -37,7 +37,20 @@ advance this test stops here. The measured gap, 5 survivors against 9 that are a
 the cutoff, is still large enough that step 4 is the cheapest next test if Nathan wants it. That is
 for him to decide; the kill rule says stop.
 
-## One level deeper (the coordinator's follow-up, Nov 19 22:25-23:10 UTC)
+## Down the tree under c47
+
+Level by level under the strong c47 arm's survivors, with production's settings (`tai60b.par`) and production's own line
+rule throughout (no forced lines): depth D is bounded from the states depth D-1 set aside, and depth D+1 is set aside
+(`down.py`; one chunk per parent, 4 processes; `runs/down/dD/nodes/*.txt` the traces). Kill rules, fixed by the coordinator
+before the run: stop if c47's branching count at a depth reaches half of production's there; stop at 10 hours of wall
+time, or if memory will not hold a level. Production's rows: the tai60b-261117 trace under `...,10:39`
+(`out/production_by_depth.txt`, checked against the coordinator's figures). Every row is measured [m]; CPU is this box's
+against production's cloud boxes (this box ran the depth-8 children in 0.53x production's CPU).
+
+<!-- down-table -->
+<!-- /down-table -->
+
+### One level deeper (depth 9; the coordinator's first follow-up, Nov 19 22:25-23:10 UTC)
 
 **Under c47, depth 9 has 9 branching nodes against production's 56 under c54, so c47 is materially
 better one level down. The kill rule, fixed in advance at 28 (half of 56), is not met, and per that
