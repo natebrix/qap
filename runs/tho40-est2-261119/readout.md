@@ -1,10 +1,8 @@
 # tho40-est2-261119
 
-**PART-WAY**: the estimate's dives run tho40-est2-261119-dives is running, 152 of 548 dives units merged
+**PART-WAY**: the estimate's dives run tho40-est2-261119-dives is running, 437 of 548 dives units merged
 
-- STALE: the coordinator last wrote its status 34 minutes ago (an interrupted coordinator? collect.sh shows the instances and why they stopped)
-- PART-WAY: 396 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (83% of the rest's CPU)
-- GAP: 107 open nodes of pending units are at depths no merged unit has: not counted
+- PART-WAY: 111 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (39% of the rest's CPU)
 
 ## The run
 
@@ -31,16 +29,15 @@
 ## The estimate
 
 ```
-PART-WAY: 396 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (83% of the rest's CPU)
-GAP: 107 open nodes of pending units are at depths no merged unit has: not counted
+PART-WAY: 111 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (39% of the rest's CPU)
 done so far: 18,767 nodes, 117.2 CPU h
-estimated rest: 394,438 nodes (5-95%: 361,709 to 442,722), 1,191.3 CPU h (1,141.1 CPU h to 1,251.3 CPU h)
-estimated tree: 413,205 nodes (5-95%: 380,476 to 461,489), 1,308.5 CPU h (1,258.3 CPU h to 1,368.5 CPU h)
-1103 open nodes (160 with children that branch), 4931 dives in 160 of them, deepest dive node at depth 7; estimator 29.5 CPU h
-1,103 of the 4,992 open nodes sampled (each weighted 1/pi)
-jackknife over units: standard error 161,332 nodes, 262.7 CPU h
-the largest dive makes 2% of the rest's CPU, the 10 largest 4%; 0 of 160 dived open nodes got one dive; estimator CPU: setup 11.1 CPU h, dives 18.5 CPU h
-dives going deeper, by depth (reached, went on): 4: 1772/56, 5: 3138/47, 6: 124/2, 7: 2/0
+estimated rest: 1,173,461 nodes (5-95%: 952,957 to 1,480,864), 3,892.6 CPU h (3,477.2 CPU h to 4,351.4 CPU h)
+estimated tree: 1,192,228 nodes (5-95%: 971,724 to 1,499,631), 4,009.8 CPU h (3,594.4 CPU h to 4,468.6 CPU h)
+4052 open nodes (1164 with children that branch), 16307 dives in 1164 of them, deepest dive node at depth 7; estimator 179.6 CPU h
+4,052 of the 14,148 open nodes sampled (each weighted 1/pi)
+jackknife over units: standard error 306,190 nodes, 577.0 CPU h
+the largest dive makes 5% of the rest's CPU, the 10 largest 16%; 0 of 1164 dived open nodes got one dive; estimator CPU: setup 74.6 CPU h, dives 105.1 CPU h
+dives going deeper, by depth (reached, went on): 3: 240/96, 4: 8518/519, 5: 8070/116, 6: 210/2, 7: 2/0
 
 
 (nodes at depth 8 are in the solve's own part; the dives reached depth 7)
@@ -50,10 +47,10 @@ dives going deeper, by depth (reached, went on): 4: 1772/56, 5: 3138/47, 6: 124/
 |---|---|---|---|---|
 | 0 | 1 | 0 | 0.00 | 0.00 |
 | 1 | 12 | 0 | 1.23 | 0.00 |
-| 2 | 319 | 0 | 45.12 | 0.00 |
-| 3 | 2,924 | 867 | 28.66 | 11.92 |
-| 4 | 8,475 | 9,199 | 30.50 | 78.30 |
-| 5 | 5,851 | 20,829 | 10.21 | 68.62 |
-| 6 | 1,004 | 31,570 | 1.27 | 40.24 |
-| 7 | 148 | 11,853 | 0.16 | 6.28 |
+| 2 | 319 | 53 | 45.12 | 4.68 |
+| 3 | 2,924 | 6,048 | 28.66 | 150.44 |
+| 4 | 8,475 | 85,927 | 30.50 | 885.02 |
+| 5 | 5,851 | 276,758 | 10.21 | 941.64 |
+| 6 | 1,004 | 344,624 | 1.27 | 405.39 |
+| 7 | 148 | 11,887 | 0.16 | 6.53 |
 | 8 | 33 | 0 | 0.03 | 0.00 |
