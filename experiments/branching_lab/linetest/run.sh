@@ -59,6 +59,20 @@ case ${1:-} in
     QAP_FORCE_LINE=7:$LINE QAP_LINE_RANK=7 go "$NAME" -p "$PAR" -r "$D/runs/$NAME/in.state" -d 8 \
       -o "$D/runs/$NAME/out.state" -k 300 "$DAT"
     rm -f "$D/runs/$NAME/in.state" ;;
+  strong)
+    # as arm, under strong.par: tai60b.par with cut.giveup_depth = 8 and cut.cp_iters = 8000, so 10:39's own
+    # cut phase runs up to 8,000 iterations instead of stopping at 1,000 (production's settings below it)
+    NAME=s$2; LINE=$2
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/cutstate.py" "$D/runs/parent/out.state" "$D/runs/$NAME/in.state" 7 10:39
+    QAP_FORCE_LINE=7:$LINE QAP_LINE_RANK=7 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 8 \
+      -o "$D/runs/$NAME/out.state" -k 300 "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
+  sresume)
+    NAME=s$2; LINE=$2
+    grep -q '^exit 0$' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }
+    QAP_FORCE_LINE=7:$LINE QAP_LINE_RANK=7 APPEND=1 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/out.state" -d 8 \
+      -o "$D/runs/$NAME/out.state" -k 300 "$DAT" ;;
   resume)
     NAME=$2; LINE=$3
     grep -q '^exit 0$' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }

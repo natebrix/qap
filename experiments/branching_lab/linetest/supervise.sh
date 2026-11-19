@@ -4,7 +4,7 @@
 # state and resumed when memory allows; at most 3 resumes per arm. Every 15 minutes the logs and traces
 # are committed and pushed. ARMS="c54:c54 c47:c47 r31:r31", LIMIT bytes of RSS, SECS (default 25000).
 D=$(cd "$(dirname "$0")"; pwd)
-ARMS=${ARMS:-"c54:c54 c47:c47 r31:r31"}
+ARMS=${ARMS:-"c54:c54 c47:c47 sc54:c54 sc47:c47"}
 LIMIT=${LIMIT:-13500000000}
 end=$(( $(date +%s) + ${1:-25000} ))
 declare -A tries
@@ -25,12 +25,13 @@ while [ "$(date +%s)" -lt $end ]; do
     [ $(( $(rss) + need )) -gt "$LIMIT" ] && continue
     tries[$name]=$(( ${tries[$name]:-0} + 1 ))
     log "$name: resume"
-    setsid nohup bash "$D/run.sh" resume "$name" "$line" > /dev/null 2>&1 < /dev/null &
+    if [ "${name#s}" != "$name" ]; then cmd=(sresume "$line"); else cmd=(resume "$name" "$line"); fi
+    setsid nohup bash "$D/run.sh" "${cmd[@]}" > /dev/null 2>&1 < /dev/null &
     sleep 5
   done
   if [ $(( $(date +%s) - last )) -ge 900 ]; then
     last=$(date +%s)
-    ( cd "$D" && python3 -I score.py > out/score.txt 2>&1; cd "$D/../../.." && git add experiments/branching_lab/linetest &&
+    ( cd "$D" && python3 -I score.py c54 c47 sc54 sc47 r31 > out/score.txt 2>&1; cd "$D/../../.." && git add experiments/branching_lab/linetest &&
       git commit -q -m "branching_lab/linetest: logs in progress $(date -u +%H:%M)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

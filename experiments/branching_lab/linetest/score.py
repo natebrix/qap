@@ -25,7 +25,7 @@ for arm in sys.argv[1:] or ['c54', 'c47', 'r31']:
     p = f'{H}/runs/{arm}/nodes.txt'
     if not os.path.exists(p): continue
     T = trace(p); top = T.get(NODE)
-    line = arm.split('_')[0]
+    line = arm[1:] if arm.startswith('s') else arm
     print(f'== arm {arm}')
     if top:
         s_arm = float(top[6]) - lb(top)
