@@ -80,7 +80,8 @@ for SET in ['tho30', 'tho40', 'tai60b']:
         for sig in SIGS:
             if R[sig].isna().all(): continue
             rho = spearmanr(R[sig], R.truth).correlation
-            line[sig] = (rho, top_over_best(R[sig], R.truth))
+            rk = R[sig].rank(method='average')[R.truth.idxmin()]   # where the truth's best line sits in the signal's order
+            line[sig] = (rho, top_over_best(R[sig], R.truth), rk)
         summ.append(line)
         out.append('\nSpearman with the truth / top line over best: ' + ', '.join(
             f'{k} {v[0]:+.2f} / {v[1]:.2f}x' for k, v in line.items() if isinstance(v, tuple)) + '\n')
@@ -99,3 +100,18 @@ for grp, sets in [('tho', ('tho30', 'tho40')), ('tai', ('tai60b',))]:
         cells.append('-' if not v else f'{np.nanmean([x[0] for x in v]):+.2f} / {np.mean([x[1] for x in v]):.2f}x (worst {max(x[1] for x in v):.2f}x)')
     out.append(f'| mean, {grp} | ' + ' | '.join(cells) + ' |')
 txt = '\n'.join(out); print(txt); open(H + '/out/linescore.md', 'w').write(txt + '\n')
+
+# in the form of line_signals/signals_out.md's summary: all 7 nodes (6 tho + tai60b 43:58)
+out2 = ['\n## In the form of line_signals (7 nodes: tho30 x 3, tho40 x 3, tai60b 43:58)\n',
+        '| signal | mean Spearman (nodes where defined) | best line 1st | in top 2 | in top 3 | its top line / best, mean (worst) |',
+        '|---|---|---|---|---|---|']
+names = {'cnt1': 'landscape: predicted survivors, ILS 300 (ex <= s)', 'cnt1_d0': 'landscape: predicted survivors, descents only',
+         'cntg': 'landscape: survivors over the node\'s own best (ex - ex_node <= s)', 'soft': 'landscape: sum exp(-ex/s)',
+         'model': 'landscape: chain size model, sum P(x) x^c', 'cnt2': 'landscape: ex <= 2s'}
+for sgl in ['cnt1', 'cnt1_d0', 'cntg', 'cnt2', 'soft', 'model']:
+    v = [l[sgl] for l in summ if sgl in l]
+    rhos = [x[0] for x in v if x[0] == x[0]]
+    out2.append(f'| {names[sgl]} | {np.mean(rhos):+.2f} ({len(rhos)} of {len(v)}) | {sum(x[2] <= 1 for x in v)}/{len(v)} | '
+                f'{sum(x[2] <= 2 for x in v)}/{len(v)} | {sum(x[2] <= 3 for x in v)}/{len(v)} | '
+                f'{np.mean([x[1] for x in v]):.2f}x ({max(x[1] for x in v):.2f}x) |')
+txt2 = '\n'.join(out2); print(txt2); open(H + '/out/linescore.md', 'a').write(txt2 + '\n')

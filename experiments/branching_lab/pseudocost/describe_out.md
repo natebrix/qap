@@ -67,3 +67,5 @@ Share of the variance between parents (a parent fixed effect), the ceiling of an
 | child's QPB shortfall | 0.03 / 0.02 | 0.31 / -0.30 | 0.33 / -0.20 | 0.27 / -4.22 | - | - | 0.02 / -20.52 |
 | structure: sums, nnz, clusters, GL, fixed interaction | 0.13 / 0.18 | 0.53 / 0.27 | 0.51 / 0.22 | 0.17 / -0.25 | 0.05 / -0.23 | 0.19 / -0.62 | 0.02 / -4.98 |
 | agrees with the best known | 0.03 / 0.07 | 0.01 / 0.02 | 0.02 / 0.02 | -0.00 / 0.00 | -0.00 / -0.00 | - | -0.10 / -0.09 |
+| all but the child's QPB (GBT) | 0.47 / 0.18 | 0.69 / 0.37 | 0.65 / 0.35 | 0.96 / 0.65 | 0.97 / 0.61 | 0.97 / 0.62 | 0.03 / -1.38 |
+| all, with the child's QPB (GBT) | 0.47 / 0.18 | 0.67 / 0.36 | 0.66 / 0.34 | 0.96 / 0.67 | - | - | 0.21 / -0.15 |

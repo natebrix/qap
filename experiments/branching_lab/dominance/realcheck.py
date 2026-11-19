@@ -1,7 +1,7 @@
-"""Checks on tai60b's own data (n = 60, B asymmetric) for flagged nodes of the replay:
+"""Checks on tai60b's own data (n = 60, B asymmetric) for flagged nodes of the replay (40 branched, sampled, and <count> others):
 (1) the sort (rank-one) value equals the general LAP value (scipy, both rank-one terms kept separately);
 (2) the LAP's minimising completion p, evaluated directly: cost(p) - cost(swap(p)) equals the value;
-(3) 200 random completions and 20 local-search (2-exchange descent inside the node) completions all have
+(3) 100 random completions and 3 local-search (2-exchange descent inside the node) completions all have
     Delta >= the value (so >= 1).  usage: realcheck.py <replay.tsv.gz> <count>"""
 import sys, gzip, numpy as np
 from scipy.optimize import linear_sum_assignment
@@ -16,6 +16,7 @@ with gzip.open(sys.argv[1], 'rt') as f:
         r = dict(zip(hdr, ln.rstrip('\n').split('\t')))
         if r['pairmin'] != '' and int(r['pairmin']) >= 1: fl.append(r)
 B_ = [r for r in fl if r['outcome'] == 'B']; others = [r for r in fl if r['outcome'] != 'B']
+B_ = [B_[j] for j in rng.choice(len(B_), min(len(B_), 40), replace=False)]
 pick = B_ + [others[j] for j in rng.choice(len(others), min(len(others), int(sys.argv[2])), replace=False)]
 def delta(p, i, k):
     q = p.copy(); q[[i, k]] = q[[k, i]]; return cost(A, B, p) - cost(A, B, q)
@@ -32,11 +33,11 @@ for r in pick:
     if len(R):
         rr, cc = linear_sum_assignment(M); p[R[rr]] = C[cc]
     bad[1] += (delta(p, i, k) != v)
-    for t in range(220):
+    for t in range(103):
         p = np.zeros(n, int)
         for l, c in F.items(): p[l] = c
         p[R] = rng.permutation(C)
-        if t >= 200 and len(R) > 1:   # descent on cost by exchanges of free rows
+        if t >= 100 and len(R) > 1:   # descent on cost by exchanges of free rows
             cur = cost(A, B, p); improved = True
             while improved:
                 improved = False

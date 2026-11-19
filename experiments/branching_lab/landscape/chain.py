@@ -4,7 +4,8 @@ the best known solution p0 or, tai60b, its mirror), every child of every free li
 descents from p0 and the mirror adjusted to the child's fixes, then an ILS of KICKS (default 30) kicks; ex0 and
 exK are both kept. One descent per distinct child (a child r:v is in row r's line and column v's).
 Writes chain/RUN.tsv: node, depth, node lb, cutoff, the line production took, line, child, ex0, exK, and the
-child's production outcome where the trace has it (the taken line's children)."""
+child's production outcome where the trace has it (the taken line's children).
+Env: ONLY=mirror (the mirror chain only), START=ils (descents from truth/INST_ils.perm instead of p0 and the mirror)."""
 import sys, os, time, numpy as np, lsq
 
 run, DMAX = sys.argv[1], int(sys.argv[2]); KICKS = int(sys.argv[3]) if len(sys.argv) > 3 else 30
@@ -17,6 +18,9 @@ starts = [I.p0]
 if inst == 'tai60b':
     mir = lsq.mirror(I)
     starts.append(mir)
+chain_starts = list(starts)                 # the chain is still the trace's (p0 / mirror), whatever START says
+if os.environ.get('START') == 'ils':        # starts: only the solution noknow.py found without knowing p0
+    t = open(f'{lsq.H}/truth/{inst}_ils.perm').read().split(); starts = [np.array(t[1:], dtype=np.int32)]
 rng = np.random.default_rng(5)
 def excess(fix):
     c, p = min((I.descend(I.adjust(s, fix), fix) for s in starts), key=lambda x: x[0]); c0 = c
@@ -29,12 +33,12 @@ def excess(fix):
         if cq < c: c, p = cq, q
     return c0 - I.best, c - I.best
 chain = [t for t in T if t['out'] == 'B' and t['depth'] < DMAX and
-         any(all(s[r] == v for r, v in t['fx']) for s in starts)]
+         any(all(s[r] == v for r, v in t['fx']) for s in chain_starts)]
 if os.environ.get('ONLY') == 'mirror':      # the mirror chain alone (written to chain/RUN_mirror.tsv)
     chain = [t for t in chain if not all(I.p0[r] == v for r, v in t['fx'])]
 chain.sort(key=lambda t: (t['depth'], t['fixes']))
 os.makedirs(lsq.H + '/chain', exist_ok=True)
-w = open(f'{lsq.H}/chain/{run}{"_mirror" if os.environ.get("ONLY") == "mirror" else ""}.tsv', 'w')
+w = open(f'{lsq.H}/chain/{run}{"_mirror" if os.environ.get("ONLY") == "mirror" else ""}{"_ils" if os.environ.get("START") == "ils" else ""}.tsv', 'w')
 w.write('node\tdepth\tlb\tcutoff\ttaken\tline\tchild\tex0\texK\tout\n'); t0 = time.time()
 for t in chain:
     nf = dict(t['fx']); lbv = lsq.lb(t); memo = {}
