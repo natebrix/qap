@@ -293,6 +293,7 @@ fi
 UB=""; UBNOTE=""
 if [ -n "$DIVES" ]; then
   UBASKED=1; PAR=${PAR:-latest/PARAM/default.par}   # (the recipe is not used: a dives run takes FROM's)
+  grid                                               # (STEP, for the other settings' questions)
   note "a dives run of $FROM: its params, data and incumbent"
 elif [ "$MODE" = new ]; then
   while :; do
