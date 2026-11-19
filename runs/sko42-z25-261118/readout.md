@@ -2,7 +2,7 @@
 
 **RUNNING**: 149 of 404 units merged
 
-- STALE: the coordinator last wrote its status 1098 minutes ago (an interrupted coordinator? collect.sh shows the instances and why they stopped)
+- STALE: the coordinator last wrote its status 1237 minutes ago (an interrupted coordinator? collect.sh shows the instances and why they stopped)
 
 ## The run
 
