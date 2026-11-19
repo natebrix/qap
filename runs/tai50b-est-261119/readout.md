@@ -1,11 +1,11 @@
 # tai50b-est-261119
 
-**PART-WAY**: the estimate's dives run tai50b-est-261119-dives is running, 258 of 259 dives units merged
+**COMPLETE**: the estimate (tai50b-est-261119-dives finished)
 
-- PART-WAY: 1 of 259 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (0% of the rest's CPU)
-- SLOW PENDING: 1 pending units have run longer than 90% of the merged ones took (743 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
-- FEW DIVES: 6 of 6 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
-- SETUP-BOUND: bounding the sampled open nodes took 25.8 CPU h, the dives 6.2 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
+- HEAVY TAIL: the 10 largest dives make 65% of the rest's nodes and 44% of its CPU (the largest 42%, 27%): more dives where they come from
+- FEW DIVES: 7 of 7 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
+- SETUP-BOUND: bounding the sampled open nodes took 28.0 CPU h, the dives 9.5 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
+- WIDE: the jackknife over units gives a standard error of 31% of the rest's CPU
 
 ## The run
 
@@ -32,16 +32,16 @@
 ## The estimate
 
 ```
-PART-WAY: 1 of 259 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (0% of the rest's CPU)
-SLOW PENDING: 1 pending units have run longer than 90% of the merged ones took (743 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
-FEW DIVES: 6 of 6 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
-SETUP-BOUND: bounding the sampled open nodes took 25.8 CPU h, the dives 6.2 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
+HEAVY TAIL: the 10 largest dives make 65% of the rest's nodes and 44% of its CPU (the largest 42%, 27%): more dives where they come from
+FEW DIVES: 7 of 7 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
+SETUP-BOUND: bounding the sampled open nodes took 28.0 CPU h, the dives 9.5 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
+WIDE: the jackknife over units gives a standard error of 31% of the rest's CPU
 done so far: 1,117 nodes, 32.8 CPU h
-estimated rest: 1,688 nodes (5-95%: 1,688 to 1,688), 31.3 CPU h (31.3 CPU h to 31.3 CPU h)
-estimated tree: 2,805 nodes (5-95%: 2,805 to 2,805), 64.1 CPU h (64.1 CPU h to 64.1 CPU h)
-281 open nodes (6 with children that branch), 6 dives in 6 of them, deepest dive node at depth 8; estimator 32.1 CPU h
-jackknife over units: standard error 395 nodes, 5.1 CPU h
-the largest dive makes 7% of the rest's CPU, the 10 largest 24%; 6 of 6 dived open nodes got one dive; estimator CPU: setup 25.8 CPU h, dives 6.2 CPU h
+estimated rest: 2,959 nodes (5-95%: 2,959 to 2,959), 44.4 CPU h (44.4 CPU h to 44.4 CPU h)
+estimated tree: 4,076 nodes (5-95%: 4,076 to 4,076), 77.2 CPU h (77.2 CPU h to 77.2 CPU h)
+282 open nodes (7 with children that branch), 7 dives in 7 of them, deepest dive node at depth 11; estimator 37.5 CPU h
+jackknife over units: standard error 1,292 nodes, 13.7 CPU h
+the largest dive makes 27% of the rest's CPU, the 10 largest 44%; 7 of 7 dived open nodes got one dive; estimator CPU: setup 28.0 CPU h, dives 9.5 CPU h
 
 ```
 
@@ -51,8 +51,11 @@ the largest dive makes 7% of the rest's CPU, the 10 largest 24%; 6 of 6 dived op
 | 1 | 50 | 0 | 7.25 | 0.00 |
 | 2 | 490 | 0 | 16.60 | 0.00 |
 | 3 | 576 | 0 | 7.72 | 0.00 |
-| 4 | 0 | 281 | 0.00 | 16.36 |
-| 5 | 0 | 737 | 0.00 | 9.65 |
-| 6 | 0 | 446 | 0.00 | 3.55 |
-| 7 | 0 | 132 | 0.00 | 1.24 |
-| 8 | 0 | 86 | 0.00 | 0.43 |
+| 4 | 0 | 282 | 0.00 | 16.62 |
+| 5 | 0 | 783 | 0.00 | 11.53 |
+| 6 | 0 | 663 | 0.00 | 7.13 |
+| 7 | 0 | 344 | 0.00 | 3.75 |
+| 8 | 0 | 293 | 0.00 | 2.23 |
+| 9 | 0 | 203 | 0.00 | 1.20 |
+| 10 | 0 | 198 | 0.00 | 1.26 |
+| 11 | 0 | 193 | 0.00 | 0.72 |
