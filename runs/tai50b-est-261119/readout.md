@@ -1,11 +1,11 @@
 # tai50b-est-261119
 
-**PART-WAY**: the estimate's dives run tai50b-est-261119-dives is running, 257 of 259 dives units merged
+**PART-WAY**: the estimate's dives run tai50b-est-261119-dives is running, 258 of 259 dives units merged
 
-- PART-WAY: 2 of 259 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (1% of the rest's CPU)
-- SLOW PENDING: 2 pending units have run longer than 90% of the merged ones took (742 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
-- FEW DIVES: 5 of 5 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
-- SETUP-BOUND: bounding the sampled open nodes took 24.6 CPU h, the dives 4.1 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
+- PART-WAY: 1 of 259 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (0% of the rest's CPU)
+- SLOW PENDING: 1 pending units have run longer than 90% of the merged ones took (743 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
+- FEW DIVES: 6 of 6 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
+- SETUP-BOUND: bounding the sampled open nodes took 25.8 CPU h, the dives 6.2 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
 
 ## The run
 
@@ -32,16 +32,16 @@
 ## The estimate
 
 ```
-PART-WAY: 2 of 259 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (1% of the rest's CPU)
-SLOW PENDING: 2 pending units have run longer than 90% of the merged ones took (742 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
-FEW DIVES: 5 of 5 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
-SETUP-BOUND: bounding the sampled open nodes took 24.6 CPU h, the dives 4.1 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
+PART-WAY: 1 of 259 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (0% of the rest's CPU)
+SLOW PENDING: 1 pending units have run longer than 90% of the merged ones took (743 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
+FEW DIVES: 6 of 6 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
+SETUP-BOUND: bounding the sampled open nodes took 25.8 CPU h, the dives 6.2 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
 done so far: 1,117 nodes, 32.8 CPU h
-estimated rest: 1,514 nodes (5-95%: 1,514 to 1,514), 28.7 CPU h (28.7 CPU h to 28.7 CPU h)
-estimated tree: 2,631 nodes (5-95%: 2,631 to 2,631), 61.5 CPU h (61.5 CPU h to 61.5 CPU h)
-280 open nodes (5 with children that branch), 5 dives in 5 of them, deepest dive node at depth 8; estimator 28.8 CPU h
-jackknife over units: standard error 444 nodes, 5.5 CPU h
-the largest dive makes 8% of the rest's CPU, the 10 largest 20%; 5 of 5 dived open nodes got one dive; estimator CPU: setup 24.6 CPU h, dives 4.1 CPU h
+estimated rest: 1,688 nodes (5-95%: 1,688 to 1,688), 31.3 CPU h (31.3 CPU h to 31.3 CPU h)
+estimated tree: 2,805 nodes (5-95%: 2,805 to 2,805), 64.1 CPU h (64.1 CPU h to 64.1 CPU h)
+281 open nodes (6 with children that branch), 6 dives in 6 of them, deepest dive node at depth 8; estimator 32.1 CPU h
+jackknife over units: standard error 395 nodes, 5.1 CPU h
+the largest dive makes 7% of the rest's CPU, the 10 largest 24%; 6 of 6 dived open nodes got one dive; estimator CPU: setup 25.8 CPU h, dives 6.2 CPU h
 
 ```
 
@@ -51,8 +51,8 @@ the largest dive makes 8% of the rest's CPU, the 10 largest 20%; 5 of 5 dived op
 | 1 | 50 | 0 | 7.25 | 0.00 |
 | 2 | 490 | 0 | 16.60 | 0.00 |
 | 3 | 576 | 0 | 7.72 | 0.00 |
-| 4 | 0 | 280 | 0.00 | 16.09 |
-| 5 | 0 | 691 | 0.00 | 8.74 |
-| 6 | 0 | 401 | 0.00 | 2.82 |
-| 7 | 0 | 88 | 0.00 | 0.68 |
-| 8 | 0 | 43 | 0.00 | 0.19 |
+| 4 | 0 | 281 | 0.00 | 16.36 |
+| 5 | 0 | 737 | 0.00 | 9.65 |
+| 6 | 0 | 446 | 0.00 | 3.55 |
+| 7 | 0 | 132 | 0.00 | 1.24 |
+| 8 | 0 | 86 | 0.00 | 0.43 |

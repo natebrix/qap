@@ -4,10 +4,10 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
-| [tai50b-est-261119](runs/tai50b-est-261119/readout.md) | paused | **PART-WAY**: the estimate's dives run tai50b-est-261119-dives is running, 257 of 259 dives units merged | PART-WAY, SLOW PENDING, FEW DIVES, SETUP-BOUND | 2026-11-19 03:37 | - |
-| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | running | **RUNNING**: 211 of 360 units merged | - | 2026-11-19 02:29 | - |
-| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | running | **RUNNING**: 207 of 366 units merged | - | 2026-11-19 02:28 | - |
-| [tho40-est2-261119](runs/tho40-est2-261119/readout.md) | paused | **PART-WAY**: the estimate's dives run tho40-est2-261119-dives is running, 527 of 548 dives units merged | PART-WAY, SLOW PENDING | 2026-11-19 02:26 | - |
+| [tai50b-est-261119](runs/tai50b-est-261119/readout.md) | paused | **PART-WAY**: the estimate's dives run tai50b-est-261119-dives is running, 258 of 259 dives units merged | PART-WAY, SLOW PENDING, FEW DIVES, SETUP-BOUND | 2026-11-19 03:37 | - |
+| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | running | **RUNNING**: 515 of 727 units merged | - | 2026-11-19 02:29 | - |
+| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | running | **RUNNING**: 432 of 642 units merged | - | 2026-11-19 02:28 | - |
+| [tho40-est2-261119](runs/tho40-est2-261119/readout.md) | paused | **COMPLETE**: the estimate (tho40-est2-261119-dives finished) | - | 2026-11-19 02:26 | - |
 | [nug30-smoke-261119](runs/nug30-smoke-261119/readout.md) | finished | **COMPLETE**: solved, best objective 6124 | - | 2026-11-19 01:49 | 2026-11-19 01:57 |
 | [sko42-z25-261118](runs/sko42-z25-261118/readout.md) | running | **RUNNING**: 149 of 404 units merged | STALE | 2026-11-18 21:38 | - |
 | [sko42-z10-261118](runs/sko42-z10-261118/readout.md) | running | **RUNNING**: 187 of 590 units merged | STALE | 2026-11-18 21:35 | - |
