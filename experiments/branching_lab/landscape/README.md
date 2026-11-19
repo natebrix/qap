@@ -11,8 +11,9 @@ the taken line's surviving children at tai60b's 21 chain nodes of depths 0-10 wi
 misses in 110 [m]. Among every free line it prefers production's line at depths 0-2 and 5-6, and it strongly
 prefers other lines at depths 7-8, where rule 2's c54 and c2 leave 9 and 7 survivors and lines exist that it
 says leave 1 or 2 (the path child alone, or with one more child).** The depth-7 branching is 35% of tai60b's
-nodes, so if the prediction holds there the saving is large. That is a prediction about lines nobody has
-bounded; one cheap arm run below tests it. Off the chains (inside the subtrees of nodes whose own best
+nodes, so if the prediction holds there the saving is large. That c54 is a bad line there is robust to the
+search's starting point. Which line is best is not: c47 holds at 2, while r31 moves from 1 to 5. That is a prediction about lines nobody has
+bounded; one cheap pair of arm runs below tests it. Off the chains (inside the subtrees of nodes whose own best
 completion is above the cutoff), the rule's threshold is wrong: recall 0.09 to 0.40 [m]. There the children
 branch at excesses up to 3 to 10 times the parent's shortfall, and more search effort does not fix it. Its
 ranking of children within a parent still beats the children's QPB bounds (0.80 against 0.55 on tai60b). On
@@ -201,7 +202,9 @@ and prefers other lines at depths 3-9, mostly c37 or r17, with 1 or 2 predicted 
   hold. That is of the order of a third of tai60b's tree [e]. Trust: the threshold is calibrated on these very
   chain nodes, with 0 false positives in 1,150 taken-line children. But a line's count rests on its
   borderline children, and r31's sit at x 1.0-1.2, exactly the soft edge, while c54's survivors are well below
-  it. The ranking of r31 over c54 is robust; the factor is not.
+  it. With a start that does not know p0 (below), r31's count goes to 5, while c47 stays at 2 (x 0, 0.22,
+  then 1.23 and up) and c54 at 9. **That c54 is among the worst lines at this node is robust (rank 77 of
+  106 by count with the p0 start; 9 predicted survivors under both starts); which line is best is not. c47 is the safer prediction.**
 - **tai60b depth 3, `1:33`: r6 against c47 or r51.** The model's saving here is small (1.4x off-chain): lines
   with 4 predicted survivors exist, but their survivors sit at lower x (bigger subtrees). Do not trust a
   saving here without the lookahead.
@@ -235,8 +238,14 @@ does not give (b) child by child: on tai60b an ILS of 300 kicks from a random st
 (table above). But one good permutation at the root is enough, and it is cheap to find. `noknow.py`, an ILS
 from 4 random starts of 10,000 kicks each (8 s apiece), found tai60b's 13,483 above the best known (16
 positions differ from p0; the other three seeds 2.6M to 9.5M above) and tai50b's best known itself (3 of 4
-seeds) [m `logs/noknow.log`]. The chain analysis with that permutation as the only start, in place of p0 and
-the mirror, is in `out/ilscompare.md`: ILSCOMPARE.
+seeds) [m `logs/noknow.log`]. **The chain analysis with that permutation as the only start**, in place of p0
+and the mirror (`START=ils`, `ilscompare.py`, `out/ilscompare.md`) [m]: the taken lines' children are tp 51,
+fp 0, fn 7 (against 53 / 0 / 5). The predicted survivors of the taken line are the same at 9 of 11 depths
+(depth 0: 3 against 4; depth 10: 2 against 3). The line counts correlate +0.72 to +0.97 with the p0-start
+counts, and the least count is within one of p0's at every depth. But single lines move: at depth 7, c54
+stays at 9, c47 at 2, while r31 goes from 1 to 5 and c10 from 2 to 3. Counts that rest on children just
+above the step depend on the start; a line whose predicted survivors are well separated (c54's, c47's) does
+not.
 In production the run starts from the best known value + 1 and the best known permutation is in QAPSOLN,
 so (b) is free. A run that improves its incumbent should rescore with the new one.
 
@@ -261,13 +270,15 @@ so (b) is free. A run that improves its incumbent should rescore with the new on
   about 70 CPU s at n = 60 against 2-4 core-hours for the lookahead itself.
 
 **The cheapest test, before any whole tree**: one arm pair at tai60b's depth-7 chain node `10:39`, the
-prediction with most money on it. Bound the children of r31 (and of c10) and compare with production's c54
-children (in the trace: 10 branched). That is the line study's design at depth 7 (`tai60b_lines/run.sh`,
-experiment build with `QAP_FORCE_LINE`): a parent run that bounds `44:45,43:58,1:33,6:24,7:19,0:32,10:39` with
-`-F` and `-d 7 -o parent.state`. Then two arms, `QAP_FORCE_LINE=7:r31` and `7:c54`, each from that state with
-`-r parent.state -d 8`, under `infra/phase1/recipes/tai60b.par` and `-u 608215055`. It costs about 53 children
-x 45 to 1,000 CPU s, 2 to 4 CPU-h an arm [e]. Kill rule: if r31 leaves 5 or more branching children, or more
-than c54's arm from the same state, the depth-7 saving is not there and the rule is a shortlist at best. If
+prediction with most money on it. Bound the children of c47 (2 predicted survivors under both starts; r31 as a
+third arm if a core is free) and of c54 (production's line: 10 branched in the trace, 9 predicted), from one
+parent state. That is the line study's design at depth 7 (`tai60b_lines/run.sh`,
+experiment build with `QAP_FORCE_LINE`): a parent run that bounds the depth-6 chain node `44:45,43:58,1:33,6:24,7:19,0:32` with `-F`,
+`QAP_FORCE_LINE=6:r10` and `-d 7 -o parent.state`. `cutstate.py` keeps `10:39` (as `run.sh arm` does for
+43:58). Then the arms `QAP_FORCE_LINE=7:c47` and `7:c54`, each `-r` from that state with `-d 8`, under
+`infra/phase1/recipes/tai60b.par` and `-u 608215055`. It costs about 53 children
+x 45 to 1,000 CPU s, 2 to 4 CPU-h an arm [e]. Kill rule: if c47 leaves 5 or more branching children, or as many as
+c54's arm from the same state, the depth-7 saving is not there and the rule is a shortlist at best. If
 it passes, the whole-tree test is tai35b through the coordinator's local mode (about 7,000 CPU s an arm),
 with `QAP_LA_LINES` fed from the LS-shortlist. That needs the shortlist in C (the descents above are ~100
 lines of `ls.c`), or a precomputed `QAP_FORCE_LINE` per depth, which only works on a path-like tree such as
