@@ -564,7 +564,7 @@ case $MODE in
         echo "# $P, the best known ${BEST:-?} (QAPSOLN/$P.sln). INSTANCE is relative to the repository,"
         echo "# PARAMS and EXTRA's paths to latest/, as in recipes/*.sh"
         [ -n "$DIVES" ] && echo "# a dives run of $FROM (QAP_FROM, QAP_DIVES): node.sh makes it with qapctl dives; this recipe is not used"
-        printf 'INSTANCE=%q\nPARAMS=%q\nOPT=%q\nUB=%q\nEXTRA=%q\nENV=%q\nCOORD=%q\n' "$DAT" "$PL" "$BEST" "$UB" "$EXTRA" "$ENVV${AENV:+ $AENV}" "$COORD"
+        printf 'INSTANCE=%q\nPARAMS=%q\nOPT=%q\nUB=%q\nEXTRA=%q\nENV=%q\nCOORD=%q\n' "$DAT" "$PL" "$BEST" "$UB" "$EXTRA" "${ENVV:+$ENVV${AENV:+ }}$AENV" "$COORD"
       } > "$RF"
       # what was launched, and from what: the spec as committed, and the answers as taken
       { [ -n "$SPECREL" ] && { echo "# spec $SPECREL at $COMMIT"; cat "$SPEC"; echo; }
