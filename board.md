@@ -4,14 +4,14 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
-| [tho40-tune-261119-z03](runs/tho40-tune-261119-z03/readout.md) | running | **RUNNING**: 37 of 184 units merged | - | 2026-11-19 19:32 | - |
-| [tho40-tune-261119-cross5](runs/tho40-tune-261119-cross5/readout.md) | running | **RUNNING**: 36 of 185 units merged | - | 2026-11-19 19:31 | - |
-| [tho40-tune-261119-xbar4](runs/tho40-tune-261119-xbar4/readout.md) | running | **RUNNING**: 52 of 200 units merged | - | 2026-11-19 19:30 | - |
-| [tho40-tune-261119-base](runs/tho40-tune-261119-base/readout.md) | running | **RUNNING**: 43 of 189 units merged | - | 2026-11-19 19:30 | - |
-| [tho40-est3-261119](runs/tho40-est3-261119/readout.md) | running | **PART-WAY**: the estimate's dives run tho40-est3-261119 is running, 252 of 548 dives units merged | PART-WAY, SLOW PENDING, GAP, WIDE | 2026-11-19 19:23 | - |
+| [tho40-tune-261119-z03](runs/tho40-tune-261119-z03/readout.md) | running | **RUNNING**: 118 of 266 units merged | - | 2026-11-19 19:32 | - |
+| [tho40-tune-261119-cross5](runs/tho40-tune-261119-cross5/readout.md) | running | **RUNNING**: 486 of 670 units merged | - | 2026-11-19 19:31 | - |
+| [tho40-tune-261119-xbar4](runs/tho40-tune-261119-xbar4/readout.md) | running | **RUNNING**: 722 of 902 units merged | - | 2026-11-19 19:30 | - |
+| [tho40-tune-261119-base](runs/tho40-tune-261119-base/readout.md) | running | **RUNNING**: 89 of 238 units merged | - | 2026-11-19 19:30 | - |
+| [tho40-est3-261119](runs/tho40-est3-261119/readout.md) | running | **PART-WAY**: the estimate's dives run tho40-est3-261119 is running, 458 of 548 dives units merged | PART-WAY, SLOW PENDING | 2026-11-19 19:23 | - |
 | [tai50b-est-261119](runs/tai50b-est-261119/readout.md) | paused | **COMPLETE**: the estimate (tai50b-est-261119-dives finished) | HEAVY TAIL, FEW DIVES, SETUP-BOUND, WIDE | 2026-11-19 03:37 | - |
-| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | running | **RUNNING**: 3248 of 3673 units merged | - | 2026-11-19 02:29 | - |
-| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | running | **RUNNING**: 3187 of 3464 units merged | - | 2026-11-19 02:28 | - |
+| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | running | **RUNNING**: 3331 of 3779 units merged | STALE | 2026-11-19 02:29 | - |
+| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | running | **RUNNING**: 3293 of 3557 units merged | STALE | 2026-11-19 02:28 | - |
 | [tho40-est2-261119](runs/tho40-est2-261119/readout.md) | paused | **COMPLETE**: the estimate (tho40-est2-261119-dives finished) | - | 2026-11-19 02:26 | - |
 | [nug30-smoke-261119](runs/nug30-smoke-261119/readout.md) | finished | **COMPLETE**: solved, best objective 6124 | - | 2026-11-19 01:49 | 2026-11-19 01:57 |
 | [sko42-z25-261118](runs/sko42-z25-261118/readout.md) | running | **RUNNING**: 149 of 404 units merged | STALE | 2026-11-18 21:38 | - |

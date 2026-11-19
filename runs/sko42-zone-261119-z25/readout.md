@@ -1,6 +1,8 @@
 # sko42-zone-261119-z25
 
-**RUNNING**: 3248 of 3673 units merged
+**RUNNING**: 3331 of 3779 units merged
+
+- STALE: the coordinator last wrote its status 57 minutes ago (an interrupted coordinator? collect.sh shows the instances and why they stopped)
 
 ## The run
 
@@ -17,8 +19,8 @@
 
 | | |
 |---|---|
-| wall | 17 h 56 min |
-| nodes | 209,896 (131,968 DNN, 101,561 DNN-fathomed) |
-| CPU | 815.0 h |
-| units | leased 71, merged 3248, queued 354 |
-| status written | 2026-11-19 20:25 UTC |
+| wall | 18 h 19 min |
+| nodes | 223,716 (136,108 DNN, 102,595 DNN-fathomed) |
+| CPU | 842.0 h |
+| units | leased 70, merged 3331, queued 377, returned 1 |
+| status written | 2026-11-19 20:48 UTC |
