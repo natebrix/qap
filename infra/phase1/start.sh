@@ -69,16 +69,21 @@ cd "$R"
 SPEC_KEYS="PROBLEM RUN PARAMS ARMS INCUMBENT DATA FLAGS UNITS VISIBILITY ESTIMATE ESTIMATE_ENV WORKERS WORKER_TYPE WORKER_TYPES MARKET WORKER_SLOTS COORD_TYPE COORD_SLOTS HOURS DISK"
 NOASK=$YES
 SPECREL=""
+unknown_keys() {   # the keys a spec sets that start.sh does not know (a function: macOS's bash 3.2
+  local k          # misreads a case pattern's ")" inside $( ) as the substitution's end)
+  for k in $(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$1" | tr -d =); do
+    case " $SPEC_KEYS " in *" $k "*) ;; *) echo "$k" ;; esac
+  done
+}
 if [ -n "$SPEC" ]; then
   [ -f "$SPEC" ] || { echo "no spec file $SPEC"; exit 2; }
   SPECREL=${SPEC#"$R"/}
   git ls-files --error-unmatch "$SPECREL" > /dev/null 2>&1 && git diff --quiet HEAD -- "$SPECREL" \
     || { echo "$SPECREL is not committed as it is: commit it first (the run's record names it)"; exit 2; }
-  BAD=$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$SPEC" | tr -d = | while read -r k; do
-          case " $SPEC_KEYS " in *" $k "*) ;; *) echo "$k" ;; esac; done)
+  BAD=$(unknown_keys "$SPEC")
   [ -z "$BAD" ] || { echo "$SPECREL: unknown key(s) $(echo $BAD) (known: $SPEC_KEYS)"; exit 2; }
   eval "$( (set +u; source "$SPEC" > /dev/null
-            for k in $SPEC_KEYS; do [ -n "${!k+x}" ] && printf 'S_%s=%q\n' "$k" "${!k}"; done) )"
+            for k in $SPEC_KEYS; do eval "[ -n \"\${$k+x}\" ]" && eval "printf 'S_%s=%q\\n' $k \"\$$k\""; done) )"
   [ -n "${S_PROBLEM:-}" ] || { echo "$SPECREL: no PROBLEM"; exit 2; }
   [ -z "$P" ] || [ "$P" = "$S_PROBLEM" ] || { echo "the spec is for $S_PROBLEM, not $P"; exit 2; }
   P=$S_PROBLEM; NOASK=1
