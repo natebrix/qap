@@ -292,11 +292,12 @@ def rest_from(measured, others):
     rn = sum(t[0] for t in tot.values())
     rc = sum(t[1] for t in tot.values())
     imp_n = imp_c = 0.0
-    unmatched = 0
+    unmatched = {}
     for d, o in others.items():
         t = tot.get(d)
         if not t or not t[2]:
-            unmatched += o
+            if o:
+                unmatched[d] = unmatched.get(d, 0) + o
             continue
         imp_n += o * t[0] / t[2]
         imp_c += o * t[1] / t[2]
@@ -370,8 +371,10 @@ def flags(e):
         out.append(f"PART-WAY: {e['units_pending']} of {e['units']} dives units not merged; their open nodes are "
                    f"imputed, depth by depth, from the merged units' ({sh:.0%} of the rest's CPU)")
     if e.get("imputed", {}).get("unmatched_open"):
+        by = e["imputed"].get("unmatched_by_depth", {})
         out.append(f"GAP: {e['imputed']['unmatched_open']} open nodes of pending units are at depths no merged "
-                   f"unit has: not counted")
+                   f"unit has open nodes at yet ({', '.join(f'depth {d}: {o}' for d, o in by.items())}): not "
+                   f"counted, so the estimate is low by their share until one is merged")
     if max(g.get("top10_cpu", 0), g.get("top10_nodes", 0)) > 0.5:
         out.append(f"HEAVY TAIL: the 10 largest dives make {g['top10_nodes']:.0%} of the rest's nodes and "
                    f"{g['top10_cpu']:.0%} of its CPU (the largest {g['top1_nodes']:.0%}, {g['top1_cpu']:.0%}): "
@@ -430,7 +433,9 @@ def estimate_run(b, run_id, out=None, log=print, save=True):
     e["units"], e["units_pending"] = len(units), pending
     accs = unit_rest(merged, keys, strata, _parts(strata, dives))
     rn, rc, imp_n, imp_c, unmatched = rest_from(accs, pending_open)
-    e["imputed"] = {"nodes": imp_n, "cpu": imp_c, "open": sum(pending_open.values()), "unmatched_open": unmatched}
+    e["imputed"] = {"nodes": imp_n, "cpu": imp_c, "open": sum(pending_open.values()),
+                    "unmatched_open": sum(unmatched.values()),
+                    "unmatched_by_depth": {str(d): o for d, o in sorted(unmatched.items())}}
     if pending:
         # the merged part as combine() has it, plus the pending units' share; the bootstrap's band moves with it
         for part in ("rest", "total"):

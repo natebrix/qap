@@ -109,9 +109,11 @@ def readout(b, run_id, now=None):
             (f"; its estimate's dives run {dives_run} is not made yet" if dives_run else "")
     else:
         verdict = f"**RUNNING**: {merged} of {total} units merged"
-    if status in ("running", "paused") and st.get("updated") and now - st["updated"] > STALE_S \
+    # a paused solve whose dives run goes on: the coordinator writing is the dives run's
+    live = _status(b, dives_run) if dives_run and d_status == "running" else st
+    if status in ("running", "paused") and live.get("updated") and now - live["updated"] > STALE_S \
             and not (dives_run and d_status == "finished"):
-        warnings.append(f"STALE: the coordinator last wrote its status {(now - st['updated']) / 60:.0f} minutes ago "
+        warnings.append(f"STALE: the coordinator last wrote its status {(now - live['updated']) / 60:.0f} minutes ago "
                         f"(an interrupted coordinator? collect.sh shows the instances and why they stopped)")
     if counts.get("dead"):
         warnings.append(f"DEAD UNITS: {counts['dead']} units failed every attempt (the ledger has their errors)")
