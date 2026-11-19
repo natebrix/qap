@@ -73,6 +73,18 @@ case ${1:-} in
     grep -q '^exit 0$' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }
     QAP_FORCE_LINE=7:$LINE QAP_LINE_RANK=7 APPEND=1 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/out.state" -d 8 \
       -o "$D/runs/$NAME/out.state" -k 300 "$DAT" ;;
+  deep)
+    # one level deeper (README "One level deeper"): the depth-9 nodes under the strong c47 arm's survivors
+    # FIXES (e.g. 47:47 or 45:47,31:47), from runs/sc47/out.state, production's settings and line rule, -d 9
+    NAME=d9_${2//[:,]/_}
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/splitstate.py" "$D/runs/sc47/out.state" "$D/runs/$NAME/in.state" 9 "$2"
+    go "$NAME" -p "$PAR" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 9 -o "$D/runs/$NAME/out.state" -k 600 "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
+  deepresume)
+    NAME=d9_${2//[:,]/_}
+    grep -q '^exit 0$' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }
+    APPEND=1 go "$NAME" -p "$PAR" --allow-settings-change -r "$D/runs/$NAME/out.state" -d 9 -o "$D/runs/$NAME/out.state" -k 600 "$DAT" ;;
   resume)
     NAME=$2; LINE=$3
     grep -q '^exit 0$' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }
