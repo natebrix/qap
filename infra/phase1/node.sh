@@ -368,7 +368,16 @@ fi
 if [ $WR != 0 ] || [ $CR != 0 ] || ! bk get "runs/$RUN/results.txt" "$OUT/results.txt"; then
   step "the run did not finish (worker $WR, coordinator $CR): see out/worker.log, out/coordinator.log"; exit 1
 fi
+if [ -n "$DIVES" ]; then   # a dives run of FROM: its results are the estimate
+  cp "$OUT/results.txt" "$OUT/estimate.txt"; bk get "runs/$RUN/estimate.json" "$OUT/estimate.json" || :
+  step "estimate (a dives run of $FROM): $(grep -E '^estimated tree' "$OUT/estimate.txt")"
+  exit 0
+fi
 step "finished: $(grep -E 'Nodes:|best objective' "$OUT/results.txt" | tr -s ' ' | tr '\n' ' ')"
+if [ -n "$SAMPLE" ]; then   # a sampled run's results are its sampled subtrees', not a solve of the problem
+  step "a sampled run of $FROM's open nodes: no acceptance check (compare the arms: experiments/estimates_nov19/paired.py)"
+  exit 0
+fi
 
 # --- the acceptance check: bench/parallel.py with the same settings, here
 INSTANCE= PARAMS= OPT= UB= EXTRA= ENV= COORD=
