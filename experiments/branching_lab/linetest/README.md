@@ -37,6 +37,39 @@ advance this test stops here. The measured gap, 5 survivors against 9 that are a
 the cutoff, is still large enough that step 4 is the cheapest next test if Nathan wants it. That is
 for him to decide; the kill rule says stop.
 
+## One level deeper (the coordinator's follow-up, Nov 19 22:25-23:10 UTC)
+
+**Under c47, depth 9 has 9 branching nodes against production's 56 under c54, so c47 is materially
+better one level down. The kill rule, fixed in advance at 28 (half of 56), is not met, and per that
+rule I stop here.** [m `d9score.py`, `out/d9score.txt`] The 260 depth-9 nodes under the strong c47
+arm's five survivors were bounded from `runs/sc47/out.state`. Production's settings applied
+(`tai60b.par`), with production's own line rule at depth 8 (no forced line), and depth 10 set aside
+(`-d 9`; `run.sh deep`, `splitstate.py`, 4 processes, `runs/d9_*`). Production's figures are from
+the tai60b-261117 trace.
+
+| depth-8 node | line (production's rule) | depth 9: D | C | B | branching children's shortfalls | CPU s |
+|---|---|---|---|---|---|---|
+| 47:47 (path) | c10 | 48 | 1 | 3 | 254k, 238k, 179k | 2,692 |
+| 46:47 | c53 | 48 | 1 | 3 | 214k, 175k, 18k | 2,502 |
+| 29:47 | r9 | 50 | 0 | 2 | 54k, 14k | 1,626 |
+| 45:47 | c59 | 51 | 0 | 1 | 6k | 1,093 |
+| 31:47 | c59 | 50 | 2 | 0 | | 1,088 |
+| **c47 total** | | 247 | 4 | **9** | max 254k, sum 1,152k | 9,002 |
+| **production c54 total** (10 depth-8 nodes, all branched on c2) | | 442 | 22 | **56** | max 411k, sum 11,036k; 4-7 per node but 21:54 (0) | 80,387 (cloud boxes) |
+
+The 56 have shortfalls of 8k to 411k, and every production depth-8 node except 21:54 has 4 to 7
+branching children. c47's 9 have 6k to 254k. Its path child 47:47 has 3, against production's
+14:54 with 7 at 117k-411k. CPU is not like for like: this box bounded the strong c54 arm's children
+in 0.53x production's CPU (6,460 s against 12,153 s). Scaled by that, c47's depth 9 costs about a
+fifth of production's [e]. The comparison rests on one assumption: that the strong state stands in
+for production's below depth 8, as it does at depth 8 (c54's children within about 10k of
+production's shortfall). The c54 arm was not taken to depth 9 here, so production's trace is the
+reference. Counting branched nodes at depths 8 and 9 together: c47 5 + 9, c54 10 + 56 in production.
+
+What that does not show: whether the gap holds deeper. The path child 47:47's subtree is the rest of
+the chain, and its three depth-9 survivors at 179k-254k are lighter than 14:54's seven. The deeper
+levels are Nathan's decision.
+
 ## Child by child, the strong state (10:39 416,393 short; production 405,921)
 
 x = excess / production's slack (405,921). "x 30" is the landscape signal's search (`predict.py`,
@@ -125,11 +158,11 @@ production's depth-7 outcomes) and the r31 arms (cold `r31`, strong `sr31`) were
 
 - **Step 4, the survivors' subtrees**, by the kill rule. The size comparison above is a regression
   [e].
-- **r31**: running when this README was written (cold `runs/r31`, strong `runs/sr31`); partial traces
+- **r31**: stopped part-way for the depth-9 run (cold `runs/r31`, strong `runs/sr31`); partial traces
   are committed. With 3,000 kicks the signal now puts r31 at 6 survivors (x <= 1) plus two at 1.02
   and 1.10 [m `out/effort_all.tsv`], worse than c47. The landscape README's 1 to 5 came from 30 or
   100 kicks.
-- **Every depth-7 child's outcome under the cold parent** (`runs/kids`): partial, all D so far.
+- **Every depth-7 child's outcome under the cold parent** (`runs/kids`): stopped part-way for the depth-9 run, partial (all D).
   Production's depth-7 children are 3 B and 51 D.
 - **Bit-reproducibility of the arms**: not rechecked here. cognac's tai60b_lines found restarts
   reproduce bounds to the last digit printed.
