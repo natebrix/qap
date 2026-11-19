@@ -6,11 +6,11 @@ on-path shortfall at the child's depth, s_pathd; SLACK env, default par) on the 
   parent: demeaned; b, the same in x rather than log x, is printed too but fits worse)
 so a line's predicted cost at a node is proportional to sum over its children of P(x) max(x, 0.05)^c (the fathomed
 children's cost, one node each, is left out: it is the same m nodes for every line). Writes out/model.json and
-prints the fit, the subtree sizes by x bin, and how much of each parent's survivors' subtree the model explains."""
+prints the fit (CHAIN=1: only the children of chain nodes, depth <= 15, -> out/model_chain.json), the subtree sizes by x bin, and how much of each parent's survivors' subtree the model explains."""
 import sys, os, json, numpy as np, pandas as pd, lsq
 from scipy.optimize import minimize
 
-SL = os.environ.get('SLACK', 'par')
+SL = os.environ.get('SLACK', 'par'); CHAIN = os.environ.get('CHAIN') == '1'
 def sizes(run):
     d = pd.read_csv(f'{lsq.H}/out/{run}.tsv', sep='\t', usecols=['depth', 'fixes'], dtype={'fixes': str})
     size = dict.fromkeys(d.fixes, 1)
@@ -23,6 +23,10 @@ K = []
 for run in sys.argv[1:]:
     k = pd.read_pickle(f'{lsq.H}/out/kid_{run}.pkl'); sz = sizes(run)
     k['size'] = k.fixes.map(sz); k['x'] = k.ex_k / k[f's_{SL}']; k['run'] = run
+    if CHAIN:   # children of nodes that hold a near-optimal solution (the parent's ex_k <= 3000: the chains), depth <= 15
+        P = pd.read_csv(f'{lsq.H}/out/{run}.tsv', sep='\t', usecols=['fixes', 'ex_k'], dtype={'fixes': str}, keep_default_na=False)
+        exP = dict(zip(P.fixes, pd.to_numeric(P.ex_k.replace('-', np.nan))))
+        k = k[(k.parent.map(exP) <= 3000) & (k.depth <= 15)]
     K.append(k[['run', 'depth', 'fixes', 'parent', 'surv', 'onpath', 'x', 'size', 'ex_k', 's_par', 's_pathd']])
 K = pd.concat(K); K = K[np.isfinite(K.x)]
 x, y = np.log(K.x.clip(lower=0.01).values), K.surv.values.astype(float)   # the logistic is in u = log max(x, 0.01)
@@ -42,4 +46,4 @@ t = K.groupby('bin', observed=True).agg(children=('surv', 'size'), branched=('su
                                         model_p=('x', lambda v: float(np.mean(1 / (1 + np.exp(-(w[0] + w[1] * np.log(np.clip(v, 0.01, None)))))))))
 print(t.to_string())
 json.dump({'slack': SL, 'p0': float(w[0]), 'p1': float(w[1]), 'b': b, 'c': c, 'xmin': 0.05, 'scale': 1e9, 'runs': sys.argv[1:]},
-          open(f'{lsq.H}/out/model{"" if SL == "par" else "_" + SL}.json', 'w'), indent=1)
+          open(f'{lsq.H}/out/model{"" if SL == "par" else "_" + SL}{"_chain" if CHAIN else ""}.json', 'w'), indent=1)

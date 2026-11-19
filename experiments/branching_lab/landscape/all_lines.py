@@ -2,7 +2,7 @@
 survivors (ex100 <= s and ex0 <= s) and model cost, for s = 1.76M (the line study's arms) and 1.11M (production);
 where the study's four lines and the marginal score's choices rank. Writes out/all_lines.md."""
 import json, numpy as np, pandas as pd, lsq
-M = json.load(open(lsq.H + '/out/model.json'))
+M = json.load(open(lsq.H + '/out/' + __import__('os').environ.get('MODEL', 'model_chain') + '.json'))
 P = lambda x: 1 / (1 + np.exp(-(M['p0'] + M['p1'] * np.log(np.clip(x, 0.01, None)))))
 d = pd.read_csv(lsq.H + '/truth/tai60ball.tsv', sep='\t')
 out = ['# tai60b 43:58, every free line\n']

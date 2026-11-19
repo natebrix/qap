@@ -27,7 +27,7 @@ LB = {**node_lb(H + '/truth/tho30_nodes_dnntest.txt'), **node_lb(H + '/truth/tho
 CUT = {'tho30': 149936 - 1.95, 'tho40': 240516 - 1.95, 'tai60b': 608215055 - 0.95}
 TAI_TRUTH = {'r1': 19600, 'r45': 22900, 'c26': 38800, 'r8': 67100}       # ../tai60b_lines rough subtree
 TAI_S = 1.76e6
-MODEL = json.load(open(H + '/out/model.json')) if os.path.exists(H + '/out/model.json') else None
+MODEL = json.load(open(H + '/out/' + os.environ.get('MODEL', 'model_chain') + '.json'))
 
 def model_cost(x):
     """expected subtree of a child with x = excess / slack, relative (model.py)"""
