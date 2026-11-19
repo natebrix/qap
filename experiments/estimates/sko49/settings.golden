@@ -1,9 +1,9 @@
-settings 93 hash 5a80a99fbf13fbdd
+settings 93 hash 38a4deb529a56b7b
 setting dnn.depths 1:47 par policy
 setting dnn.maxgap 1 par policy
 setting dnn.giveup 300 par policy
 setting dnn.warm 1 par policy
-setting dnn.giveup_warm 0 default policy
+setting dnn.giveup_warm 100 par policy
 setting dnn.ext 20 par policy
 setting dnn.gamma1 1.0 par policy
 setting dnn.gamma 1.0 par policy
@@ -15,7 +15,7 @@ setting dnn.momentum 0 default policy
 setting dnn.beta 0.3 par policy
 setting dnn.refresh 40 par policy
 setting dnn.warm_y 2 par policy
-setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=0.7 par policy
+setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=1.4 par policy
 setting dnn.dscale 0 default policy
 setting dnn.dscale0 1 default policy
 setting dnn.dscale_until 0 default policy
@@ -49,7 +49,7 @@ setting cut.cp 100:1000 par policy
 setting cut.giveup "" default policy
 setting cut.giveup_depth 0 default policy
 setting cut.cp_iters 0 default policy
-setting cut.handover "" default policy
+setting cut.handover 27:0:5 par policy
 setting cut.cp_sweeps 1:1 default policy
 setting cut.cp_extrap "" default policy
 setting cut.cp_wc_gap 0 default policy
@@ -65,7 +65,7 @@ setting branch.xbar_lines 1 default policy
 setting fw.patience 0 default policy
 setting est.xbar 0 default policy
 setting est.xbar_mix 0.1 default policy
-setting par.hash e76dd9158599345b par policy
+setting par.hash 484f0eba10a96471 par policy
 setting DNN_R32 0 default experiment
 setting DNN_FUSE 0 default experiment
 setting DNN_ADMM_WARM_BETA "" default experiment

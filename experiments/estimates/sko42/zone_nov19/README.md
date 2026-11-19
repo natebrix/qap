@@ -74,7 +74,15 @@ hide such a tail; only a finished run, or Knuth's dives from a paused frontier (
 On 71 slots (the coordinator and one worker) 1,400-1,700 CPU h is about 20-24 h; on 135, 10.5-12.5 h. Fujii
 et al. needed 6.0 million nodes.
 
-## Open
+## Since (Nov 19)
 
-- **Wider still.** tho40 runs at 0.06 (`infra/phase1/recipes/tho40c.par`); on sko42 0.025 is the widest tried.
-- **sko49** uses sko42's settings with `cut.zone = 0.010` (`../../sko49/`); the same question applies.
+- **Wider still: probably not worth it.** The bound lab found sko49's zone, 0.018 (421 short), already wide
+  enough that every node below depth 2 which its first solve does not fathom runs a phase
+  (`../../../bound_lab/wil50_policy/README.md`, "What did not carry over"). sko42's 0.025 is 395 short: about
+  the same. tho40's 0.06 is a different instance's need (its far phases still close 20 units per 100
+  iterations).
+- **The sko49 policy block, in `sko42.par` and `sko49.par`.** The bound lab's arm `hoe2w`: early entry
+  (`dnn.giveup_warm = 100`), the hand-over rule fitted on sko49 (`cut.handover = 27:0:5`) and the phase's own
+  penalty `wc=1.4` (0.7 before), 1.21x and 1.34x fewer iterations on two sko49 subtrees. The next sko42 run
+  (`infra/phase1/specs/sko42.spec`) runs it; paired with z25, which differs from it in the block only, it
+  measures the block on a whole tree, in DNN iterations (z25's DNN trace is in its export, not in git).

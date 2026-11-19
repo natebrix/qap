@@ -70,8 +70,13 @@ cut.iters = 200
 cut.freeze = 1000
 cut.damp1 = 0.3
 cut.cp = 100:1000
+# Nov 19: the bound lab's sko49 policy block (experiments/bound_lab/wil50_policy, arm hoe2w: 1.21x and 1.34x
+# fewer iterations on two sko49 subtrees): early entry, the hand-over rule fitted on sko49, and the
+# phase's own penalty at wc=1.4 (in dnn.beta_sched below; 0.7 until Nov 19). In sko42.par and sko49.par alike
+dnn.giveup_warm = 100
+cut.handover = 27:0:5
 ship.bits = 32
-dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
+dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=1.4
 dnn.cross = 2
 dnn.lazycert = 1
 # dnn.depths = 1:47 since Nov 14 (1:4 before): the DNN bound at every depth with two
