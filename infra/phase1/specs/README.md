@@ -22,6 +22,11 @@ A key it leaves out takes `start.sh`'s default, as Enter would.
 | `VISIBILITY` | `public` or `private` | `public` |
 | `ESTIMATE` | `SOLVE_HOURS:DIVE_SECONDS[:B[:SAMPLE[:unif\|qpb]]]`, or `none` for a solve | `none` |
 | `ESTIMATE_ENV` | more estimator settings for every dives unit, `QAP_EST_X=V` separated by spaces: `QAP_EST_MIN_DIVES=5` (dives every branched open node gets whatever the budget), `QAP_EST_SAMPLE_DEPTHS=3:1,4:0.2,5:0.03` (the sampling rate by depth) | none |
+| `FROM` | a paused run (its units back, queued) this run starts from, with `DIVES` or `SAMPLE`: its states and parents are read, never changed, so it can still be resumed | none |
+| `DIVES` | with `FROM`: this run is a dives run of FROM's paused frontier, `DIVE_SECONDS[:B[:SAMPLE[:unif\|qpb]]]` as in `ESTIMATE` (no solve phase: a second estimate of the same open nodes, e.g. with the estimator fixed; FROM's params and incumbent, so no `PARAMS`, `ARMS` or `INCUMBENT`; `ESTIMATE_ENV` for the estimator's settings). Its readout is its own | none |
+| `SAMPLE` | with `FROM`: this run starts from a sample of FROM's open nodes, `DEPTH:COUNT,...`, drawn in proportion to the square root of their subtrees' estimates in a dives run of FROM, and solves them to the end under `PARAMS` or each arm of `ARMS` (`coord/sample.py`: every arm the same nodes; `experiments/estimates_nov19/paired.py` compares them). The data file, flags and incumbent must be FROM's | none |
+| `SAMPLE_BY`, `SAMPLE_SEED` | with `SAMPLE`: the dives run whose estimates size the nodes; the draw's seed | FROM's own dives run; 1 |
+| `ARMS_ENV` | with `ARMS`: an arm's own solver environment, `NAME:K=V` items separated by spaces (an experiment setting no params file holds, e.g. `cross5:DNN_ADMM_WARM_BETA=0.1:30:0.36:1`) | none |
 | `ESTIMATE_DECIDE` | the estimate's decision point (`coord/README.md`): when its pilot says the dives would cost over this share of the rest of the tree, they stop and the solve goes on to the end; `off`: the dives always run to the end | `0.15` |
 | `WORKERS` | the worker group's size | 1 |
 | `WORKER_TYPE`, `WORKER_TYPES` | the worker type; the group's types | `c7a.16xlarge`; it and `m7a`, `r7a` |
@@ -38,3 +43,5 @@ make. `collect.sh RUN` (or `RUN-ARM`) then shows the run, and its readout once i
 | `tai50b-est.spec` | an estimate of tai50b under its current recipe (rule 9 at the bottom), whose tree is known: tai50b-r9's 6,629 nodes and 117 core-hours |
 | `sko42-zone.spec` | the `cut.zone` A/B on sko42, 0.010 against 0.025, from scratch (the Nov 18 arms differed in tracing and were both reclaimed) |
 | `tho40-est.spec` | a second estimate of tho40 under tho40c with the first's diagnosis applied: 5 dives at least per branched open node, sampling by depth |
+| `tho40-est3.spec` | tho40-est2-261119's paused frontier dived again with the estimator fixed (strata states spilled, not dropped; Nov 19): est2's settings otherwise, so the difference is the fix (est2: 239 c7a CPU-days read, 196 corrected) |
+| `tho40-tune.spec` | tho40's first tuning round: four arms (tho40c; `branch.xbar_lines 4`; `dnn.cross_first 5` with a warm penalty schedule; `cut.zone 0.03`) on the same sample of tho40-est2's open nodes, 50 at depth 3 and 100 at depth 4, side by side; about 150 CPU h an arm |

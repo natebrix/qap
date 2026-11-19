@@ -188,3 +188,47 @@ and here the cut phase decides which children fathom. So `QAP_EST_CHILD_DNN` sta
 default, as a negative result on a chain tree with cuts; the decision point above is what keeps such
 an estimate from costing more than the solve.
 
+## Tuning on paired subtrees (Nov 19)
+
+Two estimates of a tree, one per setting, cannot separate a 10% effect: each is known to about 7%
+(tho40-est2's jackknife). Solving the same open nodes to the end under each setting, side by side, and
+comparing node by node takes the between-node spread out of the comparison. Built: a run from a sample
+of a paused run's open nodes (`coord/sample.py`; `qapctl init --sample-from`; a spec's `FROM=` and
+`SAMPLE=`, with `ARMS` and `ARMS_ENV`), and `paired.py`, which reads the arms' samples and node traces.
+
+**How to draw the sample.** tho40's subtrees are uneven: of tho40-est2's warm strata at depth 3, a
+median subtree of 0.03 CPU h, a mean of 0.40, the largest 1% holding 35% of the CPU (depth 4: 0.002,
+0.05, 43%). A uniform sample of 200 depth-3 open nodes estimates their total to 29%. For a ratio
+between arms, if an arm's effect varies by a share sigma from node to node, the ratio's relative
+standard error is about sigma times the total's, and the cost of a node is its size, so the variance
+at a fixed cost is least with pi ~ sqrt(size). With est2's warm strata as the population
+(`sample_design.py`; the cost is the expected CPU an arm):
+
+| depth | draw | n | CPU an arm | the total's rel. se | the ratio's rel. se, sigma 20% / 40% |
+|---|---|---|---|---|---|
+| 3 | uniform | 200 | 80 h | 28.6% | 5.7% / 11.4% |
+| 3 | pi ~ sqrt(size) | 50 | 113 h | 18.8% | 3.8% / 7.5% |
+| 3 | pi ~ sqrt(size) | 100 | 225 h | 11.5% | 2.3% / 4.6% |
+| 3 | pi ~ size | 50 | 297 h | 11.3% | 2.3% / 4.5% |
+| 4 | uniform | 200 | 10 h | 42.9% | 8.6% / 17.2% |
+| 4 | pi ~ sqrt(size) | 100 | 35 h | 7.7% | 1.5% / 3.1% |
+
+In proportion to the size itself the sample takes every large subtree and costs more for the same
+precision (at depth 3, 297 CPU h for what sqrt gives at 225). The plan in `tho40-tune.spec`: 50 at
+depth 3 and 100 at depth 4 by sqrt, about 150 CPU h an arm, the ratio to about +-4-8% at depth 3 and
++-2-3% at depth 4. The open nodes at depths 3 and 4 hold about three quarters of tho40's rest; depth
+2 (85 open nodes, a mean subtree of 12.6 CPU h) is left out.
+
+**The arms** (`infra/phase1/recipes/`, each tho40c.par with one change): `base`, tho40c;
+`xbar4`, `branch.xbar_lines = 4` for 2; `cross5`, `dnn.cross_first = 5` with
+`DNN_ADMM_WARM_BETA=0.1:30:0.36:1` in its environment (bound_lab/admm, section 6: 537 to 377
+iterations on one parent's 36 children; the variable is an experiment setting no params file holds,
+and making it one would change every run's settings hash, so paused runs could not resume); `z03`,
+`cut.zone = 0.03` for 0.06. One worker each, side by side. Read them with
+`python3 experiments/estimates_nov19/paired.py infra/phase1/runs/tho40-tune-261119-{base,xbar4,cross5,z03}`
+after `collect.sh` on each.
+
+**The re-dive** (`tho40-est3.spec`): tho40-est2's paused frontier dived again with the estimator fixed
+(the spill), est2's settings otherwise, so that its difference from est2 is the fix: a direct check of
+the 196 c7a CPU-days the correction gives.
+

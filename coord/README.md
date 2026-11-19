@@ -71,6 +71,23 @@ against the 5,610 its dives found. Replayed on the collected runs (400 random pi
 `experiments/estimates_nov19/decide_sim.py`): tai50b-est decides to solve every time, after a
 median 3.1 estimator CPU h of the 37.5 its dives took; tho40-est2 never (4.8-8.4%, 10-90%).
 
+Sampled runs (Nov 19; `coord/sample.py`): `qapctl init RUN --sample-from SRC --sample 3:50,4:100`
+skips the frontier pass. Its first units are a sample of the paused run SRC's open nodes at those
+depths, drawn by a dives run of SRC (`--sample-by`, SRC's own by default) with probability in
+proportion to its estimate of each node's subtree to the power `--sample-power` (0.5: for a ratio
+between arms, the least variance at a fixed cost), a `--sample-mix` share of uniform mixed in, seeded
+(`--sample-seed`). Each sampled node carries a weight, the number of SRC's open nodes at its depth it
+stands for, and the run keeps the sample as `runs/RUN/sample.json`. The nodes' lines and their
+parents' warm starts come out of SRC's unit states, the parents' DNN states from SRC's store, with the
+statistics zeroed and the run's own settings record (the hash the solver checks on `-r`). The data
+file, flags and incumbent must be SRC's (init refuses otherwise); the params are the run's own. Runs
+with the same sample options solve the same nodes, so the arms of an A/B side by side compare node by
+node (`experiments/estimates_nov19/paired.py`: the weighted ratio of each arm's subtrees to the first
+arm's, with a paired bootstrap). A second dives run of a source (`qapctl dives SRC --as NEW` when SRC
+has one already) has a readout of its own, "a second estimate of SRC"; SRC's names its first.
+`tests/sample_test.py` (nug24, the nug30 recipe): two arms with the same params keep the same sample
+and the same subtrees, node for node, and every traced node is under a sampled one.
+
 The root cache: `init` stores its frontier pass (the state file, the parent states it names, its
 traces and report) under `runs/.cache/frontier/KEY/`, KEY a hash of the solver binary, the CPU's
 model name, the data file, the files the flags name, the flags, the incumbent, the frontier depth,

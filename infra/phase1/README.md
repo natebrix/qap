@@ -235,6 +235,30 @@ the time limit), so the same command resumes a run.
   limit cover SOLVE_HOURS plus the dives: the dives take about DIVE_SECONDS per queued unit
   over the slots.
 
+- **Runs from a paused run** (Nov 19, a spec's `FROM=SRC`; `infra/phase1/specs/README.md`). SRC is a
+  paused run whose units are back (an estimate run's solve: tho40-est2-261119). Its unit states and
+  parent states are read, never changed, so it can still be resumed. Two kinds:
+  - `DIVES=DIVE_SECONDS[:B[:SAMPLE[:W]]]`: a dives run of SRC's open nodes, a second estimate with no
+    solve phase (`qapctl dives SRC --as RUN` on the coordinating instance, `ESTIMATE_ENV` for the
+    estimator's settings). Its readout is its own ("a second estimate of SRC"); `collect.sh RUN`
+    fetches its estimate and dives.
+  - `SAMPLE=DEPTH:COUNT,...` with `PARAMS` or `ARMS` (and `ARMS_ENV`): a sampled run, one per arm,
+    whose first units are a sample of SRC's open nodes (`qapctl init --sample-from SRC`;
+    `coord/sample.py`), drawn in proportion to the square root of their subtrees' estimates in a dives
+    run of SRC (`SAMPLE_BY`; SRC's own by default) and solved to the end under the arm's settings, the
+    same nodes in every arm. `collect.sh RUN-ARM` fetches each arm's `sample.json` and node trace;
+    `experiments/estimates_nov19/paired.py runs/RUN-ARM ...` compares them node by node (the CPU of
+    arms is comparable only side by side: tai50b's same nodes cost 13-20% less in one run than in
+    another). No acceptance check (its results are the sampled subtrees', not a solve's).
+
+  Tested here (Nov 19) with the AWS CLI stand-in and moto: `start.sh --dry-run --yes` on
+  `tho40-est3.spec` and `tho40-tune.spec` (the coordinator's environment, the four arms' recipes,
+  `cross5`'s own environment), and `node.sh` in its local mode on nug17 in both modes: the dives run
+  made from a paused run and coordinated to the end, its readout its own and the source's unchanged;
+  the sampled run made from 9 open nodes and solved, with no acceptance check. `tests/sample_test.py`:
+  two arms with the same params on a nug24 sample (the DNN at every depth: the parents' states come
+  along) keep the same sample and the same subtrees, node for node.
+
 ## Running it (laptop)
 
 Once: the AWS CLI and a login (as for Phase 0), and boto3 for `python3`

@@ -112,7 +112,13 @@ def readout(b, run_id, now=None, dives=None):
     total = sum(counts.values())
     merged = counts.get("merged", 0)
     decided = run.get("estimate_decision")     # the estimate's decision point stopped the dives for the solve
-    if status == "finished":
+    smp = cfg.get("sample")
+    if status == "finished" and smp:
+        verdict = (f"**COMPLETE**: the sample solved, {sum(smp['plan'].values())} open nodes of {smp['src']} asked "
+                   f"(depth:count {','.join(f'{d}:{n}' for d, n in sorted(smp['plan'].items()))}) to the end under "
+                   f"{sol.get('params', '?')}: not a solve of the problem (coord/sample.py; "
+                   f"experiments/estimates_nov19/paired.py compares the arms)")
+    elif status == "finished":
         best = _pick(results, r"best objective \S+") if results else None   # (no backslash in an f-string: Python 3.11)
         verdict = "**COMPLETE**: solved" + (f", {best}" if best else "") + \
             (f" (and its estimate, {dives_run}, below)" if dives_run and d_status == "finished" else "") + \
