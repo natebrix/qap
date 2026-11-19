@@ -102,6 +102,15 @@ if aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/results.txt" "$L/estima
   aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/estimate.json" "$L/estimate.json" 2> /dev/null
   echo; echo "estimate (run $RUN-dives; $RUN stays paused, resumable):"; cat "$L/estimate.txt"
 fi
+# an estimate run's dives, for analysis (dives.jsonl.gz and units.tsv under runs/RUN/dives/): part-way too
+if [ "$(python3 "$D/bk.py" "$BKS" status "$RUN-dives" 2> /dev/null || echo none)" != none ]; then
+  if (cd "$D/../.." && python3 -m coord.qapctl dives-export "$RUN-dives" --backend "$BKS" --out "$L/dives") > "$L/dives.log" 2>&1; then
+    echo "dives: $(tail -1 "$L/dives.log" | sed 's/^[0-9:]* //')"
+  else
+    echo "dives: $(tail -1 "$L/dives.log")"; MISSING+=("dives")
+  fi
+  rm -f "$L/dives.log"
+fi
 # a --trace run's node and DNN traces (qapctl export, coord/export.py) go to QAP_EXPORT_DIR/RUN
 # (default infra/phase1/exports/RUN, kept out of git; the GitHub workflow keeps them as the job's
 # artifact), whatever their size. Finished or not: part-way (still running, or ended by its

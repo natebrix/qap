@@ -370,6 +370,11 @@ def flags(e):
         sh = e["imputed"]["cpu"] / e["rest"]["cpu"] if e["rest"]["cpu"] else 0.0
         out.append(f"PART-WAY: {e['units_pending']} of {e['units']} dives units not merged; their open nodes are "
                    f"imputed, depth by depth, from the merged units' ({sh:.0%} of the rest's CPU)")
+    if e.get("slow_pending"):
+        out.append(f"SLOW PENDING: {e['slow_pending']} pending units have run longer than 90% of the merged ones took "
+                   f"({e['merged_wall_p90']:.0f} s): a unit runs long when its open nodes branch, so these likely hold "
+                   f"the large subtrees, and the imputation stands in for them with small ones: read the estimate as "
+                   f"a floor until they merge")
     if e.get("imputed", {}).get("unmatched_open"):
         by = e["imputed"].get("unmatched_by_depth", {})
         out.append(f"GAP: {e['imputed']['unmatched_open']} open nodes of pending units are at depths no merged "
@@ -431,6 +436,17 @@ def estimate_run(b, run_id, out=None, log=print, save=True):
         e["open_sampled"] = sum(x.get("kept", 0) for x in samples)
     pending = len(units) - len(merged)
     e["units"], e["units_pending"] = len(units), pending
+    # the pending units still running are not a random part: a unit runs longer when its open nodes
+    # branch (setup bounds every child, then dives), so the last to merge hold the large subtrees
+    # (tai50b-est-261119 at 06:05: its 7 pending units were the 7 depth-4 nodes that branch, under which
+    # the tree goes on to depth 14; the imputation from the 252 merged, nearly all fathomed, read 0.28)
+    walls = sorted(float(u.get("wall") or 0) for u in merged if u.get("wall"))
+    p90 = walls[min(int(0.9 * len(walls)), len(walls) - 1)] if walls else None
+    now = time.time()
+    running = [now - float(u["leased_at"]) for u in units
+               if u.get("status") in ("leased", "done", "returned") and u.get("leased_at")]
+    e["slow_pending"] = sum(1 for t in running if p90 is not None and t > p90)
+    e["merged_wall_p90"] = p90
     accs = unit_rest(merged, keys, strata, _parts(strata, dives))
     rn, rc, imp_n, imp_c, unmatched = rest_from(accs, pending_open)
     e["imputed"] = {"nodes": imp_n, "cpu": imp_c, "open": sum(pending_open.values()),
@@ -461,6 +477,41 @@ def estimate_run(b, run_id, out=None, log=print, save=True):
             f.write(text + "\n")
     log(text)
     return e
+
+
+def export_dives(b, run_id, out_dir, log=print):
+    """`qapctl dives-export RUN --out DIR`: a dives run's record for analysis, as the user gathered
+    tho40-est-dives's by hand (infra/phase1/runs/tho40-est-dives/README.md): dives.jsonl.gz, every merged
+    unit's dives.jsonl joined in merge order (the lines coord/dives.py reads), and units.tsv, a row per
+    unit, merged or not, with its line range in dives.jsonl.gz. Names no bucket."""
+    import gzip
+    r = b.get_run(run_id)
+    if r is None or r.get("config", {}).get("kind") != "dives":
+        raise SystemExit(f"{run_id} is not a dives run")
+    os.makedirs(out_dir, exist_ok=True)
+    units = sorted(b.all_units(run_id), key=lambda u: (u.get("merged_seq") is None, u.get("merged_seq") or 0, u["uid"]))
+    rows, n = [], 0
+    tmp = os.path.join(out_dir, "dives.jsonl.gz.tmp")
+    with gzip.open(tmp, "wt") as f:
+        for u in units:
+            data = None
+            if u.get("status") == "merged":
+                data = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "dives.jsonl"))
+            lines = [l for l in (data.decode().splitlines() if data else []) if l.strip()]
+            for l in lines:
+                f.write(l + "\n")
+            rows.append([u["uid"], u.get("status", ""), u.get("attempt", ""), u.get("lane", ""), u.get("depth_min", ""),
+                         u.get("depth_max", ""), u.get("nodes", ""), u.get("merged_seq", ""), u.get("cpu", ""),
+                         u.get("wall", ""), n if lines else "", n + len(lines) if lines else "",
+                         "yes" if data is not None else "no"])
+            n += len(lines)
+    os.replace(tmp, os.path.join(out_dir, "dives.jsonl.gz"))
+    with open(os.path.join(out_dir, "units.tsv"), "w") as f:
+        f.write("uid\tstatus\tattempt\tlane\tdepth_min\tdepth_max\tnodes\tmerged_seq\tcpu_s\twall_s\tline_from\tline_to\thas_dives\n")
+        for row in rows:
+            f.write("\t".join(str(x) for x in row) + "\n")
+    log(f"dives-export: {run_id}: {n} lines from {sum(1 for r in rows if r[-1] == 'yes')} of {len(rows)} units in {out_dir}")
+    return 0
 
 
 def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, log=print, sample=1.0, weights="unif",

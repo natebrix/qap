@@ -78,7 +78,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
                                        "aws-setup", "requeue-leased", "publish", "nodes", "export", "stop",
-                                       "purge-states", "dives", "estimate", "estimate-flow", "readout"])
+                                       "purge-states", "dives", "estimate", "estimate-flow", "readout", "dives-export"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
     p.add_argument("--instance")
@@ -189,6 +189,11 @@ def main(argv=None):
                 return 1
             log(f"worker: {run} paused for its estimate: on to {nxt}")
             run = nxt
+    if a.command == "dives-export":
+        from coord.dives import export_dives
+        if not a.out:
+            p.error("dives-export needs --out DIR")
+        return export_dives(b, a.run, a.out, log=log)
     if a.command == "readout":
         # where the run stands and what it found (coord/readout.py); --save writes runs/RUN/readout.md
         from coord.readout import readout, write_readout
