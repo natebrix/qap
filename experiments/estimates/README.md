@@ -18,7 +18,7 @@ HEAD's `bnbdrv`, checked before every run). wil50 keeps the full run's files.
 |---|---|---|---|
 | wil50 | `../wil50_feasibility/fullrun/` | the full run: CP cut phase, `cut.zone = 0.0075`, rule 9, DNN at every depth (1-48; until Nov 14 1-4 then 20 levels below a miss), give-up 300; `wil50t.dat` with its symmetry | |
 | tho40 | `tho40/` | the Nov 8 nug30 record recipe (rule 9, DNN at depths 1-7, give-up 200, no cut phase) with `branch.xbar_lines = 2` and, since Nov 14, DNN at every depth (1-38), the tho40 A/B's setting (`../xbar_lines_sweep/tho40_ab/`); `tho40t.dat` with its symmetry | 2 lines was measured on three depth-3 subtrees only |
-| sko42 | `sko42/` | from Nov 12, arm C of `sko42/tune/` (below): wil50's full run with the grid 6 x 7 and `cut.zone = 0.010`; `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum. Until Nov 12 it was the nug30 record recipe, kept as `sko42/tune/A.par` | C was measured on complete subtrees and by the sampling plan, not in a full search |
+| sko42 | `sko42/` | from Nov 19, `cut.zone = 0.025` (`sko42/zone_nov19/`: two whole-tree runs, the same trees for 0.65 of the CPU); from Nov 12 to 19, arm C of `sko42/tune/` (below): wil50's full run with the grid 6 x 7 and `cut.zone = 0.010` (now `sko42/sko42_z10.par`); `sko42t.dat` with its symmetry; incumbent 15,812, the known optimum. Until Nov 12 it was the nug30 record recipe, kept as `sko42/tune/A.par` | C was measured on complete subtrees and by the sampling plan, not in a full search |
 | sko49 | `sko49/` | from Nov 13, arm Cw of `sko49/tune/` (below): wil50's full run with the grid 7 x 7 and `cut.zone = 0.018` (421 short); `sko49t.dat` (new in `qaplib/`, the matrices of `sko49.dat` swapped) with the 7 x 7 grid's symmetry (`latest/SYM/sko49t.sym`, 10 depth-1 orbits), so `cut.side = 1`. Until Nov 13 the zone was wil50's 0.0075 | Cw was measured by the sampling plan (probes on 11 tail nodes, against C), not on complete subtrees or in a full search |
 | tai50b | `tai50b/` | the Nov 8 tuned estimate's values as keys (DNN at depths 1-9, every depth (1-48) since Nov 14, give-up 600, the nug30 recipe otherwise) with rule 9, which its notes name; no symmetry, no cut phase (no grid); the dive sampler `est.xbar = 1`, `est.xbar_mix = 0.3` | rule 9: the Nov 8 runs used rule 8 (their log header), not rule 9 as the notes say |
 
@@ -338,6 +338,12 @@ From Nov 12, `sko42.par` is C. Its golden is from HEAD's build (68 settings), so
 `make solver` first. `trace_estimate.sh sko42` now runs under C, and a `trace/` left
 over from an A run must be moved aside first: the search would resume from A's
 checkpoint.
+
+**Nov 19: `cut.zone = 0.025`, and the estimate above was low.** Two whole-tree runs on EC2, 0.010 and 0.025,
+stopped part-way after about 850 CPU h each (`sko42/zone_nov19/README.md`): on the subtrees both closed, 0.025
+built the same trees for 0.65 of the CPU. Under 0.025 the tree is about 1,400-1,700 CPU h (at least 1,030),
+and under 0.010 about 2,200-2,600: four to five times C's 506-549 core-hours here. `sko42.par` has 0.025
+since; `sko42_z10.par` is the file the 0.010 run used, byte for byte (its settings hash f0f67bfef2d59e5b).
 
 ## sko49: the estimate under sko42's C and a wider zone (cloud box, Nov 12-13)
 
