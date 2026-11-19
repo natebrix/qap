@@ -1,8 +1,3 @@
-# tai50b_gz0nm (Nov 19): recipes/tai50b.par (rule 9 at the bottom) with two changes, for one exploratory
-# laptop solve (not an A/B): dnn.gu_zone = 0 (no 100-iteration confirmation before a phase; nug30: -5%)
-# and cut.giveup = 2400:100000,4000:0 (a phase below the root still within 100,000 of the cutoff at
-# 2,400 iterations runs on to 4,000; the Nov 16 laptop solve had 112 off-path phases end within
-# 100,000 at 2,400). Both untested on tai50b.
 0    has the location of a symmetry file been provided?
 -1    restriction on tree depth (-1 means none)
 4    number of branching rules
@@ -46,6 +41,11 @@
  5    compute B for best _ rows of U
 
 [settings]
+# tai50b_gz0nm (Nov 19): recipes/tai50b.par (rule 9 at the bottom) with two changes, for one exploratory
+# laptop solve (not an A/B): dnn.gu_zone = 0 (no 100-iteration confirmation before a phase; nug30: -5%)
+# and cut.giveup = 2400:100000,4000:0 (a phase below the root still within 100,000 of the cutoff at
+# 2,400 iterations runs on to 4,000; the Nov 16 laptop solve had 112 off-path phases end within
+# 100,000 at 2,400). Both untested on tai50b.
 # tai50b's current settings (experiments/estimates/README.md): the tuned estimate of
 # Nov 8 (tai50b_feasibility/NOTES.md section 5: -x 1:9:1:600:1 on the nug30 record
 # values) as keys, with rule 9 (nug_deep_xbar9_all.par), which the record names; that
