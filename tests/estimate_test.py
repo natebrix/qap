@@ -22,6 +22,7 @@ About 40 seconds in all.
 """
 
 import argparse
+import json
 import os
 import re
 import statistics
@@ -71,8 +72,53 @@ def main():
             print(f"{'ok  ' if ok else 'FAIL'} QAP_EST_CHILD_QPB={arm}: {len(n_est)} dives, nodes {rn:.3f}, CPU {rt:.3f} of the run's")
         failed += resume_check(a.solver, common, env, d)
         failed += survivor_check(a.solver, common, env, d, nodes)
+        failed += spill_check(a.solver, env, d)
     print("estimator: all checks passed" if not failed else f"estimator: {failed} checks failed")
     return 1 if failed else 0
+
+
+def spill_check(solver, env, d):
+    """the strata past QAP_EST_WARM_KEEP (estimate.C, spill_save): nug24 under the nug30 recipe (the DNN
+    at every depth), stopped at 12 CPU s with its open nodes saved, then Knuth's dives from that state,
+    one seed three ways: every stratum's state kept in memory, every one spilled to a file and read
+    back around its dives, and dropped as before Nov 19 (QAP_EST_SPILL_MB=0: the first step cold,
+    without the parent's pool). The spilled run must give the in-memory run's node estimate and a
+    first-step CPU within 30% of it, and say it spilled; the cold one costs more (tho40-est2-261119:
+    2.1-4.6x). About a minute. (1 failure or 0)"""
+    lat = os.path.join(ROOT, "latest")
+    par, dat = os.path.join(ROOT, "infra", "phase1", "recipes", "nug30.par"), os.path.join(ROOT, "qaplib", "nug24.dat")
+    st = os.path.join(d, "spill.state")
+    r = subprocess.run([solver, "-p", par, "-u", "3488", "-o", st, "-t", "12", dat], cwd=lat, env=env,
+                       capture_output=True, text=True)
+    if r.returncode not in (0, 3) or not os.path.exists(st):
+        print(f"FAIL spill: the nug24 state was not written (exit {r.returncode})")
+        return 1
+    res = {}
+    for arm, extra in (("mem", {"QAP_EST_WARM_KEEP": "1000"}), ("spill", {"QAP_EST_WARM_KEEP": "0"}),
+                       ("cold", {"QAP_EST_WARM_KEEP": "0", "QAP_EST_SPILL_MB": "0"})):
+        dv = os.path.join(d, f"spill_{arm}.jsonl")
+        out = subprocess.run([solver, "-p", par, "-u", "3488", "-e", "-r", st, dat], cwd=lat, capture_output=True, text=True,
+                             env=dict(env, QAP_EST_SURV="k1.5", QAP_EST_BUDGET="1", QAP_EST_MIN_DIVES="4",
+                                      QAP_EST_DIVES=dv, QAP_EST_SEED="7", **extra)).stdout
+        lines = [json.loads(l) for l in open(dv)]
+        strata = {x["key"]: x for x in lines if x["type"] == "stratum"}
+        dives = [x for x in lines if x["type"] == "dive"]
+        first = []
+        for x in dives:
+            k = str(strata[x["key"]]["depth"] + 1)
+            if x["by_depth"].get(k):
+                first.append(x["cpu_by_depth"].get(k, 0.0) / x["by_depth"][k])
+        nodes = sum(s["exact_nodes"] for s in strata.values()) + \
+            sum(statistics.fmean(x["nodes"] for x in dives if x["key"] == k) for k in {x["key"] for x in dives})
+        res[arm] = (nodes, statistics.fmean(first) if first else 0.0, sum(s.get("warm") == "s" for s in strata.values()),
+                    "strata's states spilled" in out)
+    (mn, mc, _, _), (sn, sc, ss, said), (cn, cc, _, _) = res["mem"], res["spill"], res["cold"]
+    ok = abs(sn - mn) <= 0.02 * mn and mc > 0 and abs(sc / mc - 1) <= 0.3 and ss > 0 and said and not \
+        any(f.startswith("qap-est-spill-") for f in os.listdir(d))
+    print(f"{'ok  ' if ok else 'FAIL'} spill: Knuth's dives from a saved nug24 frontier (nug30 recipe): nodes "
+          f"{mn:.1f} in memory, {sn:.1f} spilled ({ss} strata), {cn:.1f} cold; the first child's CPU {mc:.2f} s, "
+          f"{sc:.2f} s, {cc:.2f} s (x{cc / mc if mc else 0:.1f} cold); spill files removed")
+    return 0 if ok else 1
 
 
 def resume_check(solver, common, env, d):

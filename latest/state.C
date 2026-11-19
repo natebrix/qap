@@ -124,9 +124,8 @@ static double get_value(const unsigned char *p, int bits)
   return f;
 }
 
-static std::string dnn_token(const WarmStart *w)
+static std::string dnn_token_bits(const WarmStart *w, int bits)
 {
-  const int bits = dnn_ship_bits();
   if (!bits || !w->dnn) return "-";
   const DNNWarm &d = *(const DNNWarm *)w->dnn;
   const size_t n1 = (size_t)d.m * d.m + 1;
@@ -149,6 +148,8 @@ static std::string dnn_token(const WarmStart *w)
   snprintf(head, sizeof head, "dnn%d:%d:%.17g:%d:", bits, d.m, d.scale, hasY ? 1 : 0);
   return head + b64_encode(b);
 }
+
+static std::string dnn_token(const WarmStart *w) { return dnn_token_bits(w, dnn_ship_bits()); }
 
 // ---- the parent-state store (QAP_DNN_WARM_DIR; docs/parent_state_store.md)
 // With the variable set, a parent's DNN token goes to <dir>/<fnv64>.dnn once
@@ -261,6 +262,15 @@ static DNNWarm *dnn_from_token(const std::string &t)
   }
   return d;
 }
+
+// the estimator's spill of a stratum's DNN state (state.h): the state-file token at the given bits
+std::string dnn_state_encode(const WarmStart *w, int bits) { return w ? dnn_token_bits(w, bits) : "-"; }
+void *dnn_state_decode(const std::string &t) { return dnn_from_token(t); }
+void dnn_state_free(void *p) { free_dnn_state(p); }
+#else
+std::string dnn_state_encode(const WarmStart *, int) { return "-"; }
+void *dnn_state_decode(const std::string &) { return NULL; }
+void dnn_state_free(void *) {}
 #endif
 
 template <class T>

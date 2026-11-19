@@ -12,8 +12,14 @@
 4. The paused run resumed to the end: its totals must equal the serial run's, so the dives run
    left its state files and parent states as they were.
 5. With --flow: the same with nothing done by hand, `qapctl estimate-flow` (the solve for --seconds
-   of its wall time, the pause, the dives run) and one `qapctl worker --follow`: both must exit 0
-   with the solve paused, its dives run finished and the estimate within 15%.
+   of its wall time, the pause, the dives run; its decision point off) and one `qapctl worker
+   --follow`: both must exit 0 with the solve paused, its dives run finished and the estimate within
+   15%. Then (6) the decision point.
+6. With --flow or --decide: estimate-flow with the decision point at 1% (`--decide 0.01`: an
+   estimate of a tree this small always costs more), checked every second, 8 s of dives a unit:
+   once the pilot's units (half of so few, coord/dives.py pilot_size) have merged the dives must stop and the solve go on to the end on the same worker, which comes
+   back from the dives run: both exit 0, the solve finished with the serial run's nodes, the dives
+   run stopped with the decision, and the readout saying so.
 A few minutes on an idle machine.
 """
 import argparse
@@ -59,7 +65,8 @@ def main():
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--seconds", type=float, default=6)
-    ap.add_argument("--flow", action="store_true", help="also qapctl estimate-flow with a worker --follow")
+    ap.add_argument("--flow", action="store_true", help="also qapctl estimate-flow with a worker --follow (5, 6)")
+    ap.add_argument("--decide", action="store_true", help="only the decision point's flow (6)")
     ap.add_argument("--dive-b", default="0.4", help="the dives' mode: survivor b, or kQ for Knuth's dives")
     ap.add_argument("--dive-sample", default="1", help="the share of the open nodes sampled")
     ap.add_argument("--dive-weights", default="unif", choices=["unif", "qpb"])
@@ -72,6 +79,10 @@ def main():
     true_nodes = int(re.search(r"Nodes:\s*(\d+)", full).group(1))
     print(f"{a.instance}: {true_nodes:,} nodes serially")
     failed = 0
+    if a.decide:
+        failed = decide_flow(a, dat, env, true_nodes)
+        print("PASS" if not failed else f"FAIL: {failed} checks")
+        return 1 if failed else 0
     with tempfile.TemporaryDirectory() as d:
       try:
           be = f"local:{d}/store"
@@ -136,6 +147,7 @@ def main():
                 p.wait()
     if a.flow:
         failed += flow(a, dat, env, true_nodes)
+        failed += decide_flow(a, dat, env, true_nodes)
     print("PASS" if not failed else f"FAIL: {failed} checks")
     return 1 if failed else 0
 
@@ -155,7 +167,7 @@ def flow(a, dat, env, true_nodes):
                       log=f"{d}/w.log")
             c = popen("estimate-flow", run, "--backend", be, "--solve-wall", str(a.seconds), "--dive-budget", "3",
                       "--dive-b", a.dive_b, "--dive-sample", a.dive_sample, "--dive-weights", a.dive_weights,
-                      *[x for kv in a.dive_env for x in ("--dive-env", kv)], log=f"{d}/c.log")
+                      "--decide", "0", *[x for kv in a.dive_env for x in ("--dive-env", kv)], log=f"{d}/c.log")
             rc = c.wait(timeout=900)
             wrc = w.wait(timeout=300)
             st, sd = run_status(b, run), run_status(b, run + "-dives")
@@ -174,6 +186,62 @@ def flow(a, dat, env, true_nodes):
                     bad += 1
                 if not 0.85 <= ratio <= 1.15:
                     print("FAIL: the flow's estimate is more than 15% off")
+                    bad += 1
+        finally:
+            for p in PROCS:
+                if p.poll() is None:
+                    p.kill()
+                    p.wait()
+    return bad
+
+
+def decide_flow(a, dat, env, true_nodes):
+    """the decision point (coord/dives.py): the dives stop for the solve, which finishes on the same worker"""
+    bad = 0
+    with tempfile.TemporaryDirectory() as d:
+        try:
+            be = f"local:{d}/store"
+            b = open_backend(be)
+            run = "dc"
+            qapctl("init", run, "--backend", be, "--instance", dat, "--params", "PARAM/default.par", "--ub", str(a.opt),
+                   "--slots", "2", "--budget", "0.3", "--target-unit-cpu", "0.3", "--frontier-depth", "1",
+                   "--visibility", "private", env=env)
+            w = popen("worker", run, "--backend", be, "--slots", "2", "--workdir", f"{d}/w", "--follow",
+                      log=f"{d}/w.log")
+            # dives of 8 s a unit, so that the units merge a few at a time and a check falls between
+            # (with 3 s all of them can merge in one tick, and the run finishes before any check)
+            c = popen("estimate-flow", run, "--backend", be, "--solve-wall", str(a.seconds), "--dive-budget", "8",
+                      "--dive-b", a.dive_b, "--dive-sample", a.dive_sample, "--dive-weights", a.dive_weights,
+                      "--decide", "0.01", "--decide-every", "1",
+                      *[x for kv in a.dive_env for x in ("--dive-env", kv)], log=f"{d}/c.log")
+            rc = c.wait(timeout=900)
+            wrc = w.wait(timeout=300)
+            st, sd = run_status(b, run), run_status(b, run + "-dives")
+            dv = b.get_run(run + "-dives") or {}
+            dec = dv.get("decision") or {}
+            print(f"decide: estimate-flow exit {rc}, worker exit {wrc}; {run} {st}, {run}-dives {sd}, "
+                  f"decision {dec.get('verdict')} after {dec.get('merged')} of {dec.get('units')} units, "
+                  f"pilot {dec.get('pilot_merged')} of {dec.get('pilot')} (share {dec.get('share')})")
+            if rc != 0 or wrc != 0 or st != "finished" or sd != "stopped" or dec.get("verdict") != "solve":
+                print("FAIL: the flow did not stop the dives for the solve and finish it")
+                bad += 1
+            else:
+                res = b.get_bytes(f"runs/{run}/results.txt").decode()
+                got = int(re.search(r"Nodes:\s*(\d+)", res).group(1))
+                print(f"decide: the solve: {got:,} nodes")
+                if got != true_nodes:
+                    print(f"FAIL: the solve after the decision has {got} nodes, the serial run {true_nodes}")
+                    bad += 1
+                if not dec.get("pilot") or dec.get("pilot_merged") != dec.get("pilot"):
+                    print(f"FAIL: it decided before its pilot had merged ({dec.get('pilot_merged')} of {dec.get('pilot')})")
+                    bad += 1
+                ro = (b.get_bytes(f"runs/{run}/readout.md") or b"").decode()
+                print("decide: readout: " + (ro.splitlines()[2] if len(ro.splitlines()) > 2 else "missing"))
+                if "**COMPLETE**: solved" not in ro or "DECIDED TO SOLVE" not in ro:
+                    print("FAIL: the readout does not say the estimate decided to solve")
+                    bad += 1
+                if "back to" not in open(f"{d}/w.log").read():
+                    print("FAIL: the worker did not come back from the dives run")
                     bad += 1
         finally:
             for p in PROCS:

@@ -430,7 +430,9 @@ class Coordinator:
                 self.log(f"coordinator: publishing the status failed: {e!r}")
         return counts
 
-    def loop(self, poll=2.0, max_wall=None):
+    def loop(self, poll=2.0, max_wall=None, check=None):
+        """coordinate to the end (the results), or None: stopped, max_wall seconds passed, or check
+        (called with the unit counts after every tick: the estimate-flow's decision point) said to stop"""
         if not self.run.get("started_at"):
             self.run = self.b.update_run(self.run_id, {"started_at": self.t0})
         if self.run.get("status") in ("running", "paused"):
@@ -450,6 +452,9 @@ class Coordinator:
                 self._save_totals()
                 raise SystemExit(f"coordinator: {counts['dead']} unit(s) dead; see the ledger")
             if max_wall and time.time() - self.t0 > max_wall:
+                self._save_totals()
+                return None
+            if check is not None and check(counts):
                 self._save_totals()
                 return None
             time.sleep(poll)

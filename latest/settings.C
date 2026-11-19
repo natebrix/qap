@@ -113,7 +113,8 @@ static Setting TABLE[] = {
   ENVVAR("QAP_EST_BUDGET", 'd', "0", 0, INF, SET_RUN, "estimator, survivor dives: stop starting dives after this many wall seconds, counted from the end of the strata's setup (0: estimate.par's trials)"),
   ENVVAR("QAP_EST_MIN_DIVES", 'i', "1", 1, 1000000, SET_RUN, "estimator, survivor dives: every stratum with children that branch gets this many dives whatever the budget (then QAP_EST_BUDGET)"),
   ENVVAR("QAP_EST_SAMPLE_DEPTHS", 's', "", 0, 0, SET_RUN, "estimator, survivor dives: D:F,D:F,... a start node at depth D is a stratum with probability F, whatever QAP_EST_SAMPLE (unset: QAP_EST_SAMPLE for every depth)"),
-  ENVVAR("QAP_EST_WARM_KEEP", 'i', "8", 0, 1000000, SET_RUN, "estimator, survivor dives: the strata whose survivors keep their parent's DNN state (the rest restart cold)"),
+  ENVVAR("QAP_EST_WARM_KEEP", 'i', "8", 0, 1000000, SET_RUN, "estimator: the strata whose children keep their parent's DNN state in memory (the rest spill it to a file, QAP_EST_SPILL_MB)"),
+  ENVVAR("QAP_EST_SPILL_MB", 'd', "1000", 0, 1e9, SET_RUN, "estimator: MB of spilled strata states a process may write beside QAP_EST_DIVES (past it a stratum's children start cold, without the parent's pool)"),
   ENVVAR("QAP_EST_DIVES", 's', "", 0, 0, SET_RUN, "estimator, survivor dives: append a JSON line per stratum and per dive to this file"),
   ENVVAR("QAP_DNN_WARM_DIR", 's', "", 0, 0, SET_RUN, "parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline)"),
   ENVVAR("QAP_ALLOW_UNKNOWN", 'i', "0", 0, 1, SET_RUN, "1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error"),
@@ -124,6 +125,7 @@ static Setting TABLE[] = {
   ENVVAR("QAP_NODE_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per node taken off the stack (fixes, bounds, how it ended, the branching line; bnb.C) to this file"),
   ENVVAR("QAP_DNN_POOL_CHECK", 'i', "0", 0, 1000000, SET_DIAGNOSTIC, "check each assembled pool term on this many random permutations"),
   ENVVAR("QAP_EST_HIST", 's', "dive_history_nug25_2.txt", 0, 0, SET_DIAGNOSTIC, "estimator: the per-dive history file"),
+  ENVVAR("QAP_EST_CHILD_DNN", 'i', "0", 0, 100000, SET_RUN, "estimator, Knuth's dives: weight each child a dive may take by its own short DNN solve of this many ADMM iterations, warm from its parent's state (experiments/estimates_nov19; 0: by QPB)"),
   ENVVAR("QAP_EST_CHILD_QPB", 'i', "0", 0, 1, SET_DIAGNOSTIC, "estimator: 1 weights each child a dive may take (and the first draw) by its own QPB bound, not the parent's prediction"),
   ENVVAR("QAP_XBAR_DEBUG", 'i', "0", 0, 2, SET_DIAGNOSTIC, "1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score"),
 };

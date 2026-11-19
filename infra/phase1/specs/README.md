@@ -22,6 +22,7 @@ A key it leaves out takes `start.sh`'s default, as Enter would.
 | `VISIBILITY` | `public` or `private` | `public` |
 | `ESTIMATE` | `SOLVE_HOURS:DIVE_SECONDS[:B[:SAMPLE[:unif\|qpb]]]`, or `none` for a solve | `none` |
 | `ESTIMATE_ENV` | more estimator settings for every dives unit, `QAP_EST_X=V` separated by spaces: `QAP_EST_MIN_DIVES=5` (dives every branched open node gets whatever the budget), `QAP_EST_SAMPLE_DEPTHS=3:1,4:0.2,5:0.03` (the sampling rate by depth) | none |
+| `ESTIMATE_DECIDE` | the estimate's decision point (`coord/README.md`): when its pilot says the dives would cost over this share of the rest of the tree, they stop and the solve goes on to the end; `off`: the dives always run to the end | `0.15` |
 | `WORKERS` | the worker group's size | 1 |
 | `WORKER_TYPE`, `WORKER_TYPES` | the worker type; the group's types | `c7a.16xlarge`; it and `m7a`, `r7a` |
 | `MARKET` | the workers: `spot` or `on-demand` | `spot` |

@@ -11,6 +11,13 @@
 #include <ctime>
 #include <chrono>
 #include "settings.h"
+#include "state.h"
+#include <cstdio>
+#include <unistd.h>
+#ifdef HAVE_DNN
+#include "dnn.h"
+#include "dnncut.h"
+#endif
 
 // One line per printed dive: depth, node estimate, time estimate.
 // QAP_EST_HIST overrides the file name (default kept for old scripts).
@@ -132,6 +139,11 @@ struct Stratum {
   std::vector<double> kp;
   Est exact;
   double setup_cpu = 0.0;
+  // its children's warm start (the stratum's own final state, shared by them) and where it is kept: in
+  // memory ('m'), spilled to a file and read back around each dive ('s'), or dropped: cold ('c')
+  WarmStart *ws = NULL;
+  std::string spill;
+  char warm = 'm';
   int dives = 0;
   double s1 = 0.0, s2 = 0.0, cost = 0.0;   // CPU estimate sum, sum of squares; cost per dive (EMA)
 };
@@ -190,6 +202,103 @@ static std::vector<double> qpb_probs(QAP *q, const std::vector<QAPAssignment> &k
   return w;
 }
 
+// QAP_EST_CHILD_DNN=CAP (experiments/estimates_nov19, "Predictor-weighted dives"): Knuth's dives with
+// the thesis's design (ch. 4.3: children drawn by g^q of a cheap bound computed for the purpose) and a
+// predictor fit for a DNN tree, where QPB's gaps barely differ between children (estimator_replay: QPB's
+// shortfall adds nothing to a subtree's size). Each child is solved briefly, CAP ADMM iterations warm
+// from its parent's state as its own first solve would start (the parent's Z and conditioned Y, under
+// the parent's cut pool where it hands one on: dnn_pool_bound), no give-up, no cut phase; its shortfall
+// (cutoff - lb, 0 when it fathoms) is g's numerator. In experiments/line_signals (tho30's three depth-5
+// nodes, every child of 8 lines) 30 warm iterations correlate 0.92-0.98 with the cold 300-iteration bound
+// and 0.80-0.90 with the child's subtree, at about 1 CPU s a child at m = 28. NAN: no parent DNN state
+// (a QPB-only parent, or one past QAP_EST_WARM_KEEP), and the caller falls back to QPB's weights.
+static double child_probe(QAP *q, const QAPAssignment &kid, double inc, int cap)
+{
+#ifdef HAVE_DNN
+  if (kid.bound >= inc - DELTA) return 0.0;
+  if (!kid.warm || !kid.warm->dnn) return NAN;
+  const int n = kid.n, m = n - kid.nfix;
+  const DNNWarm &pw = *(const DNNWarm *)kid.warm->dnn;
+  int di, dj;
+  if (m < 2 || pw.m != m + 1 || !warm_child_offsets(kid, di, dj)) return NAN;
+  QAP qc(1);
+  reduceQAP(q, &qc, kid);
+  DNNParams dp;
+  dp.gamma1 = setting_d("dnn.gamma1");
+  dp.gamma = setting_d("dnn.gamma");
+  dp.cheb_degree = (int)setting_i("dnn.cheb");
+  dp.tight_lam = (int)setting_i("dnn.tight_lam");
+  dp.momentum = setting_d("dnn.momentum");
+  dp.beta = setting_d("dnn.beta");
+  dp.refresh = (int)setting_i("dnn.refresh");
+  dp.hopeless_after = 0;
+  dp.hopeless_after_warm = 0;
+  dp.max_iter = cap;
+  static const int warm_y = (int)setting_i("dnn.warm_y");
+  DNNWarm start;
+  const DNNWarm *sp = NULL;
+  if (warm_y > 0 && dnn_warm_child(pw, di, dj, start, warm_y) && !start.Y.empty()) {
+    sp = &start;
+    dp.warm_primal = 1;
+  } else if (dnn_warm_child(pw, di, dj, start)) {
+    sp = &start;
+  }
+  const double cutoff = inc - DELTA;
+  static const int pool_on = (int)setting_i("pool.on");
+  static const int cut_side = (int)setting_i("cut.side");
+  DNNPool pool_in, pool_mid;
+  DNNResult r;
+  if (pool_on && !kid.warm->dnn_pool.empty() && dnn_pool_decode(kid.warm->dnn_pool, pool_in) &&
+      pool_in.side == cut_side && !pool_in.cuts.empty()) {
+    std::vector<int> free_orig, other_orig, fixed_at(n, -1);
+    for (int a = 0; a < n; a++) {
+      if ((cut_side == 0 ? kid.p[a] : kid.pinv[a]) == NONE) free_orig.push_back(a);
+      if ((cut_side == 0 ? kid.pinv[a] : kid.p[a]) == NONE) other_orig.push_back(a);
+      else fixed_at[a] = cut_side == 0 ? kid.pinv[a] : kid.p[a];
+    }
+    DNNCutParams pc;
+    pc.side = cut_side; pc.pool_in = &pool_in; pc.pool_out = &pool_mid;
+    pc.other_orig = &other_orig; pc.fixed_at = &fixed_at; pc.pool_check = 0;
+    int kept = 0, dropped = 0;
+    r = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, dp, free_orig, n, pc, sp, NULL, &kept, &dropped);
+  } else
+    r = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, dp, sp, NULL);
+  return r.status == DNN_FATHOMED ? 0.0 : std::max(0.0, cutoff - r.lb);
+#else
+  (void)q; (void)kid; (void)inc; (void)cap;
+  return NAN;
+#endif
+}
+
+static long child_probes = 0, child_probe_fallbacks = 0;
+
+// a node's children's probabilities for a Knuth step: by their short DNN solves (QAP_EST_CHILD_DNN),
+// g^q of the shortfall as qpb_probs takes QPB's, else (or with no parent state) by their QPB bounds
+static std::vector<double> child_probs(QAP *q, const std::vector<QAPAssignment> &kids, BNBParameters *params,
+                                       int nlevel, double root_bound, double inc, double qexp, double mix)
+{
+  static const int cap = (int)setting_i("QAP_EST_CHILD_DNN");
+  if (cap > 0 && !kids.empty()) {
+    std::vector<double> w(kids.size(), 0.0);
+    bool ok = true;
+    for (size_t k = 0; k < kids.size() && ok; k++) {
+      const double sh = child_probe(q, kids[k], inc, cap);
+      if (std::isnan(sh)) { ok = false; break; }
+      const double g = sh / std::max(inc - root_bound, 1e-9);
+      w[k] = g > 0.0 ? pow(g, qexp) : 0.0;
+    }
+    if (ok) {
+      child_probes += kids.size();
+      double sw = 0.0;
+      for (double x : w) sw += x;
+      for (double &x : w) x = sw > 0.0 ? (1.0 - mix) * x / sw + mix / kids.size() : 1.0 / kids.size();
+      return w;
+    }
+    child_probe_fallbacks++;
+  }
+  return qpb_probs(q, kids, params, nlevel, root_bound, inc, qexp, mix);
+}
+
 static size_t draw_index(const std::vector<double> &p)
 {
   double u = drand(), acc = 0.0;
@@ -210,6 +319,55 @@ static void json_by_depth(std::ostream &o, const char *name, const std::map<int,
   o << "}";
 }
 }  // namespace
+
+// the spilled strata's states (Stratum::spill): files beside QAP_EST_DIVES (else in TMPDIR), removed at
+// the end; QAP_EST_SPILL_MB in all at most
+static std::vector<std::string> spill_files;
+static double spill_bytes = 0.0;
+static long spill_reads = 0;
+
+static bool spill_save(WarmStart *w, Stratum &h, size_t index)
+{
+  static const double cap = setting_d("QAP_EST_SPILL_MB") * 1e6;
+  const std::string tok = dnn_state_encode(w, 32);
+  if (tok == "-" || spill_bytes + tok.size() > cap) return false;
+  std::string dir = setting_s("QAP_EST_DIVES");
+  const size_t slash = dir.rfind('/');
+  dir = slash == std::string::npos ? std::string(".") : dir.substr(0, slash);
+  if (!*setting_s("QAP_EST_DIVES")) dir = getenv("TMPDIR") && *getenv("TMPDIR") ? getenv("TMPDIR") : "/tmp";
+  const std::string path = dir + "/qap-est-spill-" + std::to_string((long)getpid()) + "-" + std::to_string(index) + ".dnn";
+  FILE *f = fopen(path.c_str(), "wb");
+  if (!f) return false;
+  const bool ok = fwrite(tok.data(), 1, tok.size(), f) == tok.size();
+  if (fclose(f) != 0 || !ok) { unlink(path.c_str()); return false; }
+  spill_files.push_back(path);
+  spill_bytes += tok.size();
+  h.spill = path;
+  w->dnn_free(w->dnn);
+  w->dnn = NULL;
+  return true;
+}
+
+static void spill_load(Stratum &h)
+{
+  if (h.spill.empty() || !h.ws || h.ws->dnn) return;
+  FILE *f = fopen(h.spill.c_str(), "rb");
+  if (!f) return;
+  std::string tok;
+  char buf[1 << 16];
+  size_t k;
+  while ((k = fread(buf, 1, sizeof buf, f)) > 0) tok.append(buf, k);
+  fclose(f);
+  void *d = dnn_state_decode(tok);
+  if (d) { h.ws->dnn = d; h.ws->dnn_free = dnn_state_free; spill_reads++; }
+}
+
+static void spill_drop(Stratum &h)
+{
+  if (h.spill.empty() || !h.ws || !h.ws->dnn) return;
+  h.ws->dnn_free(h.ws->dnn);
+  h.ws->dnn = NULL;
+}
 
 static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBParameters *params, int nlevel,
                                     EstimateParameters *ep)
@@ -244,7 +402,10 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
   std::ofstream out;
   if (*dives_file) out.open(dives_file, std::ofstream::app);
   out.precision(10);
-  std::cout << (knuth ? "Knuth dives in strata: q = " : "survivor dives: b = ") << b << ", mix = " << mix
+  std::cout << (knuth ? "Knuth dives in strata: q = " : "survivor dives: b = ") << b
+            << (knuth && setting_i("QAP_EST_CHILD_DNN") > 0
+                ? ", children weighted by a " + std::to_string(setting_i("QAP_EST_CHILD_DNN")) + "-iteration warm DNN solve"
+                : std::string()) << ", mix = " << mix
             << ", budget " << budget << " s, sample " << sample << (sample_qpb ? " (by QPB)" : "") << ", root bound "
             << root_bound << ", incumbent " << inc << std::endl;
 
@@ -329,7 +490,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
     if (knuth && kids && r.branched) {
       const double c0 = clock();
       for (Node *k = kids; k != NULL; k = k->link) h.kids.push_back(k->data);
-      h.kp = qpb_probs(q, h.kids, params, nlevel, root_bound, inc, b, mix);
+      h.kp = child_probs(q, h.kids, params, nlevel, root_bound, inc, b, mix);
       h.setup_cpu += (clock() - c0) / CLOCKS_PER_SEC;
     } else if (kids && r.branched) {
       short_seen[a.depth].push_back(std::max(inc - r.bound, 0.0));
@@ -346,14 +507,28 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       }
     }
     free_list(kids);
-    // a survivor holds a reference to its parent's (the stratum's) DNN state, for the dives that
-    // process it again: past QAP_EST_WARM_KEEP strata it lets go (at n = 60 a state is tens of MB),
-    // and those survivors are processed again from a cold start. Only the estimator's own CPU
-    // changes: the estimate takes each survivor's first bound, warm as the search's.
+    // A survivor, or a Knuth child, holds a reference to its parent's (the stratum's) warm start, for
+    // the dives: the parent's DNN state, its cut pool and X. Past QAP_EST_WARM_KEEP strata the DNN state
+    // (tens of MB at n = 60) goes to a file, fp32 as a state file ships it (ship.bits 32), and is read
+    // back around each dive from the stratum (spill_load). Until Nov 19 it was dropped, with the pool:
+    // the first bound of a Knuth dive from such a stratum ran cold, without the inherited cuts, and the
+    // estimate counted it as the tree's: in tho40-est2-261119, 44% of the strata, whose first children
+    // cost 2.1-4.6x the CPU of the others' and branched more (experiments/estimates_nov19). Past
+    // QAP_EST_SPILL_MB of files in all the old way stands, and the stratum's line says so ("warm":"c").
     static const long warm_keep = setting_i("QAP_EST_WARM_KEEP");
     if ((long)strata.size() >= warm_keep) {
-      for (Rec &c : h.surv) c.a.set_warm(NULL);
-      for (QAPAssignment &c : h.kids) c.set_warm(NULL);
+      WarmStart *w = !h.kids.empty() ? h.kids[0].warm : (!h.surv.empty() ? h.surv[0].a.warm : NULL);
+      bool shared = w != NULL;
+      for (Rec &c : h.surv) shared = shared && c.a.warm == w;
+      for (QAPAssignment &c : h.kids) shared = shared && c.warm == w;
+      if (shared && w->dnn && spill_save(w, h, strata.size())) {
+        h.ws = w;
+        h.warm = 's';
+      } else if (w) {
+        for (Rec &c : h.surv) c.a.set_warm(NULL);
+        for (QAPAssignment &c : h.kids) c.set_warm(NULL);
+        h.warm = 'c';
+      }
     }
     spent += h.setup_cpu;
     if (out.is_open()) {
@@ -363,7 +538,8 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       out << ",";
       json_by_depth(out, "exact_cpu_by_depth", h.exact.c);
       out << ",\"survivors\":" << (knuth ? h.kids.size() : h.surv.size()) << ",\"setup_cpu\":" << h.setup_cpu
-          << ",\"pi\":" << h.pi << ",\"mode\":\"" << (knuth ? "knuth" : "surv") << "\"}" << std::endl;
+          << ",\"pi\":" << h.pi << ",\"mode\":\"" << (knuth ? "knuth" : "surv") << "\",\"warm\":\"" << h.warm
+          << "\"}" << std::endl;
     }
     strata.push_back(h);
   }
@@ -386,7 +562,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       for (Node *t = kids; t != NULL; t = t->link) ks.push_back(t->data);
       free_list(kids);
       const double c0 = clock();
-      std::vector<double> kp = qpb_probs(q, ks, params, nlevel, root_bound, inc, b, mix);
+      std::vector<double> kp = child_probs(q, ks, params, nlevel, root_bound, inc, b, mix);
       cost += (clock() - c0) / CLOCKS_PER_SEC;
       k = draw_index(kp);
       cur = ks[k];
@@ -446,7 +622,9 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
     Est e;
     int deepest;
     double cost;
+    spill_load(h);                    // a spilled stratum's state, for this dive only
     one_dive(h, e, deepest, cost);
+    spill_drop(h);
     h.dives++;
     h.s1 += e.cpu;
     h.s2 += e.cpu * e.cpu;
@@ -501,6 +679,18 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
             << strata.size() << " strata (" << live.size() << " with children to dive), " << total
             << " dives, " << spent << " CPU s spent; estimate below the start nodes: exact part " << en
             << " nodes, CPU " << ec << " s (exact part and the dives' mean)" << std::endl;
+  if (setting_i("QAP_EST_CHILD_DNN") > 0)
+    std::cout << "estimator: " << child_probes << " children weighted by their short DNN solves, "
+              << child_probe_fallbacks << " Knuth steps by QPB (no parent DNN state)" << std::endl;
+  {
+    int ns = 0, nc = 0;
+    for (const Stratum &h : strata) { ns += h.warm == 's'; nc += h.warm == 'c'; }
+    if (ns || nc)
+      std::cout << "estimator: past QAP_EST_WARM_KEEP, " << ns << " strata's states spilled (" << spill_bytes / 1e6
+                << " MB, read back " << spill_reads << " times), " << nc << " strata cold (QAP_EST_SPILL_MB)" << std::endl;
+  }
+  for (const std::string &f : spill_files) unlink(f.c_str());
+  spill_files.clear();
   res->total_time = ec;
   return res;
 }

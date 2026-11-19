@@ -31,9 +31,13 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
   python3 -m coord.qapctl estimate NEW --backend B [--out DIR]   (SRC's work so far plus the
         dives' estimate of the rest, by depth: estimate.txt and estimate.json)
   python3 -m coord.qapctl estimate-flow RUN --backend B --solve-wall S --dive-budget T [--dive-b 0.4]
+        [--decide 0.15]
         (in place of `coordinator RUN`: the solve for S s of its wall time, then pause, dives of T s a
         unit as RUN-dives, coordinated to the end; workers started with `worker RUN --follow` go
-        from the one to the other)
+        from the one to the other. --decide F: the decision point, once a tenth of the dives units
+        have merged: when the estimator's CPU to the end of the dives would be over F of the
+        estimated rest of the tree, the dives stop and the solve goes on to the end, its workers
+        coming back to it; 0: off)
 
 Unit sizing and timing (init): --budget (CPU s a unit may run before it
 returns its open nodes, default 1800), --target-unit-cpu (estimated CPU per
@@ -129,6 +133,11 @@ def main(argv=None):
                         "(QAP_EST_MIN_DIVES, QAP_EST_SAMPLE_DEPTHS, ...; repeatable)")
     p.add_argument("--solve-wall", type=float, help="estimate-flow: s of the run's wall time the solve gets")
     p.add_argument("--dive-budget", type=float, help="estimate-flow: wall s of survivor dives per dives unit")
+    p.add_argument("--decide-every", type=float, default=120.0,
+                   help="estimate-flow: seconds between decision checks (each reads the merged units' dives)")
+    p.add_argument("--decide", type=float, default=None,
+                   help="estimate-flow: stop the dives and solve when they would cost over this share of the "
+                        "estimated rest (default 0.15, coord/dives.py DECIDE; 0: off)")
     p.add_argument("--exit-when-idle", type=float)
     p.add_argument("--max-wall", type=float)
     a = p.parse_args(argv)
@@ -176,6 +185,22 @@ def main(argv=None):
             w.run_forever()
             r = b.get_run(run) or {}
             nxt = r.get("dives_run")
+            dec = r.get("decision") if r.get("config", {}).get("kind") == "dives" else None
+            if a.follow and not w.draining.is_set() and r.get("status") == "stopped" and dec \
+                    and dec.get("verdict") == "solve":
+                # the estimate's decision point stopped the dives for the solve (coord/dives.py): back
+                # to the source run, which the estimate-flow resumed before stopping this one
+                src = r["config"]["source_run"]
+                for _ in range(720):
+                    if (b.get_run(src) or {}).get("status") == "running":
+                        break
+                    time.sleep(5)
+                else:
+                    log(f"worker: {run} stopped for the solve, but {src} did not resume in an hour")
+                    return 1
+                log(f"worker: {run}'s estimate decided to solve: back to {src}")
+                run = src
+                continue
             if not a.follow or w.draining.is_set() or r.get("status") != "paused" or not nxt:
                 return 0
             # --follow: the run paused for an estimate (qapctl estimate-flow): on to its dives run,
@@ -207,8 +232,10 @@ def main(argv=None):
         from coord.dives import estimate_flow
         if a.solve_wall is None or a.dive_budget is None:
             p.error("estimate-flow: --solve-wall and --dive-budget are required")
+        from coord.dives import DECIDE
         out = estimate_flow(b, a.run, a.solve_wall, a.dive_budget, dive_b=a.dive_b, poll=a.poll, log=log,
-                            sample=a.dive_sample, weights=a.dive_weights, env=dive_env(a, p))
+                            sample=a.dive_sample, weights=a.dive_weights, env=dive_env(a, p),
+                            decide=DECIDE if a.decide is None else a.decide, check_every=a.decide_every)
         return 0 if out is not None else 3
     if a.command == "status":
         s = b.get_bytes(run_key(a.run, "status.json"))

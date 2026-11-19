@@ -66,7 +66,7 @@ cd "$R"
 # --- a spec file (--spec): its keys answer the questions; a key it does not set takes the default.
 # It is sourced (a committed file of this repository, as recipes/*.sh), and must be committed as it
 # is, so that the run's record names a file anyone can read at that commit
-SPEC_KEYS="PROBLEM RUN PARAMS ARMS INCUMBENT DATA FLAGS UNITS VISIBILITY ESTIMATE ESTIMATE_ENV WORKERS WORKER_TYPE WORKER_TYPES MARKET WORKER_SLOTS COORD_TYPE COORD_SLOTS HOURS DISK"
+SPEC_KEYS="PROBLEM RUN PARAMS ARMS INCUMBENT DATA FLAGS UNITS VISIBILITY ESTIMATE ESTIMATE_ENV ESTIMATE_DECIDE WORKERS WORKER_TYPE WORKER_TYPES MARKET WORKER_SLOTS COORD_TYPE COORD_SLOTS HOURS DISK"
 NOASK=$YES
 SPECREL=""
 unknown_keys() {   # the keys a spec sets that start.sh does not know (a function: macOS's bash 3.2
@@ -423,6 +423,14 @@ EST_MORE=${S_ESTIMATE_ENV:-}
 if [ -n "$EST_MORE" ]; then
   [ -n "$EST_ENV" ] || { echo "ESTIMATE_ENV without ESTIMATE"; exit 1; }
   for kv in $EST_MORE; do [[ $kv =~ ^QAP_EST_[A-Z_]+=[^[:space:]]+$ ]] || { echo "ESTIMATE_ENV: $kv is not QAP_EST_X=V"; exit 1; }; done
+fi
+# a spec's ESTIMATE_DECIDE: the estimate's decision point (coord/dives.py; default 0.15, off: none):
+# the dives stop and the solve goes on when they would cost over this share of the estimated rest
+if [ -n "${S_ESTIMATE_DECIDE:-}" ]; then
+  [ -n "$EST_ENV" ] || { echo "ESTIMATE_DECIDE without ESTIMATE"; exit 1; }
+  DEC=$S_ESTIMATE_DECIDE; [ "$DEC" = off ] && DEC=0
+  [[ $DEC =~ ^(0|0?\.[0-9]+|1)$ ]] || { echo "ESTIMATE_DECIDE: $S_ESTIMATE_DECIDE is not a share (0.15) or off"; exit 1; }
+  EST_MORE="${EST_MORE:+$EST_MORE }QAP_ESTIMATE_DECIDE=$DEC"
 fi
 
 # --- the quotas, for everything this launch starts (every arm's coordinator, on demand, and workers):

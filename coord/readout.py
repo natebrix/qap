@@ -8,7 +8,8 @@ without a person collecting it by hand).
 - `infra/phase1/collect.sh RUN` fetches it into the run's record, and the GitHub workflow
   phase1-readouts commits the readouts of the runs in the store (infra/phase1/readouts.py).
 
-Its first line after the title is the verdict: COMPLETE, PART-WAY, RUNNING, PAUSED, STOPPED, with
+Its first line after the title is the verdict: COMPLETE, SOLVING (an estimate that decided to solve:
+coord/dives.py, the decision point), PART-WAY, RUNNING, PAUSED, STOPPED, with
 the warnings below it (an estimate's flags, coord/dives.py; a status not written for a while; units
 the coordinator gave up on). The rest is the record: what was run, when, the work, the results.
 """
@@ -62,7 +63,7 @@ def _estimate(b, dives_run):
     d = b.get_run(dives_run)
     if d is None:
         return None, None
-    if d.get("status") == "finished":
+    if d.get("status") == "finished" or d.get("decision"):     # (stopped for the solve: as it stood then)
         txt = (b.get_bytes(run_key(dives_run, "estimate.txt")) or b"").decode()
         js = b.get_bytes(run_key(dives_run, "estimate.json"))
         if txt and js:
@@ -93,10 +94,14 @@ def readout(b, run_id, now=None):
     # the verdict
     total = sum(counts.values())
     merged = counts.get("merged", 0)
+    decided = run.get("estimate_decision")     # the estimate's decision point stopped the dives for the solve
     if status == "finished":
         best = _pick(results, r"best objective \S+") if results else None   # (no backslash in an f-string: Python 3.11)
         verdict = "**COMPLETE**: solved" + (f", {best}" if best else "") + \
-            (f" (and its estimate, {dives_run}, below)" if dives_run and d_status == "finished" else "")
+            (f" (and its estimate, {dives_run}, below)" if dives_run and d_status == "finished" else "") + \
+            (f" (its estimate, {dives_run}, decided to solve: below)" if decided else "")
+    elif decided and status == "running":
+        verdict = f"**SOLVING**: the estimate decided to solve the rest; {merged} of {total} units merged"
     elif dives_run and d_status == "finished":
         verdict = f"**COMPLETE**: the estimate ({dives_run} finished)"
     elif dives_run and est is not None:
@@ -117,6 +122,9 @@ def readout(b, run_id, now=None):
                         f"(an interrupted coordinator? collect.sh shows the instances and why they stopped)")
     if counts.get("dead"):
         warnings.append(f"DEAD UNITS: {counts['dead']} units failed every attempt (the ledger has their errors)")
+    if decided:
+        from .dives import decision_text
+        warnings.append(decision_text(decided))
     if est is not None:
         warnings += est.get("flags", [])
 

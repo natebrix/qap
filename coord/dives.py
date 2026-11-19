@@ -25,6 +25,7 @@ against the deepest level with nodes, and the strata no dive reached (they count
 part only, a known low bias where they have survivors).
 """
 import json
+import math
 import os
 import random
 import re
@@ -39,10 +40,88 @@ from .common import State, run_key, unit_key
 
 DIVE_ENV = re.compile(r"^QAP_EST_[A-Z_]+$")
 
+# The estimate's decision point (experiments/estimates_nov19, "The decision point"): an estimate is
+# worth its CPU only while it is a small share of the tree it estimates. tai50b-est-261119 spent 37.5
+# CPU h of estimator on a rest of 84 (truth): its setup alone bounded the top of a tree whose CPU is
+# there. So init_dives marks a pilot, a random pilot_size(n) of the n dives units (the first of its
+# shuffled order, so they are sent first), and once every pilot unit has merged the estimate-flow
+# compares the estimator CPU the whole dives run will take (the pilot's mean per unit, times n) with
+# the rest of the tree as the pilot estimates it (its open nodes standing, depth by depth, for every
+# other unit's); above DECIDE (a share of that rest), the dives stop and the solve goes on, on the same
+# workers (estimate_flow). The pilot is fixed in advance and waited for whole: the first units to merge
+# are the small ones (a unit runs long when its open nodes branch), and on tho40-est2-261119 the first
+# 55 read a rest of 42 CPU h against the 5,610 its dives found, which would have stopped them. Replayed
+# on the collected runs (decide_sim.py, 400 random pilots each): tai50b-est decides to solve in every
+# draw, after 3.1 estimator CPU h (median) of the 37.5 its dives took; tho40-est2 in none (its share
+# 4.8-8.4%, 10-90%; the whole dives run 6.7%).
+DECIDE = 0.15
+DECIDE_MIN = 0.10
 
-def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, weights="unif", env=None):
+
+def pilot_size(n):
+    """the decision point's pilot: a tenth of the n dives units, and 10 at least (half of a smaller run's)"""
+    return max(math.ceil(DECIDE_MIN * n), min(10, math.ceil(n / 2)))
+
+
+def decision(e, frac):
+    """the decision point on estimate e (estimate_run's, with its "pilot" summary): verdict 'solve' (the
+    dives run would cost more than frac of the rest the pilot estimates), 'dive' (they go on), 'wait' (a
+    pilot unit not merged yet, or no pilot: a dives run from before Nov 19) or 'off' (frac 0 or None)"""
+    p = e.get("pilot") or {}
+    units = e.get("units", 0)
+    projected = rest = share = None
+    if p.get("units") and p["merged"] == p["units"]:
+        projected = p["cpu"] / p["units"] * units
+        rest = p["rest_cpu"]
+        share = projected / rest if rest > 0 else None
+    if not frac:
+        verdict = "off"
+    elif projected is None:
+        verdict = "wait"
+    elif share is None or share > frac:
+        verdict = "solve"
+    else:
+        verdict = "dive"
+    return {"frac": frac, "verdict": verdict, "pilot": p.get("units", 0), "pilot_merged": p.get("merged", 0),
+            "units": units, "merged": (e.get("estimator") or {}).get("merged", 0),
+            "estimator_cpu": (e.get("estimator") or {}).get("merged_cpu", 0.0),
+            "projected_cpu": projected, "rest_cpu": rest, "share": share, "at": time.time()}
+
+
+def final_cost(e, frac):
+    """a dives run that ran to the end: what its estimator CPU was against the rest it found"""
+    spent = (e.get("estimator") or {}).get("merged_cpu", 0.0)
+    rest = e["rest"]["cpu"]
+    return {"frac": frac, "verdict": "done", "projected_cpu": spent, "rest_cpu": rest,
+            "share": spent / rest if rest > 0 else None, "units": e.get("units", 0), "at": time.time()}
+
+
+def decision_text(d):
+    if not d or d["verdict"] == "off":
+        return ""
+    sh = f"{d['share']:.0%}" if d.get("share") is not None else "all"
+    if d["verdict"] == "wait":
+        if not d.get("pilot"):
+            return ""
+        return (f"decision check: {d['pilot_merged']} of the {d['pilot']} pilot dives units merged; when all have, "
+                f"the estimate says whether its dives are worth their CPU")
+    if d["verdict"] == "done":
+        return (f"the estimate's cost: {_cpu(d['projected_cpu'])} of estimator CPU, {sh} of the estimated rest of "
+                f"the tree ({_cpu(d['rest_cpu'])})" +
+                (f"; the estimate-flow allows {d['frac']:.0%}" if d.get("frac") else ""))
+    cost = (f"the dives run would cost {_cpu(d['projected_cpu'])} of estimator CPU, {sh} of the rest of the tree "
+            f"as its {d['pilot']} pilot units estimate it ({_cpu(d['rest_cpu'] or 0)})")
+    if d["verdict"] == "solve":
+        return (f"DECIDED TO SOLVE: {cost}, over the {d['frac']:.0%} an estimate may cost: the dives stopped "
+                f"after {d['merged']} of {d['units']} units and the solve went on")
+    return f"decision check: {cost}, within the {d['frac']:.0%} an estimate may cost: the dives go on"
+
+
+def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, weights="unif", env=None,
+               decide=None):
     """create run NEW: a dives unit for every queued unit of SRC (paused, nothing leased). env: more
-    estimator settings for every unit (QAP_EST_* only), kept in the run's config"""
+    estimator settings for every unit (QAP_EST_* only), kept in the run's config; decide: the decision
+    point's share (estimate_flow), kept there too, for the readouts"""
     env = dict(env or {})
     bad = [k for k in env if not DIVE_ENV.match(k)]
     if bad:
@@ -65,7 +144,7 @@ def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, we
         raise SystemExit(f"{src} has no queued units: nothing open to estimate")
     cfg = dict(s["config"])
     cfg.update({"kind": "dives", "source_run": src, "trace": False, "keep_unit_states": True,
-                "dive": {"b": str(dive_b), "sample": sample, "weights": weights, "env": env}})
+                "dive": {"b": str(dive_b), "sample": sample, "weights": weights, "env": env, "decide": decide}})
     if budget is not None:
         cfg["budget"] = budget
     for name in ("instance.dat", "params.par", "incumbent.json"):
@@ -90,11 +169,12 @@ def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, we
     # the others' depth by depth (estimate_run). In SRC's order (large lane first) the units left at the
     # end were all small and deep (tho40-est-dives, Nov 18)
     random.Random(zlib.crc32(new.encode())).shuffle(units)
-    for u in units:
+    npilot = pilot_size(len(units))      # the decision point's pilot (decision()): the first of the shuffle
+    for i, u in enumerate(units):
         doc = {k: u[k] for k in ("uid", "parent", "nodes", "depth_min", "depth_max", "by_depth", "min_bound",
                                  "in_key") if k in u}
         doc.update({"run": new, "status": "queued", "attempt": 0, "budget": cfg["budget"], "created": now,
-                    "lane": "large", "warm": u.get("warm", [])})
+                    "lane": "large", "warm": u.get("warm", []), "pilot": i < npilot})
         b.put_unit(new, doc)
         b.send(new, doc["lane"], {"run": new, "uid": doc["uid"]})
         b.update_unit(new, doc["uid"], {"sent_at": time.time()})
@@ -102,7 +182,8 @@ def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, we
         f"{cfg['budget']:g} s each, " + (f"Knuth's dives, g^{str(dive_b)[1:]}" if str(dive_b).startswith("k")
                                          else f"survivor dives, weights exp({dive_b} x)") +
         (f", {sample:g} of the open nodes sampled ({weights})" if sample < 1 else "") +
-        "".join(f", {k}={v}" for k, v in sorted(env.items())))
+        "".join(f", {k}={v}" for k, v in sorted(env.items())) +
+        (f"; the dives stop for the solve if they would cost over {decide:.0%} of the estimated rest" if decide else ""))
     return new
 
 
@@ -399,26 +480,44 @@ def flags(e):
     return out
 
 
-def estimate_run(b, run_id, out=None, log=print, save=True):
+def estimate_run(b, run_id, out=None, log=print, save=True, cache=None, decide=None):
     """`qapctl estimate RUN`: a dives run's estimate (its merged units' dives.jsonl) with its source's
-    totals; part-way, the pending units' open nodes imputed depth by depth from the merged units'"""
+    totals; part-way, the pending units' open nodes imputed depth by depth from the merged units'.
+    cache: a dict kept between calls (the estimate-flow's decision checks), so that each merged unit's
+    dives.jsonl is read once. decide: the decision point's share (default: the run's, from estimate-flow)"""
     r = b.get_run(run_id)
     if r is None or r.get("config", {}).get("kind") != "dives":
         raise SystemExit(f"{run_id} is not a dives run")
     src = json.loads(b.get_bytes(run_key(run_id, "source_totals.json")))
     tmp = tempfile.mkdtemp(prefix=f"qapest-{run_id}-")
     p = os.path.join(tmp, "src.state")
+    sk = ("src", src["totals_key"])
+    if cache is not None and sk in cache:
+        data = cache[sk]
+    else:
+        data = b.get_bytes(src["totals_key"]) or b.get_bytes(run_key(run_id, "totals.state"))
+        if cache is not None:
+            cache[sk] = data
     with open(p, "wb") as f:
-        f.write(b.get_bytes(src["totals_key"]) or b.get_bytes(run_key(run_id, "totals.state")))
+        f.write(data)
     st = State(p)
     strata, dives = {}, {}
     samples = []
     merged, keys, pending_open = [], {}, {}
     units = b.all_units(run_id)
+    # what the estimator has spent: the merged units' CPU (the decision point; its pilot below)
+    spend = {"merged": sum(1 for u in units if u.get("status") == "merged"),
+             "merged_cpu": sum(float(u.get("cpu") or 0.0) for u in units if u.get("status") == "merged")}
     for u in units:
         data = None
         if u.get("status") == "merged":
-            data = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "dives.jsonl"))
+            ck = (u["uid"], u["attempt"])
+            if cache is not None and ck in cache:
+                data = cache[ck]
+            else:
+                data = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "dives.jsonl"))
+                if cache is not None and data is not None:
+                    cache[ck] = data
         if data is None:
             for d, n in _open_by_depth(u).items():
                 pending_open[d] = pending_open.get(d, 0) + n
@@ -462,9 +561,37 @@ def estimate_run(b, run_id, out=None, log=print, save=True):
     e["jackknife_nodes"], e["jackknife_cpu"] = jackknife(accs, pending_open)
     e["diag"] = diagnose(strata, dives, e)
     e["flags"] = flags(e)
+    e["estimator"] = spend
+    # the pilot (decision()): its units' CPU, and once all have merged the rest as they alone estimate
+    # it, every other unit's open nodes imputed from theirs depth by depth
+    pilot = [u for u in units if u.get("pilot")]
+    if pilot:
+        pm = [u for u in merged if u.get("pilot")]
+        e["pilot"] = {"units": len(pilot), "merged": len(pm), "cpu": sum(float(u.get("cpu") or 0.0) for u in pm),
+                      "rest_cpu": None, "rest_nodes": None}
+        if len(pm) == len(pilot):
+            others = {}
+            for u in units:
+                if not u.get("pilot"):
+                    for d, n in _open_by_depth(u).items():
+                        others[d] = others.get(d, 0) + n
+            pn, pc, *_ = rest_from(unit_rest(pm, keys, strata, _parts(strata, dives)), others)
+            e["pilot"].update(rest_cpu=pc, rest_nodes=pn)
+    # the decision point: the one taken (a dives run the estimate-flow stopped for the solve), else the
+    # check as it stands now, with the run's share (or the one given)
+    frac = decide if decide is not None else r.get("config", {}).get("dive", {}).get("decide")
+    if r.get("decision"):
+        e["decision"] = r["decision"]
+    elif not pending:       # the dives ran to the end: what the estimate cost, against what it found
+        e["decision"] = final_cost(e, frac)
+    else:
+        e["decision"] = decision(e, frac) if frac else None
     text = report(e)
     if e["flags"]:
         text = "\n".join(e["flags"]) + "\n" + text
+    dt = decision_text(e["decision"])
+    if dt:
+        text = dt + "\n" + text
     e["text"] = text
     if save:      # (a readout made with a read-only role writes nothing: coord/readout.py)
         b.put_bytes(run_key(run_id, "estimate.json"), json.dumps(e, indent=1).encode())
@@ -514,14 +641,50 @@ def export_dives(b, run_id, out_dir, log=print):
     return 0
 
 
+def _decide_solve(b, run_id, new, d, e=None, log=print):
+    """the decision point said solve: RUN resumed (first, so that a worker leaving NEW finds it running),
+    NEW stopped with the decision, its running units cancelled (their workers kill them at the next
+    heartbeat: the lease is gone) and its queues deleted, the readout written. Idempotent: a restarted
+    estimate-flow finishes what an interrupted one began."""
+    from .coordinator import drop_queues, ensure_queues
+    if e is not None:       # the estimate as it stood when the dives stopped, for the readouts
+        b.put_bytes(run_key(new, "estimate.json"), json.dumps(e, indent=1).encode())
+        b.put_bytes(run_key(new, "estimate.txt"), (e["text"] + "\n").encode())
+    src = b.get_run(run_id)
+    if src.get("status") == "paused":
+        b.update_run(run_id, {"status": "running", "estimate_decision": d})
+        n = ensure_queues(b, run_id, log=log, resend=True)
+        log(f"estimate-flow: {run_id} resumed for the solve ({n} queued units sent again)")
+    elif not src.get("estimate_decision"):
+        b.update_run(run_id, {"estimate_decision": d})
+    nr = b.get_run(new)
+    if nr is not None and nr.get("status") != "stopped":
+        b.update_run(new, {"status": "stopped", "stopped_at": time.time(), "decision": d})
+    if nr is not None:
+        for u in b.all_units(new):
+            if u.get("status") == "leased":
+                b.update_unit(new, u["uid"], {"status": "cancelled"},
+                              expect={"status": "leased", "attempt": u["attempt"]})
+        if nr.get("queues"):
+            drop_queues(b, new)
+    from .readout import write_readout
+    write_readout(b, run_id, log=log)
+
+
 def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, log=print, sample=1.0, weights="unif",
-                  env=None):
+                  env=None, decide=DECIDE, check_every=120.0):
     """`qapctl estimate-flow RUN`: the estimate run, in place of `qapctl coordinator RUN` on the
     coordinating host. RUN is solved until solve_wall seconds after its start, paused (dives_run set
     on it, for the workers that follow it: `qapctl worker --follow`), its units left to return and
     merge, then RUN-dives made from its open units and coordinated to the end (its results.txt is the
     estimate). Restartable at every step: each looks at what the store says is done. RUN stays
-    paused and can be resumed (`qapctl resume RUN`) to go on with the solve."""
+    paused and can be resumed (`qapctl resume RUN`) to go on with the solve.
+
+    The decision point (decide, a share; 0 or None: off): while the dives run, at most every
+    check_every seconds that a unit has merged, the estimate so far; once every pilot unit has merged,
+    if the whole dives run would cost over decide of the rest the pilot estimates (decision()), the
+    dives stop and RUN is resumed and coordinated here to the end, its workers coming back from the
+    dives run (`worker --follow`); else the dives go on to the end."""
     from .coordinator import Coordinator, PENDING
     new = f"{run_id}-dives"
     r = b.get_run(run_id)
@@ -530,6 +693,11 @@ def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, lo
     if r.get("status") == "finished":
         log(f"estimate-flow: {run_id} is finished: the tree closed, the solve is the answer")
         return b.get_bytes(run_key(run_id, "results.txt")).decode()
+    if r.get("estimate_decision"):
+        # decided before (a restart): finish the switch, then coordinate the solve
+        _decide_solve(b, run_id, new, r["estimate_decision"], log=log)
+        log(f"estimate-flow: {run_id}'s estimate decided to solve: coordinating the solve")
+        return Coordinator(b, run_id, log=log).loop(poll=poll)
     if not r.get("dives_run"):
         if r.get("status") == "running":
             out = Coordinator(b, run_id, log=log).loop(poll=poll, max_wall=solve_wall)
@@ -552,6 +720,37 @@ def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, lo
         log(f"estimate-flow: {run_id} has nothing open after the pause: the tree is closed")
         return c.finish()
     if b.get_run(new) is None:
-        init_dives(b, run_id, new, dive_b=dive_b, budget=dive_budget, log=log, sample=sample, weights=weights, env=env)
-    out = Coordinator(b, new, log=log).loop(poll=poll)
+        init_dives(b, run_id, new, dive_b=dive_b, budget=dive_budget, log=log, sample=sample, weights=weights, env=env,
+                   decide=decide)
+    frac = (b.get_run(new) or {}).get("config", {}).get("dive", {}).get("decide")   # the run's, on a restart
+    cache, seen = {}, {"merged": -1, "t": 0.0, "decided": False}
+
+    def check(counts):
+        # once: when every pilot unit has merged (decision()); the dives go on after a 'dive'
+        if not frac or seen["decided"]:
+            return False
+        n = counts.get("merged", 0)
+        if n == seen["merged"] or time.time() - seen["t"] < check_every:
+            return False
+        seen.update(merged=n, t=time.time())
+        try:
+            e = estimate_run(b, new, log=lambda *_: None, save=False, cache=cache)
+        except Exception as ex:      # a check must never stop the dives
+            log(f"estimate-flow: the decision check failed: {ex!r}")
+            return False
+        d = e.get("decision") or {}
+        if d.get("verdict") in ("dive", "wait"):
+            log(f"estimate-flow: {decision_text(d) or 'decision check: no pilot units (a dives run from before Nov 19)'}")
+        if d.get("verdict") == "dive" or not e.get("pilot"):
+            seen["decided"] = True
+        if d.get("verdict") != "solve":
+            return False
+        log(f"estimate-flow: {decision_text(d)}")
+        _decide_solve(b, run_id, new, d, e, log=log)     # (e's text leads with the decision)
+        return True
+
+    out = Coordinator(b, new, log=log).loop(poll=poll, check=check)
+    if out is None and (b.get_run(run_id) or {}).get("estimate_decision"):
+        log(f"estimate-flow: the dives stopped; coordinating the solve {run_id} to the end")
+        return Coordinator(b, run_id, log=log).loop(poll=poll)
     return out

@@ -51,6 +51,25 @@ The estimator's settings (`latest/estimate.C`): `QAP_EST_BUDGET` counts from the
 strata's setup; `QAP_EST_MIN_DIVES` dives per branched stratum whatever the budget;
 `QAP_EST_SAMPLE_DEPTHS=D:F,...` a sampling rate by depth; `qapctl dives`/`estimate-flow
 --dive-env QAP_EST_X=V` passes them to every dives unit (a spec's `ESTIMATE_ENV`).
+`QAP_EST_CHILD_DNN=CAP` (Knuth's dives, `kQ`): each child a dive may take weighted by its own
+short DNN solve, CAP iterations warm from its parent's state, in place of its QPB bound (the
+thesis's design with a predictor fit for a DNN tree; `experiments/estimates_nov19`).
+
+The decision point (Nov 19; `coord/dives.py`, `decision()`): an estimate is worth its CPU only
+while it is a small share of the tree it estimates. A dives run marks a pilot, a random tenth of
+its units (10 at least, half of a smaller run's: the first of its shuffle, so they are sent
+first). When every pilot unit has merged, `estimate-flow` compares the CPU the whole dives run
+will take (the pilot's mean per unit times the units) with the rest of the tree as the pilot
+alone estimates it. Above `--decide` (default 0.15), the dives stop and the solve goes on to the
+end: RUN resumed (and marked `estimate_decision`), RUN-dives stopped with the decision, its
+running units cancelled (their workers kill them at the next heartbeat) and its queues deleted;
+`worker --follow` goes back to RUN; the readout's verdict is SOLVING, then COMPLETE, with the
+decision's line. Otherwise the dives go on to the end, and the estimate ends with its cost (the
+estimator's CPU against the rest it found). The pilot is waited for whole because the first
+units to merge are the small ones: on tho40-est2's record its first 55 read a rest of 42 CPU h
+against the 5,610 its dives found. Replayed on the collected runs (400 random pilots each,
+`experiments/estimates_nov19/decide_sim.py`): tai50b-est decides to solve every time, after a
+median 3.1 estimator CPU h of the 37.5 its dives took; tho40-est2 never (4.8-8.4%, 10-90%).
 
 The root cache: `init` stores its frontier pass (the state file, the parent states it names, its
 traces and report) under `runs/.cache/frontier/KEY/`, KEY a hash of the solver binary, the CPU's
@@ -142,11 +161,14 @@ the second run from the cache, both runs equal to the serial run, DNN iterations
   - a bootstrap interval;
   - the deepest level the dives reached, and the open nodes no dive reached.
 
-  `qapctl estimate-flow RUN --solve-wall S --dive-budget T` does all of it in place of the
-  coordinator, restartably; `worker --follow` goes from RUN to RUN-dives. SRC stays paused:
+  `qapctl estimate-flow RUN --solve-wall S --dive-budget T [--decide F]` does all of it in place
+  of the coordinator, restartably; `worker --follow` goes from RUN to RUN-dives (and back, when the
+  decision point stops the dives for the solve: above). SRC stays paused:
   `qapctl resume` sends its queued units again and the solve goes on. The dives run has
   queues of its own, so SRC's queued messages wait in SRC's. `tests/dives_test.py [--flow]` (nug17): the estimate within 15% (1.03
-  and 1.06 on the first runs), and the resumed solve's totals equal a serial run's. On EC2:
+  and 1.06 on the first runs), and the resumed solve's totals equal a serial run's; `--decide`
+  (in `--flow` too): the decision point at 1% stops the dives after the pilot, the solve finishes
+  with the serial run's nodes on the worker that came back, and the readout says so. On EC2:
   `QAP_ESTIMATE=SOLVE_S:DIVE_S[:B]` on every instance (`infra/phase1/node.sh`; start.sh asks
   for it under the other settings). On the laptop: `ESTIMATE=... infra/laptop/solve.sh PROBLEM`.
   `node.sh` in its local mode against moto, from a clean archive, gave three outcomes (Nov 18):

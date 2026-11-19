@@ -75,4 +75,12 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
 bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
 		QAPStatistics *stats);
 
+// A warm start's DNN state as the state file's token at 16, 32 or 64 bits ("-" for none), and back
+// (a DNNWarm, freed with dnn_state_free; NULL if the token is not one). The estimator spills the
+// states of the strata past QAP_EST_WARM_KEEP with them (estimate.C).
+#include <string>
+std::string dnn_state_encode(const WarmStart *w, int bits);
+void *dnn_state_decode(const std::string &t);
+void dnn_state_free(void *p);
+
 #endif

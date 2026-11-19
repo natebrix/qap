@@ -225,7 +225,13 @@ the time limit), so the same command resumes a run.
   At the end `out/estimate.txt` (and the store's `runs/RUN-dives/results.txt`) holds the
   estimate: the solve's nodes and CPU so far, the rest estimated, by depth, with a 5-95%
   interval. The solve stays paused, so `qapctl resume RUN` (or a relaunch without the estimate)
-  goes on from where it stopped. A Spot relaunch resumes the flow at its step. Make the time
+  goes on from where it stopped.
+
+  Unless the estimate is not worth its CPU (Nov 19, the decision point: `coord/README.md`): when
+  the dives run's pilot (a random tenth of its units) says the dives would cost over 15% of the
+  rest of the tree, the dives stop and the solve goes on to the end on the same instances, within
+  the time limit; the readout says SOLVING, then COMPLETE. A spec's `ESTIMATE_DECIDE` sets the
+  share (`off`: the dives always run to the end), as `QAP_ESTIMATE_DECIDE` on the coordinator. A Spot relaunch resumes the flow at its step. Make the time
   limit cover SOLVE_HOURS plus the dives: the dives take about DIVE_SECONDS per queued unit
   over the slots.
 
