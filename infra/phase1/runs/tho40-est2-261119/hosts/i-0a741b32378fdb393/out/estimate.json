@@ -1,0 +1,143 @@
+{
+ "done": {
+  "nodes": 18767.0,
+  "cpu": 421779.9575549998
+ },
+ "rest": {
+  "nodes": 2053682.1452850665,
+  "cpu": 20197824.211221967,
+  "nodes_5_95": [
+   1735370.750116947,
+   2430901.395215387
+  ],
+  "cpu_5_95": [
+   18233683.62224676,
+   22097053.52420428
+  ]
+ },
+ "total": {
+  "nodes": 2072449.1452850665,
+  "cpu": 20619604.168776967,
+  "nodes_5_95": [
+   1754137.750116947,
+   2449668.395215387
+  ],
+  "cpu_5_95": [
+   18655463.57980176,
+   22518833.48175928
+  ]
+ },
+ "strata": 6307,
+ "with_survivors": 2575,
+ "dived": 2575,
+ "dives": 24106,
+ "strata_with_survivors_not_dived": 0,
+ "deepest_dive": 7,
+ "estimator_cpu": 1343562.0167710013,
+ "by_depth": {
+  "0": {
+   "done_nodes": 1.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 0.991572,
+   "rest_cpu": 0.0
+  },
+  "1": {
+   "done_nodes": 12.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 4420.429861,
+   "rest_cpu": 0.0
+  },
+  "2": {
+   "done_nodes": 319.0,
+   "rest_nodes": 85.0,
+   "done_cpu": 162417.86015699984,
+   "rest_cpu": 26256.602678999978
+  },
+  "3": {
+   "done_nodes": 2924.0,
+   "rest_nodes": 10534.632038974756,
+   "done_cpu": 103159.33619300011,
+   "rest_cpu": 1137886.2136726687
+  },
+  "4": {
+   "done_nodes": 8475.0,
+   "rest_nodes": 184740.69919813712,
+   "done_cpu": 109815.67135100004,
+   "rest_cpu": 7718331.123338465
+  },
+  "5": {
+   "done_nodes": 5851.0,
+   "rest_nodes": 773167.1204971167,
+   "done_cpu": 36753.46041999998,
+   "rest_cpu": 7589744.821293402
+  },
+  "6": {
+   "done_nodes": 1004.0,
+   "rest_nodes": 1043468.587741503,
+   "done_cpu": 4554.7108149999995,
+   "rest_cpu": 3652179.1005758895
+  },
+  "7": {
+   "done_nodes": 148.0,
+   "rest_nodes": 41686.10578298851,
+   "done_cpu": 558.6635729999999,
+   "rest_cpu": 73426.35000011494
+  },
+  "8": {
+   "done_nodes": 33.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 92.17252100000002,
+   "rest_cpu": 0.0
+  }
+ },
+ "source_run": "tho40-est2-261119",
+ "open_nodes": 18578,
+ "open_sampled": 6307,
+ "units": 548,
+ "units_pending": 0,
+ "imputed": {
+  "nodes": 0.0,
+  "cpu": 0.0,
+  "open": 0,
+  "unmatched_open": 0
+ },
+ "jackknife_nodes": 199949.6345726396,
+ "jackknife_cpu": 1499373.624879847,
+ "diag": {
+  "top1_nodes": 0.0750117852627173,
+  "top10_nodes": 0.15282206214226876,
+  "top1_cpu": 0.03202549645127671,
+  "top10_cpu": 0.12569715897035896,
+  "dived_strata": 2575,
+  "one_dive_strata": 0,
+  "continuation": {
+   "3": [
+    390,
+    161
+   ],
+   "4": [
+    15437,
+    1609
+   ],
+   "5": [
+    9955,
+    181
+   ],
+   "6": [
+    275,
+    3
+   ],
+   "7": [
+    3,
+    0
+   ]
+  },
+  "deepest_well_sampled": 6,
+  "continuation_there": 0.01090909090909091,
+  "mass_depth": 6,
+  "setup_cpu": 563160.2073050003,
+  "dive_cpu": 780401.8094660011
+ },
+ "flags": [],
+ "text": "done so far: 18,767 nodes, 117.2 CPU h\nestimated rest: 2,053,682 nodes (5-95%: 1,735,371 to 2,430,901), 5,610.5 CPU h (5,064.9 CPU h to 6,138.1 CPU h)\nestimated tree: 2,072,449 nodes (5-95%: 1,754,138 to 2,449,668), 5,727.7 CPU h (5,182.1 CPU h to 6,255.2 CPU h)\n6307 open nodes (2575 with children that branch), 24106 dives in 2575 of them, deepest dive node at depth 7; estimator 373.2 CPU h\n6,307 of the 18,578 open nodes sampled (each weighted 1/pi)\njackknife over units: standard error 199,950 nodes, 416.5 CPU h\nthe largest dive makes 3% of the rest's CPU, the 10 largest 13%; 0 of 2575 dived open nodes got one dive; estimator CPU: setup 156.4 CPU h, dives 216.8 CPU h\ndives going deeper, by depth (reached, went on): 3: 390/161, 4: 15437/1609, 5: 9955/181, 6: 275/3, 7: 3/0\n\n| depth | nodes done | nodes estimated, rest | CPU h done | CPU h estimated, rest |\n|---|---|---|---|---|\n| 0 | 1 | 0 | 0.00 | 0.00 |\n| 1 | 12 | 0 | 1.23 | 0.00 |\n| 2 | 319 | 85 | 45.12 | 7.29 |\n| 3 | 2,924 | 10,535 | 28.66 | 316.08 |\n| 4 | 8,475 | 184,741 | 30.50 | 2,143.98 |\n| 5 | 5,851 | 773,167 | 10.21 | 2,108.26 |\n| 6 | 1,004 | 1,043,469 | 1.27 | 1,014.49 |\n| 7 | 148 | 41,686 | 0.16 | 20.40 |\n| 8 | 33 | 0 | 0.03 | 0.00 |\n\n(nodes at depth 8 are in the solve's own part; the dives reached depth 7)"
+}
