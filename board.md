@@ -5,8 +5,8 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
 | [tai50b-est-261119](runs/tai50b-est-261119/readout.md) | paused | **COMPLETE**: the estimate (tai50b-est-261119-dives finished) | HEAVY TAIL, FEW DIVES, SETUP-BOUND, WIDE | 2026-11-19 03:37 | - |
-| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | running | **RUNNING**: 2854 of 3212 units merged | - | 2026-11-19 02:29 | - |
-| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | running | **RUNNING**: 2771 of 3026 units merged | - | 2026-11-19 02:28 | - |
+| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | running | **RUNNING**: 2901 of 3263 units merged | - | 2026-11-19 02:29 | - |
+| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | running | **RUNNING**: 2820 of 3074 units merged | - | 2026-11-19 02:28 | - |
 | [tho40-est2-261119](runs/tho40-est2-261119/readout.md) | paused | **COMPLETE**: the estimate (tho40-est2-261119-dives finished) | - | 2026-11-19 02:26 | - |
 | [nug30-smoke-261119](runs/nug30-smoke-261119/readout.md) | finished | **COMPLETE**: solved, best objective 6124 | - | 2026-11-19 01:49 | 2026-11-19 01:57 |
 | [sko42-z25-261118](runs/sko42-z25-261118/readout.md) | running | **RUNNING**: 149 of 404 units merged | STALE | 2026-11-18 21:38 | - |
