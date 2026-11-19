@@ -1,0 +1,628 @@
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -89,6 +89,7 @@
+ #include <string>
+ #include "settings.h"
+ bool branch_cols_allowed(const QAPAssignment &assign);   // branch.C (experiments/line_signals)
++#include "lsla.h"   // experiments/branching_lab/lsla
+ //#include <time.h>
+ 
+ /*
+@@ -1179,6 +1180,176 @@
+ 	    for (const auto &l : L) fprintf(stderr, " %s:%.5f", l.second.c_str(), l.first);
+ 	    fprintf(stderr, "\n");
+ 	  }
++	  // QAP_LS=MODE:K:DMIN:DMAX (experiments/branching_lab/lsla): the landscape signal as a line shortlist.
++	  // At a node of depth DMIN..DMAX whose DNN bound ran and missed: the node's own best completion from
++	  // the incumbent permutation (QAP_LS_PERM, a QAPLIB .sln file; or the run's best when better), a descent
++	  // plus GATEKICKS kicks; the gate passes when it is within the node's slack s = cutoff - bound. Then
++	  // every free cell r:v gets the best completion a descent plus KICKS kicks finds with r:v forced (KICKS2
++	  // more for cells with 1 < ex / s <= XHI): QAP_LS_SEARCH=KICKS:KICKS2:XHI:GATEKICKS (30:0:2.5:300).
++	  // A line's score: its children with ex <= s, ties by the chain model (landscape/README.md 4). The
++	  // shortlist: the K best lines, plus rule 9's two (the largest marginal row and column) when the node
++	  // has marginals. MODE a: branch on the best line. MODE b: the shortlist goes to the QAP_LA lookahead
++	  // (QAP_LS_CAP=CAP[,CAP2...] iterations a child, warm, pooled; the last cap's choice stands). Off
++	  // (nothing changes) when QAP_LS is unset. One line per node at the depths in QAP_LS_LOG (and stderr):
++	  // gate fails as well as firings. QAP_LS_DUMP=file: every cell's excess at each firing.
++	  bool ls_fire_b = false;
++	  std::vector<std::pair<bool, int>> ls_cand;   // (row?, local index)
++	  std::string ls_msg;
++	  double ls_cpu = 0;
++	  static std::vector<int> ls_caps;
++	  {
++	    static char ls_mode = 0;
++	    static int ls_k = 2, ls_dmin = 0, ls_dmax = -1;
++	    static LSParams ls_p;
++	    static LSInst ls_I;
++	    static std::vector<int> ls_perm;
++	    static bool ls_init = false;
++	    if (!ls_init) {
++	      ls_init = true;
++	      if (const char *e = getenv("QAP_LS"); e && *e) {
++		if (sscanf(e, "%c:%d:%d:%d", &ls_mode, &ls_k, &ls_dmin, &ls_dmax) != 4 || (ls_mode != 'a' && ls_mode != 'b')) {
++		  fprintf(stderr, "QAP_LS: cannot read '%s' (MODE:K:DMIN:DMAX, MODE a or b)\n", e);  exit(2);
++		}
++		if (const char *x = getenv("QAP_LS_SEARCH"); x && *x)
++		  sscanf(x, "%d:%d:%lf:%d", &ls_p.kicks, &ls_p.kicks2, &ls_p.xhi, &ls_p.gate_kicks);
++		const char *cs = getenv("QAP_LS_CAP");
++		for (const char *c = cs && *c ? cs : "30"; c && *c; ) { ls_caps.push_back(atoi(c)); c = strchr(c, ','); if (c) c++; }
++		ls_I.n = n;  ls_I.a.resize((size_t)n * n);  ls_I.b.resize((size_t)n * n);  ls_I.c.assign((size_t)n * n, 0.0);
++		for (int i = 0; i < n; i++) for (int k = 0; k < n; k++) {
++		  ls_I.a[(size_t)i * n + k] = q->A->me[i][k];  ls_I.b[(size_t)i * n + k] = q->B->me[i][k];
++		  if (q->C) { ls_I.c[(size_t)i * n + k] = q->C->me[i][k];  if (q->C->me[i][k] != 0) ls_I.has_c = true; }
++		}
++		ls_I.shift = q->shift;
++		if (const char *pf = getenv("QAP_LS_PERM"); pf && *pf) {
++		  FILE *f = fopen(pf, "r");
++		  int nn = 0;  double obj = 0;
++		  if (!f || fscanf(f, "%d %lf", &nn, &obj) != 2 || nn != n) { fprintf(stderr, "QAP_LS_PERM: cannot read %s\n", pf);  exit(2); }
++		  ls_perm.resize(n);
++		  for (int &x : ls_perm) { if (fscanf(f, "%d", &x) != 1) { fprintf(stderr, "QAP_LS_PERM: short %s\n", pf);  exit(2); }  x--; }
++		  fclose(f);
++		  fprintf(stderr, "QAP_LS: %s, permutation of %s costs %.4f (file says %.4f)\n", e, pf, ls_I.cost(ls_perm.data()), obj);
++		}
++	      }
++	    }
++	    const double inc = s->getObjective();
++	    if (ls_mode && dnn_keep && ((DNNWarm *)dnn_keep)->m == m && node.depth >= ls_dmin && node.depth <= ls_dmax &&
++		m >= 3 && inc < 1e99) {
++	      const clock_t t0 = clock();
++	      // the incumbent permutation: the file's, or the run's best when it is better
++	      std::vector<int> pstar = ls_perm;
++	      double zstar = pstar.empty() ? INFINITY : ls_I.cost(pstar.data());
++	      if (s->ifs_found) {
++		std::vector<int> ps(s->perm, s->perm + n);
++		bool ok = true;
++		for (int x : ps) if (x < 0 || x >= n) ok = false;
++		if (ok) { const double zs = ls_I.cost(ps.data()); if (zs < zstar - 0.5) { pstar = ps;  zstar = zs; } }
++	      }
++	      if (!pstar.empty()) {
++		std::vector<int> fixed(n, -1);
++		for (int r = 0; r < n; r++) if (node.p[r] > NONE) fixed[r] = node.p[r];
++		const double sl = (inc - DELTA) - node.bound;
++		unsigned seed = 1;
++		for (int r = 0; r < n; r++) seed = seed * 31u + (unsigned)(fixed[r] + 1);
++		LSTable T;
++		ls_node(ls_I, pstar.data(), fixed.data(), sl, ls_p, true, T, seed);
++		const bool gate = T.ex_node <= sl;
++		char buf[512];
++		snprintf(buf, sizeof buf, "ls: %s pid %d depth %d m %d fixes", getenv("QAP_LS"), (int)getpid(), node.depth, m);
++		ls_msg += buf;
++		for (int a = 0; a < n; a++) if (node.p[a] > NONE) { snprintf(buf, sizeof buf, " %d:%d", a, (int)node.p[a]);  ls_msg += buf; }
++		snprintf(buf, sizeof buf, " | s %.1f z %.1f ex_start %.1f ex_node %.1f gate %d", sl, zstar, T.ex_start, T.ex_node, gate ? 1 : 0);
++		ls_msg += buf;
++		if (gate) {
++		  ls_table(ls_I, pstar.data(), fixed.data(), sl, ls_p, T, seed);
++		  const bool cols_ok = branch_cols_allowed(node);
++		  struct LC { bool row; int k; int cnt; double off; };
++		  std::vector<LC> L;
++		  for (int side = 0; side < (cols_ok ? 2 : 1); side++)
++		    for (int k = 0; k < m; k++) {
++		      LC c{side == 0, k, 0, 0.0};
++		      ls_line_score(T, c.row, k, sl, 0.01 * sl, c.cnt, c.off);
++		      L.push_back(c);
++		    }
++		  std::stable_sort(L.begin(), L.end(), [](const LC &x, const LC &y) { return x.cnt != y.cnt ? x.cnt < y.cnt : x.off < y.off; });
++		  for (int t = 0; t < (int)L.size() && t < ls_k; t++) ls_cand.push_back({L[t].row, L[t].k});
++		  // rule 9's two lines: the largest marginal row and column (first maximum, as dnn_xbar_line_orders)
++		  int r9n = 0;
++		  if ((int)dnn_xbar.size() == m * m) {
++		    std::vector<double> rs(m, 0.0), cs(m, 0.0);
++		    for (int a = 0; a < m; a++) for (int b = 0; b < m; b++) {
++		      const double v = dnn_xbar[a * m + b] * dnn_xbar[a * m + b];  rs[a] += v;  cs[b] += v;
++		    }
++		    const int br = std::max_element(rs.begin(), rs.end()) - rs.begin();
++		    const int bc = std::max_element(cs.begin(), cs.end()) - cs.begin();
++		    std::vector<std::pair<bool, int>> r9 = {{true, br}};
++		    if (cols_ok) r9.push_back({false, bc});
++		    for (auto &x : r9)
++		      if (std::find(ls_cand.begin(), ls_cand.end(), x) == ls_cand.end()) { ls_cand.push_back(x);  r9n++; }
++		  }
++		  // QAP_LS_ADD=c47,c54,...: more lines for the lookahead to judge (diagnostics: lines with a known answer)
++		  int addn = 0;
++		  if (const char *ad = getenv("QAP_LS_ADD"); ad && *ad)
++		    for (const char *f = ad; f && *f; ) {
++		      char side;  int idx;
++		      if (sscanf(f, "%c%d", &side, &idx) == 2) {
++			const std::vector<int> &v = side == 'r' ? T.frow : T.fcol;
++			for (int a = 0; a < m; a++)
++			  if (v[a] == idx && std::find(ls_cand.begin(), ls_cand.end(), std::make_pair(side == 'r', a)) == ls_cand.end()) {
++			    ls_cand.push_back({side == 'r', a});  addn++;
++			  }
++		      }
++		      f = strchr(f, ',');
++		      if (f) f++;
++		    }
++		  ls_cpu = (double)(clock() - t0) / CLOCKS_PER_SEC;
++		  snprintf(buf, sizeof buf, " | cpu_ls %.2f (gate %.2f table %.2f refine %.2f, %ld refined) | lines", ls_cpu,
++			   T.cpu_gate, T.cpu_table, T.cpu_refine, T.refined);
++		  ls_msg += buf;
++		  int rank = 0;
++		  for (const LC &c : L) {
++		    rank++;
++		    if (rank > 12 && std::find(ls_cand.begin(), ls_cand.end(), std::make_pair(c.row, c.k)) == ls_cand.end()) continue;
++		    snprintf(buf, sizeof buf, " %c%d:%d:%.2f:#%d", c.row ? 'r' : 'c', c.row ? T.frow[c.k] : T.fcol[c.k], c.cnt, c.off, rank);
++		    ls_msg += buf;
++		  }
++		  snprintf(buf, sizeof buf, " | shortlist");
++		  ls_msg += buf;
++		  for (auto &x : ls_cand) {
++		    snprintf(buf, sizeof buf, " %c%d", x.first ? 'r' : 'c', x.first ? T.frow[x.second] : T.fcol[x.second]);
++		    ls_msg += buf;
++		  }
++		  snprintf(buf, sizeof buf, " (%d from rule 9, %d from QAP_LS_ADD)", r9n, addn);
++		  ls_msg += buf;
++		  if (const char *df = getenv("QAP_LS_DUMP"); df && *df)
++		    if (FILE *f = fopen(df, "a")) {
++		      fprintf(f, "dump depth %d fixes", node.depth);
++		      for (int a = 0; a < n; a++) if (node.p[a] > NONE) fprintf(f, " %d:%d", a, (int)node.p[a]);
++		      fprintf(f, " | s %.1f\n", sl);
++		      for (int a = 0; a < m; a++) for (int b = 0; b < m; b++)
++			fprintf(f, "%d:%d %.1f %.1f\n", T.frow[a], T.fcol[b], T.ex_base[(size_t)a * m + b], T.ex[(size_t)a * m + b]);
++		      fclose(f);
++		    }
++		  if (ls_mode == 'a' && !ls_cand.empty()) {
++		    bp->how = BRANCH_FIXED;  bp->choose_row = ls_cand[0].first;
++		    bp->fixed_index_in_U = ls_cand[0].second;
++		    bp->fixed_index_in_assign = ls_cand[0].first ? T.frow[ls_cand[0].second] : T.fcol[ls_cand[0].second];
++		    snprintf(buf, sizeof buf, " | chose %c%d", ls_cand[0].first ? 'r' : 'c', bp->fixed_index_in_assign);
++		    ls_msg += buf;
++		  }
++		  if (ls_mode == 'b' && !ls_cand.empty()) ls_fire_b = true;
++		} else {
++		  ls_cpu = (double)(clock() - t0) / CLOCKS_PER_SEC;
++		  snprintf(buf, sizeof buf, " | cpu_ls %.2f", ls_cpu);
++		  ls_msg += buf;
++		}
++		if (!ls_fire_b) {
++		  fprintf(stderr, "%s\n", ls_msg.c_str());
++		  const char *lf = getenv("QAP_LS_LOG");
++		  if (lf && *lf) if (FILE *f = fopen(lf, "a")) { fprintf(f, "%s\n", ls_msg.c_str());  fclose(f); }
++		}
++	      }
++	    }
++	  }
+ 	  // QAP_LA=K:CAP:DMIN:DMAX (experiments/line_signals): at a node of depth DMIN..DMAX whose DNN
+ 	  // bound ran and missed, the candidates are the K rows and the K columns with the largest marginal
+ 	  // scores (columns only with no symmetry left); every child of a candidate that QPB's U does not
+@@ -1201,13 +1372,14 @@
+ 	      la_all = sl && sl[0] == 'a';
+ 	    }
+ 	    const double inc = s->getObjective();
+-	    if (la_k > 0 && dnn_keep && ((DNNWarm *)dnn_keep)->m == m && (int)dnn_xbar.size() == m * m &&
+-		node.depth >= la_dmin && node.depth <= la_dmax && m >= 3 && inc < 1e99) {
++	    if (((la_k > 0 && (int)dnn_xbar.size() == m * m && node.depth >= la_dmin && node.depth <= la_dmax) || ls_fire_b) &&
++		dnn_keep && ((DNNWarm *)dnn_keep)->m == m && m >= 3 && inc < 1e99) {
+ 	      const bool cols_ok = branch_cols_allowed(node);
+ 	      std::vector<int> frow, fcol;   // original index of each local row / column
+ 	      for (int r = 0; r < n; r++) if (node.p[r] <= NONE) frow.push_back(r);
+ 	      for (int c = 0; c < n; c++) if (node.pinv[c] <= NONE) fcol.push_back(c);
+ 	      std::vector<double> rs(m, 0.0), cs(m, 0.0);
++	      if ((int)dnn_xbar.size() == m * m)
+ 	      for (int a = 0; a < m; a++) for (int b = 0; b < m; b++) {
+ 		const double v = dnn_xbar[a * m + b] * dnn_xbar[a * m + b];  rs[a] += v;  cs[b] += v;
+ 	      }
+@@ -1218,7 +1390,9 @@
+ 	      std::sort(by.begin(), by.end(), [&](int a, int b) { return rs[a] != rs[b] ? rs[a] > rs[b] : a < b; });
+ 	      // QAP_LA_LINES=r1,c26,...: these lines (original indices) as the candidates instead
+ 	      static const char *la_lines = getenv("QAP_LA_LINES");
+-	      if (la_lines && *la_lines) {
++	      if (ls_fire_b) {
++		for (auto &x : ls_cand) cand.push_back({x.first, x.second, x.first ? rs[x.second] : cs[x.second], 0.0, 0});
++	      } else if (la_lines && *la_lines) {
+ 		for (const char *f = la_lines; f && *f; ) {
+ 		  char side; int idx;
+ 		  if (sscanf(f, "%c%d", &side, &idx) == 2) {
+@@ -1240,10 +1414,16 @@
+ 	      static const int warm_y = (int)setting_i("dnn.warm_y");
+ 	      const double cutoff = inc - DELTA;
+ 	      const double qb = bound + qpbp->lapU;
+-	      std::vector<double> memo((size_t)m * m, NAN);   // a cell's shortfall, shared by its row and column
+ 	      const DNNWarm &pw = *(DNNWarm *)dnn_keep;
+ 	      clock_t t0 = clock();
+ 	      long solves = 0, iters = 0, pooled = 0;
++	      std::vector<int> caps = ls_fire_b ? ls_caps : std::vector<int>{la_cap};
++	      std::string ls_la_msg;
++	      for (int cap : caps) {
++	      std::vector<double> memo((size_t)m * m, NAN);   // a cell's shortfall, shared by its row and column
++	      const clock_t tc = clock();
++	      const long solves0 = solves, iters0 = iters;
++	      for (Cand &c : cand) { c.score = 0.0;  c.open = 0; }
+ 	      for (Cand &c : cand) {
+ 		for (int t = 0; t < m; t++) {
+ 		  const int a = c.row ? c.k : t, b = c.row ? t : c.k;
+@@ -1259,7 +1439,7 @@
+ 		      lp.gamma1 = setting_d("dnn.gamma1");  lp.gamma = setting_d("dnn.gamma");
+ 		      lp.cheb_degree = (int)setting_i("dnn.cheb");  lp.tight_lam = (int)setting_i("dnn.tight_lam");
+ 		      lp.beta = setting_d("dnn.beta");  lp.refresh = (int)setting_i("dnn.refresh");
+-		      lp.hopeless_after = 0;  lp.hopeless_after_warm = 0;  lp.max_iter = la_cap;
++		      lp.hopeless_after = 0;  lp.hopeless_after_warm = 0;  lp.max_iter = cap;
+ 		      DNNWarm cw;
+ 		      const DNNWarm *sp = NULL;
+ 		      if (warm_y > 0 && dnn_warm_child(pw, a, b, cw, warm_y) && !cw.Y.empty()) { sp = &cw; lp.warm_primal = 1; }
+@@ -1294,9 +1474,20 @@
+ 		  c.open += sh > 0;
+ 		}
+ 	      }
++	      if (ls_fire_b) {
++		char lb[256];
++		snprintf(lb, sizeof lb, " | la cap %d: %ld solves, %ld iterations, %.1f CPU s;", cap, solves - solves0, iters - iters0,
++			 (double)(clock() - tc) / CLOCKS_PER_SEC);
++		ls_la_msg += lb;
++		for (const Cand &c : cand) {
++		  snprintf(lb, sizeof lb, " %c%d:%.1f:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.score, c.open);
++		  ls_la_msg += lb;
++		}
++	      }
++	      }
+ 	      const Cand *best = &cand[0];
+ 	      for (const Cand &c : cand)
+-		if (c.score < best->score || (c.score == best->score && c.marg > best->marg)) best = &c;
++		if (c.score < best->score || (!ls_fire_b && c.score == best->score && c.marg > best->marg)) best = &c;
+ 	      bp->how = BRANCH_FIXED;  bp->choose_row = best->row;
+ 	      bp->fixed_index_in_U = best->k;  bp->fixed_index_in_assign = best->row ? frow[best->k] : fcol[best->k];
+ 	      // on stderr, and appended to QAP_LA_LOG (default runs/la.log of the study: a coordinator's
+@@ -1314,12 +1505,22 @@
+ 		snprintf(buf, sizeof buf, " %c%d:%.4f:%.1f:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
+ 		msg += buf;
+ 	      }
++	      if (ls_fire_b) {
++		snprintf(buf, sizeof buf, " | chose %c%d | cpu_ls %.2f cpu_la %.1f", best->row ? 'r' : 'c', bp->fixed_index_in_assign,
++			 ls_cpu, (double)(clock() - t0) / CLOCKS_PER_SEC);
++		ls_msg += ls_la_msg;
++		ls_msg += buf;
++		fprintf(stderr, "%s\n", ls_msg.c_str());
++		const char *lf = getenv("QAP_LS_LOG");
++		if (lf && *lf) if (FILE *f = fopen(lf, "a")) { fprintf(f, "%s\n", ls_msg.c_str());  fclose(f); }
++	      } else {
+ 	      fprintf(stderr, "%s\n", msg.c_str());
+ 	      const char *lf = getenv("QAP_LA_LOG");
+ 	      if (FILE *f = fopen(lf && *lf ? lf : "/home/user/qap/experiments/line_signals/runs/la.log", "a")) {
+ 		fprintf(f, "%s\n", msg.c_str());
+ 		fclose(f);
+ 	      }
++	      }
+ 	    }
+ 	  }
+ 	  for (const char *f = force_line; f && *f; ) {
+--- a/latest/makefile
++++ b/latest/makefile
+@@ -32,7 +32,7 @@
+ 
+ OBJS = qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o \
+        solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o \
+-       sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o
++       sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o lsla.o
+ 
+ all:    bnb
+ 
+--- /dev/null
++++ b/latest/lsla.h
+@@ -0,0 +1,53 @@
++// lsla.h: the landscape signal in C (experiments/branching_lab/lsla; an experiment build, never cognac's latest/).
++// For a node (some rows fixed) and an incumbent permutation p* (p[i] = the column of row i), every free
++// cell (r, v) gets the best completion a 2-exchange descent plus KICKS kicks (each KSIZE random
++// exchanges then a descent, kept when better) finds with the node's fixes and r:v forced. The delta
++// table is Taillard's: O(n^3) once per node, O(m^2) per exchange after; a child's table is the node's
++// best completion's table updated by one exchange (r with the row that holds v), so a child costs
++// O(m^2) to set up instead of O(n^3).
++#ifndef LSLA_H
++#define LSLA_H
++#include <vector>
++
++struct LSInst {
++  int n = 0;
++  std::vector<double> a, b, c;   // n x n row-major; c the linear term (all zero if none)
++  bool has_c = false;
++  double shift = 0;
++  double cost(const int *p) const;
++};
++
++struct LSParams {
++  int kicks = 30;        // kicks per child
++  int kicks2 = 0;        // more kicks for children near the threshold (1 < ex / s <= xhi)
++  double xhi = 2.5;
++  int ksize = 6;         // random exchanges per kick
++  int gate_kicks = 300;  // kicks for the node's own best completion (the gate)
++};
++
++struct LSTable {
++  // local indices: frow[a], fcol[b] are the original row / column of local row a, column b
++  std::vector<int> frow, fcol;
++  int m = 0;
++  double z = 0;                 // the incumbent permutation's cost
++  double ex_node = 0;           // the node's own best completion - z (after gate_kicks)
++  double ex_start = 0;          // the incumbent adjusted to the node's fixes - z (no search)
++  std::vector<double> ex;       // m x m: best completion with r:v forced - z
++  std::vector<double> ex_base;  // the same after the base kicks only (before refinement)
++  long refined = 0;             // cells given kicks2 more kicks
++  long moves = 0;               // descent moves in all
++  double cpu_gate = 0, cpu_table = 0, cpu_refine = 0;
++};
++
++// fixed[r] = column of row r, or -1 when free. pstar: the incumbent permutation (any; its fixes are forced).
++// The gate only (table not built) when gate_only; s = the node's slack (cutoff - bound), for refinement.
++void ls_node(const LSInst &I, const int *pstar, const int *fixed, double s, const LSParams &P,
++	     bool gate_only, LSTable &T, unsigned seed);
++// the rest of the table after a gate-only call
++void ls_table(const LSInst &I, const int *pstar, const int *fixed, double s, const LSParams &P,
++	      LSTable &T, unsigned seed);
++
++// the line scores: cnt = children with ex <= s; off = sum over children with ex > chain_eps of
++// P(x) max(x, 0.05)^-1.07, x = ex / s, P(x) = 1 / (1 + exp(-(0.18 - 4.36 ln x))) (landscape/README.md 4)
++void ls_line_score(const LSTable &T, bool row, int k, double s, double chain_eps, int &cnt, double &off);
++#endif
+--- /dev/null
++++ b/latest/lsla.C
+@@ -0,0 +1,271 @@
++// lsla.C: the landscape signal in C (lsla.h). experiments/branching_lab/lsla; an experiment build only.
++#include "lsla.h"
++#include <cmath>
++#include <cstring>
++#include <ctime>
++#include <cstdint>
++#include <algorithm>
++
++double LSInst::cost(const int *p) const {
++  double s = shift;
++  for (int i = 0; i < n; i++) {
++    const double *ai = &a[(size_t)i * n];
++    const double *bp = &b[(size_t)p[i] * n];
++    for (int k = 0; k < n; k++) s += ai[k] * bp[p[k]];
++    if (has_c) s += c[(size_t)i * n + p[i]];
++  }
++  return s;
++}
++
++namespace {
++
++struct Rng {
++  uint64_t s;
++  explicit Rng(uint64_t seed) : s(seed * 0x9E3779B97F4A7C15ull + 0x2545F4914F6CDD1Dull) { if (!s) s = 1; next(); }
++  uint64_t next() { s ^= s << 13; s ^= s >> 7; s ^= s << 17; return s; }
++  int below(int k) { return (int)((next() >> 11) % (uint64_t)k); }
++};
++
++struct St {
++  std::vector<int> p;      // p[i] = column of row i
++  std::vector<int> f;      // free rows, ascending
++  std::vector<double> D;   // D[i * n + j], i < j both free: the change in cost when rows i and j exchange columns
++  double cost = 0;
++};
++
++inline double dfull(const LSInst &I, const int *p, int i, int j) {
++  const int n = I.n;
++  const double *a = I.a.data(), *b = I.b.data();
++  const int pi = p[i], pj = p[j];
++  double d = (a[i * n + i] - a[j * n + j]) * (b[pj * n + pj] - b[pi * n + pi]) +
++	     (a[i * n + j] - a[j * n + i]) * (b[pj * n + pi] - b[pi * n + pj]);
++  for (int k = 0; k < n; k++) {
++    if (k == i || k == j) continue;
++    const int pk = p[k];
++    d += (a[k * n + i] - a[k * n + j]) * (b[pk * n + pj] - b[pk * n + pi]) +
++	 (a[i * n + k] - a[j * n + k]) * (b[pj * n + pk] - b[pi * n + pk]);
++  }
++  if (I.has_c) {
++    const double *c = I.c.data();
++    d += c[i * n + pj] + c[j * n + pi] - c[i * n + pi] - c[j * n + pj];
++  }
++  return d;
++}
++
++void init(const LSInst &I, St &S) {
++  const int n = I.n;
++  S.cost = I.cost(S.p.data());
++  S.D.assign((size_t)n * n, 0.0);
++  const int m = (int)S.f.size();
++  for (int x = 0; x < m; x++)
++    for (int y = x + 1; y < m; y++) S.D[(size_t)S.f[x] * n + S.f[y]] = dfull(I, S.p.data(), S.f[x], S.f[y]);
++}
++
++// rows u, v (both free) exchange columns; every free pair's delta updated
++void swap(const LSInst &I, St &S, int u, int v) {
++  const int n = I.n;
++  if (u > v) std::swap(u, v);
++  S.cost += S.D[(size_t)u * n + v];
++  std::swap(S.p[u], S.p[v]);
++  const int *p = S.p.data();
++  const double *a = I.a.data(), *b = I.b.data();
++  const int pu = p[u], pv = p[v];
++  const int m = (int)S.f.size();
++  for (int x = 0; x < m; x++) {
++    const int i = S.f[x], pi = p[i];
++    double *Di = &S.D[(size_t)i * n];
++    if (i == u || i == v) {
++      for (int y = x + 1; y < m; y++) Di[S.f[y]] = dfull(I, p, i, S.f[y]);
++      continue;
++    }
++    const double aui = a[u * n + i], avi = a[v * n + i], aiu = a[i * n + u], aiv = a[i * n + v];
++    const double bvi = b[pv * n + pi], bui = b[pu * n + pi], biv = b[pi * n + pv], biu = b[pi * n + pu];
++    for (int y = x + 1; y < m; y++) {
++      const int j = S.f[y];
++      if (j == u || j == v) { Di[j] = dfull(I, p, i, j); continue; }
++      const int pj = p[j];
++      // ls.c's delta_part with r = u, s = v (p already exchanged)
++      Di[j] += (aui - a[u * n + j] + a[v * n + j] - avi) * (bvi - b[pv * n + pj] + b[pu * n + pj] - bui) +
++	       (aiu - a[j * n + u] + a[j * n + v] - aiv) * (biv - b[pj * n + pv] + b[pj * n + pu] - biu);
++    }
++  }
++}
++
++long descent(const LSInst &I, St &S, double eps) {
++  const int n = I.n, m = (int)S.f.size();
++  long moves = 0;
++  if (m < 2) return 0;
++  for (;;) {
++    double best = -eps;
++    int bi = -1, bj = -1;
++    for (int x = 0; x < m; x++) {
++      const double *Di = &S.D[(size_t)S.f[x] * n];
++      for (int y = x + 1; y < m; y++)
++	if (Di[S.f[y]] < best) { best = Di[S.f[y]]; bi = S.f[x]; bj = S.f[y]; }
++    }
++    if (bi < 0) break;
++    swap(I, S, bi, bj);
++    moves++;
++  }
++  return moves;
++}
++
++long ils(const LSInst &I, St &S, int kicks, int ksize, double eps, Rng &R, St &T) {
++  long moves = 0;
++  const int m = (int)S.f.size();
++  if (m < 2) return 0;
++  for (int k = 0; k < kicks; k++) {
++    T = S;
++    for (int e = 0; e < ksize; e++) {
++      int x = R.below(m), y = R.below(m - 1);
++      if (y >= x) y++;
++      swap(I, T, T.f[x], T.f[y]);
++    }
++    moves += descent(I, T, eps);
++    if (T.cost < S.cost - eps) std::swap(S, T);
++  }
++  return moves;
++}
++
++void unfree(St &S, int r) { S.f.erase(std::find(S.f.begin(), S.f.end(), r)); }
++
++double cpu_now() { return (double)clock() / CLOCKS_PER_SEC; }
++
++double eps_of(const LSInst &I) {
++  static thread_local const LSInst *last = nullptr;
++  static thread_local double e = 0.5;
++  if (last != &I) {
++    last = &I;
++    bool integral = true;
++    for (double x : I.a) if (x != std::floor(x)) { integral = false; break; }
++    if (integral) for (double x : I.b) if (x != std::floor(x)) { integral = false; break; }
++    if (integral && I.has_c) for (double x : I.c) if (x != std::floor(x)) { integral = false; break; }
++    e = integral ? 0.5 : 1e-9;
++  }
++  return e;
++}
++
++// the node's states: S0 = the incumbent adjusted to the node's fixes (table built, no descent),
++// NB = the node's best completion; kept between the gate and the table
++struct NodeCache {
++  std::vector<int> key;   // the fixes and the incumbent the states were built for
++  St S0, NB;
++};
++thread_local NodeCache cache;
++
++void node_states(const LSInst &I, const int *pstar, const int *fixed, const LSParams &P, LSTable &T, unsigned seed) {
++  const int n = I.n;
++  const double eps = eps_of(I);
++  St S0;
++  S0.p.assign(pstar, pstar + n);
++  std::vector<int> pos(n);
++  for (int i = 0; i < n; i++) pos[S0.p[i]] = i;
++  for (int r = 0; r < n; r++) {
++    if (fixed[r] < 0 || S0.p[r] == fixed[r]) continue;
++    const int j = pos[fixed[r]];
++    std::swap(S0.p[r], S0.p[j]);
++    pos[S0.p[r]] = r; pos[S0.p[j]] = j;
++  }
++  T.frow.clear(); T.fcol.clear();
++  std::vector<char> colfree(n, 1);
++  for (int r = 0; r < n; r++) {
++    if (fixed[r] < 0) { S0.f.push_back(r); T.frow.push_back(r); }
++    else colfree[fixed[r]] = 0;
++  }
++  for (int c = 0; c < n; c++) if (colfree[c]) T.fcol.push_back(c);
++  T.m = (int)T.frow.size();
++  init(I, S0);
++  T.z = I.cost(pstar);
++  T.ex_start = S0.cost - T.z;
++  St NB = S0, W;
++  T.moves += descent(I, NB, eps);
++  Rng R(seed);
++  T.moves += ils(I, NB, P.gate_kicks, P.ksize, eps, R, W);
++  T.ex_node = NB.cost - T.z;
++  cache.S0 = std::move(S0);
++  cache.NB = std::move(NB);
++  cache.key.assign(fixed, fixed + n);
++  cache.key.insert(cache.key.end(), pstar, pstar + n);
++}
++
++bool cached(int n, const int *pstar, const int *fixed) {
++  if ((int)cache.key.size() != 2 * n) return false;
++  return std::equal(fixed, fixed + n, cache.key.begin()) && std::equal(pstar, pstar + n, cache.key.begin() + n);
++}
++
++}  // namespace
++
++void ls_node(const LSInst &I, const int *pstar, const int *fixed, double s, const LSParams &P,
++	     bool gate_only, LSTable &T, unsigned seed) {
++  T = LSTable();
++  const double t0 = cpu_now();
++  node_states(I, pstar, fixed, P, T, seed);
++  T.cpu_gate = cpu_now() - t0;
++  if (!gate_only) ls_table(I, pstar, fixed, s, P, T, seed);
++}
++
++void ls_table(const LSInst &I, const int *pstar, const int *fixed, double s, const LSParams &P,
++	      LSTable &T, unsigned seed) {
++  const int n = I.n, m = T.m;
++  const double eps = eps_of(I);
++  double t0 = cpu_now();
++  if (!cached(n, pstar, fixed)) node_states(I, pstar, fixed, P, T, seed);
++  const St &S0 = cache.S0, &NB = cache.NB;
++  std::vector<int> pos0(n), posB(n);
++  for (int i = 0; i < n; i++) { pos0[S0.p[i]] = i; posB[NB.p[i]] = i; }
++  T.ex.assign((size_t)m * m, 0.0);
++  std::vector<int> bestp((size_t)m * m * n);
++  St C1, C2, W;
++  for (int a = 0; a < m; a++) {
++    const int r = T.frow[a];
++    for (int bb = 0; bb < m; bb++) {
++      const int v = T.fcol[bb];
++      C1 = NB;
++      if (posB[v] != r) swap(I, C1, r, posB[v]);
++      unfree(C1, r);
++      T.moves += descent(I, C1, eps);
++      C2 = S0;
++      if (pos0[v] != r) swap(I, C2, r, pos0[v]);
++      unfree(C2, r);
++      T.moves += descent(I, C2, eps);
++      St &C = C2.cost < C1.cost - eps ? C2 : C1;
++      Rng R((uint64_t)seed * 1000003u + (uint64_t)r * n + v + 1);
++      T.moves += ils(I, C, P.kicks, P.ksize, eps, R, W);
++      T.ex[(size_t)a * m + bb] = C.cost - T.z;
++      std::copy(C.p.begin(), C.p.end(), bestp.begin() + ((size_t)a * m + bb) * n);
++    }
++  }
++  T.ex_base = T.ex;
++  T.cpu_table = cpu_now() - t0;
++  t0 = cpu_now();
++  if (P.kicks2 > 0 && s > 0) {
++    for (int a = 0; a < m; a++)
++      for (int bb = 0; bb < m; bb++) {
++	double &e = T.ex[(size_t)a * m + bb];
++	if (!(e > s && e <= P.xhi * s)) continue;
++	St C;
++	C.p.assign(bestp.begin() + ((size_t)a * m + bb) * n, bestp.begin() + ((size_t)a * m + bb + 1) * n);
++	for (int r : S0.f) if (r != T.frow[a]) C.f.push_back(r);
++	init(I, C);
++	Rng R((uint64_t)seed * 7919u + (uint64_t)T.frow[a] * n + T.fcol[bb] + 977);
++	T.moves += ils(I, C, P.kicks2, P.ksize, eps, R, W);
++	e = std::min(e, C.cost - T.z);
++	T.refined++;
++      }
++  }
++  T.cpu_refine = cpu_now() - t0;
++}
++
++void ls_line_score(const LSTable &T, bool row, int k, double s, double chain_eps, int &cnt, double &off) {
++  cnt = 0; off = 0;
++  const int m = T.m;
++  for (int t = 0; t < m; t++) {
++    const double e = row ? T.ex[(size_t)k * m + t] : T.ex[(size_t)t * m + k];
++    if (e <= s) cnt++;
++    if (e > chain_eps && s > 0) {
++      const double x = e / s;
++      const double P = 1.0 / (1.0 + std::exp(-(0.18 - 4.36 * std::log(x))));
++      off += P * std::pow(std::max(x, 0.05), -1.07);
++    }
++  }
++}
