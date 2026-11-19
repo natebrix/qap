@@ -1,0 +1,75 @@
+# Phase 1 readouts, every hour and with no approval (docs/review_nov18_runs.md: readouts anyone can
+# read without a person collecting them): each run's readout (coord/readout.py: where it stands, what
+# it found, an estimate's warnings) and a board of the runs, committed to the branch phase1-readouts
+# by infra/phase1/readouts.py. Its AWS role (infra/phase1/gha_setup.sh: qap-gha-readouts, environment
+# aws-phase1-read, which has no reviewer) may read the coordinator's store and ledger and nothing
+# else; the job writes only to that branch. The account number is masked, and the job fails if it
+# is in what it would commit.
+#
+#   gh workflow run phase1-readouts                 # now
+#   git fetch origin phase1-readouts && git show origin/phase1-readouts:board.md
+name: phase1-readouts
+
+on:
+  schedule:
+    - cron: "41 * * * *"      # hourly, off the hour
+  workflow_dispatch:
+
+permissions:
+  contents: write     # the phase1-readouts branch
+  id-token: write     # the OIDC token AWS exchanges for the read-only role's credentials
+
+concurrency:
+  group: phase1-readouts
+  cancel-in-progress: false
+
+jobs:
+  readouts:
+    runs-on: ubuntu-latest
+    environment: aws-phase1-read
+    timeout-minutes: 30
+    steps:
+      - name: The code (cognac)
+        uses: actions/checkout@v4
+        with:
+          ref: cognac
+          path: code
+      - name: The readouts branch
+        id: out
+        uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          ref: phase1-readouts
+          path: out
+      - name: A new readouts branch, the first time
+        if: steps.out.outcome != 'success'
+        run: |
+          rm -rf out && mkdir out && cd out
+          git init -q && git checkout -q --orphan phase1-readouts
+          git remote add origin "https://github.com/${{ github.repository }}"
+          git config http.https://github.com/.extraheader "$(git -C ../code config --get http.https://github.com/.extraheader)"
+          printf '%s\n' "# Phase 1 readouts" "" "Written hourly by .github/workflows/phase1-readouts.yml: board.md, and runs/RUN/readout.md for each run." > README.md
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -q boto3 numpy
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_READ_ROLE_ARN }}
+          aws-region: eu-north-1
+          mask-aws-account-id: true
+      - name: The readouts
+        run: |
+          ACCT=$(aws sts get-caller-identity --query Account --output text)
+          echo "::add-mask::$ACCT"
+          python code/infra/phase1/readouts.py --backend "aws:qap-coord-$ACCT-eu-north-1?region=eu-north-1" --out out
+          if grep -rq "$ACCT" out --exclude-dir=.git; then echo "::error::the account number is in the readouts"; exit 1; fi
+      - name: Commit and push
+        run: |
+          cd out
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "nothing changed"; exit 0; fi
+          git commit -q -m "readouts $(date -u +%FT%TZ)"
+          git push -q origin HEAD:phase1-readouts
