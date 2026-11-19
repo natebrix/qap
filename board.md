@@ -4,18 +4,18 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
-| [tho40-tune-261119-z03](runs/tho40-tune-261119-z03/readout.md) | running | **RUNNING**: 118 of 266 units merged | - | 2026-11-19 19:32 | - |
-| [tho40-tune-261119-cross5](runs/tho40-tune-261119-cross5/readout.md) | running | **RUNNING**: 486 of 670 units merged | - | 2026-11-19 19:31 | - |
-| [tho40-tune-261119-xbar4](runs/tho40-tune-261119-xbar4/readout.md) | running | **RUNNING**: 722 of 902 units merged | - | 2026-11-19 19:30 | - |
-| [tho40-tune-261119-base](runs/tho40-tune-261119-base/readout.md) | running | **RUNNING**: 89 of 238 units merged | - | 2026-11-19 19:30 | - |
-| [tho40-est3-261119](runs/tho40-est3-261119/readout.md) | running | **PART-WAY**: the estimate's dives run tho40-est3-261119 is running, 458 of 548 dives units merged | PART-WAY, SLOW PENDING | 2026-11-19 19:23 | - |
+| [tho40-tune-261119-z03](runs/tho40-tune-261119-z03/readout.md) | running | **RUNNING**: 149 of 298 units merged | - | 2026-11-19 19:32 | - |
+| [tho40-tune-261119-cross5](runs/tho40-tune-261119-cross5/readout.md) | running | **RUNNING**: 1177 of 1369 units merged | - | 2026-11-19 19:31 | - |
+| [tho40-tune-261119-xbar4](runs/tho40-tune-261119-xbar4/readout.md) | running | **RUNNING**: 3611 of 3729 units merged | - | 2026-11-19 19:30 | - |
+| [tho40-tune-261119-base](runs/tho40-tune-261119-base/readout.md) | running | **RUNNING**: 121 of 269 units merged | - | 2026-11-19 19:30 | - |
+| [tho40-est3-261119](runs/tho40-est3-261119/readout.md) | running | **PART-WAY**: the estimate's dives run tho40-est3-261119 is running, 533 of 548 dives units merged | PART-WAY, SLOW PENDING, SETUP-BOUND | 2026-11-19 19:23 | - |
 | [tai50b-est-261119](runs/tai50b-est-261119/readout.md) | paused | **COMPLETE**: the estimate (tai50b-est-261119-dives finished) | HEAVY TAIL, FEW DIVES, SETUP-BOUND, WIDE | 2026-11-19 03:37 | - |
-| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | running | **RUNNING**: 3331 of 3779 units merged | STALE | 2026-11-19 02:29 | - |
-| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | running | **RUNNING**: 3293 of 3557 units merged | STALE | 2026-11-19 02:28 | - |
+| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | stopped | **STOPPED** part-way: 3331 of 3779 units merged (qapctl stop) | - | 2026-11-19 02:29 | 2026-11-19 20:48 |
+| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | stopped | **STOPPED** part-way: 3293 of 3557 units merged (qapctl stop) | - | 2026-11-19 02:28 | 2026-11-19 20:48 |
 | [tho40-est2-261119](runs/tho40-est2-261119/readout.md) | paused | **COMPLETE**: the estimate (tho40-est2-261119-dives finished) | - | 2026-11-19 02:26 | - |
 | [nug30-smoke-261119](runs/nug30-smoke-261119/readout.md) | finished | **COMPLETE**: solved, best objective 6124 | - | 2026-11-19 01:49 | 2026-11-19 01:57 |
-| [sko42-z25-261118](runs/sko42-z25-261118/readout.md) | running | **RUNNING**: 149 of 404 units merged | STALE | 2026-11-18 21:38 | - |
-| [sko42-z10-261118](runs/sko42-z10-261118/readout.md) | running | **RUNNING**: 187 of 590 units merged | STALE | 2026-11-18 21:35 | - |
+| [sko42-z25-261118](runs/sko42-z25-261118/readout.md) | stopped | **STOPPED** part-way: 149 of 404 units merged (qapctl stop) | - | 2026-11-18 21:38 | 2026-11-18 22:02 |
+| [sko42-z10-261118](runs/sko42-z10-261118/readout.md) | stopped | **STOPPED** part-way: 187 of 590 units merged (qapctl stop) | - | 2026-11-18 21:35 | 2026-11-18 22:04 |
 | [tho40-est](runs/tho40-est/readout.md) | paused | **PART-WAY**: the estimate's dives run tho40-est-dives is running, 524 of 552 dives units merged | STALE, PART-WAY, HEAVY TAIL, FEW DIVES, SETUP-BOUND | 2026-11-18 20:08 | - |
 | [tai50b-r9](runs/tai50b-r9/readout.md) | finished | **COMPLETE**: solved, best objective 458821517 | - | 2026-11-18 15:58 | 2026-11-18 20:18 |
 | [tai60b-261117](runs/tai60b-261117/readout.md) | finished | **COMPLETE**: solved, best objective 608215054 | - | 2026-11-17 06:49 | 2026-11-18 13:11 |

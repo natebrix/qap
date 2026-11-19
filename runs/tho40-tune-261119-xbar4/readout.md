@@ -1,6 +1,6 @@
 # tho40-tune-261119-xbar4
 
-**RUNNING**: 722 of 902 units merged
+**RUNNING**: 3611 of 3729 units merged
 
 ## The run
 
@@ -17,8 +17,8 @@
 
 | | |
 |---|---|
-| wall | 2 h 19 min |
-| nodes | 17,464 (17,464 DNN, 16,032 DNN-fathomed) |
-| CPU | 43.7 h |
-| units | done 1, leased 70, merged 722, queued 109 |
-| status written | 2026-11-19 21:50 UTC |
+| wall | 3 h 19 min |
+| nodes | 49,333 (49,333 DNN, 45,419 DNN-fathomed) |
+| CPU | 121.3 h |
+| units | done 2, leased 68, merged 3611, queued 47, returned 1 |
+| status written | 2026-11-19 22:50 UTC |

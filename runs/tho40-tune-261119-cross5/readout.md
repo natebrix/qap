@@ -1,6 +1,6 @@
 # tho40-tune-261119-cross5
 
-**RUNNING**: 486 of 670 units merged
+**RUNNING**: 1177 of 1369 units merged
 
 ## The run
 
@@ -17,8 +17,8 @@
 
 | | |
 |---|---|
-| wall | 2 h 18 min |
-| nodes | 11,762 (11,762 DNN, 10,753 DNN-fathomed) |
-| CPU | 42.3 h |
-| units | leased 71, merged 486, queued 113 |
-| status written | 2026-11-19 21:50 UTC |
+| wall | 3 h 19 min |
+| nodes | 31,299 (31,299 DNN, 28,646 DNN-fathomed) |
+| CPU | 113.8 h |
+| units | done 1, leased 70, merged 1177, queued 121 |
+| status written | 2026-11-19 22:50 UTC |

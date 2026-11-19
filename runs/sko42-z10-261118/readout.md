@@ -1,8 +1,6 @@
 # sko42-z10-261118
 
-**RUNNING**: 187 of 590 units merged
-
-- STALE: the coordinator last wrote its status 1421 minutes ago (an interrupted coordinator? collect.sh shows the instances and why they stopped)
+**STOPPED** part-way: 187 of 590 units merged (qapctl stop)
 
 ## The run
 
@@ -13,7 +11,7 @@
 | incumbent | 15814.0 |
 | slots | 64; units of 600.0 CPU s |
 | created | 2026-11-18 21:35 UTC |
-| status | running |
+| finished | 2026-11-18 22:04 UTC |
 
 ## The work
 
