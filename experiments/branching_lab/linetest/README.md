@@ -1,0 +1,148 @@
+# The depth-7 line test at tai60b's chain node 10:39: c47 against c54 (Nov 19 2026)
+
+branching_lab agent "linetest". This tests the landscape signal's prediction
+(`../landscape/README.md`, "Rule and the cheapest test"). At tai60b's depth-7 chain node
+`44:45,43:58,1:33,6:24,7:19,0:32,10:39`, production branched on column 54 (rule 2), and that line
+leaves 9 surviving children. Column 47 would leave 2.
+
+## Answer
+
+**c47 left fewer branching children than c54, 5 against 9, but not the 2 predicted. The kill rule is
+met: c47 has 5 or more.** These counts are measured [m] from one parent state whose depth-7 node
+reaches production's bound strength (406k short in production, 416k here; the "strong" arms `sc47`
+and `sc54`). From the cold state with production's settings throughout (937k short; arms `c47`,
+`c54`) the counts are 7 against 11. There c47 also has 8 children fathomed only by the cut phase,
+against c54's 0. Step 4 (bounding the survivors' subtrees) was not run, as the kill rule says.
+
+Two findings change how to read the kill rule:
+
+- **The prediction of 2 failed in the local search, not in the survive rule's threshold.** The
+  landscape signal used 30 ILS kicks per child. c47's children are hard to complete: with 3,000
+  kicks, 29:47 drops from x = 1.74 to 0.69 (x = a child's excess over the node's slack) and 45:47
+  from 1.39 to 0.98. In one seed 31:47 drops to 1.99; the best of three seeds puts it at 1.07, just
+  over the threshold [m `effort.py`, `effort_all.py`]. With 3,000 kicks the rule predicts c47's
+  survivors at 4 of 5, with no false positive, and c54's at 9 of 9 with none. c54's children are
+  easy: their excess does not move between 30 and 3,000 kicks. So the signal ranks c47 above c54
+  correctly, at an honest 4-5 against 9.
+- **c47's survivors look lighter, though that is not measured.** On a log-linear fit of production's
+  own subtrees under c54's children against their shortfalls (an e-fold every 88k of shortfall,
+  correlation 0.87, 9 points), c47's four off-path survivors would hold about 8.7k nodes. c54's
+  eight would hold 55k (production measured 60k) [e `subtrees.py`]. c47's path child 47:47 is
+  330k short against c54's path child 14:54 at 383k, which held 54k nodes in production. That fit
+  is a regression from one line's children applied to another line's, so it is a hypothesis for
+  step 4, not a result.
+
+So the depth-7 saving is not "2 survivors instead of 10" as predicted, and by the kill rule set in
+advance this test stops here. The measured gap, 5 survivors against 9 that are also less short of
+the cutoff, is still large enough that step 4 is the cheapest next test if Nathan wants it. That is
+for him to decide; the kill rule says stop.
+
+## Child by child, the strong state (10:39 416,393 short; production 405,921)
+
+x = excess / production's slack (405,921). "x 30" is the landscape signal's search (`predict.py`,
+p0 and mirror starts, 30 kicks); "x 3000" is `effort_all.py` (p0, mirror and ILS starts, 3,000
+kicks, seed 0). The rule predicts that a child branches iff x <= 1. The outcome is the child's in
+the strong arm [m `runs/sc47`, `runs/sc54`]: B branched, C fathomed by the cut phase, D fathomed by
+the first solve. Shortfall = cutoff - the final bound (negative means fathomed, by that margin).
+All other children are D with x 30 > 2.2.
+
+**c47** (prediction: 2 survivors; realised 5 B, 3 C, 45 D)
+
+| child | x 30 | x 3000 | outcome | shortfall |
+|---|---|---|---|---|
+| 47:47 (path) | 0.00 | 0.00 | B | 329,620 |
+| 46:47 | 0.22 | 0.21 | B | 338,205 |
+| 45:47 | 1.39 | 0.98 | B | 60,016 |
+| 29:47 | 1.79 | 0.69 | B | 157,889 |
+| 31:47 | 2.44 | 1.99 (1.07 best of 3 seeds) | B | 92,495 |
+| 28:47 | 2.23 | 1.91 | C | -1,646 |
+| 26:47 | 2.69 | 2.17 | C | -1,546 |
+| 40:47 | 2.96 | 1.79 | C | -4,798 |
+
+**c54** (prediction: 9 survivors; realised 9 B, 1 C, 43 D; production had 10 B, 43 D)
+
+| child | x 30 | x 3000 | outcome | shortfall | production: outcome, shortfall |
+|---|---|---|---|---|---|
+| 14:54 (path) | 0.00 | 0.00 | B | 382,757 | B 382,605 |
+| 18:54 | 0.16 | 0.16 | B | 351,017 | B 357,622 |
+| 24:54 | 0.26 | 0.25 | B | 345,675 | B 350,561 |
+| 19:54 | 0.41 | 0.38 | B | 373,809 | B 380,655 |
+| 17:54 | 0.41 | 0.40 | B | 228,396 | B 225,571 |
+| 23:54 | 0.60 | 0.58 | B | 446,081 | B 445,224 |
+| 20:54 | 0.66 | 0.64 | B | 161,891 | B 157,271 |
+| 16:54 | 0.66 | 0.64 | B | 177,877 | B 174,501 |
+| 25:54 | 0.79 | 0.76 | B | 120,670 | B 128,052 |
+| 21:54 | 1.13 | 1.11 | C | -345 | B 4,938 |
+| 15:54 | 1.48 | 1.42 | D | | D |
+
+The strong c54 arm is production's branching at 10:39 to within about 10k of shortfall per child,
+so its state is a fair stand-in for production's. The one difference is 21:54, the soft-edge child
+at x 1.1: production branched it with 4,938 to spare, while here the cut phase fathomed it with 345.
+
+## Per arm [m]
+
+| arm | 10:39 shortfall | D | C | B | first-solve iterations | cut iterations | children CPU s | 10:39 CPU s |
+|---|---|---|---|---|---|---|---|---|
+| production c54 (tai60b-261117) | 405,921 | 43 | 0 | 10 | | | 12,153 (cloud boxes) | 1,165 |
+| sc54 (strong) | 416,393 | 43 | 1 | 9 | 2,705 | 9,910 | 6,460 | 4,855 |
+| sc47 (strong) | 416,393 | 45 | 3 | 5 | 3,922 | 6,942 | 5,560 | 4,863 |
+| c54 (cold, production settings) | 937,130 | 42 | 0 | 11 | 2,398 | 11,000 | 7,066 | 636 |
+| c47 (cold, production settings) | 937,130 | 38 | 8 | 7 | 3,178 | 9,898 | 6,883 | 636 |
+
+Each branched child here costs about 550-630 CPU s to bound: a 110-iteration first solve, then a
+1,000-iteration cut phase that stops at production's give-up (`cut.giveup = 1000:0`). A C child
+costs 140-510 s and a D child 10-50 s. Per ADMM iteration that is about 0.5 s at m = 52 [m]. RSS was
+1.2-2.5 GB per process, growing about 0.15 GB per branched child set aside.
+`out/score_*.tsv` has every child. The cold arms' tables, and the cold c54 arm against production,
+are in `out/score.txt`. Cold c54 branched all 10 of production's children plus 15:54 (x 1.48).
+
+## The cold parent against production
+
+| node | production (warm down the chain): first DNN / cut bound / short | here: first DNN / cut bound / short | CPU s, production / here |
+|---|---|---|---|
+| depth 6 `...,0:32` (-F, cold) | 607,675,088 / 607,757,721 / 457,333 | 602,040,926 / 606,555,745 / 1,659,309 | 1,253 / 828 |
+| depth 7 `10:39` (warm from the cold parent, production settings) | 607,692,496 / 607,809,133 / 405,921 | 606,819,754 / 607,277,924 / 937,130 | 1,165 / 636 |
+| depth 7 `10:39`, cut phase to 8,000 iterations (`strong.par`) | | 606,819,754 / 607,798,661 / 416,393 | 4,855 |
+
+Cold from `-F`, the depth-6 node has no warm DNN state and no inherited cut pool. Its first solve
+gives up 5.6M below production's warm one. Its 1,000-iteration cut phase recovers to 1.66M short,
+3.6x production's shortfall. 10:39 warm from it is 2.3x production's shortfall. In production, each
+node down the chain inherited its parent's pool and state, seven 1,000-iteration phases deep. A
+single 8,000-iteration phase at 10:39 recovers almost all of that: 416k against 406k.
+
+Under the cold state the rule's own prediction moves with the slack. At 937k, c47's predicted count
+(x 30) is 5-6 and c54's 11-12 (`out_predict.txt` recomputed at the arm's slack). The cold arms
+realised 7 and 11. A test at a weaker state than production's asks a different question, which is
+why the strong pair was added. The strong pair departs from production's settings at exactly one
+node, 10:39's own cut phase (`strong.par`: `cut.giveup_depth = 8`, `cut.cp_iters = 8000`). Its
+children are bounded with production's settings.
+
+The depth-7 run (`run.sh kids`: every child of the cold depth-6 node, for the comparison with
+production's depth-7 outcomes) and the r31 arms (cold `r31`, strong `sr31`) were started late. See
+"Not measured".
+
+## Not measured
+
+- **Step 4, the survivors' subtrees**, by the kill rule. The size comparison above is a regression
+  [e].
+- **r31**: running when this README was written (cold `runs/r31`, strong `runs/sr31`); partial traces
+  are committed. With 3,000 kicks the signal now puts r31 at 6 survivors (x <= 1) plus two at 1.02
+  and 1.10 [m `out/effort_all.tsv`], worse than c47. The landscape README's 1 to 5 came from 30 or
+  100 kicks.
+- **Every depth-7 child's outcome under the cold parent** (`runs/kids`): partial, all D so far.
+  Production's depth-7 children are 3 B and 51 D.
+- **Bit-reproducibility of the arms**: not rechecked here. cognac's tai60b_lines found restarts
+  reproduce bounds to the last digit printed.
+- The build check (tai25b to depth 2, the experiment build against production's, node for node
+  identical apart from CPU, `validate/`) used tai60b's settings without the cut phase, since the
+  region file is for n = 60. The patch only changes line choice.
+
+## Files
+
+`run.sh` (parent, kids, arm, strong, resume, trim), `strong.par`, `cutstate.py`, `trimstate.py`
+(from cognac), `supervise.sh`, `predict.py` (the landscape search at 10:39, `out/predict.tsv`),
+`score.py` (`out/score*.{tsv,txt}`), `effort.py` / `effort_all.py` (`out/effort*.tsv`),
+`subtrees.py` (`out/subtrees.txt`), `runs/<arm>/` (cmd, log, err, the node trace `nodes.txt`).
+State files and DNN traces are not committed (`.gitignore`). Note: the landscape README's
+"`-d 7 -o parent.state`" for the parent is off by one. `bnbdrv -d D` sets aside nodes deeper than D,
+so the parent ran with `-d 6`, leaving its depth-7 children open.
