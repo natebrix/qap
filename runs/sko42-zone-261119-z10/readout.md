@@ -1,6 +1,6 @@
 # sko42-zone-261119-z10
 
-**RUNNING**: 3110 of 3402 units merged
+**RUNNING**: 3187 of 3464 units merged
 
 ## The run
 
@@ -17,8 +17,8 @@
 
 | | |
 |---|---|
-| wall | 17 h 38 min |
-| nodes | 92,403 (84,148 DNN, 72,913 DNN-fathomed) |
-| CPU | 825.0 h |
-| units | leased 71, merged 3110, queued 221 |
-| status written | 2026-11-19 20:06 UTC |
+| wall | 17 h 57 min |
+| nodes | 94,921 (86,469 DNN, 74,946 DNN-fathomed) |
+| CPU | 843.7 h |
+| units | leased 70, merged 3187, queued 206, returned 1 |
+| status written | 2026-11-19 20:25 UTC |

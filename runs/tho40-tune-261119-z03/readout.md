@@ -1,6 +1,6 @@
 # tho40-tune-261119-z03
 
-**RUNNING**: 25 of 172 units merged
+**RUNNING**: 37 of 184 units merged
 
 ## The run
 
@@ -17,8 +17,8 @@
 
 | | |
 |---|---|
-| wall | 0 h 38 min |
-| nodes | 1,645 (1,645 DNN, 1,515 DNN-fathomed) |
-| CPU | 3.4 h |
-| units | leased 7, merged 25, queued 140 |
-| status written | 2026-11-19 20:10 UTC |
+| wall | 0 h 56 min |
+| nodes | 2,594 (2,594 DNN, 2,382 DNN-fathomed) |
+| CPU | 5.3 h |
+| units | leased 7, merged 37, queued 140 |
+| status written | 2026-11-19 20:28 UTC |

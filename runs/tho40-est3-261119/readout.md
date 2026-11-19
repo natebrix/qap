@@ -2,12 +2,12 @@
 
 A second estimate of tho40-est2-261119: its paused frontier dived again (its own readout has its first).
 
-**PART-WAY**: the estimate's dives run tho40-est3-261119 is running, 174 of 548 dives units merged
+**PART-WAY**: the estimate's dives run tho40-est3-261119 is running, 252 of 548 dives units merged
 
-- PART-WAY: 374 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (96% of the rest's CPU)
-- SLOW PENDING: 49 pending units have run longer than 90% of the merged ones took (1999 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
+- PART-WAY: 296 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (74% of the rest's CPU)
+- SLOW PENDING: 36 pending units have run longer than 90% of the merged ones took (2234 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
 - GAP: 22 open nodes of pending units are at depths no merged unit has open nodes at yet (depth 7: 22): not counted, so the estimate is low by their share until one is merged
-- WIDE: the jackknife over units gives a standard error of 121% of the rest's CPU
+- WIDE: the jackknife over units gives a standard error of 47% of the rest's CPU
 
 ## The run
 
@@ -34,31 +34,31 @@ A second estimate of tho40-est2-261119: its paused frontier dived again (its own
 ## The estimate
 
 ```
-PART-WAY: 374 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (96% of the rest's CPU)
-SLOW PENDING: 49 pending units have run longer than 90% of the merged ones took (1999 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
+PART-WAY: 296 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (74% of the rest's CPU)
+SLOW PENDING: 36 pending units have run longer than 90% of the merged ones took (2234 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
 GAP: 22 open nodes of pending units are at depths no merged unit has open nodes at yet (depth 7: 22): not counted, so the estimate is low by their share until one is merged
-WIDE: the jackknife over units gives a standard error of 121% of the rest's CPU
+WIDE: the jackknife over units gives a standard error of 47% of the rest's CPU
 done so far: 18,767 nodes, 117.2 CPU h
-estimated rest: 780,885 nodes (5-95%: 751,054 to 817,820), 11,685.8 CPU h (11,407.5 CPU h to 12,113.6 CPU h)
-estimated tree: 799,652 nodes (5-95%: 769,821 to 836,587), 11,802.9 CPU h (11,524.7 CPU h to 12,230.7 CPU h)
-1289 open nodes (246 with children that branch), 9472 dives in 246 of them, deepest dive node at depth 6; estimator 39.6 CPU h
-1,289 of the 5,611 open nodes sampled (each weighted 1/pi)
-jackknife over units: standard error 495,371 nodes, 14,167.5 CPU h
-the largest dive makes 2% of the rest's CPU, the 10 largest 3%; 0 of 246 dived open nodes got one dive; estimator CPU: setup 16.2 CPU h, dives 23.4 CPU h
-dives going deeper, by depth (reached, went on): 3: 13/7, 4: 4413/109, 5: 5162/43, 6: 43/0
+estimated rest: 560,221 nodes (5-95%: 518,585 to 611,979), 2,778.3 CPU h (2,458.0 CPU h to 3,214.3 CPU h)
+estimated tree: 578,988 nodes (5-95%: 537,352 to 630,746), 2,895.5 CPU h (2,575.1 CPU h to 3,331.5 CPU h)
+2055 open nodes (501 with children that branch), 14380 dives in 501 of them, deepest dive node at depth 7; estimator 71.1 CPU h
+2,055 of the 8,158 open nodes sampled (each weighted 1/pi)
+jackknife over units: standard error 86,017 nodes, 1,292.2 CPU h
+the largest dive makes 9% of the rest's CPU, the 10 largest 14%; 0 of 501 dived open nodes got one dive; estimator CPU: setup 31.4 CPU h, dives 39.8 CPU h
+dives going deeper, by depth (reached, went on): 3: 99/23, 4: 7124/215, 5: 7383/68, 6: 68/0, 7: 12/0
 
 
-(nodes at depth 8 are in the solve's own part; the dives reached depth 6)
+(nodes at depth 8 are in the solve's own part; the dives reached depth 7)
 ```
 
 | depth | nodes done | nodes estimated, rest | CPU h done | CPU h estimated, rest |
 |---|---|---|---|---|
 | 0 | 1 | 0 | 0.00 | 0.00 |
 | 1 | 12 | 0 | 1.23 | 0.00 |
-| 2 | 319 | 2 | 45.12 | 0.35 |
-| 3 | 2,924 | 1,231 | 28.66 | 21.46 |
-| 4 | 8,475 | 14,872 | 30.50 | 84.49 |
-| 5 | 5,851 | 40,215 | 10.21 | 317.26 |
-| 6 | 1,004 | 30,109 | 1.27 | 31.78 |
-| 7 | 148 | 0 | 0.16 | 0.00 |
+| 2 | 319 | 19 | 45.12 | 1.64 |
+| 3 | 2,924 | 2,715 | 28.66 | 50.23 |
+| 4 | 8,475 | 32,239 | 30.50 | 174.53 |
+| 5 | 5,851 | 79,039 | 10.21 | 453.78 |
+| 6 | 1,004 | 51,636 | 1.27 | 50.91 |
+| 7 | 148 | 1,172 | 0.16 | 1.25 |
 | 8 | 33 | 0 | 0.03 | 0.00 |
