@@ -1,0 +1,29 @@
+# spec infra/phase1/specs/tho40-tune.spec at f076d8f2
+# tho40's first tuning round: four arms side by side, each solving the same sample of tho40-est2-261119's
+# open nodes to the end (FROM, SAMPLE: coord/sample.py), compared node by node
+# (experiments/estimates_nov19/paired.py). 50 open nodes at depth 3 and 100 at depth 4, drawn in proportion
+# to the square root of their subtrees' estimates in tho40-est2's dives (the open nodes at those depths
+# hold about three quarters of the tree's rest): about 150 CPU h an arm, a ratio between arms to about
+# +-4-8% if the effect varies 20-40% from node to node (experiments/estimates_nov19, "Tuning on paired
+# subtrees"). The arms:
+#   base    tho40c as it is
+#   xbar4   branch.xbar_lines = 4 for 2 (1 to 2: 723 to 581 nodes on three depth-3 subtrees)
+#   cross5  dnn.cross_first = 5 and DNN_ADMM_WARM_BETA=0.1:30:0.36:1 (537 to 377 iterations on one
+#           parent's 36 children; bound_lab/admm, section 6)
+#   z03     cut.zone = 0.03 for 0.06
+# Sized by est2's dives (SAMPLE_BY defaults to them); with tho40-est3 done, SAMPLE_BY=tho40-est3-261119
+# sizes by its warm first steps instead (a sample's size measure only moves its precision, never its
+# weights' correctness).
+PROBLEM=tho40
+RUN=tho40-tune-261119
+FROM=tho40-est2-261119
+SAMPLE=3:50,4:100
+SAMPLE_SEED=1
+ARMS="base=infra/phase1/recipes/tho40c.par xbar4=infra/phase1/recipes/tho40c_xbar4.par cross5=infra/phase1/recipes/tho40c_cross5.par z03=infra/phase1/recipes/tho40c_z03.par"
+ARMS_ENV="cross5:DNN_ADMM_WARM_BETA=0.1:30:0.36:1"
+VISIBILITY=private
+WORKERS=1
+HOURS=12
+
+# launched 2026-11-19T19:21:06Z: coordinator c7a.2xlarge on demand, 7 slots; workers 1 x (c7a.16xlarge,m7a.16xlarge,r7a.16xlarge) spot,
+# 64 slots each; 71 slots; limit 12 h; disk 100 GB; status private; from tho40-est2-261119: sample 3:50,4:100
