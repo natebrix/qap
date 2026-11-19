@@ -4,6 +4,10 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
+| [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | running | **RUNNING**: 20 of 172 units merged | - | 2026-11-19 02:29 | - |
+| [sko42-zone-261119-z10](runs/sko42-zone-261119-z10/readout.md) | running | **RUNNING**: 26 of 181 units merged | - | 2026-11-19 02:28 | - |
+| [tho40-est2-261119](runs/tho40-est2-261119/readout.md) | running | **RUNNING**: 205 of 648 units merged | - | 2026-11-19 02:26 | - |
+| [nug30-smoke-261119](runs/nug30-smoke-261119/readout.md) | finished | **COMPLETE**: solved, best objective 6124 | - | 2026-11-19 01:49 | 2026-11-19 01:57 |
 | [sko42-z25-261118](runs/sko42-z25-261118/readout.md) | running | **RUNNING**: 149 of 404 units merged | STALE | 2026-11-18 21:38 | - |
 | [sko42-z10-261118](runs/sko42-z10-261118/readout.md) | running | **RUNNING**: 187 of 590 units merged | STALE | 2026-11-18 21:35 | - |
 | [tho40-est](runs/tho40-est/readout.md) | paused | **PART-WAY**: the estimate's dives run tho40-est-dives is running, 524 of 552 dives units merged | STALE, PART-WAY, HEAVY TAIL, FEW DIVES, SETUP-BOUND | 2026-11-18 20:08 | - |
