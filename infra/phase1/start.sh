@@ -314,7 +314,8 @@ quota_room() {   # quota_room MARKET VCPUS_EACH: QROOM (instances that fit), QNO
     --query 'Reservations[].Instances[].[InstanceLifecycle,CpuOptions.CoreCount,CpuOptions.ThreadsPerCore]' --output text 2> /dev/null \
     | awk -v m="$1" '($1 == "spot") == (m == "spot") {s += $2 * $3} END {print s + 0}') || used=0
   [[ $used =~ ^[0-9]+$ ]] || used=0
-  QROOM=""; if [[ $q =~ ^[0-9]+(\.[0-9]*)?$ ]]; then QROOM=$(( (${q%.*} - used) / $2 )); [ "$QROOM" -ge 0 ] || QROOM=0; fi
+  QROOM=""; QFREE=""
+  if [[ $q =~ ^[0-9]+(\.[0-9]*)?$ ]]; then QFREE=$(( ${q%.*} - used )); QROOM=$(( QFREE / $2 )); [ "$QROOM" -ge 0 ] || QROOM=0; fi
   QNOTE="$1 quota $q vCPUs, $used in use$([ -n "$QROOM" ] && echo ": room for $QROOM more of $2 vCPUs")"
 }
 quota_room "$MARKET" "$VCPU"; ROOM=$QROOM
@@ -422,6 +423,32 @@ EST_MORE=${S_ESTIMATE_ENV:-}
 if [ -n "$EST_MORE" ]; then
   [ -n "$EST_ENV" ] || { echo "ESTIMATE_ENV without ESTIMATE"; exit 1; }
   for kv in $EST_MORE; do [[ $kv =~ ^QAP_EST_[A-Z_]+=[^[:space:]]+$ ]] || { echo "ESTIMATE_ENV: $kv is not QAP_EST_X=V"; exit 1; }; done
+fi
+
+# --- the quotas, for everything this launch starts (every arm's coordinator, on demand, and workers):
+# a group that the quota cannot fit at all never starts (sko42-zone-261119, Nov 19: both arms' on-demand
+# workers refused, VcpuLimitExceeded, while their coordinators ran on 7 slots each)
+NARMS=1; [ -n "$ARM_NAMES" ] && NARMS=$(echo $ARM_NAMES | wc -w | tr -d ' ')
+if [ "$MODE" != add ]; then
+  quota_room on-demand 1; OD_FREE=$QFREE
+  quota_room spot 1; SP_FREE=$QFREE
+  NEED_OD=$((NARMS * CVCPU)); NEED_SP=0
+  if [ "$MARKET" = on-demand ]; then NEED_OD=$((NEED_OD + NARMS * N * VCPU)); else NEED_SP=$((NARMS * N * VCPU)); fi
+  SHORT=""
+  [ -n "$OD_FREE" ] && [ "$NEED_OD" -gt "$OD_FREE" ] && SHORT="on-demand: $NEED_OD vCPUs wanted, $OD_FREE free"
+  [ -n "$SP_FREE" ] && [ "$NEED_SP" -gt "$SP_FREE" ] && SHORT="${SHORT:+$SHORT; }spot: $NEED_SP vCPUs wanted, $SP_FREE free"
+  if [ -n "$SHORT" ]; then
+    echo "the vCPU quotas do not fit this launch ($SHORT): a worker group the quota cannot fit waits, launching"
+    echo "nothing, until the quota has room (other runs ending, or an increase: service-quotas, L-1216C47A on"
+    echo "demand, L-34B43A08 Spot); a group that fits in part runs short"
+    # asked even with a spec (a person is at the last question anyway); --yes says no, but a dry run goes on
+    if [ "$YES" = 1 ]; then
+      [ "$DRY" = 1 ] || { echo "nothing launched (--yes does not launch past a quota)"; exit 1; }
+    else
+      read -r -p "Launch all the same? [y/N]: " v
+      case $v in y|Y|yes|Yes|YES) ;; *) echo "nothing launched"; exit 1 ;; esac
+    fi
+  fi
 fi
 
 # --- the launch, shown in full (a new run: the params file and, with a best known, an answer for the incumbent)
