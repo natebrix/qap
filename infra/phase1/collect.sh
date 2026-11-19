@@ -33,9 +33,23 @@ fi
 export AWS_PAGER=""
 aws() { command aws --region "$REGION" "$@"; }
 echo "instances of $RUN:"
+# with why a stopped one stopped (StateReason: a Spot reclaim reads Server.SpotInstanceTermination,
+# so an interruption is not taken for a hang; docs/review_nov18_runs.md, item 3)
 aws ec2 describe-instances --filters "Name=tag:qap-phase1,Values=$RUN" \
-  --query 'Reservations[].Instances[].[Tags[?Key==`qap-role`]|[0].Value,InstanceId,InstanceType,InstanceLifecycle||`on-demand`,State.Name,LaunchTime]' \
+  --query 'Reservations[].Instances[].[Tags[?Key==`qap-role`]|[0].Value,InstanceId,InstanceType,InstanceLifecycle||`on-demand`,State.Name,LaunchTime,StateReason.Code||``]' \
   --output text | sed 's/^/  /'
+# the worker group (launch.sh --workers): its size, and what it did lately (Spot workers it replaced)
+if [ "$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "qap-$RUN" \
+        --query 'length(AutoScalingGroups)' --output text 2> /dev/null)" = 1 ]; then
+  aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "qap-$RUN" \
+    --query 'AutoScalingGroups[0].[DesiredCapacity,MaxSize,length(Instances[?LifecycleState==`InService`])]' --output text \
+    | awk -v g="qap-$RUN" '{print "worker group " g ": " $1 " wanted (at most " $2 "), " $3 " in service"}'
+  aws autoscaling describe-scaling-activities --auto-scaling-group-name "qap-$RUN" --max-items 6 \
+    --query 'Activities[].[StartTime,StatusCode,Description]' --output text 2> /dev/null | cut -c1-160 | sed 's/^/  /'
+  N_SPOT=$(aws autoscaling describe-scaling-activities --auto-scaling-group-name "qap-$RUN" --max-items 200 \
+    --query 'length(Activities[?contains(Cause, `Spot`) || contains(Description, `interruption`)])' --output text 2> /dev/null || echo 0)
+  [ "${N_SPOT:-0}" != 0 ] && echo "  Spot interruptions the group answered: $N_SPOT"
+fi
 get() { aws s3 cp --only-show-errors "s3://$B/runs/$RUN/$1" "$L/$1" 2> /dev/null; }
 if get status.json; then
   python3 - "$L/status.json" << 'EOF'

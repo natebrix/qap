@@ -23,6 +23,10 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
              (needs boto3 and moto: --python VENV/bin/python)
   awstworuns `tworuns` on the AWS backend (moto): each run's SQS queues, and
              none left once both have finished
+  rootcache  nug18 with the DNN (the nug30 recipe's params) and --frontier-depth 1:
+             run b, with run a's data, settings and incumbent, reads a's frontier
+             pass from the root cache, its nodes' parent states too, and both
+             reproduce the serial totals
   tworuns    two runs on one backend at the same time, each on its own
              queues; one is paused partway with units queued (as an estimate
              leaves its solve) and the other must finish meanwhile; the paused
@@ -232,6 +236,65 @@ def two_runs(name, py, base, inst, opt, aws_endpoint=None):
             r.cleanup()
 
 
+def root_cache(name, py, base, inst, opt):
+    """run a's frontier pass goes to the root cache; run b, the same problem, settings and incumbent,
+    reads it back instead of running it (its init log says so), parent states included (the depth-1
+    nodes were bounded with the DNN: their children start from them); both match the serial run"""
+    from coord.backend import open_backend
+    par = "../infra/phase1/recipes/nug30.par"
+    inst, opt = "nug18", 1930
+    ref = serial_with(inst, opt, par)
+    be = f"local:{os.path.join(base, name)}"
+    extra = ["--params", par, "--frontier-depth", "1", "--budget", "2", "--target-unit-cpu", "2"]
+    a, b = (Run(py, be, f"{name}_{x}", inst, opt, extra) for x in "ab")
+    store = open_backend(be)
+    problems = []
+    try:
+        for r in (a, b):
+            r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
+            try:
+                wait_all([r.coordinator(), r.worker("w1")], 300)
+            except subprocess.TimeoutExpired:
+                problems.append(f"run {r.run_id} did not finish")
+        la, lb = (open(os.path.join(r.tmp, "init.log")).read() for r in (a, b))
+        if "root cache" in la:
+            problems.append("run a read the root cache, which was empty")
+        if "from the root cache" not in lb:
+            problems.append("run b ran its frontier pass instead of reading the root cache")
+        # the depth-2 nodes start from their depth-1 parents' DNN states, which the cached frontier
+        # holds (inline at ship.bits 64, or as warm/ files): a cold start would change the iterations
+        if "missing from the store" in open(os.path.join(b.tmp, "w1.log")).read():
+            problems.append("run b's worker found parent states missing (w1.log)")
+        da, db = (dnn_by_level(r.results()) for r in (a, b))
+        if not da or da != db:
+            problems.append(f"DNN nodes and iterations by level differ: {da} and {db}")
+        got = [totals(r.results()) for r in (a, b)]
+        if got[0] != got[1] or got[0][0] != ref[0] or got[0][1] != ref[1]:
+            problems.append(f"totals {got[0]} and {got[1]} against the serial {ref}")
+        units = store.all_units(b.run_id)
+        b.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
+                   "returned": sum(u.get("outcome") == "returned" for u in units), "resumed": 0}
+        b.public = problems
+        return (ref[0], ref[1], float(opt)) if not problems else got[1], b
+    finally:
+        for r in (a, b):
+            r.cleanup()
+
+
+def dnn_by_level(text):
+    """(level, nodes, iterations) of a report's "DNN bound by level" table"""
+    part = text.split("DNN bound by level:")[-1] if "DNN bound by level:" in text else ""
+    return [(int(m.group(1)), int(m.group(2)), int(m.group(3))) for m in
+            re.finditer(r"^\s*(\d+)\s+(\d+)\s+[\d.]+\s+[\d.]+\s+(\d+)", part.split("\n\n")[0], re.M)]
+
+
+def serial_with(inst, opt, params):
+    r = subprocess.run([os.path.join(ROOT, "latest", "bnbdrv"), "-p", params, "-u", str(opt),
+                        os.path.join(ROOT, "qaplib", inst + ".dat")], cwd=os.path.join(ROOT, "latest"),
+                       capture_output=True, text=True, env=dict(os.environ, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1"))
+    return totals(r.stdout)
+
+
 def stopped_run(name, py, base, inst, opt):
     """qapctl stop on a run partway (a): its coordinator and worker exit, its
     public status and catalog entry say stopped and final, purge-states
@@ -290,6 +353,8 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         return two_runs(name, py, base, inst, opt, aws_endpoint if name == "awstworuns" else None)
     if name == "stopped":
         return stopped_run(name, py, base, inst, opt)
+    if name == "rootcache":
+        return root_cache(name, py, base, inst, opt)
     if name == "aws":
         backend = f"aws:qaptest/{name}?region=eu-north-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
         r = Run(py, backend, name, inst, opt)
@@ -365,7 +430,9 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
             parents = glob.glob(os.path.join(store_dir, "warm", "*"))
             if states or parents:
                 r.public = r.public + [f"{len(states)} unit state files and {len(parents)} parent states left in the store"]
-        if name == "fixes":
+        if name == "rootcache":
+            ok = True            # against its own serial run (nug18, the DNN params): in r.public
+        elif name == "fixes":
             # a -F run's live tree: the -F node is the root, every traced node under it
             import json
             from coord.backend import open_backend
@@ -410,7 +477,7 @@ def main():
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,crash_marked,crash_applied,crash_saving,"
-                                      "drain,noub,fixes,aws,tworuns,awstworuns,stopped")
+                                      "drain,noub,fixes,aws,tworuns,awstworuns,stopped,rootcache")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args()
     ref = serial(a.instance, int(a.opt))
@@ -441,12 +508,14 @@ def main():
                 continue
         t0 = time.time()
         got, r = scenario(name, a.python, base, a.instance, a.opt, endpoint)
-        if name == "fixes":
+        if name == "rootcache":
+            ok = True            # against its own serial run (nug18, the DNN params): in r.public
+        elif name == "fixes":
             # the subtree under FIXES against the serial run with the same -F
             # (the bound is the incumbent passed with -u: the subtree may not hold the optimum)
             sub = serial(a.instance, int(a.opt), FIXES)
             ok = got[0] == sub[0] and got[1] == sub[1]
-        else:
+        elif name != "rootcache":
             ok = got[2] == a.opt if name == "noub" else (got[0] == ref[0] and got[1] == ref[1] and got[2] == a.opt)
         public = getattr(r, "public", [])
         ok = ok and not public

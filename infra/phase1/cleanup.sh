@@ -1,6 +1,7 @@
 #!/bin/bash
 # Phase 1 (README.md): stop and remove what launch.sh made.
-#   infra/phase1/cleanup.sh [RUN] [--region eu-north-1]   terminate the run's instances (every qap-phase1 instance without RUN)
+#   infra/phase1/cleanup.sh [RUN] [--region eu-north-1]   delete the run's worker group and terminate its instances
+#                                                         (every qap-phase1 group and instance without RUN)
 #   infra/phase1/cleanup.sh --all                         also the security group, instance profile and role
 #   infra/phase1/cleanup.sh --all --storage               also the queues, the tables and the bucket (asks first)
 # The instances shut themselves down when the run is finished or after
@@ -21,6 +22,14 @@ while [ $# -gt 0 ]; do
 done
 export AWS_PAGER=""
 aws() { command aws --region "$REGION" "$@"; }
+# the worker groups first (launch.sh --workers), or they would start instances in place of the
+# terminated ones: deleted with their instances and launch templates (a relaunch makes them again)
+WGROUPS=$(aws autoscaling describe-auto-scaling-groups --query 'AutoScalingGroups[].AutoScalingGroupName' --output text 2> /dev/null \
+  | tr -s '[:space:]' '\n' | grep -x "qap-${RUN:-.*}" || true)
+for g in $WGROUPS; do
+  aws autoscaling delete-auto-scaling-group --auto-scaling-group-name "$g" --force-delete && echo "deleting worker group $g and its instances"
+  aws ec2 delete-launch-template --launch-template-name "$g" > /dev/null 2>&1 && echo "deleted launch template $g"
+done
 F="Name=tag-key,Values=qap-phase1"; [ -n "$RUN" ] && F="Name=tag:qap-phase1,Values=$RUN"
 IDS=$(aws ec2 describe-instances --filters "$F" Name=instance-state-name,Values=pending,running,stopping,stopped \
   --query 'Reservations[].Instances[].InstanceId' --output text)

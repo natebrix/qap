@@ -95,6 +95,12 @@ POLICY="{\"Version\":\"2012-10-17\",\"Statement\":[
    \"arn:aws:ec2:*:$ACCT:security-group/*\",\"arn:aws:ec2:*:$ACCT:volume/*\",\"arn:aws:ec2:*:$ACCT:spot-instances-request/*\"]},
  {\"Sid\":\"TagAtLaunch\",\"Effect\":\"Allow\",\"Action\":\"ec2:CreateTags\",\"Resource\":\"arn:aws:ec2:*:$ACCT:instance/*\",
   \"Condition\":{\"StringEquals\":{\"ec2:CreateAction\":\"RunInstances\"}}},
+ {\"Sid\":\"SeeGroups\",\"Effect\":\"Allow\",\"Action\":[\"autoscaling:DescribeAutoScalingGroups\",
+  \"autoscaling:DescribeScalingActivities\",\"ec2:DescribeLaunchTemplates\"],\"Resource\":\"*\"},
+ {\"Sid\":\"StopGroups\",\"Effect\":\"Allow\",\"Action\":[\"autoscaling:DeleteAutoScalingGroup\",\"autoscaling:UpdateAutoScalingGroup\"],
+  \"Resource\":\"arn:aws:autoscaling:*:$ACCT:autoScalingGroup:*:autoScalingGroupName/qap-*\"},
+ {\"Sid\":\"StopGroupTemplates\",\"Effect\":\"Allow\",\"Action\":\"ec2:DeleteLaunchTemplate\",
+  \"Resource\":\"arn:aws:ec2:*:$ACCT:launch-template/*\",\"Condition\":{\"Null\":{\"ec2:ResourceTag/qap-phase1\":\"false\"}}},
  {\"Sid\":\"StopOwnInstances\",\"Effect\":\"Allow\",\"Action\":\"ec2:TerminateInstances\",\"Resource\":\"arn:aws:ec2:*:$ACCT:instance/*\",
   \"Condition\":{\"Null\":{\"ec2:ResourceTag/qap-phase1\":\"false\"}}}]}"
 python3 -c 'import json, sys; json.loads(sys.argv[1]); json.loads(sys.argv[2])' "$TRUST" "$POLICY" || { echo "bad policy JSON"; exit 1; }

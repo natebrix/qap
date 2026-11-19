@@ -5,6 +5,8 @@
 #
 #   infra/phase1/launch.sh RUN [--recipe nug30 | --recipe-file F] [--no-ub] [--type c7g.4xlarge]
 #                          [--region eu-north-1] [--on-demand] [--worker-only]
+#                          [--workers N [--worker-types T,T,...] [--worker-slots S] [--workers-on-demand]
+#                           [--worker-env "K=V ..."]]
 #                          [--no-reference] [--gates "bruteforce ..."|none] [--run-slots S]
 #                          [--limit 120] [--disk 32] [--node-env "K=V ..."] [--dry-run]
 #
@@ -21,6 +23,19 @@
 #   --type T        the instance type (default c7g.4xlarge: 16 Graviton3 cores, 16 vCPUs)
 #   --on-demand     on-demand instead of Spot (about 3-4x the price; no interruptions)
 #   --worker-only   a worker for RUN, which another instance coordinates
+#   --workers N     with the coordinating instance: a worker group for RUN, the EC2 Auto Scaling
+#                   group qap-RUN (launch template qap-RUN), N instances at most, Spot, in every
+#                   zone of the region, of --worker-types (default c7a.16xlarge,m7a.16xlarge,
+#                   r7a.16xlarge: one CPU, AMD EPYC 9R14, so CPU totals and rounding agree). It is
+#                   created at 0 instances: the coordinator raises it to N once the run exists (the
+#                   root bounded) and sets it to 0 when the run is over; a reclaimed Spot worker is
+#                   replaced by the group; a worker whose run is over leaves the group. A scheduled
+#                   action sets it to 0 at --limit minutes whatever happens. Relaunching the
+#                   coordinator of a run with a group updates the group (its size and the commit)
+#   --worker-types  the group's instance types, comma-separated, cheapest Spot pool with capacity first
+#   --worker-slots S a worker's slots (default: its physical cores; QAP_SLOTS on the workers)
+#   --workers-on-demand  the group on demand instead of Spot (an A/B that must not be interrupted)
+#   --worker-env E  variables for the workers' node.sh (as --node-env for this instance)
 #   --no-reference  skip the bench/parallel.py run and the comparison at the end
 #   --private       publish no public status for a new run (coord/publish.py;
 #                   publish_setup.sh serves it to brixius-web)
@@ -44,6 +59,7 @@ D=$(cd "$(dirname "$0")" && pwd)
 R=$(cd "$D/../.." && pwd)
 RUN=""; RECIPE=""; RECIPE_FILE=""; RUN_SLOTS=""; NO_UB=0; TYPE=c7g.4xlarge; REGION=eu-north-1; MARKET=spot; ROLE=all
 REFERENCE=1; GATES=""; LIMIT=120; DRY=0; VIS=public; NODE_ENV=""; DISK=32
+WORKERS=""; WTYPES=c7a.16xlarge,m7a.16xlarge,r7a.16xlarge; WSLOTS=""; WMARKET=spot; WENV=""
 while [ $# -gt 0 ]; do
   case $1 in
     --recipe) RECIPE=$2; shift 2 ;;
@@ -54,6 +70,11 @@ while [ $# -gt 0 ]; do
     --region) REGION=$2; shift 2 ;;
     --on-demand) MARKET=on-demand; shift ;;
     --worker-only) ROLE=worker; shift ;;
+    --workers) WORKERS=$2; shift 2 ;;
+    --worker-types) WTYPES=$2; shift 2 ;;
+    --worker-slots) WSLOTS=$2; shift 2 ;;
+    --workers-on-demand) WMARKET=on-demand; shift ;;
+    --worker-env) WENV=$2; shift 2 ;;
     --no-reference) REFERENCE=0; shift ;;
     --private) VIS=private; shift ;;
     --gates) GATES=$2; shift 2 ;;
@@ -70,6 +91,11 @@ done
 [[ $RUN =~ ^[A-Za-z0-9_-]{1,60}$ ]] || { echo "RUN may have letters, digits, - and _ only"; exit 2; }
 [[ $LIMIT =~ ^[0-9]+$ ]] || { echo "--limit is in whole minutes"; exit 2; }
 [ -z "$RUN_SLOTS" ] || [[ $RUN_SLOTS =~ ^[1-9][0-9]*$ ]] || { echo "--run-slots is a whole number"; exit 2; }
+[ -z "$WORKERS" ] || [[ $WORKERS =~ ^[1-9][0-9]*$ ]] || { echo "--workers is a whole number, 1 or more"; exit 2; }
+[ -z "$WSLOTS" ] || [[ $WSLOTS =~ ^[1-9][0-9]*$ ]] || { echo "--worker-slots is a whole number"; exit 2; }
+[[ $WTYPES =~ ^[a-z0-9]+\.[a-z0-9]+(,[a-z0-9]+\.[a-z0-9]+)*$ ]] || { echo "--worker-types: types separated by commas"; exit 2; }
+[ -z "$WORKERS" ] || [ "$ROLE" = all ] || { echo "--workers goes with the coordinating instance, not --worker-only"; exit 2; }
+ASG=""; [ -n "$WORKERS" ] && ASG=qap-$RUN   # the worker group and its launch template
 [ -z "$RECIPE" ] || [ -z "$RECIPE_FILE" ] || { echo "--recipe or --recipe-file, not both"; exit 2; }
 if [ -n "$RECIPE_FILE" ]; then
   [ -f "$RECIPE_FILE" ] || { echo "no recipe file $RECIPE_FILE"; exit 2; }
@@ -163,6 +189,9 @@ POLICY="{\"Version\":\"2012-10-17\",\"Statement\":[
  {\"Effect\":\"Allow\",\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::qap-coord-$ACCT-*/public/runs/*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"sqs:ReceiveMessage\",\"sqs:SendMessage\",\"sqs:DeleteMessage\",\"sqs:ChangeMessageVisibility\",
   \"sqs:GetQueueUrl\",\"sqs:GetQueueAttributes\",\"sqs:CreateQueue\",\"sqs:DeleteQueue\"],\"Resource\":\"arn:aws:sqs:*:$ACCT:qap-units-*\"},
+ {\"Effect\":\"Allow\",\"Action\":[\"autoscaling:UpdateAutoScalingGroup\",\"autoscaling:SetDesiredCapacity\",
+  \"autoscaling:TerminateInstanceInAutoScalingGroup\"],
+  \"Resource\":\"arn:aws:autoscaling:*:$ACCT:autoScalingGroup:*:autoScalingGroupName/qap-*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:PutItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],
   \"Resource\":[\"arn:aws:dynamodb:*:$ACCT:table/qap-runs\",\"arn:aws:dynamodb:*:$ACCT:table/qap-units\",
                \"arn:aws:dynamodb:*:$ACCT:table/qap-units/index/*\"]}]}"
@@ -229,21 +258,25 @@ FAM=${TYPE%%.*}
 ARCH=x86_64; case $FAM in *g|*gd|*gn|*ge) ARCH=arm64 ;; esac
 AMI=$(aws ssm get-parameter --name "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-$ARCH" \
   --query Parameter.Value --output text)
-UD=$L/userdata_$ROLE.sh
-RUD=""   # a --recipe-file, written on the instance before node.sh (base64: any content survives)
-[ -n "$RECIPE_FILE" ] && RUD="echo $(base64 < "$RECIPE_FILE" | tr -d '\n') | base64 -d > /opt/qap/run_recipe.sh && export QAP_RECIPE_FILE=/opt/qap/run_recipe.sh"
-cat > "$UD" << EOF
+userdata() {   # userdata ROLE EXTRA_EXPORTS RECIPE_LINE > FILE: the instance's start script
+  cat << EOF
 #!/bin/bash
-export AWS_DEFAULT_REGION=$REGION QAP_RUN=$RUN QAP_BACKEND='aws:$B?region=$REGION' QAP_BUCKET=$B QAP_ROLE=$ROLE
-export QAP_RECIPE=$RECIPE QAP_NO_UB=$NO_UB QAP_REFERENCE=$REFERENCE QAP_COMMIT=$COMMIT QAP_VISIBILITY=$VIS${GATES:+ QAP_GATES='$GATES'}${RUN_SLOTS:+ QAP_RUN_SLOTS=$RUN_SLOTS}
-${NODE_ENV:+export $NODE_ENV}
+export AWS_DEFAULT_REGION=$REGION QAP_RUN=$RUN QAP_BACKEND='aws:$B?region=$REGION' QAP_BUCKET=$B QAP_ROLE=$1
+export QAP_RECIPE=$RECIPE QAP_NO_UB=$NO_UB QAP_REFERENCE=$REFERENCE QAP_COMMIT=$COMMIT QAP_VISIBILITY=$VIS${GATES:+ QAP_GATES='$GATES'}${RUN_SLOTS:+ QAP_RUN_SLOTS=$RUN_SLOTS}${ASG:+ QAP_ASG=$ASG}
+${2:+export $2}
 shutdown -h +$LIMIT
 mkdir -p /opt/qap && cd /opt/qap
-$RUD
+$3
 for i in 1 2 3 4 5 6; do aws s3 cp --only-show-errors s3://$B/$SRC src.tgz && break; sleep 10; done
 tar xzf src.tgz && bash infra/phase1/node.sh
 shutdown -h now
 EOF
+}
+UD=$L/userdata_$ROLE.sh
+RUD=""   # a --recipe-file, written on the instance before node.sh (base64: any content survives)
+[ -n "$RECIPE_FILE" ] && RUD="echo $(base64 < "$RECIPE_FILE" | tr -d '\n') | base64 -d > /opt/qap/run_recipe.sh && export QAP_RECIPE_FILE=/opt/qap/run_recipe.sh"
+CENV=$NODE_ENV; [ -n "$WORKERS" ] && CENV="${CENV:+$CENV }QAP_WORKERS=$WORKERS"   # the coordinator raises the group to N
+userdata "$ROLE" "$CENV" "$RUD" > "$UD"
 MO=()
 [ "$MARKET" = spot ] && MO=(--instance-market-options '{"MarketType":"spot","SpotOptions":{"SpotInstanceType":"one-time","InstanceInterruptionBehavior":"terminate"}}')
 ID=""
@@ -273,3 +306,80 @@ echo -e "$(date -u +%FT%TZ)\t$ROLE\t$TYPE\t$MARKET\t$PRICE\t$ID\t$AZ\t$COMMIT\t$
 echo "$REGION" > "$L/region.txt"; echo "$B" > "$L/bucket.txt"
 say "$TYPE: $ID in $AZ ($MARKET, \$$PRICE/h), shuts down by itself after $LIMIT minutes"
 say "build and gates take about 10-15 minutes. Then: infra/phase1/collect.sh $RUN"
+
+# --- the worker group (--workers): EC2 Auto Scaling, created at 0 instances; the coordinator
+# raises it to N once the run exists and sets it to 0 when the run is over (node.sh), the group
+# replaces a reclaimed Spot worker, and a scheduled action sets it to 0 at the time limit
+if [ -n "$WORKERS" ]; then
+  WE=$WENV; [ -n "$WSLOTS" ] && WE="${WE:+$WE }QAP_SLOTS=$WSLOTS"
+  WUD=$L/userdata_worker.sh
+  userdata worker "$WE" "" > "$WUD"
+  WT1=${WTYPES%%,*}; WARCH=x86_64; case ${WT1%%.*} in *g|*gd|*gn|*ge) WARCH=arm64 ;; esac
+  WAMI=$AMI; [ "$WARCH" = "$ARCH" ] || WAMI=$(aws ssm get-parameter --name "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-$WARCH" \
+    --query Parameter.Value --output text)
+  WVCPU=$(aws ec2 describe-instance-types --instance-types "$WT1" --query 'InstanceTypes[0].VCpuInfo.DefaultVCpus' --output text)
+  WQ=$(aws service-quotas get-service-quota --service-code ec2 --quota-code "$([ "$WMARKET" = spot ] && echo L-34B43A08 || echo L-1216C47A)" \
+    --query 'Quota.Value' --output text 2> /dev/null || echo "?")
+  [ "$WQ" = "?" ] || [ "${WQ%.*}" -ge $((WORKERS * WVCPU)) ] \
+    || say "note: $WORKERS x $WT1 is $((WORKERS * WVCPU)) vCPUs, over the $WMARKET quota ($WQ): the group launches what fits"
+  # the launch template: the instance as run-instances makes it above, without the type (the group picks it)
+  LTDATA=$(python3 - "$WAMI" "$ROLE_NAME" "$SG" "$DISK" "$WUD" "$RUN" "$ASG" << 'PY'
+import base64, json, sys
+ami, prof, sg, disk, ud, run, asg = sys.argv[1:]
+tags = [{"Key": "Name", "Value": f"qap-phase1-{run}-worker"}, {"Key": "qap-phase1", "Value": run},
+        {"Key": "qap-role", "Value": "worker"}, {"Key": "qap-group", "Value": asg}]
+print(json.dumps({
+    "ImageId": ami, "IamInstanceProfile": {"Name": prof}, "SecurityGroupIds": [sg],
+    "InstanceInitiatedShutdownBehavior": "terminate",
+    "MetadataOptions": {"HttpTokens": "required", "HttpEndpoint": "enabled"},
+    "BlockDeviceMappings": [{"DeviceName": "/dev/xvda",
+                             "Ebs": {"VolumeSize": int(disk), "VolumeType": "gp3", "DeleteOnTermination": True}}],
+    "UserData": base64.b64encode(open(ud, "rb").read()).decode(),
+    "TagSpecifications": [{"ResourceType": "instance", "Tags": tags}, {"ResourceType": "volume", "Tags": tags}]}))
+PY
+)
+  # a dry run shows the user data's size, not its base64 (which holds the bucket's name, so the account number)
+  [ "$DRY" = 1 ] && LTDATA=$(echo "$LTDATA" | python3 -c 'import json, sys; d = json.load(sys.stdin); d["UserData"] = f"<{len(d[\"UserData\"])} characters of base64>"; print(json.dumps(d))')
+  if aws ec2 describe-launch-templates --launch-template-names "$ASG" > /dev/null 2>&1; then
+    change ec2 create-launch-template-version --launch-template-name "$ASG" --launch-template-data "$LTDATA" > /dev/null
+    say "worker group $ASG: launch template updated (commit $COMMIT)"
+  else
+    change ec2 create-launch-template --launch-template-name "$ASG" --launch-template-data "$LTDATA" \
+      --tag-specifications "ResourceType=launch-template,Tags=[{Key=qap-phase1,Value=$RUN}]" > /dev/null
+  fi
+  # Spot from the cheapest pools with capacity (price-capacity-optimized), over every type and zone.
+  # No capacity rebalancing: it terminates a worker on a rebalance recommendation without the
+  # 2-minute notice that node.sh drains on, so its units would wait out their leases (30 minutes);
+  # a reclaimed worker drains on its notice and the group starts another
+  MIP=$(python3 - "$ASG" "$WTYPES" "$WMARKET" << 'PY'
+import json, sys
+asg, types, market = sys.argv[1:]
+print(json.dumps({
+    "LaunchTemplate": {"LaunchTemplateSpecification": {"LaunchTemplateName": asg, "Version": "$Latest"},
+                       "Overrides": [{"InstanceType": t} for t in types.split(",")]},
+    "InstancesDistribution": {"OnDemandBaseCapacity": 0,
+                              "OnDemandPercentageAboveBaseCapacity": 100 if market == "on-demand" else 0,
+                              "OnDemandAllocationStrategy": "lowest-price",
+                              "SpotAllocationStrategy": "price-capacity-optimized"}}))
+PY
+)
+  VZI=$(echo $SUBNETS | tr ' ' ',')
+  if [ "$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$ASG" \
+          --query 'length(AutoScalingGroups)' --output text 2> /dev/null)" = 1 ]; then
+    # a relaunched coordinator: the group's size and types again; its instances stay (the coordinator
+    # sets the desired count once the run is resumed)
+    change autoscaling update-auto-scaling-group --auto-scaling-group-name "$ASG" --mixed-instances-policy "$MIP" \
+      --min-size 0 --max-size "$WORKERS" --vpc-zone-identifier "$VZI" --no-capacity-rebalance > /dev/null
+    say "worker group $ASG: updated to $WORKERS at most"
+  else
+    change autoscaling create-auto-scaling-group --auto-scaling-group-name "$ASG" --mixed-instances-policy "$MIP" \
+      --min-size 0 --max-size "$WORKERS" --desired-capacity 0 --vpc-zone-identifier "$VZI" --no-capacity-rebalance \
+      --tags "Key=qap-phase1,Value=$RUN,PropagateAtLaunch=false" > /dev/null
+  fi
+  T=$(python3 -c "import datetime as d, sys; print((d.datetime.now(d.timezone.utc) + d.timedelta(minutes=int(sys.argv[1]))).strftime('%Y-%m-%dT%H:%M:%SZ'))" "$LIMIT")
+  change autoscaling put-scheduled-update-group-action --auto-scaling-group-name "$ASG" --scheduled-action-name qap-limit \
+    --start-time "$T" --min-size 0 --max-size 0 --desired-capacity 0 > /dev/null
+  echo -e "$(date -u +%FT%TZ)\tworkers\t$WTYPES\t$WMARKET\t-\t$ASG\t$(echo $SUBNETS | wc -w | tr -d ' ') zones\t$COMMIT\tgroup of $WORKERS${WSLOTS:+, $WSLOTS slots each}" >> "$L/launches.tsv"
+  say "worker group $ASG: up to $WORKERS x ($WTYPES), $WMARKET, $(echo $SUBNETS | wc -w | tr -d ' ') zones; the coordinator starts them"
+  say "once the run exists, and they stop at $T at the latest. A reclaimed Spot worker is replaced"
+fi

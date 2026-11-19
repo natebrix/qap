@@ -17,17 +17,19 @@
 #     - the incumbent: the best known (QAPSOLN/PROBLEM.sln) + the step of the objective's
 #       grid (objstep.py, the solver's own test: 2 where every value is even, else 1): the
 #       next value, so the run must find the best known itself and prove nothing is better;
-#     - the instances: how many (with the vCPU quota left), the type (c7a.16xlarge, or the
-#       problem's in recipes/defaults.txt), Spot or on-demand, slots per instance (its cores,
-#       or the problem's slots= where a process needs more memory), and the time limit (72 hours);
+#     - the instances: a coordinator on demand (c7a.2xlarge: it bounds the root and merges, and is
+#       never reclaimed) and a worker group, EC2 Auto Scaling, of N workers (with the vCPU quota
+#       left) of the type (c7a.16xlarge, or the problem's in recipes/defaults.txt) and its siblings
+#       on the same CPU (m7a, r7a), Spot or on-demand, slots per worker (its cores, or the
+#       problem's slots= where a process needs more memory), and the time limit (72 hours);
 #     - if you ask for them: the data file, the solver flags (the grid's symmetry
 #       file), the disk, the unit sizing and the public status;
 #  3. shows the whole launch and asks before making it;
-#  4. writes the run's recipe to infra/phase1/runs/RUN/recipe.sh and calls launch.sh
-#     for each instance: the first coordinates the run, the others are workers
-#     (--worker-only), and the run is sized for all of their cores (--run-slots).
-# For a RUN that exists, the instances are added to it, with its own settings (the
-# first one coordinates it if no instance does).
+#  4. writes the run's recipe to infra/phase1/runs/RUN/recipe.sh and calls launch.sh once:
+#     the coordinator, and the worker group (--workers N), which the coordinator starts once
+#     the run exists and stops when it ends; the run is sized for every slot (--run-slots).
+# For a RUN that exists: with no coordinator, one is launched to resume it (its group updated);
+# with one, its worker group grows by N (a run from before worker groups: N --worker-only).
 #
 #   --dry-run   launch.sh --dry-run for the first instance: the AWS calls that change
 #               something are printed, none is made
@@ -207,66 +209,107 @@ if [ "$MODE" = new ]; then
   ubnote
 fi
 
-# --- the instances
+# --- the instances: a coordinator on demand (the root bound and the merges: never reclaimed, so a
+# run is never lost with its root; docs/review_nov18_runs.md) and a group of workers that EC2 Auto
+# Scaling keeps at N, Spot by default, replacing a reclaimed one (launch.sh --workers)
 TYPE=${DEF_TYPE:-c7a.16xlarge}; MARKET=spot
 while :; do
-  ask TYPE "Instance type" "$TYPE"
+  ask TYPE "Worker instance type" "$TYPE"
   CPU=$(aws ec2 describe-instance-types --instance-types "$TYPE" --query 'InstanceTypes[0].[VCpuInfo.DefaultVCpus,VCpuInfo.DefaultCores,MemoryInfo.SizeInMiB]' --output text 2> /dev/null) || CPU=""
   VCPU=$(echo "$CPU" | awk '{print $1}'); CORES=$(echo "$CPU" | awk '{print $2}'); MEM=$(echo "$CPU" | awk '{print $3}')
   [[ $MEM =~ ^[0-9]+$ ]] || MEM=
   [[ $VCPU =~ ^[1-9][0-9]*$ ]] && [[ $CORES =~ ^[1-9][0-9]*$ ]] && break
   echo "no instance type $TYPE in $REGION"; [ "$YES" = 1 ] && exit 1
 done
+# the group's types: a 7th-generation AMD type and its siblings, one CPU (AMD EPYC 9R14) in three
+# families: three times the Spot pools, the same per-core speed and rounding. The slots below are
+# sized by TYPE, the first, which has the least memory of the three
+WTYPES=$TYPE
+case $TYPE in c7a.*|m7a.*|r7a.*) WTYPES="$TYPE"; for f in c7a m7a r7a; do [ "$f" = "${TYPE%%.*}" ] || WTYPES="$WTYPES,$f.${TYPE#*.}"; done ;; esac
 while :; do
-  ask MARKET "Spot or on-demand" "$MARKET"
+  ask WTYPES "Worker group's types (comma-separated; Spot takes the cheapest with capacity)" "$WTYPES"
+  [[ $WTYPES =~ ^[a-z0-9]+\.[a-z0-9]+(,[a-z0-9]+\.[a-z0-9]+)*$ ]] && break
+  echo "instance types separated by commas"; [ "$YES" = 1 ] && exit 1
+done
+while :; do
+  ask MARKET "Workers: spot or on-demand" "$MARKET"
   case $MARKET in spot|on-demand) break ;; esac
   echo "spot or on-demand"; [ "$YES" = 1 ] && exit 1
 done
 # the vCPU quota left: Spot "All Standard Spot Instance Requests", on-demand "Running On-Demand Standard"
-QCODE=L-34B43A08; [ "$MARKET" = on-demand ] && QCODE=L-1216C47A
-Q=$(aws service-quotas get-service-quota --service-code ec2 --quota-code $QCODE --query 'Quota.Value' --output text 2> /dev/null || echo "?"); Q=${Q%.0}
-USED=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=pending,running \
-  --query 'Reservations[].Instances[].[InstanceLifecycle,CpuOptions.CoreCount,CpuOptions.ThreadsPerCore]' --output text 2> /dev/null \
-  | awk -v m="$MARKET" '($1 == "spot") == (m == "spot") {s += $2 * $3} END {print s + 0}') || USED=0
-[[ $USED =~ ^[0-9]+$ ]] || USED=0
-ROOM=""; if [[ $Q =~ ^[0-9]+(\.[0-9]*)?$ ]]; then ROOM=$(( (${Q%.*} - USED) / VCPU )); [ "$ROOM" -ge 0 ] || ROOM=0; fi
-note "$TYPE: $VCPU vCPUs, $CORES cores; $MARKET quota $Q vCPUs, $USED in use$([ -n "$ROOM" ] && echo ": room for $ROOM more")"
+quota_room() {   # quota_room MARKET VCPUS_EACH: QROOM (instances that fit), QNOTE
+  local code=L-34B43A08 q used
+  [ "$1" = on-demand ] && code=L-1216C47A
+  q=$(aws service-quotas get-service-quota --service-code ec2 --quota-code $code --query 'Quota.Value' --output text 2> /dev/null || echo "?"); q=${q%.0}
+  used=$(aws ec2 describe-instances --filters Name=instance-state-name,Values=pending,running \
+    --query 'Reservations[].Instances[].[InstanceLifecycle,CpuOptions.CoreCount,CpuOptions.ThreadsPerCore]' --output text 2> /dev/null \
+    | awk -v m="$1" '($1 == "spot") == (m == "spot") {s += $2 * $3} END {print s + 0}') || used=0
+  [[ $used =~ ^[0-9]+$ ]] || used=0
+  QROOM=""; if [[ $q =~ ^[0-9]+(\.[0-9]*)?$ ]]; then QROOM=$(( (${q%.*} - used) / $2 )); [ "$QROOM" -ge 0 ] || QROOM=0; fi
+  QNOTE="$1 quota $q vCPUs, $used in use$([ -n "$QROOM" ] && echo ": room for $QROOM more of $2 vCPUs")"
+}
+quota_room "$MARKET" "$VCPU"; ROOM=$QROOM
+note "$TYPE: $VCPU vCPUs, $CORES cores; $QNOTE"
 PRICE=""
 if [ "$MARKET" = spot ]; then
   PRICE=$(aws ec2 describe-spot-price-history --instance-types "$TYPE" --product-descriptions Linux/UNIX --start-time "$(date -u +%FT%TZ)" \
     --query 'SpotPriceHistory[].SpotPrice' --output text 2> /dev/null | tr -s '[:space:]' '\n' | sort -n | head -1) || PRICE=""
   [[ $PRICE =~ ^[0-9]+(\.[0-9]+)?$ ]] || PRICE=""
-  [ -n "$PRICE" ] && note "Spot price now: \$$PRICE an hour (the cheapest zone)"
+  [ -n "$PRICE" ] && note "Spot price now: \$$PRICE an hour for $TYPE (the cheapest zone)"
 fi
 NDEF=1; [ -n "$ROOM" ] && [ "$ROOM" -lt 1 ] && NDEF=0
 while :; do
-  ask N "Number of instances" "$NDEF"
+  ask N "Worker instances (the group keeps this many; a reclaimed one is replaced)" "$NDEF"
   if ! [[ $N =~ ^[1-9][0-9]*$ ]]; then echo "a whole number, 1 or more"; [ "$YES" = 1 ] && exit 1; continue; fi
   [ -z "$ROOM" ] || [ "$N" -le "$ROOM" ] && break
-  echo "the quota has room for $ROOM: the launches past that would be refused"
-  yesno "Launch $N anyway?" n && break
+  echo "the quota has room for $ROOM: the group would launch only those"
+  yesno "Ask for $N anyway?" n && break
   [ "$YES" = 1 ] && exit 1
 done
 # slots per instance: a worker process each; the cores, unless the problem needs more memory per process
 # than the type has per core (recipes/defaults.txt mem=G: as many as (memory - 4 GiB) / G holds; slots=S
 # fixes the number). tai60b: about 2.3 GB a process measured, 3 with the parents' states it keeps
-SDEF=${DEF_SLOTS:-$CORES}
-if [ -z "$DEF_SLOTS" ] && [ -n "$DEF_MEM" ] && [ -n "$MEM" ]; then
-  fit=$(( (MEM / 1024 - 4) / DEF_MEM )); [ "$fit" -ge 1 ] || fit=1
-  [ "$fit" -lt "$SDEF" ] && SDEF=$fit
-fi
-[ "$SDEF" -le "$CORES" ] || SDEF=$CORES
+fit_slots() {   # fit_slots CORES MEM_MIB DEFAULT: the slots the memory holds
+  local s=${3:-$1} fit
+  if [ -z "$DEF_SLOTS" ] && [ -n "$DEF_MEM" ] && [ -n "$2" ]; then
+    fit=$(( ($2 / 1024 - 4) / DEF_MEM )); [ "$fit" -ge 1 ] || fit=1
+    [ "$fit" -lt "$s" ] && s=$fit
+  fi
+  [ "$s" -le "$1" ] || s=$1
+  echo "$s"
+}
+SDEF=$(fit_slots "$CORES" "$MEM" "${DEF_SLOTS:-$CORES}")
 while :; do
-  ask SLOTS "Slots per instance (one solver process each$([ -n "$MEM" ] && echo "; $((MEM / 1024)) GiB of memory$([ -n "$DEF_MEM" ] && echo ", $P needs about $DEF_MEM GiB a process")"))" "$SDEF"
+  ask SLOTS "Slots per worker (one solver process each$([ -n "$MEM" ] && echo "; $((MEM / 1024)) GiB of memory$([ -n "$DEF_MEM" ] && echo ", $P needs about $DEF_MEM GiB a process")"))" "$SDEF"
   [[ $SLOTS =~ ^[1-9][0-9]*$ ]] && [ "$SLOTS" -le "$CORES" ] && break
   echo "a whole number from 1 to $CORES"; [ "$YES" = 1 ] && exit 1
 done
 if [ -n "$DEF_MEM" ] && [ -n "$MEM" ] && [ $((SLOTS * DEF_MEM + 4)) -gt $((MEM / 1024)) ]; then
   note "$SLOTS slots x $DEF_MEM GiB is more than the $((MEM / 1024)) GiB of $TYPE: the solver processes may run out of memory"
 fi
-TOTAL=$((N * SLOTS))
+# the coordinator: same CPU family, small, on demand; its cores but one run units (one is left to the
+# coordinator's merges and uploads)
+CTYPE=c7a.2xlarge; case $TYPE in c7a.*|m7a.*|r7a.*) ;; *) CTYPE=${TYPE%%.*}.2xlarge ;; esac
 while :; do
-  ask HOURS "Time limit in hours (each instance shuts itself down then; a relaunch resumes the run)" 72
+  ask CTYPE "Coordinator instance type (on demand: bounds the root, merges, runs units)" "$CTYPE"
+  CPU=$(aws ec2 describe-instance-types --instance-types "$CTYPE" --query 'InstanceTypes[0].[VCpuInfo.DefaultVCpus,VCpuInfo.DefaultCores,MemoryInfo.SizeInMiB]' --output text 2> /dev/null) || CPU=""
+  CVCPU=$(echo "$CPU" | awk '{print $1}'); CCORES=$(echo "$CPU" | awk '{print $2}'); CMEM=$(echo "$CPU" | awk '{print $3}')
+  [[ $CMEM =~ ^[0-9]+$ ]] || CMEM=
+  [[ $CVCPU =~ ^[1-9][0-9]*$ ]] && [[ $CCORES =~ ^[1-9][0-9]*$ ]] && break
+  echo "no instance type $CTYPE in $REGION"; [ "$YES" = 1 ] && exit 1
+done
+quota_room on-demand "$CVCPU"
+note "$CTYPE: $CVCPU vCPUs, $CCORES cores; $QNOTE"
+[ -z "$QROOM" ] || [ "$QROOM" -ge 1 ] || note "the on-demand quota has no room for $CTYPE: the launch will be refused"
+CDEF=$(fit_slots "$CCORES" "$CMEM" "$([ "$CCORES" -gt 1 ] && echo $((CCORES - 1)) || echo 1)")
+while :; do
+  ask CSLOTS "Coordinator slots (one solver process each)" "$CDEF"
+  [[ $CSLOTS =~ ^[0-9]+$ ]] && [ "$CSLOTS" -ge 1 ] && [ "$CSLOTS" -le "$CCORES" ] && break
+  echo "a whole number from 1 to $CCORES"; [ "$YES" = 1 ] && exit 1
+done
+TOTAL=$((CSLOTS + N * SLOTS))
+while :; do
+  ask HOURS "Time limit in hours (the coordinator shuts down and the group goes to 0 then; a relaunch resumes the run)" 72
   [[ $HOURS =~ ^[1-9][0-9]*$ ]] && break
   echo "whole hours"; [ "$YES" = 1 ] && exit 1
 done
@@ -318,23 +361,22 @@ if [ "$MODE" = new ]; then
   note "status     $VIS"
   [ -n "$EST_ENV" ] && note "estimate   the solve for ${EH} h of its wall time, then $ED s of dives a unit as run $RUN-dives (${EST_ENV}); the solve stays paused"
 fi
-note "instances  $N x $TYPE, $MARKET, $REGION: $SLOTS slots each ($CORES cores$([ -n "$MEM" ] && echo ", $((MEM / 1024)) GiB"))$([ "$MODE" = new ] && echo ", the run sized for $TOTAL slots")"
-[ -n "$PRICE" ] && note "cost       about \$$(python3 -c "print(f'{$PRICE * $N * 24:.0f}')") a day at today's Spot price"
+note "coordinator $CTYPE, on demand, $REGION: $CSLOTS slots ($CCORES cores$([ -n "$CMEM" ] && echo ", $((CMEM / 1024)) GiB"))"
+note "workers    a group of $N x ($WTYPES), $MARKET, every zone of $REGION: $SLOTS slots each ($CORES cores$([ -n "$MEM" ] && echo ", $((MEM / 1024)) GiB"))$([ "$MODE" = new ] && echo "; the run sized for $TOTAL slots")"
+note "           started once the run exists (the root bounded), replaced when Spot reclaims one, 0 when the run ends"
+[ -n "$PRICE" ] && note "cost       workers about \$$(python3 -c "print(f'{$PRICE * $N * 24:.0f}')") a day at today's Spot price, plus the coordinator on demand"
 note "limit      $HOURS hours ($((HOURS * 60)) minutes); disk $DISK GB each"
 [ "$DRY" = 1 ] && note "dry run: launch.sh --dry-run for the first instance; nothing is created"
 echo
 yesno "Launch?" "$([ "$YES" = 1 ] && echo y || echo n)" || { echo "nothing launched"; exit 0; }
 
-# --- the recipe (a new run) and the launches
-COMMON=(--type "$TYPE" --region "$REGION" --limit $((HOURS * 60)) --disk "$DISK" --no-reference)
-NENV=""; [ "$SLOTS" = "$CORES" ] || NENV="QAP_SLOTS=$SLOTS"   # node.sh: the worker's slots on every instance
-[ -n "$EST_ENV" ] && NENV="${NENV:+$NENV }$EST_ENV"           # and an estimate run's flow, on every instance
-# a new run exists only once the first instance's qapctl init has bounded the root (hours for tai60b):
-# the other instances wait for it up to 4 hours instead of node.sh's 30 minutes
-WENV=$NENV; [ "$MODE" = new ] && WENV="${NENV:+$NENV }QAP_RUN_WAIT_MIN=240"
-[ "$MARKET" = on-demand ] && COMMON+=(--on-demand)
+# --- the recipe (a new run) and the launch: the coordinator, and with it the worker group
+COMMON=(--region "$REGION" --limit $((HOURS * 60)) --disk "$DISK" --no-reference)
 [ "$DRY" = 1 ] && COMMON+=(--dry-run)
-FIRST=()
+CENV="QAP_SLOTS=$CSLOTS"; [ -n "$EST_ENV" ] && CENV="$CENV $EST_ENV"   # node.sh: the coordinator's slots; an estimate's flow
+GROUP=(--workers "$N" --worker-types "$WTYPES"); [ "$SLOTS" = "$CORES" ] || GROUP+=(--worker-slots "$SLOTS")
+[ "$MARKET" = on-demand ] && GROUP+=(--workers-on-demand)
+[ -n "$EST_ENV" ] && GROUP+=(--worker-env "$EST_ENV")
 case $MODE in
   new)
     RD=$D/runs/$RUN; [ "$DRY" = 1 ] && RD=$(mktemp -d)   # a dry run leaves no run directory
@@ -346,21 +388,30 @@ case $MODE in
       printf 'INSTANCE=%q\nPARAMS=%q\nOPT=%q\nUB=%q\nEXTRA=%q\nENV=%q\nCOORD=%q\n' "$DAT" "$PL" "$BEST" "$UB" "$EXTRA" "$ENVV" "$COORD"
     } > "$RF"
     echo "recipe: $RF"
-    FIRST=(--recipe-file "$RF" --run-slots "$TOTAL"); [ "$VIS" = private ] && FIRST+=(--private) ;;
-  add) FIRST=(--worker-only) ;;
-  resume) ;;
+    FIRST=(--recipe-file "$RF" --run-slots "$TOTAL"); [ "$VIS" = private ] && FIRST+=(--private)
+    echo "--- the coordinator and the worker group"
+    "$D/launch.sh" "$RUN" "${FIRST[@]}" --type "$CTYPE" --on-demand "${GROUP[@]}" "${COMMON[@]}" --node-env "$CENV" ;;
+  resume)
+    echo "--- the coordinator (resuming $RUN) and the worker group"
+    "$D/launch.sh" "$RUN" --type "$CTYPE" --on-demand "${GROUP[@]}" "${COMMON[@]}" --node-env "$CENV" ;;
+  add)
+    # a coordinator runs it: its worker group grows by N, or (a run from before worker groups) N workers
+    if [ "$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "qap-$RUN" --query 'length(AutoScalingGroups)' --output text 2> /dev/null)" = 1 ]; then
+      read -r GD GM <<< "$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "qap-$RUN" --query 'AutoScalingGroups[0].[DesiredCapacity,MaxSize]' --output text)"
+      echo "--- the worker group qap-$RUN: $GD wanted, $((GD + N)) from now"
+      if [ "$DRY" = 1 ]; then echo "  [dry-run] aws autoscaling update-auto-scaling-group --auto-scaling-group-name qap-$RUN --max-size $((GM > GD + N ? GM : GD + N)) --desired-capacity $((GD + N))"
+      else aws autoscaling update-auto-scaling-group --auto-scaling-group-name "qap-$RUN" --max-size $((GM > GD + N ? GM : GD + N)) --desired-capacity $((GD + N)); fi
+    else
+      WENV=""; [ "$SLOTS" = "$CORES" ] || WENV="QAP_SLOTS=$SLOTS"; [ -n "$EST_ENV" ] && WENV="${WENV:+$WENV }$EST_ENV"
+      W=(--type "$TYPE"); [ "$MARKET" = on-demand ] && W+=(--on-demand)
+      i=1   # not seq: BSD seq counts down from 2 to 1
+      while [ "$i" -le "$N" ]; do
+        echo "--- worker $i of $N"
+        "$D/launch.sh" "$RUN" --worker-only "${W[@]}" "${COMMON[@]}" ${WENV:+--node-env "$WENV"} || echo "worker $i was not launched"
+        i=$((i + 1))
+      done
+    fi ;;
 esac
-echo "--- instance 1 of $N: $([ "$MODE" = add ] && echo worker || echo "coordinator and worker")"
-"$D/launch.sh" "$RUN" ${FIRST[@]+"${FIRST[@]}"} "${COMMON[@]}" ${NENV:+--node-env "$NENV"}
-i=2   # not seq: BSD seq counts down from 2 to 1
-while [ "$i" -le "$N" ]; do
-  if [ "$DRY" = 1 ]; then echo "--- instance $i of $N: launch.sh $RUN --worker-only ${COMMON[*]}${WENV:+ --node-env "$WENV"} (not run in a dry run: it needs the first)"
-  else
-    echo "--- instance $i of $N: worker"
-    "$D/launch.sh" "$RUN" --worker-only "${COMMON[@]}" ${WENV:+--node-env "$WENV"} || echo "instance $i was not launched; add it later: infra/phase1/start.sh $P (run $RUN)"
-  fi
-  i=$((i + 1))
-done
 echo
 echo "Next: infra/phase1/collect.sh $RUN (any time: instances, status, steps). The build and gates take 10-15 minutes;"
 echo "the website lists the run once its coordinator publishes, every 5 minutes after that."

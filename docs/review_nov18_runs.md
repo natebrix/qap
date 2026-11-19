@@ -106,6 +106,12 @@ for hours longer, and resumes add requeues and lost unit attempts that an uninte
 
 Here, the stopped status files looked like a stalled run until the instance state was checked.
 
+**Status, Nov 19: a coordinator on demand and a self-replacing Spot worker group** (agreed with the
+proposal's author in place of all on demand): `infra/phase1/README.md`, Starting a run. A reclaimed
+worker is replaced by the group, the root bound is on the on-demand coordinator and in the root
+cache, and `collect.sh` shows each instance's `StateReason` and the group's activities. For an A/B,
+`--workers-on-demand` puts the group on demand.
+
 ## 4. Collect can come back without the traces, and say so only in passing
 
 **What we saw.**

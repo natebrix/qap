@@ -37,6 +37,11 @@
 # no reference run. The solve stays paused in the store: `qapctl resume RUN` goes on.
 # QAP_ESTIMATE=SOLVE_S:DIVE_S:B:SAMPLE:W: B = kQ for Knuth's dives (bushy trees), SAMPLE the
 # share of the open nodes sampled (default 1), W their weights, unif or qpb (coord/dives.py).
+# QAP_ASG (launch.sh --workers): the run's worker group, an EC2 Auto Scaling group. The
+# coordinating instance raises it to QAP_WORKERS instances once the run exists and sets it to 0
+# when it ends (unless drained for a relaunch); a worker leaves it (terminate, decrementing the
+# group) when its run is over or its build or gates fail, so that the group does not start
+# another; a worker drained by a Spot notice just goes, and the group replaces it.
 #
 # Local test (any Linux; no dnf, no shutdown): QAP_LOCAL=1, QAP_BACKEND pointing
 # at a moto server (aws:B?region=eu-north-1&endpoint=http://127.0.0.1:PORT),
@@ -65,6 +70,9 @@ if [ -n "$EST" ]; then
   [ -n "$EST_SOLVE" ] && [ -n "$EST_DIVE" ] || { echo "QAP_ESTIMATE must be SOLVE_S:DIVE_S[:B]"; exit 2; }
   REFERENCE=0
 fi
+ASG=${QAP_ASG:-}
+WORKERS=${QAP_WORKERS:-}
+LEAVE=0   # a worker: leave the group at the end (its run is over, or this instance cannot work)
 IMDS=${QAP_IMDS:-}
 [ "$LOCAL" = 1 ] || IMDS=${IMDS:-http://169.254.169.254}
 PY=python3
@@ -89,11 +97,27 @@ up() {   # out/ to the store; never fatal
   fi
 }
 step() { echo "$(date -u +%FT%TZ) $*" | tee -a "$OUT/steps.txt"; up; }
+group() {   # group N: the worker group's desired size (the coordinating instance); never fatal
+  [ -n "$ASG" ] || return 0
+  aws autoscaling update-auto-scaling-group --auto-scaling-group-name "$ASG" --min-size 0 --desired-capacity "$1" \
+    > "$OUT/group.log" 2>&1 && echo "$(date -u +%FT%TZ) worker group $ASG: $1 instances" >> "$OUT/steps.txt" \
+    || echo "$(date -u +%FT%TZ) worker group $ASG: setting $1 failed ($(tail -1 "$OUT/group.log"))" >> "$OUT/steps.txt"
+}
 finish() {
   echo "$(date -u +%FT%TZ) end ($1)" >> "$OUT/steps.txt"
   touch "$OUT/finished"
   for f in worker coordinator; do [ -f "$OUT/$f.pid" ] && kill -TERM "$(cat "$OUT/$f.pid")" 2> /dev/null; done
   kill $(jobs -p) 2> /dev/null
+  # the worker group: the coordinating instance ends it (a drained one leaves it for its relaunch);
+  # a worker leaves it when told to, so the group starts no other in its place
+  if [ -n "$ASG" ] && [ ! -f "$OUT/draining" ]; then
+    if [ "$ROLE" = all ]; then group 0
+    elif [ "$LEAVE" = 1 ]; then
+      aws autoscaling terminate-instance-in-auto-scaling-group --instance-id "$HOST" --should-decrement-desired-capacity \
+        > "$OUT/group.log" 2>&1 && echo "$(date -u +%FT%TZ) left the worker group $ASG" >> "$OUT/steps.txt" \
+        || echo "$(date -u +%FT%TZ) leaving the worker group $ASG failed ($(tail -1 "$OUT/group.log"))" >> "$OUT/steps.txt"
+    fi
+  fi
   up
   [ "$LOCAL" = 1 ] || shutdown -h now
 }
@@ -135,11 +159,16 @@ $PY -c "import boto3" 2> /dev/null && HAVE_BK=1
   $PY -c "import boto3; print('boto3', boto3.__version__)" 2> /dev/null || echo "no boto3"; } > "$OUT/toolchain.txt" 2>&1
 step "toolchain: $(tr '\n' ' ' < "$OUT/toolchain.txt")"
 [ "$HAVE_BK" = 1 ] || { step "no boto3 for $PY"; exit 1; }
+# a worker of a group started for a run that is over (the coordinator's 0 not seen yet): no build
+if [ "$ROLE" = worker ] && [ -n "$ASG" ]; then
+  case $(bk status "$RUN" 2> /dev/null) in finished|stopped) LEAVE=1; step "run $RUN is over: leaving the worker group"; exit 0 ;; esac
+  [ -n "$EST" ] && [ "$(bk status "$RUN-dives" 2> /dev/null)" = finished ] && { LEAVE=1; step "run $RUN's estimate is finished: leaving the worker group"; exit 0; }
+fi
 # from here on out/ also goes up every 5 minutes, whatever the main line is doing
 ( while [ ! -f "$OUT/finished" ]; do sleep 300; up > /dev/null; done ) &
 
 # --- the build and the gates (a failed gate stops the node: no units on a build that fails them)
-if ! make solver PYTHON=$PY > "$OUT/build.log" 2>&1; then step "build FAILED (out/build.log)"; exit 1; fi
+if ! make solver PYTHON=$PY > "$OUT/build.log" 2>&1; then LEAVE=1; step "build FAILED (out/build.log)"; exit 1; fi
 ldd latest/bnbdrv | grep -iE 'blas|lapack' > "$OUT/blas.txt"
 step "build ok: ${QAP_COMMIT:-$(git -C "$R" rev-parse --short HEAD 2> /dev/null)} $(tr '\n' ' ' < "$OUT/blas.txt")"
 : > "$OUT/gates.txt"
@@ -161,7 +190,7 @@ for g in $GATES; do
   echo "$g $r $(( $(date +%s) - t0 ))s" >> "$OUT/gates.txt"
 done
 step "gates: $(tr '\n' ' ' < "$OUT/gates.txt")"
-grep -q -E 'FAIL|TIMEOUT' "$OUT/gates.txt" && { step "a gate failed: stopping (out/gate_*.log)"; exit 1; }
+grep -q -E 'FAIL|TIMEOUT' "$OUT/gates.txt" && { LEAVE=1; step "a gate failed: stopping (out/gate_*.log)"; exit 1; }
 
 # --- the Spot watcher: an interruption notice drains the worker (2 minutes' warning)
 spot_watch() {
@@ -235,12 +264,14 @@ if [ "$ROLE" = worker ]; then
   # QAP_RUN_WAIT_MIN=240 (default 30)
   WAIT_MIN=${QAP_RUN_WAIT_MIN:-30}
   for i in $(seq $((WAIT_MIN * 2))); do [ "$ST" != none ] && break; sleep 30; ST=$(bk status "$RUN"); done
-  [ "$ST" = none ] && { step "no run $RUN after $WAIT_MIN minutes: stopping"; exit 1; }
-  [ "$ST" = finished ] && { step "run $RUN is finished: nothing to do"; exit 0; }
-  run_done && { step "run $RUN's estimate is finished: nothing to do"; exit 0; }
+  [ "$ST" = none ] && { LEAVE=1; step "no run $RUN after $WAIT_MIN minutes: stopping"; exit 1; }
+  [ "$ST" = finished ] && { LEAVE=1; step "run $RUN is finished: nothing to do"; exit 0; }
+  run_done && { LEAVE=1; step "run $RUN's estimate is finished: nothing to do"; exit 0; }
   step "worker: $SLOTS slots on run $RUN ($ST)$([ -n "$EST" ] && echo ", following it to $RUN-dives")"
   worker_loop; rc=$?
   step "worker: $([ $rc = 0 ] && echo "run $RUN finished" || echo stopped) ($(grep -c ' -> ' "$OUT/worker.log" 2> /dev/null) units)"
+  # a group's worker leaves it unless drained (a Spot notice: the group replaces it)
+  LEAVE=1
   exit 0
 fi
 
@@ -271,6 +302,7 @@ else
   bk get "runs/$RUN/recipe.sh" "$OUT/recipe.sh" || : > "$OUT/recipe.sh"
   step "run $RUN exists ($ST): resuming"
 fi
+[ -n "$WORKERS" ] && group "$WORKERS"   # the worker group, now that the run exists
 coord_loop & CL=$!
 step "coordinator and worker ($SLOTS slots) running"
 worker_loop; WR=$?

@@ -31,6 +31,15 @@ shared two queues, and another run's large units kept a run's small ones unread
 are gone, gets them when its coordinator starts, which sends its queued units to
 them (`ensure_queues`; a unit sent twice is harmless).
 
+The root cache: `init` stores its frontier pass (the state file, the parent states it names, its
+traces and report) under `runs/.cache/frontier/KEY/`, KEY a hash of the solver binary, the CPU's
+model name, the data file, the files the flags name, the flags, the incumbent, the frontier depth,
+the traces and `bnbdrv --print-settings` (the run class aside, as in the settings hash). A later
+`init` with the same KEY reads it back instead of running the frontier pass: the root bound is paid
+once per problem and settings (72 minutes for tai50b, hours for tai60b). `QAP_ROOT_CACHE=off`
+runs it regardless. `tests/coord_test.py rootcache`: nug18 with the DNN and `--frontier-depth 1`,
+the second run from the cache, both runs equal to the serial run, DNN iterations by level included.
+
 ## How a run works
 
 - **Units.** A unit is a state file holding some open nodes (consecutive in

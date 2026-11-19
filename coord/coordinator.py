@@ -478,6 +478,72 @@ def drop_queues(b, run_id):
         b.update_run(run_id, {"queues": None})
 
 
+def cache_key(key, name=""):
+    """the root cache's prefix: under runs/, which every role may read and write, as .cache (a run
+    name has no dot)"""
+    return f"runs/.cache/frontier/{key}" + (f"/{name}" if name else "")
+
+
+def frontier_key(solver, sdir, instance, params, flags, env, ub, depth, trace):
+    """what a frontier pass's output depends on: the solver binary, the CPU (OpenBLAS picks its kernels
+    by it, and the rounding with them), the data, the files the flags name (a symmetry file), the
+    flags, the incumbent, the depth, the traces, and the solver's resolved settings under the params
+    file and the environment (bnbdrv --print-settings: every setting but the run class, with where
+    it came from)"""
+    import hashlib
+    import subprocess
+    h = hashlib.sha256()
+
+    def file(path):
+        with open(path, "rb") as f:
+            h.update(hashlib.sha256(f.read()).digest())
+    file(solver)
+    file(os.path.abspath(instance))
+    for tok in flags:
+        p = tok if os.path.isabs(tok) else os.path.join(sdir, tok)
+        if os.path.isfile(p):
+            file(p)
+    cpu = ""
+    try:
+        with open("/proc/cpuinfo") as f:
+            cpu = next((l.split(":", 1)[1].strip() for l in f if l.startswith("model name")), "")
+    except OSError:
+        pass
+    r = subprocess.run([solver, "--print-settings", "-p", params] + flags, cwd=sdir, capture_output=True, text=True, env=env)
+    # the run class (paths, traces, the estimator's) does not change the tree, as for the settings hash
+    settings = [l for l in r.stdout.splitlines() if l.startswith("settings ") or
+                (l.startswith("setting ") and not l.endswith(" run") and not l.startswith("setting par.file "))]
+    h.update(json.dumps([cpu, flags, repr(ub), depth, trace, settings]).encode())
+    return h.hexdigest()[:32]
+
+
+def frontier_to_cache(b, key, tmp, traces, stdout):
+    """the frontier pass's state file, the parent states it names, its traces and its report"""
+    frontier = os.path.join(tmp, "frontier.state")
+    for name in warm.refs_in(frontier):
+        b.put_file(cache_key(key, f"warm/{name}"), os.path.join(tmp, "warm", name))
+    for name in traces:
+        if os.path.exists(os.path.join(tmp, name)):
+            b.put_file(cache_key(key, name), os.path.join(tmp, name))
+    b.put_bytes(cache_key(key, "stdout.txt"), stdout.encode())
+    b.put_file(cache_key(key, "frontier.state"), frontier)   # last: its presence says the rest is there
+
+
+def frontier_from_cache(b, key, tmp, traces):
+    """True when the cache had it: tmp then holds what the frontier pass would have written"""
+    frontier = os.path.join(tmp, "frontier.state")
+    if not b.get_file(cache_key(key, "frontier.state"), frontier):
+        return False
+    os.makedirs(os.path.join(tmp, "warm"), exist_ok=True)
+    for name in warm.refs_in(frontier):
+        if not b.get_file(cache_key(key, f"warm/{name}"), os.path.join(tmp, "warm", name)):
+            os.remove(frontier)
+            return False
+    for name in traces:
+        b.get_file(cache_key(key, name), os.path.join(tmp, name))
+    return True
+
+
 def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, frontier_depth=0, log=print,
              visibility="public"):
     """the frontier pass, run here (as bench/parallel.py does): the root, or the
@@ -498,10 +564,25 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     for var, name in traces.items():
         e[var] = os.path.join(tmp, name)   # the frontier's nodes are in no unit's trace
     e["QAP_DNN_WARM_DIR"] = os.path.join(tmp, "warm")   # the frontier's parents, once each (coord/warm.py)
-    r = subprocess.run(cmd, cwd=sdir, capture_output=True, text=True, env=e)
-    if r.returncode != 0:
-        raise SystemExit(f"frontier pass failed (rc={r.returncode}):\n{r.stdout[-2000:]}{r.stderr}")
-    log(r.stdout.split("  ---- RESULTS ----")[0].rstrip())
+    # the root cache: a frontier pass already made on this solver, CPU, data, flags, settings and
+    # incumbent is read back instead of being run again (tai50b's root: 72 minutes, tai60b's: hours;
+    # a relaunch after an interruption during init, or another estimate of the same problem)
+    key = None if os.environ.get("QAP_ROOT_CACHE", "on") == "off" else \
+        frontier_key(solver, sdir, instance, params, flags, e, ub, frontier_depth, bool(traces))
+    if key and frontier_from_cache(backend, key, tmp, list(traces.values())):
+        stdout = (backend.get_bytes(cache_key(key, "stdout.txt")) or b"").decode()
+        log(f"coordinator: the frontier pass from the root cache ({cache_key(key)}), not run again")
+    else:
+        r = subprocess.run(cmd, cwd=sdir, capture_output=True, text=True, env=e)
+        if r.returncode != 0:
+            raise SystemExit(f"frontier pass failed (rc={r.returncode}):\n{r.stdout[-2000:]}{r.stderr}")
+        stdout = r.stdout
+        if key:
+            try:
+                frontier_to_cache(backend, key, tmp, list(traces.values()), stdout)
+            except Exception as ex:      # the cache must never stop a run
+                log(f"coordinator: writing the root cache failed: {ex!r}")
+    log(stdout.split("  ---- RESULTS ----")[0].rstrip())
     for name in traces.values():
         if os.path.exists(os.path.join(tmp, name)):
             backend.put_file(run_key(run_id, "frontier", name), os.path.join(tmp, name))

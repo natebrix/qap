@@ -75,6 +75,45 @@ set of settings is exact); `compare.py` checks the tree, not iterations.
 
 ## Starting a run (`start.sh`, Nov 16)
 
+**Since Nov 19 a run is a coordinator and a worker group** (`docs/review_nov18_runs.md`, item 3):
+
+- **The coordinator is on demand,** a small instance of the workers' CPU (`c7a.2xlarge`). It
+  bounds the root, merges and runs a few units. It is never reclaimed, so a run is never lost with
+  its root (tai50b-est lost 13 minutes of a 72-minute root to Spot on Nov 18; tai60b's takes hours).
+- **The workers are an EC2 Auto Scaling group,** `qap-RUN` (`launch.sh --workers N`): Spot from
+  the cheapest pools with capacity over the three types and every zone of the region.
+  - It is created at 0 instances; the coordinator raises it to N once the run exists, so no worker
+    waits through the root.
+  - A reclaimed worker drains on its 2-minute notice and the group starts another in its place;
+    `collect.sh` shows the group, its last activities and the interruptions it answered.
+  - A worker whose run is over, or whose build or gates fail, leaves the group (terminating itself
+    and decrementing it), so the group does not start another.
+  - The coordinator sets the group to 0 when the run ends, and a scheduled action does so at the
+    time limit whatever happens.
+  - No capacity rebalancing: it would terminate a worker without the notice the worker drains on.
+- **The root cache** (`coord/coordinator.py`, `frontier_key`): a frontier pass is stored under
+  `runs/.cache/frontier/KEY/` and read back by any later init with the same solver binary, CPU,
+  data, flag files, flags, incumbent, depth, traces and resolved settings (the run class aside). A
+  relaunch after an interruption during init, or another estimate of the same problem, skips the
+  root. `QAP_ROOT_CACHE=off` runs it regardless.
+- `cleanup.sh RUN` deletes the group and its launch template before terminating the instances (or
+  the group would replace them). A run started before Nov 19 has no group: adding instances to it
+  launches `--worker-only` instances as before.
+- The instance role may change and leave `qap-*` groups (`autoscaling:UpdateAutoScalingGroup`,
+  `SetDesiredCapacity`, `TerminateInstanceInAutoScalingGroup`) and create and delete `qap-units-*`
+  queues. The first launch after Nov 19 comes from the laptop, which rewrites the role's policy. The
+  GitHub workflow's role can stop and collect such runs once `gha_setup.sh` is run again; it cannot
+  create a group, so its launch stays one instance at a time.
+- **Tested here** (Nov 19), as the earlier launches were, against a stand-in for the AWS CLI that
+  logs every call and keeps the groups' state, and moto: `start.sh --dry-run --yes` (the launch
+  template and group shown in full), `launch.sh` creating and then updating a group, and `node.sh`
+  in its local mode with a coordinating node and a group worker on nug17 (the group raised to 2
+  after init, set to 0 at the end; the worker left it after 17 units; check PASS), a worker that
+  booted after its run was over (it left before building), and a worker drained by a Spot notice
+  (it did not leave, so the group would replace it; the run finished on the coordinator). Not
+  tested: the real Auto Scaling API, its IAM, and a real Spot replacement. The first launch tests
+  them; `collect.sh` shows the group's activities.
+
 One command on the laptop starts a run of a QAPLIB problem:
 
 ```
@@ -93,10 +132,12 @@ launching:
 | run name | `PROBLEM-YYMMDD`, the UTC date: `tho40-261117` |
 | params file | the one `recipes/defaults.txt` names for the problem, its next run's settings (tho40: `recipes/tho40c.par`; tai50b: `recipes/tai50b.par`), else `recipes/PROBLEM.par`, else the estimate's, `experiments/estimates/PROBLEM/PROBLEM.par` (wil50: `experiments/wil50_feasibility/fullrun/fullrun.par`); it must be committed |
 | incumbent | the best known (`QAPSOLN/PROBLEM.sln`) + the step of the objective's grid: + 2 where every value is even, else + 1 (`objstep.py`); `none` for no incumbent |
-| instance type, market | `c7a.16xlarge`, or the problem's `type=` in `recipes/defaults.txt` (tai60b: `m7a.16xlarge`); Spot |
-| slots per instance | the type's cores, or as many as its memory holds at the problem's `mem=` GiB a solver process, less 4 GiB (tai60b: 3 GiB, so 64 on an m7a.16xlarge's 256 GiB, 41 on a c7a.16xlarge's 128); `slots=` fixes it. Passed as `QAP_SLOTS` to every instance, and the run is sized by it |
-| instances | 1 (it shows how many the quota has room for) |
-| time limit | 72 hours |
+| worker type, market | `c7a.16xlarge`, or the problem's `type=` in `recipes/defaults.txt` (tai60b: `m7a.16xlarge`); Spot |
+| worker group's types | the worker type and its siblings on the same CPU (AMD EPYC 9R14): `c7a.16xlarge,m7a.16xlarge,r7a.16xlarge` |
+| worker instances | 1 (it shows how many the quota has room for) |
+| slots per worker | the type's cores, or as many as its memory holds at the problem's `mem=` GiB a solver process, less 4 GiB (tai60b: 3 GiB, so 64 on an m7a.16xlarge's 256 GiB, 41 on a c7a.16xlarge's 128); `slots=` fixes it. Sized by the first type, which has the least memory of the three |
+| coordinator | `c7a.2xlarge` on demand (8 cores, 16 GiB): its cores but one run units, by the same memory rule |
+| time limit | 72 hours: the coordinator shuts down, and the group goes to 0 |
 | on request | the data file and solver flags (`qaplib/PROBLEMt.dat` and `-s SYM/PROBLEMt.sym` where the grid's symmetry file exists, else `qaplib/PROBLEM.dat`), the disk (100 GB), the unit sizing (tho40-b's 20-minute units, `--trace`), public or private status |
 
 Then it writes the run's recipe to `runs/RUN/recipe.sh` and calls `launch.sh` once per
