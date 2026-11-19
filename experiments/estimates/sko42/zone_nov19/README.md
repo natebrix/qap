@@ -86,3 +86,13 @@ et al. needed 6.0 million nodes.
   penalty `wc=1.4` (0.7 before), 1.21x and 1.34x fewer iterations on two sko49 subtrees. The next sko42 run
   (`infra/phase1/specs/sko42.spec`) runs it; paired with z25, which differs from it in the block only, it
   measures the block on a whole tree, in DNN iterations (z25's DNN trace is in its export, not in git).
+- **A check on sko42 before the run [m].** Two of the subtrees both arms closed, solved cold from `-F` on the
+  cloud box under `sko42_z25.par` and under `sko42.par` with the block, side by side on one 4-core machine, incumbent
+  15,814. The same trees node for node, both to the end, no new objective:
+
+  | subtree | nodes (B / D / C) | iterations z25 / block | CPU s z25 / block |
+  |---|---|---|---|
+  | `36:9,15:0,22:6` | 116 (3 / 110 / 3) | 15,135 / 9,880 (**1.53x**) | 1,455 / 975 (1.49x) |
+  | `36:16,21:0,22:2` | 40 (1 / 34 / 5) | 6,263 / 5,446 (**1.15x**) | 769 / 595 (1.29x) |
+
+  The bound lab's 1.21x and 1.34x on sko49 bracket these.
