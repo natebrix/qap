@@ -162,7 +162,7 @@ production's depth-7 outcomes) and the r31 arms (cold `r31`, strong `sr31`) were
   are committed. With 3,000 kicks the signal now puts r31 at 6 survivors (x <= 1) plus two at 1.02
   and 1.10 [m `out/effort_all.tsv`], worse than c47. The landscape README's 1 to 5 came from 30 or
   100 kicks.
-- **Every depth-7 child's outcome under the cold parent** (`runs/kids`): stopped part-way for the depth-9 run, partial (all D).
+- **Every depth-7 child's outcome under the cold parent** (`runs/kids`): stopped part-way for the depth-9 run: 31 of 54 bounded, 30 D and 10:29 B (production: 10:29 B too, among its 3 B and 51 D).
   Production's depth-7 children are 3 B and 51 D.
 - **Bit-reproducibility of the arms**: not rechecked here. cognac's tai60b_lines found restarts
   reproduce bounds to the last digit printed.
