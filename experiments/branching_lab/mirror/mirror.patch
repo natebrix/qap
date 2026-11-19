@@ -75,7 +75,7 @@ index d62cae56..e8ce9b90 100644
  	int line;
 --- /dev/null	2026-11-18 23:20:57.323289529 +0000
 +++ b/latest/mirror_hook.h
-@@ -0,0 +1,184 @@
+@@ -0,0 +1,187 @@
 +// mirror_hook.h: EXPERIMENT ONLY (experiments/branching_lab/mirror). Not a production change.
 +//
 +// QAP_MIRROR="i,k,mu[,a,b];..." : at a node where rows i and k are both fixed (and, with a,b given,
@@ -210,7 +210,8 @@ index d62cae56..e8ce9b90 100644
 +// QAP_MIRROR_AUTO="F[:CAP[:THR[:K]]]" (EXPERIMENT ONLY): at a DNN node with a warm start that carries Y (the parent's
 +// final Y conditioned on the node's new fix), for every pair of fixed rows compute Delta_ik at the warm start's
 +// marginals; the K pairs (default 1) with the largest values above THR (default 0) get
-+//   mu = min(CAP, F * gap / Delta(x_warm)) / K,  gap = cutoff - node.bound (the bound the node starts with),
++//   mu = F * gap / Delta(x_warm) / K,  gap = cutoff - node.bound (the bound the node starts with); a pair whose
++//   F * gap / Delta(x_warm) is above CAP (default 64) is skipped (its Delta is too small for a moderate mu to close the gap);
 +// rounded down to a multiple of 1/64 (so every coefficient stays exact). Applied after QPB, before the first DNN solve.
 +static bool mirror_auto_params(double &F, double &CAP, double &THR, int &K) {
 +  static double f = 0, cap = 64, thr = 0; static int k = 1; static int done = 0;
@@ -248,7 +249,9 @@ index d62cae56..e8ce9b90 100644
 +  const int kk = cand.size();
 +  for (auto &cd : cand) {
 +    MirrorApplied ap = cd.second;
-+    double mu = std::min(CAP, F * gap / cd.first) / kk;
++    double mu = F * gap / cd.first;
++    if (mu > CAP) { fprintf(stderr, "mirror-auto: depth %d pair %d,%d Delta(x warm) %.1f gap %.1f: mu %.4g above CAP, skipped\n", node.depth, ap.pr.i, ap.pr.k, cd.first, gap, mu); continue; }
++    mu /= kk;
 +    mu = floor(mu * 64) / 64;
 +    fprintf(stderr, "mirror-auto: depth %d pair %d,%d (at %d,%d) Delta(x warm) %.1f gap %.1f mu %.6g\n", node.depth, ap.pr.i, ap.pr.k, ap.pr.a, ap.pr.b, cd.first, gap, mu);
 +    if (mu <= 0) continue;

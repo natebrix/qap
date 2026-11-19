@@ -7,10 +7,10 @@ bash slices.sh tai35b6 tho40 tai60b17 > logs/slices.log 2>&1
 python3 run_valid.py logs/valid_opt1.jsonl opt1 900 $(cat instances_opt1_rest.txt) > logs/valid_opt1_part2.log 2>&1
 python3 run_valid.py logs/valid_poor.jsonl poor 600 $(cat instances_poor.txt) > logs/valid_poor.log 2>&1
 python3 xcheck_drops.py logs/xcheck_drops.txt poor tai10b car10pa chr12c had14 tai12b scr12 >> logs/xcheck_drops.log 2>&1
-bash slices.sh tai60b14 tai35b >> logs/slices.log 2>&1
 python3 keyon_mech.py > logs/keyon_mech.log 2>&1
 cd /home/user/wt-dombuild
 for t in test nodetrace dnncheck continuationcheck shipcheck; do
   ( time make $t ) > $D/logs/repo_checks_$t.log 2>&1; echo "make $t: exit $?" >> $D/logs/repo_checks.log
 done
+cd $D; bash slices.sh tai35b tai60b14 >> logs/slices.log 2>&1
 echo QUEUE3 DONE >> $D/logs/repo_checks.log

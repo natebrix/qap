@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "dominance"))
 from dom import Inst
 WT = "/home/user/wt-dombuild"
 SCR = "/tmp/claude-0/-home-user/92b66c47-7a9f-5ca5-8a65-57e14ac5b075/scratchpad"
-BF_MAX = 8
+BF_MAX = int(os.environ.get("BF_MAX", "8"))
 sys.path.insert(0, HERE)
 from run_valid import ref_opt
 

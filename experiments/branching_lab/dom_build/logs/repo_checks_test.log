@@ -1,0 +1,82 @@
+make -C latest
+make[1]: Entering directory '/home/user/wt-dombuild/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dominance.o dnn.o dnncut.o amx_gemm.o driver.o -o bnbdrv -lm -L/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib/python3.13/dist-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/home/user/wt-dombuild/latest'
+python3 tests/brute_force.py
+168 instances x 9 params x 3 upper-bound modes = 4536 solver runs (seed 1, files in /tmp/qap-bf-0gamdqji)
+
+4536/4536 passed
+python3 tests/resume_test.py
+ok   nug15: 10 slices, nodes 1639 / 1060 / 0, objective 1150
+ok   had14: 4 slices, nodes 352 / 202 / 0, objective 2724
+ok   tai12b: 8 slices, nodes 1879 / 1097 / 25, objective 39464925
+ok   chr12a: 3 slices, nodes 1108 / 686 / 2, objective 9552
+ok   nug14: 17 slices, nodes 4912 / 3207 / 56, objective 1014
+
+5/5 resume cases identical
+python3 tests/parallel_test.py
+ok   nug15 --ub opt: serial 1639 / 1060 / 0, fw 263882; parallel 1639 / 1060 / 0, fw 263882
+ok   tai12b --ub opt: serial 1879 / 1097 / 25, fw 297844; parallel 1879 / 1097 / 25, fw 297844
+ok   had14 --ub opt: serial 352 / 202 / 0, fw 72799; parallel 352 / 202 / 0, fw 72799
+ok   nug14 no upper bound: found 1014.0, optimum 1014
+ok   tai12b no upper bound: found 39464925.0, optimum 39464925
+ok   nug16a interrupted and resumed: serial 8502 / 6020 / 0, fw 950015; resumed 8502 / 6020 / 0, fw 950015
+ok   nug16a -x 2:4:1:0:1 --ub opt: serial 178 / 161 / 0, DNN ('143', '143'); parallel 178 / 161 / 0, DNN ('143', '143'); per-level DNN and cause tables equal
+
+all parallel checks passed
+python3 tests/coord_test.py
+serial: nodes (41443, 30703, 0), fw 2976622
+normal     ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (13 s)  units 68, retried 0 (0 from a checkpoint), returned 38
+kill9      ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (15 s)  units 70, retried 2 (0 from a checkpoint), returned 36
+kill9ckpt  ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (13 s)  units 17, retried 3 (3 from a checkpoint), returned 0
+coordkill  ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (11 s)  units 83, retried 0 (0 from a checkpoint), returned 40
+crash_marked ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (11 s)  units 65, retried 0 (0 from a checkpoint), returned 35
+crash_applied ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (11 s)  units 72, retried 0 (0 from a checkpoint), returned 39
+crash_saving ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (11 s)  units 63, retried 0 (0 from a checkpoint), returned 37
+drain      ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (14 s)  units 73, retried 0 (0 from a checkpoint), returned 42
+noub       ok  nodes (102053, 76214, 516) fw 4912230 best 1732.0  (21 s)  units 86, retried 0 (0 from a checkpoint), returned 58
+fixes      ok  nodes (1201, 831, 0) fw 162305 best 1732.0  (11 s)  units 7, retried 0 (0 from a checkpoint), returned 1
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import boto3, moto
+ModuleNotFoundError: No module named 'boto3'
+aws: skipped (Command '['/usr/local/bin/python3', '-c', 'import boto3, moto']' returned non-zero exit status 1.)
+tworuns    ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (21 s)  units 135, retried 0 (0 from a checkpoint), returned 76
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import boto3, moto
+ModuleNotFoundError: No module named 'boto3'
+aws: skipped (Command '['/usr/local/bin/python3', '-c', 'import boto3, moto']' returned non-zero exit status 1.)
+stopped    ok  nodes (41443, 30703, 0) fw 2976622 best 1732.0  (21 s)  units 60, retried 0 (0 from a checkpoint), returned 0
+rootcache  ok  nodes (70, 66, 0) fw 15074 best 1930.0  (42 s)  units 51, retried 0 (0 from a checkpoint), returned 0
+all coordinator scenarios passed
+python3 tests/settings_doc.py
+settings table: RUNNING.md agrees with bnbdrv --settings-table
+python3 bench/bench.py check
+     nug12: ok       nodes=       241  time=    0.149s  wall=0.15s
+     nug14: ok       nodes=      2002  time=    1.441s  wall=1.48s
+     nug15: ok       nodes=      1639  time=    0.978s  wall=1.00s
+    nug16b: ok       nodes=      2894  time=    1.460s  wall=1.48s
+     had12: ok       nodes=       109  time=    0.095s  wall=0.10s
+     had14: ok       nodes=       352  time=    0.259s  wall=0.28s
+     had16: ok       nodes=      3177  time=    2.556s  wall=2.57s
+
+wrote bench/results/check-20261119-221558/  (7 instances, 0 not ok)
+
+regression check passed: 7 instances match bench/reference/ (tolerance 0.0%)
+python3 tests/estimate_test.py
+nug15: 4,077 nodes, 0.61 CPU s
+FAIL QAP_EST_CHILD_QPB=0: 1200 dives, nodes 1.031, CPU 1.186 of the run's
+ok   QAP_EST_CHILD_QPB=1: 1200 dives, nodes 1.031, CPU 1.085 of the run's
+ok   -e -r: step 1 bounds the state's 6 depth-1 nodes as a plain resume does (6 of 6 lines identical)
+ok   QAP_EST_SURV=0: dives from the depth-2 frontier, 3 seeds: 0.998, 0.966, 0.980 of the nodes, mean 0.981
+ok   QAP_EST_SURV=0.4: dives from the depth-2 frontier, 3 seeds: 0.988, 0.985, 0.996 of the nodes, mean 0.990
+ok   QAP_EST_SURV=k1.5: dives from the depth-2 frontier, 3 seeds: 0.914, 1.029, 0.934 of the nodes, mean 0.959
+ok   QAP_EST_SURV=k1.5 QAP_EST_SAMPLE=0.3 (qpb): dives from the depth-2 frontier, 3 seeds: 1.003, 0.940, 1.082 of the nodes, mean 1.009
+ok   spill: Knuth's dives from a saved nug24 frontier (nug30 recipe): nodes 179.7 in memory, 179.7 spilled (6 strata), 179.7 cold; the first child's CPU 0.13 s, 0.15 s, 0.42 s (x3.2 cold); spill files removed
+estimator: 1 checks failed
+make: *** [Makefile:50: estimate] Error 1
+
+real	7m59.817s
+user	9m28.651s
+sys	0m12.155s
