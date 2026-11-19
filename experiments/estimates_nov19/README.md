@@ -166,5 +166,25 @@ converge and survivor dives bound every child.
 First runs: nug24 under the nug30 recipe (249 nodes, 65 CPU s), one stratum (the root), 60 s of dives,
 two seeds an arm: by QPB 97 and 146 nodes (25-28 dives), by a 30-iteration probe 195 and 205 (9-11
 dives), both noisy at this budget; the tree is four levels deep, too shallow to show what the probe is
-for. tai35b (1,017 nodes, about 7,000 CPU s, to depth 28): below.
+for.
+
+**tai35b: the probe finds the branching children one level down and no further.** tai35b's tree
+(`experiments/line_signals/runs/tai35b_base*`: 1,017 nodes on two runs, 6,931 and 7,390 CPU s, to
+depth 28) under its recipe (`experiments/line_signals/tai/tai35b.par`, a cut phase at every
+unfathomed node), Knuth's dives `k1.5` from the root, an hour of dives after the root's bound (611 CPU
+s), two seeds an arm, on this 4-core box:
+
+| | dives | nodes / truth | CPU / truth | the dive went on past depth 1 | past depth 2 |
+|---|---|---|---|---|---|
+| by QPB | 116, 131 | 0.16, 0.15 (se 0.03) | 0.25, 0.23 | 28 of 247 (11%) | 0 of 28 |
+| by a 30-iteration probe | 22, 28 | 0.16, 0.14 (se 0.08, 0.07) | 0.43, 0.28 | 20 of 50 (40%) | 1 of 20 |
+
+The probe cost 58 CPU s on the root's 35 children (1.7 s a child at m = 34, with the pool; a depth-1
+node's full bound averages 25 s). It draws the 3 depth-1 nodes that branch four times as often as QPB
+does, but at depth 2 it picks the one child in 34 that branches no better than chance, and both arms
+see 2 of the tree's 382 nodes at depths 3-5 or none, after an estimator spend of about 60% of the
+whole tree's CPU. The likely reason is the recipe's cut phase: the probe measures the uncut shortfall,
+and here the cut phase decides which children fathom. So `QAP_EST_CHILD_DNN` stays in, off by
+default, as a negative result on a chain tree with cuts; the decision point above is what keeps such
+an estimate from costing more than the solve.
 
