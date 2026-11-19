@@ -66,3 +66,4 @@ Share of the variance between parents (a parent fixed effect), the ceiling of an
 | parent's shortfall | 0.16 / 0.00 | -0.05 / 0.00 | -0.09 / 0.00 | 0.94 / 0.00 | 0.93 / 0.00 | 0.94 / 0.00 | 0.31 / 0.00 |
 | child's QPB shortfall | 0.03 / 0.02 | 0.31 / -0.30 | 0.33 / -0.20 | 0.27 / -4.22 | - | - | 0.02 / -20.52 |
 | structure: sums, nnz, clusters, GL, fixed interaction | 0.13 / 0.18 | 0.53 / 0.27 | 0.51 / 0.22 | 0.17 / -0.25 | 0.05 / -0.23 | 0.19 / -0.62 | 0.02 / -4.98 |
+| agrees with the best known | 0.03 / 0.07 | 0.01 / 0.02 | 0.02 / 0.02 | -0.00 / 0.00 | -0.00 / -0.00 | - | -0.10 / -0.09 |

@@ -3,7 +3,7 @@
 signal, s = cutoff - the node's own bound (after its cut phase: what the node knows when it branches):
   cnt   children with exK <= s (predicted survivors)
   cnt0  the same with ex0 (descents only)
-  mod   sum over children of P(x) exp(b x), x = exK / s (out/model.json): a predicted cost, relative
+  mod   sum over children of P(x) max(x, 0.05)^c, x = exK / s (out/model.json, lsq.model_cost): a predicted cost, relative
 For the line production took: predicted survivors against realised (the trace's B children), its rank among all
 free lines by cnt and by mod; the line the signal would take (least mod, ties by cnt), its cnt, and the model's
 ratio mod(taken) / mod(signal's line). Writes out/chain_RUNS.md."""
@@ -16,22 +16,22 @@ for run in sys.argv[1:]:
     d = pd.read_csv(f'{lsq.H}/chain/{run}.tsv', sep='\t', dtype={'node': str, 'child': str, 'out': str, 'taken': str, 'line': str})
     out.append(f'## {run}\n')
     out.append('| depth | node (last fix) | s | taken | taken: predicted / realised survivors | taken: rank by cnt, by mod (of lines) | '
-               'signal\'s line: cnt | mod(taken) / mod(signal) | lines with cnt <= taken\'s |')
-    out.append('|---|---|---|---|---|---|---|---|---|')
+               'signal\'s line (least mod): cnt | mod(taken) / mod(signal) | least cnt: line, cnt | lines with cnt <= taken\'s |')
+    out.append('|---|---|---|---|---|---|---|---|---|---|')
     allk = []
     for node, g in d.groupby('node', sort=False):
         s = g.cutoff.iloc[0] - g.lb.iloc[0]
         g = g.assign(x=g.exK / s)
         L = g.groupby('line').agg(cnt=('exK', lambda v: int((v <= s).sum())), cnt0=('ex0', lambda v: int((v <= s).sum())),
-                                  mod=('x', lambda v: float((P(v.values) * np.exp(M['b'] * v.values)).sum())),
+                                  mod=('x', lambda v: float(lsq.model_cost(M, v.values).sum())),
                                   m=('x', 'size'))
         tk = g.taken.iloc[0]
         tkk = g[g.line == tk]; real = int(tkk.out.isin(['B', 'E']).sum())
         allk.append(tkk.assign(s=s))
         rc = int((L.cnt < L.loc[tk, 'cnt']).sum()) + 1; rm = int((L['mod'] < L.loc[tk, 'mod']).sum()) + 1
-        best = L.sort_values(['mod', 'cnt']).index[0]
+        best = L.sort_values(['mod', 'cnt']).index[0]; bc = L.sort_values(['cnt', 'mod']).index[0]
         out.append(f"| {g.depth.iloc[0]} | {node.split(',')[-1]} | {s:,.0f} | {tk} | {L.loc[tk, 'cnt']} / {real} | {rc}, {rm} (of {len(L)}) | "
-                   f"{best}: {L.loc[best, 'cnt']} | {L.loc[tk, 'mod'] / L.loc[best, 'mod']:.2f} | {int((L.cnt <= L.loc[tk, 'cnt']).sum())} |")
+                   f"{best}: {L.loc[best, 'cnt']} | {L.loc[tk, 'mod'] / L.loc[best, 'mod']:.2f} | {bc}, {L.loc[bc, 'cnt']} | {int((L.cnt <= L.loc[tk, 'cnt']).sum())} |")
     K = pd.concat(allk); br = K.out.isin(['B', 'E']); pr = K.exK <= K.s
     out.append(f'\nThe taken lines\' children, child by child: tp {int((pr & br).sum())}, fp {int((pr & ~br).sum())}, '
                f'fn {int((~pr & br).sum())}, of {len(K)} children ({int(br.sum())} branched)\n')

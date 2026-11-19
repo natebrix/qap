@@ -108,3 +108,11 @@ def mirror(I):
     m = I.p0.copy(); m[43], m[44] = I.p0[44], I.p0[43]
     assert abs(I.cost(m) - I.best - 2786) < 0.5
     return m
+
+
+def model_cost(M, x):
+    """model.py's predicted subtree of a child, relative: P(branch | x) max(x, xmin)^c"""
+    import numpy as np
+    x = np.asarray(x, dtype=float)
+    p = 1 / (1 + np.exp(-(M['p0'] + M['p1'] * np.log(np.clip(x, 0.01, None)))))
+    return p * np.clip(x, M['xmin'], None) ** M['c']

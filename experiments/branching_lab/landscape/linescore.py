@@ -66,7 +66,7 @@ for SET in ['tho30', 'tho40', 'tai60b']:
             rows.append(dict(line=line, truth=truth, branched=int(L.branched.astype(int).sum()),
                              cnt1=int((L[exK] <= s).sum()), cnt2=int((L[exK] <= 2 * s).sum()),
                              cnt1_d0=int((L.ex0 <= s).sum()), cntg=int((L.xg <= 1).sum()), cntg2=int((L.xg <= 2).sum()), soft=float(np.exp(-L.x).sum()),
-                             model=float(sum(model_cost(x) for x in L.x)), a=sh))
+                             model=float(lsq.model_cost(MODEL, L.x.values).sum()) if MODEL else np.nan, a=sh))
         R = pd.DataFrame(rows).sort_values('truth')
         out.append(f'## {SET} {node}: slack s = {s:,.0f}, the node\'s own excess {exn:,.0f}, {len(g)} children in {len(R)} lines\n')
         tp = int(((g[exK] <= s) & br).sum()); fp = int(((g[exK] <= s) & ~br).sum()); fn = int(((g[exK] > s) & br).sum())
