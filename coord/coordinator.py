@@ -402,6 +402,10 @@ class Coordinator:
             self.publisher.publish(counts, final=True)
         except Exception as e:
             self.log(f"coordinator: publishing the final status failed: {e!r}")
+        # the readout (coord/readout.py), from the final status: this run's, or for a dives run its
+        # source's, with the estimate
+        from .readout import write_readout
+        write_readout(self.b, self.run_id, log=self.log)
         self.log(report)
         return report
 

@@ -78,7 +78,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
                                        "aws-setup", "requeue-leased", "publish", "nodes", "export", "stop",
-                                       "purge-states", "dives", "estimate", "estimate-flow"])
+                                       "purge-states", "dives", "estimate", "estimate-flow", "readout"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
     p.add_argument("--instance")
@@ -123,6 +123,10 @@ def main(argv=None):
                    help="dives, --dive-sample: the open nodes' sampling weights (qpb: g^2 of their own QPB bound)")
     p.add_argument("--follow", action="store_true",
                    help="worker: when the run pauses for an estimate (estimate-flow), go on with its dives run")
+    p.add_argument("--save", action="store_true", help="readout: also write it to the store as runs/RUN/readout.md")
+    p.add_argument("--dive-env", action="append", default=[], metavar="QAP_EST_X=V",
+                   help="dives, estimate-flow: another estimator setting for every dives unit "
+                        "(QAP_EST_MIN_DIVES, QAP_EST_SAMPLE_DEPTHS, ...; repeatable)")
     p.add_argument("--solve-wall", type=float, help="estimate-flow: s of the run's wall time the solve gets")
     p.add_argument("--dive-budget", type=float, help="estimate-flow: wall s of survivor dives per dives unit")
     p.add_argument("--exit-when-idle", type=float)
@@ -185,12 +189,21 @@ def main(argv=None):
                 return 1
             log(f"worker: {run} paused for its estimate: on to {nxt}")
             run = nxt
+    if a.command == "readout":
+        # where the run stands and what it found (coord/readout.py); --save writes runs/RUN/readout.md
+        from coord.readout import readout, write_readout
+        text = write_readout(b, a.run, log=log) if a.save else readout(b, a.run)
+        if a.out:
+            with open(a.out, "w") as f:
+                f.write(text or "")
+        print(text)
+        return 0
     if a.command == "estimate-flow":
         from coord.dives import estimate_flow
         if a.solve_wall is None or a.dive_budget is None:
             p.error("estimate-flow: --solve-wall and --dive-budget are required")
         out = estimate_flow(b, a.run, a.solve_wall, a.dive_budget, dive_b=a.dive_b, poll=a.poll, log=log,
-                            sample=a.dive_sample, weights=a.dive_weights)
+                            sample=a.dive_sample, weights=a.dive_weights, env=dive_env(a, p))
         return 0 if out is not None else 3
     if a.command == "status":
         s = b.get_bytes(run_key(a.run, "status.json"))
@@ -213,7 +226,7 @@ def main(argv=None):
         if not a.as_run:
             p.error("dives: --as NEW is required")
         init_dives(b, a.run, a.as_run, dive_b=a.dive_b, budget=a.budget, log=log, sample=a.dive_sample,
-                   weights=a.dive_weights)
+                   weights=a.dive_weights, env=dive_env(a, p))
         return 0
     if a.command == "estimate":
         from coord.dives import estimate_run
@@ -243,6 +256,16 @@ def main(argv=None):
         return 0
 
 
+def dive_env(a, p):
+    env = {}
+    for kv in a.dive_env:
+        k, sep, v = kv.partition("=")
+        if not sep:
+            p.error(f"--dive-env {kv}: K=V")
+        env[k] = v
+    return env
+
+
 def stop_run(b, run_id, log=print):
     """give up a run for good: status stopped, its wall time the last the
     coordinator recorded, and a final public status (the catalog and the site
@@ -262,6 +285,8 @@ def stop_run(b, run_id, log=print):
         fields.update({"wall_s": last.get("wall_s"), "finished_at": last.get("updated")})
     b.update_run(run_id, fields)
     drop_queues(b, run_id)   # its coordinator and workers exit at their next look; nothing runs it again
+    from coord.readout import write_readout
+    write_readout(b, run_id, log=log)
     # the saved totals, without replaying the merges after them: a replay fetches
     # those units' output states, gigabytes each in a run like tho40-a
     c = Coordinator(b, run_id, log=log, replay=False)

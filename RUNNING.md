@@ -227,7 +227,9 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `QAP_EST_SAMPLE` | environment | number | `1` | 0..1 | run | estimator, QAP_EST_SURV: the share of the start nodes sampled as strata (weighted 1/pi) |
 | `QAP_EST_ALLOC` | environment | text | `auto` | text | run | estimator, QAP_EST_SURV: neyman (dives where the variance per CPU s is; reads low with Knuth's heavy tails), equal (round the strata in turn), auto (equal for kQ, neyman for survivor dives) |
 | `QAP_EST_SAMPLE_W` | environment | text | `unif` | text | run | estimator, QAP_EST_SAMPLE: unif, or qpb (each start node weighted g^2 of its own QPB bound) |
-| `QAP_EST_BUDGET` | environment | number | `0` | 0..inf | run | estimator, survivor dives: stop starting dives after this many wall seconds (0: estimate.par's trials) |
+| `QAP_EST_BUDGET` | environment | number | `0` | 0..inf | run | estimator, survivor dives: stop starting dives after this many wall seconds, counted from the end of the strata's setup (0: estimate.par's trials) |
+| `QAP_EST_MIN_DIVES` | environment | integer | `1` | 1..1000000 | run | estimator, survivor dives: every stratum with children that branch gets this many dives whatever the budget (then QAP_EST_BUDGET) |
+| `QAP_EST_SAMPLE_DEPTHS` | environment | text | unset | text | run | estimator, survivor dives: D:F,D:F,... a start node at depth D is a stratum with probability F, whatever QAP_EST_SAMPLE (unset: QAP_EST_SAMPLE for every depth) |
 | `QAP_EST_WARM_KEEP` | environment | integer | `8` | 0..1000000 | run | estimator, survivor dives: the strata whose survivors keep their parent's DNN state (the rest restart cold) |
 | `QAP_EST_DIVES` | environment | text | unset | text | run | estimator, survivor dives: append a JSON line per stratum and per dive to this file |
 | `QAP_DNN_WARM_DIR` | environment | text | unset | text | run | parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline) |

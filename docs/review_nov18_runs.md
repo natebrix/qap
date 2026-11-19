@@ -135,6 +135,10 @@ cache, and `collect.sh` shows each instance's `StateReason` and the group's acti
 - End with a one-line verdict, such as `complete`, `INCOMPLETE: no traces`, or `INCOMPLETE: no node
   trace`, and write the same verdict to `runs/RUN/collect.txt`, so a missing piece is visible in git.
 
+**Status, Nov 19: done,** with the run's readout (`coord/readout.py`) printed before the verdict, and
+the readouts of every run committed hourly to the branch `phase1-readouts` without approval
+(`.github/workflows/phase1-readouts.yml`).
+
 ## 5. Records with no owner
 
 **What we saw.**

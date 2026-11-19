@@ -235,6 +235,10 @@ class LocalBackend:
         row = self._conn().execute("SELECT doc FROM runs WHERE run_id = ?", (run_id,)).fetchone()
         return json.loads(row[0]) if row else None
 
+    def list_runs(self):
+        """every run's record"""
+        return [json.loads(r[0]) for r in self._conn().execute("SELECT doc FROM runs ORDER BY run_id")]
+
     def update_run(self, run_id, fields):
         c = self._tx()
         try:
@@ -594,6 +598,15 @@ class AwsBackend:
     def get_run(self, run_id):
         r = self.ddb.get_item(TableName=f"{self.name}-runs", Key={"run_id": {"S": run_id}}, ConsistentRead=True)
         return json.loads(r["Item"]["doc"]["S"]) if "Item" in r else None
+
+    def list_runs(self):
+        """every run's record (a scan of the runs table, its counters left out)"""
+        out = []
+        for page in self.ddb.get_paginator("scan").paginate(TableName=f"{self.name}-runs"):
+            for it in page.get("Items", []):
+                if "doc" in it and "#counter#" not in it["run_id"]["S"]:
+                    out.append(json.loads(it["doc"]["S"]))
+        return sorted(out, key=lambda d: d.get("run_id", ""))
 
     def update_run(self, run_id, fields):
         while True:

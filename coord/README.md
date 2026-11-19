@@ -31,6 +31,27 @@ shared two queues, and another run's large units kept a run's small ones unread
 are gone, gets them when its coordinator starts, which sends its queued units to
 them (`ensure_queues`; a unit sent twice is harmless).
 
+The readout (`coord/readout.py`, Nov 19): one Markdown page per run, `runs/RUN/readout.md`, which
+the coordinator writes when the run finishes or is stopped (a dives run's finish writes its
+source's: an estimate run's readout is its estimate) and `qapctl readout RUN [--save] [--out F]`
+makes at any time. Its first line is the verdict (COMPLETE, PART-WAY, RUNNING, PAUSED, STOPPED);
+the warnings follow: a status not written for 15 minutes, dead units, and an estimate's flags
+(`coord/dives.py`, `flags`): PART-WAY (pending dives units imputed), GAP, HEAVY TAIL (the 10 largest
+dives over half the rest), FEW DIVES (most strata one dive), SETUP-BOUND (setup over the dives'
+CPU), DEEP TAIL, WIDE (a jackknife standard error over 25%), each from the tho40-est diagnosis
+(`experiments/tho40_est_diag`). `infra/phase1/collect.sh` fetches it; the GitHub workflow
+`phase1-readouts` commits every run's to the branch `phase1-readouts` hourly.
+
+An estimate read part-way (Nov 19): a dives run's units go in a random order in one lane, and the
+pending units' open nodes are imputed, depth by depth, from the merged units' estimates per open
+node at the same depth (a ratio estimator); a delete-a-group jackknife over units gives the
+standard error. On tho40-est-dives' record (28 units pending): 983 nodes and 1.9 CPU h imputed (the
+diagnosis's 950 and 1.7 by hand), a jackknife standard error of 22% of the nodes and 12% of the CPU.
+The estimator's settings (`latest/estimate.C`): `QAP_EST_BUDGET` counts from the end of the
+strata's setup; `QAP_EST_MIN_DIVES` dives per branched stratum whatever the budget;
+`QAP_EST_SAMPLE_DEPTHS=D:F,...` a sampling rate by depth; `qapctl dives`/`estimate-flow
+--dive-env QAP_EST_X=V` passes them to every dives unit (a spec's `ESTIMATE_ENV`).
+
 The root cache: `init` stores its frontier pass (the state file, the parent states it names, its
 traces and report) under `runs/.cache/frontier/KEY/`, KEY a hash of the solver binary, the CPU's
 model name, the data file, the files the flags name, the flags, the incumbent, the frontier depth,

@@ -9,6 +9,7 @@
 #include <map>
 #include <string>
 #include <ctime>
+#include <chrono>
 #include "settings.h"
 
 // One line per printed dive: depth, node estimate, time estimate.
@@ -65,9 +66,11 @@ void print_dive(std::ostream &outs,
  below its exact part (Purdom's partial backtracking; the dives never end on a child the search
  fathoms in one bound, as Knuth's do in a DNN tree: 93-99% of a depth's nodes are fathomed).
 
- Dives go to the strata by a pilot of 2 each, then by s_h / sqrt(c_h) / n_h (Neyman at fixed cost,
- s_h floored at the stratum's mean), until QAP_EST_BUDGET seconds of wall time have passed (checked
- between dives: a dive in progress finishes, so no expensive dive is cut) or, without a budget, the
+ Dives go to the strata by a pilot (QAP_EST_MIN_DIVES rounds whatever the budget, default 1, and a
+ second while the budget lasts), then by s_h / sqrt(c_h) / n_h (Neyman at fixed cost, s_h floored
+ at the stratum's mean; equal allocation for Knuth's dives), until QAP_EST_BUDGET seconds of wall
+ time have passed since the strata's setup ended (checked between dives: a dive in progress
+ finishes, so no expensive dive is cut) or, without a budget, the
  estimate.par trials. QAP_EST_DIVES=file: a JSON line per stratum (its exact part) and per dive
  (its estimate, by depth, its deepest node and its own CPU cost); coord's `qapctl estimate` adds
  the strata up. Node and CPU figures are the search's: a node's CPU is what bnb() spent on it.
@@ -220,13 +223,24 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
   const double sample = setting_d("QAP_EST_SAMPLE");
   const bool sample_qpb = std::string(setting_s("QAP_EST_SAMPLE_W")) == "qpb";
   const double budget = setting_d("QAP_EST_BUDGET");
+  const int min_dives = setting_i("QAP_EST_MIN_DIVES");
+  // QAP_EST_SAMPLE_DEPTHS=D:F,...: a sampling rate by depth (experiments/tho40_est_diag: the open nodes at
+  // the depth that holds most of the tree, all of them; the deep ones, which hold little, a few percent)
+  std::map<int, double> depth_rate;
+  for (std::string spec = setting_s("QAP_EST_SAMPLE_DEPTHS"); !spec.empty();) {
+    const size_t comma = spec.find(',');
+    const std::string item = spec.substr(0, comma);
+    const size_t colon = item.find(':');
+    if (colon == std::string::npos) { std::cerr << "QAP_EST_SAMPLE_DEPTHS: " << item << " is not D:F" << std::endl; exit(2); }
+    depth_rate[atoi(item.substr(0, colon).c_str())] = std::min(1.0, std::max(0.0, atof(item.substr(colon + 1).c_str())));
+    spec = comma == std::string::npos ? "" : spec.substr(comma + 1);
+  }
   const char *dives_file = setting_s("QAP_EST_DIVES");
   if (const char *e = setting_s("QAP_EST_SEED"); *e) srand((unsigned)strtoul(e, NULL, 10));
   // the relative gaps that pick each node's strategy are against the root's QPB bound: a state
   // file's (-e -r), else computed here as a -F run does (driver.C)
   const double root_bound = !std::isnan(est_resume_root_bound) ? est_resume_root_bound : root_qpb_bound(q, params);
   const double inc = s->getObjective();
-  const time_t t0 = time(NULL);
   std::ofstream out;
   if (*dives_file) out.open(dives_file, std::ofstream::app);
   out.precision(10);
@@ -278,6 +292,10 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       if (!more) break;
     }
   }
+  for (size_t k = 0; k < starts.size(); k++) {      // a depth's own rate wins over the share
+    auto it = depth_rate.find(starts[k].depth);
+    if (it != depth_rate.end()) pis[k] = it->second;
+  }
   int kept = 0;
   for (size_t k = 0; k < starts.size(); k++) {
     if (pis[k] < 1.0 && !(drand() < pis[k])) { pis[k] = 0.0; continue; }
@@ -287,7 +305,8 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
     if (pis[k] > 0.0) list_head_insert(stack, starts[k]);
   if (out.is_open())
     out << "{\"type\":\"sample\",\"open\":" << starts.size() << ",\"kept\":" << kept << ",\"fraction\":" << sample
-        << ",\"weights\":\"" << (sample_qpb ? "qpb" : "unif") << "\"}" << std::endl;
+        << ",\"weights\":\"" << (sample_qpb ? "qpb" : "unif") << "\",\"depths\":\"" << setting_s("QAP_EST_SAMPLE_DEPTHS")
+        << "\"}" << std::endl;
   std::vector<double> kept_pi;
   for (size_t k = 0; k < starts.size(); k++) if (pis[k] > 0.0) kept_pi.push_back(pis[k]);
   size_t next_pi = 0;
@@ -414,8 +433,12 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
   std::vector<size_t> live;
   for (size_t i = 0; i < strata.size(); i++) if (!strata[i].surv.empty() || !strata[i].kids.empty()) live.push_back(i);
   int total = 0;
+  // the budget is the dives': it starts here, after the strata's setup (bounding the sampled start nodes
+  // and their children took 68 of tho40-est's 95 estimator CPU hours, and left 828 of its 1,108 dived
+  // strata one dive each: experiments/tho40_est_diag)
+  const auto t_dives = std::chrono::steady_clock::now();   // not time(): a budget under a second counts
   auto over = [&]() {
-    if (budget > 0) return difftime(time(NULL), t0) >= budget;
+    if (budget > 0) return std::chrono::duration<double>(std::chrono::steady_clock::now() - t_dives).count() >= budget;
     return total >= ep->trials;
   };
   auto run = [&](size_t i) {
@@ -438,9 +461,10 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       out << ",\"deepest\":" << deepest << ",\"cost\":" << cost << "}" << std::endl;
     }
   };
-  for (int pilot = 0; pilot < 2; pilot++)
+  // the pilot: QAP_EST_MIN_DIVES rounds whatever the budget (default 1), and a second while it lasts
+  for (int pilot = 0; pilot < std::max(2, min_dives); pilot++)
     for (size_t i : live) {
-      if (over() && pilot > 0) break;
+      if (pilot >= min_dives && over()) break;
       run(i);
     }
   // QAP_EST_ALLOC=equal: the dives go round the strata in turn. The default, Neyman's allocation from

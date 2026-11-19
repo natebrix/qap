@@ -5,8 +5,33 @@
 # Shows the run's instances, the coordinator's status.json, each host's last
 # steps, and results.txt, compare.txt and an estimate run's estimate.txt when they exist. Everything it fetches
 # goes to runs/RUN/ (each host's out/ under hosts/HOST/). Safe to run at any time.
+# It ends with the run's readout (runs/RUN/readout.md, coord/readout.py: where the run stands and what
+# it found) and a one-line verdict on the collect itself, also in runs/RUN/collect.txt: complete, or
+# what is missing (docs/review_nov18_runs.md, item 4: a missing trace said only in passing).
 set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
+MISSING=()   # what this collect could not fetch, for the verdict
+# an SSO session that ends part-way leaves a collect half done (tho40-est, Nov 18: the traces step
+# failed on an expired token): with under 30 minutes left, sign in again first
+python3 - << 'EOF' || exit 1
+import glob, json, os, sys, time
+from datetime import datetime
+if os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_WEB_IDENTITY_TOKEN_FILE"):
+    sys.exit(0)                      # keys or GitHub's OIDC: no SSO session to run out
+left = None
+for f in glob.glob(os.path.expanduser("~/.aws/sso/cache/*.json")):
+    try:
+        d = json.load(open(f))
+        if "accessToken" in d and "expiresAt" in d:
+            t = datetime.fromisoformat(d["expiresAt"].replace("Z", "+00:00").replace("UTC", "+00:00")).timestamp()
+            left = max(left or 0, t - time.time())
+    except (ValueError, OSError, KeyError):
+        pass
+if left is not None and left < 1800:
+    print(f"the AWS sign-in ends in {max(left, 0) / 60:.0f} minutes, and a collect can take an hour: "
+          f"aws sso login, then run this again")
+    sys.exit(1)
+EOF
 RUN=${1:-$(ls -1t "$D/runs" 2> /dev/null | head -1)}
 L=$D/runs/$RUN
 [ -n "$RUN" ] || { echo "no run under $D/runs: give its name"; exit 1; }
@@ -32,6 +57,7 @@ if [ ! -d "$L" ]; then
 fi
 export AWS_PAGER=""
 aws() { command aws --region "$REGION" "$@"; }
+BKS="aws:$B?region=$REGION${QAP_AWS_ENDPOINT:+&endpoint=$QAP_AWS_ENDPOINT}"   # QAP_AWS_ENDPOINT: tests only (moto)
 echo "instances of $RUN:"
 # with why a stopped one stopped (StateReason: a Spot reclaim reads Server.SpotInstanceTermination,
 # so an interruption is not taken for a hang; docs/review_nov18_runs.md, item 3)
@@ -82,32 +108,59 @@ fi
 # --limit, which writes no results.txt) the export holds the units merged so far, as its
 # manifest says; a run without --trace has nothing to export
 EXPORTS=${QAP_EXPORT_DIR:-$D/exports}
-if (cd "$D/../.." && python3 -m coord.qapctl export "$RUN" --backend "aws:$B?region=$REGION" \
+if (cd "$D/../.." && python3 -m coord.qapctl export "$RUN" --backend "$BKS" \
       --out "$EXPORTS/$RUN") > "$EXPORTS.$RUN.log" 2>&1; then
   echo "traces: $(tail -1 "$EXPORTS.$RUN.log" | sed 's/^[0-9:]* //')"
 else
-  grep -q "nothing to export" "$EXPORTS.$RUN.log" || echo "traces: $(tail -1 "$EXPORTS.$RUN.log")"
+  if ! grep -q "nothing to export" "$EXPORTS.$RUN.log"; then
+    echo "traces: $(tail -1 "$EXPORTS.$RUN.log")"; MISSING+=("traces")
+  fi
   rm -rf "${EXPORTS:?}/$RUN"
 fi
 rm -f "$EXPORTS.$RUN.log"
-# and the node trace (the tree viewer's input) with its records when it is small enough
-# for git, else it stays in the store and the export
+# and the node trace (the tree viewer's input) with its records when it is small enough for git,
+# else it stays in the store and the export. From the export when it has it (the same lines from the
+# same units: a second read of every unit took tai60b's collect 74 minutes, then timed out); else
+# qapctl nodes, which needs no --trace export
+TRACED=0; [ -f "$EXPORTS/$RUN/nodes.txt.gz" ] && TRACED=1
 if [ -f "$L/results.txt" ]; then
-  NLOG=$(mktemp)
-  if (cd "$D/../.." && python3 -m coord.qapctl nodes "$RUN" --backend "aws:$B?region=$REGION" \
-        --out "$L/nodes.txt.gz") > "$NLOG" 2>&1; then
-    if [ "$(wc -c < "$L/nodes.txt.gz")" -gt 25000000 ]; then
-      rm -f "$L/nodes.txt.gz"
-      echo "node trace: over 25 MB gzipped, left in the store (qapctl nodes $RUN --out FILE)"
+  if [ "$TRACED" = 1 ]; then
+    if [ "$(wc -c < "$EXPORTS/$RUN/nodes.txt.gz")" -gt 25000000 ]; then
+      echo "node trace: over 25 MB gzipped, left in the export ($EXPORTS/$RUN/nodes.txt.gz) and the store"
     else
-      echo "node trace: $(tail -1 "$NLOG" | sed 's/^[0-9:]* //')"
+      cp "$EXPORTS/$RUN/nodes.txt.gz" "$L/nodes.txt.gz" && echo "node trace: from the export, $(du -h "$L/nodes.txt.gz" | cut -f1)"
     fi
   else
-    rm -f "$L/nodes.txt.gz"
-    grep -q "no frontier/nodes.txt" "$NLOG" || echo "node trace: $(tail -1 "$NLOG")"
+    NLOG=$(mktemp)
+    if (cd "$D/../.." && python3 -m coord.qapctl nodes "$RUN" --backend "$BKS" \
+          --out "$L/nodes.txt.gz") > "$NLOG" 2>&1; then
+      if [ "$(wc -c < "$L/nodes.txt.gz")" -gt 25000000 ]; then
+        rm -f "$L/nodes.txt.gz"
+        echo "node trace: over 25 MB gzipped, left in the store (qapctl nodes $RUN --out FILE)"
+      else
+        echo "node trace: $(tail -1 "$NLOG" | sed 's/^[0-9:]* //')"
+      fi
+    else
+      rm -f "$L/nodes.txt.gz" "$L/nodes.txt.gz.tmp"
+      if grep -q "no frontier/nodes.txt" "$NLOG"; then :
+      else echo "node trace: $(tail -1 "$NLOG")"; MISSING+=("node trace"); fi
+    fi
+    rm -f "$NLOG"
   fi
-  rm -f "$NLOG"
 fi
 get compare.txt && { echo; cat "$L/compare.txt"; }
 echo
 echo "logs: $L/hosts/*/out/ (node.log, coordinator.log, worker.log, gate_*.log)"
+# the readout, made now (part-way included: an estimate's pending units imputed), into the record
+echo
+if (cd "$D/../.." && python3 -m coord.qapctl readout "$RUN" --backend "$BKS" --save \
+      --out "$L/readout.md") > /dev/null 2>&1 && [ -s "$L/readout.md" ]; then
+  cat "$L/readout.md"
+else
+  MISSING+=("readout"); echo "readout: could not be made (python3 -m coord.qapctl readout $RUN ...)"
+fi
+VERDICT=$(sed -n '3p' "$L/readout.md" 2> /dev/null | sed 's/\*\*//g; s/:.*//')
+[ -n "$VERDICT" ] || VERDICT=UNKNOWN
+if [ ${#MISSING[@]} -eq 0 ]; then C="collect complete"; else C="collect INCOMPLETE: no ${MISSING[*]}"; fi
+echo
+echo "$(date -u +%FT%TZ) $RUN: $VERDICT; $C" | tee "$L/collect.txt"

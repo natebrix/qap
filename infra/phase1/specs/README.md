@@ -21,6 +21,7 @@ A key it leaves out takes `start.sh`'s default, as Enter would.
 | `UNITS` | the unit sizing (`qapctl init`'s options) | 20-minute units, `--trace` |
 | `VISIBILITY` | `public` or `private` | `public` |
 | `ESTIMATE` | `SOLVE_HOURS:DIVE_SECONDS[:B[:SAMPLE[:unif\|qpb]]]`, or `none` for a solve | `none` |
+| `ESTIMATE_ENV` | more estimator settings for every dives unit, `QAP_EST_X=V` separated by spaces: `QAP_EST_MIN_DIVES=5` (dives every branched open node gets whatever the budget), `QAP_EST_SAMPLE_DEPTHS=3:1,4:0.2,5:0.03` (the sampling rate by depth) | none |
 | `WORKERS` | the worker group's size | 1 |
 | `WORKER_TYPE`, `WORKER_TYPES` | the worker type; the group's types | `c7a.16xlarge`; it and `m7a`, `r7a` |
 | `MARKET` | the workers: `spot` or `on-demand` | `spot` |
@@ -35,3 +36,4 @@ make. `collect.sh RUN` (or `RUN-ARM`) then shows the run, and its readout once i
 | `nug30-smoke.spec` | the first run on worker groups: nug30 (about 1,300 CPU s) on one worker; checks the group's start, the worker joining, the group's 0 at the end |
 | `tai50b-est.spec` | an estimate of tai50b under its current recipe (rule 9 at the bottom), whose tree is known: tai50b-r9's 6,629 nodes and 117 core-hours |
 | `sko42-zone.spec` | the `cut.zone` A/B on sko42, 0.010 against 0.025, from scratch (the Nov 18 arms differed in tracing and were both reclaimed) |
+| `tho40-est.spec` | a second estimate of tho40 under tho40c with the first's diagnosis applied: 5 dives at least per branched open node, sampling by depth |

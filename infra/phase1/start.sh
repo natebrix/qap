@@ -66,7 +66,7 @@ cd "$R"
 # --- a spec file (--spec): its keys answer the questions; a key it does not set takes the default.
 # It is sourced (a committed file of this repository, as recipes/*.sh), and must be committed as it
 # is, so that the run's record names a file anyone can read at that commit
-SPEC_KEYS="PROBLEM RUN PARAMS ARMS INCUMBENT DATA FLAGS UNITS VISIBILITY ESTIMATE WORKERS WORKER_TYPE WORKER_TYPES MARKET WORKER_SLOTS COORD_TYPE COORD_SLOTS HOURS DISK"
+SPEC_KEYS="PROBLEM RUN PARAMS ARMS INCUMBENT DATA FLAGS UNITS VISIBILITY ESTIMATE ESTIMATE_ENV WORKERS WORKER_TYPE WORKER_TYPES MARKET WORKER_SLOTS COORD_TYPE COORD_SLOTS HOURS DISK"
 NOASK=$YES
 SPECREL=""
 if [ -n "$SPEC" ]; then
@@ -412,6 +412,12 @@ if [ -n "${ESTIMATE:-}" ]; then
   IFS=: read -r EH ED EREST <<< "$ESTIMATE"
   EST_ENV="QAP_ESTIMATE=$(python3 -c "print(int(float('$EH') * 3600))"):$ED${EREST:+:$EREST}"
 fi
+# a spec's ESTIMATE_ENV: more estimator settings, QAP_EST_X=V separated by spaces (no space in a value)
+EST_MORE=${S_ESTIMATE_ENV:-}
+if [ -n "$EST_MORE" ]; then
+  [ -n "$EST_ENV" ] || { echo "ESTIMATE_ENV without ESTIMATE"; exit 1; }
+  for kv in $EST_MORE; do [[ $kv =~ ^QAP_EST_[A-Z_]+=[^[:space:]]+$ ]] || { echo "ESTIMATE_ENV: $kv is not QAP_EST_X=V"; exit 1; }; done
+fi
 
 # --- the launch, shown in full (a new run: the params file and, with a best known, an answer for the incumbent)
 # (bash skips the rest of a block after an expansion error: Nov 16, a \r in tai50b.sln left it with none)
@@ -433,6 +439,7 @@ if [ "$MODE" = new ]; then
   note "units      $COORD"
   note "status     $VIS"
   [ -n "$EST_ENV" ] && note "estimate   the solve for ${EH} h of its wall time, then $ED s of dives a unit as run $RUN-dives (${EST_ENV}); the solve stays paused"
+  [ -n "$EST_MORE" ] && note "           and $EST_MORE"
 fi
 note "coordinator $CTYPE, on demand, $REGION: $CSLOTS slots ($CCORES cores$([ -n "$CMEM" ] && echo ", $((CMEM / 1024)) GiB"))"
 note "workers    a group of $N x ($WTYPES), $MARKET, every zone of $REGION: $SLOTS slots each ($CORES cores$([ -n "$MEM" ] && echo ", $((MEM / 1024)) GiB"))$([ "$MODE" = new ] && echo "; the run sized for $TOTAL slots")"
@@ -451,7 +458,7 @@ else read -r -p "Launch? [y/N]: " v; case $v in y|Y|yes|Yes|YES) ;; *) echo "not
 # --- the recipe (a new run) and the launch: the coordinator, and with it the worker group
 COMMON=(--region "$REGION" --limit $((HOURS * 60)) --disk "$DISK" --no-reference)
 [ "$DRY" = 1 ] && COMMON+=(--dry-run)
-CENV="QAP_SLOTS=$CSLOTS"; [ -n "$EST_ENV" ] && CENV="$CENV $EST_ENV"   # node.sh: the coordinator's slots; an estimate's flow
+CENV="QAP_SLOTS=$CSLOTS"; [ -n "$EST_ENV" ] && CENV="$CENV $EST_ENV${EST_MORE:+ $EST_MORE}"   # node.sh: the coordinator's slots; an estimate's flow and settings
 GROUP=(--workers "$N" --worker-types "$WTYPES"); [ "$SLOTS" = "$CORES" ] || GROUP+=(--worker-slots "$SLOTS")
 [ "$MARKET" = on-demand ] && GROUP+=(--workers-on-demand)
 [ -n "$EST_ENV" ] && GROUP+=(--worker-env "$EST_ENV")
@@ -474,7 +481,7 @@ case $MODE in
       # what was launched, and from what: the spec as committed, and the answers as taken
       { [ -n "$SPECREL" ] && { echo "# spec $SPECREL at $COMMIT"; cat "$SPEC"; echo; }
         echo "# launched $(date -u +%FT%TZ): coordinator $CTYPE on demand, $CSLOTS slots; workers $N x ($WTYPES) $MARKET,"
-        echo "# $SLOTS slots each; $TOTAL slots; limit $HOURS h; disk $DISK GB; status $VIS${EST_ENV:+; $EST_ENV}"
+        echo "# $SLOTS slots each; $TOTAL slots; limit $HOURS h; disk $DISK GB; status $VIS${EST_ENV:+; $EST_ENV}${EST_MORE:+ $EST_MORE}"
       } > "$RD/spec.txt"
       echo "recipe: $RF"
       FIRST=(--recipe-file "$RF" --run-slots "$TOTAL"); [ "$VIS" = private ] && FIRST+=(--private)

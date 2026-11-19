@@ -375,6 +375,9 @@ class Worker:
                     "QAP_EST_SAMPLE_W": str(self.cfg.get("dive", {}).get("weights", "unif")),
                     "QAP_EST_BUDGET": str(unit["budget"]), "QAP_EST_DIVES": divesf,
                     "QAP_EST_SEED": str(dive_seed(self.run_id, uid, attempt))})
+        # the dives run's other estimator settings (estimate-flow --dive-env: QAP_EST_MIN_DIVES,
+        # QAP_EST_SAMPLE_DEPTHS, ...), the run's own, so every unit of it dives alike
+        env.update({k: str(v) for k, v in self.cfg.get("dive", {}).get("env", {}).items()})
         env.pop("QAP_NODE_TRACE", None)
         env.pop("QAP_DNN_TRACE", None)
         t0 = time.time()

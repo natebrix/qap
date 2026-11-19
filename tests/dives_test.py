@@ -63,6 +63,7 @@ def main():
     ap.add_argument("--dive-b", default="0.4", help="the dives' mode: survivor b, or kQ for Knuth's dives")
     ap.add_argument("--dive-sample", default="1", help="the share of the open nodes sampled")
     ap.add_argument("--dive-weights", default="unif", choices=["unif", "qpb"])
+    ap.add_argument("--dive-env", action="append", default=[], help="QAP_EST_X=V for every dives unit (repeatable)")
     a = ap.parse_args()
     dat = os.path.join(ROOT, "qaplib", f"{a.instance}.dat")
     env = dict(os.environ, VECLIB_MAXIMUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
@@ -95,7 +96,8 @@ def main():
               return 1
           print(f"paused: {counts}")
           qapctl("dives", run, "--as", dv, "--backend", be, "--budget", "3", "--dive-b", a.dive_b,
-               "--dive-sample", a.dive_sample, "--dive-weights", a.dive_weights, env=env)
+               "--dive-sample", a.dive_sample, "--dive-weights", a.dive_weights,
+               *[x for kv in a.dive_env for x in ("--dive-env", kv)], env=env)
           w = popen("worker", dv, "--backend", be, "--slots", "2", "--workdir", f"{d}/w2", "--exit-when-idle", "5",
                     log=f"{d}/w2.log")
           c = popen("coordinator", dv, "--backend", be, log=f"{d}/c2.log")
@@ -153,7 +155,7 @@ def flow(a, dat, env, true_nodes):
                       log=f"{d}/w.log")
             c = popen("estimate-flow", run, "--backend", be, "--solve-wall", str(a.seconds), "--dive-budget", "3",
                       "--dive-b", a.dive_b, "--dive-sample", a.dive_sample, "--dive-weights", a.dive_weights,
-                      log=f"{d}/c.log")
+                      *[x for kv in a.dive_env for x in ("--dive-env", kv)], log=f"{d}/c.log")
             rc = c.wait(timeout=900)
             wrc = w.wait(timeout=300)
             st, sd = run_status(b, run), run_status(b, run + "-dives")
@@ -165,6 +167,11 @@ def flow(a, dat, env, true_nodes):
                 e = json.loads(b.get_bytes(f"runs/{run}-dives/estimate.json"))
                 ratio = e["total"]["nodes"] / true_nodes
                 print(f"flow: estimate {e['total']['nodes']:,.0f} nodes against {true_nodes:,}: {ratio:.3f}")
+                ro = (b.get_bytes(f"runs/{run}/readout.md") or b"").decode()
+                print("flow: readout: " + (ro.splitlines()[2] if len(ro.splitlines()) > 2 else "missing"))
+                if "**COMPLETE**: the estimate" not in ro or "## The estimate" not in ro:
+                    print("FAIL: the source's readout does not give the estimate")
+                    bad += 1
                 if not 0.85 <= ratio <= 1.15:
                     print("FAIL: the flow's estimate is more than 15% off")
                     bad += 1

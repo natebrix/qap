@@ -37,6 +37,8 @@
 # no reference run. The solve stays paused in the store: `qapctl resume RUN` goes on.
 # QAP_ESTIMATE=SOLVE_S:DIVE_S:B:SAMPLE:W: B = kQ for Knuth's dives (bushy trees), SAMPLE the
 # share of the open nodes sampled (default 1), W their weights, unif or qpb (coord/dives.py).
+# Any other QAP_EST_* exported on the coordinating instance (QAP_EST_MIN_DIVES, QAP_EST_SAMPLE_DEPTHS)
+# goes to every dives unit (estimate-flow --dive-env).
 # QAP_ASG (launch.sh --workers): the run's worker group, an EC2 Auto Scaling group. The
 # coordinating instance raises it to QAP_WORKERS instances once the run exists and sets it to 0
 # when it ends (unless drained for a relaunch); a worker leaves it (terminate, decrementing the
@@ -236,6 +238,13 @@ coord_loop() {
   local n=0 rc cmd=(coordinator "$RUN")
   [ -n "$EST" ] && cmd=(estimate-flow "$RUN" --solve-wall "$EST_SOLVE" --dive-budget "$EST_DIVE" --dive-b "$EST_B"
                         --dive-sample "$EST_SAMPLE" --dive-weights "$EST_W")
+  # the estimator's other settings exported here (a spec's ESTIMATE_ENV: QAP_EST_MIN_DIVES, ...): the
+  # dives run keeps them in its config, for every unit on every instance
+  if [ -n "$EST" ]; then
+    for kv in $(env | grep -E '^QAP_EST_[A-Z_]+=[^ ]*$' | grep -vE '^QAP_EST_(SURV|SAMPLE|SAMPLE_W|BUDGET|DIVES|SEED)=' || true); do
+      cmd+=(--dive-env "$kv")
+    done
+  fi
   while :; do
     $PY -m coord.qapctl "${cmd[@]}" --backend "$BK" >> "$OUT/coordinator.log" 2>&1 &
     echo $! > "$OUT/coordinator.pid"

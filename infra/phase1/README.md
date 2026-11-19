@@ -85,6 +85,18 @@ the AWS stand-in and moto: the sko42 A/B launched two runs whose recipes differ 
 each with its group, and its record was committed and pushed; a spec with an unknown key, or not
 committed as it is, is refused.
 
+**Readouts (Nov 19):** each run's `readout.md` (`coord/readout.py`: the verdict, the warnings, the
+record) is written by its coordinator at the end. `collect.sh RUN` makes a fresh one into the run's
+record and ends with a verdict on itself, in `runs/RUN/collect.txt`: `collect complete`, or
+`collect INCOMPLETE: no traces | node trace | readout`. It refuses to start with under 30 minutes
+left on the SSO sign-in, and takes the node trace from the trace export instead of reading every
+unit a second time (`docs/review_nov18_runs.md`, item 4). With no one collecting,
+`.github/workflows/phase1-readouts.yml` writes every run's readout and a board of the runs to the
+branch `phase1-readouts` hourly (`infra/phase1/readouts.py`; `git show
+origin/phase1-readouts:board.md`), with a role that only reads (`gha_setup.sh`: `qap-gha-readouts`,
+environment `aws-phase1-read`, no reviewer). A scheduled workflow runs from the default branch, so
+the file must be on `master` too.
+
 **Since Nov 19 a run is a coordinator and a worker group** (`docs/review_nov18_runs.md`, item 3):
 
 - **The coordinator is on demand,** a small instance of the workers' CPU (`c7a.2xlarge`). It

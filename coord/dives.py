@@ -27,6 +27,7 @@ part only, a known low bias where they have survivors).
 import json
 import os
 import random
+import re
 import statistics
 import tempfile
 import time
@@ -36,8 +37,16 @@ from .backend import check_queue_name
 from .common import State, run_key, unit_key
 
 
-def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, weights="unif"):
-    """create run NEW: a dives unit for every queued unit of SRC (paused, nothing leased)"""
+DIVE_ENV = re.compile(r"^QAP_EST_[A-Z_]+$")
+
+
+def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, weights="unif", env=None):
+    """create run NEW: a dives unit for every queued unit of SRC (paused, nothing leased). env: more
+    estimator settings for every unit (QAP_EST_* only), kept in the run's config"""
+    env = dict(env or {})
+    bad = [k for k in env if not DIVE_ENV.match(k)]
+    if bad:
+        raise SystemExit(f"dives: --dive-env takes QAP_EST_* settings only, not {', '.join(bad)}")
     s = b.get_run(src)
     if s is None:
         raise SystemExit(f"no run {src}")
@@ -56,7 +65,7 @@ def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, we
         raise SystemExit(f"{src} has no queued units: nothing open to estimate")
     cfg = dict(s["config"])
     cfg.update({"kind": "dives", "source_run": src, "trace": False, "keep_unit_states": True,
-                "dive": {"b": str(dive_b), "sample": sample, "weights": weights}})
+                "dive": {"b": str(dive_b), "sample": sample, "weights": weights, "env": env}})
     if budget is not None:
         cfg["budget"] = budget
     for name in ("instance.dat", "params.par", "incumbent.json"):
@@ -71,21 +80,29 @@ def init_dives(b, src, new, dive_b="0.4", budget=None, log=print, sample=1.0, we
                                                                 "last_seq": meta.get("last_seq", 0)}).encode())
     inc = json.loads(b.get_bytes(run_key(src, "incumbent.json")) or b"{}")
     b.create_queues(new)
+    if not s.get("dives_run"):      # (estimate-flow sets it at the pause; a hand-made dives run, here)
+        b.update_run(src, {"dives_run": new})
     b.put_run(new, {"run_id": new, "status": "running", "created": time.time(), "incumbent": inc,
                     "visibility": "private", "queues": "run", "config": cfg, "solver": s["solver"]})
     now = time.time()
+    # in a random order, in one lane: every dives unit takes about the same wall time (its budget), and a
+    # dives run read part-way then has a random part of SRC's units done, whose open nodes stand for
+    # the others' depth by depth (estimate_run). In SRC's order (large lane first) the units left at the
+    # end were all small and deep (tho40-est-dives, Nov 18)
+    random.Random(zlib.crc32(new.encode())).shuffle(units)
     for u in units:
         doc = {k: u[k] for k in ("uid", "parent", "nodes", "depth_min", "depth_max", "by_depth", "min_bound",
-                                 "lane", "in_key") if k in u}
+                                 "in_key") if k in u}
         doc.update({"run": new, "status": "queued", "attempt": 0, "budget": cfg["budget"], "created": now,
-                    "warm": u.get("warm", [])})
+                    "lane": "large", "warm": u.get("warm", [])})
         b.put_unit(new, doc)
         b.send(new, doc["lane"], {"run": new, "uid": doc["uid"]})
         b.update_unit(new, doc["uid"], {"sent_at": time.time()})
     log(f"dives: run {new} from {src}: {len(units)} units, {sum(u['nodes'] for u in units)} open nodes, "
         f"{cfg['budget']:g} s each, " + (f"Knuth's dives, g^{str(dive_b)[1:]}" if str(dive_b).startswith("k")
                                          else f"survivor dives, weights exp({dive_b} x)") +
-        (f", {sample:g} of the open nodes sampled ({weights})" if sample < 1 else ""))
+        (f", {sample:g} of the open nodes sampled ({weights})" if sample < 1 else "") +
+        "".join(f", {k}={v}" for k, v in sorted(env.items())))
     return new
 
 
@@ -203,6 +220,16 @@ def report(e):
     ]
     if e.get("open_nodes") and e.get("open_sampled", 0) < e["open_nodes"]:
         lines.append(f"{e['open_sampled']:,} of the {e['open_nodes']:,} open nodes sampled (each weighted 1/pi)")
+    if e.get("jackknife_cpu") is not None:
+        lines.append(f"jackknife over units: standard error {e['jackknife_nodes']:,.0f} nodes, {_cpu(e['jackknife_cpu'])}")
+    g = e.get("diag")
+    if g:
+        lines.append(f"the largest dive makes {g['top1_cpu']:.0%} of the rest's CPU, the 10 largest {g['top10_cpu']:.0%}; "
+                     f"{g['one_dive_strata']} of {g['dived_strata']} dived open nodes got one dive; estimator CPU: "
+                     f"setup {_cpu(g['setup_cpu'])}, dives {_cpu(g['dive_cpu'])}")
+        if g.get("deepest_well_sampled") is not None:
+            lines.append(f"dives going deeper, by depth (reached, went on): " + ", ".join(
+                f"{d}: {v[0]}/{v[1]}" for d, v in g["continuation"].items()))
     if e["strata_with_survivors_not_dived"]:
         lines.append(f"LOW: {e['strata_with_survivors_not_dived']} open nodes with branching children got no dive: "
                      f"their exact part only is counted")
@@ -220,8 +247,153 @@ def report(e):
     return "\n".join(lines)
 
 
-def estimate_run(b, run_id, out=None, log=print):
-    """`qapctl estimate RUN`: a dives run's estimate (its merged units' dives.jsonl) with its source's totals"""
+def _parts(strata, dives):
+    """each stratum's estimated subtree (its exact part and its dives' mean, weighted 1/pi): nodes, CPU"""
+    out = {}
+    for k, st in strata.items():
+        pi = float(st.get("pi", 1.0)) or 1.0
+        ds = dives.get(k, [])
+        n = st["exact_nodes"] + (statistics.fmean(x["nodes"] for x in ds) if ds else 0.0)
+        c = st["exact_cpu"] + (statistics.fmean(x["cpu"] for x in ds) if ds else 0.0)
+        out[k] = (n / pi, c / pi)
+    return out
+
+
+def _open_by_depth(u):
+    return {int(d): int(v) for d, v in (u.get("by_depth") or {}).items()}
+
+
+def unit_rest(units, keys, strata, parts):
+    """per merged unit: {open depth: [estimated nodes, CPU, open nodes]} of its strata"""
+    out = []
+    for u in units:
+        acc = {}
+        for d, n in _open_by_depth(u).items():
+            acc.setdefault(d, [0.0, 0.0, 0])[2] += n
+        for k in keys.get(u["uid"], []):
+            if k in parts:
+                d = int(strata[k].get("depth", 0))
+                a = acc.setdefault(d, [0.0, 0.0, 0])
+                a[0] += parts[k][0]
+                a[1] += parts[k][1]
+        out.append(acc)
+    return out
+
+
+def rest_from(measured, others):
+    """the rest of the tree from the measured units' estimates, the other units' open nodes standing for
+    as much, depth by depth, as the measured units' open nodes at that depth (a ratio estimator): its
+    (nodes, CPU, imputed nodes, imputed CPU, open nodes at depths no measured unit has)"""
+    tot = {}
+    for acc in measured:
+        for d, (n, c, o) in acc.items():
+            t = tot.setdefault(d, [0.0, 0.0, 0])
+            t[0] += n; t[1] += c; t[2] += o
+    rn = sum(t[0] for t in tot.values())
+    rc = sum(t[1] for t in tot.values())
+    imp_n = imp_c = 0.0
+    unmatched = 0
+    for d, o in others.items():
+        t = tot.get(d)
+        if not t or not t[2]:
+            unmatched += o
+            continue
+        imp_n += o * t[0] / t[2]
+        imp_c += o * t[1] / t[2]
+    return rn + imp_n, rc + imp_c, imp_n, imp_c, unmatched
+
+
+def jackknife(accs, pending_open, groups=20, seed=1):
+    """delete-a-group jackknife over the merged units (each group's open nodes imputed from the rest
+    when it is left out): the standard errors of the rest's nodes and CPU"""
+    if len(accs) < 4:
+        return None, None
+    idx = list(range(len(accs)))
+    random.Random(seed).shuffle(idx)
+    g = min(groups, len(accs))
+    thetas = []
+    for j in range(g):
+        out = set(idx[j::g])
+        others = dict(pending_open)
+        for i in out:
+            for d, (_, _, o) in accs[i].items():
+                others[d] = others.get(d, 0) + o
+        n, c, *_ = rest_from([accs[i] for i in idx if i not in out], others)
+        thetas.append((n, c))
+    mn = statistics.fmean(t[0] for t in thetas)
+    mc = statistics.fmean(t[1] for t in thetas)
+    f = (g - 1) / g
+    return (f * sum((t[0] - mn) ** 2 for t in thetas)) ** 0.5, (f * sum((t[1] - mc) ** 2 for t in thetas)) ** 0.5
+
+
+def diagnose(strata, dives, e):
+    """what says how far to trust an estimate (experiments/tho40_est_diag): the largest dives' share,
+    the dived strata with one dive, how dives continue by depth, the estimator's CPU in setup and dives"""
+    contrib = []
+    for k, ds in dives.items():
+        pi = float(strata.get(k, {}).get("pi", 1.0)) or 1.0
+        for x in ds:
+            contrib.append((x["nodes"] / len(ds) / pi, x["cpu"] / len(ds) / pi))
+    rn, rc = e["rest"]["nodes"] or 1.0, e["rest"]["cpu"] or 1.0
+    top = lambda i, k: sum(sorted((t[i] for t in contrib), reverse=True)[:k])
+    reach, cont = {}, {}
+    for ds in dives.values():
+        for x in ds:
+            deepest = int(x.get("deepest", 0))
+            for d in {int(t) for t in (x.get("by_depth") or {})}:
+                reach[d] = reach.get(d, 0) + 1
+                if deepest > d:
+                    cont[d] = cont.get(d, 0) + 1
+    setup = sum(st.get("setup_cpu", 0.0) for st in strata.values())
+    dive_cpu = sum(x.get("cost", 0.0) for ds in dives.values() for x in ds)
+    by = e.get("by_depth", {})
+    mass = max(by, key=lambda d: by[d]["rest_nodes"] + by[d]["done_nodes"]) if by else None
+    deep = [d for d in sorted(reach) if reach[d] >= 20]
+    return {
+        "top1_nodes": top(0, 1) / rn, "top10_nodes": top(0, 10) / rn,
+        "top1_cpu": top(1, 1) / rc, "top10_cpu": top(1, 10) / rc,
+        "dived_strata": len(dives), "one_dive_strata": sum(1 for ds in dives.values() if len(ds) == 1),
+        "continuation": {str(d): [reach[d], cont.get(d, 0)] for d in sorted(reach)},
+        "deepest_well_sampled": deep[-1] if deep else None,
+        "continuation_there": (cont.get(deep[-1], 0) / reach[deep[-1]]) if deep else None,
+        "mass_depth": int(mass) if mass is not None else None,
+        "setup_cpu": setup, "dive_cpu": dive_cpu,
+    }
+
+
+def flags(e):
+    """the warnings a readout leads with: each a short line, empty when none applies"""
+    g = e.get("diag", {})
+    out = []
+    if e.get("units_pending"):
+        sh = e["imputed"]["cpu"] / e["rest"]["cpu"] if e["rest"]["cpu"] else 0.0
+        out.append(f"PART-WAY: {e['units_pending']} of {e['units']} dives units not merged; their open nodes are "
+                   f"imputed, depth by depth, from the merged units' ({sh:.0%} of the rest's CPU)")
+    if e.get("imputed", {}).get("unmatched_open"):
+        out.append(f"GAP: {e['imputed']['unmatched_open']} open nodes of pending units are at depths no merged "
+                   f"unit has: not counted")
+    if max(g.get("top10_cpu", 0), g.get("top10_nodes", 0)) > 0.5:
+        out.append(f"HEAVY TAIL: the 10 largest dives make {g['top10_nodes']:.0%} of the rest's nodes and "
+                   f"{g['top10_cpu']:.0%} of its CPU (the largest {g['top1_nodes']:.0%}, {g['top1_cpu']:.0%}): "
+                   f"more dives where they come from")
+    if g.get("dived_strata") and g["one_dive_strata"] > 0.5 * g["dived_strata"]:
+        out.append(f"FEW DIVES: {g['one_dive_strata']} of {g['dived_strata']} dived open nodes got one dive "
+                   f"(QAP_EST_MIN_DIVES, a longer dive budget)")
+    if g.get("setup_cpu", 0) > g.get("dive_cpu", 0) and g.get("setup_cpu", 0) > 0:
+        out.append(f"SETUP-BOUND: bounding the sampled open nodes took {_cpu(g['setup_cpu'])}, the dives "
+                   f"{_cpu(g['dive_cpu'])} (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)")
+    if g.get("continuation_there") is not None and g["continuation_there"] > 0.05:
+        out.append(f"DEEP TAIL: {g['continuation_there']:.0%} of the dives at depth {g['deepest_well_sampled']} "
+                   f"went deeper, where few dives reached: the deep levels are thinly sampled")
+    if e.get("jackknife_cpu") and e["rest"]["cpu"] and e["jackknife_cpu"] > 0.25 * e["rest"]["cpu"]:
+        out.append(f"WIDE: the jackknife over units gives a standard error of "
+                   f"{e['jackknife_cpu'] / e['rest']['cpu']:.0%} of the rest's CPU")
+    return out
+
+
+def estimate_run(b, run_id, out=None, log=print, save=True):
+    """`qapctl estimate RUN`: a dives run's estimate (its merged units' dives.jsonl) with its source's
+    totals; part-way, the pending units' open nodes imputed depth by depth from the merged units'"""
     r = b.get_run(run_id)
     if r is None or r.get("config", {}).get("kind") != "dives":
         raise SystemExit(f"{run_id} is not a dives run")
@@ -233,16 +405,20 @@ def estimate_run(b, run_id, out=None, log=print):
     st = State(p)
     strata, dives = {}, {}
     samples = []
-    pending = 0
-    for u in b.all_units(run_id):
-        if u.get("status") != "merged":
-            pending += 1
-            continue
-        data = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "dives.jsonl"))
+    merged, keys, pending_open = [], {}, {}
+    units = b.all_units(run_id)
+    for u in units:
+        data = None
+        if u.get("status") == "merged":
+            data = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "dives.jsonl"))
         if data is None:
+            for d, n in _open_by_depth(u).items():
+                pending_open[d] = pending_open.get(d, 0) + n
             continue
         s1, d1 = read_lines(data.decode(), samples)
         strata.update(s1)
+        keys[u["uid"]] = list(s1)
+        merged.append(u)
         for k, v in d1.items():
             dives.setdefault(k, []).extend(v)
     e = combine(st, strata, dives)
@@ -250,12 +426,28 @@ def estimate_run(b, run_id, out=None, log=print):
     if samples:
         e["open_nodes"] = sum(x.get("open", 0) for x in samples)
         e["open_sampled"] = sum(x.get("kept", 0) for x in samples)
-    e["units_pending"] = pending
-    text = report(e)
+    pending = len(units) - len(merged)
+    e["units"], e["units_pending"] = len(units), pending
+    accs = unit_rest(merged, keys, strata, _parts(strata, dives))
+    rn, rc, imp_n, imp_c, unmatched = rest_from(accs, pending_open)
+    e["imputed"] = {"nodes": imp_n, "cpu": imp_c, "open": sum(pending_open.values()), "unmatched_open": unmatched}
     if pending:
-        text = f"PART-WAY: {pending} dives units not merged yet\n" + text
-    b.put_bytes(run_key(run_id, "estimate.json"), json.dumps(e, indent=1).encode())
-    b.put_bytes(run_key(run_id, "estimate.txt"), (text + "\n").encode())
+        # the merged part as combine() has it, plus the pending units' share; the bootstrap's band moves with it
+        for part in ("rest", "total"):
+            e[part]["nodes"] += imp_n
+            e[part]["cpu"] += imp_c
+            e[part]["nodes_5_95"] = [v + imp_n for v in e[part]["nodes_5_95"]]
+            e[part]["cpu_5_95"] = [v + imp_c for v in e[part]["cpu_5_95"]]
+    e["jackknife_nodes"], e["jackknife_cpu"] = jackknife(accs, pending_open)
+    e["diag"] = diagnose(strata, dives, e)
+    e["flags"] = flags(e)
+    text = report(e)
+    if e["flags"]:
+        text = "\n".join(e["flags"]) + "\n" + text
+    e["text"] = text
+    if save:      # (a readout made with a read-only role writes nothing: coord/readout.py)
+        b.put_bytes(run_key(run_id, "estimate.json"), json.dumps(e, indent=1).encode())
+        b.put_bytes(run_key(run_id, "estimate.txt"), (text + "\n").encode())
     if out:
         os.makedirs(out, exist_ok=True)
         with open(os.path.join(out, "estimate.json"), "w") as f:
@@ -266,7 +458,8 @@ def estimate_run(b, run_id, out=None, log=print):
     return e
 
 
-def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, log=print, sample=1.0, weights="unif"):
+def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, log=print, sample=1.0, weights="unif",
+                  env=None):
     """`qapctl estimate-flow RUN`: the estimate run, in place of `qapctl coordinator RUN` on the
     coordinating host. RUN is solved until solve_wall seconds after its start, paused (dives_run set
     on it, for the workers that follow it: `qapctl worker --follow`), its units left to return and
@@ -303,6 +496,6 @@ def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, lo
         log(f"estimate-flow: {run_id} has nothing open after the pause: the tree is closed")
         return c.finish()
     if b.get_run(new) is None:
-        init_dives(b, run_id, new, dive_b=dive_b, budget=dive_budget, log=log, sample=sample, weights=weights)
+        init_dives(b, run_id, new, dive_b=dive_b, budget=dive_budget, log=log, sample=sample, weights=weights, env=env)
     out = Coordinator(b, new, log=log).loop(poll=poll)
     return out

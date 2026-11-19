@@ -518,6 +518,14 @@ def main():
         elif name != "rootcache":
             ok = got[2] == a.opt if name == "noub" else (got[0] == ref[0] and got[1] == ref[1] and got[2] == a.opt)
         public = getattr(r, "public", [])
+        # the readout the coordinator writes at the end (coord/readout.py)
+        try:
+            from coord.backend import open_backend
+            ro = (open_backend(r.backend).get_bytes(f"runs/{r.run_id}/readout.md") or b"").decode()
+            if "**COMPLETE**: solved" not in ro:
+                public = public + [f"readout.md: {ro.splitlines()[2] if len(ro.splitlines()) > 2 else 'missing'}"]
+        except Exception as e:
+            public = public + [f"readout.md: {e!r}"]
         ok = ok and not public
         bad += not ok
         print(f"{name:10s} {'ok ' if ok else 'BAD'} nodes {got[0]} fw {got[1]} best {got[2]}  ({time.time() - t0:.0f} s)"
