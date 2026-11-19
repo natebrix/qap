@@ -554,9 +554,11 @@ def frontier_from_cache(b, key, tmp, traces):
 
 
 def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, frontier_depth=0, log=print,
-             visibility="public"):
+             visibility="public", sample=None):
     """the frontier pass, run here (as bench/parallel.py does): the root, or the
-    -F node, expanded to frontier_depth; its open nodes become the first units"""
+    -F node, expanded to frontier_depth; its open nodes become the first units.
+    sample (coord/sample.py): {"src", "by", "plan", "seed", "mix"}: no frontier pass; the first units
+    are a sample of run src's open nodes, sized by the dives run by (src's own by default)"""
     import shutil
     import subprocess
     if backend.get_run(run_id):
@@ -565,6 +567,55 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     tmp = tempfile.mkdtemp(prefix=f"qapinit-{run_id}-")
     sdir = os.path.dirname(os.path.abspath(solver))
     frontier = os.path.join(tmp, "frontier.state")
+    picked = None
+    if sample:
+        # a sampled run: the same problem as its source (its data and flags), its own params
+        from .sample import sample_frontier, save_sample, settings_record
+        import hashlib
+        src = backend.get_run(sample["src"])
+        if src is None:
+            raise SystemExit(f"sample: no run {sample['src']}")
+        sd = backend.get_bytes(run_key(sample["src"], "instance.dat")) or b""
+        with open(os.path.abspath(instance), "rb") as f:
+            if hashlib.sha256(f.read()).digest() != hashlib.sha256(sd).digest():
+                raise SystemExit(f"sample: {instance} is not {sample['src']}'s data file")
+        if list(src.get("solver", {}).get("flags", [])) != list(flags):
+            raise SystemExit(f"sample: the flags {flags} are not {sample['src']}'s {src.get('solver', {}).get('flags')}")
+        sub = src.get("solver", {}).get("ub")
+        if (sub is None) != (ub is None) or (ub is not None and float(ub) != float(sub)):
+            raise SystemExit(f"sample: the incumbent {ub} is not {sample['src']}'s {sub} (the subtrees depend on it)")
+        e = dict(os.environ)
+        e.update(env)
+        record = settings_record(solver, sdir, params, flags, e)
+        frontier, picked, by = sample_frontier(backend, sample["src"], sample.get("by"), sample["plan"],
+                                               sample.get("seed", 1), sample.get("mix", 0.2), tmp, record, log=log,
+                                               power=sample.get("power", 0.5))
+        cfg = dict(cfg, sample={"src": sample["src"], "by": by, "plan": {str(k): v for k, v in sample["plan"].items()},
+                                "seed": sample.get("seed", 1), "mix": sample.get("mix", 0.2),
+                                "power": sample.get("power", 0.5)})
+        frontier_depth = None
+    else:
+        _frontier_pass(backend, run_id, solver, sdir, instance, params, flags, env, ub, cfg, frontier_depth, tmp,
+                       frontier, log)
+    _init_from_frontier(backend, run_id, solver, sdir, instance, params, flags, env, ub, cfg, frontier_depth, tmp,
+                        frontier, log, visibility)
+    if picked is not None:
+        save_sample(backend, run_id, picked, cfg["sample"])
+    c = Coordinator(backend, run_id, log=log)
+    st = State(frontier)
+    n = c._make_units(warm.rebase(st, c.tmp).nodes, parent=None)
+    log(f"coordinator: run {run_id}: " + (f"a sample of {cfg['sample']['src']}'s open nodes, {len(st.nodes)} of them"
+                                          if picked is not None else
+                                          f"frontier at depth {frontier_depth} has {len(st.nodes)} open nodes") +
+        f", {n} units, {cfg['slots']} slots")
+    shutil.rmtree(tmp)
+    return c
+
+
+def _frontier_pass(backend, run_id, solver, sdir, instance, params, flags, env, ub, cfg, frontier_depth, tmp, frontier,
+                   log):
+    """the root, or the -F node, expanded to frontier_depth into frontier (or read from the root cache)"""
+    import subprocess
     cmd = [solver, "-p", params] + flags + (["-u", repr(ub)] if ub is not None else []) + \
           ["-d", str(frontier_depth), "-o", frontier, os.path.abspath(instance)]
     e = dict(os.environ)
@@ -595,6 +646,11 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     for name in traces.values():
         if os.path.exists(os.path.join(tmp, name)):
             backend.put_file(run_key(run_id, "frontier", name), os.path.join(tmp, name))
+
+
+def _init_from_frontier(backend, run_id, solver, sdir, instance, params, flags, env, ub, cfg, frontier_depth, tmp,
+                        frontier, log, visibility):
+    """the run's record and files from its frontier state (the frontier pass's, or a sample's)"""
     warm.push(backend, run_id, frontier, set(), log=log)
     st = State(frontier)
     backend.put_file(run_key(run_id, "instance.dat"), os.path.abspath(instance))
@@ -613,9 +669,3 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
                              "config": cfg, "solver": {"flags": flags, "env": env, "ub": ub,
                                                        "params": os.path.basename(params),
                                                        "instance": os.path.basename(instance)}})
-    c = Coordinator(backend, run_id, log=log)
-    n = c._make_units(warm.rebase(st, c.tmp).nodes, parent=None)
-    log(f"coordinator: run {run_id}: frontier at depth {frontier_depth} has {len(st.nodes)} open nodes, "
-        f"{n} units, {cfg['slots']} slots")
-    shutil.rmtree(tmp)
-    return c

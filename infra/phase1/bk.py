@@ -4,6 +4,7 @@ through coord/backend.py, so that they work alike on AWS and on a local moto
 server (the local test).
 
   bk.py BACKEND status RUN          the run's status (running, paused, finished) or "none"
+  bk.py BACKEND kind RUN            "dives" for a dives run, else "solve" (or "none")
   bk.py BACKEND put KEY FILE        upload FILE to the store under KEY
   bk.py BACKEND get KEY FILE        download KEY to FILE (exit 1 if there is none)
 """
@@ -22,6 +23,9 @@ def main(argv):
     if cmd == "status":
         r = b.get_run(argv[3])
         print(r.get("status", "?") if r else "none")
+    elif cmd == "kind":       # "dives" for a dives run, "solve" for any other, "none"
+        r = b.get_run(argv[3])
+        print((r.get("config", {}).get("kind") or "solve") if r else "none")
     elif cmd == "put":
         b.put_file(argv[3], argv[4])
     elif cmd == "get":

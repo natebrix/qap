@@ -6,6 +6,11 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
   python3 -m coord.qapctl init RUN --backend B --instance qaplib/nug20.dat \\
         --params PARAM/default.par --ub 2570 --slots 4 [--extra "-x 0:4:1:300:1"] \\
         [--env DNN_R32=1 ...] [--budget 1800] [--trace]
+      init RUN ... --sample-from SRC --sample 3:150,4:150 [--sample-by SRC-dives] [--sample-seed 1]
+        (a sampled run, coord/sample.py: no frontier pass; its first units are a sample of the paused
+        run SRC's open nodes at those depths, drawn in proportion to the dives run's estimates of
+        their subtrees; the same data file and flags as SRC, its own params. Arms with the same
+        sample options solve the same nodes: experiments/estimates_nov19/paired.py compares them)
   python3 -m coord.qapctl coordinator RUN --backend B
   python3 -m coord.qapctl worker RUN --backend B --slots 4
   python3 -m coord.qapctl status RUN --backend B
@@ -93,6 +98,16 @@ def main(argv=None):
                         "policy settings are keys in the params file (RUNNING.md, Settings)")
     p.add_argument("--ub", type=float)
     p.add_argument("--frontier-depth", type=int, default=0)
+    p.add_argument("--sample-from", metavar="SRC", help="init: a sampled run of the paused run SRC's open nodes")
+    p.add_argument("--sample", metavar="D:N,...", help="init --sample-from: how many open nodes at each depth")
+    p.add_argument("--sample-by", metavar="DIVES_RUN", help="init --sample-from: the dives run whose estimates size "
+                                                             "the nodes (default SRC's own)")
+    p.add_argument("--sample-seed", type=int, default=1)
+    p.add_argument("--sample-mix", type=float, default=0.2,
+                   help="init --sample-from: the uniform share mixed into the size-proportional draw")
+    p.add_argument("--sample-power", type=float, default=0.5,
+                   help="init --sample-from: draw in proportion to the estimate to this power (0.5: sqrt, the "
+                        "least variance of a ratio between arms at a fixed cost; 0: uniform)")
     p.add_argument("--solver", default=SOLVER)
     p.add_argument("--slots", type=int, default=os.cpu_count() or 1)
     p.add_argument("--budget", type=float, default=1800)
@@ -152,8 +167,15 @@ def main(argv=None):
 
     if a.command in ("init", "local"):
         env = dict(kv.split("=", 1) for kv in a.env)
+        sample = None
+        if a.sample_from:
+            from coord.sample import parse_plan
+            if not a.sample:
+                p.error("--sample-from needs --sample D:N,...")
+            sample = {"src": a.sample_from, "by": a.sample_by, "plan": parse_plan(a.sample),
+                      "seed": a.sample_seed, "mix": a.sample_mix, "power": a.sample_power}
         init_run(b, a.run, a.instance, a.params, shlex.split(a.extra), env, a.ub, cfg_from(a),
-                 a.solver, a.frontier_depth, log=log, visibility=a.visibility)
+                 a.solver, a.frontier_depth, log=log, visibility=a.visibility, sample=sample)
         if a.command == "init":
             return 0
         # one worker process with all the slots, the coordinator here

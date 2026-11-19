@@ -72,21 +72,38 @@ def _estimate(b, dives_run):
     return e, e.get("text", "")
 
 
-def readout(b, run_id, now=None):
-    """the readout of RUN (of its source, for a dives run), as Markdown"""
+def _primary(b, run_id, run):
+    """a dives run's readout target: its source's, when the source's estimate is this dives run (the
+    estimate-flow's, or the first made by hand); a second dives run of a source (a re-dive of its paused
+    frontier, start.sh FROM= DIVES=) has a readout of its own"""
+    cfg = run.get("config", {})
+    if cfg.get("kind") != "dives" or not cfg.get("source_run"):
+        return None
+    src = b.get_run(cfg["source_run"]) or {}
+    return cfg["source_run"] if src.get("dives_run") in (None, run_id) else None
+
+
+def readout(b, run_id, now=None, dives=None):
+    """the readout of RUN (of its source, for a dives run that is its estimate), as Markdown; dives: the
+    source's estimate taken from this dives run instead of its own (a second dives run's readout)"""
     now = now or time.time()
     run = b.get_run(run_id)
     if run is None:
         return f"# {run_id}\n\n**NO RUN**: the store has no run {run_id}.\n"
     cfg = run.get("config", {})
-    if cfg.get("kind") == "dives" and cfg.get("source_run"):
-        return readout(b, cfg["source_run"], now)
+    if cfg.get("kind") == "dives" and cfg.get("source_run") and dives is None:
+        target = _primary(b, run_id, run)
+        if target:
+            return readout(b, target, now)
+        return readout(b, cfg["source_run"], now, dives=run_id).replace(
+            f"# {cfg['source_run']}\n", f"# {run_id}\n\nA second estimate of {cfg['source_run']}: its paused frontier "
+                                         f"dived again (its own readout has its first).\n", 1)
     sol = run.get("solver", {})
     status = run.get("status")
     st = _status(b, run_id)
     counts = b.count_by_status(run_id)
     results = _results(b, run_id)
-    dives_run = run.get("dives_run")
+    dives_run = dives or run.get("dives_run")
     est, est_txt = _estimate(b, dives_run) if dives_run else (None, None)
     d_status = (b.get_run(dives_run) or {}).get("status") if dives_run else None
     warnings = []
@@ -172,7 +189,7 @@ def write_readout(b, run_id, log=print):
     """runs/RUN/readout.md in the store (RUN's source for a dives run); never fatal"""
     try:
         run = b.get_run(run_id) or {}
-        target = run.get("config", {}).get("source_run") if run.get("config", {}).get("kind") == "dives" else run_id
+        target = (_primary(b, run_id, run) or run_id) if run.get("config", {}).get("kind") == "dives" else run_id
         text = readout(b, target)
         b.put_bytes(run_key(target, "readout.md"), text.encode(), content_type="text/markdown")
         return text

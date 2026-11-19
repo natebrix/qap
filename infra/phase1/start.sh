@@ -66,7 +66,7 @@ cd "$R"
 # --- a spec file (--spec): its keys answer the questions; a key it does not set takes the default.
 # It is sourced (a committed file of this repository, as recipes/*.sh), and must be committed as it
 # is, so that the run's record names a file anyone can read at that commit
-SPEC_KEYS="PROBLEM RUN PARAMS ARMS INCUMBENT DATA FLAGS UNITS VISIBILITY ESTIMATE ESTIMATE_ENV ESTIMATE_DECIDE WORKERS WORKER_TYPE WORKER_TYPES MARKET WORKER_SLOTS COORD_TYPE COORD_SLOTS HOURS DISK"
+SPEC_KEYS="PROBLEM RUN PARAMS ARMS ARMS_ENV FROM DIVES SAMPLE SAMPLE_BY SAMPLE_SEED INCUMBENT DATA FLAGS UNITS VISIBILITY ESTIMATE ESTIMATE_ENV ESTIMATE_DECIDE WORKERS WORKER_TYPE WORKER_TYPES MARKET WORKER_SLOTS COORD_TYPE COORD_SLOTS HOURS DISK"
 NOASK=$YES
 SPECREL=""
 unknown_keys() {   # the keys a spec sets that start.sh does not know (a function: macOS's bash 3.2
@@ -90,6 +90,33 @@ if [ -n "$SPEC" ]; then
   [ -z "${S_ARMS:-}" ] || [ -z "${S_PARAMS:-}" ] || { echo "$SPECREL: PARAMS or ARMS, not both"; exit 2; }
   echo "spec: $SPECREL"
 fi
+# --- a run from a paused run, FROM=SRC (a spec's): a second estimate of its frontier, DIVES=DIVE_SECONDS
+# [:B[:SAMPLE[:unif|qpb]]] (coord/dives.py; FROM's own params and incumbent), or a sampled run of its open
+# nodes, SAMPLE=DEPTH:COUNT,... with PARAMS or ARMS (coord/sample.py: the arms of an A/B solve the same
+# nodes, side by side; SAMPLE_BY the dives run whose estimates size them, SAMPLE_SEED the draw's seed)
+FROM=${S_FROM:-}; DIVES=${S_DIVES:-}; SAMPLE=${S_SAMPLE:-}
+if [ -n "$FROM$DIVES$SAMPLE${S_SAMPLE_BY:-}${S_SAMPLE_SEED:-}" ]; then
+  [ -n "$FROM" ] || { echo "$SPECREL: DIVES or SAMPLE needs FROM (the paused run)"; exit 2; }
+  [[ $FROM =~ ^[A-Za-z0-9_-]{1,60}$ ]] || { echo "FROM: $FROM is not a run name"; exit 2; }
+  if [ -n "$DIVES" ] && [ -n "$SAMPLE" ] || [ -z "$DIVES$SAMPLE" ]; then echo "$SPECREL: FROM with DIVES or SAMPLE, one of them"; exit 2; fi
+  [ -z "${S_ESTIMATE:-}${S_ESTIMATE_DECIDE:-}" ] || { echo "$SPECREL: FROM and ESTIMATE do not go together"; exit 2; }
+  if [ -n "$DIVES" ]; then
+    [ -z "${S_PARAMS:-}${S_ARMS:-}${S_INCUMBENT:-}${S_SAMPLE_BY:-}${S_SAMPLE_SEED:-}" ] \
+      || { echo "$SPECREL: a dives run takes FROM's params and incumbent: no PARAMS, ARMS, INCUMBENT or SAMPLE_*"; exit 2; }
+    [[ $DIVES =~ ^[0-9]+(:k?[0-9.]+(:[0-9.]+(:(unif|qpb))?)?)?$ ]] || { echo "DIVES: DIVE_SECONDS[:B[:SAMPLE[:unif|qpb]]]"; exit 2; }
+  else
+    [[ $SAMPLE =~ ^[0-9]+:[0-9]+(,[0-9]+:[0-9]+)*$ ]] || { echo "SAMPLE: DEPTH:COUNT,... (e.g. 3:150,4:150)"; exit 2; }
+    [[ ${S_SAMPLE_SEED:-1} =~ ^[0-9]+$ ]] || { echo "SAMPLE_SEED: a whole number"; exit 2; }
+    [[ ${S_SAMPLE_BY:-x} =~ ^[A-Za-z0-9_-]{1,60}$ ]] || { echo "SAMPLE_BY: a run name"; exit 2; }
+  fi
+fi
+# a spec's ARMS_ENV="NAME:K=V NAME:K=V ...": an arm's own solver environment (an experiment setting no
+# params file can hold, e.g. DNN_ADMM_WARM_BETA), added to the recipe's
+arm_env() {   # arm_env NAME: the K=V items ARMS_ENV gives arm NAME, separated by spaces
+  local it out=""
+  for it in ${S_ARMS_ENV:-}; do [ "${it%%:*}" = "$1" ] && out="${out:+$out }${it#*:}"; done
+  echo "$out"
+}
 specval() {   # specval VAR: the spec's value for start.sh's VAR, if the spec sets it
   local k=""
   case $1 in
@@ -232,6 +259,14 @@ while :; do
   esac
 done
 
+if [ -n "$FROM" ]; then
+  FST=$(python3 "$D/bk.py" "$BK" status "$FROM" 2> /dev/null || echo none)
+  case $FST in paused|stopped) ;; *) echo "FROM: run $FROM is $FST: a paused run (its units back, queued) is needed"; exit 1 ;; esac
+  if [ -n "${S_SAMPLE_BY:-}" ] && [ "$(python3 "$D/bk.py" "$BK" kind "$S_SAMPLE_BY" 2> /dev/null || echo none)" != dives ]; then
+    echo "SAMPLE_BY: $S_SAMPLE_BY is not a dives run"; exit 1
+  fi
+fi
+
 # --- an A/B (a spec's ARMS="NAME=PARAMS NAME=PARAMS ..."): one run per arm, RUN-NAME, identical but
 # for the params file (docs/review_nov18_runs.md, item 2: an A/B is not typed at prompts)
 ARM_NAMES=""; ARM_PARS=""
@@ -246,13 +281,20 @@ if [ -n "${S_ARMS:-}" ]; then
     ARM_NAMES="$ARM_NAMES $an"; ARM_PARS="$ARM_PARS $ap"
   done
   set -- $ARM_NAMES; [ $# -ge 2 ] || { echo "ARMS: two or more arms"; exit 1; }
+  for it in ${S_ARMS_ENV:-}; do
+    case " $ARM_NAMES " in *" ${it%%:*} "*) ;; *) echo "ARMS_ENV: $it names no arm (NAME:K=V)"; exit 1 ;; esac
+    [[ ${it#*:} =~ ^[A-Za-z_][A-Za-z0-9_.]*=[^[:space:]]+$ ]] || { echo "ARMS_ENV: $it is not NAME:K=V"; exit 1; }
+  done
   PAR=$(echo $ARM_PARS | cut -d' ' -f1)   # the first arm's, for the checks below (the others are alike)
   S_PARAMS=$PAR
 fi
 
 # --- what to solve (a new run only)
 UB=""; UBNOTE=""
-if [ "$MODE" = new ]; then
+if [ -n "$DIVES" ]; then
+  UBASKED=1; PAR=${PAR:-latest/PARAM/default.par}   # (the recipe is not used: a dives run takes FROM's)
+  note "a dives run of $FROM: its params, data and incumbent"
+elif [ "$MODE" = new ]; then
   while :; do
     ask PAR "Params file (relative to the repository)" "${PAR:-latest/PARAM/default.par}"
     if [ ! -f "$PAR" ]; then echo "no file $PAR"
@@ -421,7 +463,7 @@ fi
 # a spec's ESTIMATE_ENV: more estimator settings, QAP_EST_X=V separated by spaces (no space in a value)
 EST_MORE=${S_ESTIMATE_ENV:-}
 if [ -n "$EST_MORE" ]; then
-  [ -n "$EST_ENV" ] || { echo "ESTIMATE_ENV without ESTIMATE"; exit 1; }
+  [ -n "$EST_ENV" ] || [ -n "$DIVES" ] || { echo "ESTIMATE_ENV without ESTIMATE or DIVES"; exit 1; }
   for kv in $EST_MORE; do [[ $kv =~ ^QAP_EST_[A-Z_]+=[^[:space:]]+$ ]] || { echo "ESTIMATE_ENV: $kv is not QAP_EST_X=V"; exit 1; }; done
 fi
 # a spec's ESTIMATE_DECIDE: the estimate's decision point (coord/dives.py; default 0.15, off: none):
@@ -468,14 +510,16 @@ echo "Run $RUN: $([ "$MODE" = new ] && echo "a new run" || echo "add instances t
 if [ "$MODE" = new ]; then
   note "problem    $P: $DAT${EXTRA:+, $EXTRA}; objective values $GRIDWHAT"
   if [ -n "$ARM_NAMES" ]; then
-    i=1; for an in $ARM_NAMES; do note "arm        $RUN-$an: $(echo $ARM_PARS | cut -d' ' -f$i)"; i=$((i + 1)); done
+    i=1; for an in $ARM_NAMES; do ae=$(arm_env "$an"); note "arm        $RUN-$an: $(echo $ARM_PARS | cut -d' ' -f$i)${ae:+, env $ae}"; i=$((i + 1)); done
     note "           the arms differ only in their params files:"
     # (diff's status is 1 when the files differ: under pipefail the pipeline must not end the script)
     set -- $ARM_PARS; for ap in "${@:2}"; do { diff -u "$1" "$ap" || true; } | sed -n '3,$p' | grep -E '^[-+]' | sed 's/^/             /' | head -20 || true; done
-  else
+  elif [ -z "$DIVES" ]; then
     note "params     $PAR"
   fi
-  note "incumbent  ${UB:-none}$UBNOTE"
+  [ -z "$DIVES" ] && note "incumbent  ${UB:-none}$UBNOTE"
+  [ -n "$DIVES" ] && note "dives      run $RUN: $FROM's paused frontier dived again, $DIVES (DIVE_SECONDS[:B[:SAMPLE[:W]]])${EST_MORE:+, $EST_MORE}; $FROM is read, not changed"
+  [ -n "$SAMPLE" ] && note "sample     of $FROM's open nodes: $SAMPLE (depth:count), sized by ${S_SAMPLE_BY:-the dives run of $FROM}, seed ${S_SAMPLE_SEED:-1}; every arm the same nodes"
   note "units      $COORD"
   note "status     $VIS"
   [ -n "$EST_ENV" ] && note "estimate   the solve for ${EH} h of its wall time, then $ED s of dives a unit as run $RUN-dives (${EST_ENV}); the solve stays paused"
@@ -499,6 +543,7 @@ else read -r -p "Launch? [y/N]: " v; case $v in y|Y|yes|Yes|YES) ;; *) echo "not
 COMMON=(--region "$REGION" --limit $((HOURS * 60)) --disk "$DISK" --no-reference)
 [ "$DRY" = 1 ] && COMMON+=(--dry-run)
 CENV="QAP_SLOTS=$CSLOTS"; [ -n "$EST_ENV" ] && CENV="$CENV $EST_ENV${EST_MORE:+ $EST_MORE}"   # node.sh: the coordinator's slots; an estimate's flow and settings
+[ -n "$FROM" ] && CENV="$CENV QAP_FROM=$FROM${DIVES:+ QAP_DIVES=$DIVES}${SAMPLE:+ QAP_SAMPLE=$SAMPLE}${S_SAMPLE_BY:+ QAP_SAMPLE_BY=$S_SAMPLE_BY}${S_SAMPLE_SEED:+ QAP_SAMPLE_SEED=$S_SAMPLE_SEED}${DIVES:+${EST_MORE:+ $EST_MORE}}"   # a run from a paused run
 GROUP=(--workers "$N" --worker-types "$WTYPES"); [ "$SLOTS" = "$CORES" ] || GROUP+=(--worker-slots "$SLOTS")
 [ "$MARKET" = on-demand ] && GROUP+=(--workers-on-demand)
 [ -n "$EST_ENV" ] && GROUP+=(--worker-env "$EST_ENV")
@@ -510,18 +555,20 @@ case $MODE in
     set -- $PARS
     for R1 in $RUNS; do
       P1=$1; shift
+      AENV=""; [ -n "$ARM_NAMES" ] && AENV=$(arm_env "${R1#"$RUN"-}")   # the arm's own environment (ARMS_ENV)
       RD=$D/runs/$R1; [ "$DRY" = 1 ] && RD=$(mktemp -d)   # a dry run leaves no run directory
       mkdir -p "$RD"; RF=$RD/recipe.sh
       PL=../$P1; case $P1 in latest/*) PL=${P1#latest/} ;; esac   # PARAMS is relative to latest/
       { echo "# run $R1: written by infra/phase1/start.sh at $(date -u +%FT%TZ), commit $COMMIT${SPECREL:+, spec $SPECREL}"
         echo "# $P, the best known ${BEST:-?} (QAPSOLN/$P.sln). INSTANCE is relative to the repository,"
         echo "# PARAMS and EXTRA's paths to latest/, as in recipes/*.sh"
-        printf 'INSTANCE=%q\nPARAMS=%q\nOPT=%q\nUB=%q\nEXTRA=%q\nENV=%q\nCOORD=%q\n' "$DAT" "$PL" "$BEST" "$UB" "$EXTRA" "$ENVV" "$COORD"
+        [ -n "$DIVES" ] && echo "# a dives run of $FROM (QAP_FROM, QAP_DIVES): node.sh makes it with qapctl dives; this recipe is not used"
+        printf 'INSTANCE=%q\nPARAMS=%q\nOPT=%q\nUB=%q\nEXTRA=%q\nENV=%q\nCOORD=%q\n' "$DAT" "$PL" "$BEST" "$UB" "$EXTRA" "$ENVV${AENV:+ $AENV}" "$COORD"
       } > "$RF"
       # what was launched, and from what: the spec as committed, and the answers as taken
       { [ -n "$SPECREL" ] && { echo "# spec $SPECREL at $COMMIT"; cat "$SPEC"; echo; }
         echo "# launched $(date -u +%FT%TZ): coordinator $CTYPE on demand, $CSLOTS slots; workers $N x ($WTYPES) $MARKET,"
-        echo "# $SLOTS slots each; $TOTAL slots; limit $HOURS h; disk $DISK GB; status $VIS${EST_ENV:+; $EST_ENV}${EST_MORE:+ $EST_MORE}"
+        echo "# $SLOTS slots each; $TOTAL slots; limit $HOURS h; disk $DISK GB; status $VIS${EST_ENV:+; $EST_ENV}${EST_MORE:+ $EST_MORE}${FROM:+; from $FROM${DIVES:+: dives $DIVES}${SAMPLE:+: sample $SAMPLE}}"
       } > "$RD/spec.txt"
       echo "recipe: $RF"
       FIRST=(--recipe-file "$RF" --run-slots "$TOTAL"); [ "$VIS" = private ] && FIRST+=(--private)

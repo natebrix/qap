@@ -19,7 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, ROOT)
 from coord.backend import open_backend  # noqa: E402
 from coord.common import run_key  # noqa: E402
-from coord.readout import readout  # noqa: E402
+from coord.readout import _primary, readout  # noqa: E402
 
 
 def main():
@@ -33,7 +33,9 @@ def main():
     rows = []
     for run in b.list_runs():
         rid = run.get("run_id", "")
-        if not rid or run.get("config", {}).get("kind") == "dives":
+        # a dives run that is its source's estimate is in its source's readout; a second one (a re-dive of
+        # a paused frontier, start.sh FROM= DIVES=) has its own (coord/readout.py)
+        if not rid or (run.get("config", {}).get("kind") == "dives" and _primary(b, rid, run)):
             continue
         last = max(run.get("finished_at") or 0, run.get("created") or 0, run.get("stopped_at") or 0)
         if run.get("status") in ("finished", "stopped") and now - last > a.since_days * 86400:

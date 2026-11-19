@@ -74,6 +74,17 @@ if [ -n "$EST" ]; then
   [ -n "$EST_SOLVE" ] && [ -n "$EST_DIVE" ] || { echo "QAP_ESTIMATE must be SOLVE_S:DIVE_S[:B]"; exit 2; }
   REFERENCE=0
 fi
+# QAP_FROM=SRC with QAP_DIVES=DIVE_S[:B[:SAMPLE[:W]]] (start.sh FROM= DIVES=): the run is a dives run of the
+# paused run SRC (qapctl dives SRC --as RUN: a second estimate of its frontier; coord/dives.py), the
+# coordinating instance's QAP_EST_* settings for every unit. With QAP_SAMPLE=D:N,... (start.sh FROM=
+# SAMPLE=): the run is a sampled run of SRC's open nodes under the recipe's params (qapctl init
+# --sample-from SRC; QAP_SAMPLE_BY, QAP_SAMPLE_SEED; coord/sample.py), for an A/B side by side.
+FROM=${QAP_FROM:-}; DIVES=${QAP_DIVES:-}; SAMPLE=${QAP_SAMPLE:-}
+if [ -n "$FROM" ]; then
+  [ -n "$DIVES" ] || [ -n "$SAMPLE" ] || { echo "QAP_FROM needs QAP_DIVES or QAP_SAMPLE"; exit 2; }
+  [ -z "$EST" ] || { echo "QAP_FROM and QAP_ESTIMATE do not go together"; exit 2; }
+  REFERENCE=0
+fi
 ASG=${QAP_ASG:-}
 WORKERS=${QAP_WORKERS:-}
 LEAVE=0   # a worker: leave the group at the end (its run is over, or this instance cannot work)
@@ -290,7 +301,20 @@ fi
 # role all: the run
 if [ "$ST" = finished ]; then step "run $RUN is finished already: nothing to do"; exit 0; fi
 if run_done; then step "run $RUN's estimate is finished already: nothing to do"; exit 0; fi
-if [ "$ST" = none ]; then
+if [ "$ST" = none ] && [ -n "$DIVES" ]; then
+  # a dives run of the paused run FROM: its units read FROM's states and parents, never change them
+  IFS=: read -r DV_S DV_B DV_SAMPLE DV_W <<< "$DIVES"
+  dargs=(dives "$FROM" --as "$RUN" --backend "$BK" --budget "$DV_S" --dive-b "${DV_B:-0.4}" --dive-sample "${DV_SAMPLE:-1}"
+         --dive-weights "${DV_W:-unif}")
+  for kv in $(env | grep -E '^QAP_EST_[A-Z_]+=[^ ]*$' | grep -vE '^QAP_EST_(SURV|SAMPLE|SAMPLE_W|BUDGET|DIVES|SEED)=' || true); do
+    dargs+=(--dive-env "$kv")
+  done
+  step "init: run $RUN, a dives run of $FROM ($DIVES)"
+  if ! $PY -m coord.qapctl "${dargs[@]}" > "$OUT/init.log" 2>&1; then
+    step "init FAILED (out/init.log)"; exit 1
+  fi
+  step "init: $(tail -1 "$OUT/init.log" | sed 's/^[0-9:]* //' | cut -c1-200)"
+elif [ "$ST" = none ]; then
   RF=infra/phase1/recipes/${QAP_RECIPE:-}.sh; RN=recipes/${QAP_RECIPE:-}.sh
   [ -n "${QAP_RECIPE_FILE:-}" ] && RF=$QAP_RECIPE_FILE && RN="the recipe launch.sh sent (runs/$RUN/recipe.sh on the laptop)"
   { [ -n "${QAP_RECIPE:-}" ] || [ -n "${QAP_RECIPE_FILE:-}" ]; } && [ -f "$RF" ] \
@@ -304,12 +328,17 @@ if [ "$ST" = none ]; then
   for kv in $ENV; do args+=(--env "$kv"); done
   [ -n "$UB" ] && args+=(--ub "$UB")
   args+=(--visibility "${QAP_VISIBILITY:-public}" $COORD)
-  step "init: run $RUN from $RN$([ -n "$UB" ] && echo ", incumbent $UB" || echo ", no incumbent"), $RUN_SLOTS slots: the frontier pass"
+  if [ -n "$SAMPLE" ]; then   # a sampled run of FROM's open nodes (coord/sample.py)
+    args+=(--sample-from "$FROM" --sample "$SAMPLE")
+    [ -n "${QAP_SAMPLE_BY:-}" ] && args+=(--sample-by "$QAP_SAMPLE_BY")
+    [ -n "${QAP_SAMPLE_SEED:-}" ] && args+=(--sample-seed "$QAP_SAMPLE_SEED")
+  fi
+  step "init: run $RUN from $RN$([ -n "$UB" ] && echo ", incumbent $UB" || echo ", no incumbent"), $RUN_SLOTS slots: $([ -n "$SAMPLE" ] && echo "a sample of $FROM's open nodes ($SAMPLE)" || echo "the frontier pass")"
   if ! $PY -m coord.qapctl init "$RUN" --backend "$BK" "${args[@]}" > "$OUT/init.log" 2>&1; then
     step "init FAILED (out/init.log)"; exit 1
   fi
   bk put "runs/$RUN/recipe.sh" "$OUT/recipe.sh"
-  step "init: $(grep -o 'frontier at depth .*' "$OUT/init.log")"
+  step "init: $(grep -o 'frontier at depth .*\|a sample of .*' "$OUT/init.log" | head -1)"
 else
   bk get "runs/$RUN/recipe.sh" "$OUT/recipe.sh" || : > "$OUT/recipe.sh"
   step "run $RUN exists ($ST): resuming"
