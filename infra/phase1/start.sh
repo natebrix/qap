@@ -31,6 +31,13 @@
 # For a RUN that exists: with no coordinator, one is launched to resume it (its group updated);
 # with one, its worker group grows by N (a run from before worker groups: N --worker-only).
 #
+#   infra/phase1/start.sh --spec infra/phase1/specs/NAME.spec [--dry-run] [--yes]
+#
+#   --spec F    every answer from a committed spec file (infra/phase1/specs/README.md): no
+#               questions but the last ("Launch?", which --yes answers). ARMS in it makes an
+#               A/B: one run per arm, RUN-ARM, identical but for the params file
+#   --no-commit leave the run's record (runs/RUN/: recipe.sh, launches.tsv, spec.txt)
+#               uncommitted; by default it is committed and pushed once launched
 #   --dry-run   launch.sh --dry-run for the first instance: the AWS calls that change
 #               something are printed, none is made
 #   --profile P the AWS CLI profile (AWS_PROFILE) to sign in with
@@ -38,10 +45,12 @@
 set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
 R=$(cd "$D/../.." && pwd)
-P=""; DRY=0; YES=0; REGION=eu-north-1
+P=""; DRY=0; YES=0; REGION=eu-north-1; SPEC=""; COMMIT_RECORD=1
 while [ $# -gt 0 ]; do
   case $1 in
     --dry-run) DRY=1; shift ;;
+    --spec) SPEC=$2; shift 2 ;;
+    --no-commit) COMMIT_RECORD=0; shift ;;
     --yes) YES=1; shift ;;
     --profile) export AWS_PROFILE=$2; shift 2 ;;
     --region) REGION=$2; shift 2 ;;
@@ -50,17 +59,53 @@ while [ $# -gt 0 ]; do
     *) [ -z "$P" ] || { echo "one PROBLEM only ($P, $1)"; exit 2; }; P=$1; shift ;;
   esac
 done
-[ -n "$P" ] || { awk 'NR > 1 && /^set /{exit} NR > 1' "$0"; exit 2; }
+[ -n "$P$SPEC" ] || { awk 'NR > 1 && /^set /{exit} NR > 1' "$0"; exit 2; }
+[ -z "$SPEC" ] || SPEC=$(cd "$(dirname "$SPEC")" && pwd)/$(basename "$SPEC")
 cd "$R"
 
-ask() {   # ask VAR QUESTION DEFAULT: Enter keeps the default
-  local v=""
-  if [ "$YES" = 1 ]; then echo "$2: $3"; else read -r -p "$2 [$3]: " v; fi
+# --- a spec file (--spec): its keys answer the questions; a key it does not set takes the default.
+# It is sourced (a committed file of this repository, as recipes/*.sh), and must be committed as it
+# is, so that the run's record names a file anyone can read at that commit
+SPEC_KEYS="PROBLEM RUN PARAMS ARMS INCUMBENT DATA FLAGS UNITS VISIBILITY ESTIMATE WORKERS WORKER_TYPE WORKER_TYPES MARKET WORKER_SLOTS COORD_TYPE COORD_SLOTS HOURS DISK"
+NOASK=$YES
+SPECREL=""
+if [ -n "$SPEC" ]; then
+  [ -f "$SPEC" ] || { echo "no spec file $SPEC"; exit 2; }
+  SPECREL=${SPEC#"$R"/}
+  git ls-files --error-unmatch "$SPECREL" > /dev/null 2>&1 && git diff --quiet HEAD -- "$SPECREL" \
+    || { echo "$SPECREL is not committed as it is: commit it first (the run's record names it)"; exit 2; }
+  BAD=$(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "$SPEC" | tr -d = | while read -r k; do
+          case " $SPEC_KEYS " in *" $k "*) ;; *) echo "$k" ;; esac; done)
+  [ -z "$BAD" ] || { echo "$SPECREL: unknown key(s) $(echo $BAD) (known: $SPEC_KEYS)"; exit 2; }
+  eval "$( (set +u; source "$SPEC" > /dev/null
+            for k in $SPEC_KEYS; do [ -n "${!k+x}" ] && printf 'S_%s=%q\n' "$k" "${!k}"; done) )"
+  [ -n "${S_PROBLEM:-}" ] || { echo "$SPECREL: no PROBLEM"; exit 2; }
+  [ -z "$P" ] || [ "$P" = "$S_PROBLEM" ] || { echo "the spec is for $S_PROBLEM, not $P"; exit 2; }
+  P=$S_PROBLEM; NOASK=1
+  [ -z "${S_ARMS:-}" ] || [ -z "${S_PARAMS:-}" ] || { echo "$SPECREL: PARAMS or ARMS, not both"; exit 2; }
+  echo "spec: $SPECREL"
+fi
+specval() {   # specval VAR: the spec's value for start.sh's VAR, if the spec sets it
+  local k=""
+  case $1 in
+    RUN) k=RUN ;; PAR) k=PARAMS ;; UB) k=INCUMBENT ;; DAT) k=DATA ;; EXTRA) k=FLAGS ;; COORD) k=UNITS ;;
+    VIS) k=VISIBILITY ;; ESTIMATE) k=ESTIMATE ;; N) k=WORKERS ;; TYPE) k=WORKER_TYPE ;; WTYPES) k=WORKER_TYPES ;;
+    MARKET) k=MARKET ;; SLOTS) k=WORKER_SLOTS ;; CTYPE) k=COORD_TYPE ;; CSLOTS) k=COORD_SLOTS ;; HOURS) k=HOURS ;;
+    DISK) k=DISK ;; P|P2) k=PROBLEM ;;
+  esac
+  [ -n "$k" ] && [ -n "$SPEC" ] && eval "[ -n \"\${S_$k+x}\" ]" && eval "printf '%s' \"\$S_$k\""
+}
+
+ask() {   # ask VAR QUESTION DEFAULT: Enter keeps the default; a spec's value answers it
+  local v="" sv
+  if sv=$(specval "$1"); then echo "$2: $sv (spec)"; v=$sv
+  elif [ "$NOASK" = 1 ]; then echo "$2: $3"
+  else read -r -p "$2 [$3]: " v; fi
   printf -v "$1" '%s' "${v:-$3}"
 }
 yesno() {   # yesno QUESTION y|n (the default): status 0 for yes
   local v=""
-  if [ "$YES" = 1 ]; then echo "$1 $2"; v=$2; else read -r -p "$1 [$([ "$2" = y ] && echo Y/n || echo y/N)]: " v; fi
+  if [ "$NOASK" = 1 ]; then echo "$1 $2"; v=$2; else read -r -p "$1 [$([ "$2" = y ] && echo Y/n || echo y/N)]: " v; fi
   case ${v:-$2} in y|Y|yes|Yes|YES) return 0 ;; *) return 1 ;; esac
 }
 mask() { if [ -n "${ACCT:-}" ]; then sed "s/$ACCT/<account>/g"; else cat; fi; }
@@ -126,7 +171,7 @@ git diff --quiet HEAD -- latest coord bench infra/phase1 experiments/estimates \
 # --- the problem and its defaults
 while :; do
   [[ $P =~ ^[a-z]+[0-9]+[a-z]?$ ]] && [ -f "qaplib/$P.dat" ] && break
-  echo "no QAPLIB problem $P (qaplib/$P.dat)"; [ "$YES" = 1 ] && exit 1
+  echo "no QAPLIB problem $P (qaplib/$P.dat)"; [ "$NOASK" = 1 ] && exit 1
   ask P "Problem (a QAPLIB name)" "tho40"
 done
 ask P2 "Problem" "$P"
@@ -166,20 +211,39 @@ MODE=new
 RUN=$P-$(date -u +%y%m%d)
 while :; do
   ask RUN "Run name (the website shows it)" "$RUN"
-  if ! [[ $RUN =~ ^[A-Za-z0-9_-]{1,60}$ ]]; then echo "letters, digits, - and _ only"; [ "$YES" = 1 ] && exit 1; continue; fi
+  if ! [[ $RUN =~ ^[A-Za-z0-9_-]{1,60}$ ]]; then echo "letters, digits, - and _ only"; [ "$NOASK" = 1 ] && exit 1; continue; fi
   ST=$(python3 "$D/bk.py" "$BK" status "$RUN" 2> /dev/null || echo none)
   case $ST in
     none) break ;;
-    finished|stopped) echo "run $RUN is $ST: give the new run another name (e.g. ${RUN}b)"; [ "$YES" = 1 ] && exit 1; RUN=${RUN}b ;;
+    finished|stopped) echo "run $RUN is $ST: give the new run another name (e.g. ${RUN}b)"; [ "$NOASK" = 1 ] && exit 1; RUN=${RUN}b ;;
     *) COORD_LIVE=$(aws ec2 describe-instances --filters "Name=tag:qap-phase1,Values=$RUN" Name=tag:qap-role,Values=all \
          Name=instance-state-name,Values=pending,running --query 'Reservations[].Instances[].InstanceId' --output text) || COORD_LIVE=""
        echo "run $RUN exists ($ST), $([ -n "$COORD_LIVE" ] && echo "coordinated by $COORD_LIVE" || echo "with no instance coordinating it")"
+       [ -z "$SPEC" ] || { echo "a spec starts new runs: give it another RUN (start.sh $P without --spec adds to a run)"; exit 1; }
        if yesno "Add instances to it, with its own settings?" y; then
          MODE=add; [ -n "$COORD_LIVE" ] || MODE=resume; break
        fi
-       [ "$YES" = 1 ] && exit 1; RUN=${RUN}b ;;
+       [ "$NOASK" = 1 ] && exit 1; RUN=${RUN}b ;;
   esac
 done
+
+# --- an A/B (a spec's ARMS="NAME=PARAMS NAME=PARAMS ..."): one run per arm, RUN-NAME, identical but
+# for the params file (docs/review_nov18_runs.md, item 2: an A/B is not typed at prompts)
+ARM_NAMES=""; ARM_PARS=""
+if [ -n "${S_ARMS:-}" ]; then
+  for a in $S_ARMS; do
+    an=${a%%=*}; ap=${a#*=}
+    [[ $an =~ ^[A-Za-z0-9_]{1,12}$ ]] && [ "$an" != "$a" ] || { echo "ARMS: $a is not NAME=PARAMS (NAME: letters, digits, _)"; exit 1; }
+    [ -f "$ap" ] && git ls-files --error-unmatch "$ap" > /dev/null 2>&1 && git diff --quiet HEAD -- "$ap" \
+      || { echo "ARMS: $ap is not a committed file as it is"; exit 1; }
+    st=$(python3 "$D/bk.py" "$BK" status "$RUN-$an" 2> /dev/null || echo none)
+    [ "$st" = none ] || { echo "run $RUN-$an exists ($st): give the spec another RUN"; exit 1; }
+    ARM_NAMES="$ARM_NAMES $an"; ARM_PARS="$ARM_PARS $ap"
+  done
+  set -- $ARM_NAMES; [ $# -ge 2 ] || { echo "ARMS: two or more arms"; exit 1; }
+  PAR=$(echo $ARM_PARS | cut -d' ' -f1)   # the first arm's, for the checks below (the others are alike)
+  S_PARAMS=$PAR
+fi
 
 # --- what to solve (a new run only)
 UB=""; UBNOTE=""
@@ -190,7 +254,7 @@ if [ "$MODE" = new ]; then
     elif ! git ls-files --error-unmatch "$PAR" > /dev/null 2>&1 || ! git diff --quiet HEAD -- "$PAR"; then
       echo "$PAR is not committed as it is: the instances build $COMMIT, so commit it first"
     else break; fi
-    [ "$YES" = 1 ] && exit 1
+    [ "$NOASK" = 1 ] && exit 1
   done
   KEYS=$(grep -E '^(ship\.bits|dnn\.depths|dnn\.giveup|pool\.on|cut\.grid|cut\.zone|cut\.regions) *=' "$PAR" | sed 's/  */ /g' | paste -sd, - | sed 's/,/, /g') || KEYS=""
   note "${KEYS:-no ship.bits, dnn.depths, pool.on or cut keys: the defaults of the solver}"
@@ -203,7 +267,7 @@ if [ "$MODE" = new ]; then
     ask UB "Incumbent ($([ -n "$BEST" ] && echo "the best known $BEST + $STEP, the next value; " || echo "no best known in QAPSOLN/; ")none: no incumbent)" "$UBDEF"
     [ "$UB" = none ] && break
     [[ $UB =~ ^[0-9]+$ ]] && break
-    echo "a whole number, or none"; [ "$YES" = 1 ] && exit 1
+    echo "a whole number, or none"; [ "$NOASK" = 1 ] && exit 1
   done
   [ "$UB" = none ] && UB=""
   ubnote
@@ -219,7 +283,7 @@ while :; do
   VCPU=$(echo "$CPU" | awk '{print $1}'); CORES=$(echo "$CPU" | awk '{print $2}'); MEM=$(echo "$CPU" | awk '{print $3}')
   [[ $MEM =~ ^[0-9]+$ ]] || MEM=
   [[ $VCPU =~ ^[1-9][0-9]*$ ]] && [[ $CORES =~ ^[1-9][0-9]*$ ]] && break
-  echo "no instance type $TYPE in $REGION"; [ "$YES" = 1 ] && exit 1
+  echo "no instance type $TYPE in $REGION"; [ "$NOASK" = 1 ] && exit 1
 done
 # the group's types: a 7th-generation AMD type and its siblings, one CPU (AMD EPYC 9R14) in three
 # families: three times the Spot pools, the same per-core speed and rounding. The slots below are
@@ -229,12 +293,12 @@ case $TYPE in c7a.*|m7a.*|r7a.*) WTYPES="$TYPE"; for f in c7a m7a r7a; do [ "$f"
 while :; do
   ask WTYPES "Worker group's types (comma-separated; Spot takes the cheapest with capacity)" "$WTYPES"
   [[ $WTYPES =~ ^[a-z0-9]+\.[a-z0-9]+(,[a-z0-9]+\.[a-z0-9]+)*$ ]] && break
-  echo "instance types separated by commas"; [ "$YES" = 1 ] && exit 1
+  echo "instance types separated by commas"; [ "$NOASK" = 1 ] && exit 1
 done
 while :; do
   ask MARKET "Workers: spot or on-demand" "$MARKET"
   case $MARKET in spot|on-demand) break ;; esac
-  echo "spot or on-demand"; [ "$YES" = 1 ] && exit 1
+  echo "spot or on-demand"; [ "$NOASK" = 1 ] && exit 1
 done
 # the vCPU quota left: Spot "All Standard Spot Instance Requests", on-demand "Running On-Demand Standard"
 quota_room() {   # quota_room MARKET VCPUS_EACH: QROOM (instances that fit), QNOTE
@@ -260,11 +324,12 @@ fi
 NDEF=1; [ -n "$ROOM" ] && [ "$ROOM" -lt 1 ] && NDEF=0
 while :; do
   ask N "Worker instances (the group keeps this many; a reclaimed one is replaced)" "$NDEF"
-  if ! [[ $N =~ ^[1-9][0-9]*$ ]]; then echo "a whole number, 1 or more"; [ "$YES" = 1 ] && exit 1; continue; fi
+  if ! [[ $N =~ ^[1-9][0-9]*$ ]]; then echo "a whole number, 1 or more"; [ "$NOASK" = 1 ] && exit 1; continue; fi
   [ -z "$ROOM" ] || [ "$N" -le "$ROOM" ] && break
   echo "the quota has room for $ROOM: the group would launch only those"
+  [ -n "$SPEC" ] && { note "the spec's $N: the group launches what the quota allows, and the rest when it has room"; break; }
   yesno "Ask for $N anyway?" n && break
-  [ "$YES" = 1 ] && exit 1
+  [ "$NOASK" = 1 ] && exit 1
 done
 # slots per instance: a worker process each; the cores, unless the problem needs more memory per process
 # than the type has per core (recipes/defaults.txt mem=G: as many as (memory - 4 GiB) / G holds; slots=S
@@ -282,7 +347,7 @@ SDEF=$(fit_slots "$CORES" "$MEM" "${DEF_SLOTS:-$CORES}")
 while :; do
   ask SLOTS "Slots per worker (one solver process each$([ -n "$MEM" ] && echo "; $((MEM / 1024)) GiB of memory$([ -n "$DEF_MEM" ] && echo ", $P needs about $DEF_MEM GiB a process")"))" "$SDEF"
   [[ $SLOTS =~ ^[1-9][0-9]*$ ]] && [ "$SLOTS" -le "$CORES" ] && break
-  echo "a whole number from 1 to $CORES"; [ "$YES" = 1 ] && exit 1
+  echo "a whole number from 1 to $CORES"; [ "$NOASK" = 1 ] && exit 1
 done
 if [ -n "$DEF_MEM" ] && [ -n "$MEM" ] && [ $((SLOTS * DEF_MEM + 4)) -gt $((MEM / 1024)) ]; then
   note "$SLOTS slots x $DEF_MEM GiB is more than the $((MEM / 1024)) GiB of $TYPE: the solver processes may run out of memory"
@@ -296,7 +361,7 @@ while :; do
   CVCPU=$(echo "$CPU" | awk '{print $1}'); CCORES=$(echo "$CPU" | awk '{print $2}'); CMEM=$(echo "$CPU" | awk '{print $3}')
   [[ $CMEM =~ ^[0-9]+$ ]] || CMEM=
   [[ $CVCPU =~ ^[1-9][0-9]*$ ]] && [[ $CCORES =~ ^[1-9][0-9]*$ ]] && break
-  echo "no instance type $CTYPE in $REGION"; [ "$YES" = 1 ] && exit 1
+  echo "no instance type $CTYPE in $REGION"; [ "$NOASK" = 1 ] && exit 1
 done
 quota_room on-demand "$CVCPU"
 note "$CTYPE: $CVCPU vCPUs, $CCORES cores; $QNOTE"
@@ -305,21 +370,22 @@ CDEF=$(fit_slots "$CCORES" "$CMEM" "$([ "$CCORES" -gt 1 ] && echo $((CCORES - 1)
 while :; do
   ask CSLOTS "Coordinator slots (one solver process each)" "$CDEF"
   [[ $CSLOTS =~ ^[0-9]+$ ]] && [ "$CSLOTS" -ge 1 ] && [ "$CSLOTS" -le "$CCORES" ] && break
-  echo "a whole number from 1 to $CCORES"; [ "$YES" = 1 ] && exit 1
+  echo "a whole number from 1 to $CCORES"; [ "$NOASK" = 1 ] && exit 1
 done
 TOTAL=$((CSLOTS + N * SLOTS))
 while :; do
   ask HOURS "Time limit in hours (the coordinator shuts down and the group goes to 0 then; a relaunch resumes the run)" 72
   [[ $HOURS =~ ^[1-9][0-9]*$ ]] && break
-  echo "whole hours"; [ "$YES" = 1 ] && exit 1
+  echo "whole hours"; [ "$NOASK" = 1 ] && exit 1
 done
 
 # --- the rest, if asked
 DISK=100; VIS=public
-if yesno "Change the other settings (data file, solver flags, disk, units, public status)?" n; then
+OTHER=n; for k in DATA FLAGS UNITS VISIBILITY ESTIMATE DISK; do eval "[ -n \"\${S_$k+x}\" ]" && OTHER=y; done
+if yesno "Change the other settings (data file, solver flags, disk, units, public status, estimate)?" $OTHER; then
   if [ "$MODE" = new ]; then
     DAT0=$DAT; STEP0=$STEP
-    while :; do ask DAT "Data file" "$DAT"; [ -f "$DAT" ] && break; echo "no file $DAT"; done
+    while :; do ask DAT "Data file" "$DAT"; [ -f "$DAT" ] && break; echo "no file $DAT"; [ "$NOASK" = 1 ] && exit 1; done
     if [ "$DAT" != "$DAT0" ]; then
       grid
       if [ "$STEP" != "$STEP0" ] && [ -n "$BEST" ] && [ "$UB" = "$((BEST + STEP0))" ]; then
@@ -336,7 +402,7 @@ if yesno "Change the other settings (data file, solver flags, disk, units, publi
       ask ESTIMATE "Estimate run: SOLVE_HOURS:DIVE_SECONDS[:B[:SAMPLE[:unif|qpb]]] (e.g. 2:1800, or 1:900:k1.5:0.2:qpb for a bushy tree; none: a solve)" "${ESTIMATE:-none}"
       [ "$ESTIMATE" = none ] && ESTIMATE="" && break
       [[ $ESTIMATE =~ ^[0-9]+(\.[0-9]+)?:[0-9]+(:k?[0-9.]+(:[0-9.]+(:(unif|qpb))?)?)?$ ]] && break
-      echo "SOLVE_HOURS:DIVE_SECONDS[:B[:SAMPLE[:unif|qpb]]], or none"; [ "$YES" = 1 ] && exit 1
+      echo "SOLVE_HOURS:DIVE_SECONDS[:B[:SAMPLE[:unif|qpb]]], or none"; [ "$NOASK" = 1 ] && exit 1
     done
   fi
   ask DISK "Disk per instance, GB" "$DISK"
@@ -355,7 +421,14 @@ echo
 echo "Run $RUN: $([ "$MODE" = new ] && echo "a new run" || echo "add instances to the run ($MODE)"), commit $COMMIT ($BRANCH)"
 if [ "$MODE" = new ]; then
   note "problem    $P: $DAT${EXTRA:+, $EXTRA}; objective values $GRIDWHAT"
-  note "params     $PAR"
+  if [ -n "$ARM_NAMES" ]; then
+    i=1; for an in $ARM_NAMES; do note "arm        $RUN-$an: $(echo $ARM_PARS | cut -d' ' -f$i)"; i=$((i + 1)); done
+    note "           the arms differ only in their params files:"
+    # (diff's status is 1 when the files differ: under pipefail the pipeline must not end the script)
+    set -- $ARM_PARS; for ap in "${@:2}"; do { diff -u "$1" "$ap" || true; } | sed -n '3,$p' | grep -E '^[-+]' | sed 's/^/             /' | head -20 || true; done
+  else
+    note "params     $PAR"
+  fi
   note "incumbent  ${UB:-none}$UBNOTE"
   note "units      $COORD"
   note "status     $VIS"
@@ -368,7 +441,12 @@ note "           started once the run exists (the root bounded), replaced when S
 note "limit      $HOURS hours ($((HOURS * 60)) minutes); disk $DISK GB each"
 [ "$DRY" = 1 ] && note "dry run: launch.sh --dry-run for the first instance; nothing is created"
 echo
-yesno "Launch?" "$([ "$YES" = 1 ] && echo y || echo n)" || { echo "nothing launched"; exit 0; }
+[ -z "$SPEC" ] || note "the spec    $SPECREL$([ -n "$ARM_NAMES" ] && echo ", $(echo $ARM_NAMES | wc -w | tr -d ' ') runs")"
+[ "$COMMIT_RECORD" = 1 ] && [ "$DRY" != 1 ] && [ "$MODE" = new ] && note "record     runs/$RUN$([ -n "$ARM_NAMES" ] && echo "-*")/ committed and pushed once launched (--no-commit: not)"
+echo
+# the last question is asked even with a spec; --yes answers it
+if [ "$YES" = 1 ]; then echo "Launch? y"
+else read -r -p "Launch? [y/N]: " v; case $v in y|Y|yes|Yes|YES) ;; *) echo "nothing launched"; exit 0 ;; esac; fi
 
 # --- the recipe (a new run) and the launch: the coordinator, and with it the worker group
 COMMON=(--region "$REGION" --limit $((HOURS * 60)) --disk "$DISK" --no-reference)
@@ -379,18 +457,31 @@ GROUP=(--workers "$N" --worker-types "$WTYPES"); [ "$SLOTS" = "$CORES" ] || GROU
 [ -n "$EST_ENV" ] && GROUP+=(--worker-env "$EST_ENV")
 case $MODE in
   new)
-    RD=$D/runs/$RUN; [ "$DRY" = 1 ] && RD=$(mktemp -d)   # a dry run leaves no run directory
-    mkdir -p "$RD"; RF=$RD/recipe.sh
-    PL=../$PAR; case $PAR in latest/*) PL=${PAR#latest/} ;; esac   # PARAMS is relative to latest/
-    { echo "# run $RUN: written by infra/phase1/start.sh at $(date -u +%FT%TZ), commit $COMMIT"
-      echo "# $P, the best known ${BEST:-?} (QAPSOLN/$P.sln). INSTANCE is relative to the repository,"
-      echo "# PARAMS and EXTRA's paths to latest/, as in recipes/*.sh"
-      printf 'INSTANCE=%q\nPARAMS=%q\nOPT=%q\nUB=%q\nEXTRA=%q\nENV=%q\nCOORD=%q\n' "$DAT" "$PL" "$BEST" "$UB" "$EXTRA" "$ENVV" "$COORD"
-    } > "$RF"
-    echo "recipe: $RF"
-    FIRST=(--recipe-file "$RF" --run-slots "$TOTAL"); [ "$VIS" = private ] && FIRST+=(--private)
-    echo "--- the coordinator and the worker group"
-    "$D/launch.sh" "$RUN" "${FIRST[@]}" --type "$CTYPE" --on-demand "${GROUP[@]}" "${COMMON[@]}" --node-env "$CENV" ;;
+    # one run, or one per arm of an A/B (RUN-ARM, each with its own coordinator and worker group)
+    RUNS=$RUN; PARS=$PAR
+    if [ -n "$ARM_NAMES" ]; then RUNS=""; for an in $ARM_NAMES; do RUNS="$RUNS $RUN-$an"; done; PARS=$ARM_PARS; fi
+    set -- $PARS
+    for R1 in $RUNS; do
+      P1=$1; shift
+      RD=$D/runs/$R1; [ "$DRY" = 1 ] && RD=$(mktemp -d)   # a dry run leaves no run directory
+      mkdir -p "$RD"; RF=$RD/recipe.sh
+      PL=../$P1; case $P1 in latest/*) PL=${P1#latest/} ;; esac   # PARAMS is relative to latest/
+      { echo "# run $R1: written by infra/phase1/start.sh at $(date -u +%FT%TZ), commit $COMMIT${SPECREL:+, spec $SPECREL}"
+        echo "# $P, the best known ${BEST:-?} (QAPSOLN/$P.sln). INSTANCE is relative to the repository,"
+        echo "# PARAMS and EXTRA's paths to latest/, as in recipes/*.sh"
+        printf 'INSTANCE=%q\nPARAMS=%q\nOPT=%q\nUB=%q\nEXTRA=%q\nENV=%q\nCOORD=%q\n' "$DAT" "$PL" "$BEST" "$UB" "$EXTRA" "$ENVV" "$COORD"
+      } > "$RF"
+      # what was launched, and from what: the spec as committed, and the answers as taken
+      { [ -n "$SPECREL" ] && { echo "# spec $SPECREL at $COMMIT"; cat "$SPEC"; echo; }
+        echo "# launched $(date -u +%FT%TZ): coordinator $CTYPE on demand, $CSLOTS slots; workers $N x ($WTYPES) $MARKET,"
+        echo "# $SLOTS slots each; $TOTAL slots; limit $HOURS h; disk $DISK GB; status $VIS${EST_ENV:+; $EST_ENV}"
+      } > "$RD/spec.txt"
+      echo "recipe: $RF"
+      FIRST=(--recipe-file "$RF" --run-slots "$TOTAL"); [ "$VIS" = private ] && FIRST+=(--private)
+      echo "--- $R1: the coordinator and the worker group"
+      "$D/launch.sh" "$R1" "${FIRST[@]}" --type "$CTYPE" --on-demand "${GROUP[@]}" "${COMMON[@]}" --node-env "$CENV" \
+        && LAUNCHED="${LAUNCHED:-} $R1" || echo "$R1 was not launched (see above)"
+    done ;;
   resume)
     echo "--- the coordinator (resuming $RUN) and the worker group"
     "$D/launch.sh" "$RUN" --type "$CTYPE" --on-demand "${GROUP[@]}" "${COMMON[@]}" --node-env "$CENV" ;;
@@ -412,7 +503,20 @@ case $MODE in
       done
     fi ;;
 esac
+# --- the record, committed and pushed at once (docs/review_nov18_runs.md, item 5: a run whose record
+# is on one laptop only can be collected from nowhere else); only the runs' own files, which
+# .gitignore keeps clear of the bucket's name (bucket.txt, userdata_*.sh)
+if [ -n "${LAUNCHED:-}" ] && [ "$DRY" != 1 ]; then
+  PATHS=""; for R1 in $LAUNCHED; do PATHS="$PATHS infra/phase1/runs/$R1"; done
+  if [ "$COMMIT_RECORD" = 1 ]; then
+    git add -- $PATHS && git commit -q -m "phase 1 runs/$(echo $LAUNCHED | sed 's/ /, /g'): launched${SPECREL:+ from $SPECREL} at $COMMIT" -- $PATHS \
+      && echo "record: committed $(git rev-parse --short HEAD)" || echo "record: not committed (git add/commit failed); commit $PATHS yourself"
+    git push -q origin HEAD 2> /dev/null && echo "record: pushed to origin/$BRANCH" \
+      || echo "record: not pushed (git pull --no-rebase origin $BRANCH && git push)"
+  else
+    echo "Commit the run's record: git add$PATHS && git commit -m 'launched' && git push"
+  fi
+fi
 echo
-echo "Next: infra/phase1/collect.sh $RUN (any time: instances, status, steps). The build and gates take 10-15 minutes;"
-echo "the website lists the run once its coordinator publishes, every 5 minutes after that."
-[ "$DRY" = 1 ] || echo "Commit the run's record: git add infra/phase1/runs/$RUN && git commit -m '$RUN: launched' && git push"
+for R1 in ${LAUNCHED:-$RUN}; do echo "Next: infra/phase1/collect.sh $R1 (any time: instances, status, steps, the readout once it is done)."; done
+echo "The coordinator's build and gates take 10-15 minutes; its workers start once the run exists."

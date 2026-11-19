@@ -89,6 +89,10 @@ or a recipe file per arm that is committed before launch. The launcher would ref
 differ in anything other than `PARAMS`, and its summary would show the differences between the two
 recipes. The prompts would stay for one-off runs.
 
+**Status, Nov 19: done.** `start.sh --spec F`: every answer from a committed spec; `ARMS` in it makes
+the A/B, whose arms differ in their params files only by construction, the difference shown before
+the launch (`infra/phase1/specs/`). Item 5 with it: the run's record is committed and pushed at launch.
+
 ## 3. Spot for comparisons
 
 **What we saw.** Both sko42 arms were in eu-north-1c and were reclaimed two minutes apart, 30 minutes in

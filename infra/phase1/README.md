@@ -75,6 +75,16 @@ set of settings is exact); `compare.py` checks the tree, not iterations.
 
 ## Starting a run (`start.sh`, Nov 16)
 
+**From a spec file (Nov 19):** `start.sh --spec infra/phase1/specs/NAME.spec` takes every answer
+from a committed file and asks only "Launch?" (`--yes` answers it); `ARMS` in it makes an A/B, one
+run per arm, `RUN-ARM`, identical but for the params file, the difference shown before the launch.
+Every new run's record (`runs/RUN/`: `recipe.sh`, `launches.tsv`, `spec.txt`) is committed and pushed
+once it is launched (`--no-commit`: not). `infra/phase1/specs/README.md` has the keys and the specs
+(`nug30-smoke`, `tai50b-est`, `sko42-zone`). Tested in a throwaway clone with a bare origin, against
+the AWS stand-in and moto: the sko42 A/B launched two runs whose recipes differ only in `PARAMS`,
+each with its group, and its record was committed and pushed; a spec with an unknown key, or not
+committed as it is, is refused.
+
 **Since Nov 19 a run is a coordinator and a worker group** (`docs/review_nov18_runs.md`, item 3):
 
 - **The coordinator is on demand,** a small instance of the workers' CPU (`c7a.2xlarge`). It

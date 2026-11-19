@@ -339,7 +339,7 @@ print(json.dumps({
 PY
 )
   # a dry run shows the user data's size, not its base64 (which holds the bucket's name, so the account number)
-  [ "$DRY" = 1 ] && LTDATA=$(echo "$LTDATA" | python3 -c 'import json, sys; d = json.load(sys.stdin); d["UserData"] = f"<{len(d[\"UserData\"])} characters of base64>"; print(json.dumps(d))')
+  [ "$DRY" = 1 ] && LTDATA=$(echo "$LTDATA" | python3 -c 'import json, sys; d = json.load(sys.stdin); d["UserData"] = "<%d characters of base64>" % len(d["UserData"]); print(json.dumps(d))')
   if aws ec2 describe-launch-templates --launch-template-names "$ASG" > /dev/null 2>&1; then
     change ec2 create-launch-template-version --launch-template-name "$ASG" --launch-template-data "$LTDATA" > /dev/null
     say "worker group $ASG: launch template updated (commit $COMMIT)"
