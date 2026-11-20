@@ -102,8 +102,23 @@ kicks (`out/signal_*`). Scores: `score17.py`, `out/score17.txt`.
 | | signal r51 | 0 (rank 1, on the tie-break) | 35 / 7 / **1** | 706k / 706k | 1,731 |
 | 22:31, path (85,768) | taken c26 (rule 9) | 2 (rank 33) | 33 / 3 / **7** | 391k / 157k | 5,914 |
 | | signal r13 | 1 (rank 1) | 41 / 0 / **2** | 281k / 158k | 1,651 |
-| **total** | taken | 2 | **25** | 4,703k | 14,567 |
+| **total** | taken (rule 9) | 2 | **25** | 4,703k | 14,567 |
 | | signal | 1 | **8** | 1,530k | 5,430 |
+| 8:49 | rule 2: r2 | 0 (rank 5) | 29 / 0 / **0** (14 Q) | 0 | 117 |
+| 8:57 | rule 2: r2 | 0 (rank 5) | 37 / 0 / **0** (6 Q) | 0 | 153 |
+| 22:31 | rule 2: c54 | 2 (rank 41) | 36 / 4 / **3** | 231k / 117k | 2,749 |
+| **total** | rule 2 | 2 | **3** | 231k | 3,019 |
+
+**The control (the coordinator's, Nov 20 13:00): rule 2, production's actual rule at these depths, beats both.** Rule
+9's line is the taken line at all three parents, so it was not rerun. Rule 2's lines (`rule2.par`: the run's par file
+at 316361fc; `arm17.sh` with LINE `-`) left 3 branching children (0, 0, 3), against the signal's 8 and rule 9's 25, in
+3,019 CPU s against 5,430 and 14,567 [m]. At the two off-chain parents rule 2's r2 fathoms everything in the first
+solve or by QPB alone (Q). The signal's own excesses show why: r2's children are at x 3.4-3.8 for two of them, then
+74 to 155 times the slack. The signal's count is 0 for every line there and its tie-break is near 0 for all, so it
+does not see this; the size of the far children does. So at depth 17 **rule 9's line is the bad one, more than the
+signal's line is the good one**: rule 2 > signal > rule 9 at both off-chain parents. At the path node the three are
+rule 2's c54 3, the signal's r13 2 and rule 9's c26 7 branching children, with shortfall sums 231k, 281k and 391k.
+This is three parents, one level.
 
 The signal's top three lines, 300 kicks: at 8:49 and at 8:57, r51, c38, c30 (0 predicted each; every line has 0); at
 22:31, r13, c0, c36 (1 each). Only the top line was bounded at each parent. The second and third were not, and since
