@@ -171,6 +171,11 @@ a level down 9 branching nodes under c47 against 56 under c54.
   depth-9 nodes in two processes). Rule, the coordinator's, fixed before the result: c59 stays ahead of c47
   only with fewer than 9 branching nodes at depth 9, or 9 with a smaller shortfall sum (c47: 260 nodes,
   9 branching, shortfall sum 1,152k, 9,002 s; production under c54: 520 nodes, 56 branching).
+  Under 11:59 (done [m `runs/d9c59_11_59/nodes.txt`]): 52 nodes, D/C/B 49/0/3, shortfalls 394k, 328k, 282k
+  (sum 1,003k), 2,185 CPU s. Under 13:59 and 3:59: running (30 of 104 nodes: 2 branching, 89k and 63k).
+- **Step 2, mode (a) at tai60b's depth-8 chain node 14:54 (production's c2)**: c54 bounded from the strong
+  parent state first (`run.sh strong c54`, started 07:50 UTC), to give 14:54 its strong state; then 14:54
+  bounded one level under production's rule and under the signal's top line.
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
