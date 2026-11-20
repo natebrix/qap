@@ -4,7 +4,8 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
-| [sko42-261120](runs/sko42-261120/readout.md) | running | **RUNNING**: 5361 of 5988 units merged | - | 2026-11-20 01:13 | - |
+| [sko42-261120b](runs/sko42-261120b/readout.md) | running | **RUNNING**: 3317 of 3719 units merged | - | 2026-11-20 14:47 | - |
+| [sko42-261120](runs/sko42-261120/readout.md) | stopped | **STOPPED** part-way: 7205 of 8331 units merged (qapctl stop) | - | 2026-11-20 01:13 | 2026-11-20 14:02 |
 | [tho40-tune-261119-z03](runs/tho40-tune-261119-z03/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of tho40-est2-261119 asked (depth:count 3:50,4:100) to the end under tho40c_z03.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-19 19:32 | 2026-11-20 01:20 |
 | [tho40-tune-261119-cross5](runs/tho40-tune-261119-cross5/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of tho40-est2-261119 asked (depth:count 3:50,4:100) to the end under tho40c_cross5.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-19 19:31 | 2026-11-20 00:14 |
 | [tho40-tune-261119-xbar4](runs/tho40-tune-261119-xbar4/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of tho40-est2-261119 asked (depth:count 3:50,4:100) to the end under tho40c_xbar4.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-19 19:30 | 2026-11-19 23:07 |

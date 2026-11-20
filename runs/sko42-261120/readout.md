@@ -1,6 +1,6 @@
 # sko42-261120
 
-**RUNNING**: 5361 of 5988 units merged
+**STOPPED** part-way: 7205 of 8331 units merged (qapctl stop)
 
 ## The run
 
@@ -11,14 +11,14 @@
 | incumbent | 15814.0 |
 | slots | 135; units of 1200.0 CPU s, traced |
 | created | 2026-11-20 01:13 UTC |
-| status | running |
+| finished | 2026-11-20 14:02 UTC |
 
 ## The work
 
 | | |
 |---|---|
-| wall | 7 h 56 min |
-| nodes | 407,632 (207,566 DNN, 134,196 DNN-fathomed) |
-| CPU | 1,010.9 h |
-| units | leased 71, merged 5361, queued 556 |
-| status written | 2026-11-20 09:10 UTC |
+| wall | 12 h 48 min |
+| nodes | 756,482 (302,600 DNN, 148,633 DNN-fathomed) |
+| CPU | 1,631.6 h |
+| units | leased 135, merged 7205, queued 991 |
+| status written | 2026-11-20 14:02 UTC |
