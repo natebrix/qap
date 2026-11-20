@@ -61,7 +61,7 @@ for d in sorted(glob.glob(H + '/runs/dump/*')):
     toprow = max((ln for ln in score if ln[0] == 'r'), key=lambda ln: score[ln]); topcol = max((ln for ln in score if ln[0] == 'c'), key=lambda ln: score[ln])
     T = trace([d + '/nodes.txt']); node = [f for f in T.values() if int(f[1]) == R['depth']][0]; k = node[2]
     ref = DOWN.get(k); r9line = ref[9] if ref else '?'; r9b = nb(DOWN, k) if ref else None
-    cnt = lambda ln, th: sum(v > th for v in line_entries[ln])
+    cnt = lambda ln, th, le=line_entries: sum(v > th for v in le[ln])
     sup = sorted(score, key=lambda ln: (cnt(ln, 1.0 / m), -score[ln]))[0]
     alts = ALT.get(k, {}); best_alt = min(alts.items(), key=lambda kv: kv[1][0]) if alts else None
     on = all(p0[int(a)] == int(b) for a, b in (x.split(':') for x in k.split(',')))
