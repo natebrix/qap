@@ -73,7 +73,11 @@ What is in hand [m]:
 - **tai40b mode (a) [m `t2/tai40b_a`]: the signal picks production's own line at depths 0, 1 and 2 (r23, r27,
   r22)**, so the tree is production's, 731 nodes; 7,180 CPU s gross, 165 s of it the signal. Below the root
   every line has 1 predicted survivor and the tie is broken by chain-model mass under 0.05. Neither help nor
-  harm, as T3 predicted. (b) K = 2 and K = 4 are running.
+  harm, as T3 predicted.
+- **tai40b (b) K = 2 [m `t2/tai40b_b2`]: 731 nodes again, 8,257 CPU s gross (19% above production), 995 s in
+  the rule (169 signal, 826 lookahead).** At the root it chose c31 from {r23, c31, c2}; then r27 and r22. At
+  every firing every child of every shortlisted line is still open after 30 iterations (40/40, 39/39,
+  38/38), so its scores are unresolved shortfalls, as on tai35b. Fails the kill rule. (b) K = 4 is running.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
