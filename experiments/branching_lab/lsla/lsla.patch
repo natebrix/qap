@@ -45,7 +45,7 @@
 +		if (const char *x = getenv("QAP_LS_SEARCH"); x && *x)
 +		  sscanf(x, "%d:%d:%lf:%d", &ls_p.kicks, &ls_p.kicks2, &ls_p.xhi, &ls_p.gate_kicks);
 +		const char *cs = getenv("QAP_LS_CAP");
-+		for (const char *c = cs && *c ? cs : "30"; c && *c; ) { ls_caps.push_back(atoi(c)); c = strchr(c, ','); if (c) c++; }
++		for (const char *c = cs && *cs ? cs : "30"; c && *c; ) { ls_caps.push_back(atoi(c)); c = strchr(c, ','); if (c) c++; }
 +		ls_I.n = n;  ls_I.a.resize((size_t)n * n);  ls_I.b.resize((size_t)n * n);  ls_I.c.assign((size_t)n * n, 0.0);
 +		for (int i = 0; i < n; i++) for (int k = 0; k < n; k++) {
 +		  ls_I.a[(size_t)i * n + k] = q->A->me[i][k];  ls_I.b[(size_t)i * n + k] = q->B->me[i][k];
