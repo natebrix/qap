@@ -65,7 +65,10 @@ What is in hand [m]:
   at the same node depends on what was solved before it: c5 at 18:12 19:26 scored 604M in (b) K = 2 and K = 4
   but 11,955M in this arm, where c5 came second instead of first (the warm pool). Where the lookahead is
   decisive (root, depth 1), the signal's top line was already its choice, so the lookahead adds nothing.
-- tai40b's T2 arms started 05:52 UTC and are running.
+- **tai40b production [m `t2/tai40b_prod`]: 731 nodes, 6,925 CPU s, closed at the optimum**, the same node
+  count as line_signals' production (731, 7,379 s). Its tree is a single chain: one branching node at every
+  depth, every other child fathomed. A line choice can only save by giving the chain fewer, cheaper siblings;
+  (c) lost there (829 nodes, 17,461 s). (a), (b) K = 2 and K = 4 are running in that order.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
