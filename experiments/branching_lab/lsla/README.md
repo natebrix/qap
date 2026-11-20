@@ -12,6 +12,9 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 - **At tai60b's depth-7 chain node, the pair found a better line than anyone had**: c59, the signal's first line
   and the lookahead's choice at CAP 30 and CAP 150, has 3 branching children when bounded, against c47's 5
   (linetest's best) and production's c54's 9, at less than half their children's CPU. One node, one level.
+- **At that node the CAP 150 lookahead orders all four bounded lines correctly** (c59 3, r11 4, c47 5, c54 9
+  branching children); the signal gets the top line right but puts r11 10th. So the lookahead, given enough
+  iterations, ranks better than the signal; but it chose the signal's top line.
 - **In every firing so far where the lookahead was decisive, its choice was the signal's top line** (tai35b's
   root and depth 1, tai60b's depth 7). Where the two differed (tai35b depth 2), the lookahead's scores were
   unresolved solves and its choices were worse. So the evidence supports mode (a), the signal alone, at a few
@@ -47,7 +50,8 @@ What is in hand [m]:
   and the choice is still c59. **Bounded, c59 is the best line yet at this node**: 3 branching children
   against c47's 5 and c54's 9, children's CPU 2,490 s against 5,560 and 6,460 [m `runs/sc59`]. So at n = 60,
   where the lookahead had 150 iterations, the signal-then-lookahead pair found a better line than production's
-  and than linetest's best. One node; depth 9 not bounded; r11 (lookahead #2) still being bounded.
+  and than linetest's best. r11, the lookahead's second, is the second best (4 branching); the CAP 150 lookahead
+  orders all four bounded lines correctly. One node; depth 9 not bounded.
 - **Mode (b) K = 4 on tai35b is worse still** [m `t2/tai35b_b4`]: 1,038 nodes, 8,050 CPU s gross (16% above
   production), 1,532 s in the rule. With a wider shortlist the lookahead picks c6 at both depth-2 nodes where it
   fires, and depth 4 grows from 128 nodes to 192. At depth 2 every shortlisted line still has all 33 children
@@ -61,8 +65,7 @@ What is in hand [m]:
   at the same node depends on what was solved before it: c5 at 18:12 19:26 scored 604M in (b) K = 2 and K = 4
   but 11,955M in this arm, where c5 came second instead of first (the warm pool). Where the lookahead is
   decisive (root, depth 1), the signal's top line was already its choice, so the lookahead adds nothing.
-- The c59 and r11 boundings at tai60b's depth-7 node are running (about 07:45 UTC [e]); tai40b's T2 arms
-  started 05:52 UTC.
+- tai40b's T2 arms started 05:52 UTC and are running.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
@@ -146,12 +149,18 @@ a level down 9 branching nodes under c47 against 56 under c54.
   | line | D | C | B | branching children's shortfalls | sum | depth-8 CPU s |
   |---|---|---|---|---|---|---|
   | **c59** (signal #1, lookahead #1 at CAP 30 and 150) | 50 | 0 | **3** | 427k, 289k, 145k (11:59, 13:59, 3:59) | 861k | 2,490 |
+  | r11 (rule 9; lookahead #2 at CAP 30 and 150; signal #10) | 47 | 2 | 4 | 744k, 427k, 235k, 163k (11:36, 11:59, 11:35, 11:29) | 1,568k | 3,657 |
   | c47 (signal #2) | 45 | 3 | 5 | | 978k | 5,560 |
   | c54 (production) | 43 | 1 | 9 | | 2,588k | 6,460 |
 
   Every child of c59 that does not branch is fathomed by the DNN bound, none needs the cut phase, so its
   children cost less than half of c47's. One level down, this is the best line bounded at this node, and both
   the signal and the lookahead put it first. Depth 9 under c59 is not bounded.
+
+  **The four lines bounded, in order: c59 (3 branching), r11 (4), c47 (5), c54 (9).** The lookahead at CAP 150
+  ranks them exactly so; at CAP 30 it has c59 and r11 right and c47 and c54 swapped. The refined signal ranks
+  them c59 (#1), c47 (#2), r11 (#10), c54 (#72): the top right, r11 too low. r11 also beats c47 by the
+  coordinator's rule (4 < 5). [m `runs/sr11/nodes.txt`]
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
