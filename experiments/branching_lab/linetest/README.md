@@ -78,6 +78,35 @@ the kill rule, which is Nathan's call. The run ran from 23:22 to 09:22 under the
 09:25 under the 15:30 deadline. Three container restarts (about 00:00, 03:25 and 04:10 UTC) cost only the chunks in
 progress, which were rerun.
 
+### The 2x2 at depth 9: the line and the rule, separated (Nov 20, 13:10-19:15 UTC; the coordinator's request)
+
+**The two effects are separate and about multiplicative. At depth 9, c47 instead of c54 cuts the branching children to a
+third under either rule, and rule 9 instead of rule 2 halves them under either line.** [m] Rows: the depth-7 line
+(from the strong state, 10:39 416k short). Columns: the rule that chose the depth-8 lines. Each cell is depth 9's
+nodes, branching (B), shortfall sum and CPU:
+
+| | rule 2 below (production's) | rule 9 below (0e6c2ecf's par) |
+|---|---|---|
+| **c54** | 520 nodes, **56 B**, 80,387 s (production, cloud boxes); depth-8 lines c2 at all 10 | 468 nodes, **27 B**, 4,583k, 24,609 s; lines r3 (6), c53, c35, c59 |
+| **c47** | 260 nodes, **19 B**, 2,469k, 21,055 s; lines c54 at all 5 | 260 nodes, **9 B**, 1,152k, 9,002 s; lines c10, c53, c59, c59, r9 |
+
+The line effect is 19/56 = 0.34 under rule 2 and 9/27 = 0.33 under rule 9. The rule effect is 27/56 = 0.48 under c54
+and 9/19 = 0.47 under c47. So the 6x between production (56) and the c47 descent (9) at depth 9 is about 3x from the
+depth-7 line and 2x from the rule. Per depth-8 node, c47 + rule 2: 47:47 8 B, 46:47 9, 29:47 2, 31:47 0, 45:47 0
+(rule 9: 3, 3, 2, 0, 1). Rule 2's c54 costs most under the two survivors farthest from the cutoff.
+
+*Check of c54 + rule 2 against production:* two of c54's depth-8 parents, rebranched from this run's state under
+`rule2.par`, pick production's line (c2) and leave production's counts exactly: 25:54 5 B (production 5) and 16:54
+4 B (production 4). So production's 56 is a like-for-like cell here, on the evidence of 2 of its 9 parents.
+
+How: c54 + rule 9 bounds depth 9 from the strong c54 arm's set-aside states (`lvl.py c54r9`; the strong arm's depth-8
+lines were chosen by rule 9). c47 + rule 2 and the c54 check need the depth-8 nodes branched again, so 10:39 was
+rebounded with its depth-8 children set aside (`run.sh strong7 c47|c54`: 10:39's bound 607,798,660.8327, identical
+to the strong arms'). Then each depth-8 node was bounded under `rule2.par` with depth 9 bounded and depth 10 set aside
+(`d9arm.sh`, `runs/d9x/`). The depth-8 nodes' own bounds differ from the strong arms' by up to a few hundred
+(47:47 607,885,595 against 607,885,434). Their warm start came from a checkpoint (fp32, `ship.bits = 32`); in the arm
+it was the parent's in-memory state. Depth 10 and below were not compared.
+
 ### The depth-17 line test (Nov 20, 11:25-12:58 UTC; the coordinator's follow-up to the depth-18 stop)
 
 **By the decision rule fixed in advance (the signal helps if its three lines leave at most 12 branching children,
