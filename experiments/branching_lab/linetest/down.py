@@ -3,8 +3,8 @@
 
 Level D bounds every open depth-D node from the states of level D-1 (level 10 starts from runs/d9_*/out.state),
 with production's settings (infra/phase1/recipes/tai60b.par) and production's own line rule, setting aside depth
-D+1 (bnbdrv -d D). Each input state is split into one chunk per parent (the nodes sharing one DNN warm start,
-splitstate-style), so a process holds the DNN states of one parent's branching children only; 4 chunks run at a
+D+1 (bnbdrv -d D). Each input state is split into pieces of at most CH = 13 of one parent's nodes (the nodes sharing one DNN
+warm start, each piece with a copy of it; from depth 11 on, depth 10 ran one chunk per parent), so a process holds the DNN states of one parent's branching children only; 4 chunks run at a
 time. A chunk that finished (runs/down/dD/done/K) is not rerun, so the script resumes after a container restart.
 After each level: out/down_levels.tsv gets a row (with production's under c54 at that depth), the README table
 is rewritten from it, the directory is committed and pushed, and the kill rule is checked: stop if the level's
@@ -17,7 +17,7 @@ PAR = f'{BUILD}/infra/phase1/recipes/tai60b.par'
 DAT = f'{BUILD}/qaplib/tai60b.dat'
 CUT = 608215054.05
 NODE = '44:45,43:58,1:33,6:24,7:19,0:32,10:39,'
-JOBS = int(os.environ.get('JOBS', 4)); WALL = float(os.environ.get('WALL', 10)) * 3600
+JOBS = int(os.environ.get('JOBS', 4)); CH = int(os.environ.get('CH', 13)); WALL = float(os.environ.get('WALL', 10)) * 3600
 ENV = dict(os.environ, OPENBLAS_NUM_THREADS='1', OMP_NUM_THREADS='1', VECLIB_MAXIMUM_THREADS='1')
 PROD = {}
 for l in open(H + '/out/production_by_depth.txt'):
@@ -39,8 +39,12 @@ def split_by_warm(src, outdir, tag):
     for ln in nodes:
         body, w = ln.rsplit(None, 1); groups[int(w)].append(body)
     out = []
-    for w, bodies in sorted(groups.items()):
-        p = f'{outdir}/{tag}_w{w}.state'
+    pieces = []
+    for w, bodies in sorted(groups.items()):   # a parent's children in pieces of at most CH nodes (each with a copy of
+        for i in range(0, len(bodies), CH):     # the parent's warm start), so the level's last parent does not run alone
+            pieces.append((w, i // CH, bodies[i:i + CH]))
+    for w, j, bodies in pieces:
+        p = f'{outdir}/{tag}_w{w}_{j}.state'
         with open(p, 'w') as o:
             o.writelines(head)
             if w >= 0: o.write('warm_starts 1\n'); o.write(warms[w]); nw = 0

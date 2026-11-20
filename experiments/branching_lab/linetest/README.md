@@ -48,6 +48,10 @@ time, or if memory will not hold a level. Production's rows: the tai60b-261117 t
 against production's cloud boxes (this box ran the depth-8 children in 0.53x production's CPU).
 
 <!-- down-table -->
+| depth | nodes bounded | D / C / B (other) | CPU s [m, this box] | branching shortfall: sum / largest | production under c54: nodes / B / CPU s (cloud boxes) |
+|---|---|---|---|---|---|
+| 9 (from above) | 260 | 247 / 4 / 9 | 9,002 | 1,152k / 254k | 520 / 56 / 80,387 |
+| 10 | 459 | 444 / 4 / 11 | 11,981 | 1,018k / 248k | 2,856 / 103 / 191,477 |
 <!-- /down-table -->
 
 ### One level deeper (depth 9; the coordinator's first follow-up, Nov 19 22:25-23:10 UTC)
