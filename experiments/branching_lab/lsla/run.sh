@@ -114,6 +114,16 @@ case ${1:-} in
     QAP_FORCE_LINE=9:$LINE9 QAP_LINE_RANK=9 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 10 \
       -o "$D/runs/$NAME/out.state" -k 600 "$DAT"
     rm -f "$D/runs/$NAME/in.state" ;;
+  t1d9)
+    # mode b at 24:2 (depth 9) from runs/set9_c2/out.state, strong.par: NAME CAPS K; ADD r8 (rule 2's line);
+    # rule 9's r3 joins as the rule's own line; children set aside (-d 9), not bounded
+    NAME=$2; CAPS=$3; K=$4
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err,ls,dump}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/cutstate.py" "$D/runs/set9_c2/out.state" "$D/runs/$NAME/in.state" 9 24:2
+    QAP_LS=b:$K:9:9 QAP_LS_CAP=$CAPS QAP_LS_ADD=${ADD:-r8} QAP_LS_SEARCH=${SEARCH:-30:3000:2.5:300} \
+      QAP_LS_PERM=$BUILD/QAPSOLN/tai60b.sln QAP_LS_LOG=$D/runs/$NAME/ls.txt QAP_LS_DUMP=$D/runs/$NAME/dump.txt \
+      go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 9 "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
   deep)
     # one level deeper, as linetest's deep target: the depth-9 nodes under a strong arm's survivors FIXES (e.g.
     # 11:59 or 13:59,3:59), from runs/s<LINE>/out.state, production's settings and line rule, depth 10 set aside
