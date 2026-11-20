@@ -173,6 +173,29 @@ a level down 9 branching nodes under c47 against 56 under c54.
 - The incumbent permutation the signal starts from is the optimum (`QAP_LS_PERM` = the `.sln`), as in every
   arm here. On a node off the optimum's chain it has to find the good completions itself.
 
+### T3: break-even at tai60b's chain nodes
+
+Cost of one firing of (b) at the depth-7 node `10:39`, n = 60, m = 53 [m `runs/t1_cap*/ls.txt`]: 232 s of
+signal plus 2,548 s of lookahead at CAP 30 (0.77 core-hours in all) or 5,123 s at CAP 150 (1.49 core-hours).
+Mode (a) alone: 232 s refined, or 35 s at 30 kicks (T0).
+
+What is at stake there: c54's off-chain subtrees at this node, over both of tai60b's symmetric chains, hold
+114,669 nodes and 873 CPU-hours (landscape README, from the postmortem), about 437 core-hours per chain [e:
+half]. So (b) at CAP 150 breaks even if it saves 0.34% of one chain's subtree, and (a) if it saves 0.015%.
+Bounded one level, c59 has 3 branching children against c54's 9 (and a shortfall sum a third of c54's); if
+the subtrees scale with those, the saving is of the order of half the subtree [e], 100x the break-even. One
+firing per chain; both chains together: 3 core-hours of rule against hundreds saved [e].
+
+At the depth-3 chain node `1:33` (m = 57) the stake is larger still (most of the tree lies below depths 3-7)
+and a firing costs the same order [e: the same signal; a lookahead per child of the same size, weaker bounds,
+so if anything more iterations]. The landscape study rates the possible saving there small (1.4x off-chain,
+the signal's preferred lines' survivors at lower x), and nothing at depth 3 has been bounded. Break-even
+there is not the question; whether any line beats r6 is.
+
+**So on tai60b's chain the rule's cost does not matter; only its accuracy does.** On tai35b it is the other
+way: the whole tree is 6,935 CPU s, and a (b) firing at CAP 30 costs 170-350 s, so five firings cost 10-17%
+of the tree, more than any line choice there saved.
+
 ## linetest's depth 9 (fetched from `claude/cool-babbage-ilnogj`, linetest `out/d9score.txt`)
 
 Under c47, depth 9 has 9 branching nodes (260 bounded, 9,002 CPU s on this box) against production's 56
@@ -230,6 +253,7 @@ moved into place.
 
 ## Not tested yet
 
-- The break-even at tai60b's depth-3 and depth-7 chain nodes (T3's second half).
-- tai40b's arms.
+- Depth 9 under c59 and r11; any line at tai60b's depth-3 chain node bounded.
+- Mode (a) at tai60b's other chain nodes.
+- tai40b's arms (running).
 - A tai50b partial tree.
