@@ -5,7 +5,7 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 
 ## Answer (in progress; updated as arms finish)
 
-**Not yet known.** What is in hand [m]:
+**On tai35b, no: both shortlist arms of (b) fail the kill rule, and the cheaper signal alone (a) does better than either.** What is in hand [m]:
 
 - The signal in C costs **35 CPU s per firing at n = 60** with 30 kicks per child, and 355 s with 3,000
   more kicks on the cells near the threshold. The DNN lookahead it would feed costs hours per firing at that
@@ -29,7 +29,11 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   [m `runs/t1_cap30/ls.txt`]: it scores c47 (5 true survivors, the best bounded line) last of four and c54
   (9) above it, because 44 of c47's 53 children are still open after 30 iterations. The signal had them
   in the right order. It chose c59, never bounded. Cost 2,548 CPU s of lookahead plus 232 s of signal.
-- T1 at CAP 150, (b) K = 4 and (b) without refinement are running.
+- **Mode (b) K = 4 on tai35b is worse still** [m `t2/tai35b_b4`]: 1,038 nodes, 8,050 CPU s gross (16% above
+  production), 1,532 s in the rule. With a wider shortlist the lookahead picks c6 at both depth-2 nodes where it
+  fires, and depth 4 grows from 128 nodes to 192. At depth 2 every shortlisted line still has all 33 children
+  open after 30 iterations, so the lookahead's scores there are sums of shortfalls on unresolved solves.
+- T1 at CAP 150 and (b) without refinement are running.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
@@ -113,7 +117,7 @@ more than 7% (the noise) below production's, or it reaches <= 780 nodes (c's) wi
 | (c) `QAP_LA=4:30:0:2` | 780 | 8,900 | 2,803 (6 nodes) | 6,097 | [m] line_signals `runs/tai35b_la4p` |
 | (a) top LS line (refined signal) | 983 | 6,352 | 396 (5 firings, 1 gate fail) | 5,956 | [m] `t2/tai35b_a` |
 | (b) K = 2, CAP 30 (refined signal) | 1,000 | 7,381 | 1,142 (402 signal + 740 lookahead; 5 firings, 1 gate fail) | 6,240 | [m] `t2/tai35b_b2` |
-| (b) K = 4, CAP 30 | running (started 03:07) | | | | |
+| (b) K = 4, CAP 30 (refined signal) | 1,038 | 8,050 | 1,532 (400 signal + 1,132 lookahead; 5 firings, 1 gate fail) | 6,519 | [m] `t2/tai35b_b4` | | | | |
 | (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | queued | | | | |
 
 Production here has the same 1,017 nodes as line_signals' two production runs, with the same (depth,
@@ -182,6 +186,11 @@ and (a). Depth 2, 18:26 19:12: {c5, c33, r26}, picks c5 ((c) picked c23, absent)
 picks r30 ((c) c23, absent; (a) took c5). 18:8 19:26: gate fails. Nodes by depth 0-9: production 1, 35, 102,
 99, 128, 155, 60, 58, 56, 27; (b) K = 2: 1, 35, 68, 99, 128, 124, 120, 58, 56, 27. Each firing cost 65-87 s of
 signal (nearly all refinement) and 102-168 s of lookahead.
+
+**(b) K = 4** [m `t2/tai35b_b4/ls.log`]. Root {c26, r19, r18, c5}: c26. 18:26 {r19, c5, c12, c6}: r19. 19:26
+{r18, c5, c6, r26, c12}: r18. 18:26 19:12 {c5, c33, c6, r23, r26}: c6. 18:12 19:26 {c5, r30, r26, c6}: c6.
+c23 is on none of them. Nodes by depth 0-9: 1, 35, 68, 99, 192, 155, 60, 58, 56, 27. Lookahead 195-262 s per
+firing.
 
 **A crash: my bug.** (b) K = 2 died at tai35b's root (01:23 UTC) and both T1 runs at 01:31, all with signal 11
 at the same address, at the first mode-b firing. gdb on a `-g -O3` build stops at the `QAP_LS_CAP` parse,
