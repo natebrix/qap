@@ -15,8 +15,8 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   rule 9 at depth 8) and production's 56 under c54 (rule 2 at depth 8), though with a 1.5x larger shortfall sum
   than c47's (1,721k against 1,152k).
 - **At the depth-8 chain node 14:54 the signal's top line, c59, beats rule 9's line there** (3 branching children
-  against r3's 4, shortfall sum 714k against 1,078k, same strong state). Rule 2's line, c2 (production's), is
-  being bounded from the same state.
+  against r3's 4, shortfall sum 714k against 1,078k, same strong state), and beats rule 2's line, c2
+  (production's cloud run's), by more (c2: 7 branching children, 1,806k, 4,990 CPU s against c59's 2,226).
 - **At that node the CAP 150 lookahead orders all four bounded lines correctly** (c59 3, r11 4, c47 5, c54 9
   branching children); the signal gets the top line right but puts r11 10th. So the lookahead, given enough
   iterations, ranks better than the signal; but it chose the signal's top line.
@@ -228,11 +228,14 @@ a level down 9 branching nodes under c47 against 56 under c54.
   |---|---|---|---|---|---|---|---|
   | **c59** | signal #1 | 49 | 0 | **3** | 377k, 239k, 99k | 714k | 2,226 [m `runs/at8_14_54_c59`] |
   | r3 | rule 9 (0e6c2ecf par), strong state; signal #9 | 47 | 1 | 4 | 393k, 377k, 209k, 99k | 1,078k | 2,864 [m `runs/at8_14_54_r3`] |
-  | c2 (forced) | rule 2, production's cloud run; signal #51 | running (started 12:39) | | | | | |
+  | c2 (forced) | rule 2, production's cloud run; signal #51 | 43 | 2 | 7 | 378k, 358k, 356k, 326k, 149k, 129k, 110k | 1,806k | 4,990 [m `runs/at8_14_54_c2`] |
   | c2, production's own trace (cloud, weaker bound) | | | | 7 | 117k-411k | | linetest |
 
   14:54's bound under c59's arm, 607,832,239.6, reproduces the c54 bounding's 607,832,297.5 to 58.
-  **c59 beats r3, rule 9's line on the same state, by the rule (3 branching against 4; 714k against 1,078k).**
+  **c59 beats both by the rule: r3, rule 9's line (3 branching against 4; 714k against 1,078k), and c2, rule 2's
+  line (3 against 7; 714k against 1,806k).** The signal's ranking of the three (c59 1st, r3 9th, c2 51st) is
+  their order by bounding. On the strong state c2 still has 7 branching children, as in production's own trace,
+  so the stronger bound did not rescue it.
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
