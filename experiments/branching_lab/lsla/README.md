@@ -35,7 +35,7 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   choice there is good and not just its last place. Then (b) at more chain nodes (10's 8:29, and depths 3-6),
   each firing about 1.3-1.5 core-hours and each line bounded one level (about 1-2 core-hours per line). The
   question for the tree is whether (b)'s cost per firing, against about 437 core-hours per chain at n = 60
-  (T3) [e], is paid back; at three nodes its choice was at least as good as both rules' lines.
+  (T3) [e], is paid back. Its choice beat production's line at 10:39 (depth 7); at 24:2 it is pending.
 
 What is in hand [m]:
 
