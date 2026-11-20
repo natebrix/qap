@@ -9,9 +9,10 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 
 - **On tai35b, (b) fails**: all three arms of (b) fail the kill rule (1,000 to 1,046 nodes, 7,200 to 8,050 CPU s
   against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any.
-- **At tai60b's depth-7 chain node, the pair found a better line than anyone had**: c59, the signal's first line
-  and the lookahead's choice at CAP 30 and CAP 150, has 3 branching children when bounded, against c47's 5
-  (linetest's best) and production's c54's 9, at less than half their children's CPU. One node, one level.
+- **At tai60b's depth-7 chain node, the pair found a line as good as the best anyone had**: c59, the signal's
+  first line and the lookahead's choice at CAP 30 and CAP 150, has 3 branching children when bounded, against
+  c47's 5 (linetest's best) and production's c54's 9; at depth 9, 8 branching nodes against c47's 9 and c54's
+  56, though with a 1.5x larger shortfall sum than c47's (1,721k against 1,152k).
 - **At that node the CAP 150 lookahead orders all four bounded lines correctly** (c59 3, r11 4, c47 5, c54 9
   branching children); the signal gets the top line right but puts r11 10th. So the lookahead, given enough
   iterations, ranks better than the signal; but it chose the signal's top line.
@@ -171,8 +172,23 @@ a level down 9 branching nodes under c47 against 56 under c54.
   depth-9 nodes in two processes). Rule, the coordinator's, fixed before the result: c59 stays ahead of c47
   only with fewer than 9 branching nodes at depth 9, or 9 with a smaller shortfall sum (c47: 260 nodes,
   9 branching, shortfall sum 1,152k, 9,002 s; production under c54: 520 nodes, 56 branching).
-  Under 11:59 (done [m `runs/d9c59_11_59/nodes.txt`]): 52 nodes, D/C/B 49/0/3, shortfalls 394k, 328k, 282k
-  (sum 1,003k), 2,185 CPU s. Under 13:59 and 3:59: running (30 of 104 nodes: 2 branching, 89k and 63k).
+  **Result [m `runs/d9c59_*/nodes.txt`]: c59 stays ahead of c47 by the rule, 8 branching nodes at depth 9
+  against 9, but on a larger shortfall sum.**
+
+  | depth-8 node | line (production's rule) | depth 9: D | C | B | branching shortfalls | CPU s |
+  |---|---|---|---|---|---|---|
+  | 11:59 | r3 | 49 | 0 | 3 | 394k, 328k, 282k | 2,185 |
+  | 13:59 | c35 | 50 | 0 | 2 | 295k, 206k | 1,625 |
+  | 3:59 | c53 | 48 | 1 | 3 | 89k, 65k, 63k | 2,619 |
+  | **c59 total** | | 147 | 1 | **8** | max 394k, sum 1,721k | 6,429 |
+  | c47 total (linetest) | | 247 | 4 | 9 | max 254k, sum 1,152k | 9,002 |
+  | production c54 total | | 442 | 22 | 56 | max 411k, sum 11,036k | 80,387 (cloud) |
+
+  Counting branched nodes at depths 8 and 9 together: c59 3 + 8 = 11, c47 5 + 9 = 14, production's c54
+  10 + 56. c59's depth 9 has 156 nodes against c47's 260 and costs 6,429 s against 9,002 on this box. But
+  c59's survivors are heavier: five of its eight are above 200k, against c47's three of nine, so by shortfall
+  c59's depth-9 frontier is 1.5x c47's. Which line is better two levels down is close; both are far ahead of
+  production's c54.
 - **Step 2, mode (a) at tai60b's depth-8 chain node 14:54 (production's c2)**: c54 bounded from the strong
   parent state first (`run.sh strong c54`, started 07:50 UTC), to give 14:54 its strong state; then 14:54
   bounded one level under production's rule and under the signal's top line.
