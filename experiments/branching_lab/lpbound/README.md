@@ -57,6 +57,7 @@ a cutoff (the first solve's certified value, no cut phase; 20,000 iterations or 
 | tai35b 19:26,18:8 | 33 | | 182.2M | **111.9M** | 281.4M | 283.3M | below QPB |
 | tai60b d17 ...22:31 | 43 | | 527.7M | **541.9M** | 608.0M | 608.2M | 18% |
 | tai60b d17 ...8:49 | 43 | | 549.5M | **525.0M** | 607.6M | 608.2M | below QPB |
+| tai60b d17 ...8:57 | 43 | | 546.2M | **525.1M** | 607.6M | 608.2M | below QPB |
 
 [m; the tai35b and tai60b DNN values are the traces' first-solve bounds, production settings.] The LP sits between
 QPB and DNN at the roots of the small nug, had and tai-b instances (for tai15b, where QPB is negative, it nearly
@@ -85,6 +86,7 @@ lsla, line_signals traces; `truth.py`).
 | tai35b 19:26,18:8 | 33 | 171.5M | 1,016 of 1,089 | 317 / 40,222 | 0 |
 | tai60b d17 22:31 | 43 | 66.3M | (not saved) | 26 / 0.48M | 0 of 1,849 |
 | tai60b d17 8:49 | 43 | 83.2M | 1,428 of 1,849 | 2,713 / 26.2M | 0 of 1,849 |
+| tai60b d17 8:57 | 43 | 83.1M | 1,429 of 1,849 | 1,839 / 13.5M | 0 of 1,849 |
 
 [m `out/t2_*.txt`, PDLP 1e-4.] No child of any line reaches the cutoff at any node, so every line's count is 0 and
 the rule is decided entirely by the tie-break. This is the same failure as the DNN certificate's child bounds
@@ -104,10 +106,13 @@ the children's own LPs are tens of units higher; the IPM (central) dual gives 6 
 | tai35b 19:26,18:8 | c5 0, c22 0 | c5 #3, c22 #56 | tie in truth |
 | tai60b d17 22:31 | r13 2, c54 3, c26 7 | c54 #2, c26 #10, r13 #80 | wrong (best last) |
 | tai60b d17 8:49 | r2 0, r51 5, c30 12 | r2 #2, r51 #41, c30 #85 | right |
+| tai60b d17 8:57 | r2 0, r51 1, c30 6 | r2 #2, r51 #35, c30 #80 | right |
 
 [m `out/t2_*_lines.tsv`.] The sum of gains is dominated by a few far children (gains of millions on lines whose
 other children gain tens), so it behaves like rule 2's tie-break: it picks rule 2's own line at both depth-17 nodes
-where we know it (r2 at 8:49 #2; c54 at 22:31 #2). The sum of the three smallest gains does no better (`*_lines.tsv`).
+where we know it (r2 at 8:49 and 8:57 #2; c54 at 22:31 #2), and is right exactly where rule 2 was right (the two
+off-chain depth-17 parents, where far children dominate) and wrong at the path node 22:31 as rule 2 is not
+(rule 2's c54 left 3, r13 2). At both off-chain parents its #1 is c23, which nobody has bounded. The sum of the three smallest gains does no better (`*_lines.tsv`).
 
 ### Children (T1)
 
@@ -120,6 +125,7 @@ where we know it (r2 at 8:49 #2; c54 at 22:31 #2). The sum of the three smallest
 | tai35b 19:26,18:8 | 66 | -0.08 | 0.66 | - |
 | tai60b d17 22:31 | 127 | 0.14 | 0.81 | 0.69 / 0.87 |
 | tai60b d17 8:49 | 113 | 0.56 | 0.71 | 0.52 / 0.84 |
+| tai60b d17 8:57 | 121 | 0.59 | 0.75 | 0.54 / 0.82 |
 
 The child's own QPB (which costs a QPB solve per child, as the solver already does) predicts the child's DNN bound
 better than the parent's LP dual everywhere but tai35b's root. QPB + U (rule 2's prediction from the parent alone)
@@ -153,7 +159,7 @@ Z = 0. Not done: T2 says the exact duals are not worth approximating.
 ## What was not tested
 
 - QPB + U per child (rule 2's own prediction); compared against the child's QPB instead.
-- tai60b depths 7 and 8 (m = 52-53) and the third depth-17 node: running.
+- tai60b depths 7 and 8 (m = 52-53): running.
 - The children's own LPs at m = 42 (a few, running); at the small nodes they rank children's DNN no better than QPB.
 - Adding the LP's cuts to the DNN (the LP as a cut generator) or a stronger LP (RLT-2): out of scope.
 
