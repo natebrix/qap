@@ -13,3 +13,18 @@ T2, rule-2 analogue (count, then sum of gains): rank of the truth lines among 86
   r51: rank 41  count 0  sum gain 17929487  3 smallest 7760  B(truth) 5
   c30: rank 85  count 0  sum gain 10195711  3 smallest 6907  B(truth) 12
   by the sum of the 3 smallest gains: r2 #2, r51 #13, c30 #32
+parent 44:45,43:58,1:33,6:24,7:19,0:32,10:39,46:47,36:53,32:40,3:35,11:36,13:59,12:0,9:55,4:29,8:57 m=43 QPB 546208322 DNN 607550229 cut 607991775 cutoff 608215054
+LP (pdlp eps 0.0001): primal 525105548 valid dual bound 525085970; wall 1634 s cpu 2153 s iters 35136
+LP short of cutoff 83129085 (13.67%); QPB short 62006732
+LP primal x: 1429 of 1849 entries > 1e-3, 2 > 0.5, max 1.000
+child gains over the LP (cb - LP), all 1849 children: median 1839 p90 2143 max 13533288; children with cb >= cutoff: 0
+T1, 121 bounded children: Spearman with the child DNN: LP child bound 0.590, child QPB 0.747
+T1 AUC (non-branching above branching): LP child bound 0.542, child QPB 0.819, child DNN 0.958
+  line r2: B=0  Spearman(cb,DNN) nan  Spearman(QPB,DNN) nan
+  line c30: B=6  Spearman(cb,DNN) -0.114  Spearman(QPB,DNN) 0.576
+  line r51: B=1  Spearman(cb,DNN) 0.086  Spearman(QPB,DNN) 0.578
+T2, rule-2 analogue (count, then sum of gains): rank of the truth lines among 86
+  r2: rank 2  count 0  sum gain 236079359  3 smallest 887246  B(truth) 0
+  r51: rank 35  count 0  sum gain 9204381  3 smallest 5327  B(truth) 1
+  c30: rank 80  count 0  sum gain 3937434  3 smallest 4778  B(truth) 6
+  by the sum of the 3 smallest gains: r2 #2, r51 #8, c30 #32
