@@ -362,6 +362,61 @@ Linux 6.11 and later (here 6.18) allow writing to a running executable, so a run
 later arm could fault. `lsla.patch`'s makefile now makes `bnbdrv` a real target, linked to a temporary and
 moved into place.
 
+## The fix: a random-start search per cell and the harvest (`QAP_LS_SEARCH=...:KICKS3`, Nov 20)
+
+The coordinator's rootcheck (`laptop/rootcheck/README.md` on `claude/cool-babbage-ilnogj`) traced the laptop's
+failed tai50b tree (mode a chose c26 at the root, 28 of 50 children branched) to the search: 16 of c26's
+children have completions at x 0.6 that a search started from the incumbent reports at x 7.6-9.0. Its fix,
+tried in Python (`harvest_node.py`), is now in the C signal (`lsla.C`, `lsla.patch` regenerated):
+
+- per free cell (r, v), after the base search, a second search from a random completion of the node's fixes
+  with r:v forced: a descent, then KICKS3 kicks (6 random exchanges + descent, kept if better);
+- the harvest: every local optimum any search visits (base, random, refinement) is credited to every free
+  cell it satisfies; a cell's ex is the least such cost;
+- KICKS3 is the fifth field of `QAP_LS_SEARCH` (`t0`: `KICKS:KICKS3`); 0 or absent is the old code path.
+
+**Checks [m].** KICKS3 = 0: `t0` at 24:2 prints the same table as before, line for line
+(`t0out/harvest/d9_k0_r3000.txt` against `t0out/d9_24_2_k30_r3000.txt`); the rebuilt `bnbdrv` (md5 64c7767f)
+reproduces `validate/`'s tai25b traces, `QAP_LS` unset (98 nodes) and mode a (122 nodes, the same `ls.log`),
+in every field but CPU. KICKS3 = 100, against harvest_node.py's counts and the measured branching children
+[m `t0out/harvest/*_k100_*.txt`, `t0out/harvest/jobs.txt`; seed 0; ranks by count, ties by the chain model,
+so they differ from the Python's order-found ranks]:
+
+| node | line | measured branching | Python, harvested: count (rank) | C, KICKS3 100, no refinement | C, KICKS3 100 + 3,000 refinement kicks |
+|---|---|---|---|---|---|
+| tai50b root | c26 | 28 | 26 (38 of 100) | 28 (53) | 28 (19) |
+| | r31 | 10 | 14 (1) | 15 (**1**) | 18 (2) |
+| tai60b d7 10:39 | c59 | 3 | 3 (9 of 106) | 3 (5) | 3 (**1**) |
+| | r11 | 4 | 4 (11) | 4 (13) | 4 (9) |
+| | c47 | 5 | 3 (7) | 3 (7) | 4 (8) |
+| | c54 | 9 | 9 (84) | 9 (75) | 9 (69) |
+| tai60b d8 14:54 | c59 | 3 | 3 (8 of 104) | 3 (4) | 3 (**1**) |
+| | r3 | 4 | 4 (9) | 4 (12) | 4 (8) |
+| | c2 | 7 | 7 (50) | 7 (47) | 7 (41) |
+| tai60b d9 24:2 | c30 | 12 | 4 (25 of 102) | 3 (5) | 4 (10) |
+| | r8 | 4 | 3 (3) | 4 (19) | 4 (15) |
+| | r3 | 4 | 4 (15) | 4 (17) | 4 (13) |
+
+The fixed signal's top line, no refinement: r31 (tai50b root), c10 (d7), c53 (d8), c10 (d9). With
+refinement: **c25** (tai50b root, 15; r31 2nd at 18), **c59** (d7), **c59** (d8), **c53** (d9).
+
+- The C counts match the Python's within 1 at every line but c26 (28 against 26: the C count equals the
+  measured 28). At tai50b's root the fix in C moves c26 from 1st to 19th-53rd.
+- Refinement changes the top line. It lowers cells with 1 < x <= 2.5, and so adds survivors: at tai50b's
+  root r31 goes from 15 to 18 and c25, which nobody has bounded, stays at 15 and comes first. Without
+  refinement r31 is first. At 24:2 refinement moves c30 from 3 to 4 predicted (measured 12) and brings c53 to
+  the top (being bounded, `runs/at9_24_2_c53`).
+- c30's undercount at 24:2 stays (3-4 against 12), as the coordinator found: its branching children are
+  near misses, which a count of completions within the slack does not see.
+- Cost at n = 60: the random searches take 77-87 CPU s a node (KICKS3 100), so the table goes from 20-24 s to
+  99-113 s; with refinement, 300-350 s a node in all (it was 230-260 s). At tai50b's root: 66 s of random
+  searches, 682 s in all with refinement (813 cells refined).
+- c10, the fixed signal's top line at d7 without refinement (2 predicted survivors), is being bounded at
+  10:39 (`run.sh strong c10`, `runs/sc10`), by the rule for c59 there (fewer than 3 branching children, or 3
+  with a shortfall sum under 861k).
+- tai35b whole tree with mode a and the fix (`t2/tai35b_a_k3`, `QAP_LS_SEARCH=30:3000:2.5:300:100`), running.
+  It passes if nodes <= 983 and gross CPU <= 6,935 s (rule fixed by the coordinator before the run).
+
 ## Not tested yet
 
 - Depth 9 under c59 and r11; any line at tai60b's depth-3 chain node bounded.
