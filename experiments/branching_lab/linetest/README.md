@@ -39,9 +39,25 @@ for him to decide; the kill rule says stop.
 
 ## Down the tree under c47
 
-Level by level under the strong c47 arm's survivors, with production's settings (`tai60b.par`) and production's own line
+**Answer (Nov 20, 09:22 UTC; stopped at the 10-hour wall-time limit, not by the kill rule).** Depths 9 to 17 under
+c47 are bounded. At every one of them c47's branching count stayed far below half of production's under c54: 7 to 28
+against 56 to 199. Its largest share is 15% (depth 13, 28 against 185). Summed over depths 9-17: **5,017 nodes and 111
+branching under c47, against production's 50,064 nodes and 1,169 branching, a tenth** [m]. CPU: 120,114 s on this box
+against production's 1,674,126 s on the cloud boxes. Scaled by this box's measured speed (0.53x production's CPU per
+node at depth 8), c47's levels cost about a seventh of production's [e]. The subtree did not close. Depth 18 has 469
+open nodes (production bounded 5,203 there); the limit stopped its first 56 (50 D, 4 C, 2 B), and the rest are still
+set aside. Do not read past depth 17. Production's branching rose again at depths 19-22 (146, 335, 504, 249), where its
+mirror-like structure sits, and nothing here says whether c47's tree does the same. **The path to the best known
+solution is intact** (`pathcheck.py`, `out/pathcheck.txt`): every node on it, depths 7-17, branched, with bounds from
+607,798,661 to 608,129,286, all below the cutoff 608,215,054 (the incumbent was best known + 1). No memory limit was
+near: under 5 GB of 15 with 4 processes, each holding one parent's state. Three container restarts (about 00:00, 03:25
+and 04:10 UTC) cost only the chunks in progress, which were rerun from their parent's state. They count against the
+10 hours. To go on: `python3 down.py 18` resumes from depth 18's set-aside states, which are in this container only and not
+committed (state files). Of depth 18's 44 chunks, none had finished; finished chunks would be kept on a rerun.
+
+How it ran: level by level under the strong c47 arm's survivors, with production's settings (`tai60b.par`) and production's own line
 rule throughout (no forced lines): depth D is bounded from the states depth D-1 set aside, and depth D+1 is set aside
-(`down.py`; one chunk per parent, 4 processes; `runs/down/dD/nodes/*.txt` the traces). Kill rules, fixed by the coordinator
+(`down.py`; a parent's children in pieces of at most 13, each with a copy of the parent's state, 4 processes (depth 10: one chunk per parent); `runs/down/dD/nodes/*.txt` the traces). Kill rules, fixed by the coordinator
 before the run: stop if c47's branching count at a depth reaches half of production's there; stop at 10 hours of wall
 time, or if memory will not hold a level. Production's rows: the tai60b-261117 trace under `...,10:39`
 (`out/production_by_depth.txt`, checked against the coordinator's figures). Every row is measured [m]; CPU is this box's
