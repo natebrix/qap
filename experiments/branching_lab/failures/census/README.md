@@ -8,8 +8,9 @@ the traces by the script named (outputs in `out/`), unless marked **[e]**.
 **On the Taillard "b" instances a bad failure is a line whose children are the free members of one tight facility
 cluster, at a node far from the cutoff, and it is paid for once per sibling.** In tai60b every column with two or
 more branching children (1,265 of them) had all of those children in one facility cluster, the cluster the
-incumbent puts at that location [m]. The bound cannot tell near-interchangeable cluster members apart, so a third
-to a half of the free members survive. In tai60b the failing lines are columns into the locations of cluster 1
+incumbent puts at that location [m]. The bound cannot tell near-interchangeable cluster members apart, so where a
+column fails (b >= 2) a third to a half of the free members survive. Over all nodes the share is far lower and
+rises with shortfall; the cluster count alone does not predict b (see "A cluster count as predictor and rule"). In tai60b the failing lines are columns into the locations of cluster 1
 (facilities 14-25, its tightest large cluster). Rule 2 takes them 1,934 times below depth 6. Five such lines (c43,
 c2, c13, c54, c18) carry 318 of the run's 412 nodes with b >= 4.
 
@@ -228,8 +229,8 @@ From the traces alone, the best description is this. On tai-b, a line's survivin
 facility cluster: the free members of the cluster that owns the location (a column), or the free locations of the
 facility's own cluster (a row). How many survive scales with the node's shortfall (b ~ shortfall^0.55) and with how
 interchangeable the cluster's members are. A column into the region of a tight, mostly unfixed cluster (tai60b's
-14-25) asks which near-identical facility goes there, and the bound cannot answer: a third to a half survive, 7-12
-at depths 7-10. Rule 2's U-sum tie-break lands on such columns (c54, c2, c43, c13) and repeats the choice at every
+14-25) asks which near-identical facility goes there, and the bound cannot answer: where it fails, a third to a half
+survive, 7-12 at depths 7-10. Rule 2's U-sum tie-break lands on such columns (c54, c2, c43, c13) and repeats the choice at every
 sibling, so the failure is multiplied by the sibling count and again by the mirror. Rule 9 falls into the same trap
 more rarely and singly (c26 at depth 6, c30 off the chain at depths 12 and 17). Near the root, columns into the big
 looser cluster (c26 at tai60b depth 2 and at tai50b's root) fail the same way.
@@ -250,6 +251,151 @@ To go further, the solver would have to dump, at each branched node:
 Then one can ask whether rule 9 saw a column with flat marginals over a cluster and took it anyway (lookahead noise),
 or never saw the row. Per-child first-solve bounds for the line not taken would need a probe, not a dump
 (line_signals: 30 warm iterations per child).
+
+## A cluster count as predictor and rule (Nov 20, the coordinator's follow-up)
+
+`nsame.py` → `out/nsame.txt`, `out/nsame_nodes.tsv.gz` (every branched node: the taken line's n_same, the node's
+minimum, the min-n_same pick), `out/nsame_pairs.tsv`. With `NSAME_MERGE=1` the same is run with tai60b's clusters 1
+and 4 merged; that writes `*_m14*`.
+
+**Definition.** For a column c_l, n_same is the number of free facilities in the cluster of the incumbent's facility
+at l. For a row r_f, it is the number of free locations whose incumbent facility is in f's cluster. The mirror chain
+needs no separate owner: the mirror exchanges facilities 43 and 44, which form one cluster, so every location has the
+same owner under both permutations. Off both chains the incumbent's owner is used, the only one known without the
+solver's marginals. Results are split on and off the chain.
+
+**Answer: n_same does not predict b, and "fewest same-cluster candidates" is not a rule the traces support.** Over
+all branched nodes, b is uncorrelated or negatively correlated with the taken line's n_same at the same depth. Off
+the chain, Spearman's rho in tai60b is -0.10 to -0.26 in every depth band. For comparison, shortfall gives +0.21 to
++0.73 [m].
+
+The census's cluster finding describes failures. It does not predict them. Where a line fails, its survivors are one
+cluster's members. But the loose 20-member cluster 2 has the largest n_same and the smallest b, and the incumbent's
+owner is wrong at some locations. At 24:2, on the path, location 30 holds facility 51 (cluster 4: n_same 4), yet c30
+left 12 branching children.
+
+On the measured counterfactuals the smaller n_same wins more pairs than it loses: 20 against 8 where the gap in b is
+3 or more. But 8 of those wins are one sibling set (c2 at depth 8), and the 8 losses are exactly the cases above. At
+the chain nodes the rule picks lines nobody has bounded, and their tie set includes the measured failure c30. It is
+not "prefer rows": it picks rows at 6-18% of nodes. It picks the lines of the smallest free cluster, and on the path
+rows and columns of a cluster tie exactly. A line with n_same 0-2 exists at only 9% of tai60b's nodes.
+
+### 1. n_same of the taken line against b
+
+Spearman within depth band (`out/nsame.txt`, part 1):
+
+| run | on the chain: rho(b, n_same), bands with n >= 5 | off the chain: rho(b, n_same) | off the chain: rho(b, shortfall) |
+|---|---|---|---|
+| tai60b-261117 | +0.29 to +0.97 (5-57 nodes a band) | **-0.10 to -0.26** (all six bands) | +0.21 to +0.73 |
+| tai50b-261116 | -0.20, +0.05 (bands 16-22 and 23+) | -0.49 to +0.15 | +0.30 to +0.82 |
+| tai50b-r9 | too few | -0.52 to +0.15 | +0.36 to +0.82 |
+| tai60b-c47 | +0.58 (5 nodes) | +0.07 to +0.14 | +0.24 to +0.67 |
+| tai50b-ls | too few | -0.49, -0.29 | +0.50, +0.87 |
+
+The positive on-chain correlation is the chain itself. Down the chain, clusters fill and n_same falls, and the
+shortfall falls with them.
+
+tai60b, b of the taken line by its n_same:
+
+| n_same | 1-2 | 3-4 | 5-6 | 7-8 | 9-10 | 11-12 | 13-15 | 16-20 |
+|---|---|---|---|---|---|---|---|---|
+| nodes | 506 | 826 | 862 | 1,209 | 1,428 | 307 | 103 | 2,255 |
+| mean b | 0.77 | 0.75 | 0.96 | 1.36 | 1.54 | 2.42 | 0.92 | **0.43** |
+| 90th percentile | 2 | 2 | 2 | 3 | 4 | 6 | 2 | 2 |
+
+b rises with n_same up to 12, where cluster 1 sits, then collapses for cluster 2's columns.
+
+**b / n_same is not "a third to a half".** That share holds only at nodes that failed (b >= 2), as reported above.
+Over all nodes with n_same >= 3 it rises with shortfall and barely moves with depth. tai60b, by the run's shortfall
+quartile:
+
+| depths | least short | q2 | q3 | most short |
+|---|---|---|---|---|
+| 3-6 | 0.01 | 0.00 | 0.02 | 0.17 |
+| 7-10 | 0.03 | 0.04 | 0.09 | 0.23 |
+| 11-15 | 0.07 | 0.13 | 0.19 | 0.27 |
+| 16-22 | 0.04 | 0.07 | 0.13 | 0.23 |
+
+The tai50b runs and the c47 descent show the same pattern (0.00-0.06 least short, 0.12-0.41 most short).
+
+### 2a. Where the taken line ranks
+
+Excess = the taken line's n_same minus the minimum over all free lines at the node.
+
+| run | rule | nodes | taken line at the minimum | excess >= 3 | excess >= 6 | median minimum | nodes with a line of n_same <= 2 |
+|---|---|---|---|---|---|---|---|
+| tai60b-261117 | 9 | 226 | 4% | 95% | 95% | 4 | 4% |
+| tai60b-261117 | 2 | 7,270 | 18% | 71% | 42% | 4 | 9% |
+| tai60b-c47 | 9 | 117 | 19% | 72% | 20% | 4 | 10% |
+| tai50b-261116 | 9 / 2 | 71 / 143 | 15% / 9% | 83% / 88% | 83% / 62% | 4 / 4 | 31% / 9% |
+| tai50b-r9 | 9 | 141 | 25% | 68% | 60% | 4 | 28% |
+| tai50b-ls | 9 / signal | 112 | 39% | 57% | 57% | 3 | 41% |
+
+Both rules usually take a line far above the minimum, and that costs little. Under rule 2, b by excess is: 0.75 at
+the minimum, 0.98 at +1-2, 1.47 at +3-5, 1.60 at +6-9 and **0.43 above +9** (b >= 4 at 0%, 0%, 9%, 18% and 2%).
+The high-excess lines are cluster 2's columns, the cheapest lines rule 2 takes.
+
+### 2b. Counterfactual pairs
+
+These are the 64 nodes of `out/q4_obs.tsv` plus the lines bounded in linetest and lsla: tai60b 10:39 (c59 3, r11 4,
+c47 5, c54 9), 14:54 (c59 3, r3 4, c2 7) and 24:2 (c59 3, r8 4, c53 4, r3 4, c30 12). tai50b's c25 is left out: its
+arm `lsla/runs/root50_c25` is unfinished (36 of 49 children traced, 1 branched).
+
+| clusters | pairs | won | lost | b tied | n_same tied | b gap >= 3: won / lost / n_same tied |
+|---|---|---|---|---|---|---|
+| six (as in the census) | 96 | 30 | 13 | 16 | 37 | **20 / 8 / 4** |
+| 1 and 4 merged (chosen after seeing c30: post hoc) | 96 | 32 | 11 | 13 | 40 | 23 / 5 / 4 |
+
+"Won" means the line with the smaller n_same had the smaller b.
+
+- **The wins:** 8 of the 20 large-gap wins are one sibling set, c2 (n_same 11) against r3, c59 and c35 (9) under
+  10:39. The others are c54 against c59 and r11 and c47 against c59 at 10:39, c26 against r1 and r8 at depth 2, r1 against r45, c30
+  against r2 at 8:49 and 8:57 (and r2 against r51 at 8:49), c26 against c54 and r13 at 22:31, and c26 against r31 at tai50b's root.
+- **The losses:** cluster-2 columns with n_same 19-20 beat cluster-1 columns with n_same 12 (c47 against c54 at
+  10:39; c53 and c10 against c54 at depth 8; c53 against c2). And c30 at 24:2 (n_same 4, b 12) lost to all four
+  lines bounded there.
+- tai35b's 14 pairs all tie in n_same: its lines there are all cluster 2's.
+
+### 2c. What min n_same picks
+
+Tie-break: the looser cluster first (larger tightness value), then the smaller index. Rows and columns are never
+preferred as such.
+
+| node | pick (n_same) | tied at the minimum | measured lines: b (n_same) |
+|---|---|---|---|
+| tai50b root | c0 (3) | c0 c7 c32 r31 r32 r33 | r31 10 (3), c26 28 (12) |
+| tai60b depth 2, 43:58 | c4 (4) | c4 c6 c30 c56 r48-r51 | r1 6 (14), r45 10 (20), r8 12 (14), c26 20 (20) |
+| tai60b depth 7, 10:39 | c4 (4) | the same 8 | c59 3 (9), r11 4 (9), c47 5 (20), c54 9 (12) |
+| tai60b depth 8, 14:54 | c4 (4) | the same 8 | c59 3 (9), r3 4 (9), c2 7 (11) |
+| tai60b depth 9, 24:2 | c4 (4) | the same 8, **including c30** | c59 3 (9), r8 4 (9), c53 4 (20), r3 4 (9), **c30 12 (4)** |
+| depth 17, 8:49 | r2 (2) | c23 c57 r2 r5 | c30 12 (4), r51 5 (4), **r2 0 (2)** |
+| depth 17, 8:57 | r2 (2) | c23 c49 r2 r5 | c30 6 (4), r51 1 (4), **r2 0 (2)** |
+| depth 17, 22:31 (path) | c4 (2) | c4 c56 r49 r50 | c26 7 (15), r13 2 (7), c54 3 (11) |
+
+At the depth-17 parents off the chain, the rule picks rule 2's r2, which fathomed everything. At tai50b's root,
+rule 9's r31 is in its tie set. At the tai60b chain nodes it picks a cluster-4 line (48-51) that nobody has
+bounded. Its tie set there holds c30, which failed at 24:2, so the rule would have to rely on its tie-break at
+exactly the node that fooled the landscape signal. With clusters 1 and 4 merged, it picks a cluster-5 line (52-59,
+n_same 8) at those nodes, also unbounded.
+
+### 3. Is it "prefer rows"?
+
+No. min n_same picks rows at 11% of tai60b's nodes (6-18% across the five runs). On the path, a cluster's free
+facilities and its free locations are equally many, so rows and columns of one cluster tie exactly. The rule prefers
+the smallest free cluster. In tai60b it would branch on cluster 4 (48-51) at 6,374 of 7,496 nodes and on cluster 0
+at 1,035: a fixed cluster order, not a judgement about the node. A line with n_same 0-2 is rarely there: at 9% of
+tai60b's nodes, 10% of the c47 descent's, 9-41% of tai50b's. The median minimum is 4 in every run but the signal
+run, where it is 3.
+
+### Caveats
+
+- The owner of a location comes from the incumbent. The traces show it is wrong at some locations, both off the
+  chain (c30 at 8:49 and 8:57) and on it (c30 at 24:2). The solver's marginals over a line would show the real owner.
+- The merged-cluster variant was chosen after seeing c30, so its better count (23 / 5) is not evidence.
+- The counterfactual pairs are concentrated under 10:39 and are not independent.
+- n_same ignores how tight the cluster is, and the census found that tightness is what separates cluster 1 from
+  cluster 2. A tightness-weighted count was not tried. With this few independent failures it would be a fit, not a
+  test.
 
 ## What I could not determine
 
@@ -272,5 +418,5 @@ or never saw the row. Per-child first-solve bounds for the line not taken would 
 `clusters.py` (`out/clusters.txt`, `.json`), `build.py` (one row per branched node: `out/bn_<run>.tsv.gz`, with
 column docs at its head), `q1_concentration.py` (`out/q1.txt`), `q1_sets.py` (`out/q1_sets.txt`),
 `q2q3_features.py` (`out/q2.txt`, `out/q3.txt`), `q2_strata.py` (`out/q2_strata.txt`), `q4_counterfactual.py`
-(`out/q4_obs.tsv`, nodes seen more than once; 50 kB), `q4_analyse.py` (`out/q4.txt`). Rerun in order: `clusters.py`,
+(`out/q4_obs.tsv`, nodes seen more than once; 50 kB), `q4_analyse.py` (`out/q4.txt`), `nsame.py` (`out/nsame*.txt`, `out/nsame_nodes*.tsv.gz`, `out/nsame_pairs*.tsv`). Rerun in order: `clusters.py`,
 `build.py`, then the rest (each under a minute; the tai60b trace loads in about 8 s).

@@ -1,0 +1,261 @@
+# A cluster count as predictor and rule (nsame.py)
+## Part 1: n_same of the taken line against b
+
+### tai60b-261117: 7496 branched nodes (on chain 102, off 7394)
+ band chain/off    n  rho(b,n_same)  mean b  mean n_same  rho(b,rel_short)
+  0-2     chain    5           0.97    4.00         6.40             -0.56
+  0-2       off    5          -0.41    0.20         6.80              0.71
+  3-6     chain    8           0.80    5.00        11.50              0.68
+  3-6       off  208          -0.05    1.25        15.73              0.73
+ 7-10     chain    8           0.95    6.25        12.00              0.93
+ 7-10       off 1872          -0.21    1.20        14.26              0.59
+11-15     chain   10           0.82    2.40         5.00              0.73
+11-15       off 1955          -0.10    0.84         6.30              0.47
+16-22     chain   14           0.54    3.29        11.00             -0.36
+16-22       off 2847          -0.26    0.95        14.13              0.40
+  23+     chain   57           0.33    1.30         8.47              0.39
+  23+       off  507          -0.20    0.77        11.89              0.21
+b by n_same of the taken line:
+             n  mean b  p90 b  max b
+nb                                  
+(0, 2]     489    0.76    2.0      5
+(2, 4]     622    0.71    2.0      3
+(4, 6]     851    0.96    2.0      4
+(6, 8]     581    1.29    3.0      5
+(8, 10]    432    0.81    2.0      4
+(10, 12]   920    1.27    3.0     11
+(12, 15]  1296    1.89    4.0      8
+(15, 20]  2305    0.49    2.0     12
+b / n_same (nodes with n_same >= 3), by depth band x shortfall quartile of the run (mean, n):
+      q1 (least short)          q2          q3 q4 (most short)
+band                                                          
+0-2                                                   0.21 (4)
+3-6          0.01 (13)   0.00 (25)   0.02 (51)      0.15 (127)
+7-10        0.02 (309)  0.03 (370)  0.07 (519)      0.18 (682)
+11-15       0.07 (454)  0.13 (535)  0.19 (514)      0.27 (462)
+16-22       0.03 (583)  0.05 (713)  0.08 (636)      0.16 (477)
+23+         0.10 (393)  0.07 (109)   0.07 (31)                
+
+### tai50b-261116: 214 branched nodes (on chain 47, off 167)
+ band chain/off  n  rho(b,n_same)  mean b  mean n_same  rho(b,rel_short)
+  0-2     chain  3            NaN    4.33         2.00               NaN
+  0-2       off 20          -0.49    0.75         9.75              0.82
+  3-6     chain  4            NaN    4.75        13.50               NaN
+  3-6       off 44           0.15    0.75        13.64              0.69
+ 7-10     chain  4            NaN    2.25        11.50               NaN
+ 7-10       off 64           0.08    1.02        12.05              0.64
+11-15     chain  5            NaN    1.00        11.20               NaN
+11-15       off 36          -0.13    0.61        10.64              0.30
+16-22     chain  7          -0.20    1.14         8.71              0.41
+16-22       off  3            NaN    0.33        12.00               NaN
+  23+     chain 24           0.05    0.96         5.04              0.33
+b by n_same of the taken line:
+           n  mean b  p90 b  max b
+nb                                
+(0, 2]    15    1.20    2.0      2
+(2, 4]    10    1.70    1.9     10
+(4, 6]     6    1.17    1.5      2
+(6, 8]    24    0.71    1.0      1
+(8, 10]   22    1.14    2.0      3
+(10, 12]  37    0.92    1.4      4
+(12, 15]  90    0.81    2.1      5
+(15, 20]  10    2.20    5.1      6
+b / n_same (nodes with n_same >= 3), by depth band x shortfall quartile of the run (mean, n):
+      q1 (least short)         q2         q3 q4 (most short)
+band                                                        
+0-2           0.00 (1)   0.00 (2)   0.00 (2)        0.41 (9)
+3-6           0.00 (3)   0.07 (5)  0.03 (19)       0.14 (21)
+7-10         0.02 (11)  0.04 (19)  0.10 (19)       0.18 (19)
+11-15         0.05 (9)  0.05 (22)   0.11 (9)        0.12 (1)
+16-22         0.10 (8)   0.21 (2)                           
+23+          0.18 (18)                                      
+
+### tai50b-r9: 141 branched nodes (on chain 18, off 123)
+ band chain/off  n  rho(b,n_same)  mean b  mean n_same  rho(b,rel_short)
+  0-2     chain  3            NaN    4.33         2.00               NaN
+  0-2       off 20          -0.49    0.75         9.75              0.82
+  3-6     chain  4            NaN    4.75        13.50               NaN
+  3-6       off 44           0.15    0.75        13.64              0.69
+ 7-10     chain  4            NaN    1.75         8.50               NaN
+ 7-10       off 28           0.01    0.68         9.50              0.76
+11-15     chain  5            NaN    1.00         8.20               NaN
+11-15       off 18          -0.44    1.06         7.11              0.41
+16-22     chain  2            NaN    1.50         9.50               NaN
+16-22       off 13          -0.52    0.77         8.15              0.36
+b by n_same of the taken line:
+           n  mean b  p90 b  max b
+nb                                
+(0, 2]    17    1.18    2.0      2
+(2, 4]    15    1.60    2.0     10
+(4, 6]     2    1.50    1.9      2
+(6, 8]     7    0.57    1.0      1
+(8, 10]   17    1.00    2.0      2
+(10, 12]  24    1.00    1.0      4
+(12, 15]  49    0.59    1.2      5
+(15, 20]  10    2.20    5.1      6
+b / n_same (nodes with n_same >= 3), by depth band x shortfall quartile of the run (mean, n):
+      q1 (least short)         q2         q3 q4 (most short)
+band                                                        
+0-2           0.00 (3)              0.00 (2)        0.41 (9)
+3-6           0.00 (5)  0.04 (10)  0.05 (16)       0.17 (17)
+7-10          0.02 (9)   0.07 (8)  0.18 (11)        0.16 (4)
+11-15         0.13 (7)  0.18 (10)   0.28 (2)                
+16-22         0.04 (7)   0.15 (3)                   0.67 (1)
+
+### tai60b-c47: 117 branched nodes (on chain 11, off 106)
+ band chain/off  n  rho(b,n_same)  mean b  mean n_same  rho(b,rel_short)
+ 7-10     chain  4            NaN    3.25        18.50               NaN
+ 7-10       off 22           0.14    1.14        11.86              0.61
+11-15     chain  5          -0.35    2.20        12.80              0.79
+11-15       off 68           0.22    0.82         9.28              0.24
+16-22     chain  2            NaN    4.50        14.50               NaN
+16-22       off 16           0.40    2.06         9.19              0.67
+b by n_same of the taken line:
+           n  mean b  p90 b  max b
+nb                                
+(0, 2]     1    0.00    0.0      0
+(2, 4]     5    1.20    2.0      2
+(4, 6]    12    0.75    1.0      2
+(6, 8]    44    0.68    2.7      3
+(8, 10]   14    1.21    2.0      3
+(12, 15]  10    1.60    2.5      7
+(15, 20]  31    2.23    5.0     13
+b / n_same (nodes with n_same >= 3), by depth band x shortfall quartile of the run (mean, n):
+      q1 (least short)         q2         q3 q4 (most short)
+band                                                        
+7-10          0.06 (6)   0.06 (5)   0.12 (3)       0.17 (12)
+11-15        0.03 (18)  0.08 (21)  0.15 (21)       0.12 (13)
+16-22         0.20 (5)   0.09 (3)   0.23 (5)        0.48 (4)
+
+### tai50b-ls: 112 branched nodes (on chain 4, off 108)
+band chain/off  n  rho(b,n_same)  mean b  mean n_same  rho(b,rel_short)
+ 0-2     chain  3            NaN   11.33         5.67               NaN
+ 0-2       off 83          -0.49    0.95        10.41              0.50
+ 3-6     chain  1            NaN    1.00         1.00               NaN
+ 3-6       off 25          -0.29    0.48         4.28              0.87
+b by n_same of the taken line:
+           n  mean b  p90 b  max b
+nb                                
+(0, 2]    33    0.73    1.8      2
+(2, 4]    15    3.87   10.0     15
+(8, 10]    3    1.00    1.0      1
+(10, 12]  23    1.52    1.8     28
+(12, 15]   3    0.33    0.8      1
+(15, 20]  35    0.14    1.0      1
+b / n_same (nodes with n_same >= 3), by depth band x shortfall quartile of the run (mean, n):
+     q1 (least short)         q2         q3 q4 (most short)
+band                                                       
+0-2         0.00 (16)  0.06 (16)  0.01 (19)       0.94 (20)
+3-6          0.00 (4)   0.08 (4)                           
+
+## Part 2a: where the taken line ranks among all free lines by n_same
+          run  rule  nodes  taken = min  taken >= min+3  taken >= min+6  mean excess  median min  min <= 2  median #lines <= 2  min set all rows  min set all columns
+tai50b-261116     2    143         0.09            0.88            0.62         6.56         4.0      0.09                 0.0              0.00                 0.05
+tai50b-261116     9     71         0.15            0.83            0.83         8.86         4.0      0.31                 0.0              0.08                 0.20
+    tai50b-ls     9    112         0.39            0.57            0.57         6.37         3.0      0.41                 0.0              0.00                 0.03
+    tai50b-r9     9    141         0.25            0.68            0.60         6.48         4.0      0.28                 0.0              0.04                 0.15
+tai60b-261117     2   7270         0.34            0.60            0.39         5.02         8.0      0.07                 0.0              0.00                 0.00
+tai60b-261117     9    226         0.01            0.94            0.55         7.43         8.0      0.04                 0.0              0.00                 0.02
+   tai60b-c47     9    117         0.53            0.35            0.35         3.36         7.0      0.03                 0.0              0.00                 0.00
+(excess = n_same(taken) - the node's minimum over all free lines. "min set all rows/columns": the lines attaining the minimum are all rows / all columns; otherwise both sides tie.)
+
+b of the taken line by its excess over the node's minimum (all five runs):
+                 n  mean b  p90 b  share b>=4
+rule ex                                      
+2    (-1, 0]  2462    0.93    2.0        0.01
+     (0, 2]    453    0.78    2.0        0.01
+     (2, 5]   1605    1.49    4.0        0.11
+     (5, 9]    785    1.80    4.0        0.19
+     (9, 60]  2108    0.40    1.0        0.02
+9    (-1, 0]   155    1.12    2.0        0.04
+     (0, 2]     40    1.85    3.0        0.05
+     (2, 5]    100    1.37    3.1        0.10
+     (5, 9]    136    1.54    3.0        0.10
+     (9, 60]   236    0.95    3.0        0.08
+
+What min n_same would pick, by side and cluster (the pick's owner cluster), per run:
+  tai50b-261116: picks rows 6%; owner cluster of the pick {0: 3, 1: 182, 2: 4, 3: 23, 4: 2}; pick n_same median 4, taken n_same median 12; a line with n_same <= 2 exists at 16% of nodes
+  tai50b-ls: picks rows 0%; owner cluster of the pick {1: 1, 3: 111}; pick n_same median 3, taken n_same median 11; a line with n_same <= 2 exists at 41% of nodes
+  tai50b-r9: picks rows 11%; owner cluster of the pick {1: 96, 2: 17, 3: 23, 4: 5}; pick n_same median 4, taken n_same median 12; a line with n_same <= 2 exists at 28% of nodes
+  tai60b-261117: picks rows 13%; owner cluster of the pick {0: 2313, 1: 194, 2: 6, 3: 8, 4: 4975}; pick n_same median 8, taken n_same median 12; a line with n_same <= 2 exists at 7% of nodes
+  tai60b-c47: picks rows 11%; owner cluster of the pick {0: 88, 4: 29}; pick n_same median 7, taken n_same median 8; a line with n_same <= 2 exists at 3% of nodes
+
+## Part 2b: counterfactual pairs: does the line with the smaller n_same have the smaller b?
+96 pairs at 64 nodes (q4_obs.tsv plus the README lines: tai60b 10:39, 14:54, 24:2)
+out
+n_same tied    40
+won            32
+b tied         13
+lost           11
+
+pairs with a b gap of 3 or more: 32
+out
+won            23
+lost            5
+n_same tied     4
+
+by instance and depth (won / lost / b tied / n_same tied):
+out           b tied  lost  n_same tied  won
+inst   depth                                
+tai35b 0           0     0            1    0
+       2           0     0            8    0
+       5           0     0            2    0
+       6           0     0            2    0
+       10          1     0            0    0
+tai40b 0           0     0            0    1
+tai50b 0           0     0            0    1
+       7           4     2            4    0
+tai60b 2           0     1            2    3
+       7           0     1            1    4
+       8           2     4            1    9
+       9           2     1            3    4
+       11          1     0            1    1
+       13          1     0            1    1
+       15          0     0            3    0
+       16          2     0            4    0
+       17          0     2            7    8
+
+all pairs with a b gap of 3 or more:
+  inst  depth                         node  l1  n1   b1  l2  n2   b2         out
+tai50b      0                            - c26  12 28.0 r31   3 10.0         won
+tai60b      2                  43:58,44:45 c26  20 20.0  r1  14  6.0         won
+tai60b      2                  43:58,44:45 c26  20 20.0 r45  20 10.0 n_same tied
+tai60b      2                  43:58,44:45 c26  20 20.0  r8  14 12.0         won
+tai60b      2                  43:58,44:45  r1  14  6.0 r45  20 10.0         won
+tai60b      2                  43:58,44:45  r1  14  6.0  r8  14 12.0 n_same tied
+tai60b      7 ,6:24,7:19,10:39,43:58,44:45 c47  20  6.0 c54  16 10.0        lost
+tai60b      7 ,6:24,7:19,10:39,43:58,44:45 c47  20  6.0 c59   9  3.0         won
+tai60b      7 ,6:24,7:19,10:39,43:58,44:45 c54  16 10.0 c59   9  3.0         won
+tai60b      7 ,6:24,7:19,10:39,43:58,44:45 c54  16 10.0 r11   9  4.0         won
+tai60b      8 7:19,10:39,14:54,43:58,44:45  c2  15  7.0  r3   9  4.0         won
+tai60b      8 7:19,10:39,14:54,43:58,44:45  c2  15  7.0 c59   9  3.0         won
+tai60b      8 7:19,10:39,17:54,43:58,44:45  c2  15  7.0  r3   9  3.0         won
+tai60b      8 7:19,10:39,18:54,43:58,44:45  c2  15  7.0  r3   9  4.0         won
+tai60b      8 7:19,10:39,19:54,43:58,44:45  c2  15  7.0 c59   9  3.0         won
+tai60b      8 7:19,10:39,20:54,43:58,44:45  c2  15  5.0  r3   9  2.0         won
+tai60b      8 7:19,10:39,23:54,43:58,44:45  c2  15  7.0 c35   9  3.0         won
+tai60b      8 7:19,10:39,24:54,43:58,44:45  c2  15  7.0 c53  20  4.0        lost
+tai60b      8 7:19,10:39,25:54,43:58,44:45  c2  15  5.0  r3   9  1.0         won
+tai60b      8 7:19,10:39,43:58,44:45,46:47 c53  19  3.0 c54  16  9.0        lost
+tai60b      8 7:19,10:39,43:58,44:45,47:47 c10  19  3.0 c54  16  8.0        lost
+tai60b      9 10:39,14:54,24:2,43:58,44:45 c59   9  3.0 c30  14 12.0         won
+tai60b      9 10:39,14:54,24:2,43:58,44:45  r8   9  4.0 c30  14 12.0         won
+tai60b      9 10:39,14:54,24:2,43:58,44:45 c53  20  4.0 c30  14 12.0        lost
+tai60b      9 10:39,14:54,24:2,43:58,44:45  r3   9  4.0 c30  14 12.0         won
+tai60b     17 2:40,36:53,43:58,44:45,46:47 c30  16 12.0  r2   2  0.0         won
+tai60b     17 2:40,36:53,43:58,44:45,46:47 c30  16 12.0 r51  16  5.0 n_same tied
+tai60b     17 2:40,36:53,43:58,44:45,46:47  r2   2  0.0 r51  16  5.0         won
+tai60b     17 2:40,36:53,43:58,44:45,46:47 c30  16  6.0  r2   2  0.0         won
+tai60b     17 2:40,36:53,43:58,44:45,46:47 c30  16  6.0 r51  16  1.0 n_same tied
+tai60b     17 44:45,46:38,47:47,48:6,51:30 c26  15  7.0 c54  13  3.0         won
+tai60b     17 44:45,46:38,47:47,48:6,51:30 c26  15  7.0 r13   7  2.0         won
+
+## Part 2c: what min n_same picks at named nodes (n_same of every measured line in brackets)
+- tai50b root: picks **c0** (n_same 3, owner cluster 3); tied at the minimum: c0 c7 c32 r31 r32 r33; measured: r31 b=10 n_same=3, c26 b=28 n_same=12; n_same over all free lines: {3: 6, 4: 8, 12: 24, 15: 30, 16: 32}
+- tai60b depth 2, 43:58 (tai60b_lines): picks **c3** (n_same 8, owner cluster 4); tied at the minimum: c3 c15 c28 c34 c42 c44 c51 c52 r52 r53 r54 r55 r56 r57 r58 r59; measured: r1 b=6 n_same=14, r45 b=10 n_same=20, r8 b=12 n_same=14, c26 b=20 n_same=20; n_same over all free lines: {8: 16, 14: 28, 16: 32, 20: 40}
+- tai60b depth 7, 10:39: picks **c3** (n_same 8, owner cluster 4); tied at the minimum: c3 c15 c28 c34 c42 c44 c51 c52 r52 r53 r54 r55 r56 r57 r58 r59; measured: c59 b=3 n_same=9, r11 b=4 n_same=9, c47 b=5 n_same=20, c54 b=9 n_same=16; n_same over all free lines: {8: 16, 9: 18, 16: 32, 20: 40}
+- tai60b depth 8, 14:54: picks **c3** (n_same 8, owner cluster 4); tied at the minimum: c3 c15 c28 c34 c42 c44 c51 c52 r52 r53 r54 r55 r56 r57 r58 r59; measured: c59 b=3 n_same=9, r3 b=4 n_same=9, c2 b=7 n_same=15; n_same over all free lines: {8: 16, 9: 18, 15: 30, 20: 40}
+- tai60b depth 9, 24:2: picks **c3** (n_same 8, owner cluster 4); tied at the minimum: c3 c15 c28 c34 c42 c44 c51 c52 r52 r53 r54 r55 r56 r57 r58 r59; measured: c59 b=3 n_same=9, r8 b=4 n_same=9, c53 b=4 n_same=20, r3 b=4 n_same=9, c30 b=12 n_same=14; n_same over all free lines: {8: 16, 9: 18, 14: 28, 20: 40}
+- depth 17, 8:49: picks **r2** (n_same 2, owner cluster 0); tied at the minimum: c23 c57 r2 r5; measured: c30 b=12 n_same=16, r51 b=5 n_same=16, r2 b=0 n_same=2; n_same over all free lines: {2: 4, 8: 16, 16: 32, 17: 34}
+- depth 17, 8:57: picks **r2** (n_same 2, owner cluster 0); tied at the minimum: c23 c49 r2 r5; measured: c30 b=6 n_same=16, r51 b=1 n_same=16, r2 b=0 n_same=2; n_same over all free lines: {2: 4, 8: 16, 16: 32, 17: 34}
+- depth 17, 22:31 (path): picks **c0** (n_same 7, owner cluster 0); tied at the minimum: c0 c23 c29 c36 c49 c55 c57 r2 r4 r5 r8 r9 r12 r13; measured: c26 b=7 n_same=15, r13 b=2 n_same=7, c54 b=3 n_same=13; n_same over all free lines: {7: 14, 8: 16, 13: 26, 15: 30}
