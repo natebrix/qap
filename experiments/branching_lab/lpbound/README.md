@@ -47,9 +47,11 @@ a cutoff (the first solve's certified value, no cut phase; 20,000 iterations or 
 | had14 root | 14 | 2492 | 2626.1 | **2666.1** | 2724.0 | 2724 | 41% |
 | had16 root | 16 | 3358 | 3589.4 | **3560.2** | 3720.0 | 3720 | below QPB |
 | had18 root | 18 | 4776 | 5135.6 | **5087.9** | 5357.5 | 5358 | below QPB |
+| had20 root | 20 | 6166 | 6667.6 | **6578.8** | 6922.0 | 6922 | below QPB |
 | tai12b root | 12 | 9.79M | 15.78M | **31.70M** | 39.46M | 39.46M | 68% |
 | tai15b root | 15 | 11.24M | -124.5M | **51.56M** | 51.70M | 51.77M | 99.9% |
 | tai35b root | 35 | 30.9M | 150.7M | **104.4M** | 261.5M | 283.3M | below QPB |
+| tai35b 19:26 | 34 | | 163.2M | **104.8M** | 280.6M | 283.3M | below QPB |
 | tai35b 19:26,18:12 | 33 | | 180.7M | **108.5M** | 280.7M | 283.3M | below QPB |
 | tai35b 19:12,18:26 | 33 | | 181.1M | **108.6M** | 282.1M | 283.3M | below QPB |
 | tai35b 19:26,18:8 | 33 | | 182.2M | **111.9M** | 281.4M | 283.3M | below QPB |
@@ -77,6 +79,7 @@ lsla, line_signals traces; `truth.py`).
 | node | m | LP short of cutoff | x_ij > 1e-3 at the LP optimum | child gain: median / largest | children reaching the cutoff |
 |---|---|---|---|---|---|
 | tai35b root | 35 | 180.1M | 1,062 of 1,225 | 0.13M / 6.2M | 0 of 1,225 |
+| tai35b 19:26 | 34 | 179.4M | 1,052 of 1,156 | 94,752 / 13.9M | 0 of 1,156 |
 | tai35b 19:26,18:12 | 33 | 174.8M | 1,026 of 1,089 | 80 / 26,686 | 0 |
 | tai35b 19:12,18:26 | 33 | 174.7M | 1,022 of 1,089 | 86 / 34,335 | 0 |
 | tai35b 19:26,18:8 | 33 | 171.5M | 1,016 of 1,089 | 317 / 40,222 | 0 |
@@ -111,6 +114,7 @@ where we know it (r2 at 8:49 #2; c54 at 22:31 #2). The sum of the three smallest
 | node | children | Spearman with child DNN: parent LP + gain | child's own QPB | AUC (non-branching above branching): LP bound / QPB |
 |---|---|---|---|---|
 | tai35b root | 69 | 0.65 | 0.67 | 0.94 / 0.75 |
+| tai35b 19:26 (one line, r18) | 34 | 0.83 | 0.89 | 1.00 / 1.00 |
 | tai35b 19:26,18:12 | 129 | -0.10 | 0.59 | 0.44 / 0.46 |
 | tai35b 19:12,18:26 | 66 | -0.04 | 0.76 | 0.69 / 0.55 |
 | tai35b 19:26,18:8 | 66 | -0.08 | 0.66 | - |
