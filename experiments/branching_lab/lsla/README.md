@@ -73,9 +73,28 @@ Node `44:45,43:58,1:33,6:24,7:19,0:32,10:39`, slack 405,921, n = 60, m = 53.
 
 ## T1: the lookahead on the shortlist at that node (`run.sh t1`, `runs/t1_cap*/`)
 
-Running (two processes, CAP 30 and CAP 150, each from linetest's strong parent state at depth 6, which
-reproduces linetest's cut bound 606,555,744.87 [m]). Shortlist: K = 2 by the signal, rule 9's two lines,
-c47 and c54 (truth c47 5, c54 9).
+Two processes, CAP 30 and CAP 150, each from linetest's strong parent state at depth 6, which reproduces
+linetest's cut bound 606,555,744.87 [m]. Shortlist: K = 2 by the refined signal, plus rule 9's line, plus
+c54 (production's line, by `QAP_LS_ADD`). Truth, from linetest's full bounding: c47 5 survivors, c54 9, and
+a level down 9 branching nodes under c47 against 56 under c54.
+
+**CAP 30 [m `runs/t1_cap30/ls.txt`]: the lookahead ranks c47, the best line anyone has bounded, last.**
+
+| line | from | signal survivors (refined) | signal rank | lookahead score (sum of shortfalls, M) | children open after 30 iterations | lookahead rank | truth |
+|---|---|---|---|---|---|---|---|
+| c59 | signal #1 | 3 | 1 | 19.0 | 9 | **1 (chosen)** | not bounded |
+| r11 | rule 9 | 4 | 10 | 22.9 | 9 | 2 | not bounded |
+| c54 | production | 9 | 72 | 71.1 | 34 | 3 | 9 survivors |
+| c47 | signal #2 | 3 | 2 | 118.9 | 44 | 4 | 5 survivors |
+
+- Cost: 232 CPU s of signal (208 s of it refinement) and **2,548 CPU s of lookahead** (209 warm DNN
+  solves, 5,006 iterations), against 4,742 s for the node's own cut phase [m `dnn.txt`].
+- The signal orders c47 above c54, as the truth does. The 30-iteration lookahead orders them the other way
+  and puts c47 last: 44 of its 53 children are still open after 30 iterations, though bounding resolves
+  all but 5. At n = 60, depth 7, 30 iterations are too few for the lookahead to see what the full bound sees.
+- c59, the line chosen, has never been bounded, so this run cannot say whether the choice is good. Its
+  lookahead (9 children open) and signal (3 predicted survivors) agree that it is promising.
+- CAP 150 is still running.
 
 ## T2: whole trees (`t2.sh`, `t2queue.sh`, `summ.py` -> `out/t2_*.md`)
 
