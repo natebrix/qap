@@ -8,9 +8,10 @@ Writes out/t2_<tag>.txt and out/t2_<tag>_lines.tsv (every free line)."""
 import sys, os, time, numpy as np, ajlp, truth
 from scipy.stats import spearmanr
 par = sys.argv[1]; eps = float(sys.argv[2]) if len(sys.argv) > 2 else 1e-4; solver = sys.argv[3] if len(sys.argv) > 3 else 'pdlp'
-tag = f'd{par.count(",") + 1}_{par.rsplit(",", 1)[-1].replace(":", "_")}_{solver}{eps:g}'
+INST = os.environ.get('INST', 'tai60b')
+tag = (f'{INST}_' if INST != 'tai60b' else '') + f'd{0 if par == "-" else par.count(",") + 1}_{par.rsplit(",", 1)[-1].replace(":", "_")}_{solver}{eps:g}'
 nodes = truth.load(); P = truth.parents(nodes)[par]; pn = nodes[par]
-A, B, opt, perm = ajlp.inst('tai60b')
+A, B, opt, perm = ajlp.inst(INST)
 Ar, Br, C, s, I, J = ajlp.reduce(A, B, par)
 lp = ajlp.LP(Ar, Br, C)
 cache = f'/tmp/claude-0/lpdual_{tag}.npy'
@@ -72,3 +73,4 @@ for i, t in enumerate(rows):
         say(f'  {t[0]}: rank {i + 1}  count {t[1]}  sum gain {t[2]:.0f}  3 smallest {t[3]:.0f}  B(truth) {sum(v["out"] == "B" for _, v in P[t[0]])}')
 alt = sorted(rows, key=lambda t: -t[3])
 say('  by the sum of the 3 smallest gains: ' + ', '.join(f'{t[0]} #{i + 1}' for i, t in enumerate(alt) if t[5]))
+import resource; say(f'max RSS {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1e6:.2f} GB')

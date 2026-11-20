@@ -1,0 +1,13 @@
+parent 19:12,18:26 m=33 QPB 181145140 DNN 282121872 cut 282378087 cutoff 283315445
+LP (pdlp eps 0.0001): primal 108614377 valid dual bound 108615008; wall 232 s cpu 229 s iters 11520
+LP short of cutoff 174700437 (61.66%); QPB short 102170305
+LP primal x: 1022 of 1089 entries > 1e-3, 0 > 0.5, max 0.118
+child gains over the LP (cb - LP), all 1089 children: median 86 p90 96 max 34335; children with cb >= cutoff: 0
+T1, 66 bounded children: Spearman with the child DNN: LP child bound -0.035, child QPB 0.764
+T1 AUC (non-branching above branching): LP child bound 0.693, child QPB 0.545, child DNN 1.000
+  line c5: B=2  Spearman(cb,DNN) -0.031  Spearman(QPB,DNN) 0.732
+  line c23: B=1  Spearman(cb,DNN) 0.402  Spearman(QPB,DNN) 0.567
+T2, rule-2 analogue (count, then sum of gains): rank of the truth lines among 66
+  c5: rank 1  count 0  sum gain 51222  3 smallest 225  B(truth) 2
+  c23: rank 43  count 0  sum gain 2875  3 smallest 237  B(truth) 1
+  by the sum of the 3 smallest gains: c23 #26, c5 #48
