@@ -5,7 +5,7 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 
 ## Answer (in progress; updated as arms finish)
 
-**The signal has legs at two of three tai60b chain nodes and fails badly at the third; the lookahead on its shortlist has not yet been shown to add anything, and was not run where the signal failed.**
+**The signal has legs at two of three tai60b chain nodes and fails badly at the third; there the lookahead on its shortlist catches the failure, so (b) has a case at n = 60, at about 1.3-1.5 core-hours per firing.**
 
 - **On tai35b, (b) fails**: all three arms of (b) fail the kill rule (1,000 to 1,046 nodes, 7,200 to 8,050 CPU s
   against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any.
@@ -19,9 +19,11 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   (production's cloud run's), by more (c2: 7 branching children, 1,806k, 4,990 CPU s against c59's 2,226).
 - **At the depth-9 chain node 24:2 the signal's top line, c30, fails badly**: 12 branching children against 4
   for both rule 2's r8 (production's; 650k, the best) and rule 9's r3 (937k), at 2.7-3.2x their CPU. The
-  signal predicted 2 survivors for c30. One level down, this miss (8 branching children and 4,962 CPU s more
+  signal predicted 2 survivors for c30. **The CAP 150 lookahead on the shortlist ranks c30 last** (4.33M short,
+  16 children open, against 0.81-1.35M for the others) and orders the three bounded lines as the bounding
+  does; it chose c59 (rule 9's second line), which is being bounded. One level down, this miss (8 branching children and 4,962 CPU s more
   than r8) nearly cancels the two wins at 10:39 and 14:54 (6 and 4 fewer than production's c54 and c2,
-  3,970 s and 2,764 s less) [m, the tables below]; the deeper cost of each is not measured. The lookahead was not run at 24:2.
+  3,970 s and 2,764 s less) [m, the tables below]; the deeper cost of each is not measured. 
 - **At the depth-7 node the CAP 150 lookahead orders all four bounded lines correctly** (c59 3, r11 4, c47 5, c54 9
   branching children); the signal gets the top line right but puts r11 10th. So the lookahead, given enough
   iterations, ranks better than the signal; but it chose the signal's top line.
@@ -29,10 +31,11 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   root and depth 1, tai60b's depth 7). Where the two differed (tai35b depth 2), the lookahead's scores were
   unresolved solves and its choices were worse. So the evidence supports mode (a), the signal alone, at a few
   seconds to a few minutes per firing, and not yet the 0.7-1.5 core-hours of lookahead per firing at n = 60.
-- Cheapest next step: the CAP 150 lookahead on a shortlist at 24:2 (c30, c53, c10, r8, r3; about 1.5 core-hours
-  [e]), to see whether it catches the signal's miss there. If it does, (b) earns a place at high-stake nodes;
-  if not, neither ranker is safe alone at n = 60. Then more chain nodes, one level each (about 1-2 core-hours
-  per line).
+- Cheapest next step: finish bounding c59 and c53 at 24:2 (running), which settles whether the lookahead's
+  choice there is good and not just its last place. Then (b) at more chain nodes (10's 8:29, and depths 3-6),
+  each firing about 1.3-1.5 core-hours and each line bounded one level (about 1-2 core-hours per line). The
+  question for the tree is whether (b)'s cost per firing, against about 437 core-hours per chain at n = 60
+  (T3) [e], is paid back. Its choice beat production's line at 10:39 (depth 7); at 24:2 it is pending.
 
 What is in hand [m]:
 
@@ -260,7 +263,13 @@ a level down 9 branching nodes under c47 against 56 under c54.
   **c30 loses to both, by the rule (12 branching against 4), and costs 2.7-3.2x their CPU.** Rule 2's r8 beats
   rule 9's r3 on the shortfall sum (650k against 937k, 4 branching each). The signal predicted c30's
   children as mostly fathomable (2 survivors) and was wrong by 10; it predicted 4 for r8 and r3, and was right.
-  The DNN lookahead was not run at 24:2, so whether it would have caught c30 is untested. Unlike 10:39 and
+  **The DNN lookahead at 24:2 catches the miss** [m `runs/t1d9_cap150/ls.txt`, `run.sh t1d9 t1d9_cap150 150 2`]:
+  mode b, K = 2, CAP 150, on the same state. In-run signal 218 CPU s (c30 #1, c53 #2; r3 #21, r8 #22);
+  shortlist c30, c53 (signal), r3, c59 (rule 9), r8 (added, rule 2's); 249 solves, 4,545 CPU s.
+  Scores (sum of shortfalls after 150 iterations, children still open): c59 0.81M (3 open), r8 0.97M (6),
+  c53 1.10M (4), r3 1.35M (4), **c30 4.33M (16), last**. It chose c59. On the three lines bounded, its order
+  is the bounding's: r8 (4 branching, 650k), r3 (4, 937k), c30 (12). c59 and c53 are being bounded at 24:2
+  (`run.sh at9 c2 24:2 c59|c53`). Unlike 10:39 and
   14:54, c30 is not one of the lines the signal ranked near the top at both earlier nodes (c59, c47, c35,
   c38, r22); at 24:2 the signal's top five changed, and its new first line was its worst miss so far.
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the

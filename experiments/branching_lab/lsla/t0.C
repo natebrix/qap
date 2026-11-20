@@ -1,5 +1,6 @@
 // t0.C: the C landscape signal (latest/lsla.C of the experiment build) at one node, standalone.
-//   t0 DAT SLN FIXES SLACK KICKS KICKS2 XHI SEED [LINES]
+//   t0 DAT SLN FIXES SLACK KICKS[:KICKS3] KICKS2 XHI SEED [LINES]
+// KICKS3 > 0: a random-start search per cell (KICKS3 kicks) and the harvest (lsla.h).
 // FIXES r:v,r:v,... (p[r] = v, 0-based); LINES e.g. c54,c47 (default: none). Prints the node's own excess,
 // each free line's predicted survivors (ex <= SLACK, after base kicks and after refinement), every child of
 // LINES with ex/SLACK, and the CPU. Build: g++ -O3 -march=native -std=gnu++17 -I$BUILD/latest t0.C $BUILD/latest/lsla.C
@@ -30,7 +31,7 @@ int main(int argc, char **argv) {
   std::vector<int> fixed(n, -1);
   for (char *t = strtok(argv[3], ","); t; t = strtok(NULL, ",")) { int r, v; sscanf(t, "%d:%d", &r, &v); fixed[r] = v; }
   const double s = atof(argv[4]);
-  LSParams P; P.kicks = atoi(argv[5]); P.kicks2 = atoi(argv[6]); P.xhi = atof(argv[7]);
+  LSParams P; P.kicks = atoi(argv[5]); if (const char *k3 = strchr(argv[5], ':')) P.kicks3 = atoi(k3 + 1); P.kicks2 = atoi(argv[6]); P.xhi = atof(argv[7]);
   const unsigned seed = atoi(argv[8]);
   LSTable T;
   ls_node(I, p.data(), fixed.data(), s, P, false, T, seed);
@@ -38,6 +39,7 @@ int main(int argc, char **argv) {
 	 T.ex_start, T.ex_node, s, P.kicks, P.kicks2, P.xhi, seed);
   printf("cpu gate %.2f table %.2f refine %.2f (%ld cells refined) moves %ld\n", T.cpu_gate, T.cpu_table, T.cpu_refine,
 	 T.refined, T.moves);
+  if (P.kicks3 > 0) printf("kicks3 %d: random searches %.2f s (in table), %ld cells lowered by the harvest\n", P.kicks3, T.cpu_random, T.harvested);
   // every line: predicted survivors after base and after refinement
   struct L { std::string name; int cb, c; double off; };
   std::vector<L> Ls;
