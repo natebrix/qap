@@ -78,6 +78,14 @@ case ${1:-} in
       QAP_LS_PERM=$BUILD/QAPSOLN/tai60b.sln QAP_LS_LOG=$D/runs/$NAME/ls.txt QAP_LS_DUMP=$D/runs/$NAME/dump.txt \
       go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 7 "$DAT"
     rm -f "$D/runs/$NAME/in.state" ;;
+  deep)
+    # one level deeper, as linetest's deep target: the depth-9 nodes under a strong arm's survivors FIXES (e.g.
+    # 11:59 or 13:59,3:59), from runs/s<LINE>/out.state, production's settings and line rule, depth 10 set aside
+    LINE=$2; NAME=d9${LINE}_${3//[:,]/_}
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/splitstate.py" "$D/runs/s$LINE/out.state" "$D/runs/$NAME/in.state" 9 "$3"
+    go "$NAME" -p "$PAR" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 9 -o "$D/runs/$NAME/out.state" -k 600 "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
   sresume)
     NAME=s$2; LINE=$2
     grep -q '^exit 0$' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }
