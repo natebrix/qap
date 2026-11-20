@@ -13,6 +13,9 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 - **At tai60b's depth-7 chain node the signal ranks the lines differently depending on how hard it
   searches**, and at either effort its top lines are lines nobody has bounded (c10, c59, c35, c38, r22 after
   refinement; r31, c10, c11, c47 at 30 kicks). A K = 2 shortlist is therefore unverified lines plus rule 9's.
+- **As a shortlist on tai35b it agrees with the DNN lookahead**: at 4 of the 5 nodes where (c) fired and
+  the gate passes, the signal's first line is the lookahead's choice, for 6 CPU s against 450 s. On tai40b
+  the slack below the root is too small for it to tell lines apart (T3).
 - tai35b's production arm reproduces line_signals' tree exactly, so (c)'s numbers are reused (below).
 - T1 (the lookahead on the shortlist at the depth-7 node) and the other tai35b arms are running.
 
@@ -86,8 +89,40 @@ fixes, bound, outcome, line) at every node [m: sorted trace comparison]; its CPU
 6,931-7,390. So line_signals' (c) arm is reused rather than rerun. (The coordinator's own count, 987, is not
 the trace's; line_signals saw the same.)
 
+## T3: the signal's cost, and its ranking against the lookahead's (`t3rank.py`, `t3out/`, `out/t3_rank.md`)
+
+**Cost per firing [m]** (t0, one core, the gate's 300 kicks plus the table):
+
+| node | n, m | 30 kicks | + 3,000 kicks near the threshold | for comparison |
+|---|---|---|---|---|
+| tai35b root | 35, 35 | 6.4 s | +115 s (236 cells) | the root's DNN node 590 s; (c)'s lookahead 468 s |
+| tai40b root | 40, 40 | 10.7 s | +91 s (144 cells) | the root's DNN node 1,277 s |
+| tai60b depth 7 | 60, 53 | 34.6 s | +320 s (284 cells) | bounding the depth-7 node 10:39 itself under `strong.par` about 4,900 s; a depth-9 node 21-52 s (linetest `d9score.txt`: 52 children per depth-8 node in 1,088-2,692 s) |
+
+**Ranking at the 12 nodes where (c) fired in line_signals [m `out/t3_rank.md`].** The signal (30 kicks)
+was run at each node, with that arm's slack, and the 8 lines the lookahead judged put in the signal's order:
+
+- **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
+  root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
+  (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
+  second, at 4 survivors against 4. About 6 CPU s per node against the lookahead's 430-470 s.
+- **tai40b: the signal has nothing to say below the root.** The slack is small (9k-239k below the root, against
+  1.0-2.5M on tai35b): the gate fails at 3 of 6 nodes, and where it passes every line has 1 predicted
+  survivor (the optimum's own child) and no off-chain mass, so the order is a tie. At the root it ranks
+  production's r23 first and (c)'s c27 7th of 8; (c)'s tree was the worse (829 nodes against
+  production's 731), so there it sided with the better rule.
+- The incumbent permutation the signal starts from is the optimum (`QAP_LS_PERM` = the `.sln`), as in every
+  arm here. On a node off the optimum's chain it has to find the good completions itself.
+
+## linetest's depth 9 (fetched from `claude/cool-babbage-ilnogj`, linetest `out/d9score.txt`)
+
+Under c47, depth 9 has 9 branching nodes (260 bounded, 9,002 CPU s on this box) against production's 56
+under c54 (520 bounded). c47, which the refined signal (4 survivors) and the strong bound (5) both prefer
+to c54 (9), stays the better line a level down. That supports the signal's ranking of those two lines; it
+says nothing about the lines the signal ranks above c47 (c10, c59, c35, c38, r22), which no one has bounded.
+
 ## Not tested yet
 
-- T3 (cost per firing at n = 35, 40, 60 and the break-even at tai60b's depth-3 and depth-7 chain nodes).
+- The break-even at tai60b's depth-3 and depth-7 chain nodes (T3's second half).
 - tai40b's arms.
 - A tai50b partial tree.
