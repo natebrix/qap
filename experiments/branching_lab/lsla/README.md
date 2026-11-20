@@ -5,7 +5,7 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 
 ## Answer (in progress; updated as arms finish)
 
-**The signal has legs at two of three tai60b chain nodes and fails badly at the third; there the lookahead on its shortlist catches the failure, and its choice, c59, beats both rules' lines; so (b) has a case at n = 60, at about 1.3-1.5 core-hours per firing.**
+**The signal has legs at two of three tai60b chain nodes and fails badly at the third; there the lookahead on its shortlist catches the failure, its choice, c59, beats both rules' lines, and its order of the five lines bounded there is the bounding's; so (b) has a case at n = 60, at about 1.3-1.5 core-hours per firing.**
 
 - **On tai35b, (b) fails**: all three arms of (b) fail the kill rule (1,000 to 1,046 nodes, 7,200 to 8,050 CPU s
   against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any.
@@ -268,7 +268,7 @@ a level down 9 branching nodes under c47 against 56 under c54.
   | **r8** | rule 2, production's cloud run (4 survivors there); signal #20 | 45 | 2 | **4** | 368k, 134k, 131k, 17k | **650k** | 2,914 [m `runs/at9_24_2_r8`] |
   | r3 | rule 9 (0e6c2ecf par), strong state; signal #19 | 47 | 0 | 4 | 368k, 344k, 166k, 59k | 937k | 2,425 [m `runs/at9_24_2_r3`] |
   | **c59** | the CAP 150 lookahead's choice (rule 9's second line); signal #3 | 48 | 0 | **3** | 325k, 197k, 59k | **581k** | 1,901 [m `runs/at9_24_2_c59`] |
-  | c53 | signal #2 (#1 with KICKS3 100 and refinement) | running | | | | | |
+  | c53 | signal #2 (#1 with KICKS3 100 and refinement) | 47 | 0 | 4 | 252k, 193k, 152k, 91k | 688k | 2,552 [m `runs/at9_24_2_c53`] |
 
   **c30 loses to both, by the rule (12 branching against 4), and costs 2.7-3.2x their CPU.** Rule 2's r8 beats
   rule 9's r3 on the shortfall sum (650k against 937k, 4 branching each). The signal predicted c30's
@@ -280,7 +280,8 @@ a level down 9 branching nodes under c47 against 56 under c54.
   c53 1.10M (4), r3 1.35M (4), **c30 4.33M (16), last**. It chose c59. On the three lines bounded, its order
   is the bounding's: r8 (4 branching, 650k), r3 (4, 937k), c30 (12). **Its choice, c59, is the best line
   measured at 24:2** (3 branching children, 581k, 1,901 CPU s, against r8's 4 and 650k): by the rule, it beats
-  both rules' lines. c53 is being bounded (`run.sh at9 c2 24:2 c53`). Unlike 10:39 and
+  both rules' lines. With c53 bounded too (4, 688k), **the lookahead's order of all five lines is the
+  bounding's order**: c59 (3, 581k), r8 (4, 650k), c53 (4, 688k), r3 (4, 937k), c30 (12). Unlike 10:39 and
   14:54, c30 is not one of the lines the signal ranked near the top at both earlier nodes (c59, c47, c35,
   c38, r22); at 24:2 the signal's top five changed, and its new first line was its worst miss so far.
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
@@ -416,7 +417,7 @@ refinement: **c25** (tai50b root, 15; r31 2nd at 18), **c59** (d7), **c59** (d8)
 - Refinement changes the top line. It lowers cells with 1 < x <= 2.5, and so adds survivors: at tai50b's
   root r31 goes from 15 to 18 and c25, which nobody has bounded, stays at 15 and comes first. Without
   refinement r31 is first. At 24:2 refinement moves c30 from 3 to 4 predicted (measured 12) and brings c53 to
-  the top (being bounded, `runs/at9_24_2_c53`).
+  the top: bounded, it has 4 branching children and 688k, behind c59 (3) and r8 (4, 650k).
 - c30's undercount at 24:2 stays (3-4 against 12), as the coordinator found: its branching children are
   near misses, which a count of completions within the slack does not see.
 - Cost at n = 60: the random searches take 77-87 CPU s a node (KICKS3 100), so the table goes from 20-24 s to
