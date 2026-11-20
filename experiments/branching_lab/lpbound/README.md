@@ -128,7 +128,7 @@ was not computed here; the comparison above is against the stronger child QPB.
 Small exact nodes (all m^2 children bounded, `out/small_summary.txt`): at nug12's root the IPM dual's gains, though
 at most 0.13, rank the children's DNN with Spearman 0.79 and the vertex dual's not at all (-0.00); the PDLP dual
 0.16. **Exact and approximate duals disagree on the ranking** (Kurt's two reasons pulling against each other); only
-the interior dual carries order, and none carries magnitude. The child's own exact LP ranks them 0.47, its QPB 0.56.
+the interior dual carries order, and none carries magnitude. The child's own exact LP ranks them 0.47, its QPB 0.56. At tai12b's root (LP 31.70M, optimum 39.46M) the same: 125 of 144 x_ij positive; the vertex dual gives one child a gain (0.70M, against 7.8M needed), the IPM dual 19 children (largest 51k); Spearman with the children's DNN 0.25 (IPM dual), 0.33 (PDLP), -0.03 (vertex), child LP 0.27, child QPB 0.40.
 
 ## Cost (T3) (in progress)
 
