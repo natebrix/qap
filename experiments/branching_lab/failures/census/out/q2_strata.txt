@@ -21,7 +21,16 @@ band  q
       2   0.82 (17)   0.80 (87)    1.00 (8)
       3   1.04 (24)   0.82 (89)            
       4    1.25 (4)  1.14 (109)            
-(no regression: No module named 'statsmodels')
+
+Poisson regression of b, quasi-Poisson s.e. (dispersion 1.17); rate ratio = exp(coef); baseline: rows, first band
+                 coef     se  rate ratio
+const           2.042  0.060       7.703
+log_rel_short   0.548  0.015       1.730
+band_16-22      0.044  0.041       1.045
+band_23+        1.165  0.067       3.205
+band_7-10      -0.126  0.043       0.882
+kind_col-cl1    0.615  0.036       1.850
+kind_col-other -0.673  0.044       0.510
 
 ## tai60b-261117, rule 9 levels: mean b (n) by depth band x shortfall quintile (0 = smallest) x line kind
          col-cl1  col-other        row
@@ -36,5 +45,11 @@ band q
      2            0.95 (21)  1.09 (22)
      3  3.00 (4)  1.38 (21)  1.33 (18)
      4  5.75 (4)  3.83 (12)  3.81 (27)
-(no regression: No module named 'statsmodels')
+
+Poisson regression of b, quasi-Poisson s.e. (dispersion 1.19); rate ratio = exp(coef); baseline: rows, first band
+                 coef     se  rate ratio
+const           3.786  0.237      44.079
+log_rel_short   1.315  0.102       3.725
+kind_col-cl1    0.563  0.203       1.756
+kind_col-other  0.141  0.145       1.151
 

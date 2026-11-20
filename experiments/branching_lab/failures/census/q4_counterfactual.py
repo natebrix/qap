@@ -109,15 +109,29 @@ def main():
                 continue
             b = sum(1 for c in n.kidsl if c.out == 'B')
             side, ocl, cand, tight = I.feat(n.fixes, n.line)
+            bk = [c.fixes[-1] for c in n.kidsl if c.out == 'B']
+            if side == 'c':
+                bcl = [I.fcl[f] for f, l in bk]
+            else:
+                bcl = [I.fcl[I.q[l]] for f, l in bk]     # the incumbent's cluster at each branching location
+            dclus = max(set(bcl), key=bcl.count) if bcl else ''
+            ndom = bcl.count(dclus) if bcl else 0
             fs = ','.join(f'{a}:{c}' for a, c in sorted(n.fixes)) or '-'
             path = int(all(I.p[f] == l for f, l in n.fixes))
             obs.append(dict(inst=inst, src=src, node=fs, depth=n.depth, line=n.line, b=b, nkids=len(n.kidsl),
                             nC=sum(1 for c in n.kidsl if c.out == 'C'), short=n.short, side=side, ocl=ocl,
-                            cand=cand, tight=tight, path=path, level=n.level))
+                            cand=cand, tight=tight, path=path, level=n.level, dclus=dclus, ndom=ndom,
+                            ham=sum(1 for f, l in n.fixes if I.p[f] != l)))
+    # keep only nodes observed more than once (the file stays small); the full set is rebuilt by rerunning this
+    cnt = defaultdict(int)
+    for o in obs:
+        cnt[(o['inst'], o['node'])] += 1
     with open('out/q4_obs.tsv', 'w') as f:
         keys = list(obs[0].keys())
         f.write('\t'.join(keys) + '\n')
         for o in obs:
+            if cnt[(o['inst'], o['node'])] < 2:
+                continue
             f.write('\t'.join('' if o[k] is None else (f'{o[k]:.4f}' if isinstance(o[k], float) else str(o[k]))
                               for k in keys) + '\n')
     print(len(obs), 'observations')
