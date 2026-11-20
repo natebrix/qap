@@ -161,6 +161,13 @@ a level down 9 branching nodes under c47 against 56 under c54.
   ranks them exactly so; at CAP 30 it has c59 and r11 right and c47 and c54 swapped. The refined signal ranks
   them c59 (#1), c47 (#2), r11 (#10), c54 (#72): the top right, r11 too low. r11 also beats c47 by the
   coordinator's rule (4 < 5). [m `runs/sr11/nodes.txt`]
+
+  **Depth 9 under c59 (running, started 07:16 UTC)**, like for like with linetest's depth 9 under c47: from
+  `runs/sc59/out.state`, production's `tai60b.par` and its own line rule at depth 8 (no forced line), depth 10
+  set aside (`run.sh deep c59 11:59` and `run.sh deep c59 13:59,3:59`, `splitstate.py` from linetest; 156
+  depth-9 nodes in two processes). Rule, the coordinator's, fixed before the result: c59 stays ahead of c47
+  only with fewer than 9 branching nodes at depth 9, or 9 with a smaller shortfall sum (c47: 260 nodes,
+  9 branching, shortfall sum 1,152k, 9,002 s; production under c54: 520 nodes, 56 branching).
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
@@ -256,4 +263,5 @@ moved into place.
 - Depth 9 under c59 and r11; any line at tai60b's depth-3 chain node bounded.
 - Mode (a) at tai60b's other chain nodes.
 - tai40b's arms (running).
-- A tai50b partial tree.
+- A tai50b partial tree: skipped. Nathan started tai50b whole with mode (a), depths 0-10, refined signal, on
+  their laptop at 06:24 UTC (`experiments/branching_lab/laptop/tai50b_ls.sh`; reference tai50b-r9 6,629 nodes).
