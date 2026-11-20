@@ -213,11 +213,12 @@ a level down 9 branching nodes under c47 against 56 under c54.
   | 14:54 branched on | by | depth 9: D | C | B | branching shortfalls | sum | CPU s |
   |---|---|---|---|---|---|---|---|
   | **c59** | signal #1 | 49 | 0 | **3** | 377k, 239k, 99k | 714k | 2,226 [m `runs/at8_14_54_c59`] |
-  | r3 | production's rule, strong state; signal #9 | running | | | | | |
+  | r3 | production's rule, strong state; signal #9 | 47 | 1 | 4 | 393k, 377k, 209k, 99k | 1,078k | 2,864 [m `runs/at8_14_54_r3`] |
   | c2 | production's cloud run; signal #51 | running (started 12:39) | | | | | |
   | c2, production's own trace (cloud, weaker bound) | | | | 7 | 117k-411k | | linetest |
 
   14:54's bound under c59's arm, 607,832,239.6, reproduces the c54 bounding's 607,832,297.5 to 58.
+  **c59 beats r3, production's rule on the same state, by the rule (3 branching against 4; 714k against 1,078k).**
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
