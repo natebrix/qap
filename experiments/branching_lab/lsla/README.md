@@ -25,7 +25,11 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   at the optimum. As predicted before it finished, the refined shortlist never offers c23 at depth 2, so the
   lookahead cannot make (c)'s choice there; at 18:12 19:26 it picked r30 from {c5, r30, r26}, which cost
   more nodes below (depths 5-6: 244 against 215 under c5).
-- T1 (the lookahead on the shortlist at the depth-7 node), (b) K = 4 and (b) without refinement are running.
+- **T1 at tai60b's depth-7 node, CAP 30, the sloppy lookahead gets the one ranking we can check backwards**
+  [m `runs/t1_cap30/ls.txt`]: it scores c47 (5 true survivors, the best bounded line) last of four and c54
+  (9) above it, because 44 of c47's 53 children are still open after 30 iterations. The signal had them
+  in the right order. It chose c59, never bounded. Cost 2,548 CPU s of lookahead plus 232 s of signal.
+- T1 at CAP 150, (b) K = 4 and (b) without refinement are running.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
