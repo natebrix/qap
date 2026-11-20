@@ -424,9 +424,11 @@ refinement: **c25** (tai50b root, 15; r31 2nd at 18), **c59** (d7), **c59** (d8)
 - Cost at n = 60: the random searches take 77-87 CPU s a node (KICKS3 100), so the table goes from 20-24 s to
   99-113 s; with refinement, 300-350 s a node in all (it was 230-260 s). At tai50b's root: 66 s of random
   searches, 682 s in all with refinement (813 cells refined).
-- c10, the fixed signal's top line at d7 without refinement (2 predicted survivors), is being bounded at
-  10:39 (`run.sh strong c10`, `runs/sc10`), by the rule for c59 there (fewer than 3 branching children, or 3
-  with a shortfall sum under 861k).
+- **c10, the fixed signal's top line at d7 without refinement (2 predicted survivors), loses to c59**
+  [m `run.sh strong c10` -> `runs/sc10/nodes.txt`, scoring awk at depth 8]: 53 children, 47 D / 1 C / 5 B,
+  shortfall sum 1,277k, 4,543 CPU s, against c59's 3 B, 861k, 2,490 s (`runs/sc59`). The rule (fewer than 3
+  branching, or 3 under 861k) fails. So the fix without refinement picks a worse line here than the old
+  signal did; with refinement it picks c59 again.
 - **tai35b whole tree with mode a and the fix passes the rule (nodes <= 983, gross CPU <= 6,935 s, fixed
   before the run), but tells us nothing new** [m `t2/tai35b_a_k3`, `summ.py` -> `out/t2_tai35b.md`]:
   - 983 nodes, the same tree as mode a without the fix: the same lines at all five firings (0:c26, 1:r19,
