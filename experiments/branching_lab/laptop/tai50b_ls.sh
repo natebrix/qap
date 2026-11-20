@@ -28,7 +28,7 @@ BASE=0e6c2ecf
 SRC=${SRC:-origin/claude/cool-babbage-ilnogj}
 W=${W:-$(dirname "$R")/qap-lsla}
 P=${PROBLEM:-tai50b}
-LS=${LS:-a:2:0:10}
+LS=${LS:-a:2:0:2}
 PY=${PYTHON:-python3}
 say() { echo "$(date '+%m-%d %H:%M:%S') $*"; }
 
@@ -44,14 +44,15 @@ if [ ! -d "$W" ]; then
 fi
 cd "$W" || exit 1
 [ "$(git rev-parse --short=8 HEAD)" = "$BASE" ] || { echo "$W is not at $BASE"; exit 2; }
-if ! grep -q QAP_LS_SEARCH latest/bnb.C; then
-  if ! grep -q QAP_FORCE_LINE latest/bnb.C; then
-    git apply experiments/line_signals/experiment_build.patch || { echo "experiment_build.patch did not apply"; exit 1; }
-  fi
+if ! grep -q KICKS3 latest/bnb.C; then
+  # not patched, or patched with the Nov 19 lsla.patch (before the random-start fix): start latest/ again
+  git checkout -q -- latest && git clean -fdq latest
+  git apply experiments/line_signals/experiment_build.patch || { echo "experiment_build.patch did not apply"; exit 1; }
   git -C "$R" show "$SRC:experiments/branching_lab/lsla/lsla.patch" > /tmp/lsla.$$.patch
   git apply /tmp/lsla.$$.patch || { echo "lsla.patch did not apply"; exit 1; }
   rm -f /tmp/lsla.$$.patch
-  say "patched: experiment build + lsla"
+  grep -q KICKS3 latest/bnb.C || { echo "$SRC's lsla.patch has no KICKS3: git fetch origin claude/cool-babbage-ilnogj"; exit 1; }
+  say "patched: experiment build + lsla (with the random-start fix)"
 fi
 export VECLIB_MAXIMUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 
@@ -61,7 +62,7 @@ mkdir -p "$S"
 make solver PYTHON="$PY" > "$S/build.log" 2>&1 || { echo "build failed: $S/build.log"; tail -20 "$S/build.log"; exit 1; }
 git -C "$R" show "$SRC:experiments/branching_lab/lsla/validate/tai25b_val.par" > "$S/tai25b_val.par"
 rm -f "$S/ls.log" "$S/nodes.txt"
-( cd latest && QAP_LS=a:2:0:1 QAP_LS_PERM=../QAPSOLN/tai25b.sln QAP_LS_LOG=$S/ls.log QAP_NODE_TRACE=$S/nodes.txt \
+( cd latest && QAP_LS=a:2:0:1 QAP_LS_SEARCH=30:0:2.5:300:100 QAP_LS_PERM=../QAPSOLN/tai25b.sln QAP_LS_LOG=$S/ls.log QAP_NODE_TRACE=$S/nodes.txt \
     ./bnbdrv -p "$S/tai25b_val.par" -u 344355647 -d 1 -o "$S/out.state" ../qaplib/tai25b.dat > "$S/log.txt" 2> "$S/err.txt" )
 rc=$?
 fir=$(grep -c '^ls: ' "$S/ls.log" 2> /dev/null); fir=${fir:-0}
@@ -74,9 +75,9 @@ say "CHECK PASSED: tai25b, $fir signal firings, $nod nodes, root line $root (the
 [ "${SMOKE_ONLY:-0}" = 1 ] && exit 0
 
 # --- the run
-OUT=${OUT:-$W/infra/laptop/runs/$P-ls}
+OUT=${OUT:-$W/infra/laptop/runs/$P-ls2}
 mkdir -p "$OUT"
-export QAP_LS=$LS QAP_LS_PERM=$W/QAPSOLN/$P.sln QAP_LS_SEARCH=${SEARCH:-30:3000:2.5:300} QAP_LS_LOG=$OUT/ls.log
+export QAP_LS=$LS QAP_LS_PERM=$W/QAPSOLN/$P.sln QAP_LS_SEARCH=${SEARCH:-30:3000:2.5:300:100} QAP_LS_LOG=$OUT/ls.log
 export QAP_ROOT_CACHE=off   # the root's line is the signal's: a root kept from another run must not be used
 { date; env | grep -E '^QAP_' | sort; git rev-parse --short HEAD; } >> "$OUT/cmd.txt"
 say "$P with QAP_LS=$LS: logs in $OUT (run.log; ls.log, one line per signal firing). The root takes about an hour on one core."
