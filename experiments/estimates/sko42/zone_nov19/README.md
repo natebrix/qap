@@ -119,3 +119,27 @@ So z25's two deep tails, which carried nearly all of its imputed rest, were fail
 imputation on the rest of each tree, corrected as above): **z25 about 680-690 CPU h, z10 about 960-1,000** (0.70,
 close to the paired 0.65). With the policy block's 1.2-1.35x, sko42 under `sko42.par` with `dnn.retry = 1` should
 take about 500-700 CPU h. The table under "The tree's size" above stands as written for the traces as they are.
+
+## Solved (Nov 20): sko42-261120b, 539 CPU h
+
+`infra/phase1/specs/sko42.spec` as of 9364a503: `sko42.par` with `cut.zone = 0.025`, the policy block and
+`dnn.retry = 1`, two Spot workers. **Solved: 128,431 nodes, 539.3 CPU h, 4 h 37 min wall**, best objective
+15,812 (QAPLIB's optimum; the collect's check passes), deepest DNN node at depth 9: no failed solve grew a
+tail. Fujii et al. needed 6.0 million nodes.
+
+`solved_pairs.py`: the subtrees both closed, leaving out any that holds or lies under a failed pooled solve:
+
+| sko42-261120b against | differs in | paired subtrees | nodes | CPU (5-95%) |
+|---|---|---|---|---|
+| sko42-261120 | the retry only | 477 (99% of its CPU) | 1.00 | **1.00** (0.99-1.00) |
+| z25 | the block and the retry | 1,495 (71% of z25's CPU, 83% of its own) | 1.06 | **0.75** (0.73-0.77) |
+| z10 | the zone, the block and the retry | 3,758 (73% of z10's CPU) | 1.08 | **0.48** (0.46-0.50) |
+
+- **The retry changes nothing else.** Against sko42-261120 the trees are the same node for node and the CPU
+  the same to 1%, on other workers: the run-to-run noise feared above (13-20% on tai50b) is not there on
+  these machines.
+- **The block: 1.33x** (0.75; 0.70 on the 1,360 pairs of the same node count), with 6% more nodes, at the top
+  of the bound lab's 1.2-1.35x on sko49.
+- **Everything since Nov 12: 2.1x** (0.48), and the tree itself 539 CPU h against the 960-1,000 that 0.010
+  would take without its failures, and against the 506-549 core-hours estimated on Nov 12 under 0.010 (the
+  sampling plan's estimate was low by about 1.8-1.9x).

@@ -232,3 +232,24 @@ after `collect.sh` on each.
 (the spill), est2's settings otherwise, so that its difference from est2 is the fix: a direct check of
 the 196 c7a CPU-days the correction gives.
 
+
+**The arms' result (Nov 20; `paired.py` on the four records).** 137 sampled nodes (48 at depth 3, 89 at
+depth 4), each arm to the end, weighted by the source's open nodes each stands for:
+
+| arm | CPU, against base (5-95%) | nodes |
+|---|---|---|
+| base (tho40c) | 5,808 CPU h | 2,576,459 |
+| xbar4 | 1.04x (0.98-1.09) | 0.96x |
+| cross5 | **1.61x** (1.57-1.67) | 1.01x |
+| z03 | 1.05x (1.03-1.08) | 1.00x: the same trees |
+
+- **z03 builds base's trees** node for node: below depth 2 every node its first solve does not fathom
+  already runs a phase at 0.03 (as on sko49 at 0.018 and sko42 at 0.025). Its 1.05x is the run-to-run
+  noise between two arms here.
+- **xbar4 is neutral** (4% fewer nodes, CPU within the noise). **cross5 costs 1.6x** for the same nodes:
+  bound_lab's 537 to 377 iterations on one parent's 36 children does not hold over a tree. tho40c stands.
+- **The solved sample against est3**, open nodes by depth (base's weighted totals, bootstrap 5-95%, against
+  est3's strata at the same depth): depth 3 5,534 CPU h (3,882-7,308) against 4,481; depth 4 275 (205-354)
+  against 803. At depth 3 the dives' estimate is inside the band (nodes 2.45 against 2.58 million), at depth
+  4 it is 2.9x the solved sample's, outside it. With est3's depth 2 (1,426 CPU h, 85 open nodes, dives only)
+  and depths 5-6 (16), the rest of tho40 is about 7,250 CPU h from the solved sample against est3's 6,727.
