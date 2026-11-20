@@ -1,6 +1,6 @@
 # sko42-261120
 
-**RUNNING**: 870 of 1276 units merged
+**RUNNING**: 5361 of 5988 units merged
 
 ## The run
 
@@ -17,8 +17,8 @@
 
 | | |
 |---|---|
-| wall | 1 h 01 min |
-| nodes | 17,353 (17,352 DNN, 15,958 DNN-fathomed) |
-| CPU | 97.8 h |
-| units | done 1, leased 135, merged 870, queued 270 |
-| status written | 2026-11-20 02:15 UTC |
+| wall | 7 h 56 min |
+| nodes | 407,632 (207,566 DNN, 134,196 DNN-fathomed) |
+| CPU | 1,010.9 h |
+| units | leased 71, merged 5361, queued 556 |
+| status written | 2026-11-20 09:10 UTC |
