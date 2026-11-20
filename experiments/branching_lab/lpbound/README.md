@@ -3,16 +3,18 @@
 Kurt's question: drop R >= 0 from the DNN relaxation and solve the LP. Is it closer to DNN than QPB is, do its duals
 help branching, and can PDLP get it fast?
 
-## Answer (in progress: tai60b depths 7-8 and one child-LP check still running)
+## Answer
 
-**No on both counts at the sizes that matter.** The LP is exactly the Adams-Johnson level-1 RLT LP. It is far from
-the DNN bound wherever the solver branches: at tai35b's root and depth-2 nodes it is *below QPB* (104-112M against
-QPB's 151-182M and DNN's 261-282M), and at tai60b's depth-17 nodes it is within 15M of QPB on either side, with DNN
-60-80M higher [m]. Its duals give flat child bounds: at every node tried, no child of any line reaches the cutoff
-(the LP is 11-64% short of it, the largest reduced-cost gain at most a third of what is needed), because at the LP
-optimum 85-95% of the x_ij are fractional and complementary slackness sets their reduced costs to zero. What is
-left is a tie-break whose line rankings are no better than chance against the bounded truth. PDLP does solve it on
-this box: m = 33 in 3-4 minutes, m = 43 in 8-24 minutes, under 1 GB, to 1e-4; the cost is not what kills it.
+**No on both counts at the sizes that matter, and PDLP's speed does not rescue it.** The LP is exactly the
+Adams-Johnson level-1 RLT LP. Where the solver makes its branching decisions (tai35b depths 0-2, tai60b depths 7, 8
+and 17; m = 33-53) it is below QPB at 8 of 9 nodes, by up to 77M, and 60-190M below the DNN first solve; it lies
+between QPB and DNN only at small roots (n <= 15 and the tai-b roots to n = 20) [m]. Its duals rank nothing: at all
+9 nodes no child of any line reaches the cutoff (largest gain 0.1-26M against 66-188M needed), because 85-95% of
+the LP's x_ij are fractional and complementary slackness zeroes their reduced costs; the tie-break left over orders
+the bounded lines right at 2 of 7 nodes (the two off-chain depth-17 parents, where rule 2 was right too) and
+exactly backwards at tai60b's depth-7 chain node (c54 first, c59 last). PDLP solves it on this box to 1e-4 in 2-4
+min at m = 33-35, 8-27 min at m = 43, 20-31 min at m = 52-53, under 2 GB: as costly as the node's own DNN bound,
+for a bound weaker than QPB.
 
 ## What the LP is (T0)
 
@@ -57,6 +59,7 @@ a cutoff (the first solve's certified value, no cut phase; 20,000 iterations or 
 | tai35b 19:26,18:12 | 33 | | 180.7M | **108.5M** | 280.7M | 283.3M | below QPB |
 | tai35b 19:12,18:26 | 33 | | 181.1M | **108.6M** | 282.1M | 283.3M | below QPB |
 | tai35b 19:26,18:8 | 33 | | 182.2M | **111.9M** | 281.4M | 283.3M | below QPB |
+| tai60b d7 ...7:19,0:32,10:39 | 53 | | 488.6M | **420.4M** | 606.8M | 608.2M | below QPB |
 | tai60b d8 ...10:39,14:54 | 52 | | 504.4M | **435.9M** | 607.7M | 608.2M | below QPB |
 | tai60b d17 ...22:31 | 43 | | 527.7M | **541.9M** | 608.0M | 608.2M | 18% |
 | tai60b d17 ...8:49 | 43 | | 549.5M | **525.0M** | 607.6M | 608.2M | below QPB |
@@ -87,6 +90,7 @@ lsla, line_signals traces; `truth.py`).
 | tai35b 19:26,18:12 | 33 | 174.8M | 1,026 of 1,089 | 80 / 26,686 | 0 |
 | tai35b 19:12,18:26 | 33 | 174.7M | 1,022 of 1,089 | 86 / 34,335 | 0 |
 | tai35b 19:26,18:8 | 33 | 171.5M | 1,016 of 1,089 | 317 / 40,222 | 0 |
+| tai60b d7 10:39 | 53 | 187.8M | 2,567 of 2,809 | 149 / 0.19M | 0 of 2,809 |
 | tai60b d8 14:54 | 52 | 172.3M | 2,447 of 2,704 | 122 / 4,501 | 0 of 2,704 |
 | tai60b d17 22:31 | 43 | 66.3M | (not saved) | 26 / 0.48M | 0 of 1,849 |
 | tai60b d17 8:49 | 43 | 83.2M | 1,428 of 1,849 | 2,713 / 26.2M | 0 of 1,849 |
@@ -108,6 +112,7 @@ the children's own LPs are tens of units higher; the IPM (central) dual gives 6 
 | tai35b 19:26,18:12 | c23 1, c5 2, c6 3, r26 3 | c5 #1, c23 #25, c6 #34, r26 #46 | top pick 2nd best |
 | tai35b 19:12,18:26 | c23 1, c5 2 | c5 #1, c23 #43 | wrong |
 | tai35b 19:26,18:8 | c5 0, c22 0 | c5 #3, c22 #56 | tie in truth |
+| tai60b d7 10:39 | c59 3, r11 4, c47 5, c54 9 | c54 #1, c47 #13, r11 #43, c59 #89 | exactly backwards |
 | tai60b d8 14:54 | c59 3, r3 4, c2 7 | r3 #68, c2 #95, c59 #98 | wrong (best last) |
 | tai60b d17 22:31 | r13 2, c54 3, c26 7 | c54 #2, c26 #10, r13 #80 | wrong (best last) |
 | tai60b d17 8:49 | r2 0, r51 5, c30 12 | r2 #2, r51 #41, c30 #85 | right |
@@ -128,6 +133,7 @@ off-chain depth-17 parents, where far children dominate) and wrong at the path n
 | tai35b 19:26,18:12 | 129 | -0.10 | 0.59 | 0.44 / 0.46 |
 | tai35b 19:12,18:26 | 66 | -0.04 | 0.76 | 0.69 / 0.55 |
 | tai35b 19:26,18:8 | 66 | -0.08 | 0.66 | - |
+| tai60b d7 10:39 | 209 | 0.06 | 0.50 | 0.48 / 0.64 |
 | tai60b d8 14:54 | 154 | 0.07 | 0.50 | 0.25 / 0.82 |
 | tai60b d17 22:31 | 127 | 0.14 | 0.81 | 0.69 / 0.87 |
 | tai60b d17 8:49 | 113 | 0.56 | 0.71 | 0.52 / 0.84 |
@@ -142,7 +148,7 @@ at most 0.13, rank the children's DNN with Spearman 0.79 and the vertex dual's n
 0.16. **Exact and approximate duals disagree on the ranking** (Kurt's two reasons pulling against each other); only
 the interior dual carries order, and none carries magnitude. The child's own exact LP ranks them 0.47, its QPB 0.56. At tai12b's root (LP 31.70M, optimum 39.46M) the same: 125 of 144 x_ij positive; the vertex dual gives one child a gain (0.70M, against 7.8M needed), the IPM dual 19 children (largest 51k); Spearman with the children's DNN 0.25 (IPM dual), 0.33 (PDLP), -0.03 (vertex), child LP 0.27, child QPB 0.40.
 
-## Cost (T3) (in progress)
+## Cost (T3)
 
 | size | LP size | method | wall / CPU | memory | note |
 |---|---|---|---|---|---|
@@ -150,12 +156,13 @@ the interior dual carries order, and none carries magnitude. The child's own exa
 | m = 33-35 | 0.57-0.73M vars | PDLP 1e-4, 2 threads | 130-230 s | <1 GB | box shared |
 | m = 43 | 1.63M vars, 155k rows, 6.7M nnz | PDLP 1e-2 / 1e-3 / 1e-4, 4 threads | 18 / 52 / 468-520 s wall | 0.9 GB | 1e-2's dual bound is useless (negative); 1e-3's 120M low |
 | m = 43 | | PDLP 1e-4, 3 threads, box shared | 1,421-1,634 s wall, 2,153-2,482 s CPU | 0.9 GB | 8:49, 8:57 |
+| m = 53 | 3.81M vars | PDLP 1e-4, 3 threads, box shared | 1,887 s wall, 2,306 s CPU | 1.9 GB | depth 7, 10:39 |
 | m = 52 | 3.66M vars | PDLP 1e-4, 3 threads, box shared | 1,183 s wall, 2,136 s CPU | 1.8 GB | depth 8, 14:54 |
 | m = 33 | 0.57M vars | HiGHS IPM (exact), box shared | did not finish in 30 min | | stopped by the session's time limit |
 | m = 20 | 72k vars | HiGHS IPM (exact) | 164-292 s CPU | | nug20, tai20b, had20 roots |
 
-For comparison: the node's DNN first solve plus cut phase at tai60b's depth 17 costs about 600 s (the parents'
-CPU field, 252-622 s), so even at the cheapest accuracy that gives a usable dual the LP costs as much as the node's
+For comparison: the node's DNN first solve plus cut phase costs 252-622 s at tai60b's depth-17 parents (the
+trace's CPU field) and 4,742 s for the depth-7 node's cut phase (lsla), so even at the cheapest accuracy that gives a usable dual the LP costs as much as the node's
 own DNN bound, and it is a much weaker bound. At tai60b depth 7 the 150-iteration ADMM lookahead costs 5,100 s and
 ranks lines right; the LP's duals do not rank them at any cost.
 
@@ -165,12 +172,29 @@ experiment (commit 594cd3f1, removed Nov 9; `roadmap/certificate/`, `pipeline_ab
 L + Z'; with Z' = 0 it is a Hahn-Grant ascent on exactly this LP. Trying it would mean restoring that code path with
 Z = 0. Not done: T2 says the exact duals are not worth approximating.
 
+The children's own LPs at tai60b's depth-17 path node (6 children of c26 spread over their DNN range, PDLP 1e-4,
+`childlp.py` -> `out/childlp.tsv`): each child's LP is 20-25M above its QPB and 40-56M below its DNN, and ranks the
+six DNN values with Spearman 0.77 against the child QPB's 0.94; 200-780 s wall each. Solving the children's LPs is
+the lookahead version of the idea, and it is a worse and dearer predictor than the QPB the solver already computes.
+
 ## What was not tested
 
 - QPB + U per child (rule 2's own prediction); compared against the child's QPB instead.
-- tai60b depth 7 (m = 53): running. Depth 8 done.
-- The children's own LPs at m = 42 (a few, running); at the small nodes they rank children's DNN no better than QPB.
 - Adding the LP's cuts to the DNN (the LP as a cut generator) or a stronger LP (RLT-2): out of scope.
+
+- The small exact-dual queue (`queue_small.sh`) was stopped after nug12, tai12b and one had12 node; had14, nug15
+  and tai15b depth-1 nodes were not run.
+- HiGHS IPM (exact) at m >= 33: it did not finish in 30 minutes on the shared box, so exact duals at the truth
+  nodes were not computed; the exact-dual evidence is from the small nodes, where it agrees (flat).
+
+## Cheapest next step
+
+None for branching: the reduced costs are zero by complementary slackness wherever the LP's x is fractional, and it
+is fractional almost everywhere, so no solver (exact, PDLP, Hahn-Grant) can make them separate lines; and the LP is
+weaker than QPB at the nodes that matter, so it is no shortcut to the DNN bound either. If Kurt wants the bound
+question pursued, the stronger LP (RLT-2, or this LP with the DNN's cuts) is the one that could be closer to DNN;
+that is a bound study, not a branching one, and the notes in `wil50_feasibility/` already put RLT-2 below DNN at
+n >= 25.
 
 ## Files
 
