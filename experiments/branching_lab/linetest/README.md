@@ -107,6 +107,56 @@ to the strong arms'). Then each depth-8 node was bounded under `rule2.par` with 
 (47:47 607,885,595 against 607,885,434). Their warm start came from a checkpoint (fp32, `ship.bits = 32`); in the arm
 it was the parent's in-memory state. Depth 10 and below were not compared.
 
+### Rule 2 against rule 9 over whole levels: every branched node at depths 16 and 17 (Nov 20, 20:40-23:05 UTC; the coordinator's request)
+
+**These are the whole levels, not a selection: all 11 branched depth-17 nodes and all 7 branched depth-16 nodes of the
+c47 descent.** [m] At depth 17, rule 2's lines leave 11 branching children against rule 9's 31 (shortfall sums 606k
+against 5,144k; CPU 12,855 s against 22,961). That total rests on two nodes. At 8:49 and 8:57, rule 9's c30 leaves 18
+and rule 2's r2 none. **On the 8 depth-17 nodes that were not chosen before, rule 2 leaves 8 against rule 9's 6:
+slightly worse, not better.** So the earlier 3 against 25 was mostly the selection, though not regression to the mean:
+rule 9 does badly at a few nodes, and those happen to be where it was looked at. At depth 16 the two are close, rule 2
+9 against rule 9 11; on the path, rule 2 3 against 2. Rule 2's count is 0 at all 18 nodes (15 measured here, the
+3 depth-17 parents before), so rule 2 chooses by its U-sum tie-break throughout. At the depth-16 node 4:23, rule 2's line
+is rule 9's (r8). Its arm reproduces the descent's children exactly (1 branching, 86k), a reproducibility check for free.
+Rule 9's numbers are the descent's (`runs/down`). Rule 2's lines were bounded from the parents' states, rebuilt by five
+chains (`all11.sh`, `runs/rebuild/R1`-`R5`: each rebuilt node has the run's bound and line exactly), with `rule2.par`
+and the `latest_dbg` build (`armD.sh`, `runs/scan/s16_*`, `s17_*`). Score: `all11_score.py`, `out/all11.txt`.
+
+depth 17: 11 branched nodes in the descent (the whole level)
+
+| node | path | rule 9: line, B, shortfall sum, CPU s | rule 2: line, B, shortfall sum, CPU s |
+|---|---|---|---|
+| 46:47,36:53,32:40,3:35,11:36,13:59,12:0,9:55,4:23,8:29 | no | r5: **0**, 0k, 309 | r2: **1**, 1k, 356 |
+| 46:47,36:53,32:40,3:35,11:36,13:59,12:0,9:55,4:29,8:49 | no | c30: **12**, 3,350k, 4,881 | r2: **0**, 0k, 117 |
+| 46:47,36:53,32:40,3:35,11:36,13:59,12:0,9:55,4:29,8:57 | no | c30: **6**, 962k, 3,772 | r2: **0**, 0k, 153 |
+| 46:47,36:53,32:40,3:35,11:59,31:10,47:38,51:30,50:6,9:55 | no | r13: **0**, 0k, 733 | r8: **0**, 0k, 803 |
+| 47:47,31:10,46:38,36:53,27:40,22:31,11:59,3:35,51:30,48:6 | no | c11: **1**, 30k, 1,515 | c54: **2**, 57k, 1,950 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:36,13:59,12:0,9:29 | no | c6: **2**, 265k, 1,550 | c23: **0**, 0k, 709 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:36,13:59,12:0,9:55 | no | r4: **1**, 12k, 677 | r8: **1**, 39k, 573 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:59,51:30,48:6,22:31 | yes | c26: **7**, 391k, 5,914 | c54: **3**, 231k, 2,749 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:59,51:30,48:6,25:31 | no | c43: **1**, 56k, 2,152 | c54: **2**, 88k, 2,908 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:59,51:30,50:6,9:0 | no | c4: **0**, 0k, 712 | r8: **1**, 121k, 1,380 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:59,51:30,50:6,9:55 | no | r13: **1**, 79k, 747 | r8: **1**, 69k, 1,158 |
+| **all** (11 nodes with both) | | rule 9: **31**, 5,144k, 22,961 | rule 2: **11**, 606k, 12,855 |
+| **path** (1 nodes with both) | | rule 9: **7**, 391k, 5,914 | rule 2: **3**, 231k, 2,749 |
+| **off** (10 nodes with both) | | rule 9: **24**, 4,753k, 17,048 | rule 2: **8**, 375k, 10,106 |
+
+depth 16: 7 branched nodes in the descent (the whole level)
+
+| node | path | rule 9: line, B, shortfall sum, CPU s | rule 2: line, B, shortfall sum, CPU s |
+|---|---|---|---|
+| 46:47,36:53,32:40,3:35,11:36,13:59,12:0,9:55,4:23 | no | r8: **1**, 86k, 593 | r8: **1**, 86k, 542 |
+| 46:47,36:53,32:40,3:35,11:36,13:59,12:0,9:55,4:29 | no | r8: **2**, 414k, 728 | c23: **0**, 0k, 172 |
+| 46:47,36:53,32:40,3:35,11:59,31:10,47:38,51:30,50:6 | no | r9: **1**, 24k, 1,276 | c54: **1**, 16k, 1,395 |
+| 47:47,31:10,46:38,36:53,27:40,22:31,11:59,3:35,51:30 | no | c6: **1**, 38k, 1,667 | c54: **1**, 54k, 1,326 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:36,13:59,12:0 | no | r9: **2**, 215k, 941 | r8: **1**, 88k, 588 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:59,51:30,48:6 | yes | c31: **2**, 224k, 2,182 | c54: **3**, 259k, 2,536 |
+| 47:47,31:10,46:38,36:53,32:40,3:35,11:59,51:30,50:6 | no | r9: **2**, 122k, 1,816 | c54: **2**, 176k, 2,115 |
+| **all** (7 nodes with both) | | rule 9: **11**, 1,123k, 9,202 | rule 2: **9**, 678k, 8,675 |
+| **path** (1 nodes with both) | | rule 9: **2**, 224k, 2,182 | rule 2: **3**, 259k, 2,536 |
+| **off** (6 nodes with both) | | rule 9: **9**, 898k, 7,020 | rule 2: **6**, 420k, 6,139 |
+
+
 ### Where does rule 2 overtake rule 9? A scan at depths 11, 13, 15 (Nov 20, 18:15-20:50 UTC; the coordinator's request)
 
 **It does not, at these nodes. Over the nine nodes rule 2's lines left 24 branching children and rule 9's left 21.
