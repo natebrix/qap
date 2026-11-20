@@ -39,13 +39,33 @@ for him to decide; the kill rule says stop.
 
 ## Down the tree under c47
 
-**Status (Nov 20, 09:25 UTC): resumed at depth 18.** The coordinator lifted the 10-hour limit (09:16 message) and
-set a new one: go on until the subtree closes, or until 15:30 UTC, finishing the level in progress then
-(`DEADLINE=<epoch> python3 down.py 18`). The answer below is as of the 09:22 stop and is updated when the run ends.
-The "other" outcomes at depths 15, 16 and 17 are one QPB fathom each (`Q`): the QP bound alone was above the cutoff
-(608,292,252, 608,513,649 and 608,252,789), so no DNN bound was needed.
+**Answer (Nov 20, 11:21 UTC): the kill rule fired at depth 18. Under c47, 31 nodes branched there against
+production's 49, which is over half, so by the rule fixed in advance c47 is no longer clearly ahead at depth 18. The
+run stopped there; the subtree is not closed.** [m] Through depths 9-17, c47 branched 7 to 28 times per depth
+against production's 56 to 199 (at most 15%). Depth 18 is where production's own tree was thinnest: 49 branching
+in 5,203 nodes, just before its 19-22 bulge. c47's 31 come mostly from three depth-17 parents: the two ending in 8:49
+and 8:57, which branched at 190k and 223k short of the cutoff, give 12 and 6, and the path node 22:31 gives 7.
+Their lines are c16 (17 of the 31) and r9 (6).
 
-**Answer as of Nov 20, 09:22 UTC, when the 10-hour wall-time limit stopped the run (the kill rule never fired).** Depths 9 to 17 under
+Totals for depths 9-18 [m]: **c47 5,486 nodes, 142 branching, 143,075 CPU s on this box; production under c54
+55,267 nodes, 1,218 branching, 1,713,605 CPU s on the cloud boxes.** That is 10.1x fewer nodes. Scaled to
+production's boxes (CPU / 0.53 = 270,000 s), c47 used 16% of production's CPU over the same depths [e]. Production's
+whole subtree under 10:39 was about 114,000 nodes and 770 core-hours. Its depths 19 and below (58,700 nodes) are not
+compared, because c47's are not bounded.
+
+**Path check** (`pathcheck.py`, `out/pathcheck.txt`): the best known solution's path stays in the tree through
+depth 18. Each of its 12 nodes, depths 7-18, branched, with bounds from 607,798,661 to 608,139,870, all below the
+cutoff 608,215,054. The incumbent was best known + 1, so every fathom in the bounded part proves no solution better than the best known there.
+The "other" outcomes at depths 15, 16 and 17 are one QPB fathom each (`Q`): the QP bound alone was above the cutoff
+(608,292,252, 608,513,649 and 608,252,789).
+
+**To resume** (for example, to see whether c47 has its own 19-22 bulge): `python3 down.py 19`, from depth 18's 44
+set-aside states in `runs/down/d18/out/` (503 MB, in this container only, not committed). That means overriding
+the kill rule, which is Nathan's call. The run ran from 23:22 to 09:22 under the coordinator's 10-hour limit, then from
+09:25 under the 15:30 deadline. Three container restarts (about 00:00, 03:25 and 04:10 UTC) cost only the chunks in
+progress, which were rerun.
+
+*Earlier status, as of Nov 20 09:22 UTC (the 10-hour limit, depths 9-17; superseded above):* Depths 9 to 17 under
 c47 are bounded. At every one of them c47's branching count stayed far below half of production's under c54: 7 to 28
 against 56 to 199. Its largest share is 15% (depth 13, 28 against 185). Summed over depths 9-17: **5,017 nodes and 111
 branching under c47, against production's 50,064 nodes and 1,169 branching, a tenth** [m]. CPU: 120,114 s on this box
