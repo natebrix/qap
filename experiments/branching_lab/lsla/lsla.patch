@@ -296,6 +296,23 @@
  
  all:    bnb
  
+@@ -42,8 +42,14 @@
+ .C.o:	
+ 	$(CPP) $(CFLAGS) $(INCLUDES) -c $<
+ 
+-bnb:	$(OBJS) $(DNN_OBJ) driver.o
+-	$(CPP) $(CFLAGS) $(OBJS) $(DNN_OBJ) driver.o -o $(BNB) $(LDLIBS) $(DNN_LIBS)
++# lsla: bnbdrv a real target (no relink when up to date), linked to a temporary and moved into place, so a
++# rebuild never rewrites a binary that running processes map (Linux >= 6.11 allows writing to one)
++.PHONY: bnb
++bnb:	$(BNB)
++	@:
++
++$(BNB):	$(OBJS) $(DNN_OBJ) driver.o
++	$(CPP) $(CFLAGS) $(OBJS) $(DNN_OBJ) driver.o -o $(BNB).tmp $(LDLIBS) $(DNN_LIBS) && mv -f $(BNB).tmp $(BNB)
+ 
+ 
+ # ---- DNN bound (dnn.C, dnn.h) and its test driver: make dnntest ----
 --- /dev/null
 +++ b/latest/lsla.h
 @@ -0,0 +1,53 @@

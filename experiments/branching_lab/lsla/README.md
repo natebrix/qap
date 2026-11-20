@@ -84,7 +84,7 @@ more than 7% (the noise) below production's, or it reaches <= 780 nodes (c's) wi
 | production | 1,017 | 6,935 | - | 6,935 | [m] `t2/tai35b_prod` |
 | (c) `QAP_LA=4:30:0:2` | 780 | 8,900 | 2,803 (6 nodes) | 6,097 | [m] line_signals `runs/tai35b_la4p` |
 | (a) top LS line (refined signal) | 983 | 6,352 | 396 (5 firings, 1 gate fail) | 5,956 | [m] `t2/tai35b_a` |
-| (b) K = 2, CAP 30 | crashed at the root (signal 11, in `bnb()`), being debugged | | | | `t2/tai35b_b2/coord.log` |
+| (b) K = 2, CAP 30 | crashed at the root (signal 11), rerun pending | | | | `t2/tai35b_b2/coord.log` |
 | (b) K = 4, CAP 30 | queued | | | | |
 | (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | queued | | | | |
 
@@ -147,6 +147,16 @@ Mode (a)'s CPU is 8% below production's (6,352 against 6,935; production's secon
 shortlists at 18:26 19:12 lack c23 (top 4: c5, c33, c6, r23), and it does not fire at 18:8 19:26, so (b)
 cannot reach (c)'s depth-3-5 savings at two of the three depth-2 nodes. The extra arm without refinement
 tests whether the 30-kick shortlist lets the lookahead find c23.
+
+**A crash, and its cause in the build.** (b) K = 2 died at tai35b's root (01:23 UTC) and both T1 runs at 01:31,
+all with signal 11 at the same address in `bnb()`. `solve.sh` runs `make solver` for every arm, and the
+makefile's `bnb` target relinked `bnbdrv` every time, writing the same inode (739064 before and after
+[m]); Linux 6.11 and later (this box: 6.18) no longer refuse writes to a running executable, so processes
+running it can fault on pages read after the rewrite. T1 had been running across two such relinks (00:12,
+01:14). Fixed in `lsla.patch`'s makefile: `bnbdrv` is a real target (no relink when up to date) and is
+linked to a temporary then moved into place (a new inode). The debug build ran (b) at tai35b's root
+without a crash, its lookahead scores equal to line_signals' to the decimal (c26 23,070,113.8,
+r19 42,554,837.4) [m `/tmp` gdb run, not committed].
 
 ## Not tested yet
 
