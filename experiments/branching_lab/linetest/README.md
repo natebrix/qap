@@ -39,6 +39,19 @@ for him to decide; the kill rule says stop.
 
 ## Down the tree under c47
 
+**Correction (Nov 20, 13:05 UTC): below depth 7 these runs used rule 9, not production's rule 2.** tai60b-261117 ran
+`tai60b.par` from commit 316361fc (its `recipe.sh`), whose bottom block (depths 7 and down) is rule 2. Commit 4e1e1b6d
+(Nov 18, "Rule 9 for rule 2 in every DNN recipe's bottom block") changed it to rule 9, and every run here used the
+file at 0e6c2ecf. The trace's rule field is the parameter level (3 = the bottom block), not the rule number, and I did
+not check the rule against the run. *Not affected:* the depth-7 arms (c47 5 against c54 9). Their depth-7 line was
+forced and their depth-8 children were only bounded, and a child's outcome does not depend on the line it later
+branches on (strong c54 matches production child by child). *Affected:* the depth-8 lines under c47 and every level
+below. "Down the tree" compares **c47 with rule 9 below it** against **production's c54 with rule 2 below it**.
+`experiments/rule9_bottom` (cognac) measured rule 9 at -19% nodes on tai50b, so part of the 10x at depths 9-18 may be
+the rule, not the depth-7 line. Separating the two needs c54 + rule 9 (or c47 + rule 2) bounded below depth 7, which
+was not done. In the depth-17 line test the "taken" lines are rule 9's. Rule 2's own lines were bounded as a third
+arm (below).
+
 **Answer (Nov 20, 11:21 UTC): the kill rule fired at depth 18. Under c47, 31 nodes branched there against
 production's 49, which is over half, so by the rule fixed in advance c47 is no longer clearly ahead at depth 18. The
 run stopped there; the subtree is not closed.** [m] Through depths 9-17, c47 branched 7 to 28 times per depth
@@ -83,11 +96,11 @@ kicks (`out/signal_*`). Scores: `score17.py`, `out/score17.txt`.
 
 | parent (slack) | line | signal: predicted survivors, 300 kicks | D / C / B | branching shortfall: sum / largest | CPU s |
 |---|---|---|---|---|---|
-| 8:49 (190,223) | taken c30 | 0 (rank 3 of 86) | 17 / 14 / **12** | 3,350k / 1,073k | 4,881 |
+| 8:49 (190,223) | taken c30 (rule 9) | 0 (rank 3 of 86) | 17 / 14 / **12** | 3,350k / 1,073k | 4,881 |
 | | signal r51 | 0 (rank 1, on the tie-break) | 33 / 5 / **5** | 543k / 179k | 2,048 |
-| 8:57 (223,279) | taken c30 | 0 (rank 3) | 24 / 13 / **6** | 962k / 276k | 3,772 |
+| 8:57 (223,279) | taken c30 (rule 9) | 0 (rank 3) | 24 / 13 / **6** | 962k / 276k | 3,772 |
 | | signal r51 | 0 (rank 1, on the tie-break) | 35 / 7 / **1** | 706k / 706k | 1,731 |
-| 22:31, path (85,768) | taken c26 | 2 (rank 33) | 33 / 3 / **7** | 391k / 157k | 5,914 |
+| 22:31, path (85,768) | taken c26 (rule 9) | 2 (rank 33) | 33 / 3 / **7** | 391k / 157k | 5,914 |
 | | signal r13 | 1 (rank 1) | 41 / 0 / **2** | 281k / 158k | 1,651 |
 | **total** | taken | 2 | **25** | 4,703k | 14,567 |
 | | signal | 1 | **8** | 1,530k | 5,430 |
@@ -114,8 +127,8 @@ and 04:10 UTC) cost only the chunks in progress, which were rerun from their par
 10 hours. To go on: `python3 down.py 18` resumes from depth 18's set-aside states, which are in this container only and not
 committed (state files). Of depth 18's 44 chunks, 5 had finished; a rerun keeps them.
 
-How it ran: level by level under the strong c47 arm's survivors, with production's settings (`tai60b.par`) and production's own line
-rule throughout (no forced lines): depth D is bounded from the states depth D-1 set aside, and depth D+1 is set aside
+How it ran: level by level under the strong c47 arm's survivors, with `tai60b.par` as it stands at 0e6c2ecf, whose bottom block is rule 9
+(production ran rule 2 there: see "Correction" above), choosing the line throughout (no forced lines): depth D is bounded from the states depth D-1 set aside, and depth D+1 is set aside
 (`down.py`; a parent's children in pieces of at most 13, each with a copy of the parent's state, 4 processes (depth 10: one chunk per parent); `runs/down/dD/nodes/*.txt` the traces). Kill rules, fixed by the coordinator
 before the run: stop if c47's branching count at a depth reaches half of production's there; stop at 10 hours of wall
 time, or if memory will not hold a level. Production's rows: the tai60b-261117 trace under `...,10:39`
@@ -143,11 +156,11 @@ against production's cloud boxes (this box ran the depth-8 children in 0.53x pro
 better one level down. The kill rule, fixed in advance at 28 (half of 56), is not met, and per that
 rule I stop here.** [m `d9score.py`, `out/d9score.txt`] The 260 depth-9 nodes under the strong c47
 arm's five survivors were bounded from `runs/sc47/out.state`. Production's settings applied
-(`tai60b.par`), with production's own line rule at depth 8 (no forced line), and depth 10 set aside
+(`tai60b.par` at 0e6c2ecf), with its own line rule at depth 8, rule 9 (no forced line; production ran rule 2 there, see "Correction"), and depth 10 set aside
 (`-d 9`; `run.sh deep`, `splitstate.py`, 4 processes, `runs/d9_*`). Production's figures are from
 the tai60b-261117 trace.
 
-| depth-8 node | line (production's rule) | depth 9: D | C | B | branching children's shortfalls | CPU s |
+| depth-8 node | line (rule 9) | depth 9: D | C | B | branching children's shortfalls | CPU s |
 |---|---|---|---|---|---|---|
 | 47:47 (path) | c10 | 48 | 1 | 3 | 254k, 238k, 179k | 2,692 |
 | 46:47 | c53 | 48 | 1 | 3 | 214k, 175k, 18k | 2,502 |

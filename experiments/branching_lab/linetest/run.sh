@@ -68,6 +68,15 @@ case ${1:-} in
     QAP_FORCE_LINE=7:$LINE QAP_LINE_RANK=7 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 8 \
       -o "$D/runs/$NAME/out.state" -k 300 "$DAT"
     rm -f "$D/runs/$NAME/in.state" ;;
+  strong7)
+    # the strong 10:39 forced to LINE with its depth-8 children set aside (-d 7), for rebranching them under
+    # another rule (README, "The 2x2 at depth 9")
+    NAME=s7$2; LINE=$2
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/cutstate.py" "$D/runs/parent/out.state" "$D/runs/$NAME/in.state" 7 10:39
+    QAP_FORCE_LINE=7:$LINE go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 7 \
+      -o "$D/runs/$NAME/out.state" "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
   sresume)
     NAME=s$2; LINE=$2
     grep -q '^exit 0$' "$D/runs/$NAME/cmd.txt" && { echo "$NAME has finished"; exit 2; }
