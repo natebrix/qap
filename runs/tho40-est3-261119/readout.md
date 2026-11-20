@@ -2,11 +2,10 @@
 
 A second estimate of tho40-est2-261119: its paused frontier dived again (its own readout has its first).
 
-**PART-WAY**: the estimate's dives run tho40-est3-261119 is running, 533 of 548 dives units merged
+**COMPLETE**: the estimate (tho40-est3-261119 finished)
 
-- PART-WAY: 15 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (5% of the rest's CPU)
-- SLOW PENDING: 15 pending units have run longer than 90% of the merged ones took (4205 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
-- SETUP-BOUND: bounding the sampled open nodes took 135.7 CPU h, the dives 131.1 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
+- HEAVY TAIL: the 10 largest dives make 52% of the rest's nodes and 35% of its CPU (the largest 13%, 7%): more dives where they come from
+- SETUP-BOUND: bounding the sampled open nodes took 149.9 CPU h, the dives 143.1 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
 
 ## The run
 
@@ -33,17 +32,17 @@ A second estimate of tho40-est2-261119: its paused frontier dived again (its own
 ## The estimate
 
 ```
-PART-WAY: 15 of 548 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (5% of the rest's CPU)
-SLOW PENDING: 15 pending units have run longer than 90% of the merged ones took (4205 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
-SETUP-BOUND: bounding the sampled open nodes took 135.7 CPU h, the dives 131.1 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
+the estimate's cost: 293.0 CPU h of estimator CPU, 4% of the estimated rest of the tree (6,726.9 CPU h)
+HEAVY TAIL: the 10 largest dives make 52% of the rest's nodes and 35% of its CPU (the largest 13%, 7%): more dives where they come from
+SETUP-BOUND: bounding the sampled open nodes took 149.9 CPU h, the dives 143.1 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
 done so far: 18,767 nodes, 117.2 CPU h
-estimated rest: 2,828,534 nodes (5-95%: 1,666,014 to 4,287,436), 5,939.8 CPU h (4,571.9 CPU h to 7,716.6 CPU h)
-estimated tree: 2,847,301 nodes (5-95%: 1,684,781 to 4,306,203), 6,056.9 CPU h (4,689.1 CPU h to 7,833.8 CPU h)
-5872 open nodes (2299 with children that branch), 32280 dives in 2299 of them, deepest dive node at depth 8; estimator 266.8 CPU h
-5,872 of the 17,916 open nodes sampled (each weighted 1/pi)
-jackknife over units: standard error 724,847 nodes, 1,070.7 CPU h
-the largest dive makes 7% of the rest's CPU, the 10 largest 33%; 0 of 2299 dived open nodes got one dive; estimator CPU: setup 135.7 CPU h, dives 131.1 CPU h
-dives going deeper, by depth (reached, went on): 3: 418/130, 4: 20811/1352, 5: 12349/208, 6: 380/5, 7: 17/1, 8: 1/0
+estimated rest: 3,685,908 nodes (5-95%: 2,199,210 to 5,662,799), 6,726.9 CPU h (5,291.7 CPU h to 8,645.7 CPU h)
+estimated tree: 3,704,675 nodes (5-95%: 2,217,977 to 5,681,566), 6,844.1 CPU h (5,408.9 CPU h to 8,762.9 CPU h)
+6240 open nodes (2574 with children that branch), 33655 dives in 2574 of them, deepest dive node at depth 8; estimator 293.0 CPU h
+6,240 of the 18,578 open nodes sampled (each weighted 1/pi)
+jackknife over units: standard error 779,429 nodes, 859.9 CPU h
+the largest dive makes 7% of the rest's CPU, the 10 largest 35%; 0 of 2574 dived open nodes got one dive; estimator CPU: setup 149.9 CPU h, dives 143.1 CPU h
+dives going deeper, by depth (reached, went on): 3: 433/144, 4: 22130/1640, 5: 12692/227, 6: 399/7, 7: 19/1, 8: 1/0
 
 ```
 
@@ -51,10 +50,10 @@ dives going deeper, by depth (reached, went on): 3: 418/130, 4: 20811/1352, 5: 1
 |---|---|---|---|---|
 | 0 | 1 | 0 | 0.00 | 0.00 |
 | 1 | 12 | 0 | 1.23 | 0.00 |
-| 2 | 319 | 82 | 45.12 | 6.81 |
-| 3 | 2,924 | 9,786 | 28.66 | 243.94 |
-| 4 | 8,475 | 158,778 | 30.50 | 1,021.53 |
-| 5 | 5,851 | 643,556 | 10.21 | 2,344.33 |
-| 6 | 1,004 | 993,844 | 1.27 | 1,291.47 |
-| 7 | 148 | 408,611 | 0.16 | 462.49 |
+| 2 | 319 | 85 | 45.12 | 7.10 |
+| 3 | 2,924 | 10,453 | 28.66 | 269.45 |
+| 4 | 8,475 | 178,941 | 30.50 | 1,150.31 |
+| 5 | 5,851 | 762,000 | 10.21 | 2,628.83 |
+| 6 | 1,004 | 1,192,671 | 1.27 | 1,657.77 |
+| 7 | 148 | 1,071,298 | 0.16 | 755.74 |
 | 8 | 33 | 470,460 | 0.03 | 257.74 |
