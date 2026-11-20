@@ -55,6 +55,7 @@ against production's cloud boxes (this box ran the depth-8 children in 0.53x pro
 | 11 | 550 | 525 / 12 / 13 | 14,725 | 1,179k / 186k | 5,150 / 118 / 255,515 |
 | 12 | 637 | 612 / 12 / 13 | 12,979 | 1,505k / 328k | 5,782 / 199 / 289,072 |
 | 13 | 624 | 570 / 26 / 28 | 22,046 | 2,979k / 234k | 9,552 / 185 / 319,299 |
+| 14 | 1,316 | 1,268 / 37 / 11 | 18,650 | 893k / 271k | 8,695 / 194 / 229,430 |
 <!-- /down-table -->
 
 ### One level deeper (depth 9; the coordinator's first follow-up, Nov 19 22:25-23:10 UTC)
