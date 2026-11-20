@@ -198,8 +198,17 @@ a level down 9 branching nodes under c47 against 56 under c54.
   c59's depth-9 frontier is 1.5x c47's. Which line is better two levels down is close; both are far ahead of
   production's c54.
 - **Step 2, mode (a) at tai60b's depth-8 chain node 14:54 (production's c2)**: c54 bounded from the strong
-  parent state first (`run.sh strong c54`, started 07:50 UTC), to give 14:54 its strong state; then 14:54
-  bounded one level under production's rule and under the signal's top line.
+  parent state first (`run.sh strong c54`, done 11:12 UTC [m `runs/sc54/nodes.txt`]: D/C/B 43/1/9 at depth 8,
+  linetest's sc54 again, 7,055 CPU s for the children). There 14:54's cut bound is 607,832,297.5, slack 382,757,
+  and **production's rule on the strong state branches it on r3, not c2** (production's cloud run, with a
+  weaker bound at 14:54, chose c2).
+
+  The refined signal at 14:54 [m `t0out/d8_14_54_k30_r3000.txt`, 236 CPU s]: **c59 first** (3 predicted
+  survivors; the same top five as at the depth-7 node: c59, c47, c35, c38, r22), r3 9th (4), c2 51st of 104 (7).
+  The depth-9 test: 14:54 bounded under `strong.par` and branched on c59, r3 and c2 in turn, its depth-9
+  children bounded (`run.sh set8 c54`, then `run.sh at8 c54 14:54 LINE`). Rule, fixed before the results:
+  c59 counts as better than a line if it has fewer branching children, or as many with a smaller shortfall
+  sum.
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
