@@ -103,6 +103,11 @@ a level down 9 branching nodes under c47 against 56 under c54.
 - c59, the line chosen, has never been bounded, so this run cannot say whether the choice is good. Its
   lookahead (9 children open) and signal (3 predicted survivors) agree that it is promising.
 - CAP 150 is still running.
+- **c59 bounded (running, started 04:39 UTC, `run.sh strong c59` -> `runs/sc59/`)**, as linetest bounded sc47:
+  from the strong parent state, `QAP_FORCE_LINE=7:c59`, `strong.par`, the 53 depth-8 children to the end of
+  their bounds, depth 9 set aside. Decision rule, fixed before it finishes (the coordinator's): c59 counts as
+  better than c47 only with fewer than 5 branching children, or 5 with a smaller shortfall sum than sc47's.
+  Compare: sc47 D/C/B 45/3/5, sc54 43/1/9. Expected about 3 h [e: sc47 took 10,400 CPU s].
 
 ## T2: whole trees (`t2.sh`, `t2queue.sh`, `summ.py` -> `out/t2_*.md`)
 
