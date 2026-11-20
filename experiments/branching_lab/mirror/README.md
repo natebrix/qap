@@ -6,14 +6,18 @@ delivers 98 to 100% of the rise that the integer problem itself allows, and the 
 cannot work, and no relaxation could**. That node holds a completion 139,349 above the cutoff that is a 2-exchange
 local optimum with Delta_(44,43) = -14,070 [m]. Mixing it with the optimum's mirror (+2,786, Delta +2,786) caps
 min over the node's convex hull of cost with Delta <= 0, and so any Lagrangian or convex-relaxation bound with
-this cut, at **cutoff + 22,060** [m]. The same cap holds with all 2-exchange cuts at once, and at every depth of
-the mirror chain down to 30 (all fixed pairs together: +22k to +40k) [m]. The node is 1,087,650 short, and the
+this cut, at **cutoff + 22,060** [m]. Adding every fixed-pair cut does not lift the cap: it stays at +22k to +40k at
+every depth of the mirror chain down to 30 [m]. Since that completion is 2-exchange optimal, no per-exchange
+cut of any kind (the `swapcuts` family included) can lift it past about +25k [m]. The node is 1,087,650 short, and the
 measured law (bound with the cut = integer Lagrangian - the node's gap at mu = 0) gives at most +19k. That is 1.8% of the
 shortfall, against the kill rule's 25%. Dropping the node would have removed 175,252 nodes and 1,999 CPU h, 56% of
 tai60b's run [m, trace]. The cut does not reach it.
 tai50b's 3-cluster twins (depth 3) behave like tai35b: their ceilings are 1.3M to 14.5M above the cutoff.
 On a cold solve of one of them, mu = 8 raised the bound by 933k, 82% of the integer rise [m]. With production's
 warm state that would fathom it (753k short) [e]. The five such nodes held 1,055 nodes and 29 CPU h, 22% of tai50b's run [m, trace].
+In a whole tai35b search the cut removes the twin's subtree, 21% of the run's CPU [m]. Applied blindly, at every node
+whose warm start shows a positive Delta, it does more harm than good. The search grew 54% and was stopped, because
+where the integer Lagrangian falls with mu the bound collapses. The path to the optimum survived, as it must.
 
 So the test that decides a node is cheap and does not need the DNN. Take the twin's cheapest completion that
 violates no cut, mix it with the near-optimal completion the cut removes, and compare the ceiling with the node's
@@ -57,9 +61,9 @@ Build: `make bnb` in `/home/user/wt-mirror/latest` finds the scipy-openblas32 BL
 | the claim | min over completions of cost + sum mu Delta <= min cost over the completions with every Delta <= 0, at the same nodes | 0 failures |
 | end of search | all 14 searches end at the optimum (brute force / QAPSOLN) | 14 of 14 |
 | mu = 0 | the twin `19:12,18:26` bounded from the same state by `bnbdrv.orig` and by the hook with `QAP_MIRROR=19,18,0,12,26` | node trace, DNN trace (but CPU) and the open-node lines of the output state identical |
-| full size | tai35b's twin: certified values for mu = 16, 32, 64, 128 against `lagts` (simulated annealing on cost + mu Delta, `lagts_twin_mu*.out`) | never above: 284.20M vs 285.29M, 285.88M vs 286.96M, 288.66M vs 289.68M, 290.06M vs 294.81M |
-| the path | the whole tai35b search with the automatic rule (section 5) | the optimum's path survives; the search ends at the optimum with no open node |
-| the automatic rule | `mirror-check (auto)` on every node it touched | max difference 0 |
+| full size | tai35b's twin: certified values for mu = 16, 32, 64, 128 against the best cost + mu Delta of the completions `lagts` finds (simulated annealing; `lagts_twin_mu*.out`, `ceiling_tai35b.out`) | never above: 284.20M vs 285.29M, 285.88M vs 286.96M, 288.66M vs 289.68M, 290.06M vs 294.81M |
+| the path | the whole tai35b search with the automatic rule on at every node it could touch (section 5) | all 32 path nodes branched, none fathomed; the optimum found from optimum + 1 (the run was stopped before it closed) |
+| the automatic rule | `mirror-check (auto)` on every node it touched (twin run; the 836 nodes of section 5's search) | max difference 0; 6e-8 |
 
 The build reproduces production: root 280,789,962.1796 and node `19:12` 282,252,542.0889, as in the coordinator's
 trace (`line_signals/runs/tai35b_base`). The twin differs by +723 (282,378,810 against 282,378,087), since the parent's
@@ -185,7 +189,32 @@ tai50b's 8,225 nodes and 29.3 of 132.7 CPU h (22%) (`subtrees_tai50b.out`) [m, t
 
 ## 5. A whole tai35b search with the automatic rule [m]
 
-FILLED BELOW
+`search35.sh s35_auto` (`bnbdrv.hook3`, `QAP_MIRROR_AUTO=2:64`) ran the whole search from the root's state
+(`runs/root`, unpatched build) with the cut at every DNN node where some fixed pair has a positive Delta at the warm
+start. `search_table.py` → `search_s35_auto.out` compares it with the production trace (the same settings via the
+coordinator, `line_signals/runs/tai35b_base`):
+
+| subtree | production: nodes / CPU s | with the rule: nodes / CPU s |
+|---|---|---|
+| `19:12` (the twin's parent) | 194 / 1,766 | **35 / 329** |
+| `19:8` | 35 / 295 | 35 / 299 |
+| `19:26` (the optimum's) | 755 / 4,095 | 1,476 / 9,360, **stopped with 104 nodes open** |
+| all, with the root | 1,017 / 6,931 | 1,571 / 10,699 (stopped) |
+
+- **The twin.** The rule picked mu = 17.2 there, and the twin died at depth 2 with its first solve. Its 159 descendants
+  and 1,437 CPU-s went: **21% of the run's CPU, 16% of its nodes**. With the cut confined to the twin
+  (`QAP_MIRROR=19,18,16,12,26`), nothing else in the search changes: the hook leaves every other node alone, and
+  mu = 0 is trace-identical. So this saving is what the targeted cut gives [m for the subtree, e for the whole run].
+- **Everywhere else, the blanket rule hurts.** It touched 836 nodes. Of those that also exist in production, 51 fathomed in
+  both and 1 (the twin) fathomed only with the rule. Nine production fathoms became branchings (6) or phase fathoms (3).
+  Under the optimum's path some bounds collapsed: `19:26,18:12,26:5,23:6,31:34` fell to 225,754,021 and was branched.
+  A positive Delta at the warm start does not mean the integer Lagrangian rises with mu (section 4: on tai50b's node
+  H falls steeply past mu ~ 8.6). The bound changes also changed the branching lines below depth 4. The search was
+  stopped at 10,699 CPU-s, 54% above production's whole run, with 104 nodes open. A rule needs the ceiling test.
+- **Path check: passed.** All 32 nodes of the optimum's path were bounded with the rule active and branched, none
+  fathomed. The leaf was enumerated and the search found 283,315,445, the optimum, from an incumbent one above.
+  (Not "no open node", since the run was stopped.) The `mirror-check (auto)` lines at the 836 touched nodes
+  (200 random completions each) show a largest difference of 6e-8.
 
 ## What was not tested
 
@@ -208,3 +237,22 @@ which takes seconds in C at n = 50. Apply mu (about the ceiling's argmax) only w
 mu = 0 gap is above the cutoff. On tai50b, test that rule on the five 3-cluster twins from production's warm state
 (the root state is the expensive part, 4,286 CPU-s). Expect about 22% of the run's CPU [e]. On tai60b it would never
 fire on the mirror chain.
+
+## Files
+
+| | |
+|---|---|
+| `mirror.patch` | the hook (worktree `/home/user/wt-mirror`, cognac 0e6c2ecf) |
+| `run.sh`, `tai35b.par`, `tai60b.par`, `tai60b_first.par`, `tai50b_cold.par`, `small.par` | one solver process; the settings (production recipes with absolute region paths; `_first`: no phase; `_cold`: first-solve give-up at 1,000) |
+| `validate.sh`, `validate.py` → `validate.out` | section 2 |
+| `runs/root`, `runs/d1` | the root and `19:12`, bounded with the unpatched build; `runs/twin.state` = `splitstate.py runs/d1/d1.state runs/twin.state -pick 18:26` (bound lab's `tai_solves/splitstate.py`) |
+| `sweep.sh`, `sweep_hi.sh`, `sweep_table.py` → `sweep_tai35b.out`, `sweep_hi_tai35b.out`; `gaplaw.py` → `gaplaw_tai35b.out`; `runs/tw_*`, `runs/hi_*`, `runs/tw_auto2` | section 3 |
+| `lagts.C` (build: `g++ -O3 -march=native -o lagts lagts.C`) | simulated annealing (and a tabu mode) on cost + sum mu Delta at a node; prints every restart's best with its cost and Deltas |
+| `ceiling.py`, `ceiling_multi.py`, `obstacle.py`, `chain.py`, `subtrees.py`, `scale.py`, `basics.py` and their `.out` | section 4 |
+| `runs/t60_*`, `runs/t50_*` | the tai60b and tai50b solves |
+| `search35.sh`, `search_table.py` → `search_s35_auto.out`, `runs/s35_auto` | section 5 |
+
+State files and parent-state stores (88 MB) are not in this directory: they are in the session scratchpad
+(`/tmp/claude-0/-home-user/92b66c47-7a9f-5ca5-8a65-57e14ac5b075/scratchpad/mirror_states/`, may be cleared).
+`runs/root` and `runs/d1` rebuild them: `run.sh root orig -p tai35b.par -u 283315446 -d 0 -o runs/root/root.state ...`,
+then `-r` on the `19:12` node with `-d 1`. The commands are in each run's `cmd.txt`.
