@@ -18,6 +18,7 @@ DAT = f'{BUILD}/qaplib/tai60b.dat'
 CUT = 608215054.05
 NODE = '44:45,43:58,1:33,6:24,7:19,0:32,10:39,'
 JOBS = int(os.environ.get('JOBS', 4)); CH = int(os.environ.get('CH', 13)); WALL = float(os.environ.get('WALL', 10)) * 3600
+DEADLINE = float(os.environ.get('DEADLINE', 0))   # epoch s: no new level starts after it (the level in progress finishes)
 ENV = dict(os.environ, OPENBLAS_NUM_THREADS='1', OMP_NUM_THREADS='1', VECLIB_MAXIMUM_THREADS='1')
 PROD = {}
 for l in open(H + '/out/production_by_depth.txt'):
@@ -119,6 +120,8 @@ def main():
                     rows.append(dict(depth=int(t[0]), nodes=int(t[1]), D=int(t[2]), C=int(t[3]), B=int(t[4]), other=int(t[5]),
                                      cpu=float(t[6]), sfsum=float(t[7]), sfmax=float(t[8])))
     for D in range(D0, DMAX + 1):
+        if DEADLINE and time.time() > DEADLINE and D > D0:
+            log(f'depth {D}: deadline passed; stopping before this level (resume: python3 down.py {D})'); return 'deadline', D
         L = f'{H}/runs/down/d{D}'
         for s in ('in', 'out', 'nodes', 'done', 'log'): os.makedirs(f'{L}/{s}', exist_ok=True)
         srcs = sorted(glob.glob(f'{H}/runs/d9_*/out.state')) if D == 10 else sorted(glob.glob(f'{H}/runs/down/d{D-1}/out/*.state'))
@@ -149,7 +152,7 @@ def main():
                     c = running.pop(p); k = os.path.basename(c)
                     if p.returncode == 0: open(f'{L}/done/{k}', 'w').write('0')
                     else: log(f'depth {D}: chunk {k} exit {p.returncode}'); return 'error', D
-            if time.time() - t0 > WALL:
+            if DEADLINE == 0 and time.time() - t0 > WALL:
                 for p in running: p.terminate()
                 log(f'depth {D}: wall-time limit reached'); return 'wall', D
         r = level_row(D); rows = [x for x in rows if x['depth'] != D] + [r]; rows.sort(key=lambda x: x['depth'])

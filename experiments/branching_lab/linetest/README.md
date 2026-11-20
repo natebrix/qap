@@ -39,7 +39,13 @@ for him to decide; the kill rule says stop.
 
 ## Down the tree under c47
 
-**Answer (Nov 20, 09:22 UTC; stopped at the 10-hour wall-time limit, not by the kill rule).** Depths 9 to 17 under
+**Status (Nov 20, 09:25 UTC): resumed at depth 18.** The coordinator lifted the 10-hour limit (09:16 message) and
+set a new one: go on until the subtree closes, or until 15:30 UTC, finishing the level in progress then
+(`DEADLINE=<epoch> python3 down.py 18`). The answer below is as of the 09:22 stop and is updated when the run ends.
+The "other" outcomes at depths 15, 16 and 17 are one QPB fathom each (`Q`): the QP bound alone was above the cutoff
+(608,292,252, 608,513,649 and 608,252,789), so no DNN bound was needed.
+
+**Answer as of Nov 20, 09:22 UTC, when the 10-hour wall-time limit stopped the run (the kill rule never fired).** Depths 9 to 17 under
 c47 are bounded. At every one of them c47's branching count stayed far below half of production's under c54: 7 to 28
 against 56 to 199. Its largest share is 15% (depth 13, 28 against 185). Summed over depths 9-17: **5,017 nodes and 111
 branching under c47, against production's 50,064 nodes and 1,169 branching, a tenth** [m]. CPU: 120,114 s on this box
