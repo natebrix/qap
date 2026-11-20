@@ -20,7 +20,12 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   gross (production 6,935), 396 s of it the signal. It matches (c) at the root and depth 1 and loses (c)'s
   depth-2 gains, because the refined signal prefers c5 to c23 (T2).
 - tai35b's production arm reproduces line_signals' tree exactly, so (c)'s numbers are reused (below).
-- T1 (the lookahead on the shortlist at the depth-7 node) and the other tai35b arms are running.
+- **Mode (b) K = 2 on tai35b fails the kill rule** [m `t2/tai35b_b2`, `summ.py`]: 1,000 nodes, 7,381 CPU s
+  gross, 6% *above* production's 6,935, with 1,142 s spent in the rule (402 signal, 740 lookahead). It closed
+  at the optimum. As predicted before it finished, the refined shortlist never offers c23 at depth 2, so the
+  lookahead cannot make (c)'s choice there; at 18:12 19:26 it picked r30 from {c5, r30, r26}, which cost
+  more nodes below (depths 5-6: 244 against 215 under c5).
+- T1 (the lookahead on the shortlist at the depth-7 node), (b) K = 4 and (b) without refinement are running.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
@@ -84,8 +89,8 @@ more than 7% (the noise) below production's, or it reaches <= 780 nodes (c's) wi
 | production | 1,017 | 6,935 | - | 6,935 | [m] `t2/tai35b_prod` |
 | (c) `QAP_LA=4:30:0:2` | 780 | 8,900 | 2,803 (6 nodes) | 6,097 | [m] line_signals `runs/tai35b_la4p` |
 | (a) top LS line (refined signal) | 983 | 6,352 | 396 (5 firings, 1 gate fail) | 5,956 | [m] `t2/tai35b_a` |
-| (b) K = 2, CAP 30 | running (restarted 01:50 after the crash below) | | | | |
-| (b) K = 4, CAP 30 | queued | | | | |
+| (b) K = 2, CAP 30 (refined signal) | 1,000 | 7,381 | 1,142 (402 signal + 740 lookahead; 5 firings, 1 gate fail) | 6,240 | [m] `t2/tai35b_b2` |
+| (b) K = 4, CAP 30 | running (started 03:07) | | | | |
 | (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | queued | | | | |
 
 Production here has the same 1,017 nodes as line_signals' two production runs, with the same (depth,
@@ -147,6 +152,13 @@ Mode (a)'s CPU is 8% below production's (6,352 against 6,935; production's secon
 shortlists at 18:26 19:12 lack c23 (top 4: c5, c33, c6, r23), and it does not fire at 18:8 19:26, so (b)
 cannot reach (c)'s depth-3-5 savings at two of the three depth-2 nodes. The extra arm without refinement
 tests whether the 30-kick shortlist lets the lookahead find c23.
+
+**(b) K = 2, what happened** [m `t2/tai35b_b2/ls.log`]. Root: shortlist {c26, r19}, lookahead (69 solves,
+102 s) picks c26, as (c). 18:26: {r19, c5, c12}, picks r19. 19:26: {r18, c5, c12}, picks r18. Both match (c)
+and (a). Depth 2, 18:26 19:12: {c5, c33, r26}, picks c5 ((c) picked c23, absent). 18:12 19:26: {c5, r30, r26},
+picks r30 ((c) c23, absent; (a) took c5). 18:8 19:26: gate fails. Nodes by depth 0-9: production 1, 35, 102,
+99, 128, 155, 60, 58, 56, 27; (b) K = 2: 1, 35, 68, 99, 128, 124, 120, 58, 56, 27. Each firing cost 65-87 s of
+signal (nearly all refinement) and 102-168 s of lookahead.
 
 **A crash: my bug.** (b) K = 2 died at tai35b's root (01:23 UTC) and both T1 runs at 01:31, all with signal 11
 at the same address, at the first mode-b firing. gdb on a `-g -O3` build stops at the `QAP_LS_CAP` parse,
