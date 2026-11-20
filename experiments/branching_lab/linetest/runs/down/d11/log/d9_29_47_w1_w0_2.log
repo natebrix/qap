@@ -112,3 +112,55 @@ setting QAP_XBAR_DEBUG 0 default diagnostic
 resumed: 13 open nodes, 158 nodes and 14007.7 s so far, incumbent 6.08215e+08
 branching_weight() = 0.5
 couldn't find [./SYM/tai60b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 14367.5 seconds 
+         Nodes: 171 / 161 / 0
+    root bound: 4.10082e+08
+ fw iterations: 28950
+     DNN bound: 171 nodes, 156 fathomed, 3317.34 s
+     cut phase: 15 nodes, 5 fathomed, 10973.7 s
+
+level    nodes	%fathom	%c.elim	    time
+ 6           1	0.0000	0.0000	  828.37
+ 7           1	0.0000	0.0000	 4862.69
+ 8          53	0.9057	0.0000	 5559.75
+ 9          52	0.9615	0.0000	 1626.46
+10          51	0.9804	0.0000	 1130.46
+11          13	1.0000	N/A	  359.79
+
+Strategy breakdown:
+nodes       0        0        1      170 
+time     0.00     0.00   828.37 13539.16 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 6           1	0.0000	1.0000	        350	   350.0	  199.14
+ 7           1	0.0000	1.0000	        110	   110.0	   53.09
+ 8          53	0.8491	0.1509	       3922	    74.0	 1737.68
+ 9          52	0.9615	0.0385	       1584	    30.5	  659.80
+10          51	0.9608	0.0392	       1326	    26.0	  526.08
+11          13	0.9231	0.0769	        394	    30.3	  141.55
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 6           1	0.0000	  629.08
+ 7           1	0.0000	 4809.20
+ 8           8	0.3750	 3792.77
+ 9           2	0.0000	  944.70
+10           2	0.5000	  583.27
+11           1	1.0000	  214.71
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 6           0	       0	       0	       0	       0
+ 7           0	       0	       0	       0	       0
+ 8          48	       0	      45	       3	       0
+ 9          50	       0	      50	       0	       0
+10          50	       0	      49	       1	       0
+11          13	       0	      12	       1	       0
+
+eigendecompositions for W and U: 14 computed, 12 reused from the per-size cache
