@@ -19,7 +19,8 @@ if os.path.exists(cache):
 elif solver == 'ipm':
     r = lp.solve('ipm'); u = r['u']; np.save(cache, u)
 else:
-    r = ajlp.pdlp_solve(lp, eps=eps); u = r['u']; np.save(cache, u)
+    r = ajlp.pdlp_solve(lp, eps=eps, threads=int(os.environ.get('THREADS', 4))); u = r['u']; np.save(cache, u)
+    np.save(cache.replace('lpdual', 'lpx'), r['x'][:lp.nx])
 cb, base = lp.child_bounds(u); cb = cb + s; base += s
 cutoff = pn['cutoff']; out = open(f'out/t2_{tag}.txt', 'w')
 def say(*a):
@@ -27,6 +28,10 @@ def say(*a):
 say(f'parent {par} m={lp.m} QPB {pn["qpb"]:.0f} DNN {pn["dnn"]:.0f} cut {pn["cut"]:.0f} cutoff {cutoff:.0f}')
 say(f'LP ({solver} eps {eps:g}): primal {r["obj"] + s:.0f} valid dual bound {base:.0f}; wall {r["wall"]:.0f} s cpu {r["cpu"]:.0f} s iters {r["iters"]}')
 say(f'LP short of cutoff {cutoff - base:.0f} ({(cutoff - base) / cutoff * 100:.2f}%); QPB short {cutoff - pn["qpb"]:.0f}')
+xp = cache.replace('lpdual', 'lpx')
+if os.path.exists(xp):
+    xx = np.load(xp)
+    say(f'LP primal x: {(xx > 1e-3).sum()} of {xx.size} entries > 1e-3, {(xx > 0.5).sum()} > 0.5, max {xx.max():.3f}')
 gain = cb - base
 say(f'child gains over the LP (cb - LP), all {gain.size} children: median {np.median(gain):.0f} p90 {np.percentile(gain, 90):.0f} max {gain.max():.0f}; children with cb >= cutoff: {(cb >= cutoff).sum()}')
 ri = {v: k for k, v in enumerate(I)}; ci = {v: k for k, v in enumerate(J)}
