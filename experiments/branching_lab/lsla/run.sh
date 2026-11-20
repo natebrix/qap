@@ -96,6 +96,24 @@ case ${1:-} in
     QAP_FORCE_LINE=8:$LINE8 QAP_LINE_RANK=8 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 9 \
       -o "$D/runs/$NAME/out.state" -k 600 "$DAT"
     rm -f "$D/runs/$NAME/in.state" ;;
+  set9)
+    # 14:54 from runs/set8_c54/out.state under strong.par, branched on LINE8 (default c2, production's), its
+    # depth-9 children set aside unbounded (-d 8), for bounding the chain node 24:2 under different lines (at9)
+    LINE8=${2:-c2}; NAME=set9_$LINE8
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/cutstate.py" "$D/runs/set8_c54/out.state" "$D/runs/$NAME/in.state" 8 14:54
+    QAP_FORCE_LINE=8:$LINE8 QAP_LINE_RANK=8 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 8 \
+      -o "$D/runs/$NAME/out.state" "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
+  at9)
+    # LINE8 FIX LINE9: one depth-9 node FIX (e.g. 24:2) from runs/set9_LINE8/out.state, strong.par, branched on
+    # LINE9, its depth-10 children bounded, depth 11 set aside
+    LINE8=$2; FIX=$3; LINE9=$4; NAME=at9_${FIX//:/_}_$LINE9
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/cutstate.py" "$D/runs/set9_$LINE8/out.state" "$D/runs/$NAME/in.state" 9 "$FIX"
+    QAP_FORCE_LINE=9:$LINE9 QAP_LINE_RANK=9 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 10 \
+      -o "$D/runs/$NAME/out.state" -k 600 "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
   deep)
     # one level deeper, as linetest's deep target: the depth-9 nodes under a strong arm's survivors FIXES (e.g.
     # 11:59 or 13:59,3:59), from runs/s<LINE>/out.state, production's settings and line rule, depth 10 set aside
