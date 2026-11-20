@@ -29,8 +29,8 @@ Checked numerically [m `t0check.py`, `out/t0check.txt`]: the literal LP (all of 
 gangster zeros, the box) and the compact one (`ajlp.py`: one variable per unordered compatible pair, m^2 (m-1)^2 / 2
 of them, plus x) agree to the unit on three nodes of nug12, had12 and tai12b (m = 9, 9, 10). On the same nodes every
 child's own LP is at least the bound `ajlp.child_bounds` derives for it from the parent's dual (min difference 0.0),
-so the child bounds below are valid. Against published values: nug12 522.89 and nug15 1040.99 round up to
-RRD95's 523 and 1041 (Resende, Ramakrishnan and Drezner's IPM solve, QAPLIB's lower-bound table).
+so the child bounds below are valid. Against published values: nug12 522.89, nug15 1040.99 and nug20 2181.60 round up to
+RRD95's 523, 1041 and 2182 (Resende, Ramakrishnan and Drezner's IPM solve, QAPLIB's lower-bound table).
 
 ### Roots and nodes (T0)
 
@@ -48,13 +48,16 @@ a cutoff (the first solve's certified value, no cut phase; 20,000 iterations or 
 | had16 root | 16 | 3358 | 3589.4 | **3560.2** | 3720.0 | 3720 | below QPB |
 | had18 root | 18 | 4776 | 5135.6 | **5087.9** | 5357.5 | 5358 | below QPB |
 | had20 root | 20 | 6166 | 6667.6 | **6578.8** | 6922.0 | 6922 | below QPB |
+| nug20 root | 20 | 2057 | 2245.2 | **2181.6** | 2506.3 | 2570 | below QPB |
 | tai12b root | 12 | 9.79M | 15.78M | **31.70M** | 39.46M | 39.46M | 68% |
 | tai15b root | 15 | 11.24M | -124.5M | **51.56M** | 51.70M | 51.77M | 99.9% |
+| tai20b root | 20 | 14.2M | -9.9M | **97.4M** | 122.46M | 122.46M | 81% |
 | tai35b root | 35 | 30.9M | 150.7M | **104.4M** | 261.5M | 283.3M | below QPB |
 | tai35b 19:26 | 34 | | 163.2M | **104.8M** | 280.6M | 283.3M | below QPB |
 | tai35b 19:26,18:12 | 33 | | 180.7M | **108.5M** | 280.7M | 283.3M | below QPB |
 | tai35b 19:12,18:26 | 33 | | 181.1M | **108.6M** | 282.1M | 283.3M | below QPB |
 | tai35b 19:26,18:8 | 33 | | 182.2M | **111.9M** | 281.4M | 283.3M | below QPB |
+| tai60b d8 ...10:39,14:54 | 52 | | 504.4M | **435.9M** | 607.7M | 608.2M | below QPB |
 | tai60b d17 ...22:31 | 43 | | 527.7M | **541.9M** | 608.0M | 608.2M | 18% |
 | tai60b d17 ...8:49 | 43 | | 549.5M | **525.0M** | 607.6M | 608.2M | below QPB |
 | tai60b d17 ...8:57 | 43 | | 546.2M | **525.1M** | 607.6M | 608.2M | below QPB |
@@ -84,6 +87,7 @@ lsla, line_signals traces; `truth.py`).
 | tai35b 19:26,18:12 | 33 | 174.8M | 1,026 of 1,089 | 80 / 26,686 | 0 |
 | tai35b 19:12,18:26 | 33 | 174.7M | 1,022 of 1,089 | 86 / 34,335 | 0 |
 | tai35b 19:26,18:8 | 33 | 171.5M | 1,016 of 1,089 | 317 / 40,222 | 0 |
+| tai60b d8 14:54 | 52 | 172.3M | 2,447 of 2,704 | 122 / 4,501 | 0 of 2,704 |
 | tai60b d17 22:31 | 43 | 66.3M | (not saved) | 26 / 0.48M | 0 of 1,849 |
 | tai60b d17 8:49 | 43 | 83.2M | 1,428 of 1,849 | 2,713 / 26.2M | 0 of 1,849 |
 | tai60b d17 8:57 | 43 | 83.1M | 1,429 of 1,849 | 1,839 / 13.5M | 0 of 1,849 |
@@ -104,6 +108,7 @@ the children's own LPs are tens of units higher; the IPM (central) dual gives 6 
 | tai35b 19:26,18:12 | c23 1, c5 2, c6 3, r26 3 | c5 #1, c23 #25, c6 #34, r26 #46 | top pick 2nd best |
 | tai35b 19:12,18:26 | c23 1, c5 2 | c5 #1, c23 #43 | wrong |
 | tai35b 19:26,18:8 | c5 0, c22 0 | c5 #3, c22 #56 | tie in truth |
+| tai60b d8 14:54 | c59 3, r3 4, c2 7 | r3 #68, c2 #95, c59 #98 | wrong (best last) |
 | tai60b d17 22:31 | r13 2, c54 3, c26 7 | c54 #2, c26 #10, r13 #80 | wrong (best last) |
 | tai60b d17 8:49 | r2 0, r51 5, c30 12 | r2 #2, r51 #41, c30 #85 | right |
 | tai60b d17 8:57 | r2 0, r51 1, c30 6 | r2 #2, r51 #35, c30 #80 | right |
@@ -123,6 +128,7 @@ off-chain depth-17 parents, where far children dominate) and wrong at the path n
 | tai35b 19:26,18:12 | 129 | -0.10 | 0.59 | 0.44 / 0.46 |
 | tai35b 19:12,18:26 | 66 | -0.04 | 0.76 | 0.69 / 0.55 |
 | tai35b 19:26,18:8 | 66 | -0.08 | 0.66 | - |
+| tai60b d8 14:54 | 154 | 0.07 | 0.50 | 0.25 / 0.82 |
 | tai60b d17 22:31 | 127 | 0.14 | 0.81 | 0.69 / 0.87 |
 | tai60b d17 8:49 | 113 | 0.56 | 0.71 | 0.52 / 0.84 |
 | tai60b d17 8:57 | 121 | 0.59 | 0.75 | 0.54 / 0.82 |
@@ -143,7 +149,10 @@ the interior dual carries order, and none carries magnitude. The child's own exa
 | m = 12 | 8.9k vars | IPM / simplex / PDLP 1e-4 | 3 s / 124 s / 0.3 s | <0.1 GB | |
 | m = 33-35 | 0.57-0.73M vars | PDLP 1e-4, 2 threads | 130-230 s | <1 GB | box shared |
 | m = 43 | 1.63M vars, 155k rows, 6.7M nnz | PDLP 1e-2 / 1e-3 / 1e-4, 4 threads | 18 / 52 / 468-520 s wall | 0.9 GB | 1e-2's dual bound is useless (negative); 1e-3's 120M low |
-| m = 43 | | PDLP 1e-4, 3 threads, box shared | 1,421 s wall, 2,482 s CPU | 0.9 GB | 8:49 |
+| m = 43 | | PDLP 1e-4, 3 threads, box shared | 1,421-1,634 s wall, 2,153-2,482 s CPU | 0.9 GB | 8:49, 8:57 |
+| m = 52 | 3.66M vars | PDLP 1e-4, 3 threads, box shared | 1,183 s wall, 2,136 s CPU | 1.8 GB | depth 8, 14:54 |
+| m = 33 | 0.57M vars | HiGHS IPM (exact), box shared | did not finish in 30 min | | stopped by the session's time limit |
+| m = 20 | 72k vars | HiGHS IPM (exact) | 164-292 s CPU | | nug20, tai20b, had20 roots |
 
 For comparison: the node's DNN first solve plus cut phase at tai60b's depth 17 costs about 600 s (the parents'
 CPU field, 252-622 s), so even at the cheapest accuracy that gives a usable dual the LP costs as much as the node's
@@ -159,7 +168,7 @@ Z = 0. Not done: T2 says the exact duals are not worth approximating.
 ## What was not tested
 
 - QPB + U per child (rule 2's own prediction); compared against the child's QPB instead.
-- tai60b depths 7 and 8 (m = 52-53): running.
+- tai60b depth 7 (m = 53): running. Depth 8 done.
 - The children's own LPs at m = 42 (a few, running); at the small nodes they rank children's DNN no better than QPB.
 - Adding the LP's cuts to the DNN (the LP as a cut generator) or a stronger LP (RLT-2): out of scope.
 
