@@ -81,7 +81,10 @@ What is in hand [m]:
 - **tai40b (b) K = 2 [m `t2/tai40b_b2`]: 731 nodes again, 8,257 CPU s gross (19% above production), 995 s in
   the rule (169 signal, 826 lookahead).** At the root it chose c31 from {r23, c31, c2}; then r27 and r22. At
   every firing every child of every shortlisted line is still open after 30 iterations (40/40, 39/39,
-  38/38), so its scores are unresolved shortfalls, as on tai35b. Fails the kill rule. (b) K = 4 is running.
+  38/38), so its scores are unresolved shortfalls, as on tai35b. Fails the kill rule.
+- **tai40b (b) K = 4 [m `t2/tai40b_b4`]: 731 nodes, 9,012 CPU s gross (30% above production), 1,649 s in the
+  rule**, the same lines as K = 2 (c31, r27, r22). Fails. On tai40b every arm has production's 731 nodes; the
+  rule only adds cost.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
@@ -324,6 +327,5 @@ moved into place.
 
 - Depth 9 under c59 and r11; any line at tai60b's depth-3 chain node bounded.
 - Mode (a) at tai60b's other chain nodes.
-- tai40b's arms (running).
 - A tai50b partial tree: skipped. Nathan started tai50b whole with mode (a), depths 0-10, refined signal, on
   their laptop at 06:24 UTC (`experiments/branching_lab/laptop/tai50b_ls.sh`; reference tai50b-r9 6,629 nodes).
