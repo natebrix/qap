@@ -107,6 +107,37 @@ to the strong arms'). Then each depth-8 node was bounded under `rule2.par` with 
 (47:47 607,885,595 against 607,885,434). Their warm start came from a checkpoint (fp32, `ship.bits = 32`); in the arm
 it was the parent's in-memory state. Depth 10 and below were not compared.
 
+### Where does rule 2 overtake rule 9? A scan at depths 11, 13, 15 (Nov 20, 18:15-20:50 UTC; the coordinator's request)
+
+**It does not, at these nodes. Over the nine nodes rule 2's lines left 24 branching children and rule 9's left 21.
+Node by node rule 2 is worse at 2, better at 1 (d15_a: 1 against 2) and tied at 6. It costs more: 18,704 CPU s
+against 11,641, most of it in cut phases. Rule 2's count, the children QPB + U put at the cutoff, is 0 at every scanned
+node, and also at the three depth-17 parents where rule 2 won (8:49, 8:57, 22:31; `count17.sh`).** [m] So rule 2 never
+chooses by its count in this subtree: its line is the tie-break's, the largest sum of U over the line. Whether rule 2
+wins where its count is not zero cannot be tested here. Between depth 8 (rule 9 better: 9 against 19 under c47,
+27 against 56 under c54) and depth 17 (rule 2 better: 3 against 25), the scanned depths show neither ahead.
+
+*Selection bias:* at each depth the three nodes are those where rule 9's line did worst in the c47 descent (the most
+branching children, ties by shortfall sum; `out/scan_select.txt`). That favours rule 2, and rule 2 still did not
+win. The descent's depths 11-15 had few branching nodes (13, 28 and 8), so "worst" means 1 to 3 branching children.
+Rule 2 chose c54 at 6 of the 9 nodes and r8 at 2 (its first choice in the U-sum order). Rule 9's lines are the
+descent's (`runs/down`). Rule 2's lines were bounded from the same parent states, rebuilt where needed
+(`rebuild.py`: every rebuilt node has the run's bound and line exactly), with `rule2.par` and the `latest_dbg` build
+(`maxf_debug.patch`: a print of rule 2's counts under `QAP_MAXF_DEBUG=1`, the search unchanged; `armD.sh`,
+`scan.sh`, `scan_score.py`, `out/scan.txt`). QPB below cutoff = (cutoff - the node's QPB bound) / cutoff.
+
+| node (depth) | path | QPB below cutoff | rule 9: line, D / C / B, shortfall sum, CPU s | rule 2: line, D / C / B, shortfall sum, CPU s | rule 2 count (chosen side / other side) |
+|---|---|---|---|---|---|
+| d11_a: 46:47,36:53,32:40,3:35 (11) | no | 0.171 | r11: 46 / 0 / **3**, 500k, 1,488 | c54: 40 / 4 / **5**, 896k, 3,770 | 0 / 0 |
+| d11_b: 46:47,36:53,34:40,3:35 (11) | no | 0.171 | r11: 46 / 0 / **3**, 428k, 1,540 | c54: 40 / 6 / **3**, 326k, 3,480 | 0 / 0 |
+| d11_c: 47:47,31:10,46:38,36:53 (11) | yes | 0.170 | c40: 46 / 0 / **3**, 398k, 1,742 | c54: 45 / 1 / **3**, 278k, 2,213 | 0 / 0 |
+| d13_a: 47:47,31:10,46:38,36:53,32:40,3:35 (13) | yes | 0.160 | r11: 44 / 0 / **3**, 409k, 1,253 | c54: 39 / 4 / **4**, 614k, 2,662 | 0 / 0 |
+| d13_b: 47:47,31:10,46:38,36:53,34:40,3:35 (13) | no | 0.160 | r11: 44 / 0 / **3**, 265k, 1,240 | c54: 39 / 5 / **3**, 199k, 2,287 | 0 / 0 |
+| d13_c: 46:47,36:53,32:40,3:35,11:36,13:59 (13) | no | 0.148 | r12: 43 / 3 / **1**, 90k, 979 | r8: 45 / 1 / **1**, 116k, 871 | 0 / 0 |
+| d15_a: 46:47,36:53,32:40,3:35,11:36,13:59,12:0,9:55 (15) | no | 0.133 | r4: 41 / 1 / **2** (1 Q), 346k, 861 | r8: 40 / 3 / **1** (1 Q), 55k, 830 | 0 / 0 |
+| d15_b: 47:47,31:10,46:38,36:53,32:40,3:35,11:59,51:30 (15) | yes | 0.141 | c6: 42 / 1 / **2**, 201k, 1,659 | c54: 41 / 1 / **3**, 232k, 1,560 | 0 / 0 |
+| d15_c: 47:47,31:10,46:38,36:53,27:40,22:31,11:59,3:35 (15) | no | 0.146 | r51: 44 / 0 / **1**, 51k, 879 | c54: 42 / 2 / **1**, 55k, 1,031 | 0 / 0 |
+
 ### The depth-17 line test (Nov 20, 11:25-12:58 UTC; the coordinator's follow-up to the depth-18 stop)
 
 **By the decision rule fixed in advance (the signal helps if its three lines leave at most 12 branching children,
