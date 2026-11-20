@@ -3,5 +3,5 @@
 | arm | nodes | CPU s | rule: LS CPU s | rule: lookahead CPU s | CPU net of the rule | best | gate passes / firings by depth | lines chosen (depth:line) | branched nodes by depth 0-8 |
 |---|---|---|---|---|---|---|---|---|---|
 | a | 731 | 7,180 | 165 | 0 | 7,016 | 637250948 | 0:1/1 1:1/1 2:1/1 | 0:r23 1:r27 2:r22 | 0:1 1:1 2:1 3:1 4:1 5:1 6:1 7:1 8:1 |
-| b2 | 0 | nan | 134 | 639 | nan | - | 0:1/1 1:1/1 | 0:c31 1:r27 |  |
+| b2 | 0 | nan | 169 | 826 | nan | - | 0:1/1 1:1/1 2:1/1 | 0:c31 1:r27 2:r22 |  |
 | prod | 731 | 6,925 | 0 | 0 | 6,925 | 637250948 |  |  | 0:1 1:1 2:1 3:1 4:1 5:1 6:1 7:1 8:1 |
