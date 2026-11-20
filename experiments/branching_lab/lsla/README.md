@@ -5,7 +5,7 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 
 ## Answer (in progress; updated as arms finish)
 
-**On tai35b, no: both shortlist arms of (b) fail the kill rule, and the cheaper signal alone (a) does better than either.** What is in hand [m]:
+**On tai35b, no: all three arms of (b) fail the kill rule (1,000 to 1,046 nodes, 7,200 to 8,050 CPU s against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any of them.** What is in hand [m]:
 
 - The signal in C costs **35 CPU s per firing at n = 60** with 30 kicks per child, and 355 s with 3,000
   more kicks on the cells near the threshold. The DNN lookahead it would feed costs hours per firing at that
@@ -35,7 +35,17 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   production), 1,532 s in the rule. With a wider shortlist the lookahead picks c6 at both depth-2 nodes where it
   fires, and depth 4 grows from 128 nodes to 192. At depth 2 every shortlisted line still has all 33 children
   open after 30 iterations, so the lookahead's scores there are sums of shortfalls on unresolved solves.
-- (b) without refinement and the c59 and r11 boundings are running.
+- **(b) with the 30-kick signal (no refinement) fails too** [m `t2/tai35b_b2r0`]: 1,046 nodes, 7,200 CPU s. The
+  signal now costs 4-5 s a firing, but at 18:26 19:12 c23 ranks 3rd (a 3-survivor tie with r22 and r25, broken
+  by 0.15 of chain-model mass), just outside K = 2; the lookahead picks c5 from {r22, r25, r26, c5}. At 18:12
+  19:26 it picks r26 from {r30, c5, r26}. Depths 4-5 grow to 160 and 186 nodes.
+- **Why (b) fails on tai35b: below the root, the 30-iteration lookahead cannot tell the shortlisted lines
+  apart.** At every depth-2 firing every line has all 33 children still open, and its score for the same line
+  at the same node depends on what was solved before it: c5 at 18:12 19:26 scored 604M in (b) K = 2 and K = 4
+  but 11,955M in this arm, where c5 came second instead of first (the warm pool). Where the lookahead is
+  decisive (root, depth 1), the signal's top line was already its choice, so the lookahead adds nothing.
+- The c59 and r11 boundings at tai60b's depth-7 node are running (about 07:45 UTC [e]); tai40b's T2 arms
+  started 05:52 UTC.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
@@ -131,7 +141,7 @@ more than 7% (the noise) below production's, or it reaches <= 780 nodes (c's) wi
 | (a) top LS line (refined signal) | 983 | 6,352 | 396 (5 firings, 1 gate fail) | 5,956 | [m] `t2/tai35b_a` |
 | (b) K = 2, CAP 30 (refined signal) | 1,000 | 7,381 | 1,142 (402 signal + 740 lookahead; 5 firings, 1 gate fail) | 6,240 | [m] `t2/tai35b_b2` |
 | (b) K = 4, CAP 30 (refined signal) | 1,038 | 8,050 | 1,532 (400 signal + 1,132 lookahead; 5 firings, 1 gate fail) | 6,519 | [m] `t2/tai35b_b4` | | | | |
-| (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | queued | | | | |
+| (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | 1,046 | 7,200 | 714 (21 signal + 693 lookahead; 5 firings, 1 gate fail) | 6,486 | [m] `t2/tai35b_b2r0` |
 
 Production here has the same 1,017 nodes as line_signals' two production runs, with the same (depth,
 fixes, bound, outcome, line) at every node [m: sorted trace comparison]; its CPU, 6,935 s, is inside their
