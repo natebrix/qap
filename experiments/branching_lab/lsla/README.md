@@ -80,9 +80,10 @@ more than 7% (the noise) below production's, or it reaches <= 780 nodes (c's) wi
 |---|---|---|---|---|---|
 | production | 1,017 | 6,935 | - | 6,935 | [m] `t2/tai35b_prod` |
 | (c) `QAP_LA=4:30:0:2` | 780 | 8,900 | 2,803 (6 nodes) | 6,097 | [m] line_signals `runs/tai35b_la4p` |
-| (a) top LS line | running | | | | |
+| (a) top LS line (refined signal) | 983 | 6,352 | 396 (5 firings, 1 gate fail) | 5,956 | [m] `t2/tai35b_a` |
 | (b) K = 2, CAP 30 | queued | | | | |
 | (b) K = 4, CAP 30 | queued | | | | |
+| (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | queued | | | | |
 
 Production here has the same 1,017 nodes as line_signals' two production runs, with the same (depth,
 fixes, bound, outcome, line) at every node [m: sorted trace comparison]; its CPU, 6,935 s, is inside their
@@ -120,6 +121,29 @@ Under c47, depth 9 has 9 branching nodes (260 bounded, 9,002 CPU s on this box) 
 under c54 (520 bounded). c47, which the refined signal (4 survivors) and the strong bound (5) both prefer
 to c54 (9), stays the better line a level down. That supports the signal's ranking of those two lines; it
 says nothing about the lines the signal ranks above c47 (c10, c59, c35, c38, r22), which no one has bounded.
+
+**Nodes by depth [m]** (nodes / branched; from the node traces):
+
+| arm | 1 | 2 | 3 | 4 | 5 | depth 0-2 lines |
+|---|---|---|---|---|---|---|
+| production | 35/3 | 102/3 | 99/4 | 128/5 | 155/2 | r19; r18 x3; c5 x3 (rule 9) |
+| (a) | 35/2 | 68/3 | 99/4 | 128/5 | 155/2 | c26; r19, r18; c5, c5, and rule 9 where the gate failed |
+| (c) | 35/2 | 68/3 | 99/2 | 64/2 | 62/2 | c26; r19, r18; c23, c23, c22 |
+
+Below depth 5 the three trees have the same counts. **Mode (a) gets (c)'s root and depth 1 (34 nodes fewer
+than production at depth 2), and none of (c)'s gain below**: at depth 2 it picks c5, rule 9's line, and from
+depth 3 its tree is production's. (c)'s 203 further nodes saved come from its depth-2 lines c23, c23, c22.
+The refinement is what loses them: at 18:26 19:12 the 30-kick signal ranks c23 first (T3), the refined one
+(3,000 more kicks near the threshold) puts c5 first and c23 outside its top 12. At 18:8 19:26 the gate
+fails (ex_node 1.78M against s 165k), so no signal fires where (c) picked c22.
+
+Mode (a)'s CPU is 8% below production's (6,352 against 6,935; production's second run in line_signals was
+7,390), at the edge of the 7% noise, from one run; its rule cost 396 s, nearly all refinement.
+
+**Prediction for (b), written before its runs finished:** under the refined signal its K = 2 and K = 4
+shortlists at 18:26 19:12 lack c23 (top 4: c5, c33, c6, r23), and it does not fire at 18:8 19:26, so (b)
+cannot reach (c)'s depth-3-5 savings at two of the three depth-2 nodes. The extra arm without refinement
+tests whether the 30-kick shortlist lets the lookahead find c23.
 
 ## Not tested yet
 
