@@ -4,10 +4,10 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
-| [tho40-tune-261119-z03](runs/tho40-tune-261119-z03/readout.md) | running | **RUNNING**: 1156 of 1226 units merged | - | 2026-11-19 19:32 | - |
+| [tho40-tune-261119-z03](runs/tho40-tune-261119-z03/readout.md) | running | **RUNNING**: 2915 of 2980 units merged | - | 2026-11-19 19:32 | - |
 | [tho40-tune-261119-cross5](runs/tho40-tune-261119-cross5/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of tho40-est2-261119 asked (depth:count 3:50,4:100) to the end under tho40c_cross5.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-19 19:31 | 2026-11-20 00:14 |
 | [tho40-tune-261119-xbar4](runs/tho40-tune-261119-xbar4/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of tho40-est2-261119 asked (depth:count 3:50,4:100) to the end under tho40c_xbar4.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-19 19:30 | 2026-11-19 23:07 |
-| [tho40-tune-261119-base](runs/tho40-tune-261119-base/readout.md) | running | **RUNNING**: 431 of 536 units merged | - | 2026-11-19 19:30 | - |
+| [tho40-tune-261119-base](runs/tho40-tune-261119-base/readout.md) | running | **RUNNING**: 1440 of 1634 units merged | - | 2026-11-19 19:30 | - |
 | [tho40-est3-261119](runs/tho40-est3-261119/readout.md) | finished | **COMPLETE**: the estimate (tho40-est3-261119 finished) | HEAVY TAIL, SETUP-BOUND | 2026-11-19 19:23 | 2026-11-19 23:40 |
 | [tai50b-est-261119](runs/tai50b-est-261119/readout.md) | paused | **COMPLETE**: the estimate (tai50b-est-261119-dives finished) | HEAVY TAIL, FEW DIVES, SETUP-BOUND, WIDE | 2026-11-19 03:37 | - |
 | [sko42-zone-261119-z25](runs/sko42-zone-261119-z25/readout.md) | stopped | **STOPPED** part-way: 3331 of 3779 units merged (qapctl stop) | - | 2026-11-19 02:29 | 2026-11-19 20:48 |
