@@ -8,7 +8,7 @@
  //#include <time.h>
  
  /*
-@@ -1179,6 +1180,176 @@
+@@ -1179,6 +1180,181 @@
  	    for (const auto &l : L) fprintf(stderr, " %s:%.5f", l.second.c_str(), l.first);
  	    fprintf(stderr, "\n");
  	  }
@@ -17,7 +17,8 @@
 +	  // the incumbent permutation (QAP_LS_PERM, a QAPLIB .sln file; or the run's best when better), a descent
 +	  // plus GATEKICKS kicks; the gate passes when it is within the node's slack s = cutoff - bound. Then
 +	  // every free cell r:v gets the best completion a descent plus KICKS kicks finds with r:v forced (KICKS2
-+	  // more for cells with 1 < ex / s <= XHI): QAP_LS_SEARCH=KICKS:KICKS2:XHI:GATEKICKS (30:0:2.5:300).
++	  // more for cells with 1 < ex / s <= XHI): QAP_LS_SEARCH=KICKS:KICKS2:XHI:GATEKICKS[:KICKS3] (30:0:2.5:300:0;
++	  // KICKS3 > 0: a random-start search per cell and the harvest, lsla.h).
 +	  // A line's score: its children with ex <= s, ties by the chain model (landscape/README.md 4). The
 +	  // shortlist: the K best lines, plus rule 9's two (the largest marginal row and column) when the node
 +	  // has marginals. MODE a: branch on the best line. MODE b: the shortlist goes to the QAP_LA lookahead
@@ -43,7 +44,7 @@
 +		  fprintf(stderr, "QAP_LS: cannot read '%s' (MODE:K:DMIN:DMAX, MODE a or b)\n", e);  exit(2);
 +		}
 +		if (const char *x = getenv("QAP_LS_SEARCH"); x && *x)
-+		  sscanf(x, "%d:%d:%lf:%d", &ls_p.kicks, &ls_p.kicks2, &ls_p.xhi, &ls_p.gate_kicks);
++		  sscanf(x, "%d:%d:%lf:%d:%d", &ls_p.kicks, &ls_p.kicks2, &ls_p.xhi, &ls_p.gate_kicks, &ls_p.kicks3);
 +		const char *cs = getenv("QAP_LS_CAP");
 +		for (const char *c = cs && *cs ? cs : "30"; c && *c; ) { ls_caps.push_back(atoi(c)); c = strchr(c, ','); if (c) c++; }
 +		ls_I.n = n;  ls_I.a.resize((size_t)n * n);  ls_I.b.resize((size_t)n * n);  ls_I.c.assign((size_t)n * n, 0.0);
@@ -134,8 +135,12 @@
 +		      if (f) f++;
 +		    }
 +		  ls_cpu = (double)(clock() - t0) / CLOCKS_PER_SEC;
-+		  snprintf(buf, sizeof buf, " | cpu_ls %.2f (gate %.2f table %.2f refine %.2f, %ld refined) | lines", ls_cpu,
-+			   T.cpu_gate, T.cpu_table, T.cpu_refine, T.refined);
++		  if (ls_p.kicks3 > 0)
++		    snprintf(buf, sizeof buf, " | cpu_ls %.2f (gate %.2f table %.2f, random %.2f, refine %.2f, %ld refined, kicks3 %d, %ld harvested) | lines",
++			     ls_cpu, T.cpu_gate, T.cpu_table, T.cpu_random, T.cpu_refine, T.refined, ls_p.kicks3, T.harvested);
++		  else
++		    snprintf(buf, sizeof buf, " | cpu_ls %.2f (gate %.2f table %.2f refine %.2f, %ld refined) | lines", ls_cpu,
++			     T.cpu_gate, T.cpu_table, T.cpu_refine, T.refined);
 +		  ls_msg += buf;
 +		  int rank = 0;
 +		  for (const LC &c : L) {
@@ -185,7 +190,7 @@
  	  // QAP_LA=K:CAP:DMIN:DMAX (experiments/line_signals): at a node of depth DMIN..DMAX whose DNN
  	  // bound ran and missed, the candidates are the K rows and the K columns with the largest marginal
  	  // scores (columns only with no symmetry left); every child of a candidate that QPB's U does not
-@@ -1201,13 +1372,14 @@
+@@ -1201,13 +1377,14 @@
  	      la_all = sl && sl[0] == 'a';
  	    }
  	    const double inc = s->getObjective();
@@ -202,7 +207,7 @@
  	      for (int a = 0; a < m; a++) for (int b = 0; b < m; b++) {
  		const double v = dnn_xbar[a * m + b] * dnn_xbar[a * m + b];  rs[a] += v;  cs[b] += v;
  	      }
-@@ -1218,7 +1390,9 @@
+@@ -1218,7 +1395,9 @@
  	      std::sort(by.begin(), by.end(), [&](int a, int b) { return rs[a] != rs[b] ? rs[a] > rs[b] : a < b; });
  	      // QAP_LA_LINES=r1,c26,...: these lines (original indices) as the candidates instead
  	      static const char *la_lines = getenv("QAP_LA_LINES");
@@ -213,7 +218,7 @@
  		for (const char *f = la_lines; f && *f; ) {
  		  char side; int idx;
  		  if (sscanf(f, "%c%d", &side, &idx) == 2) {
-@@ -1240,10 +1414,16 @@
+@@ -1240,10 +1419,16 @@
  	      static const int warm_y = (int)setting_i("dnn.warm_y");
  	      const double cutoff = inc - DELTA;
  	      const double qb = bound + qpbp->lapU;
@@ -231,7 +236,7 @@
  	      for (Cand &c : cand) {
  		for (int t = 0; t < m; t++) {
  		  const int a = c.row ? c.k : t, b = c.row ? t : c.k;
-@@ -1259,7 +1439,7 @@
+@@ -1259,7 +1444,7 @@
  		      lp.gamma1 = setting_d("dnn.gamma1");  lp.gamma = setting_d("dnn.gamma");
  		      lp.cheb_degree = (int)setting_i("dnn.cheb");  lp.tight_lam = (int)setting_i("dnn.tight_lam");
  		      lp.beta = setting_d("dnn.beta");  lp.refresh = (int)setting_i("dnn.refresh");
@@ -240,7 +245,7 @@
  		      DNNWarm cw;
  		      const DNNWarm *sp = NULL;
  		      if (warm_y > 0 && dnn_warm_child(pw, a, b, cw, warm_y) && !cw.Y.empty()) { sp = &cw; lp.warm_primal = 1; }
-@@ -1294,9 +1474,20 @@
+@@ -1294,9 +1479,20 @@
  		  c.open += sh > 0;
  		}
  	      }
@@ -262,7 +267,7 @@
  	      bp->how = BRANCH_FIXED;  bp->choose_row = best->row;
  	      bp->fixed_index_in_U = best->k;  bp->fixed_index_in_assign = best->row ? frow[best->k] : fcol[best->k];
  	      // on stderr, and appended to QAP_LA_LOG (default runs/la.log of the study: a coordinator's
-@@ -1314,12 +1505,22 @@
+@@ -1314,12 +1510,22 @@
  		snprintf(buf, sizeof buf, " %c%d:%.4f:%.1f:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
  		msg += buf;
  	      }
@@ -315,7 +320,7 @@
  # ---- DNN bound (dnn.C, dnn.h) and its test driver: make dnntest ----
 --- /dev/null
 +++ b/latest/lsla.h
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,59 @@
 +// lsla.h: the landscape signal in C (experiments/branching_lab/lsla; an experiment build, never cognac's latest/).
 +// For a node (some rows fixed) and an incumbent permutation p* (p[i] = the column of row i), every free
 +// cell (r, v) gets the best completion a 2-exchange descent plus KICKS kicks (each KSIZE random
@@ -341,6 +346,10 @@
 +  double xhi = 2.5;
 +  int ksize = 6;         // random exchanges per kick
 +  int gate_kicks = 300;  // kicks for the node's own best completion (the gate)
++  int kicks3 = 0;        // > 0: per cell, a second search from a random completion of the node's fixes with the
++                         // cell forced (descent + kicks3 kicks), and the harvest: every local optimum any search
++                         // visits (base, random, refinement) is credited to every free cell it satisfies.
++                         // 0: today's behaviour (no random search, no harvest)
 +};
 +
 +struct LSTable {
@@ -355,6 +364,8 @@
 +  long refined = 0;             // cells given kicks2 more kicks
 +  long moves = 0;               // descent moves in all
 +  double cpu_gate = 0, cpu_table = 0, cpu_refine = 0;
++  double cpu_random = 0;        // the kicks3 searches (inside cpu_table)
++  long harvested = 0;           // cells whose ex the harvest lowered below their own searches' best (kicks3 > 0)
 +};
 +
 +// fixed[r] = column of row r, or -1 when free. pstar: the incumbent permutation (any; its fixes are forced).
@@ -371,7 +382,7 @@
 +#endif
 --- /dev/null
 +++ b/latest/lsla.C
-@@ -0,0 +1,271 @@
+@@ -0,0 +1,328 @@
 +// lsla.C: the landscape signal in C (lsla.h). experiments/branching_lab/lsla; an experiment build only.
 +#include "lsla.h"
 +#include <cmath>
@@ -484,9 +495,25 @@
 +  return moves;
 +}
 +
-+long ils(const LSInst &I, St &S, int kicks, int ksize, double eps, Rng &R, St &T) {
++// the harvest (kicks3 > 0): H[a * m + b] = the least cost of any local optimum seen with p[frow[a]] = fcol[b]
++struct Harvest {
++  std::vector<double> H;
++  const int *rowloc = nullptr, *colloc = nullptr;   // original row / column -> local index (-1 if fixed)
++  int m = 0;
++  void credit(const St &S) {
++    for (int i = 0; i < (int)S.p.size(); i++) {
++      const int a = rowloc[i];
++      if (a < 0) continue;
++      double &h = H[(size_t)a * m + colloc[S.p[i]]];
++      if (S.cost < h) h = S.cost;
++    }
++  }
++};
++
++long ils(const LSInst &I, St &S, int kicks, int ksize, double eps, Rng &R, St &T, Harvest *HV = nullptr) {
 +  long moves = 0;
 +  const int m = (int)S.f.size();
++  if (HV) HV->credit(S);
 +  if (m < 2) return 0;
 +  for (int k = 0; k < kicks; k++) {
 +    T = S;
@@ -496,6 +523,7 @@
 +      swap(I, T, T.f[x], T.f[y]);
 +    }
 +    moves += descent(I, T, eps);
++    if (HV) HV->credit(T);
 +    if (T.cost < S.cost - eps) std::swap(S, T);
 +  }
 +  return moves;
@@ -590,6 +618,17 @@
 +  T.ex.assign((size_t)m * m, 0.0);
 +  std::vector<int> bestp((size_t)m * m * n);
 +  St C1, C2, W;
++  // the harvest and the random searches (kicks3 > 0); rows the node fixes have rowloc -1
++  std::vector<int> rowloc(n, -1), colloc(n, -1);
++  for (int a = 0; a < m; a++) { rowloc[T.frow[a]] = a; colloc[T.fcol[a]] = a; }
++  Harvest HVs;
++  Harvest *HV = nullptr;
++  if (P.kicks3 > 0) {
++    HVs.H.assign((size_t)m * m, INFINITY);
++    HVs.rowloc = rowloc.data(); HVs.colloc = colloc.data(); HVs.m = m;
++    HV = &HVs;
++  }
++
 +  for (int a = 0; a < m; a++) {
 +    const int r = T.frow[a];
 +    for (int bb = 0; bb < m; bb++) {
@@ -604,11 +643,38 @@
 +      T.moves += descent(I, C2, eps);
 +      St &C = C2.cost < C1.cost - eps ? C2 : C1;
 +      Rng R((uint64_t)seed * 1000003u + (uint64_t)r * n + v + 1);
-+      T.moves += ils(I, C, P.kicks, P.ksize, eps, R, W);
++      if (HV) { HV->credit(C1); HV->credit(C2); }
++      T.moves += ils(I, C, P.kicks, P.ksize, eps, R, W, HV);
 +      T.ex[(size_t)a * m + bb] = C.cost - T.z;
 +      std::copy(C.p.begin(), C.p.end(), bestp.begin() + ((size_t)a * m + bb) * n);
++      if (HV) {
++	// a random completion of the node's fixes with r:v forced, descent, kicks3 kicks
++	const double tr = cpu_now();
++	St Q;
++	Q.p.assign(n, -1);
++	std::vector<int> cols;
++	for (int i = 0; i < n; i++) if (fixed[i] >= 0) Q.p[i] = fixed[i];
++	Q.p[r] = v;
++	for (int c2 : T.fcol) if (c2 != v) cols.push_back(c2);
++	Rng RR((uint64_t)seed * 2654435761u + (uint64_t)r * n + v + 31);
++	for (int k = (int)cols.size() - 1; k > 0; k--) std::swap(cols[k], cols[RR.below(k + 1)]);
++	size_t t = 0;
++	for (int r2 : T.frow) if (r2 != r) { Q.p[r2] = cols[t++]; Q.f.push_back(r2); }
++	init(I, Q);
++	T.moves += descent(I, Q, eps);
++	T.moves += ils(I, Q, P.kicks3, P.ksize, eps, RR, W, HV);
++	double &e = T.ex[(size_t)a * m + bb];
++	if (Q.cost - T.z < e) {
++	  e = Q.cost - T.z;
++	  std::copy(Q.p.begin(), Q.p.end(), bestp.begin() + ((size_t)a * m + bb) * n);
++	}
++	T.cpu_random += cpu_now() - tr;
++      }
 +    }
 +  }
++  if (HV)
++    for (size_t k = 0; k < (size_t)m * m; k++)
++      if (HV->H[k] - T.z < T.ex[k] - eps) { T.ex[k] = HV->H[k] - T.z; T.harvested++; }
 +  T.ex_base = T.ex;
 +  T.cpu_table = cpu_now() - t0;
 +  t0 = cpu_now();
@@ -622,10 +688,12 @@
 +	for (int r : S0.f) if (r != T.frow[a]) C.f.push_back(r);
 +	init(I, C);
 +	Rng R((uint64_t)seed * 7919u + (uint64_t)T.frow[a] * n + T.fcol[bb] + 977);
-+	T.moves += ils(I, C, P.kicks2, P.ksize, eps, R, W);
++	T.moves += ils(I, C, P.kicks2, P.ksize, eps, R, W, HV);
 +	e = std::min(e, C.cost - T.z);
 +	T.refined++;
 +      }
++    if (HV)
++      for (size_t k = 0; k < (size_t)m * m; k++) T.ex[k] = std::min(T.ex[k], HV->H[k] - T.z);
 +  }
 +  T.cpu_refine = cpu_now() - t0;
 +}
