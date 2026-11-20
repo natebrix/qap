@@ -5,7 +5,7 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 
 ## Answer (in progress; updated as arms finish)
 
-**The signal has legs at two of three tai60b chain nodes and fails badly at the third; there the lookahead on its shortlist catches the failure, so (b) has a case at n = 60, at about 1.3-1.5 core-hours per firing.**
+**The signal has legs at two of three tai60b chain nodes and fails badly at the third; there the lookahead on its shortlist catches the failure, its choice, c59, beats both rules' lines, and its order of the five lines bounded there is the bounding's; so (b) has a case at n = 60, at about 1.3-1.5 core-hours per firing.**
 
 - **On tai35b, (b) fails**: all three arms of (b) fail the kill rule (1,000 to 1,046 nodes, 7,200 to 8,050 CPU s
   against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any.
@@ -21,21 +21,29 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   for both rule 2's r8 (production's; 650k, the best) and rule 9's r3 (937k), at 2.7-3.2x their CPU. The
   signal predicted 2 survivors for c30. **The CAP 150 lookahead on the shortlist ranks c30 last** (4.33M short,
   16 children open, against 0.81-1.35M for the others) and orders the three bounded lines as the bounding
-  does; it chose c59 (rule 9's second line), which is being bounded. One level down, this miss (8 branching children and 4,962 CPU s more
+  does; it chose c59 (rule 9's second line), which turns out the best line measured there: 3 branching children
+  and 581k, against r8's 4 and 650k (rule 2) and r3's 4 and 937k (rule 9). One level down, this miss (8 branching children and 4,962 CPU s more
   than r8) nearly cancels the two wins at 10:39 and 14:54 (6 and 4 fewer than production's c54 and c2,
   3,970 s and 2,764 s less) [m, the tables below]; the deeper cost of each is not measured. 
 - **At the depth-7 node the CAP 150 lookahead orders all four bounded lines correctly** (c59 3, r11 4, c47 5, c54 9
   branching children); the signal gets the top line right but puts r11 10th. So the lookahead, given enough
   iterations, ranks better than the signal; but it chose the signal's top line.
-- **In every firing so far where the lookahead was decisive, its choice was the signal's top line** (tai35b's
-  root and depth 1, tai60b's depth 7). Where the two differed (tai35b depth 2), the lookahead's scores were
-  unresolved solves and its choices were worse. So the evidence supports mode (a), the signal alone, at a few
-  seconds to a few minutes per firing, and not yet the 0.7-1.5 core-hours of lookahead per firing at n = 60.
-- Cheapest next step: finish bounding c59 and c53 at 24:2 (running), which settles whether the lookahead's
-  choice there is good and not just its last place. Then (b) at more chain nodes (10's 8:29, and depths 3-6),
+- **Until 24:2, every decisive lookahead choice was the signal's top line** (tai35b's root and depth 1, tai60b's
+  depth 7); where the two differed on tai35b (depth 2) the lookahead's scores were unresolved solves and its
+  choices were worse. **At 24:2 they differed and the lookahead was right**: the signal's #1 (c30) was the worst
+  line bounded there, the lookahead's choice (c59, the signal's #3) the best. So mode (a) alone has one bad
+  miss in three tai60b chain nodes; (b) has none, at 0.7-1.5 core-hours of lookahead per firing at n = 60.
+- **The coordinator's fix to the signal (a random-start search per cell and the harvest, KICKS3) is in the C
+  code and checked** against its Python counts at four nodes. It repairs tai50b's root (c26 from 1st to
+  19th-53rd) but not 24:2's miss (c30 3-4 predicted, 12 measured: near misses), and with refinement the
+  fixed signal's top line at tai50b's root is c25, which nobody has bounded, ahead of r31. tai35b with it is
+  running. See "The fix" below.
+- **The same line, c59, came out best at all three tai60b chain nodes** (depths 7, 8, 9: 3 branching
+  children each), chosen by the signal at 7 and 8 and by the lookahead at 9.
+- Cheapest next step: (b) at more chain nodes (10's 8:29, and depths 3-6),
   each firing about 1.3-1.5 core-hours and each line bounded one level (about 1-2 core-hours per line). The
   question for the tree is whether (b)'s cost per firing, against about 437 core-hours per chain at n = 60
-  (T3) [e], is paid back. Its choice beat production's line at 10:39 (depth 7); at 24:2 it is pending.
+  (T3) [e], is paid back. Its choice beat both rules' lines at 10:39 (depth 7) and 24:2 (depth 9).
 
 What is in hand [m]:
 
@@ -259,6 +267,8 @@ a level down 9 branching nodes under c47 against 56 under c54.
   | c30 | signal #1 | 36 | 3 | **12** | 299k, 220k, 122k, 105k, 88k, 85k, 77k, 72k, 61k, 25k, 16k, 12k | 1,183k | 7,876 [m `runs/at9_24_2_c30`] |
   | **r8** | rule 2, production's cloud run (4 survivors there); signal #20 | 45 | 2 | **4** | 368k, 134k, 131k, 17k | **650k** | 2,914 [m `runs/at9_24_2_r8`] |
   | r3 | rule 9 (0e6c2ecf par), strong state; signal #19 | 47 | 0 | 4 | 368k, 344k, 166k, 59k | 937k | 2,425 [m `runs/at9_24_2_r3`] |
+  | **c59** | the CAP 150 lookahead's choice (rule 9's second line); signal #3 | 48 | 0 | **3** | 325k, 197k, 59k | **581k** | 1,901 [m `runs/at9_24_2_c59`] |
+  | c53 | signal #2 (#1 with KICKS3 100 and refinement) | 47 | 0 | 4 | 252k, 193k, 152k, 91k | 688k | 2,552 [m `runs/at9_24_2_c53`] |
 
   **c30 loses to both, by the rule (12 branching against 4), and costs 2.7-3.2x their CPU.** Rule 2's r8 beats
   rule 9's r3 on the shortfall sum (650k against 937k, 4 branching each). The signal predicted c30's
@@ -268,8 +278,10 @@ a level down 9 branching nodes under c47 against 56 under c54.
   shortlist c30, c53 (signal), r3, c59 (rule 9), r8 (added, rule 2's); 249 solves, 4,545 CPU s.
   Scores (sum of shortfalls after 150 iterations, children still open): c59 0.81M (3 open), r8 0.97M (6),
   c53 1.10M (4), r3 1.35M (4), **c30 4.33M (16), last**. It chose c59. On the three lines bounded, its order
-  is the bounding's: r8 (4 branching, 650k), r3 (4, 937k), c30 (12). c59 and c53 are being bounded at 24:2
-  (`run.sh at9 c2 24:2 c59|c53`). Unlike 10:39 and
+  is the bounding's: r8 (4 branching, 650k), r3 (4, 937k), c30 (12). **Its choice, c59, is the best line
+  measured at 24:2** (3 branching children, 581k, 1,901 CPU s, against r8's 4 and 650k): by the rule, it beats
+  both rules' lines. With c53 bounded too (4, 688k), **the lookahead's order of all five lines is the
+  bounding's order**: c59 (3, 581k), r8 (4, 650k), c53 (4, 688k), r3 (4, 937k), c30 (12). Unlike 10:39 and
   14:54, c30 is not one of the lines the signal ranked near the top at both earlier nodes (c59, c47, c35,
   c38, r22); at 24:2 the signal's top five changed, and its new first line was its worst miss so far.
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
@@ -361,6 +373,61 @@ every arm, and the makefile relinked `bnbdrv` each time into the same inode (739
 Linux 6.11 and later (here 6.18) allow writing to a running executable, so a run sharing the binary with a
 later arm could fault. `lsla.patch`'s makefile now makes `bnbdrv` a real target, linked to a temporary and
 moved into place.
+
+## The fix: a random-start search per cell and the harvest (`QAP_LS_SEARCH=...:KICKS3`, Nov 20)
+
+The coordinator's rootcheck (`laptop/rootcheck/README.md` on `claude/cool-babbage-ilnogj`) traced the laptop's
+failed tai50b tree (mode a chose c26 at the root, 28 of 50 children branched) to the search: 16 of c26's
+children have completions at x 0.6 that a search started from the incumbent reports at x 7.6-9.0. Its fix,
+tried in Python (`harvest_node.py`), is now in the C signal (`lsla.C`, `lsla.patch` regenerated):
+
+- per free cell (r, v), after the base search, a second search from a random completion of the node's fixes
+  with r:v forced: a descent, then KICKS3 kicks (6 random exchanges + descent, kept if better);
+- the harvest: every local optimum any search visits (base, random, refinement) is credited to every free
+  cell it satisfies; a cell's ex is the least such cost;
+- KICKS3 is the fifth field of `QAP_LS_SEARCH` (`t0`: `KICKS:KICKS3`); 0 or absent is the old code path.
+
+**Checks [m].** KICKS3 = 0: `t0` at 24:2 prints the same table as before, line for line
+(`t0out/harvest/d9_k0_r3000.txt` against `t0out/d9_24_2_k30_r3000.txt`); the rebuilt `bnbdrv` (md5 64c7767f)
+reproduces `validate/`'s tai25b traces, `QAP_LS` unset (98 nodes) and mode a (122 nodes, the same `ls.log`),
+in every field but CPU. KICKS3 = 100, against harvest_node.py's counts and the measured branching children
+[m `t0out/harvest/*_k100_*.txt`, `t0out/harvest/jobs.txt`; seed 0; ranks by count, ties by the chain model,
+so they differ from the Python's order-found ranks]:
+
+| node | line | measured branching | Python, harvested: count (rank) | C, KICKS3 100, no refinement | C, KICKS3 100 + 3,000 refinement kicks |
+|---|---|---|---|---|---|
+| tai50b root | c26 | 28 | 26 (38 of 100) | 28 (53) | 28 (19) |
+| | r31 | 10 | 14 (1) | 15 (**1**) | 18 (2) |
+| tai60b d7 10:39 | c59 | 3 | 3 (9 of 106) | 3 (5) | 3 (**1**) |
+| | r11 | 4 | 4 (11) | 4 (13) | 4 (9) |
+| | c47 | 5 | 3 (7) | 3 (7) | 4 (8) |
+| | c54 | 9 | 9 (84) | 9 (75) | 9 (69) |
+| tai60b d8 14:54 | c59 | 3 | 3 (8 of 104) | 3 (4) | 3 (**1**) |
+| | r3 | 4 | 4 (9) | 4 (12) | 4 (8) |
+| | c2 | 7 | 7 (50) | 7 (47) | 7 (41) |
+| tai60b d9 24:2 | c30 | 12 | 4 (25 of 102) | 3 (5) | 4 (10) |
+| | r8 | 4 | 3 (3) | 4 (19) | 4 (15) |
+| | r3 | 4 | 4 (15) | 4 (17) | 4 (13) |
+
+The fixed signal's top line, no refinement: r31 (tai50b root), c10 (d7), c53 (d8), c10 (d9). With
+refinement: **c25** (tai50b root, 15; r31 2nd at 18), **c59** (d7), **c59** (d8), **c53** (d9).
+
+- The C counts match the Python's within 1 at every line but c26 (28 against 26: the C count equals the
+  measured 28). At tai50b's root the fix in C moves c26 from 1st to 19th-53rd.
+- Refinement changes the top line. It lowers cells with 1 < x <= 2.5, and so adds survivors: at tai50b's
+  root r31 goes from 15 to 18 and c25, which nobody has bounded, stays at 15 and comes first. Without
+  refinement r31 is first. At 24:2 refinement moves c30 from 3 to 4 predicted (measured 12) and brings c53 to
+  the top: bounded, it has 4 branching children and 688k, behind c59 (3) and r8 (4, 650k).
+- c30's undercount at 24:2 stays (3-4 against 12), as the coordinator found: its branching children are
+  near misses, which a count of completions within the slack does not see.
+- Cost at n = 60: the random searches take 77-87 CPU s a node (KICKS3 100), so the table goes from 20-24 s to
+  99-113 s; with refinement, 300-350 s a node in all (it was 230-260 s). At tai50b's root: 66 s of random
+  searches, 682 s in all with refinement (813 cells refined).
+- c10, the fixed signal's top line at d7 without refinement (2 predicted survivors), is being bounded at
+  10:39 (`run.sh strong c10`, `runs/sc10`), by the rule for c59 there (fewer than 3 branching children, or 3
+  with a shortfall sum under 861k).
+- tai35b whole tree with mode a and the fix (`t2/tai35b_a_k3`, `QAP_LS_SEARCH=30:3000:2.5:300:100`), running.
+  It passes if nodes <= 983 and gross CPU <= 6,935 s (rule fixed by the coordinator before the run).
 
 ## Not tested yet
 

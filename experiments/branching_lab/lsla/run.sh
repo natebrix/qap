@@ -124,6 +124,13 @@ case ${1:-} in
       QAP_LS_PERM=$BUILD/QAPSOLN/tai60b.sln QAP_LS_LOG=$D/runs/$NAME/ls.txt QAP_LS_DUMP=$D/runs/$NAME/dump.txt \
       go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 9 "$DAT"
     rm -f "$D/runs/$NAME/in.state" ;;
+  root50)
+    # tai50b's root under its production recipe (infra/phase1/recipes/tai50b.par, rule 9), branched on LINE,
+    # its depth-1 children bounded, depth 2 set aside; incumbent best known + 1, as the laptop's run
+    LINE=$2; NAME=root50_$LINE
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    QAP_FORCE_LINE=0:$LINE QAP_LINE_RANK=0 go "$NAME" -p "$BUILD/infra/phase1/recipes/tai50b.par" -u 458821518 -d 1 \
+      -o "$D/runs/$NAME/out.state" "$BUILD/qaplib/tai50b.dat" ;;
   deep)
     # one level deeper, as linetest's deep target: the depth-9 nodes under a strong arm's survivors FIXES (e.g.
     # 11:59 or 13:59,3:59), from runs/s<LINE>/out.state, production's settings and line rule, depth 10 set aside
