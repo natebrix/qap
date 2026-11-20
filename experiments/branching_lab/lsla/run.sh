@@ -78,6 +78,24 @@ case ${1:-} in
       QAP_LS_PERM=$BUILD/QAPSOLN/tai60b.sln QAP_LS_LOG=$D/runs/$NAME/ls.txt QAP_LS_DUMP=$D/runs/$NAME/dump.txt \
       go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 7 "$DAT"
     rm -f "$D/runs/$NAME/in.state" ;;
+  set8)
+    # 10:39 warm from the parent's state under strong.par, branched on LINE, its depth-8 children set aside
+    # unbounded (-d 7), for bounding one depth-8 node under different lines (run.sh at8)
+    LINE=$2; NAME=set8_$LINE
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/cutstate.py" "$D/runs/parent/out.state" "$D/runs/$NAME/in.state" 7 10:39
+    QAP_FORCE_LINE=7:$LINE QAP_LINE_RANK=7 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 7 \
+      -o "$D/runs/$NAME/out.state" "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
+  at8)
+    # one depth-8 node FIX (e.g. 14:54) from runs/set8_LINE7/out.state, bounded under strong.par and branched on
+    # LINE8 (QAP_FORCE_LINE=8:LINE8), its depth-9 children bounded, depth 10 set aside
+    LINE7=$2; FIX=$3; LINE8=$4; NAME=at8_${FIX//:/_}_$LINE8
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err}.txt "$D/runs/$NAME/out.state"
+    python3 -I "$D/cutstate.py" "$D/runs/set8_$LINE7/out.state" "$D/runs/$NAME/in.state" 8 "$FIX"
+    QAP_FORCE_LINE=8:$LINE8 QAP_LINE_RANK=8 go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 9 \
+      -o "$D/runs/$NAME/out.state" -k 600 "$DAT"
+    rm -f "$D/runs/$NAME/in.state" ;;
   deep)
     # one level deeper, as linetest's deep target: the depth-9 nodes under a strong arm's survivors FIXES (e.g.
     # 11:59 or 13:59,3:59), from runs/s<LINE>/out.state, production's settings and line rule, depth 10 set aside

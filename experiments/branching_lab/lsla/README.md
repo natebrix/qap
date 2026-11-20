@@ -11,8 +11,12 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any.
 - **At tai60b's depth-7 chain node, the pair found a line as good as the best anyone had**: c59, the signal's
   first line and the lookahead's choice at CAP 30 and CAP 150, has 3 branching children when bounded, against
-  c47's 5 (linetest's best) and production's c54's 9; at depth 9, 8 branching nodes against c47's 9 and c54's
-  56, though with a 1.5x larger shortfall sum than c47's (1,721k against 1,152k).
+  c47's 5 (linetest's best) and production's c54's 9; at depth 9, 8 branching nodes against c47's 9 (both under
+  rule 9 at depth 8) and production's 56 under c54 (rule 2 at depth 8), though with a 1.5x larger shortfall sum
+  than c47's (1,721k against 1,152k).
+- **At the depth-8 chain node 14:54 the signal's top line, c59, beats rule 9's line there** (3 branching children
+  against r3's 4, shortfall sum 714k against 1,078k, same strong state). Rule 2's line, c2 (production's), is
+  being bounded from the same state.
 - **At that node the CAP 150 lookahead orders all four bounded lines correctly** (c59 3, r11 4, c47 5, c54 9
   branching children); the signal gets the top line right but puts r11 10th. So the lookahead, given enough
   iterations, ranks better than the signal; but it chose the signal's top line.
@@ -73,7 +77,14 @@ What is in hand [m]:
 - **tai40b mode (a) [m `t2/tai40b_a`]: the signal picks production's own line at depths 0, 1 and 2 (r23, r27,
   r22)**, so the tree is production's, 731 nodes; 7,180 CPU s gross, 165 s of it the signal. Below the root
   every line has 1 predicted survivor and the tie is broken by chain-model mass under 0.05. Neither help nor
-  harm, as T3 predicted. (b) K = 2 and K = 4 are running.
+  harm, as T3 predicted.
+- **tai40b (b) K = 2 [m `t2/tai40b_b2`]: 731 nodes again, 8,257 CPU s gross (19% above production), 995 s in
+  the rule (169 signal, 826 lookahead).** At the root it chose c31 from {r23, c31, c2}; then r27 and r22. At
+  every firing every child of every shortlisted line is still open after 30 iterations (40/40, 39/39,
+  38/38), so its scores are unresolved shortfalls, as on tai35b. Fails the kill rule.
+- **tai40b (b) K = 4 [m `t2/tai40b_b4`]: 731 nodes, 9,012 CPU s gross (30% above production), 1,649 s in the
+  rule**, the same lines as K = 2 (c31, r27, r22). Fails. On tai40b every arm has production's 731 nodes; the
+  rule only adds cost.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
@@ -171,7 +182,7 @@ a level down 9 branching nodes under c47 against 56 under c54.
   coordinator's rule (4 < 5). [m `runs/sr11/nodes.txt`]
 
   **Depth 9 under c59 (running, started 07:16 UTC)**, like for like with linetest's depth 9 under c47: from
-  `runs/sc59/out.state`, production's `tai60b.par` and its own line rule at depth 8 (no forced line), depth 10
+  `runs/sc59/out.state`, `tai60b.par` at 0e6c2ecf and its line rule at depth 8 (rule 9; no forced line), depth 10
   set aside (`run.sh deep c59 11:59` and `run.sh deep c59 13:59,3:59`, `splitstate.py` from linetest; 156
   depth-9 nodes in two processes). Rule, the coordinator's, fixed before the result: c59 stays ahead of c47
   only with fewer than 9 branching nodes at depth 9, or 9 with a smaller shortfall sum (c47: 260 nodes,
@@ -179,7 +190,7 @@ a level down 9 branching nodes under c47 against 56 under c54.
   **Result [m `runs/d9c59_*/nodes.txt`]: c59 stays ahead of c47 by the rule, 8 branching nodes at depth 9
   against 9, but on a larger shortfall sum.**
 
-  | depth-8 node | line (production's rule) | depth 9: D | C | B | branching shortfalls | CPU s |
+  | depth-8 node | line (rule 9: the 0e6c2ecf par's bottom block) | depth 9: D | C | B | branching shortfalls | CPU s |
   |---|---|---|---|---|---|---|
   | 11:59 | r3 | 49 | 0 | 3 | 394k, 328k, 282k | 2,185 |
   | 13:59 | c35 | 50 | 0 | 2 | 295k, 206k | 1,625 |
@@ -193,9 +204,35 @@ a level down 9 branching nodes under c47 against 56 under c54.
   c59's survivors are heavier: five of its eight are above 200k, against c47's three of nine, so by shortfall
   c59's depth-9 frontier is 1.5x c47's. Which line is better two levels down is close; both are far ahead of
   production's c54.
+
+  **Correction (from linetest, verified by the coordinator):** production (tai60b-261117) ran with rule 2 in
+  `tai60b.par`'s bottom block (its recipe names commit 316361fc); at 0e6c2ecf the bottom block is rule 9. So the
+  depth-8 lines above (r3, c35, c53) and linetest's under c47 are rule 9's, and c59 against c47 at depth 9 is like
+  for like (both rule 9 at depth 8). Against production's 56 under c54, it compares line + rule 9 with line +
+  rule 2: part of the gap may be the rule, not the depth-7 line. linetest is running that 2x2.
 - **Step 2, mode (a) at tai60b's depth-8 chain node 14:54 (production's c2)**: c54 bounded from the strong
-  parent state first (`run.sh strong c54`, started 07:50 UTC), to give 14:54 its strong state; then 14:54
-  bounded one level under production's rule and under the signal's top line.
+  parent state first (`run.sh strong c54`, done 11:12 UTC [m `runs/sc54/nodes.txt`]: D/C/B 43/1/9 at depth 8,
+  linetest's sc54 again, 7,055 CPU s for the children). There 14:54's cut bound is 607,832,297.5, slack 382,757,
+  and **rule 9 (the 0e6c2ecf par's bottom block) on the strong state branches it on r3; production's cloud run, which had rule 2 in
+  its bottom block (tai60b-261117, commit 316361fc), branched it on c2** (with a
+  weaker bound at 14:54, chose c2).
+
+  The refined signal at 14:54 [m `t0out/d8_14_54_k30_r3000.txt`, 236 CPU s]: **c59 first** (3 predicted
+  survivors; the same top five as at the depth-7 node: c59, c47, c35, c38, r22), r3 9th (4), c2 51st of 104 (7).
+  The depth-9 test: 14:54 bounded under `strong.par` and branched on c59, r3 and c2 in turn, its depth-9
+  children bounded (`run.sh set8 c54`, then `run.sh at8 c54 14:54 LINE`). Rule, fixed before the results:
+  c59 counts as better than a line if it has fewer branching children, or as many with a smaller shortfall
+  sum.
+
+  | 14:54 branched on | by | depth 9: D | C | B | branching shortfalls | sum | CPU s |
+  |---|---|---|---|---|---|---|---|
+  | **c59** | signal #1 | 49 | 0 | **3** | 377k, 239k, 99k | 714k | 2,226 [m `runs/at8_14_54_c59`] |
+  | r3 | rule 9 (0e6c2ecf par), strong state; signal #9 | 47 | 1 | 4 | 393k, 377k, 209k, 99k | 1,078k | 2,864 [m `runs/at8_14_54_r3`] |
+  | c2 (forced) | rule 2, production's cloud run; signal #51 | running (started 12:39) | | | | | |
+  | c2, production's own trace (cloud, weaker bound) | | | | 7 | 117k-411k | | linetest |
+
+  14:54's bound under c59's arm, 607,832,239.6, reproduces the c54 bounding's 607,832,297.5 to 58.
+  **c59 beats r3, rule 9's line on the same state, by the rule (3 branching against 4; 714k against 1,078k).**
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
@@ -290,6 +327,5 @@ moved into place.
 
 - Depth 9 under c59 and r11; any line at tai60b's depth-3 chain node bounded.
 - Mode (a) at tai60b's other chain nodes.
-- tai40b's arms (running).
 - A tai50b partial tree: skipped. Nathan started tai50b whole with mode (a), depths 0-10, refined signal, on
   their laptop at 06:24 UTC (`experiments/branching_lab/laptop/tai50b_ls.sh`; reference tai50b-r9 6,629 nodes).
