@@ -29,11 +29,13 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   [m `runs/t1_cap30/ls.txt`]: it scores c47 (5 true survivors, the best bounded line) last of four and c54
   (9) above it, because 44 of c47's 53 children are still open after 30 iterations. The signal had them
   in the right order. It chose c59, never bounded. Cost 2,548 CPU s of lookahead plus 232 s of signal.
+  At CAP 150 (5,123 s of lookahead, more than the node's own cut phase) c47 and c54 swap into the right order
+  and the choice is still c59; c59 and r11 are being bounded to see if it is right.
 - **Mode (b) K = 4 on tai35b is worse still** [m `t2/tai35b_b4`]: 1,038 nodes, 8,050 CPU s gross (16% above
   production), 1,532 s in the rule. With a wider shortlist the lookahead picks c6 at both depth-2 nodes where it
   fires, and depth 4 grows from 128 nodes to 192. At depth 2 every shortlisted line still has all 33 children
   open after 30 iterations, so the lookahead's scores there are sums of shortfalls on unresolved solves.
-- T1 at CAP 150 and (b) without refinement are running.
+- (b) without refinement and the c59 and r11 boundings are running.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
@@ -102,7 +104,13 @@ a level down 9 branching nodes under c47 against 56 under c54.
   all but 5. At n = 60, depth 7, 30 iterations are too few for the lookahead to see what the full bound sees.
 - c59, the line chosen, has never been bounded, so this run cannot say whether the choice is good. Its
   lookahead (9 children open) and signal (3 predicted survivors) agree that it is promising.
-- CAP 150 is still running.
+- **CAP 150 [m `runs/t1_cap150/ls.txt`]: more iterations put c47 and c54 in the truth's order, and the choice
+  stays c59.** Scores (M; children open after 150 iterations): c59 1.04 (3), r11 2.07 (6), c47 2.15 (8), c54
+  3.37 (10). c47's open count, 8, is now near its 5 true survivors, and c54's 10 near its 9; r11, never bounded,
+  scores just ahead of c47. Cost **5,123 CPU s of lookahead** (209 solves, 10,969 iterations), 2x CAP 30's for
+  5x the cap, plus the same 232 s of signal. That is more than the node's own 4,742 s cut phase.
+- **r11 bounded as a second arm (running, started 04:41 UTC, `run.sh strong r11` -> `runs/sr11/`)**, by the
+  same rule as c59.
 - **c59 bounded (running, started 04:39 UTC, `run.sh strong c59` -> `runs/sc59/`)**, as linetest bounded sc47:
   from the strong parent state, `QAP_FORCE_LINE=7:c59`, `strong.par`, the 53 depth-8 children to the end of
   their bounds, depth 9 set aside. Decision rule, fixed before it finishes (the coordinator's): c59 counts as
