@@ -112,3 +112,59 @@ setting QAP_XBAR_DEBUG 0 default diagnostic
 resumed: 13 open nodes, 171 nodes and 17184.3 s so far, incumbent 6.08215e+08
 branching_weight() = 0.5
 couldn't find [./SYM/tai60b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 17636.1 seconds 
+         Nodes: 184 / 168 / 0
+    root bound: 4.10082e+08
+ fw iterations: 44350
+     DNN bound: 184 nodes, 162 fathomed, 3823.05 s
+     cut phase: 22 nodes, 6 fathomed, 13724.7 s
+
+level    nodes	%fathom	%c.elim	    time
+ 6           1	0.0000	0.0000	  828.37
+ 7           1	0.0000	0.0000	 4862.69
+ 8          53	0.9057	0.0000	 5559.75
+ 9          52	0.9423	0.0000	 2502.15
+10          51	0.9412	0.0000	 2087.63
+11          13	0.7692	0.0000	 1343.67
+12          13	1.0000	N/A	  451.83
+
+Strategy breakdown:
+nodes       0        0        1      183 
+time     0.00     0.00   828.37 16807.72 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 6           1	0.0000	1.0000	        350	   350.0	  199.14
+ 7           1	0.0000	1.0000	        110	   110.0	   53.09
+ 8          53	0.8491	0.1509	       3922	    74.0	 1737.68
+ 9          52	0.9231	0.0769	       1967	    37.8	  804.77
+10          51	0.9412	0.0588	       2052	    40.2	  737.57
+11          13	0.7692	0.2308	        510	    39.2	  166.78
+12          13	0.8462	0.1538	        404	    31.1	  124.02
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 6           1	0.0000	  629.08
+ 7           1	0.0000	 4809.20
+ 8           8	0.3750	 3792.77
+ 9           4	0.2500	 1673.92
+10           3	0.0000	 1327.09
+11           3	0.0000	 1169.73
+12           2	1.0000	  322.87
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 6           0	       0	       0	       0	       0
+ 7           0	       0	       0	       0	       0
+ 8          48	       0	      45	       3	       0
+ 9          49	       0	      48	       1	       0
+10          48	       0	      48	       0	       0
+11          10	       0	      10	       0	       0
+12          13	       0	      11	       2	       0
+
+eigendecompositions for W and U: 14 computed, 12 reused from the per-size cache
