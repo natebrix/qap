@@ -1,0 +1,15 @@
+--- ../latest/branch.C	2026-11-19 18:19:43.015693818 +0000
++++ branch.C	2026-11-20 16:35:41.081100788 +0000
+@@ -1299,6 +1299,12 @@
+   find_most_fathoms(f_row_count,u_row_sum,best_row_f,best_u_row_sum,
+ 		    row_in_U,m);
+ 
++  { // experiments/branching_lab/linetest: QAP_MAXF_DEBUG=1 prints rule 2's counts (children QPB + U put at the cutoff)
++    static const char *mfd = getenv("QAP_MAXF_DEBUG");
++    if (mfd && atoi(mfd) > 0)
++      fprintf(stderr, "maxfathoms: depth %d best_row %d (count %d usum %.6g) best_col %d (count %d usum %.6g)\n", assign.nfix,
++              row_in_U, best_row_f, best_u_row_sum, col_in_U, best_col_f, best_u_col_sum);
++  }
+   if((best_row_f > best_col_f) ||
+      ((best_u_row_sum > best_u_col_sum)&&(best_row_f==best_col_f))) 
+      {
