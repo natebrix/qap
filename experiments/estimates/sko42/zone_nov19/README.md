@@ -96,3 +96,26 @@ et al. needed 6.0 million nodes.
   | `36:16,21:0,22:2` | 40 (1 / 34 / 5) | 6,263 / 5,446 (**1.15x**) | 769 / 595 (1.29x) |
 
   The bound lab's 1.21x and 1.34x on sko49 bracket these.
+
+## Failed pooled solves (Nov 20)
+
+A child's first solve starts from the cut pool its parent handed down. When the pool no longer fits the child the
+solve can fail outright (`latest/bnb.C`, "tai_solves (pool_retry.patch)"): its certified bound ends far below the
+parent's, the node looks far outside `cut.zone`, gets no phase and branches, and its children inherit the failed
+state and fail too, down to depths where the QPB alone fathoms. `dnn.retry = 1` solves such a node again without the
+pool, then cold; tho40c has it since Nov 16, `sko42.par` and `sko49.par` did not until Nov 20.
+
+Unfathomed DNN solves that certified more than 1% of the incumbent (158) below their parent's bound, the outermost
+of each such chain:
+
+| run | failed roots | their subtrees | CPU h |
+|---|---|---|---|
+| z10 | 4 (in 36:15 and 36:17) | 12,113 nodes | 14 |
+| z25 | 3: `36:3,22:21,9:6` (-8,073 against 15,758), `36:16,7:0,33:41,1:6` (-2.4 million), `36:16,40:0,3:41,12:11` (3,950) | 117,254 nodes, the first still open | 189 |
+| sko42-261120 (the block, 08:46 UTC) | `36:7,28:0` at depth 2 (-36,269 against 15,640; 41 nodes and 0.19 CPU h in z25) | 235,764 nodes, open, to depth 16 | 387 of 955 |
+
+So z25's two deep tails, which carried nearly all of its imputed rest, were failures, not sko42's tree: the
+"hidden tail" read above for z10's 36:3 is wrong (z10 did not fail there). Without the failed subtrees (`rest.py`'s
+imputation on the rest of each tree, corrected as above): **z25 about 680-690 CPU h, z10 about 960-1,000** (0.70,
+close to the paired 0.65). With the policy block's 1.2-1.35x, sko42 under `sko42.par` with `dnn.retry = 1` should
+take about 500-700 CPU h. The table under "The tree's size" above stands as written for the traces as they are.
