@@ -1,0 +1,12 @@
+# tai60b-261117: subtrees opened by sets of branched nodes (q1_sets.py)
+331154 nodes, 3597 CPU h. "opened" = the set's branching children off the chain (path, mirror) and everything below them, union.
+
+| set | nodes in set | their b | opened: nodes | opened: CPU | random, same depths: nodes, CPU |
+|---|---|---|---|---|---|
+| b >= 4 (all) | 412 | 1971 | 95.8% | 97.8% | 60.2%, 63.1% |
+| b >= 4, rule 9 levels (depths 0-6) | 22 | 145 | 29.3% | 52.3% | 13.9%, 24.5% |
+| b >= 4, rule 2 levels (depths 7+) | 390 | 1826 | 89.8% | 84.1% | 51.6%, 49.7% |
+| b >= 4, rule 2, column into a cluster-1 location | 323 | 1552 | 82.6% | 80.4% | 50.4%, 49.0% |
+| every rule-2 column into a cluster-1 location (any b) | 1934 | 3425 | 88.6% | 84.6% | 90.4%, 85.9% |
+| b >= 4, rule 2, any other line | 67 | 274 | 20.9% | 11.6% | 3.9%, 2.2% |
+| chain nodes (path and mirror) | 102 | 254 | 99.0% | 99.2% | 10.5%, 12.5% |
