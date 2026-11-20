@@ -16,6 +16,9 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 - **As a shortlist on tai35b it agrees with the DNN lookahead**: at 4 of the 5 nodes where (c) fired and
   the gate passes, the signal's first line is the lookahead's choice, for 6 CPU s against 450 s. On tai40b
   the slack below the root is too small for it to tell lines apart (T3).
+- **The signal alone (mode a) on tai35b: 983 nodes against production's 1,017 and (c)'s 780**, 6,352 CPU s
+  gross (production 6,935), 396 s of it the signal. It matches (c) at the root and depth 1 and loses (c)'s
+  depth-2 gains, because the refined signal prefers c5 to c23 (T2).
 - tai35b's production arm reproduces line_signals' tree exactly, so (c)'s numbers are reused (below).
 - T1 (the lookahead on the shortlist at the depth-7 node) and the other tai35b arms are running.
 
