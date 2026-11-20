@@ -69,7 +69,11 @@ What is in hand [m]:
 - **tai40b production [m `t2/tai40b_prod`]: 731 nodes, 6,925 CPU s, closed at the optimum**, the same node
   count as line_signals' production (731, 7,379 s). Its tree is a single chain: one branching node at every
   depth, every other child fathomed. A line choice can only save by giving the chain fewer, cheaper siblings;
-  (c) lost there (829 nodes, 17,461 s). (a), (b) K = 2 and K = 4 are running in that order.
+  (c) lost there (829 nodes, 17,461 s).
+- **tai40b mode (a) [m `t2/tai40b_a`]: the signal picks production's own line at depths 0, 1 and 2 (r23, r27,
+  r22)**, so the tree is production's, 731 nodes; 7,180 CPU s gross, 165 s of it the signal. Below the root
+  every line has 1 predicted survivor and the tie is broken by chain-model mass under 0.05. Neither help nor
+  harm, as T3 predicted. (b) K = 2 and K = 4 are running.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
