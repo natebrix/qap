@@ -5,7 +5,21 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 
 ## Answer (in progress; updated as arms finish)
 
-**On tai35b, no: all three arms of (b) fail the kill rule (1,000 to 1,046 nodes, 7,200 to 8,050 CPU s against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any of them.** What is in hand [m]:
+**The signal has legs; the lookahead on its shortlist, so far, adds nothing to it.**
+
+- **On tai35b, (b) fails**: all three arms of (b) fail the kill rule (1,000 to 1,046 nodes, 7,200 to 8,050 CPU s
+  against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any.
+- **At tai60b's depth-7 chain node, the pair found a better line than anyone had**: c59, the signal's first line
+  and the lookahead's choice at CAP 30 and CAP 150, has 3 branching children when bounded, against c47's 5
+  (linetest's best) and production's c54's 9, at less than half their children's CPU. One node, one level.
+- **In every firing so far where the lookahead was decisive, its choice was the signal's top line** (tai35b's
+  root and depth 1, tai60b's depth 7). Where the two differed (tai35b depth 2), the lookahead's scores were
+  unresolved solves and its choices were worse. So the evidence supports mode (a), the signal alone, at a few
+  seconds to a few minutes per firing, and not yet the 0.7-1.5 core-hours of lookahead per firing at n = 60.
+- Cheapest next step: mode (a) at more of tai60b's chain nodes (depths 3-8), each bounded one level as here,
+  about 3 core-hours per line; and mode (a) on tai40b (running).
+
+What is in hand [m]:
 
 - The signal in C costs **35 CPU s per firing at n = 60** with 30 kicks per child, and 355 s with 3,000
   more kicks on the cells near the threshold. The DNN lookahead it would feed costs hours per firing at that
@@ -30,7 +44,10 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   (9) above it, because 44 of c47's 53 children are still open after 30 iterations. The signal had them
   in the right order. It chose c59, never bounded. Cost 2,548 CPU s of lookahead plus 232 s of signal.
   At CAP 150 (5,123 s of lookahead, more than the node's own cut phase) c47 and c54 swap into the right order
-  and the choice is still c59; c59 and r11 are being bounded to see if it is right.
+  and the choice is still c59. **Bounded, c59 is the best line yet at this node**: 3 branching children
+  against c47's 5 and c54's 9, children's CPU 2,490 s against 5,560 and 6,460 [m `runs/sc59`]. So at n = 60,
+  where the lookahead had 150 iterations, the signal-then-lookahead pair found a better line than production's
+  and than linetest's best. One node; depth 9 not bounded; r11 (lookahead #2) still being bounded.
 - **Mode (b) K = 4 on tai35b is worse still** [m `t2/tai35b_b4`]: 1,038 nodes, 8,050 CPU s gross (16% above
   production), 1,532 s in the rule. With a wider shortlist the lookahead picks c6 at both depth-2 nodes where it
   fires, and depth 4 grows from 128 nodes to 192. At depth 2 every shortlisted line still has all 33 children
@@ -121,46 +138,20 @@ a level down 9 branching nodes under c47 against 56 under c54.
   5x the cap, plus the same 232 s of signal. That is more than the node's own 4,742 s cut phase.
 - **r11 bounded as a second arm (running, started 04:41 UTC, `run.sh strong r11` -> `runs/sr11/`)**, by the
   same rule as c59.
-- **c59 bounded (running, started 04:39 UTC, `run.sh strong c59` -> `runs/sc59/`)**, as linetest bounded sc47:
-  from the strong parent state, `QAP_FORCE_LINE=7:c59`, `strong.par`, the 53 depth-8 children to the end of
-  their bounds, depth 9 set aside. Decision rule, fixed before it finishes (the coordinator's): c59 counts as
-  better than c47 only with fewer than 5 branching children, or 5 with a smaller shortfall sum than sc47's.
-  Compare: sc47 D/C/B 45/3/5, sc54 43/1/9. Expected about 3 h [e: sc47 took 10,400 CPU s].
+- **c59 bounded: better than c47 by the fixed rule** [m `runs/sc59/nodes.txt`, `run.sh strong c59`; sc47 and
+  sc54 from linetest's `runs/s*/nodes.txt`]. From the strong parent state, `QAP_FORCE_LINE=7:c59`, `strong.par`,
+  the 53 depth-8 children bounded to the end, depth 9 set aside. Rule (the coordinator's, fixed before the
+  result): c59 beats c47 only with fewer than 5 branching children, or 5 with a smaller shortfall sum.
 
-## T2: whole trees (`t2.sh`, `t2queue.sh`, `summ.py` -> `out/t2_*.md`)
+  | line | D | C | B | branching children's shortfalls | sum | depth-8 CPU s |
+  |---|---|---|---|---|---|---|
+  | **c59** (signal #1, lookahead #1 at CAP 30 and 150) | 50 | 0 | **3** | 427k, 289k, 145k (11:59, 13:59, 3:59) | 861k | 2,490 |
+  | c47 (signal #2) | 45 | 3 | 5 | | 978k | 5,560 |
+  | c54 (production) | 43 | 1 | 9 | | 2,588k | 6,460 |
 
-tai35b, coordinator local mode, 2 slots, incumbent the optimum + 1, line_signals' `tai35b.par`, windows
-depth 0-2 as (c). **Kill rule, fixed before the runs:** (b) has no legs on tai35b unless its gross CPU is
-more than 7% (the noise) below production's, or it reaches <= 780 nodes (c's) with lookahead CPU under
-1,402 s (half of c's 2,803 s); and it must close at the optimum with no open node.
-
-| arm | nodes | CPU s | rule CPU s | CPU s net of the rule | source |
-|---|---|---|---|---|---|
-| production | 1,017 | 6,935 | - | 6,935 | [m] `t2/tai35b_prod` |
-| (c) `QAP_LA=4:30:0:2` | 780 | 8,900 | 2,803 (6 nodes) | 6,097 | [m] line_signals `runs/tai35b_la4p` |
-| (a) top LS line (refined signal) | 983 | 6,352 | 396 (5 firings, 1 gate fail) | 5,956 | [m] `t2/tai35b_a` |
-| (b) K = 2, CAP 30 (refined signal) | 1,000 | 7,381 | 1,142 (402 signal + 740 lookahead; 5 firings, 1 gate fail) | 6,240 | [m] `t2/tai35b_b2` |
-| (b) K = 4, CAP 30 (refined signal) | 1,038 | 8,050 | 1,532 (400 signal + 1,132 lookahead; 5 firings, 1 gate fail) | 6,519 | [m] `t2/tai35b_b4` | | | | |
-| (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | 1,046 | 7,200 | 714 (21 signal + 693 lookahead; 5 firings, 1 gate fail) | 6,486 | [m] `t2/tai35b_b2r0` |
-
-Production here has the same 1,017 nodes as line_signals' two production runs, with the same (depth,
-fixes, bound, outcome, line) at every node [m: sorted trace comparison]; its CPU, 6,935 s, is inside their
-6,931-7,390. So line_signals' (c) arm is reused rather than rerun. (The coordinator's own count, 987, is not
-the trace's; line_signals saw the same.)
-
-## T3: the signal's cost, and its ranking against the lookahead's (`t3rank.py`, `t3out/`, `out/t3_rank.md`)
-
-**Cost per firing [m]** (t0, one core, the gate's 300 kicks plus the table):
-
-| node | n, m | 30 kicks | + 3,000 kicks near the threshold | for comparison |
-|---|---|---|---|---|
-| tai35b root | 35, 35 | 6.4 s | +115 s (236 cells) | the root's DNN node 590 s; (c)'s lookahead 468 s |
-| tai40b root | 40, 40 | 10.7 s | +91 s (144 cells) | the root's DNN node 1,277 s |
-| tai60b depth 7 | 60, 53 | 34.6 s | +320 s (284 cells) | bounding the depth-7 node 10:39 itself under `strong.par` about 4,900 s; a depth-9 node 21-52 s (linetest `d9score.txt`: 52 children per depth-8 node in 1,088-2,692 s) |
-
-**Ranking at the 12 nodes where (c) fired in line_signals [m `out/t3_rank.md`].** The signal (30 kicks)
-was run at each node, with that arm's slack, and the 8 lines the lookahead judged put in the signal's order:
-
+  Every child of c59 that does not branch is fathomed by the DNN bound, none needs the cut phase, so its
+  children cost less than half of c47's. One level down, this is the best line bounded at this node, and both
+  the signal and the lookahead put it first. Depth 9 under c59 is not bounded.
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
