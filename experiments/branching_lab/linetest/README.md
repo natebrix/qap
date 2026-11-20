@@ -65,6 +65,39 @@ the kill rule, which is Nathan's call. The run ran from 23:22 to 09:22 under the
 09:25 under the 15:30 deadline. Three container restarts (about 00:00, 03:25 and 04:10 UTC) cost only the chunks in
 progress, which were rerun.
 
+### The depth-17 line test (Nov 20, 11:25-12:58 UTC; the coordinator's follow-up to the depth-18 stop)
+
+**By the decision rule fixed in advance (the signal helps if its three lines leave at most 12 branching children,
+against the taken lines' 25), the signal helps: its lines left 8 (5, 1 and 2) [m]. That is a weaker result than it
+looks.** At the two parents off the chain (8:49 and 8:57), the signal predicted 0 survivors for every line. Their own
+best completions are 3.4 to 3.65 times their slack above the best known, the regime where the landscape README found
+the threshold fails. Its "top line" r51 won only on the tie-break: off 0.002 against 0.002 for the taken c30, which
+was the signal's third line. So at those two parents the signal did not tell r51 from c30, and r51's 5 and 1 against
+c30's 12 and 6 is one draw, not a prediction borne out. At the path node 22:31 the signal made a real call: r13 with 1
+predicted survivor against the taken c26's 2. r13 left 2, c26 left 7. The parents are the down run's, rebuilt
+(`rebuild.py`: their ancestors bounded one at a time from the depth-9 states). Every rebuilt node, depths 10 to 17,
+has the run's first-solve bound, cut bound and line to the last digit printed (`runs/rebuild/*.out`). The arms are
+`arm17.sh`: the parent forced to the signal's line (`QAP_FORCE_LINE=17:LINE`), production's settings, its 43
+children bounded, depth 19 set aside. Signal: `signal_node.py`, every free line at the parent's own slack, 30 and 300
+kicks (`out/signal_*`). Scores: `score17.py`, `out/score17.txt`.
+
+| parent (slack) | line | signal: predicted survivors, 300 kicks | D / C / B | branching shortfall: sum / largest | CPU s |
+|---|---|---|---|---|---|
+| 8:49 (190,223) | taken c30 | 0 (rank 3 of 86) | 17 / 14 / **12** | 3,350k / 1,073k | 4,881 |
+| | signal r51 | 0 (rank 1, on the tie-break) | 33 / 5 / **5** | 543k / 179k | 2,048 |
+| 8:57 (223,279) | taken c30 | 0 (rank 3) | 24 / 13 / **6** | 962k / 276k | 3,772 |
+| | signal r51 | 0 (rank 1, on the tie-break) | 35 / 7 / **1** | 706k / 706k | 1,731 |
+| 22:31, path (85,768) | taken c26 | 2 (rank 33) | 33 / 3 / **7** | 391k / 157k | 5,914 |
+| | signal r13 | 1 (rank 1) | 41 / 0 / **2** | 281k / 158k | 1,651 |
+| **total** | taken | 2 | **25** | 4,703k | 14,567 |
+| | signal | 1 | **8** | 1,530k | 5,430 |
+
+The signal's top three lines, 300 kicks: at 8:49 and at 8:57, r51, c38, c30 (0 predicted each; every line has 0); at
+22:31, r13, c0, c36 (1 each). Only the top line was bounded at each parent. The second and third were not, and since
+the taken line was never the signal's top line, no second line was needed under the coordinator's rule. One branching
+child of 8:57's r51 is far from the cutoff (51:9, 706k short), so 1 child there is not necessarily a light subtree.
+Below depth 18 nothing is measured.
+
 *Earlier status, as of Nov 20 09:22 UTC (the 10-hour limit, depths 9-17; superseded above):* Depths 9 to 17 under
 c47 are bounded. At every one of them c47's branching count stayed far below half of production's under c54: 7 to 28
 against 56 to 199. Its largest share is 15% (depth 13, 28 against 185). Summed over depths 9-17: **5,017 nodes and 111
