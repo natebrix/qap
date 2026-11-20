@@ -1,0 +1,94 @@
+# Q3: sibling repetition (q2q3_features.py)
+A sibling group = the branched children of one node (two or more, all children traced). "same line" = every sibling chose one line. ICC = intraclass correlation of b within groups (one-way ANOVA estimator).
+
+## tai60b-261117: 1928 sibling groups (mean size 2.8); all siblings on one line: 88%; ICC of b 0.40
+   b of the high (b >= 4) nodes: 1971; in groups where every sibling took the same line: 1455 (74%); in a same-line set of >= 2 siblings with b >= 3: 1399 (71%); high nodes with no branched sibling: b 120 (6%)
+ band  groups  one line  mean size  rho(b of two siblings)
+  0-2       2      0.50       3.50                     NaN
+  3-6      51      0.41       3.67                    0.09
+ 7-10     431      0.93       3.67                    0.52
+11-15     499      0.93       2.30                   -0.08
+16-22     840      0.84       2.73                    0.49
+  23+     105      0.92       2.35                    0.17
+   largest same-line sibling sets with two or more b >= 3 (sum b, siblings, line, depth, ...parent, b each):
+   (np.int64(56), 10, 'c2', 8, '44:58,43:45,1:33,6:24,7:19,0:32,10:39', [7, 4, 7, 7, 7, 5, 0, 7, 7, 5])
+   (np.int64(56), 10, 'c2', 8, '44:45,43:58,1:33,6:24,7:19,0:32,10:39', [7, 4, 7, 7, 7, 5, 0, 7, 7, 5])
+   (np.int64(47), 7, 'c54', 7, '44:58,43:45,1:33,6:59,22:31,12:0', [8, 8, 6, 7, 6, 6, 6])
+   (np.int64(46), 8, 'c2', 8, '44:58,43:45,1:33,6:59,22:31,12:0,13:36', [7, 7, 5, 6, 4, 5, 6, 6])
+   (np.int64(46), 8, 'c2', 8, '44:58,43:45,1:33,6:59,22:31,12:0,11:36', [7, 7, 5, 6, 4, 5, 6, 6])
+   (np.int64(41), 12, 'c54', 7, '44:45,43:58,1:33,6:59,22:31,12:0', [0, 6, 5, 6, 0, 0, 6, 6, 0, 1, 4, 7])
+   (np.int64(31), 6, 'c43', 9, '8,43:45,1:33,6:59,22:31,12:0,11:36,18:54', [7, 5, 0, 7, 6, 6])
+   (np.int64(29), 7, 'c2', 8, '44:58,43:45,1:33,6:59,22:31,12:0,3:36', [4, 4, 4, 5, 4, 4, 4])
+
+## tai60b-c47: 29 sibling groups (mean size 2.9); all siblings on one line: 24%; ICC of b 0.36
+   b of the high (b >= 4) nodes: 43; in groups where every sibling took the same line: 18 (42%); in a same-line set of >= 2 siblings with b >= 3: 18 (42%); high nodes with no branched sibling: b 5 (12%)
+ band  groups  one line  mean size  rho(b of two siblings)
+ 7-10       7      0.14       2.86                   -0.56
+11-15      16      0.25       3.19                   -0.10
+16-22       6      0.33       2.00                    0.39
+   largest same-line sibling sets with two or more b >= 3 (sum b, siblings, line, depth, ...parent, b each):
+   (np.int64(18), 2, 'c30', 17, '53,32:40,3:35,11:36,13:59,12:0,9:55,4:29', [12, 6])
+
+## tai50b-261116: 34 sibling groups (mean size 3.2); all siblings on one line: 76%; ICC of b 0.03
+   b of the high (b >= 4) nodes: 62; in groups where every sibling took the same line: 12 (19%); in a same-line set of >= 2 siblings with b >= 3: 4 (6%); high nodes with no branched sibling: b 32 (52%)
+ band  groups  one line  mean size  rho(b of two siblings)
+  0-2       5      0.60       4.20                    0.00
+  3-6       7      0.14       4.00                    0.37
+ 7-10      17      1.00       2.94                    0.23
+11-15       4      1.00       2.00                     NaN
+16-22       1      1.00       2.00                     NaN
+   largest same-line sibling sets with two or more b >= 3 (sum b, siblings, line, depth, ...parent, b each):
+   (np.int64(7), 3, 'c41', 9, '33:32,32:0,45:34,40:39,30:22,28:31,26:20', [0, 3, 4])
+
+## tai50b-r9: 22 sibling groups (mean size 3.2); all siblings on one line: 27%; ICC of b -0.19
+   b of the high (b >= 4) nodes: 42; in groups where every sibling took the same line: 0 (0%); in a same-line set of >= 2 siblings with b >= 3: 0 (0%); high nodes with no branched sibling: b 24 (57%)
+ band  groups  one line  mean size  rho(b of two siblings)
+  0-2       5      0.60       4.20                    0.00
+  3-6       7      0.14       4.00                    0.37
+ 7-10       6      0.17       2.33                   -0.25
+11-15       1      1.00       2.00                     NaN
+16-22       3      0.00       2.00                     NaN
+   largest same-line sibling sets with two or more b >= 3 (sum b, siblings, line, depth, ...parent, b each):
+
+## tai50b-ls: 18 sibling groups (mean size 5.4); all siblings on one line: 11%; ICC of b -0.06
+   b of the high (b >= 4) nodes: 69; in groups where every sibling took the same line: 0 (0%); in a same-line set of >= 2 siblings with b >= 3: 41 (59%); high nodes with no branched sibling: b 28 (41%)
+band  groups  one line  mean size  rho(b of two siblings)
+ 0-2      12      0.17       7.00                   -0.03
+ 3-6       6      0.00       2.17                    0.45
+   largest same-line sibling sets with two or more b >= 3 (sum b, siblings, line, depth, ...parent, b each):
+   (np.int64(29), 2, 'c37', 1, '-', [15, 14])
+   (np.int64(14), 5, 'r31', 1, '-', [4, 4, 4, 0, 2])
+   (np.int64(9), 3, 'c7', 1, '-', [3, 3, 3])
+
+## tai35b_base: 5 sibling groups (mean size 2.2); all siblings on one line: 100%; ICC of b -0.47
+   b of the high (b >= 4) nodes: 0; in groups where every sibling took the same line: 0 (0%); in a same-line set of >= 2 siblings with b >= 3: 0 (0%); high nodes with no branched sibling: b 0 (0%)
+band  groups  one line  mean size  rho(b of two siblings)
+ 0-2       2       1.0        2.5                     NaN
+ 3-6       3       1.0        2.0                     NaN
+   largest same-line sibling sets with two or more b >= 3 (sum b, siblings, line, depth, ...parent, b each):
+
+## tho40ab-32: 116 sibling groups (mean size 4.9); all siblings on one line: 51%; ICC of b 0.22
+   b of the high (b >= 4) nodes: 396; in groups where every sibling took the same line: 36 (9%); in a same-line set of >= 2 siblings with b >= 3: 355 (90%); high nodes with no branched sibling: b 31 (8%)
+band  groups  one line  mean size  rho(b of two siblings)
+ 3-6     111      0.53       4.99                    0.17
+7-10       5      0.00       2.60                     NaN
+   largest same-line sibling sets with two or more b >= 3 (sum b, siblings, line, depth, ...parent, b each):
+   (np.int64(112), 19, 'c7', 3, '26:10,8:0', [0, 2, 10, 18, 1, 2, 0, 3, 0, 0, 4, 8, 10, 4, 21, 9, 2, 18, 0])
+   (np.int64(80), 10, 'c39', 3, '26:10,8:0', [3, 4, 3, 10, 5, 2, 25, 8, 19, 1])
+   (np.int64(52), 17, 'c24', 4, '26:10,8:0,2:32', [0, 7, 11, 2, 0, 3, 2, 0, 0, 5, 2, 3, 3, 3, 0, 11, 0])
+   (np.int64(41), 21, 'c39', 4, '26:10,8:0,39:32', [0, 0, 2, 3, 3, 0, 0, 3, 1, 0, 6, 5, 0, 0, 4, 1, 5, 0, 3, 0, 5])
+   (np.int64(25), 2, 'c8', 3, '26:10,8:0', [13, 12])
+   (np.int64(22), 10, 'c8', 5, '26:10,8:0,2:32,6:39', [0, 1, 0, 0, 3, 5, 5, 5, 0, 3])
+   (np.int64(19), 15, 'c39', 4, '26:10,8:0,18:32', [0, 0, 2, 1, 3, 0, 5, 3, 0, 0, 4, 0, 0, 0, 1])
+   (np.int64(19), 8, 'c24', 4, '26:10,8:0,35:32', [2, 7, 0, 0, 0, 0, 2, 8])
+
+## nug30-trace-a: 30 sibling groups (mean size 4.1); all siblings on one line: 7%; ICC of b 0.54
+   b of the high (b >= 4) nodes: 82; in groups where every sibling took the same line: 0 (0%); in a same-line set of >= 2 siblings with b >= 3: 49 (60%); high nodes with no branched sibling: b 9 (11%)
+band  groups  one line  mean size  rho(b of two siblings)
+ 0-2       9       0.0       7.67                   -0.03
+ 3-6      21       0.1       2.52                    0.27
+   largest same-line sibling sets with two or more b >= 3 (sum b, siblings, line, depth, ...parent, b each):
+   (np.int64(22), 2, 'r4', 1, '-', [13, 9])
+   (np.int64(12), 2, 'c0', 1, '-', [6, 6])
+   (np.int64(11), 2, 'r6', 1, '-', [6, 5])
+   (np.int64(7), 3, 'r21', 2, '0:13', [4, 3, 0])

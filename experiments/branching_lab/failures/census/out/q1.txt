@@ -1,0 +1,147 @@
+# Q1: concentration of the work over branched nodes (q1_concentration.py)
+
+## tai60b-261117: 331154 nodes, 3596.7 CPU h, 7496 branched nodes with all children traced; sum b = 7495
+b: max 12, top values [12, 11, 11, 10, 10, 9, 8, 8, 8, 8, 8, 7], median 1.0, mean 1.00, b=0 at 3536
+chain (best known path and mirror) nodes in the trace: 104
+| rank by | top | nodes | share of sum b | direct nodes | direct CPU | opened: nodes | opened: CPU | random at the same depths: nodes, CPU |
+|---|---|---|---|---|---|---|---|---|
+| b | 1% | 75 (>= 6: 89) | 6.9% | 1.2% | 5.4% | 81.8% | 89.2% | 28.1%, 33.4% |
+| b | 5% | 375 (>= 4: 412) | 24.3% | 5.4% | 14.6% | 95.6% | 97.7% | 56.7%, 61.7% |
+| b | 10% | 750 (>= 3: 872) | 39.8% | 10.4% | 22.0% | 98.2% | 98.8% | 75.6%, 77.3% |
+| excess | 1% | 75 (>= 4: 158) | 6.6% | 1.2% | 5.0% | 77.8% | 80.4% | 17.1%, 21.9% |
+| excess | 5% | 375 (>= 3: 439) | 22.8% | 5.4% | 13.8% | 94.8% | 96.3% | 42.1%, 46.6% |
+| excess | 10% | 750 (>= 2: 993) | 36.8% | 10.6% | 22.3% | 96.7% | 98.1% | 64.3%, 65.7% |
+
+by rule and depth band (direct cost = bounding the children of the band's branched nodes; "top 10%" = the band's top tenth by b, its share of the band's sum b and direct CPU)
+| rule | depths | branched | sum b | mean b | var/mean b | max b | direct nodes | direct CPU | top 10%: k, share of b, of direct CPU | top 10% opened: nodes, CPU (random same depths) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 9 | 0-2 | 10 | 21 | 2.10 | 2.80 | 6 | 0.2% | 0.5% | 1, 29%, 17% | 1.7%, 3.4% (0.8%, 1.6%) |
+| 9 | 3-6 | 216 | 301 | 1.39 | 3.03 | 12 | 3.6% | 9.1% | 22, 46%, 23% | 29.4%, 51.0% (11.3%, 20.1%) |
+| 2 | 7-10 | 1880 | 2292 | 1.22 | 2.23 | 10 | 28.9% | 52.3% | 188, 43%, 20% | 81.1%, 80.6% (44.9%, 47.5%) |
+| 2 | 11-15 | 1965 | 1664 | 0.85 | 0.98 | 5 | 28.1% | 21.3% | 196, 30%, 17% | 44.5%, 24.4% (18.8%, 10.0%) |
+| 2 | 16-22 | 2861 | 2753 | 0.96 | 1.70 | 6 | 34.6% | 16.0% | 286, 38%, 19% | 26.1%, 11.9% (19.9%, 9.4%) |
+| 2 | 23+ | 564 | 464 | 0.82 | 0.76 | 5 | 4.7% | 0.8% | 56, 29%, 17% | 2.7%, 0.4% (1.6%, 0.2%) |
+
+## tai50b-261116: 8225 nodes, 132.7 CPU h, 214 branched nodes with all children traced; sum b = 213
+b: max 10, top values [10, 6, 5, 5, 4, 4, 4, 4, 4, 4, 4, 4], median 1.0, mean 1.00, b=0 at 76
+chain (best known path) nodes in the trace: 48
+| rank by | top | nodes | share of sum b | direct nodes | direct CPU | opened: nodes | opened: CPU | random at the same depths: nodes, CPU |
+|---|---|---|---|---|---|---|---|---|
+| b | 1% | 2 (>= 6: 2) | 7.5% | 1.2% | 9.1% | 30.9% | 48.2% | 20.0%, 36.7% |
+| b | 5% | 11 (>= 4: 13) | 25.4% | 6.0% | 23.1% | 76.7% | 76.3% | 37.6%, 48.4% |
+| b | 10% | 21 (>= 2: 34) | 39.0% | 11.2% | 32.0% | 84.4% | 83.9% | 53.8%, 59.9% |
+| excess | 1% | 2 (>= 4.5: 2) | 4.7% | 1.2% | 5.8% | 10.8% | 12.3% | 2.7%, 3.8% |
+| excess | 5% | 11 (>= 2: 13) | 18.3% | 5.9% | 15.9% | 54.1% | 42.4% | 19.3%, 16.5% |
+| excess | 10% | 21 (>= 1.5: 23) | 32.4% | 11.3% | 25.3% | 76.3% | 69.7% | 33.1%, 29.3% |
+
+by rule and depth band (direct cost = bounding the children of the band's branched nodes; "top 10%" = the band's top tenth by b, its share of the band's sum b and direct CPU)
+| rule | depths | branched | sum b | mean b | var/mean b | max b | direct nodes | direct CPU | top 10%: k, share of b, of direct CPU | top 10% opened: nodes, CPU (random same depths) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 9 | 0-2 | 23 | 28 | 1.22 | 3.93 | 10 | 13.6% | 27.2% | 2, 54%, 34% | 19.1%, 35.9% (19.7%, 36.6%) |
+| 9 | 3-6 | 48 | 52 | 1.08 | 1.96 | 6 | 26.5% | 42.1% | 5, 44%, 26% | 47.9%, 39.0% (12.4%, 12.0%) |
+| 2 | 7-10 | 68 | 74 | 1.09 | 1.34 | 4 | 33.9% | 23.2% | 7, 35%, 20% | 30.8%, 14.8% (15.7%, 7.7%) |
+| 2 | 11-15 | 41 | 27 | 0.66 | 0.34 | 1 | 18.7% | 5.4% | 4, 15%, 10% | 2.7%, 1.0% (2.2%, 0.8%) |
+| 2 | 16-22 | 10 | 9 | 0.90 | 0.32 | 2 | 3.8% | 1.0% | 1, 22%, 21% | 0.8%, 0.3% (0.8%, 0.3%) |
+| 2 | 23+ | 24 | 23 | 0.96 | 0.04 | 1 | 3.5% | 0.2% | 2, 9%, 0% | 0.0%, 0.0% (0.0%, 0.0%) |
+
+## tai50b-r9: 6001 nodes, 115.3 CPU h, 141 branched nodes with all children traced; sum b = 143
+b: max 10, top values [10, 6, 5, 5, 4, 4, 4, 4, 3, 2, 2, 2], median 1, mean 1.01, b=0 at 47
+chain (best known path) nodes in the trace: 19
+| rank by | top | nodes | share of sum b | direct nodes | direct CPU | opened: nodes | opened: CPU | random at the same depths: nodes, CPU |
+|---|---|---|---|---|---|---|---|---|
+| b | 1% | 1 (>= 10: 1) | 7.0% | 0.8% | 6.6% | 26.2% | 42.7% | 26.2%, 42.7% |
+| b | 5% | 7 (>= 4: 8) | 26.6% | 5.5% | 24.0% | 69.9% | 72.5% | 36.6%, 51.2% |
+| b | 10% | 14 (>= 2: 22) | 38.5% | 10.6% | 32.1% | 86.1% | 82.7% | 46.3%, 56.5% |
+| excess | 1% | 1 (>= 5: 1) | 3.5% | 0.8% | 2.7% | 8.0% | 7.7% | 1.0%, 0.8% |
+| excess | 5% | 7 (>= 2: 7) | 20.3% | 5.4% | 17.2% | 49.2% | 36.2% | 12.7%, 12.5% |
+| excess | 10% | 14 (>= 1: 24) | 32.9% | 10.8% | 28.6% | 74.0% | 66.5% | 31.0%, 32.0% |
+
+by rule and depth band (direct cost = bounding the children of the band's branched nodes; "top 10%" = the band's top tenth by b, its share of the band's sum b and direct CPU)
+| rule | depths | branched | sum b | mean b | var/mean b | max b | direct nodes | direct CPU | top 10%: k, share of b, of direct CPU | top 10% opened: nodes, CPU (random same depths) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 9 | 0-2 | 23 | 28 | 1.22 | 3.93 | 10 | 18.6% | 31.9% | 2, 54%, 34% | 26.2%, 42.7% (27.6%, 44.5%) |
+| 9 | 3-6 | 48 | 52 | 1.08 | 1.96 | 6 | 36.3% | 51.1% | 5, 44%, 26% | 48.3%, 34.5% (13.1%, 12.4%) |
+| 9 | 7-10 | 32 | 26 | 0.81 | 0.57 | 2 | 22.3% | 10.9% | 3, 23%, 15% | 9.0%, 3.6% (5.2%, 1.5%) |
+| 9 | 11-15 | 23 | 24 | 1.04 | 0.12 | 2 | 14.1% | 3.8% | 2, 17%, 8% | 8.9%, 1.4% (2.7%, 0.6%) |
+| 9 | 16-22 | 15 | 13 | 0.87 | 0.44 | 2 | 7.8% | 1.2% | 2, 31%, 24% | 2.9%, 0.3% (3.2%, 0.4%) |
+
+## tai35b_base: 1017 nodes, 1.9 CPU h, 46 branched nodes with all children traced; sum b = 45
+b: max 3, top values [3, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1], median 1.0, mean 0.98, b=0 at 7
+chain (best known path) nodes in the trace: 33
+| rank by | top | nodes | share of sum b | direct nodes | direct CPU | opened: nodes | opened: CPU | random at the same depths: nodes, CPU |
+|---|---|---|---|---|---|---|---|---|
+| b | 1% | 1 (>= 3: 1) | 6.7% | 3.4% | 11.7% | 22.5% | 29.7% | 22.5%, 29.7% |
+| b | 5% | 2 (>= 2: 5) | 11.1% | 6.8% | 20.0% | 25.9% | 34.3% | 24.2%, 32.0% |
+| b | 10% | 5 (>= 2: 5) | 24.4% | 16.4% | 40.8% | 43.9% | 51.8% | 33.2%, 40.1% |
+| excess | 1% | 1 (>= 1: 4) | 2.2% | 3.0% | 3.7% | 0.0% | 0.0% | 2.2%, 1.9% |
+| excess | 5% | 2 (>= 1: 4) | 6.7% | 6.4% | 12.0% | 3.3% | 4.5% | 10.0%, 12.3% |
+| excess | 10% | 5 (>= 0.5: 5) | 15.6% | 15.3% | 21.9% | 15.1% | 15.9% | 13.0%, 14.8% |
+
+by rule and depth band (direct cost = bounding the children of the band's branched nodes; "top 10%" = the band's top tenth by b, its share of the band's sum b and direct CPU)
+| rule | depths | branched | sum b | mean b | var/mean b | max b | direct nodes | direct CPU | top 10%: k, share of b, of direct CPU | top 10% opened: nodes, CPU (random same depths) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 9 | 0-2 | 7 | 10 | 1.43 | 0.77 | 3 | 23.2% | 42.8% | 1, 30%, 27% | 22.5%, 29.7% (22.5%, 29.7%) |
+| 9 | 3-6 | 13 | 11 | 0.85 | 0.34 | 2 | 39.4% | 34.2% | 1, 18%, 13% | 3.1%, 3.6% (4.9%, 5.2%) |
+| 2 | 7-10 | 5 | 4 | 0.80 | 0.20 | 1 | 13.2% | 7.4% | 1, 25%, 36% | 0.0%, 0.0% (0.0%, 0.0%) |
+| 2 | 11-15 | 5 | 5 | 1.00 | 0.00 | 1 | 10.8% | 4.8% | 1, 20%, 26% | 0.0%, 0.0% (0.0%, 0.0%) |
+| 2 | 16-22 | 7 | 7 | 1.00 | 0.00 | 1 | 11.0% | 1.9% | 1, 14%, 9% | 0.0%, 0.0% (0.0%, 0.0%) |
+| 2 | 23+ | 9 | 8 | 0.89 | 0.11 | 1 | 2.3% | 0.2% | 1, 12%, 1% | 0.0%, 0.0% (0.0%, 0.0%) |
+
+## tai40b_base: 731 nodes, 2.0 CPU h, 37 branched nodes with all children traced; sum b = 36
+b: max 1, top values [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], median 1, mean 0.97, b=0 at 1
+chain (best known path) nodes in the trace: 38
+| rank by | top | nodes | share of sum b | direct nodes | direct CPU | opened: nodes | opened: CPU | random at the same depths: nodes, CPU |
+|---|---|---|---|---|---|---|---|---|
+| b | 1% | 1 (>= 1: 36) | 2.8% | 3.7% | 1.3% | 0.0% | 0.0% | 0.0%, 0.0% |
+| b | 5% | 2 (>= 1: 36) | 5.6% | 6.0% | 1.6% | 0.0% | 0.0% | 0.0%, 0.0% |
+| b | 10% | 4 (>= 1: 36) | 11.1% | 9.0% | 1.9% | 0.0% | 0.0% | 0.0%, 0.0% |
+| excess | 1% | 1 (>= 0: 37) | 2.8% | 3.7% | 1.3% | 0.0% | 0.0% | 0.0%, 0.0% |
+| excess | 5% | 2 (>= 0: 37) | 5.6% | 6.0% | 1.6% | 0.0% | 0.0% | 0.0%, 0.0% |
+| excess | 10% | 4 (>= 0: 37) | 11.1% | 9.0% | 1.9% | 0.0% | 0.0% | 0.0%, 0.0% |
+
+by rule and depth band (direct cost = bounding the children of the band's branched nodes; "top 10%" = the band's top tenth by b, its share of the band's sum b and direct CPU)
+| rule | depths | branched | sum b | mean b | var/mean b | max b | direct nodes | direct CPU | top 10%: k, share of b, of direct CPU | top 10% opened: nodes, CPU (random same depths) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 9 | 0-2 | 3 | 3 | 1.00 | 0.00 | 1 | 16.0% | 28.7% | 1, 33%, 44% | 0.0%, 0.0% (0.0%, 0.0%) |
+| 9 | 3-6 | 4 | 4 | 1.00 | 0.00 | 1 | 19.4% | 21.9% | 1, 25%, 18% | 0.0%, 0.0% (0.0%, 0.0%) |
+| 2 | 7-10 | 4 | 4 | 1.00 | 0.00 | 1 | 17.2% | 18.3% | 1, 25%, 18% | 0.0%, 0.0% (0.0%, 0.0%) |
+| 2 | 11-15 | 5 | 5 | 1.00 | 0.00 | 1 | 18.5% | 7.3% | 1, 20%, 17% | 0.0%, 0.0% (0.0%, 0.0%) |
+| 2 | 16-22 | 7 | 7 | 1.00 | 0.00 | 1 | 17.9% | 5.3% | 1, 14%, 6% | 0.0%, 0.0% (0.0%, 0.0%) |
+| 2 | 23+ | 14 | 13 | 0.93 | 0.07 | 1 | 10.8% | 1.1% | 1, 8%, 28% | 0.0%, 0.0% (0.0%, 0.0%) |
+
+## tho40ab-32: 22650 nodes, 21.9 CPU h, 644 branched nodes with all children traced; sum b = 643
+b: max 31, top values [31, 25, 21, 19, 18, 18, 13, 12, 11, 11, 10, 10], median 0.0, mean 1.00, b=0 at 452
+chain (best known path) nodes in the trace: 0
+| rank by | top | nodes | share of sum b | direct nodes | direct CPU | opened: nodes | opened: CPU | random at the same depths: nodes, CPU |
+|---|---|---|---|---|---|---|---|---|
+| b | 1% | 6 (>= 18: 6) | 20.5% | 1.0% | 7.1% | 100.0% | 99.9% | 100.0%, 99.9% |
+| b | 5% | 32 (>= 5: 38) | 51.3% | 5.1% | 21.0% | 100.0% | 99.9% | 100.0%, 99.9% |
+| b | 10% | 64 (>= 3: 80) | 69.5% | 10.2% | 31.7% | 100.0% | 99.9% | 100.0%, 99.9% |
+| excess | 1% | 6 (>= 11: 7) | 17.4% | 1.0% | 6.1% | 61.7% | 58.1% | 13.5%, 12.9% |
+| excess | 5% | 32 (>= 5: 34) | 46.3% | 5.1% | 19.3% | 84.8% | 81.6% | 35.4%, 34.0% |
+| excess | 10% | 64 (>= 3: 72) | 64.4% | 10.2% | 29.8% | 89.1% | 86.0% | 44.7%, 42.6% |
+
+by rule and depth band (direct cost = bounding the children of the band's branched nodes; "top 10%" = the band's top tenth by b, its share of the band's sum b and direct CPU)
+| rule | depths | branched | sum b | mean b | var/mean b | max b | direct nodes | direct CPU | top 10%: k, share of b, of direct CPU | top 10% opened: nodes, CPU (random same depths) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 9 | 0-2 | 1 | 31 | 31.00 | 0.00 | 31 | 0.2% | 1.6% | 1, 100%, 100% | 100.0%, 99.9% (100.0%, 99.9%) |
+| 9 | 3-6 | 609 | 612 | 1.00 | 6.44 | 25 | 94.9% | 96.5% | 61, 67%, 31% | 93.0%, 89.8% (72.1%, 68.6%) |
+| 2 | 7-10 | 34 | 0 | 0.00 | nan | 0 | 5.0% | 1.9% | 3, 0%, 10% | 0.0%, 0.0% (0.0%, 0.0%) |
+
+## nug30-trace-a: 3688 nodes, 0.6 CPU h, 141 branched nodes with all children traced; sum b = 140
+b: max 13, top values [13, 10, 9, 9, 6, 6, 6, 5, 5, 5, 4, 4], median 0, mean 0.99, b=0 at 93
+chain (best known path) nodes in the trace: 3
+| rank by | top | nodes | share of sum b | direct nodes | direct CPU | opened: nodes | opened: CPU | random at the same depths: nodes, CPU |
+|---|---|---|---|---|---|---|---|---|
+| b | 1% | 1 (>= 13: 1) | 9.3% | 0.8% | 4.9% | 17.5% | 16.1% | 10.0%, 9.3% |
+| b | 5% | 7 (>= 6: 7) | 42.1% | 4.6% | 23.8% | 93.8% | 93.5% | 87.8%, 87.8% |
+| b | 10% | 14 (>= 3: 16) | 62.9% | 9.0% | 34.3% | 93.8% | 93.5% | 93.7%, 93.4% |
+| excess | 1% | 1 (>= 7: 1) | 9.3% | 0.8% | 4.9% | 17.5% | 16.1% | 8.6%, 8.0% |
+| excess | 5% | 7 (>= 3: 10) | 34.3% | 5.1% | 20.8% | 55.7% | 50.0% | 32.1%, 29.5% |
+| excess | 10% | 14 (>= 2: 24) | 46.4% | 10.1% | 29.3% | 70.5% | 62.7% | 35.4%, 32.1% |
+
+by rule and depth band (direct cost = bounding the children of the band's branched nodes; "top 10%" = the band's top tenth by b, its share of the band's sum b and direct CPU)
+| rule | depths | branched | sum b | mean b | var/mean b | max b | direct nodes | direct CPU | top 10%: k, share of b, of direct CPU | top 10% opened: nodes, CPU (random same depths) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 9 | 0-2 | 71 | 119 | 1.68 | 4.42 | 13 | 50.4% | 69.3% | 7, 50%, 34% | 93.8%, 93.5% (90.5%, 90.4%) |
+| 9 | 3-6 | 70 | 21 | 0.30 | 1.18 | 2 | 49.6% | 30.7% | 7, 57%, 21% | 9.4%, 7.6% (1.5%, 1.2%) |
