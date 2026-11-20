@@ -112,3 +112,79 @@ setting QAP_XBAR_DEBUG 0 default diagnostic
 resumed: 13 open nodes, 236 nodes and 20978.1 s so far, incumbent 6.08215e+08
 branching_weight() = 0.5
 couldn't find [./SYM/tai60b.sym], assuming no symmetry
+  ---- RESULTS ----
+
+    Total Time: 22317.7 seconds 
+         Nodes: 249 / 227 / 0
+    root bound: 4.10082e+08
+ fw iterations: 60950
+     DNN bound: 249 nodes, 217 fathomed, 5212.27 s
+     cut phase: 32 nodes, 10 fathomed, 17002.9 s
+
+level    nodes	%fathom	%c.elim	    time
+ 6           1	0.0000	0.0000	  828.37
+ 7           1	0.0000	0.0000	 4862.69
+ 8          53	0.9057	0.0000	 5559.75
+ 9          52	0.9423	0.0000	 2692.46
+10          51	0.9608	0.0000	 1834.88
+11          13	0.7692	0.0000	 1580.22
+12          13	0.9231	0.0000	  537.51
+13          13	0.8462	0.0000	 1250.37
+14          13	0.9231	0.0000	  708.56
+15          13	0.9231	0.0000	  610.99
+16          13	0.9231	0.0000	  512.26
+17          13	0.9231	0.0000	 1339.65
+
+Strategy breakdown:
+nodes       0        0        1      248 
+time     0.00     0.00   828.37 21489.35 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 6           1	0.0000	1.0000	        350	   350.0	  199.14
+ 7           1	0.0000	1.0000	        110	   110.0	   53.09
+ 8          53	0.8491	0.1509	       3922	    74.0	 1737.68
+ 9          52	0.9231	0.0769	       2282	    43.9	  912.09
+10          51	0.9608	0.0392	       2399	    47.0	  905.27
+11          13	0.7692	0.2308	        868	    66.8	  291.31
+12          13	0.9231	0.0769	        533	    41.0	  162.12
+13          13	0.7692	0.2308	       1146	    88.2	  325.60
+14          13	0.8462	0.1538	        723	    55.6	  182.06
+15          13	0.7692	0.2308	        558	    42.9	  129.67
+16          13	0.9231	0.0769	        618	    47.5	  137.81
+17          13	0.7692	0.2308	        719	    55.3	  176.43
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 6           1	0.0000	  629.08
+ 7           1	0.0000	 4809.20
+ 8           8	0.3750	 3792.77
+ 9           4	0.2500	 1758.57
+10           2	0.0000	  911.28
+11           3	0.0000	 1281.44
+12           1	0.0000	  369.46
+13           3	0.3333	  919.90
+14           2	0.5000	  522.19
+15           3	0.6667	  477.97
+16           1	0.0000	  371.24
+17           3	0.6667	 1159.82
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 6           0	       0	       0	       0	       0
+ 7           0	       0	       0	       0	       0
+ 8          48	       0	      45	       3	       0
+ 9          49	       0	      48	       1	       0
+10          49	       0	      49	       0	       0
+11          10	       0	      10	       0	       0
+12          12	       0	      12	       0	       0
+13          11	       0	      10	       1	       0
+14          12	       0	      11	       1	       0
+15          12	       0	      10	       2	       0
+16          12	       0	      12	       0	       0
+17          12	       0	      10	       2	       0
+
+eigendecompositions for W and U: 14 computed, 12 reused from the per-size cache
