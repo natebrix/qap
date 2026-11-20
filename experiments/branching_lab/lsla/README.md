@@ -84,7 +84,7 @@ more than 7% (the noise) below production's, or it reaches <= 780 nodes (c's) wi
 | production | 1,017 | 6,935 | - | 6,935 | [m] `t2/tai35b_prod` |
 | (c) `QAP_LA=4:30:0:2` | 780 | 8,900 | 2,803 (6 nodes) | 6,097 | [m] line_signals `runs/tai35b_la4p` |
 | (a) top LS line (refined signal) | 983 | 6,352 | 396 (5 firings, 1 gate fail) | 5,956 | [m] `t2/tai35b_a` |
-| (b) K = 2, CAP 30 | queued | | | | |
+| (b) K = 2, CAP 30 | crashed at the root (signal 11, in `bnb()`), being debugged | | | | `t2/tai35b_b2/coord.log` |
 | (b) K = 4, CAP 30 | queued | | | | |
 | (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | queued | | | | |
 
