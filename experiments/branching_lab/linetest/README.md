@@ -53,7 +53,7 @@ solution is intact** (`pathcheck.py`, `out/pathcheck.txt`): every node on it, de
 near: under 5 GB of 15 with 4 processes, each holding one parent's state. Three container restarts (about 00:00, 03:25
 and 04:10 UTC) cost only the chunks in progress, which were rerun from their parent's state. They count against the
 10 hours. To go on: `python3 down.py 18` resumes from depth 18's set-aside states, which are in this container only and not
-committed (state files). Of depth 18's 44 chunks, none had finished; finished chunks would be kept on a rerun.
+committed (state files). Of depth 18's 44 chunks, 5 had finished; a rerun keeps them.
 
 How it ran: level by level under the strong c47 arm's survivors, with production's settings (`tai60b.par`) and production's own line
 rule throughout (no forced lines): depth D is bounded from the states depth D-1 set aside, and depth D+1 is set aside
