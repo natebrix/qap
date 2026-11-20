@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""rebuild.py NAME SRC.state FIXES: rebuild a depth-16 node's state by bounding its ancestors one at a time.
-FIXES is the depth-16 node's full fix list. Starting from SRC (a state holding the depth-10 ancestor set aside),
+"""rebuild.py NAME SRC.state FIXES: rebuild a node's state by bounding its ancestors one at a time.
+FIXES is the full fix list of the last node to bound (depth 16 for the depth-17 test; any depth for the scan). Starting from SRC (a state holding the depth-10 ancestor set aside),
 for D = first depth in SRC .. 16: keep the one depth-D node whose fixes agree with FIXES (and its warm start),
 bound it with production's settings (bnbdrv -d D, its children set aside), and go on from that output. The depth-16
 output (runs/rebuild/NAME/d16.out.state) holds that node's depth-17 children set aside with its DNN state.
@@ -40,7 +40,8 @@ def cut(srcf, dst, depth):
         o.write(f'nodes 1\n{body} {w}\n'); o.writelines(tail)
 first = min(int(l.split()[1]) for l in open(src) if l.startswith('node '))
 cur = src
-for D in range(first, 17):
+LAST = len(want)            # FIXES names the node of depth LAST; its ancestors from SRC's depth to LAST are bounded
+for D in range(first, LAST + 1):
     inp = f'{R}/d{D}.in.state'; out = f'{R}/d{D}.out.state'
     if not os.path.exists(out):
         cut(cur, inp, D)
