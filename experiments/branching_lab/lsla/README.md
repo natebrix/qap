@@ -5,7 +5,24 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
 
 ## Answer (in progress; updated as arms finish)
 
-**On tai35b, no: both shortlist arms of (b) fail the kill rule, and the cheaper signal alone (a) does better than either.** What is in hand [m]:
+**The signal has legs; the lookahead on its shortlist, so far, adds nothing to it.**
+
+- **On tai35b, (b) fails**: all three arms of (b) fail the kill rule (1,000 to 1,046 nodes, 7,200 to 8,050 CPU s
+  against production's 1,017 and 6,935), and the signal alone (a, 983 nodes, 6,352 s) does better than any.
+- **At tai60b's depth-7 chain node, the pair found a better line than anyone had**: c59, the signal's first line
+  and the lookahead's choice at CAP 30 and CAP 150, has 3 branching children when bounded, against c47's 5
+  (linetest's best) and production's c54's 9, at less than half their children's CPU. One node, one level.
+- **At that node the CAP 150 lookahead orders all four bounded lines correctly** (c59 3, r11 4, c47 5, c54 9
+  branching children); the signal gets the top line right but puts r11 10th. So the lookahead, given enough
+  iterations, ranks better than the signal; but it chose the signal's top line.
+- **In every firing so far where the lookahead was decisive, its choice was the signal's top line** (tai35b's
+  root and depth 1, tai60b's depth 7). Where the two differed (tai35b depth 2), the lookahead's scores were
+  unresolved solves and its choices were worse. So the evidence supports mode (a), the signal alone, at a few
+  seconds to a few minutes per firing, and not yet the 0.7-1.5 core-hours of lookahead per firing at n = 60.
+- Cheapest next step: mode (a) at more of tai60b's chain nodes (depths 3-8), each bounded one level as here,
+  about 3 core-hours per line; and mode (a) on tai40b (running).
+
+What is in hand [m]:
 
 - The signal in C costs **35 CPU s per firing at n = 60** with 30 kicks per child, and 355 s with 3,000
   more kicks on the cells near the threshold. The DNN lookahead it would feed costs hours per firing at that
@@ -29,11 +46,26 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   [m `runs/t1_cap30/ls.txt`]: it scores c47 (5 true survivors, the best bounded line) last of four and c54
   (9) above it, because 44 of c47's 53 children are still open after 30 iterations. The signal had them
   in the right order. It chose c59, never bounded. Cost 2,548 CPU s of lookahead plus 232 s of signal.
+  At CAP 150 (5,123 s of lookahead, more than the node's own cut phase) c47 and c54 swap into the right order
+  and the choice is still c59. **Bounded, c59 is the best line yet at this node**: 3 branching children
+  against c47's 5 and c54's 9, children's CPU 2,490 s against 5,560 and 6,460 [m `runs/sc59`]. So at n = 60,
+  where the lookahead had 150 iterations, the signal-then-lookahead pair found a better line than production's
+  and than linetest's best. r11, the lookahead's second, is the second best (4 branching); the CAP 150 lookahead
+  orders all four bounded lines correctly. One node; depth 9 not bounded.
 - **Mode (b) K = 4 on tai35b is worse still** [m `t2/tai35b_b4`]: 1,038 nodes, 8,050 CPU s gross (16% above
   production), 1,532 s in the rule. With a wider shortlist the lookahead picks c6 at both depth-2 nodes where it
   fires, and depth 4 grows from 128 nodes to 192. At depth 2 every shortlisted line still has all 33 children
   open after 30 iterations, so the lookahead's scores there are sums of shortfalls on unresolved solves.
-- T1 at CAP 150 and (b) without refinement are running.
+- **(b) with the 30-kick signal (no refinement) fails too** [m `t2/tai35b_b2r0`]: 1,046 nodes, 7,200 CPU s. The
+  signal now costs 4-5 s a firing, but at 18:26 19:12 c23 ranks 3rd (a 3-survivor tie with r22 and r25, broken
+  by 0.15 of chain-model mass), just outside K = 2; the lookahead picks c5 from {r22, r25, r26, c5}. At 18:12
+  19:26 it picks r26 from {r30, c5, r26}. Depths 4-5 grow to 160 and 186 nodes.
+- **Why (b) fails on tai35b: below the root, the 30-iteration lookahead cannot tell the shortlisted lines
+  apart.** At every depth-2 firing every line has all 33 children still open, and its score for the same line
+  at the same node depends on what was solved before it: c5 at 18:12 19:26 scored 604M in (b) K = 2 and K = 4
+  but 11,955M in this arm, where c5 came second instead of first (the warm pool). Where the lookahead is
+  decisive (root, depth 1), the signal's top line was already its choice, so the lookahead adds nothing.
+- tai40b's T2 arms started 05:52 UTC and are running.
 
 ## The rule (`lsla.patch`, against the experiment build: cognac 0e6c2ecf + `experiment_build.patch`)
 
@@ -102,42 +134,33 @@ a level down 9 branching nodes under c47 against 56 under c54.
   all but 5. At n = 60, depth 7, 30 iterations are too few for the lookahead to see what the full bound sees.
 - c59, the line chosen, has never been bounded, so this run cannot say whether the choice is good. Its
   lookahead (9 children open) and signal (3 predicted survivors) agree that it is promising.
-- CAP 150 is still running.
+- **CAP 150 [m `runs/t1_cap150/ls.txt`]: more iterations put c47 and c54 in the truth's order, and the choice
+  stays c59.** Scores (M; children open after 150 iterations): c59 1.04 (3), r11 2.07 (6), c47 2.15 (8), c54
+  3.37 (10). c47's open count, 8, is now near its 5 true survivors, and c54's 10 near its 9; r11, never bounded,
+  scores just ahead of c47. Cost **5,123 CPU s of lookahead** (209 solves, 10,969 iterations), 2x CAP 30's for
+  5x the cap, plus the same 232 s of signal. That is more than the node's own 4,742 s cut phase.
+- **r11 bounded as a second arm (running, started 04:41 UTC, `run.sh strong r11` -> `runs/sr11/`)**, by the
+  same rule as c59.
+- **c59 bounded: better than c47 by the fixed rule** [m `runs/sc59/nodes.txt`, `run.sh strong c59`; sc47 and
+  sc54 from linetest's `runs/s*/nodes.txt`]. From the strong parent state, `QAP_FORCE_LINE=7:c59`, `strong.par`,
+  the 53 depth-8 children bounded to the end, depth 9 set aside. Rule (the coordinator's, fixed before the
+  result): c59 beats c47 only with fewer than 5 branching children, or 5 with a smaller shortfall sum.
 
-## T2: whole trees (`t2.sh`, `t2queue.sh`, `summ.py` -> `out/t2_*.md`)
+  | line | D | C | B | branching children's shortfalls | sum | depth-8 CPU s |
+  |---|---|---|---|---|---|---|
+  | **c59** (signal #1, lookahead #1 at CAP 30 and 150) | 50 | 0 | **3** | 427k, 289k, 145k (11:59, 13:59, 3:59) | 861k | 2,490 |
+  | r11 (rule 9; lookahead #2 at CAP 30 and 150; signal #10) | 47 | 2 | 4 | 744k, 427k, 235k, 163k (11:36, 11:59, 11:35, 11:29) | 1,568k | 3,657 |
+  | c47 (signal #2) | 45 | 3 | 5 | | 978k | 5,560 |
+  | c54 (production) | 43 | 1 | 9 | | 2,588k | 6,460 |
 
-tai35b, coordinator local mode, 2 slots, incumbent the optimum + 1, line_signals' `tai35b.par`, windows
-depth 0-2 as (c). **Kill rule, fixed before the runs:** (b) has no legs on tai35b unless its gross CPU is
-more than 7% (the noise) below production's, or it reaches <= 780 nodes (c's) with lookahead CPU under
-1,402 s (half of c's 2,803 s); and it must close at the optimum with no open node.
+  Every child of c59 that does not branch is fathomed by the DNN bound, none needs the cut phase, so its
+  children cost less than half of c47's. One level down, this is the best line bounded at this node, and both
+  the signal and the lookahead put it first. Depth 9 under c59 is not bounded.
 
-| arm | nodes | CPU s | rule CPU s | CPU s net of the rule | source |
-|---|---|---|---|---|---|
-| production | 1,017 | 6,935 | - | 6,935 | [m] `t2/tai35b_prod` |
-| (c) `QAP_LA=4:30:0:2` | 780 | 8,900 | 2,803 (6 nodes) | 6,097 | [m] line_signals `runs/tai35b_la4p` |
-| (a) top LS line (refined signal) | 983 | 6,352 | 396 (5 firings, 1 gate fail) | 5,956 | [m] `t2/tai35b_a` |
-| (b) K = 2, CAP 30 (refined signal) | 1,000 | 7,381 | 1,142 (402 signal + 740 lookahead; 5 firings, 1 gate fail) | 6,240 | [m] `t2/tai35b_b2` |
-| (b) K = 4, CAP 30 (refined signal) | 1,038 | 8,050 | 1,532 (400 signal + 1,132 lookahead; 5 firings, 1 gate fail) | 6,519 | [m] `t2/tai35b_b4` | | | | |
-| (b) K = 2, CAP 30, signal without refinement (`SEARCH=30:0:2.5:300`) | queued | | | | |
-
-Production here has the same 1,017 nodes as line_signals' two production runs, with the same (depth,
-fixes, bound, outcome, line) at every node [m: sorted trace comparison]; its CPU, 6,935 s, is inside their
-6,931-7,390. So line_signals' (c) arm is reused rather than rerun. (The coordinator's own count, 987, is not
-the trace's; line_signals saw the same.)
-
-## T3: the signal's cost, and its ranking against the lookahead's (`t3rank.py`, `t3out/`, `out/t3_rank.md`)
-
-**Cost per firing [m]** (t0, one core, the gate's 300 kicks plus the table):
-
-| node | n, m | 30 kicks | + 3,000 kicks near the threshold | for comparison |
-|---|---|---|---|---|
-| tai35b root | 35, 35 | 6.4 s | +115 s (236 cells) | the root's DNN node 590 s; (c)'s lookahead 468 s |
-| tai40b root | 40, 40 | 10.7 s | +91 s (144 cells) | the root's DNN node 1,277 s |
-| tai60b depth 7 | 60, 53 | 34.6 s | +320 s (284 cells) | bounding the depth-7 node 10:39 itself under `strong.par` about 4,900 s; a depth-9 node 21-52 s (linetest `d9score.txt`: 52 children per depth-8 node in 1,088-2,692 s) |
-
-**Ranking at the 12 nodes where (c) fired in line_signals [m `out/t3_rank.md`].** The signal (30 kicks)
-was run at each node, with that arm's slack, and the 8 lines the lookahead judged put in the signal's order:
-
+  **The four lines bounded, in order: c59 (3 branching), r11 (4), c47 (5), c54 (9).** The lookahead at CAP 150
+  ranks them exactly so; at CAP 30 it has c59 and r11 right and c47 and c54 swapped. The refined signal ranks
+  them c59 (#1), c47 (#2), r11 (#10), c54 (#72): the top right, r11 too low. r11 also beats c47 by the
+  coordinator's rule (4 < 5). [m `runs/sr11/nodes.txt`]
 - **tai35b, 5 nodes where the gate passes: the signal's first line is the lookahead's choice at 4**, and the
   root's order is the lookahead's order (c26, r19, r18; the DNN's 23M, 43M, 46M short). At the fifth
   (depth 2, 18:12 19:26) it puts c5 (rule 9's line there in production) first and the lookahead's c23
@@ -149,6 +172,29 @@ was run at each node, with that arm's slack, and the 8 lines the lookahead judge
   production's 731), so there it sided with the better rule.
 - The incumbent permutation the signal starts from is the optimum (`QAP_LS_PERM` = the `.sln`), as in every
   arm here. On a node off the optimum's chain it has to find the good completions itself.
+
+### T3: break-even at tai60b's chain nodes
+
+Cost of one firing of (b) at the depth-7 node `10:39`, n = 60, m = 53 [m `runs/t1_cap*/ls.txt`]: 232 s of
+signal plus 2,548 s of lookahead at CAP 30 (0.77 core-hours in all) or 5,123 s at CAP 150 (1.49 core-hours).
+Mode (a) alone: 232 s refined, or 35 s at 30 kicks (T0).
+
+What is at stake there: c54's off-chain subtrees at this node, over both of tai60b's symmetric chains, hold
+114,669 nodes and 873 CPU-hours (landscape README, from the postmortem), about 437 core-hours per chain [e:
+half]. So (b) at CAP 150 breaks even if it saves 0.34% of one chain's subtree, and (a) if it saves 0.015%.
+Bounded one level, c59 has 3 branching children against c54's 9 (and a shortfall sum a third of c54's); if
+the subtrees scale with those, the saving is of the order of half the subtree [e], 100x the break-even. One
+firing per chain; both chains together: 3 core-hours of rule against hundreds saved [e].
+
+At the depth-3 chain node `1:33` (m = 57) the stake is larger still (most of the tree lies below depths 3-7)
+and a firing costs the same order [e: the same signal; a lookahead per child of the same size, weaker bounds,
+so if anything more iterations]. The landscape study rates the possible saving there small (1.4x off-chain,
+the signal's preferred lines' survivors at lower x), and nothing at depth 3 has been bounded. Break-even
+there is not the question; whether any line beats r6 is.
+
+**So on tai60b's chain the rule's cost does not matter; only its accuracy does.** On tai35b it is the other
+way: the whole tree is 6,935 CPU s, and a (b) firing at CAP 30 costs 170-350 s, so five firings cost 10-17%
+of the tree, more than any line choice there saved.
 
 ## linetest's depth 9 (fetched from `claude/cool-babbage-ilnogj`, linetest `out/d9score.txt`)
 
@@ -207,6 +253,7 @@ moved into place.
 
 ## Not tested yet
 
-- The break-even at tai60b's depth-3 and depth-7 chain nodes (T3's second half).
-- tai40b's arms.
+- Depth 9 under c59 and r11; any line at tai60b's depth-3 chain node bounded.
+- Mode (a) at tai60b's other chain nodes.
+- tai40b's arms (running).
 - A tai50b partial tree.

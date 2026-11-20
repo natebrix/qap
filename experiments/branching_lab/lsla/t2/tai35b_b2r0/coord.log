@@ -1,0 +1,528 @@
+04:44:17 [Jan 1, 2023]
+vm
+parameters file: /home/user/wt-cognac/../qap/experiments/branching_lab/lsla/tai35b.par
+incumbent: 2.83315e+08
+max_depth has been set to 0
+state file: /tmp/qapinit-tai35b-laptop-_t_e_9jp/frontier.state
+input file: /home/user/wt-cognac/qaplib/tai35b.dat
+objective values are integers: fathoming tolerance 0.95
+symmetrized B (objective values are unchanged)
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	2	100/ 50/--	--	30	
+
+DNN bound at depths 0-33, relative gap <= 1, give up after 100 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+settings 93 hash 41a534efceb6a06c
+setting dnn.depths 0:33 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 100 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36,wc=2.88 par policy
+setting dnn.dscale 0 default policy
+setting dnn.dscale0 1 default policy
+setting dnn.dscale_until 0 default policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 32 par policy
+setting cut.zone 1 par policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 par policy
+setting cut.grid "" default policy
+setting cut.regions /home/user/wt-cognac/experiments/line_signals/tai/tai35b.regions par policy
+setting cut.regions.hash b327dc652144fb2f par policy
+setting cut.rounds 12 par policy
+setting cut.iters 200 par policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 0 par policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 0 par policy
+setting cut.warmy 1 par policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp 100:1000 par policy
+setting cut.giveup 2400:0 par policy
+setting cut.giveup_depth 1 par policy
+setting cut.cp_iters 6000 par policy
+setting cut.handover "" default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_extrap "" default policy
+setting cut.cp_wc_gap 0 default policy
+setting cut.cp_wc_deficit 0 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 1 par policy
+setting dnn.retry 1 par policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 1 par policy
+setting est.xbar_mix 0.3 par policy
+setting par.hash 4cb81eb28e5d8eb6 par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_EST_SURV "" default run
+setting QAP_EST_SAMPLE 1 default run
+setting QAP_EST_ALLOC auto default run
+setting QAP_EST_SAMPLE_W unif default run
+setting QAP_EST_BUDGET 0 default run
+setting QAP_EST_MIN_DIVES 1 default run
+setting QAP_EST_SAMPLE_DEPTHS "" default run
+setting QAP_EST_WARM_KEEP 8 default run
+setting QAP_EST_SPILL_MB 1000 default run
+setting QAP_EST_DIVES "" default run
+setting QAP_DNN_WARM_DIR /tmp/qapinit-tai35b-laptop-_t_e_9jp/warm env run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/wt-cognac/../qap/experiments/branching_lab/lsla/tai35b.par flag run
+setting QAP_DNN_TRACE /tmp/qapinit-tai35b-laptop-_t_e_9jp/trace.txt env diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE /tmp/qapinit-tai35b-laptop-_t_e_9jp/nodes.txt env diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_DNN 0 default run
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+branching_weight() = 0.5
+couldn't find [./SYM/tai35b.sym], assuming no symmetry
+04:44:18 coordinator: run tai35b-laptop: frontier at depth 0 has 35 open nodes, 4 units, 2 slots
+04:44:18 coordinator: 0h00m00s units {'queued': 4} nodes 1 (DNN 1, fathomed 0) CPU 645 s
+04:44:32 worker vm/9870 slot 0: unit u0 attempt 1 -> done
+04:44:32 worker vm/9870 slot 1: unit u1 attempt 1 -> done
+04:44:48 coordinator: 0h00m30s units {'leased': 2, 'merged': 2} nodes 19 (DNN 19, fathomed 18) CPU 673 s
+04:44:53 worker vm/9870 slot 1: unit u3 attempt 1 -> done
+04:45:18 coordinator: 0h01m00s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:45:48 coordinator: 0h01m30s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:46:18 coordinator: 0h02m00s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:46:48 coordinator: 0h02m30s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:47:18 coordinator: 0h03m00s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:47:48 coordinator: 0h03m30s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:48:18 coordinator: 0h04m00s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:48:48 coordinator: 0h04m30s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:49:18 coordinator: 0h05m00s units {'leased': 1, 'merged': 3} nodes 27 (DNN 27, fathomed 26) CPU 694 s
+04:49:35 worker vm/9870 slot 0: unit u2 attempt 1 -> returned
+04:49:48 coordinator: 0h05m30s units {'leased': 2, 'merged': 4, 'queued': 2} nodes 28 (DNN 28, fathomed 26) CPU 996 s
+04:50:18 coordinator: 0h06m00s units {'leased': 2, 'merged': 4, 'queued': 2} nodes 28 (DNN 28, fathomed 26) CPU 996 s
+04:50:48 coordinator: 0h06m30s units {'leased': 2, 'merged': 4, 'queued': 2} nodes 28 (DNN 28, fathomed 26) CPU 996 s
+04:50:48 worker vm/9870 slot 1: unit u2.0 attempt 1 -> done
+04:51:18 coordinator: 0h07m00s units {'leased': 2, 'merged': 5, 'queued': 1} nodes 39 (DNN 39, fathomed 36) CPU 1067 s
+04:51:48 coordinator: 0h07m30s units {'leased': 2, 'merged': 5, 'queued': 1} nodes 39 (DNN 39, fathomed 36) CPU 1067 s
+04:52:18 coordinator: 0h08m00s units {'leased': 2, 'merged': 5, 'queued': 1} nodes 39 (DNN 39, fathomed 36) CPU 1067 s
+04:52:48 coordinator: 0h08m30s units {'leased': 2, 'merged': 5, 'queued': 1} nodes 39 (DNN 39, fathomed 36) CPU 1067 s
+04:53:18 coordinator: 0h09m00s units {'leased': 2, 'merged': 5, 'queued': 1} nodes 39 (DNN 39, fathomed 36) CPU 1067 s
+04:53:47 worker vm/9870 slot 1: unit u2.2 attempt 1 -> done
+04:53:48 coordinator: 0h09m30s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:54:18 coordinator: 0h10m00s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:54:48 coordinator: 0h10m30s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:55:18 coordinator: 0h11m00s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:55:48 coordinator: 0h11m30s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:56:18 coordinator: 0h12m00s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:56:48 coordinator: 0h12m30s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:57:18 coordinator: 0h13m00s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:57:48 coordinator: 0h13m30s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:58:18 coordinator: 0h14m00s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:58:48 coordinator: 0h14m30s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:59:18 coordinator: 0h15m00s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+04:59:48 coordinator: 0h15m30s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+05:00:18 coordinator: 0h16m00s units {'leased': 2, 'merged': 6} nodes 50 (DNN 50, fathomed 46) CPU 1245 s
+05:00:42 worker vm/9870 slot 0: unit u2.1 attempt 1 -> returned
+05:00:48 coordinator: 0h16m30s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:01:18 coordinator: 0h17m00s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:01:48 coordinator: 0h17m30s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:02:18 coordinator: 0h18m00s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:02:48 coordinator: 0h18m30s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:03:18 coordinator: 0h19m00s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:03:48 coordinator: 0h19m30s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:04:18 coordinator: 0h20m00s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:04:48 coordinator: 0h20m30s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:05:18 coordinator: 0h21m00s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:05:48 coordinator: 0h21m30s units {'leased': 2, 'merged': 7, 'queued': 4} nodes 70 (DNN 70, fathomed 62) CPU 1907 s
+05:06:14 worker vm/9870 slot 0: unit u2.1.0 attempt 1 -> done
+05:06:18 coordinator: 0h22m00s units {'leased': 2, 'merged': 8, 'queued': 3} nodes 113 (DNN 113, fathomed 102) CPU 2235 s
+05:06:33 worker vm/9870 slot 0: unit u2.1.1 attempt 1 -> done
+05:06:48 coordinator: 0h22m30s units {'leased': 2, 'merged': 9, 'queued': 2} nodes 125 (DNN 125, fathomed 114) CPU 2254 s
+05:07:08 worker vm/9870 slot 1: unit u2.3 attempt 1 -> returned
+05:07:18 coordinator: 0h23m00s units {'leased': 2, 'merged': 10, 'queued': 4} nodes 149 (DNN 149, fathomed 135) CPU 3052 s
+05:07:40 worker vm/9870 slot 1: unit u2.1.3 attempt 1 -> done
+05:07:48 coordinator: 0h23m30s units {'leased': 2, 'merged': 11, 'queued': 3} nodes 161 (DNN 161, fathomed 147) CPU 3084 s
+05:08:01 worker vm/9870 slot 1: unit u2.1.4 attempt 1 -> done
+05:08:18 coordinator: 0h24m00s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:08:48 coordinator: 0h24m30s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:09:18 coordinator: 0h25m00s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:09:48 coordinator: 0h25m30s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:10:18 coordinator: 0h26m00s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:10:48 coordinator: 0h26m30s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:11:18 coordinator: 0h27m00s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:11:48 coordinator: 0h27m30s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:12:18 coordinator: 0h28m00s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:12:48 coordinator: 0h28m30s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:13:18 coordinator: 0h29m00s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:13:48 coordinator: 0h29m30s units {'leased': 2, 'merged': 12, 'queued': 2} nodes 169 (DNN 169, fathomed 155) CPU 3104 s
+05:14:01 worker vm/9870 slot 0: unit u2.1.2 attempt 1 -> done
+05:14:18 coordinator: 0h30m00s units {'leased': 2, 'merged': 13, 'queued': 1} nodes 244 (DNN 244, fathomed 227) CPU 3549 s
+05:14:18 coordinator: parent states: 3 deleted, 8 kept
+05:14:48 coordinator: 0h30m30s units {'leased': 2, 'merged': 13, 'queued': 1} nodes 244 (DNN 244, fathomed 227) CPU 3549 s
+05:15:18 coordinator: 0h31m00s units {'leased': 2, 'merged': 13, 'queued': 1} nodes 244 (DNN 244, fathomed 227) CPU 3549 s
+05:15:48 coordinator: 0h31m30s units {'leased': 2, 'merged': 13, 'queued': 1} nodes 244 (DNN 244, fathomed 227) CPU 3549 s
+05:16:18 coordinator: 0h32m00s units {'leased': 2, 'merged': 13, 'queued': 1} nodes 244 (DNN 244, fathomed 227) CPU 3549 s
+05:16:48 coordinator: 0h32m30s units {'leased': 2, 'merged': 13, 'queued': 1} nodes 244 (DNN 244, fathomed 227) CPU 3549 s
+05:17:18 coordinator: 0h33m00s units {'leased': 2, 'merged': 13, 'queued': 1} nodes 244 (DNN 244, fathomed 227) CPU 3549 s
+05:17:19 worker vm/9870 slot 1: unit u2.3.0 attempt 1 -> done
+05:17:48 coordinator: 0h33m30s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:18:18 coordinator: 0h34m00s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:18:48 coordinator: 0h34m30s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:19:18 coordinator: 0h35m00s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:19:49 coordinator: 0h35m30s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:20:19 coordinator: 0h36m00s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:20:49 coordinator: 0h36m30s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:21:19 coordinator: 0h37m00s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:21:49 coordinator: 0h37m30s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:22:19 coordinator: 0h38m00s units {'leased': 2, 'merged': 14} nodes 325 (DNN 325, fathomed 303) CPU 4105 s
+05:22:36 worker vm/9870 slot 1: unit u2.3.2 attempt 1 -> done
+05:22:49 coordinator: 0h38m30s units {'leased': 1, 'merged': 15} nodes 374 (DNN 374, fathomed 351) CPU 4420 s
+05:23:19 coordinator: 0h39m00s units {'leased': 1, 'merged': 15} nodes 374 (DNN 374, fathomed 351) CPU 4420 s
+05:23:26 worker vm/9870 slot 0: unit u2.3.1 attempt 1 -> returned
+05:23:49 coordinator: 0h39m30s units {'leased': 2, 'merged': 16, 'queued': 2} nodes 421 (DNN 421, fathomed 394) CPU 4982 s
+05:23:52 worker vm/9870 slot 1: unit u2.3.1.2 attempt 1 -> done
+05:24:19 coordinator: 0h40m01s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:24:19 coordinator: parent states: 6 deleted, 6 kept
+05:24:49 coordinator: 0h40m31s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:25:19 coordinator: 0h41m01s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:25:49 coordinator: 0h41m31s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:26:19 coordinator: 0h42m01s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:26:49 coordinator: 0h42m31s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:27:19 coordinator: 0h43m01s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:27:49 coordinator: 0h43m31s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:28:19 coordinator: 0h44m01s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:28:49 coordinator: 0h44m31s units {'leased': 2, 'merged': 17, 'queued': 1} nodes 445 (DNN 445, fathomed 418) CPU 5005 s
+05:29:03 worker vm/9870 slot 1: unit u2.3.1.0 attempt 1 -> done
+05:29:19 coordinator: 0h45m01s units {'leased': 2, 'merged': 18} nodes 497 (DNN 497, fathomed 467) CPU 5315 s
+05:29:49 coordinator: 0h45m31s units {'leased': 2, 'merged': 18} nodes 497 (DNN 497, fathomed 467) CPU 5315 s
+05:30:19 coordinator: 0h46m01s units {'leased': 2, 'merged': 18} nodes 497 (DNN 497, fathomed 467) CPU 5315 s
+05:30:49 coordinator: 0h46m31s units {'leased': 2, 'merged': 18} nodes 497 (DNN 497, fathomed 467) CPU 5315 s
+05:30:53 worker vm/9870 slot 1: unit u2.3.1.1 attempt 1 -> done
+05:31:19 coordinator: 0h47m01s units {'leased': 1, 'merged': 19} nodes 521 (DNN 521, fathomed 490) CPU 5425 s
+05:31:49 coordinator: 0h47m31s units {'leased': 1, 'merged': 19} nodes 521 (DNN 521, fathomed 490) CPU 5425 s
+05:31:52 worker vm/9870 slot 0: unit u2.3.1.3 attempt 1 -> returned
+05:32:19 coordinator: 0h48m01s units {'leased': 2, 'merged': 20, 'queued': 2} nodes 576 (DNN 576, fathomed 541) CPU 5926 s
+05:32:25 worker vm/9870 slot 1: unit u2.3.1.3.2 attempt 1 -> done
+05:32:49 coordinator: 0h48m31s units {'leased': 2, 'merged': 21, 'queued': 1} nodes 591 (DNN 591, fathomed 556) CPU 5958 s
+05:32:51 worker vm/9870 slot 0: unit u2.3.1.3.3 attempt 1 -> done
+05:33:01 worker vm/9870 slot 0: unit u2.3.1.3.1 attempt 1 -> done
+05:33:19 coordinator: 0h49m01s units {'leased': 1, 'merged': 23} nodes 621 (DNN 621, fathomed 585) CPU 6025 s
+05:33:49 coordinator: 0h49m31s units {'leased': 1, 'merged': 23} nodes 621 (DNN 621, fathomed 585) CPU 6025 s
+05:34:19 coordinator: 0h50m01s units {'leased': 1, 'merged': 23} nodes 621 (DNN 621, fathomed 585) CPU 6025 s
+05:34:19 coordinator: parent states: 6 deleted, 4 kept
+05:34:26 worker vm/9870 slot 1: unit u2.3.1.3.0 attempt 1 -> returned
+05:34:43 worker vm/9870 slot 0: unit u2.3.1.3.0.0 attempt 1 -> done
+05:34:49 coordinator: 0h50m31s units {'leased': 2, 'merged': 25, 'queued': 1} nodes 640 (DNN 640, fathomed 603) CPU 6161 s
+05:34:53 worker vm/9870 slot 0: unit u2.3.1.3.0.2 attempt 1 -> done
+05:35:19 coordinator: 0h51m01s units {'leased': 2, 'merged': 26} nodes 649 (DNN 649, fathomed 612) CPU 6171 s
+05:35:43 worker vm/9870 slot 0: unit u2.3.1.3.0.3 attempt 1 -> done
+05:35:49 coordinator: 0h51m31s units {'leased': 1, 'merged': 27} nodes 657 (DNN 657, fathomed 620) CPU 6220 s
+05:36:19 coordinator: 0h52m01s units {'leased': 1, 'merged': 27} nodes 657 (DNN 657, fathomed 620) CPU 6220 s
+05:36:28 worker vm/9870 slot 1: unit u2.3.1.3.0.1 attempt 1 -> returned
+05:36:38 worker vm/9870 slot 1: unit u2.3.1.3.0.1.0 attempt 1 -> done
+05:36:49 coordinator: 0h52m31s units {'leased': 2, 'merged': 29, 'queued': 1} nodes 682 (DNN 682, fathomed 644) CPU 6347 s
+05:36:51 worker vm/9870 slot 1: unit u2.3.1.3.0.1.2 attempt 1 -> done
+05:36:55 worker vm/9870 slot 1: unit u2.3.1.3.0.1.3 attempt 1 -> done
+05:37:19 coordinator: 0h53m01s units {'leased': 1, 'merged': 31} nodes 690 (DNN 690, fathomed 652) CPU 6364 s
+05:37:49 coordinator: 0h53m31s units {'leased': 1, 'merged': 31} nodes 690 (DNN 690, fathomed 652) CPU 6364 s
+05:38:19 coordinator: 0h54m01s units {'leased': 1, 'merged': 31} nodes 690 (DNN 690, fathomed 652) CPU 6364 s
+05:38:37 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1 attempt 1 -> returned
+05:38:49 coordinator: 0h54m31s units {'leased': 2, 'merged': 32, 'queued': 2} nodes 707 (DNN 707, fathomed 668) CPU 6489 s
+05:38:55 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.0 attempt 1 -> done
+05:39:09 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.2 attempt 1 -> done
+05:39:15 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.3 attempt 1 -> done
+05:39:19 coordinator: 0h55m01s units {'leased': 1, 'merged': 35} nodes 719 (DNN 719, fathomed 680) CPU 6525 s
+05:39:49 coordinator: 0h55m31s units {'leased': 1, 'merged': 35} nodes 719 (DNN 719, fathomed 680) CPU 6525 s
+05:40:19 coordinator: 0h56m01s units {'leased': 1, 'merged': 35} nodes 719 (DNN 719, fathomed 680) CPU 6525 s
+05:40:49 coordinator: 0h56m31s units {'leased': 1, 'merged': 35} nodes 719 (DNN 719, fathomed 680) CPU 6525 s
+05:41:07 worker vm/9870 slot 1: unit u2.3.1.3.0.1.1.1 attempt 1 -> returned
+05:41:11 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.0 attempt 1 -> done
+05:41:19 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.2 attempt 1 -> done
+05:41:19 coordinator: 0h57m01s units {'leased': 2, 'merged': 38} nodes 760 (DNN 760, fathomed 719) CPU 6681 s
+05:41:36 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.3 attempt 1 -> done
+05:41:49 coordinator: 0h57m31s units {'leased': 1, 'merged': 39} nodes 767 (DNN 767, fathomed 726) CPU 6698 s
+05:42:19 coordinator: 0h58m01s units {'leased': 1, 'merged': 39} nodes 767 (DNN 767, fathomed 726) CPU 6698 s
+05:42:49 coordinator: 0h58m31s units {'leased': 1, 'merged': 39} nodes 767 (DNN 767, fathomed 726) CPU 6698 s
+05:43:19 coordinator: 0h59m01s units {'leased': 1, 'merged': 39} nodes 767 (DNN 767, fathomed 726) CPU 6698 s
+05:43:34 worker vm/9870 slot 1: unit u2.3.1.3.0.1.1.1.1 attempt 1 -> returned
+05:43:40 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.1 attempt 1 -> done
+05:43:45 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.2 attempt 1 -> done
+05:43:49 coordinator: 0h59m31s units {'leased': 2, 'merged': 42} nodes 827 (DNN 827, fathomed 783) CPU 6850 s
+05:43:52 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.3 attempt 1 -> done
+05:44:19 coordinator: 1h00m01s units {'leased': 1, 'merged': 43} nodes 837 (DNN 837, fathomed 793) CPU 6857 s
+05:44:19 coordinator: parent states: 6 deleted, 6 kept
+05:44:49 coordinator: 1h00m31s units {'leased': 1, 'merged': 43} nodes 837 (DNN 837, fathomed 793) CPU 6857 s
+05:45:19 coordinator: 1h01m01s units {'leased': 1, 'merged': 43} nodes 837 (DNN 837, fathomed 793) CPU 6857 s
+05:45:40 worker vm/9870 slot 1: unit u2.3.1.3.0.1.1.1.1.0 attempt 1 -> returned
+05:45:43 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.0.0 attempt 1 -> done
+05:45:44 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.0.2 attempt 1 -> done
+05:45:48 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.0.3 attempt 1 -> done
+05:45:49 coordinator: 1h01m31s units {'leased': 1, 'merged': 47} nodes 879 (DNN 871, fathomed 825) CPU 6987 s
+05:46:19 coordinator: 1h02m01s units {'leased': 1, 'merged': 47} nodes 879 (DNN 871, fathomed 825) CPU 6987 s
+05:46:49 coordinator: 1h02m31s units {'leased': 1, 'merged': 47} nodes 879 (DNN 871, fathomed 825) CPU 6987 s
+05:47:19 coordinator: 1h03m01s units {'leased': 1, 'merged': 47} nodes 879 (DNN 871, fathomed 825) CPU 6987 s
+05:47:48 worker vm/9870 slot 1: unit u2.3.1.3.0.1.1.1.1.0.1 attempt 1 -> returned
+05:47:49 coordinator: 1h03m31s units {'merged': 48, 'queued': 4} nodes 903 (DNN 889, fathomed 840) CPU 7112 s
+05:47:50 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.0.1.1 attempt 1 -> done
+05:47:51 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.0.1.2 attempt 1 -> done
+05:47:53 worker vm/9870 slot 0: unit u2.3.1.3.0.1.1.1.1.0.1.3 attempt 1 -> done
+05:48:19 coordinator: 1h04m01s units {'leased': 1, 'merged': 51} nodes 936 (DNN 905, fathomed 856) CPU 7114 s
+05:48:49 coordinator: 1h04m31s units {'leased': 1, 'merged': 51} nodes 936 (DNN 905, fathomed 856) CPU 7114 s
+05:49:16 worker vm/9870 slot 1: unit u2.3.1.3.0.1.1.1.1.0.1.0 attempt 1 -> done
+05:49:17 New objective value: 283315445 (unit u2.3.1.3.0.1.1.1.1.0.1.0, verified, version 1)
+05:49:17 coordinator: 1h04m59s units {'merged': 52} nodes 977 (DNN 933, fathomed 870) CPU 7200 s
+05:49:17   ---- RESULTS ----
+
+    Total Time: 7200.165249 seconds 
+         Nodes: 977 / 998 / 1
+    root bound: 150710327.59754616
+ fw iterations: 72082
+     DNN bound: 933 nodes, 870 fathomed, 1841.37 s
+     cut phase: 63 nodes, 16 fathomed, 4613.08 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	  645.21
+ 1          35	0.9429	0.0000	  681.57
+ 2          68	0.9559	0.0000	 1325.81
+ 3          99	0.9495	0.0000	 1262.37
+ 4         160	0.9625	0.0000	 1033.85
+ 5         186	0.9892	0.0000	  780.31
+ 6          60	0.9667	0.0000	  273.27
+ 7          58	0.9655	0.0000	  255.20
+ 8          56	0.9821	0.0000	  359.03
+ 9          27	0.9630	0.0000	   72.03
+10          26	0.9615	0.0000	   53.61
+11          25	0.9600	0.0000	   54.19
+12          24	0.9583	0.0000	   56.66
+13          23	0.9565	0.0000	   77.68
+14          22	0.9545	0.0000	   55.58
+15          21	0.9524	0.0000	   56.68
+16          20	0.9500	0.0000	   38.50
+17          19	0.9474	0.0000	   32.67
+18           9	1.8889	0.0000	   23.31
+19           2	8.0000	0.0000	   17.85
+20           5	3.0000	0.0000	   13.77
+21          13	1.0769	0.0000	    9.06
+22           4	3.2500	0.0000	    7.36
+23           4	3.0000	0.0833	    5.46
+24           1	10.0000	0.6364	    2.63
+25           1	3.0000	0.9000	    2.52
+26           1	0.0000	0.7778	    1.73
+27           2	0.5000	0.8750	    0.98
+28           1	0.0000	0.8571	    0.55
+29           1	0.0000	0.8333	    0.29
+30           1	0.0000	0.8000	    0.15
+31           1	0.0000	0.7500	    0.07
+32           1	0.0000	N/A	    0.00
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 35 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 68 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 99 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 160 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 186 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 60 
+ 7 |   0.0000   0.0000   0.0000   1.0000  | 58 
+ 8 |   0.0000   0.0000   0.0000   1.0000  | 56 
+ 9 |   0.0000   0.0000   0.0000   1.0000  | 27 
+10 |   0.0000   0.0000   0.0000   1.0000  | 26 
+11 |   0.0000   0.0000   0.0000   1.0000  | 25 
+12 |   0.0000   0.0000   0.0000   1.0000  | 24 
+13 |   0.0000   0.0000   0.0000   1.0000  | 23 
+14 |   0.0000   0.0000   0.0000   1.0000  | 22 
+15 |   0.0000   0.0000   0.0000   1.0000  | 21 
+16 |   0.0000   0.0000   0.0000   1.0000  | 20 
+17 |   0.0000   0.0000   0.0000   1.0000  | 19 
+18 |   0.0000   0.0000   0.0000   1.0000  | 9 
+19 |   0.0000   0.0000   0.0000   1.0000  | 2 
+20 |   0.0000   0.0000   0.0000   1.0000  | 5 
+21 |   0.0000   0.0000   0.0000   1.0000  | 13 
+22 |   0.0000   0.0000   0.0000   1.0000  | 4 
+23 |   0.0000   0.0000   0.0000   1.0000  | 4 
+24 |   0.0000   0.0000   0.0000   1.0000  | 1 
+25 |   0.0000   0.0000   0.0000   1.0000  | 1 
+26 |   0.0000   0.0000   0.0000   1.0000  | 1 
+27 |   0.0000   0.0000   0.0000   1.0000  | 2 
+28 |   0.0000   0.0000   0.0000   1.0000  | 1 
+29 |   0.0000   0.0000   0.0000   1.0000  | 1 
+30 |   0.0000   0.0000   0.0000   1.0000  | 1 
+31 |   0.0000   0.0000   0.0000   1.0000  | 1 
+32 |   0.0000   0.0000   0.0000   1.0000  | 1 
+nodes       1        0      608      368 
+time   645.21     0.00  5357.19  1197.55 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.019045	-nan
+ 2| 0.017139	0.000741
+ 3| 0.006073	0.003483
+ 4| 0.002760	0.000923
+ 5| 0.001535	0.001003
+ 6| 0.000791	0.000039
+ 7| 0.000323	0.000005
+ 8| 0.000311	0.000017
+ 9| 0.000065	-nan
+10| 0.000059	-nan
+11| 0.000055	-nan
+12| 0.000001	0.000000
+13| 0.000000	-nan
+14| 0.000000	-nan
+15| 0.000000	0.000000
+16| 0.000000	0.000000
+17| 0.000000	-nan
+18| 0.000000	0.000000
+19| 0.000000	0.000000
+20| 0.000000	0.000000
+21| 0.000000	-nan
+22| 0.000000	0.000000
+23| 0.000000	0.000000
+24| 0.000000	0.000000
+25| 0.000000	0.000000
+26| 0.000000	0.000000
+27| 0.000000	0.000000
+28| 0.000000	0.000000
+29| 0.000000	0.000000
+30| 0.000000	0.000000
+31| 0.000000	0.000000
+32| 0.000000	0.000000
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 0           1	0.0000	1.0000	        190	   190.0	   12.03
+ 1          35	0.9429	0.0571	       1306	    37.3	   82.45
+ 2          68	0.9118	0.0882	       2163	    31.8	  143.82
+ 3          99	0.8889	0.1111	       7618	    76.9	  406.03
+ 4         160	0.9563	0.0437	       6603	    41.3	  293.37
+ 5         186	0.9677	0.0323	       9771	    52.5	  333.05
+ 6          60	0.9667	0.0333	       3572	    59.5	  101.91
+ 7          58	0.9655	0.0345	       3507	    60.5	  116.24
+ 8          56	0.9464	0.0536	      10766	   192.2	  256.50
+ 9          27	0.9630	0.0370	       1770	    65.6	   28.49
+10          26	0.9615	0.0385	       1430	    55.0	   16.89
+11          25	0.9600	0.0400	       1442	    57.7	   12.57
+12          24	0.9583	0.0417	       1265	    52.7	    9.62
+13          23	0.9565	0.0435	       1156	    50.3	    8.32
+14          22	0.9545	0.0455	        779	    35.4	    4.94
+15          13	0.9231	0.0769	        505	    38.8	    5.70
+16          14	0.9286	0.0714	        681	    48.6	    3.34
+17           8	0.8750	0.1250	        356	    44.5	    1.81
+18           3	0.6667	0.3333	        271	    90.3	    0.89
+19           2	0.5000	0.5000	        244	   122.0	    0.74
+20           3	0.6667	0.3333	        294	    98.0	    0.88
+21           6	0.8333	0.1667	        320	    53.3	    0.45
+22           3	0.6667	0.3333	        268	    89.3	    0.31
+23           3	0.6667	0.3333	        326	   108.7	    0.33
+24           1	0.0000	1.0000	        290	   290.0	    0.13
+25           1	0.0000	1.0000	        210	   210.0	    0.16
+26           1	0.0000	1.0000	        450	   450.0	    0.24
+27           1	0.0000	1.0000	        230	   230.0	    0.08
+28           1	0.0000	1.0000	        210	   210.0	    0.04
+29           1	0.0000	1.0000	        210	   210.0	    0.02
+30           1	0.0000	1.0000	        210	   210.0	    0.01
+31           1	0.0000	1.0000	        210	   210.0	    0.01
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 0           1	0.0000	  520.53
+ 1           2	0.0000	  374.82
+ 2           6	0.5000	  800.73
+ 3          11	0.5455	  850.32
+ 4           7	0.1429	  733.42
+ 5           6	0.6667	  440.89
+ 6           2	0.0000	  169.20
+ 7           2	0.0000	  137.66
+ 8           3	0.6667	  101.63
+ 9           1	0.0000	   43.05
+10           1	0.0000	   36.24
+11           1	0.0000	   41.07
+12           1	0.0000	   46.49
+13           1	0.0000	   68.86
+14           1	0.0000	   50.29
+15           1	0.0000	   50.80
+16           1	0.0000	   34.98
+17           1	0.0000	   30.78
+18           1	0.0000	   22.39
+19           1	0.0000	   17.10
+20           1	0.0000	   12.86
+21           1	0.0000	    8.58
+22           1	0.0000	    7.03
+23           1	0.0000	    5.12
+24           1	0.0000	    2.50
+25           1	0.0000	    2.36
+26           1	0.0000	    1.48
+27           1	0.0000	    0.90
+28           1	0.0000	    0.51
+29           1	0.0000	    0.27
+30           1	0.0000	    0.14
+31           1	0.0000	    0.07
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1          33	       0	      33	       0	       0
+ 2          65	       0	      62	       3	       0
+ 3          94	       0	      88	       6	       0
+ 4         154	       0	     153	       1	       0
+ 5         184	       0	     180	       4	       0
+ 6          58	       0	      58	       0	       0
+ 7          56	       0	      56	       0	       0
+ 8          55	       0	      53	       2	       0
+ 9          26	       0	      26	       0	       0
+10          25	       0	      25	       0	       0
+11          24	       0	      24	       0	       0
+12          23	       0	      23	       0	       0
+13          22	       0	      22	       0	       0
+14          21	       0	      21	       0	       0
+15          20	       8	      12	       0	       0
+16          19	       6	      13	       0	       0
+17          18	      11	       7	       0	       0
+18          17	       6	       2	       0	       9
+19          16	       0	       1	       0	      15
+20          15	       2	       2	       0	      11
+21          14	       7	       5	       0	       2
+22          13	       1	       2	       0	      10
+23          12	       1	       2	       0	       9
+24          10	       0	       0	       0	      10
+25           3	       0	       0	       0	       3
+26           0	       0	       0	       0	       0
+27           1	       1	       0	       0	       0
+28           0	       0	       0	       0	       0
+29           0	       0	       0	       0	       0
+30           0	       0	       0	       0	       0
+31           0	       0	       0	       0	       0
+32           0	       0	       0	       0	       0
+
+coordinator: 2 slots, 52 units, wall 3899.83 s, CPU 7200.17 s (x1.85), slots busy 84.5%, best objective 283315445
+05:49:26 worker vm/9870: 52 units, exiting
+05:49:26 run tai35b-laptop: 1046 node lines and 933 DNN lines (0 of 933 DNN nodes without one) from the frontier and 52 merged units in /home/user/qap/experiments/branching_lab/lsla/t2/tai35b_b2r0/export; 0 units not merged
