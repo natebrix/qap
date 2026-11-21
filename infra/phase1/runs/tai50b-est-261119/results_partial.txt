@@ -1,0 +1,54 @@
+PARTIAL: the solve paused for the estimate tai50b-est-261119-dives. 1116 units merged, 259 not (queued 259); written 2026-11-21 16:58 UTC
+
+  ---- RESULTS ----
+
+    Total Time: 117974.013924 seconds 
+         Nodes: 1117 / 1088 / 0
+    root bound: 288579943.67773807
+ fw iterations: 125075
+     DNN bound: 1117 nodes, 1004 fathomed, 50680.48 s
+     cut phase: 113 nodes, 84 fathomed, 66941.70 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	 4318.74
+ 1          50	0.8000	0.0000	26111.98
+ 2         490	0.9755	0.0000	59765.57
+ 3         576	0.9896	0.0000	27774.25
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   0.0000   0.0000   1.0000   0.0000  | 50 
+ 2 |   0.0000   0.0000   1.0000   0.0000  | 490 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 576 
+nodes       1        0     1116        0 
+time  4318.74     0.00 113651.80     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.019795	nan
+ 2| 0.005142	0.002982
+ 3| 0.003182	0.002521
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 0           1	0.0000	1.0000	        470	   470.0	  273.29
+ 1          50	0.3200	0.6800	       7282	   145.6	 3925.40
+ 2         490	0.8735	0.1265	      53048	   108.3	26721.34
+ 3         576	0.9722	0.0278	      45724	    79.4	19760.44
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 0           1	0.0000	 4043.75
+ 1          34	0.7059	22162.76
+ 2          62	0.8065	32899.70
+ 3          16	0.6250	 7835.50
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1          40	       0	      16	      24	       0
+ 2         478	       0	     428	      50	       0
+ 3         570	       0	     560	      10	       0
+
+coordinator: 135 slots, 1116 units, wall 4193.89 s, CPU 117974.01 s (x28.13), slots busy 20.1%, best objective 458821518
