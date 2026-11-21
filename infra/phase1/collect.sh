@@ -4,7 +4,8 @@
 #                                     elsewhere is fetched into a new runs/RUN/)
 # Shows the run's instances, the coordinator's status.json, each host's last
 # steps, and results.txt (or results_partial.txt: a solve paused for an estimate, or stopped), compare.txt
-# and an estimate run's estimate.txt when they exist. Everything it fetches
+# and an estimate run's estimate.txt and results_estimate.txt (the estimated tree in results.txt's layout)
+# when they exist. Everything it fetches
 # goes to runs/RUN/ (each host's out/ under hosts/HOST/). Safe to run at any time.
 # It ends with the run's readout (runs/RUN/readout.md, coord/readout.py: where the run stands and what
 # it found) and a one-line verdict on the collect itself, also in runs/RUN/collect.txt: complete, or
@@ -105,6 +106,9 @@ get results_partial.txt && { echo; cat "$L/results_partial.txt"; }
 if aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/results.txt" "$L/estimate.txt" 2> /dev/null; then
   aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/estimate.json" "$L/estimate.json" 2> /dev/null
   echo; echo "estimate (run $RUN-dives; $RUN stays paused, resumable):"; cat "$L/estimate.txt"
+  # the estimated tree in results.txt's layout (coord/dives.py, estimate_results), level by level
+  aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/results_estimate.txt" "$L/results_estimate.txt" 2> /dev/null \
+    && { echo; cat "$L/results_estimate.txt"; }
 fi
 # an estimate run's dives, for analysis (dives.jsonl.gz and units.tsv under runs/RUN/dives/): part-way too;
 # a dives run of its own (a re-dive of a paused frontier: start.sh FROM= DIVES=), its results and dives
@@ -112,6 +116,7 @@ DV=$RUN-dives
 if [ "$(python3 "$D/bk.py" "$BKS" kind "$RUN" 2> /dev/null || echo none)" = dives ]; then
   DV=$RUN
   get estimate.txt && get estimate.json && { echo; echo "estimate (dives run $RUN):"; cat "$L/estimate.txt"; }
+  get results_estimate.txt && { echo; cat "$L/results_estimate.txt"; }
 fi
 # a sampled run (coord/sample.py): its sample, for experiments/estimates_nov19/paired.py
 get sample.json && echo "sample: $(python3 -c "import json,sys; s=json.load(open(sys.argv[1])); print(len(s['nodes']), 'open nodes of', s['meta']['src'], 'by', s['meta']['by'])" "$L/sample.json")"

@@ -37,7 +37,8 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
         (SRC paused, its units returned and merged: run NEW, one unit of survivor dives per queued
         unit of SRC, S wall seconds each; then the coordinator and workers of NEW: coord/dives.py)
   python3 -m coord.qapctl estimate NEW --backend B [--out DIR]   (SRC's work so far plus the
-        dives' estimate of the rest, by depth: estimate.txt and estimate.json)
+        dives' estimate of the rest, by depth: estimate.txt and estimate.json; results_estimate.txt,
+        the estimated tree in results.txt's layout)
   python3 -m coord.qapctl estimate-flow RUN --backend B --solve-wall S --dive-budget T [--dive-b 0.4]
         [--decide 0.15]
         (in place of `coordinator RUN`: the solve for S s of its wall time, then pause, dives of T s a

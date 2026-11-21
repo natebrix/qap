@@ -8,13 +8,14 @@
 2. The same through the coordinator: 0.3-second units, 2 slots, for a few seconds; then paused,
    and its units left to return and merge.
 3. A dives run from its queued units (3 seconds of survivor dives a unit), its coordinator and
-   worker to the end, and `qapctl estimate`: the estimated tree must be within 15% of the count.
+   worker to the end, and `qapctl estimate`: the estimated tree must be within 15% of the count, and
+   results_estimate.txt (the estimated tree in results.txt's layout) its totals, level by level.
 4. The paused run resumed to the end: its totals must equal the serial run's, so the dives run
    left its state files and parent states as they were.
 5. With --flow: the same with nothing done by hand, `qapctl estimate-flow` (the solve for --seconds
    of its wall time, the pause, the dives run; its decision point off) and one `qapctl worker
    --follow`: both must exit 0 with the solve paused, its dives run finished and the estimate within
-   15%. Then (6) the decision point.
+   15%, its results_partial.txt and results_estimate.txt as in 3. Then (6) the decision point.
 6. With --flow or --decide: estimate-flow with the decision point at 1% (`--decide 0.01`: an
    estimate of a tree this small always costs more), checked every second, 8 s of dives a unit:
    once the pilot's units (half of so few, coord/dives.py pilot_size) have merged the dives must stop and the solve go on to the end on the same worker, which comes
@@ -124,6 +125,12 @@ def main():
           if not 0.85 <= ratio <= 1.15:
               print("FAIL: the estimate is more than 15% off")
               failed += 1
+          rtext = open(f"{d}/est/results_estimate.txt").read()
+          failed += check_results_estimate(rtext, e, "estimate")
+          stored = (b.get_bytes(f"runs/{dv}/results_estimate.txt") or b"").decode()
+          if rtext.split("\n", 1)[-1] != stored.split("\n", 1)[-1]:     # (the first line has the time written)
+              print("FAIL: qapctl estimate's results_estimate.txt is not the one in the store")
+              failed += 1
           if e["strata_with_survivors_not_dived"]:
               print(f"note: {e['strata_with_survivors_not_dived']} open nodes with survivors got no dive")
           # the solve, resumed, must finish with the serial totals: the dives touched nothing of it
@@ -150,6 +157,31 @@ def main():
         failed += decide_flow(a, dat, env, true_nodes)
     print("PASS" if not failed else f"FAIL: {failed} checks")
     return 1 if failed else 0
+
+
+def check_results_estimate(text, e, where):
+    """results_estimate.txt (coord/dives.py, estimate_results): results.txt's layout, its head the
+    estimate's totals, its levels adding up to them, %fathom and %c.elim fractions (none N/A: the estimator
+    writes the counts since Nov 21)"""
+    m = re.search(r"Nodes: (\d+) / (\d+) / 0", text)
+    tt = re.search(r"Total Time: ([0-9.]+) seconds", text)
+    rows = [ln.split("\t") for ln in text.split("\nlevel ", 1)[-1].splitlines()[1:] if ln.strip()]
+    rows = [(int(r[0].split()[1]), r[1], r[2], float(r[3])) for r in rows if len(r) == 4]
+    n_sum = sum(n for n, *_ in rows)
+    t_sum = sum(t for *_, t in rows)
+    first = text.splitlines()[0] if text else "missing"
+    print(f"{where}: results_estimate.txt: {first[:90]}; {len(rows)} levels, {n_sum:,} nodes, "
+          f"Nodes {m.group(1) if m else '?'}, the estimate's {e['total']['nodes']:,.0f}")
+    ok = (text.startswith("ESTIMATE: ") and "---- RESULTS ----" in text and m and tt and rows
+          and int(m.group(1)) == round(e["total"]["nodes"]) and abs(n_sum - e["total"]["nodes"]) <= len(rows)
+          and abs(t_sum - float(tt.group(1))) <= 0.01 * len(rows) + 1e-6 * t_sum
+          and all(f != "N/A" and 0.0 <= float(f) <= 1.0 for _, f, _, _ in rows)
+          and all(x == "N/A" or 0.0 <= float(x) <= 1.0 for _, _, x, _ in rows)
+          and int(m.group(2)) <= int(m.group(1)))
+    if not ok:
+        print(f"FAIL: {where}: results_estimate.txt is missing, malformed or not the estimate's totals")
+        print(text)
+    return 0 if ok else 1
 
 
 def flow(a, dat, env, true_nodes):
@@ -187,6 +219,8 @@ def flow(a, dat, env, true_nodes):
                 if not 0.85 <= ratio <= 1.15:
                     print("FAIL: the flow's estimate is more than 15% off")
                     bad += 1
+                bad += check_results_estimate((b.get_bytes(f"runs/{run}-dives/results_estimate.txt") or b"").decode(),
+                                              e, "flow")
                 # the paused solve's RESULTS block (coordinator.write_partial): its nodes the estimate's
                 # "done so far" (the merged totals) and the status written after the pause settled
                 part = (b.get_bytes(f"runs/{run}/results_partial.txt") or b"").decode()

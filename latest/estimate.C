@@ -89,12 +89,20 @@ struct Rec {                       // one node as bounded: its own statistics, h
   double bound = NAN;
   int nodes = 0;                   // 1, or 0 when it was discarded on its inherited bound
   bool branched = false;
+  // the search's own counts at its depth (QAPStatistics f_level, l_level, e_level): fathomed (0 or 1),
+  // locations its branching considered and eliminated, for the RESULTS table's %fathom and %c.elim
+  double fathom = 0.0, locs = 0.0, elim = 0.0;
 };
 
-struct Est {                       // an estimate by depth: nodes and CPU
-  std::map<int, double> n, c;
+struct Est {                       // an estimate by depth: nodes and CPU; fathoms, locations, eliminated
+  std::map<int, double> n, c, f, l, x;
   double nodes = 0.0, cpu = 0.0;
   void add(int d, double nn, double cc) { n[d] += nn; c[d] += cc; nodes += nn; cpu += cc; }
+  void add(const Rec &r, double w) {   // a bounded node, weight w (1/p)
+    const int d = r.a.depth;
+    add(d, w * r.nodes, w * r.cpu);
+    f[d] += w * r.fathom; l[d] += w * r.locs; x[d] += w * r.elim;
+  }
 };
 
 static std::string fixes_of(const QAPAssignment &a)
@@ -124,6 +132,10 @@ static Node *bound_one(QAP *q, const QAPAssignment &a, QAPSolution *s, BNBParame
   r.cpu = st.total_time;
   r.nodes = (int)st.node;
   r.branched = one != NULL;
+  const int dd = std::min((int)a.depth, s->n);
+  r.fathom = (double)st.f_level[dd];
+  r.locs = (double)st.l_level[dd];
+  r.elim = (double)st.e_level[dd];
   r.bound = one ? one->data.bound : NAN;
   return one;
 }
@@ -485,7 +497,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
     h.pi = next_pi < kept_pi.size() ? kept_pi[next_pi++] : 1.0;
     Rec r;
     Node *kids = bound_one(q, a, s, params, nlevel, root_bound, r);
-    h.exact.add(a.depth, r.nodes, r.cpu);
+    h.exact.add(r, 1.0);
     h.setup_cpu += r.cpu;
     if (knuth && kids && r.branched) {
       const double c0 = clock();
@@ -502,7 +514,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
           short_seen[c.a.depth].push_back(std::max(inc - c.bound, 0.0));
           h.surv.push_back(c);     // counted by the dives (weight 1/p), not here
         } else
-          h.exact.add(c.a.depth, c.nodes, c.cpu);
+          h.exact.add(c, 1.0);
         free_list(gk);
       }
     }
@@ -537,6 +549,12 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       json_by_depth(out, "exact_by_depth", h.exact.n);
       out << ",";
       json_by_depth(out, "exact_cpu_by_depth", h.exact.c);
+      out << ",";
+      json_by_depth(out, "exact_fathom_by_depth", h.exact.f);
+      out << ",";
+      json_by_depth(out, "exact_locs_by_depth", h.exact.l);
+      out << ",";
+      json_by_depth(out, "exact_elim_by_depth", h.exact.x);
       out << ",\"survivors\":" << (knuth ? h.kids.size() : h.surv.size()) << ",\"setup_cpu\":" << h.setup_cpu
           << ",\"pi\":" << h.pi << ",\"mode\":\"" << (knuth ? "knuth" : "surv") << "\",\"warm\":\"" << h.warm
           << "\"}" << std::endl;
@@ -555,7 +573,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       Rec r;
       Node *kids = bound_one(q, cur, s, params, nlevel, root_bound, r);
       cost += r.cpu;
-      e.add(cur.depth, d * r.nodes, d * r.cpu);
+      e.add(r, d);
       deepest = std::max(deepest, (int)cur.depth);
       if (!kids || !r.branched) { free_list(kids); break; }
       std::vector<QAPAssignment> ks;
@@ -580,7 +598,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
     Rec cur = h.surv[k];
     double d = 1.0 / pk;
     while (true) {
-      e.add(cur.a.depth, d * cur.nodes, d * cur.cpu);
+      e.add(cur, d);
       deepest = std::max(deepest, cur.a.depth);
       Rec again;
       Node *kids = bound_one(q, cur.a, s, params, nlevel, root_bound, again);   // its children, again
@@ -595,7 +613,7 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
           short_seen[c.a.depth].push_back(std::max(inc - c.bound, 0.0));
           surv.push_back(c);
         } else
-          e.add(c.a.depth, d * c.nodes, d * c.cpu);
+          e.add(c, d);
         free_list(gk);
       }
       free_list(kids);
@@ -636,6 +654,12 @@ static QAPStatistics *estimate_surv(QAP *q, Node *&stack, QAPSolution *s, BNBPar
       json_by_depth(out, "by_depth", e.n);
       out << ",";
       json_by_depth(out, "cpu_by_depth", e.c);
+      out << ",";
+      json_by_depth(out, "fathom_by_depth", e.f);
+      out << ",";
+      json_by_depth(out, "locs_by_depth", e.l);
+      out << ",";
+      json_by_depth(out, "elim_by_depth", e.x);
       out << ",\"deepest\":" << deepest << ",\"cost\":" << cost << "}" << std::endl;
     }
   };

@@ -22,7 +22,8 @@ by depth:
 
 with a bootstrap interval (dives resampled within their strata), the dives' deepest level
 against the deepest level with nodes, and the strata no dive reached (they count their exact
-part only, a known low bias where they have survivors).
+part only, a known low bias where they have survivors). Beside estimate.txt, results_estimate.txt:
+the same estimated tree in the solver's RESULTS layout, with %fathom and %c.elim (estimate_results).
 """
 import json
 import math
@@ -214,23 +215,28 @@ def combine(src_state, strata, dives, reps=400, seed=1):
     """SRC's totals plus every stratum's exact part and the mean of its dives, each weighted 1/pi (the
     stratum's probability of being sampled: 1 without QAP_EST_SAMPLE); a bootstrap over the dives within
     each stratum and, where strata were sampled (pi < 1), over those strata"""
-    nl, tl = src_state.arrays.get("n_level", []), src_state.arrays.get("t_level", [])
-    done_n = {d: float(v) for d, v in enumerate(nl) if v}
-    done_c = {d: float(v) for d, v in enumerate(tl) if v}
+    arr = lambda name: {d: float(v) for d, v in enumerate(src_state.arrays.get(name, [])) if v}
+    done_n, done_c = arr("n_level"), arr("t_level")
+    # fathoms, locations considered and eliminated in branching, by depth: the RESULTS table's %fathom and
+    # %c.elim (estimate_results). The estimator's lines carry them from Nov 21 (latest/estimate.C); a run
+    # whose lines do not has them for its solve's part only
+    done_f, done_l, done_x = arr("f_level"), arr("l_level"), arr("e_level")
     pi = {k: float(s.get("pi", 1.0)) or 1.0 for k, s in strata.items()}
-    est_n, est_c = dict(), dict()
+    est_n, est_c, est_f, est_l, est_x = dict(), dict(), dict(), dict(), dict()
+    fe = all("exact_fathom_by_depth" in s for s in strata.values()) and \
+        all("fathom_by_depth" in x for ds in dives.values() for x in ds)
     for k, s in strata.items():
-        for d, v in _by_depth(s.get("exact_by_depth")).items():
-            est_n[d] = est_n.get(d, 0.0) + v / pi[k]
-        for d, v in _by_depth(s.get("exact_cpu_by_depth")).items():
-            est_c[d] = est_c.get(d, 0.0) + v / pi[k]
+        for acc, name in ((est_n, "exact_by_depth"), (est_c, "exact_cpu_by_depth"), (est_f, "exact_fathom_by_depth"),
+                          (est_l, "exact_locs_by_depth"), (est_x, "exact_elim_by_depth")):
+            for d, v in _by_depth(s.get(name)).items():
+                acc[d] = acc.get(d, 0.0) + v / pi[k]
     for key, ds in dives.items():
         w = pi.get(key, 1.0)
         for x in ds:
-            for d, v in _by_depth(x.get("by_depth")).items():
-                est_n[d] = est_n.get(d, 0.0) + v / len(ds) / w
-            for d, v in _by_depth(x.get("cpu_by_depth")).items():
-                est_c[d] = est_c.get(d, 0.0) + v / len(ds) / w
+            for acc, name in ((est_n, "by_depth"), (est_c, "cpu_by_depth"), (est_f, "fathom_by_depth"),
+                              (est_l, "locs_by_depth"), (est_x, "elim_by_depth")):
+                for d, v in _by_depth(x.get(name)).items():
+                    acc[d] = acc.get(d, 0.0) + v / len(ds) / w
     def part(k, pick=None):
         s = strata[k]
         ds = dives.get(k, [])
@@ -265,7 +271,9 @@ def combine(src_state, strata, dives, reps=400, seed=1):
     spent = sum(s.get("setup_cpu", 0.0) for s in strata.values()) + \
         sum(x.get("cost", 0.0) for ds in dives.values() for x in ds)
     done_nodes, done_cpu = float(src_state.counters[0]), float(src_state.times[0])
+    rest_by = lambda acc, d: acc.get(d, 0.0) if fe else None
     return {
+        "root_bound": float(getattr(src_state, "root_bound", 0.0) or 0.0),
         "done": {"nodes": done_nodes, "cpu": done_cpu},
         "rest": {"nodes": rest_n, "cpu": rest_c,
                  "nodes_5_95": [q(boots_n, .05), q(boots_n, .95)], "cpu_5_95": [q(boots_c, .05), q(boots_c, .95)]},
@@ -278,7 +286,10 @@ def combine(src_state, strata, dives, reps=400, seed=1):
         "deepest_dive": deepest,
         "estimator_cpu": spent,
         "by_depth": {str(d): {"done_nodes": done_n.get(d, 0.0), "rest_nodes": est_n.get(d, 0.0),
-                              "done_cpu": done_c.get(d, 0.0), "rest_cpu": est_c.get(d, 0.0)}
+                              "done_cpu": done_c.get(d, 0.0), "rest_cpu": est_c.get(d, 0.0),
+                              "done_fathom": done_f.get(d, 0.0), "rest_fathom": rest_by(est_f, d),
+                              "done_locs": done_l.get(d, 0.0), "rest_locs": rest_by(est_l, d),
+                              "done_elim": done_x.get(d, 0.0), "rest_elim": rest_by(est_x, d)}
                      for d in sorted(set(done_n) | set(est_n) | set(done_c) | set(est_c))},
     }
 
@@ -325,6 +336,46 @@ def report(e):
         lines.append("")
         lines.append(f"(nodes at depth {max(deep_nodes)} are in the solve's own part; the dives reached depth "
                      f"{e['deepest_dive']})")
+    return "\n".join(lines)
+
+
+def estimate_results(e, run_id=None):
+    """results_estimate.txt: the estimated tree, its solve's part so far plus the estimated rest, in the
+    solver's RESULTS layout (latest/stats.C: Total Time, Nodes, root bound, then level, nodes, %fathom,
+    %c.elim, time), so that an estimate sets level by level beside its run's results.txt, as the thesis's
+    estimates did (Table 4.5). Nodes are the estimate's means, rounded; %fathom and %c.elim are N/A at a
+    level whose estimated part has no such counts (a dives run before Nov 21). Part-way (units pending), the
+    pending units' imputed share is in the head's totals but not in the levels."""
+    t, r, d = e["total"], e["rest"], e["done"]
+    by = {int(k): v for k, v in e["by_depth"].items()}
+    head = (f"ESTIMATE: the tree of {e.get('source_run', '?')}" + (f" as {run_id} estimates it" if run_id else "") +
+            f": its solve so far ({d['nodes']:,.0f} nodes, {d['cpu']:,.0f} CPU s) plus the estimated rest "
+            f"({r['nodes']:,.0f} nodes, 5-95% {r['nodes_5_95'][0]:,.0f} to {r['nodes_5_95'][1]:,.0f}; "
+            f"{r['cpu']:,.0f} CPU s, {r['cpu_5_95'][0]:,.0f} to {r['cpu_5_95'][1]:,.0f}); "
+            f"written {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}")
+    imp = e.get("imputed") or {}
+    if e.get("units_pending"):
+        head += (f"\n{e['units_pending']} of {e['units']} dives units pending: their imputed share "
+                 f"({imp.get('nodes', 0.0):,.0f} nodes, {imp.get('cpu', 0.0):,.0f} CPU s) is in the totals, "
+                 f"not in the levels")
+    fe = all(v["rest_fathom"] is not None or not v["rest_nodes"] for v in by.values())
+    fath = f'{sum(v["done_fathom"] + (v["rest_fathom"] or 0.0) for v in by.values()):.0f}' if fe else "N/A"
+    lines = [head, "", "  ---- RESULTS ----", "",
+             f"    Total Time: {t['cpu']:.6f} seconds ",
+             f"         Nodes: {t['nodes']:.0f} / {fath} / 0",
+             f"    root bound: {e.get('root_bound', 0.0):g}", "",
+             "level    nodes\t%fathom\t%c.elim\t    time"]
+    for k in sorted(by):
+        v = by[k]
+        n = v["done_nodes"] + v["rest_nodes"]
+        if n <= 0:
+            continue
+        f = None if v["rest_fathom"] is None and v["rest_nodes"] > 0 else v["done_fathom"] + (v["rest_fathom"] or 0.0)
+        lo = None if v["rest_locs"] is None and v["rest_nodes"] > 0 else v["done_locs"] + (v["rest_locs"] or 0.0)
+        el = v["done_elim"] + (v["rest_elim"] or 0.0)
+        fs = "N/A" if f is None else f"{min(f / n, 1.0):.4f}"
+        es = "N/A" if not lo else f"{el / lo:.4f}"
+        lines.append(f"{k:2d}  {n:10.0f}\t{fs}\t{es}\t{v['done_cpu'] + v['rest_cpu']:8.2f}")
     return "\n".join(lines)
 
 
@@ -593,15 +644,19 @@ def estimate_run(b, run_id, out=None, log=print, save=True, cache=None, decide=N
     if dt:
         text = dt + "\n" + text
     e["text"] = text
+    e["results"] = estimate_results(e, run_id)
     if save:      # (a readout made with a read-only role writes nothing: coord/readout.py)
         b.put_bytes(run_key(run_id, "estimate.json"), json.dumps(e, indent=1).encode())
         b.put_bytes(run_key(run_id, "estimate.txt"), (text + "\n").encode())
+        b.put_bytes(run_key(run_id, "results_estimate.txt"), (e["results"] + "\n").encode())
     if out:
         os.makedirs(out, exist_ok=True)
         with open(os.path.join(out, "estimate.json"), "w") as f:
             json.dump(e, f, indent=1)
         with open(os.path.join(out, "estimate.txt"), "w") as f:
             f.write(text + "\n")
+        with open(os.path.join(out, "results_estimate.txt"), "w") as f:
+            f.write(e["results"] + "\n")
     log(text)
     return e
 
@@ -661,6 +716,8 @@ def _decide_solve(b, run_id, new, d, e=None, log=print):
     if e is not None:       # the estimate as it stood when the dives stopped, for the readouts
         b.put_bytes(run_key(new, "estimate.json"), json.dumps(e, indent=1).encode())
         b.put_bytes(run_key(new, "estimate.txt"), (e["text"] + "\n").encode())
+        if e.get("results"):
+            b.put_bytes(run_key(new, "results_estimate.txt"), (e["results"] + "\n").encode())
     src = b.get_run(run_id)
     if src.get("status") == "paused":
         b.update_run(run_id, {"status": "running", "estimate_decision": d})

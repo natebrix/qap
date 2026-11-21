@@ -130,6 +130,12 @@ the second run from the cache, both runs equal to the serial run, DNN iterations
   tables) for the merged statistics as they stand, led by a `PARTIAL:` line saying why. The estimate flow
   writes it for the solve it pauses, `qapctl stop` for the solve it gives up, and `qapctl results RUN`
   for a paused or stopped run from before Nov 21. `results.txt` stays the finished solve's alone.
+  An estimate (a dives run, `coord/dives.py`) writes `results_estimate.txt` beside its `estimate.txt`:
+  the estimated tree, the solve's part so far plus the estimated rest, in the same layout (level,
+  nodes, %fathom, %c.elim, time; the thesis's Table 4.5), so it sets level by level beside the
+  finished run's `results.txt`. The estimator's lines carry the fathoms and the locations considered
+  and eliminated by depth from Nov 21 (`latest/estimate.C`); for an earlier dives run those columns
+  read N/A where the estimated part has nodes.
 - **Faults.** A dead worker's units come back when their leases run out (or
   at once with `requeue-leased` after a known machine restart) and resume
   from their last uploaded checkpoint. SIGTERM to a worker drains it: every

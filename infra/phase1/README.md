@@ -440,7 +440,8 @@ distribution only serves it).
 status, nodes, CPU, incumbent), each host's last steps, and at the end
 `results.txt` and `compare.txt` (or `results_partial.txt`: the RESULTS block of a solve paused for an
 estimate or stopped, as far as it went; with it, as with `results.txt`, the node trace goes in the
-record), and keeps each host's `out/` under
+record; for an estimate, `estimate.txt` and `results_estimate.txt`, the estimated tree in the RESULTS
+layout, to set beside the solve's `results.txt` once it finishes), and keeps each host's `out/` under
 `runs/RUN/hosts/`: `steps.txt`, `node.log`, `coordinator.log`, `worker.log`,
 `init.log`, `reference.log`, `gate_*.log`, `sysinfo.txt`. `runs/RUN/launches.tsv`
 records each launch (role, type, market, Spot price, instance, zone, commit,
