@@ -1,11 +1,11 @@
 # The root lookahead for the grids
 
-Nov 21 2026. [m] = measured here, [e] = estimate or inference. wil50's scores and one tho30 tree are still
-to come (marked below).
+Nov 21 2026. [m] = measured here, [e] = estimate or inference. wil50's scores are still to come (marked
+below).
 
 **Scoring every row at a grid's root is cheap, and scoring a row by the tree its children predict sorts good
-rows from bad ones (nug30: 3,623 to 10,165 nodes over six rows). It does not order the best few: its error
-on a row's tree is a factor of about 1.3. At tho40 it puts production's row 15th of 40 and predicts about
+rows from bad ones (nug30: 3,623 to 10,165 nodes over six rows; tho30: 13,812 to more than 21,000 over
+three). It does not order the best few: its error on a row's tree is a factor of about 1.3. At tho40 it puts production's row 15th of 40 and predicts about
 30% fewer nodes for row 2: a bet at the edge of that error, which a second estimate can settle.**
 
 ## What it is
@@ -74,10 +74,11 @@ The patch goes on cognac 0e6c2ecf + `experiments/line_signals/experiment_build.p
 |---|---|---|---|---|
 | r5 (production) | 1 | 2 | 14,900 (14,815 solver's nodes) | `../grid/runs/tho30_prod` |
 | r25 | 26 to 30 | 1 | **at least 21,095**, not closed | stopped by the two-hour limit on background commands with 6 units open and not restarted; `runs/tho30_r25_tr/nodes.partial.txt.gz` |
-| r4 | 2 | 5 | running | |
+| r4 | 2 | 5 | **13,887** (13,812 solver's nodes): 0.93 of production | `runs/tho30_r4_tr` |
 
-- Production's row is the size model's first: nothing better is predicted, and r25, first by the sum of
-  shortfalls, is at least 42% worse [m].
+- Production's row is the size model's first and r4 its second (predicted 1.15 to 1.25 times r5); r4's tree is
+  7% smaller than r5's [m]. As at nug30: the top picks are within some 15% of each other and the model
+  does not order them. r25, first by the sum of shortfalls, is at least 42% worse [m].
 - **The curve is not the same under every row here** [m]: r5's children have larger subtrees at the same
   shortfall than r25's (5:0, 3,198 short, 1,214 nodes; 25:2, 3,528 short, 335), and the pooled fit's residual is
   a factor 2 a child (nug30: 1.5). The first fit (r5's ten children alone, a narrow range) had twice the slope
@@ -111,7 +112,7 @@ The patch goes on cognac 0e6c2ecf + `experiments/line_signals/experiment_build.p
 
 ## Not done
 
-- wil50's scores; tho30 with r4.
+- wil50's scores.
 - A calibration for sko49 and wil50 (their estimates would have to be totalled under each depth-1 node).
 - The same at depth 1 (10 to 15 nodes a grid: `../budget/README.md`), where rows and columns are both free
   and the children are many more.
