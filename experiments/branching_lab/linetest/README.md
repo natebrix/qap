@@ -308,6 +308,13 @@ What that does not show: whether the gap holds deeper. The path child 47:47's su
 the chain, and its three depth-9 survivors at 179k-254k are lighter than 14:54's seven. The deeper
 levels are Nathan's decision.
 
+## Rule 9's failures
+
+See [`failures.md`](failures.md) (Nov 20-21): every failure in this subtree is a column whose children are one
+tight facility cluster, chosen for a single large entry it shares with a row; the good line was never one of rule 9's two
+candidates; the relaxation's mass does not name the surviving cluster but its non-zero support does; "support" fails its
+decision rule.
+
 ## Child by child, the strong state (10:39 416,393 short; production 405,921)
 
 x = excess / production's slack (405,921). "x 30" is the landscape signal's search (`predict.py`,
