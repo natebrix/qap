@@ -450,6 +450,32 @@ refinement: **c25** (tai50b root, 15; r31 2nd at 18), **c59** (d7), **c59** (d8)
   (`30:3000:2.5:300`, no fix) is what tai35b, tai40b and the chain tests measured. My call: run the default,
   not the fix; the fix changed no choice on tai35b and made one worse choice at d7.
 
+## The "tail" predictor (coordinator, Nov 21): entries above 0.001 in a line's DNN marginals
+
+The coordinator's suggestion from linetest's failures (Spearman +0.61 in-sample, 56 lines at 28 deep nodes):
+fewer non-zero marginals in a line, fewer branching children. Rule "tail": fewest entries above 0.001, ties by the
+larger sum of x^2, then rows. Tested out of sample at the four nodes whose lines were bounded here [m `xdump.sh`
+(each node re-bounded under its arms' settings with its children set aside, in a copy of the build with an x-bar
+dump; every bound matches its arms' to 4 decimals), `tail.py` -> `out/tail.md`]:
+
+| node | tail picks | B of its pick | best bounded line (B) | worst bounded line: B, tail rank | Spearman |
+|---|---|---|---|---|---|
+| tai60b 10:39 (d7) | c59 (5 entries; no tie) | 3 | c59 (3) | c54: 9, 27th of 106 | +0.67 (5 lines) |
+| tai60b 14:54 (d8) | c59 (3; no tie) | 3 | c59 (3) | c2: 7, 32nd of 104 | +1.00 (3) |
+| tai60b 24:2 (d9) | c59 (3; ties r11, which loses on x^2) | 3 | c59 (3) | c30: 12, 91st of 102 | +0.89 (5) |
+| tai50b root | r31 (49; ties c6) | 10 | r31 (10) | c26: 28, 36th of 100 | +1.00 (2) |
+
+- **At tai60b's three chain nodes, "tail" picks the best line bounded, c59, every time**, and puts the
+  failures far down: c30 at 24:2, the signal's top line and its one bad miss (12 branching), is 91st of 102 with
+  23 entries above 0.001 against c59's 3. Pooled over the 15 bounded lines, Spearman +0.90 (pooling mixes nodes).
+- **At tai50b's root it carries no information**: the marginals are spread out, every line has 49-50 entries
+  above 0.001, so the pick is by the tie-break (sum of x^2), which is rule 9's own order: r31. Entries above 0.01
+  do separate there (r31 20, c26 45).
+- Cost: nothing beyond the bound (the marginals are already there); against the signal's 230-350 s and the
+  lookahead's 1.3-1.5 core-hours a firing at n = 60.
+- Caveats: 15 lines at 4 nodes, all on one tai60b chain plus one root; the chain nodes are related (c59 is the
+  answer at all three). No new line was bounded: tail's pick was already bounded at every node.
+
 ## Not tested yet
 
 - Depth 9 under c59 and r11; any line at tai60b's depth-3 chain node bounded.
