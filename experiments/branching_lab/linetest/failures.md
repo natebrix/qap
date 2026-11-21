@@ -43,8 +43,8 @@ for one large entry it shares with a row. The good line was never one of rule 9'
 - **"Support"** (fewest entries above 1/m, ties by rule 9's order; fixed before the data). **It fails its decision
   rule.** At 8:49 it picks r51 (5 branching children, against at most 2 allowed). At 8:57 it picks c30, rule 9's
   own failing line (6). Entries above 1/m do not see the tail: c30 has only 1-2 there, as r2 does. So it is not
-  worth a wider test. Its lines at the other failures were bounded for completeness: c4 at 22:31 and c38 at 11:29
-  (below). The six ordinary-node arms were not run, since the decision was already settled by 8:49 and 8:57.
+  worth a wider test. Its lines at the other failures were bounded for completeness: c4 at 22:31 (2) and c38 at 11:29
+  (1), both much better than rule 9 there. The six ordinary-node arms were not run, since the decision was already settled by 8:49 and 8:57.
 - **Siblings.** 8:49 and 8:57 are near-copies: children of 4:29 under r8, differing only in facility 8's location
   (49 against 57). Their bounds are 608,024,831 and 607,991,775, and their c30 columns are the same shape (51:30 =
   0.856 and 0.896, 22 non-zero entries each, the same cluster split). So it is one event seen twice. The same thing
@@ -94,7 +94,9 @@ failure found by the sibling scan (rebuilt as `runs/rebuild/b335`; its rule-2 ar
 | s17_9_55p | 17 | no | 14k | 0.005 | r4 (1) | r4/c23 (1.48e+12, 1.45e+12) | 0.586, 0.000 | 3/2/2/3/3 | r8 1 | 5 / 1 | 3/3/3/3/3 | r4 (1) |
 | s17_9_55q | 17 | no | 97k | 0.033 | r13 (1) | r13/c36 (1.46e+12, 1.43e+12) | 0.742, 0.002 | 2/2/2/2/3 | r8 1 | 8 / 2 | 3/2/2/3/4 | r13 (1) |
 
-"Support" at the failures: 22:31's c4 and 11:29's c38 are in `runs/scan/sup_*` (results below when finished).
+"Support" at the other two failures [m]: at 22:31 its c4 leaves **2** branching children (145k shortfall sum, 1,499 CPU s),
+against rule 9's c26 7; at 11:29 its c38 leaves **1** (23k, 1,276 s), against c30's 13. So "support" avoids those two
+failures but not 8:49 / 8:57, where the decision rule was set; the verdict stands (`runs/scan/sup_2231_c4`, `sup_f12_c38`).
 
 ## How
 
