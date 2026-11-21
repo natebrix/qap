@@ -438,7 +438,9 @@ distribution only serves it).
 
 `collect.sh RUN` prints the instances, the coordinator's `status.json` (units by
 status, nodes, CPU, incumbent), each host's last steps, and at the end
-`results.txt` and `compare.txt`, and keeps each host's `out/` under
+`results.txt` and `compare.txt` (or `results_partial.txt`: the RESULTS block of a solve paused for an
+estimate or stopped, as far as it went; with it, as with `results.txt`, the node trace goes in the
+record), and keeps each host's `out/` under
 `runs/RUN/hosts/`: `steps.txt`, `node.log`, `coordinator.log`, `worker.log`,
 `init.log`, `reference.log`, `gate_*.log`, `sysinfo.txt`. `runs/RUN/launches.tsv`
 records each launch (role, type, market, Spot price, instance, zone, commit,

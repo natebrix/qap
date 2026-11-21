@@ -367,6 +367,28 @@ class Coordinator:
                       f"best objective {inc.get('obj', t.obj):.17g}"]
         return "\n".join(lines)
 
+    def write_partial(self, why):
+        """results.txt's RESULTS block for a solve its operation left unfinished (paused for an estimate,
+        stopped), from the merged statistics as they stand: runs/RUN/results_partial.txt, led by a PARTIAL
+        line that says why. results.txt stays the finished solve's alone (readouts, collect's acceptance
+        check and the site read it so). The wall is the last status's, the solve's own."""
+        last = json.loads(self.b.get_bytes(run_key(self.run_id, "status.json")) or b"{}")
+        wall = last.get("wall_s") or (time.time() - self.t0)
+        t = self.totals
+        inc = self.run.get("incumbent", {})
+        if inc.get("perm"):
+            t.obj, t.perm = inc["obj"], [str(x) for x in inc["perm"]]
+        p = self._path("partial.state")
+        t.write(p, [])
+        counts = self.b.count_by_status(self.run_id)
+        open_units = sum(v for k, v in counts.items() if k != "merged")
+        text = (f"PARTIAL: {why}. {self.units_merged} units merged, {open_units} not "
+                f"({', '.join(f'{k} {v}' for k, v in sorted(counts.items()) if k != 'merged') or 'none'}); "
+                f"written {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}\n\n" + self.report(p, wall))
+        self.b.put_bytes(run_key(self.run_id, "results_partial.txt"), (text + "\n").encode())
+        self.log(f"coordinator: run {self.run_id}: results_partial.txt ({why})")
+        return text
+
     def finish(self):
         now = time.time()
         wall = now - self.t0

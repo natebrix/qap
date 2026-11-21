@@ -30,6 +30,9 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
         units' messages. Terminate its instances apart: infra/phase1/cleanup.sh)
   python3 -m coord.qapctl purge-states RUN --backend B   (a stopped or finished run: delete its
         unit state files, the bulk of its store; ledger, totals, results, logs, traces stay)
+  python3 -m coord.qapctl results RUN --backend B   (a paused or stopped solve: its RESULTS block as
+        far as it went, results.txt's format, to runs/RUN/results_partial.txt and stdout; the estimate
+        flow and qapctl stop write it themselves since Nov 21, this is for runs from before)
   python3 -m coord.qapctl dives SRC --as NEW --backend B [--dive-b 0.4] [--budget S]
         (SRC paused, its units returned and merged: run NEW, one unit of survivor dives per queued
         unit of SRC, S wall seconds each; then the coordinator and workers of NEW: coord/dives.py)
@@ -87,7 +90,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
                                        "aws-setup", "requeue-leased", "publish", "nodes", "export", "stop",
-                                       "purge-states", "dives", "estimate", "estimate-flow", "readout", "dives-export"])
+                                       "purge-states", "dives", "estimate", "estimate-flow", "readout", "dives-export", "results"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
     p.add_argument("--instance")
@@ -295,6 +298,8 @@ def main(argv=None):
         return stop_run(b, a.run, log=log)
     if a.command == "purge-states":
         return purge_states(b, a.run, log=log)
+    if a.command == "results":
+        return partial_results(b, a.run, log=log)
     if a.command == "requeue-leased":
         Coordinator(b, a.run, log=log).requeue_leased()
         return 0
@@ -348,6 +353,31 @@ def stop_run(b, run_id, log=print):
         log(f"run {run_id}: stopped; final public status written under public/runs/{run_id}/")
     else:
         log(f"run {run_id}: stopped (private: nothing published)")
+    # the stopped solve's RESULTS block, as far as it went (collect.sh puts it in git)
+    try:
+        c.write_partial("the solve stopped (qapctl stop)")
+    except Exception as e:
+        log(f"run {run_id}: results_partial.txt failed: {e!r}")
+    return 0
+
+
+def partial_results(b, run_id, log=print):
+    """results_partial.txt for a solve its operation left unfinished (a run paused or stopped before
+    Nov 21, when the estimate flow and qapctl stop began to write it); a finished run has results.txt"""
+    run = b.get_run(run_id)
+    if run is None:
+        log(f"no run {run_id}")
+        return 1
+    st = run.get("status")
+    if st == "finished":
+        log(f"run {run_id} is finished: its RESULTS block is results.txt")
+        return 1
+    if st not in ("paused", "stopped"):
+        log(f"run {run_id} is {st}: results_partial.txt is for a paused or stopped solve")
+        return 1
+    why = (f"the solve paused for the estimate {run['dives_run']}" if st == "paused" and run.get("dives_run")
+           else "the solve stopped (qapctl stop)" if st == "stopped" else "the solve paused (qapctl pause)")
+    print(Coordinator(b, run_id, log=log, replay=False).write_partial(why))
     return 0
 
 

@@ -325,6 +325,9 @@ def stopped_run(name, py, base, inst, opt):
         if (s.get("status"), s.get("final")) != ("stopped", True) or not entry or \
                 (entry[0]["status"], entry[0]["final"]) != ("stopped", True):
             problems.append(f"public status {s.get('status')}/{s.get('final')}, catalog {entry}")
+        part = (store.get_bytes(f"runs/{a.run_id}/results_partial.txt") or b"").decode()
+        if not part.startswith("PARTIAL: the solve stopped") or "---- RESULTS ----" not in part:
+            problems.append("the stopped run has no results_partial.txt in results.txt's format")
         a.ctl("purge-states", a.run_id, *a.args, log=os.path.join(a.tmp, "stop.log"))
         left = glob.glob(os.path.join(base, name, "store", "runs", a.run_id, "units", "**", "*.state"), recursive=True)
         if left:

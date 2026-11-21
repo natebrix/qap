@@ -3,7 +3,8 @@
 #   infra/phase1/collect.sh [RUN]     (default: the latest run under runs/; a run launched
 #                                     elsewhere is fetched into a new runs/RUN/)
 # Shows the run's instances, the coordinator's status.json, each host's last
-# steps, and results.txt, compare.txt and an estimate run's estimate.txt when they exist. Everything it fetches
+# steps, and results.txt (or results_partial.txt: a solve paused for an estimate, or stopped), compare.txt
+# and an estimate run's estimate.txt when they exist. Everything it fetches
 # goes to runs/RUN/ (each host's out/ under hosts/HOST/). Safe to run at any time.
 # It ends with the run's readout (runs/RUN/readout.md, coord/readout.py: where the run stands and what
 # it found) and a one-line verdict on the collect itself, also in runs/RUN/collect.txt: complete, or
@@ -97,6 +98,9 @@ for h in $(aws s3 ls "s3://$B/runs/$RUN/hosts/" | awk '/PRE/ {print $2}' | tr -d
   tail -3 "$L/hosts/$h/out/steps.txt" | cut -c1-300 | sed 's/^/  /'
 done
 get results.txt && { echo; cat "$L/results.txt"; }
+# a solve its operation left unfinished (paused for an estimate, stopped): its RESULTS block as far as it
+# went (coord/coordinator.py, write_partial)
+get results_partial.txt && { echo; cat "$L/results_partial.txt"; }
 # an estimate run (QAP_ESTIMATE; coord/dives.py): its estimate is its dives run's results
 if aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/results.txt" "$L/estimate.txt" 2> /dev/null; then
   aws s3 cp --only-show-errors "s3://$B/runs/$RUN-dives/estimate.json" "$L/estimate.json" 2> /dev/null
@@ -140,7 +144,9 @@ rm -f "$EXPORTS.$RUN.log"
 # same units: a second read of every unit took tai60b's collect 74 minutes, then timed out); else
 # qapctl nodes, which needs no --trace export
 TRACED=0; [ -f "$EXPORTS/$RUN/nodes.txt.gz" ] && TRACED=1
-if [ -f "$L/results.txt" ]; then
+# the node trace once the operation is over: a finished solve (results.txt), or one paused for an
+# estimate or stopped (results_partial.txt)
+if [ -f "$L/results.txt" ] || [ -f "$L/results_partial.txt" ]; then
   if [ "$TRACED" = 1 ]; then
     if [ "$(wc -c < "$EXPORTS/$RUN/nodes.txt.gz")" -gt 25000000 ]; then
       echo "node trace: over 25 MB gzipped, left in the export ($EXPORTS/$RUN/nodes.txt.gz) and the store"

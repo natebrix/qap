@@ -719,6 +719,13 @@ def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, lo
         # the tree closed while its units returned: nothing is open, the solve is the answer
         log(f"estimate-flow: {run_id} has nothing open after the pause: the tree is closed")
         return c.finish()
+    if b.get_bytes(run_key(run_id, "results_partial.txt")) is None:
+        # the paused solve's RESULTS block, what the estimate's "done so far" is: in git with the estimate
+        # (collect.sh), as a finished solve's results.txt is
+        try:
+            c.write_partial(f"the solve paused after {solve_wall:g} s of wall for the estimate {new}")
+        except Exception as ex:       # a report must never stop the estimate
+            log(f"estimate-flow: results_partial.txt failed: {ex!r}")
     if b.get_run(new) is None:
         init_dives(b, run_id, new, dive_b=dive_b, budget=dive_budget, log=log, sample=sample, weights=weights, env=env,
                    decide=decide)

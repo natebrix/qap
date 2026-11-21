@@ -187,6 +187,16 @@ def flow(a, dat, env, true_nodes):
                 if not 0.85 <= ratio <= 1.15:
                     print("FAIL: the flow's estimate is more than 15% off")
                     bad += 1
+                # the paused solve's RESULTS block (coordinator.write_partial), its nodes the solve's own
+                part = (b.get_bytes(f"runs/{run}/results_partial.txt") or b"").decode()
+                st_nodes = json.loads(b.get_bytes(f"runs/{run}/status.json") or b"{}").get("nodes")
+                m = re.search(r"Nodes: (\d+) /", part)
+                print("flow: results_partial.txt: " + (part.splitlines()[0][:100] if part else "missing")
+                      + (f"; Nodes {m.group(1)}, status.json {st_nodes}" if m else ""))
+                if not part.startswith("PARTIAL: the solve paused") or "---- RESULTS ----" not in part or \
+                        "\nlevel " not in part or not m or int(m.group(1)) != st_nodes:
+                    print("FAIL: the paused solve's results_partial.txt is missing, malformed or not its totals")
+                    bad += 1
         finally:
             for p in PROCS:
                 if p.poll() is None:

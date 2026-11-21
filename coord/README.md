@@ -125,7 +125,11 @@ the second run from the cache, both runs equal to the serial run, DNN iterations
   return when slots sit idle with nothing queued (the steal, without a
   barrier), re-queues failed units, verifies an incumbent a unit found (the
   objective recomputed from the original data) before publishing it, and
-  writes `status.json`, then `results.txt` and `final.state`.
+  writes `status.json`, then `results.txt` and `final.state`. A solve its operation leaves unfinished
+  gets `results_partial.txt` instead: the same RESULTS block (the coordinator's head, the solver's own
+  tables) for the merged statistics as they stand, led by a `PARTIAL:` line saying why. The estimate flow
+  writes it for the solve it pauses, `qapctl stop` for the solve it gives up, and `qapctl results RUN`
+  for a paused or stopped run from before Nov 21. `results.txt` stays the finished solve's alone.
 - **Faults.** A dead worker's units come back when their leases run out (or
   at once with `requeue-leased` after a known machine restart) and resume
   from their last uploaded checkpoint. SIGTERM to a worker drains it: every
