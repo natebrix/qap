@@ -721,8 +721,11 @@ def estimate_flow(b, run_id, solve_wall, dive_budget, dive_b="0.4", poll=2.0, lo
         return c.finish()
     if b.get_bytes(run_key(run_id, "results_partial.txt")) is None:
         # the paused solve's RESULTS block, what the estimate's "done so far" is: in git with the estimate
-        # (collect.sh), as a finished solve's results.txt is
+        # (collect.sh), as a finished solve's results.txt is. First its status as the pause left it: the
+        # last one was written before the returning units merged (nug17 in dives_test: 20,068 nodes against
+        # the 35,890 merged), and the readout reads it
         try:
+            c.status(b.count_by_status(run_id), force=True)
             c.write_partial(f"the solve paused after {solve_wall:g} s of wall for the estimate {new}")
         except Exception as ex:       # a report must never stop the estimate
             log(f"estimate-flow: results_partial.txt failed: {ex!r}")
