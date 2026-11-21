@@ -36,3 +36,24 @@
  		  double &sh = memo[(size_t)a * m + b];
  		  if (std::isnan(sh)) {
  		    if (U->me[a][b] + qb >= inc - DELTA_BRANCH) sh = 0.0;   // QPB drops this child
+@@ -1502,7 +1517,19 @@
+ 		      }
+ 		    }
+ 		  }
+-		  c.score += sh;
++		  // branching_lab/root: QAP_LA_SCORE=exp:B scores a line by the tree its children predict, the sum
++		  // of exp(B * shortfall) (a fathomed child counts 1); pow:P the sum of shortfall^P. Default: the
++		  // sum of the shortfalls.
++		  static int la_sc_mode = -1;  static double la_sc_par = 0.0;
++		  if (la_sc_mode < 0) {
++		    la_sc_mode = 0;
++		    if (const char *e = getenv("QAP_LA_SCORE")) if (*e) {
++		      if (sscanf(e, "exp:%lf", &la_sc_par) == 1) la_sc_mode = 1;
++		      else if (sscanf(e, "pow:%lf", &la_sc_par) == 1) la_sc_mode = 2;
++		      else { fprintf(stderr, "QAP_LA_SCORE: cannot read '%s' (exp:B or pow:P)\n", e);  exit(2); }
++		    }
++		  }
++		  c.score += la_sc_mode == 1 ? exp(la_sc_par * sh) : la_sc_mode == 2 ? (sh > 0 ? pow(sh, la_sc_par) : 0.0) : sh;
+ 		  c.open += sh > 0;
+ 		}
+ 	      }
