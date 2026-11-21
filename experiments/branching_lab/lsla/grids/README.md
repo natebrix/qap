@@ -3,7 +3,7 @@
 Task (coordinator, agreed with Nathan): score every row at the roots of tho40, sko49 and wil50 with the
 150-iteration lookahead and rank production's root row among them. No whole trees.
 
-**Status: tho40 done; sko49 running (started 17:25 UTC); wil50 to follow.**
+**Status: tho40 and sko49 done; wil50 running (started 19:50 UTC).**
 
 ## Answer so far
 
@@ -12,6 +12,10 @@ Task (coordinator, agreed with Nathan): score every row at the roots of tho40, s
   are within 1.0% (r21, r0, r2), the best ten within 4.2%, and the whole range is 18% (r6 worst, 1.18x).** No
   child fathoms within 150 iterations at any row (all 480 open), so children open says nothing here; only the
   shortfall sum separates the rows.
+- **sko49: production's root row r41 is 3rd of 49, 4.2% behind the best, r45** [m `runs/sko49/rank.md`,
+  `analyze.py sko49 10 41`]; r40 is 2nd at 0.8%. Again nothing fathoms within the cap (all 490 children open), and
+  the scores are close: the best ten within 6.5%, the whole range 21% (r0 worst, 1.21x). Production's rule already
+  picks from the top of this ranking.
 
 ## Setup
 
@@ -40,4 +44,14 @@ Task (coordinator, agreed with Nathan): score every row at the roots of tho40, s
   240,518 [m].
 - So the lookahead would move tho40's root from r26 to r21, a 5.7% smaller sum; whether that is a better tree is
   what the coordinator's tho30 validation (whole trees forced to the best, a middle and the worst row) tests.
+
+## sko49 (`runs/sko49/`, 17:25-19:50 UTC)
+
+- 49 rows x 10 children, every child solved to the cap: 490 solves, 73,500 iterations, 32,109 CPU s (8.92
+  core-hours) [m: the four parts' la.txt], about 66 s a child; the root bound about 3 min per process.
+- Checks [m]: every row has exactly 10 children, in columns 0-3, 8-10, 16, 17, 24 (SYM/sko49t.sym's J1, 1-based
+  1-4, 9-11, 17, 18, 25); the sums match each part's la.txt to 0.2.
+- Best r45 5,501.0; r40 5,546.4 (1.008x); **r41 5,729.8 (1.042x, 3rd; production's)**; r5 and r46 5,779.9
+  (1.051x), r9 1.051x, r30 and r35 1.055x. Worst r0 6,635.3 (1.206x). Each child's shortfall is about 500-700
+  against the cutoff 23,386 [m].
 
