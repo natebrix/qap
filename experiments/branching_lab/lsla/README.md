@@ -476,6 +476,12 @@ dump; every bound matches its arms' to 4 decimals), `tail.py` -> `out/tail.md`]:
   lookahead's 1.3-1.5 core-hours a firing at n = 60.
 - Caveats: 15 lines at 4 nodes, all on one tai60b chain plus one root; the chain nodes are related (c59 is the
   answer at all three). No new line was bounded: tail's pick was already bounded at every node.
+- **On whole trees it is not established** (the coordinator's runs, `experiments/branching_lab/tail/README.md`
+  on claude/cool-babbage-ilnogj; not measured here). Ungated: tai35b 884 trace lines against production's
+  1,017, but tai40b at least 843 against 731 (tai40b's root is flat: c23 35 entries against 39-40, 3 branching
+  children against r23's 1). Gated at m/2 (QAP_TAIL_GATE=0.5): tai35b 1,045, tai40b 727, no effect. tai35b's
+  gain hung on a one-entry margin at depth 2 (r33 17-18 against rule 9's c5 18-22) that moves between runs.
+  So "tail" reads well at deep tai60b nodes with sparse marginals and not at flat roots or as a whole-tree rule.
 
 ## Not tested yet
 
