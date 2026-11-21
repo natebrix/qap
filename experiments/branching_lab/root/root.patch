@@ -1,0 +1,38 @@
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -89,6 +89,7 @@
+ #include <string>
+ #include "settings.h"
+ bool branch_cols_allowed(const QAPAssignment &assign);   // branch.C (experiments/line_signals)
++void determine_J3(const QAPAssignment &assign, int *&myJ3, int &myJ3_dim);   // branch.C (branching_lab/root)
+ #include "lsla.h"   // experiments/branching_lab/lsla
+ //#include <time.h>
+ 
+@@ -1442,6 +1443,19 @@
+ 	      clock_t t0 = clock();
+ 	      long solves = 0, iters = 0, pooled = 0;
+ 	      std::vector<int> caps = ls_fire_b ? ls_caps : std::vector<int>{la_cap};
++	      // branching_lab/root: with symmetry left a row's children are its columns in J3 only (the orbit
++	      // representatives select() creates), so only those are bounded and scored. QAP_LA_J3=0: every
++	      // free column, as before Nov 21.
++	      std::vector<char> la_in_j3(n, 1);
++	      {
++		static const char *j3e = getenv("QAP_LA_J3");
++		int *j3p = NULL;  int j3d = 0;
++		determine_J3(node, j3p, j3d);
++		if (!(j3e && j3e[0] == '0') && j3p && j3d < n) {
++		  std::fill(la_in_j3.begin(), la_in_j3.end(), 0);
++		  for (int z = 0; z < j3d; z++) la_in_j3[j3p[z]] = 1;
++		}
++	      }
+ 	      std::string ls_la_msg;
+ 	      for (int cap : caps) {
+ 	      std::vector<double> memo((size_t)m * m, NAN);   // a cell's shortfall, shared by its row and column
+@@ -1451,6 +1465,7 @@
+ 	      for (Cand &c : cand) {
+ 		for (int t = 0; t < m; t++) {
+ 		  const int a = c.row ? c.k : t, b = c.row ? t : c.k;
++		  if (c.row && !la_in_j3[fcol[b]]) continue;   // not a child of this row (symmetry)
+ 		  double &sh = memo[(size_t)a * m + b];
+ 		  if (std::isnan(sh)) {
+ 		    if (U->me[a][b] + qb >= inc - DELTA_BRANCH) sh = 0.0;   // QPB drops this child
