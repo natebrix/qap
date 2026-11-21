@@ -106,3 +106,84 @@ and dumps U, x-bar, the bound and every line's lookahead (`QAP_LINE_SCORES=DEPTH
 rule 9's arbitration (`QAP_XBAR_DEBUG=2`'s `xbar9` line). `failures.py` builds the table, `clusters_xbar.py` the
 cluster split, and `siblings.py` the sibling groups. The rule-2 lines are from the earlier arms (`runs/scan`,
 `runs/arm17`). The clusters are the census's (`clusters.json` there: 0-13, 14-25, 26-42+45-47, 43-44, 48-51, 52-59).
+
+## The "tail" rule (the coordinator's, fixed Nov 21 00:42 UTC; arms 00:45-02:00 UTC)
+
+Rule: choose the free line with the fewest x-bar entries above 0.001; break ties by the larger sum of squares (rule 9's
+score), then rows before columns. Decision rule, fixed with it: worth a whole-tree test if it leaves at most 3 branching
+children at each of the four failures, and is not worse than rule 9 by more than 1 at any ordinary node bounded.
+
+**It passes. At the four failures "tail" leaves 0, 0, 0 and 2 branching children, against rule 9's 13, 12, 6 and 7.
+At the ordinary nodes bounded it is never worse than rule 9 by more than 1** (d15_b: c0 3 against c6 2; everywhere else
+equal or better). Over the 18 nodes where its line is bounded it leaves **21 branching children against rule 9's 63**
+[m], and less CPU at every node where the two lines differ. Its lines at the failures are r13 at 11:29 (0), r2 at 8:49
+(0, rule 2's line), r5 at 8:57 (0) and r50 at 22:31 (2). At the other ordinary nodes it mostly takes c59 at depths
+11-13 (rule 9's other candidate), c0, c55 or r13. At 7 of the 18 nodes it is rule 9's own line.
+
+How far to trust it: **this is in-sample.** The feature was noticed on these 28 nodes and the threshold is the column
+of the table, not a fitted or independent value. The arms are one level each. And the minimum is often tied: 4 lines
+tie at 8:49 and 8:57, up to 8 elsewhere, so the tie-break (rule 9's score) does part of the work. **The threshold
+(question 3, from the dumps, no runs):** at 8:49 and 8:57 the choice is the same at 0.0001, 0.001 and 0.01 (r2, r5).
+At 11:29, 0.0001 also gives r13, but 0.01 gives c38 (bounded: 1). At 22:31, 0.0001 gives c0 (not bounded) and 0.01
+gives c4 (bounded: 2). So at the four failures, 0.01 lands on lines with 0-2 branching children too. Only 0.0001 at
+22:31 is unmeasured. Across all 28 nodes, 0.0001 changes the choice at 4 nodes and 0.01 at 13 (`out/tail_rule.txt`).
+The whole-tree test is the next step and the coordinator's call. It needs the rule in the solver (a line count from the
+node's x-bar, available wherever rule 9 runs); not done here.
+
+Its choice at every node (entries above the threshold; lines tied at the minimum), `tail_rule.py`:
+
+| node | depth | rule 9: line (B) | tail @0.001: line (entries; lines tied at the min) | @0.0001 | @0.01 | tail line bounded? (B) |
+|---|---|---|---|---|---|---|
+| d11_a | 11 | r11 (3) | c59 (2; 1) | c59 (2; 1) | c59 (2; 2) | no |
+| d11_b | 11 | r11 (3) | c59 (2; 1) | c59 (2; 1) | c59 (2; 2) | no |
+| d11_c | 11 | c40 (3) | c59 (2; 1) | c59 (4; 3) | c59 (2; 1) | no |
+| f12 | 12 | c30 (13) | r13 (3; 1) | r13 (3; 1) | c38 (2; 1) | no |
+| d13_a | 13 | r11 (3) | c59 (2; 1) | c59 (2; 1) | c59 (2; 1) | no |
+| d13_b | 13 | r11 (3) | c59 (2; 1) | c59 (2; 1) | c59 (2; 1) | no |
+| d13_c | 13 | r12 (1) | c55 (4; 2) | c55 (4; 2) | c38 (2; 1) | no |
+| d15_a | 15 | r4 (2) | r4 (3; 4) | r4 (3; 3) | c38 (2; 1) | yes (2) |
+| d15_b | 15 | c6 (2) | c0 (4; 3) | c0 (4; 3) | r13 (3; 1) | no |
+| d15_c | 15 | r51 (1) | r13 (3; 1) | r13 (3; 1) | r51 (3; 3) | no |
+| s16_12_0 | 16 | r9 (2) | c55 (3; 3) | c55 (3; 1) | c55 (3; 5) | no |
+| s16_48_6 | 16 | c31 (2) | r13 (3; 1) | r13 (3; 1) | c4 (2; 1) | no |
+| s16_4_23 | 16 | r8 (1) | r8 (2; 2) | r8 (2; 2) | r8 (2; 5) | yes (1) |
+| s16_4_29 | 16 | r8 (2) | r8 (3; 6) | r8 (3; 6) | c38 (2; 1) | yes (2) |
+| s16_50_6 | 16 | r9 (2) | r13 (3; 1) | r13 (3; 1) | r49 (3; 2) | no |
+| s16_50_6a | 16 | r9 (1) | r13 (3; 1) | r8 (4; 4) | r9 (3; 3) | no |
+| s16_51_30c | 16 | c6 (1) | r13 (3; 1) | r13 (3; 1) | r8 (3; 2) | no |
+| p2231 | 17 | c26 (7) | r50 (4; 5) | c0 (4; 3) | c4 (2; 2) | no |
+| p849 | 17 | c30 (12) | r2 (2; 4) | r2 (2; 4) | r2 (2; 5) | yes (0) |
+| p857 | 17 | c30 (6) | r5 (2; 4) | r5 (2; 4) | r5 (2; 5) | no |
+| s17_25_31 | 17 | c43 (1) | r13 (3; 1) | r8 (4; 3) | r13 (3; 1) | no |
+| s17_48_6 | 17 | c11 (1) | r13 (3; 1) | c0 (4; 3) | c4 (2; 4) | no |
+| s17_8_29 | 17 | r5 (0) | r5 (2; 4) | r5 (2; 4) | r5 (2; 5) | yes (0) |
+| s17_9_0 | 17 | c4 (0) | r49 (3; 2) | r49 (3; 1) | c4 (2; 2) | no |
+| s17_9_29 | 17 | c6 (2) | c49 (4; 8) | c49 (4; 7) | c49 (4; 9) | no |
+| s17_9_55a | 17 | r13 (0) | r13 (3; 5) | r13 (3; 5) | r13 (2; 2) | yes (0) |
+| s17_9_55p | 17 | r4 (1) | r4 (3; 4) | r4 (3; 4) | r4 (3; 6) | yes (1) |
+| s17_9_55q | 17 | r13 (1) | r13 (3; 5) | r13 (3; 5) | r13 (2; 3) | yes (1) |
+
+Its lines bounded, beside rule 9's (`tail_score.py`; new arms `runs/scan/tail_*`, forced with `QAP_FORCE_LINE`,
+`tai60b.par`, from the same rebuilt parent states). The ordinary nodes are the first two in the table's order at
+depths 11, 13, 15 and 16-17, plus every node where the tail line was already bounded:
+
+| node | depth | rule 9: line, B, shortfall sum, CPU s | tail: line, B, shortfall sum, CPU s | best alternative bounded: line, B | tail - rule 9 |
+|---|---|---|---|---|---|
+| d11_a | 11 | r11: **3**, 500k, 1,488 | c59: **2**, 174k, 1,164 | c54: 5 | -1 |
+| d11_b | 11 | r11: **3**, 428k, 1,540 | c59: **1**, 73k, 919 | c54: 3 | -2 |
+| f12 (failure) | 12 | c30: **13**, 1,930k, 6,964 | r13: **0**, 0k, 380 | c38: 1 | -13 |
+| d13_a | 13 | r11: **3**, 409k, 1,253 | c59: **2**, 115k, 939 | c54: 4 | -1 |
+| d13_b | 13 | r11: **3**, 265k, 1,240 | c59: **1**, 33k, 739 | c54: 3 | -2 |
+| d15_a | 15 | r4: **2**, 346k, 861 | r4: **2**, 346k, 861 | r8: 1 | 0 |
+| d15_b | 15 | c6: **2**, 201k, 1,659 | c0: **3**, 247k, 1,415 | c54: 3 | 1 |
+| s16_12_0 | 16 | r9: **2**, 215k, 941 | c55: **1**, 13k, 673 | r8: 1 | -1 |
+| s16_48_6 | 16 | c31: **2**, 224k, 2,182 | r13: **2**, 327k, 1,288 | c54: 3 | 0 |
+| s16_4_23 | 16 | r8: **1**, 86k, 593 | r8: **1**, 86k, 593 | - | 0 |
+| s16_4_29 | 16 | r8: **2**, 414k, 728 | r8: **2**, 414k, 728 | c23: 0 | 0 |
+| p2231 (failure) | 17 | c26: **7**, 391k, 5,914 | r50: **2**, 142k, 1,369 | c4: 2 | -5 |
+| p849 (failure) | 17 | c30: **12**, 3,350k, 4,881 | r2: **0**, 0k, 117 | r51: 5 | -12 |
+| p857 (failure) | 17 | c30: **6**, 962k, 3,772 | r5: **0**, 0k, 143 | r2: 0 | -6 |
+| s17_8_29 | 17 | r5: **0**, 0k, 309 | r5: **0**, 0k, 309 | r2: 1 | 0 |
+| s17_9_55a | 17 | r13: **0**, 0k, 733 | r13: **0**, 0k, 733 | r8: 0 | 0 |
+| s17_9_55p | 17 | r4: **1**, 12k, 677 | r4: **1**, 12k, 677 | r8: 1 | 0 |
+| s17_9_55q | 17 | r13: **1**, 79k, 747 | r13: **1**, 79k, 747 | r8: 1 | 0 |
