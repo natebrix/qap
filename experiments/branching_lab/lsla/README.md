@@ -439,12 +439,13 @@ refinement: **c25** (tai50b root, 15; r31 2nd at 18), **c59** (d7), **c59** (d8)
   - So the fix costs about 30 s a firing at n = 35 and did not change a choice here; the test cannot tell
     whether it helps.
 
-- **tai50b's root branched on c25 (the refined fixed signal's #1), running** [m `run.sh root50 c25` ->
-  `runs/root50_c25/nodes.txt`, 23:28 UTC]: 40 of 50 depth-1 children bounded, 15 D / 20 C / 5 B, shortfalls
-  2,158k, 2,100k, 2,316k, 2,230k, 2,314k. Against r31's 10 B of 50 (tai50b-r9) and c26's 28. Rows 14-10 were
-  all B at about 1,300 s each; rows 9-0 remain, done by about 03:00 UTC [e].
-- **Is the patch ready for the laptop tai50b whole tree? Not with refinement, yet.** With
-  `QAP_LS_SEARCH=30:3000:2.5:300:100` the root goes to c25, which is unproven until the run above finishes. With
+- **tai50b's root branched on c25 (the refined fixed signal's #1) is worse than r31** [m `run.sh root50 c25` ->
+  `runs/root50_c25/nodes.txt`]: 49 of 50 depth-1 children bounded before a container restart killed the run
+  (02:2x UTC; row 0 unbounded), 15 D / 20 C / 14 B, shortfall sum 32.3M, 21,088 CPU s, against r31's 10 B of 50
+  (about 8.8M, tai50b-r9) and c26's 28. Not resumed: one child more cannot change the verdict. The refined fixed
+  signal must not choose tai50b's root.
+- **Is the patch ready for the laptop tai50b whole tree? Not with the fix.** With
+  `QAP_LS_SEARCH=30:3000:2.5:300:100` the root goes to c25, which is worse than r31 (above). With
   `30:0:2.5:300:100` (no refinement) the root goes to r31 [m `t0out/harvest/root50_k100_r0`], whose 10 B is
   measured, but at tai60b's d7 that setting picked c10, which lost to c59 (above). The laptop script's default
   (`30:3000:2.5:300`, no fix) is what tai35b, tai40b and the chain tests measured. My call: run the default,
