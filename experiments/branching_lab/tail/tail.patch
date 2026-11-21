@@ -1,6 +1,6 @@
 --- a/latest/bnb.C
 +++ b/latest/bnb.C
-@@ -1528,6 +1528,56 @@
+@@ -1528,6 +1528,63 @@
  	      }
  	    }
  	  }
@@ -14,8 +14,12 @@
 +	    static double tail_thr = -1.0;
 +	    static int tail_dmin = 0, tail_dmax = 1 << 30;
 +	    static bool tail_init = false;
++	    static double tail_gate = 2.0;         // QAP_TAIL_GATE=F: only where the fewest entries are at most F * m
 +	    if (!tail_init) {
 +	      tail_init = true;
++	      if (const char *g = getenv("QAP_TAIL_GATE")) {
++		if (sscanf(g, "%lf", &tail_gate) != 1 || tail_gate <= 0.0) { fprintf(stderr, "QAP_TAIL_GATE: cannot read '%s'\n", g);  exit(2); }
++	      }
 +	      if (const char *e = getenv("QAP_TAIL")) {
 +		int k = sscanf(e, "%lf:%d:%d", &tail_thr, &tail_dmin, &tail_dmax);
 +		if ((k != 1 && k != 3) || tail_thr <= 0.0) { fprintf(stderr, "QAP_TAIL: cannot read '%s'\n", e);  exit(2); }
@@ -44,11 +48,14 @@
 +		}
 +	      int idx = -1;
 +	      for (int r = 0; r < n && idx < 0; r++) if ((brow ? lrow[r] : lcol[r]) == bk) idx = r;
-+	      bp->how = BRANCH_FIXED;  bp->choose_row = brow;
-+	      bp->fixed_index_in_U = bk;  bp->fixed_index_in_assign = idx;
++	      const bool tail_on = bcnt <= tail_gate * m;      // a flat count (a weak node): the params' rule
++	      if (tail_on) {
++		bp->how = BRANCH_FIXED;  bp->choose_row = brow;
++		bp->fixed_index_in_U = bk;  bp->fixed_index_in_assign = idx;
++	      }
 +	      char buf[512];  int o = snprintf(buf, sizeof buf, "tail: depth %d lb %.4f fixes", node.depth, node.bound);
 +	      for (int r = 0; r < n && o < 400; r++) if (node.p[r] > NONE) o += snprintf(buf + o, sizeof buf - o, " %d:%d", r, node.p[r]);
-+	      snprintf(buf + o, sizeof buf - o, " | chose %c%d entries %d sumsq %.4f lines_at_min %d", brow ? 'r' : 'c', idx, bcnt, bss, ties);
++	      snprintf(buf + o, sizeof buf - o, " | %s %c%d entries %d of %d sumsq %.4f lines_at_min %d", tail_on ? "chose" : "gated", brow ? 'r' : 'c', idx, bcnt, m, bss, ties);
 +	      fprintf(stderr, "%s\n", buf);
 +	      static const char *tl = getenv("QAP_TAIL_LOG");
 +	      if (tl && *tl) if (FILE *f = fopen(tl, "a")) { fprintf(f, "%s\n", buf);  fclose(f); }

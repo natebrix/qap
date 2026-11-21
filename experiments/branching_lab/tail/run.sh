@@ -6,11 +6,15 @@
 # and tail.patch applied, built with `make solver`. QAP_TAIL=THR[:DMIN:DMAX]: at a node with DNN marginals
 # (depths DMIN..DMAX; default all) branch on the free line with the fewest marginals above THR, ties by the larger
 # sum of squares, then rows before columns. In place of the params' rule (rule 9 through depth 6, rule 2 below).
+# QAP_TAIL_GATE=F (Nov 21, after tai40b): the rule only where its fewest-entries count is at most F * m (m the
+# node's free dimension); elsewhere the params' rule. The log line then reads "gated" in place of "chose".
 # Outputs in runs/PROBLEM_ARM/: run.log, results.txt, nodes.txt.gz, tail.log (one line per choice).
 #
 # Decision rule, fixed before the first run (Nov 21). Reference: ../lsla/t2/PROBLEM_prod, the same params without
 # the rule: tai35b 1,017 nodes, 6,935 CPU s; tai40b 731 nodes. The tree must close at the best known value.
 # At most 95% of the reference's nodes: the rule helps on a whole tree. At least 105%: it hurts. Between: no effect.
+# The gated arms (tailg: QAP_TAIL=0.001 QAP_TAIL_GATE=0.5; F = 0.5 chosen before any gated run, not fitted): the
+# same rule against the same references, on both instances.
 set -uo pipefail
 D=$(cd "$(dirname "$0")"; pwd)
 BUILD=${BUILD:-/home/user/wt-tail}

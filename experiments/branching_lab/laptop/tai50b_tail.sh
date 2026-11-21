@@ -2,6 +2,9 @@
 # Overnight on the laptop: tai50b's whole tree with the rule "tail" (../tail/README.md) in place of rule 9 at
 # every node that has DNN marginals; everything else tai50b's production recipe. Nov 21.
 #
+# ON HOLD (Nov 21, later): the ungated rule hurt on tai40b (a weak root: ../tail/README.md, "tai40b"). Do not
+# run this as it stands; a gated version (QAP_TAIL_GATE) is being tested on tai35b and tai40b first.
+#
 # The rule: branch on the free line with the fewest marginals above 0.001, ties by rule 9's score. It fixed rule
 # 9's four failures on tai60b (0, 0, 0, 2 branching children against 13, 12, 6, 7), picked the best bounded line
 # at tai60b's chain nodes at depths 7-9, and cut tai35b's tree from 1,017 to 884 nodes. At tai50b's root it is
