@@ -124,6 +124,14 @@ case ${1:-} in
       QAP_LS_PERM=$BUILD/QAPSOLN/tai60b.sln QAP_LS_LOG=$D/runs/$NAME/ls.txt QAP_LS_DUMP=$D/runs/$NAME/dump.txt \
       go "$NAME" -p "$D/strong.par" --allow-settings-change -r "$D/runs/$NAME/in.state" -d 9 "$DAT"
     rm -f "$D/runs/$NAME/in.state" ;;
+  root50la)
+    # mode b at tai50b's root (production recipe, rule 9), children set aside (-d 0): NAME CAPS K; ADD lines for the
+    # lookahead to judge besides the signal's top K and rule 9's two lines; SEARCH as QAP_LS_SEARCH
+    NAME=$2; CAPS=$3; K=$4
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err,ls,dump}.txt "$D/runs/$NAME/out.state"
+    QAP_LS=b:$K:0:0 QAP_LS_CAP=$CAPS QAP_LS_ADD=${ADD:-} QAP_LS_SEARCH=${SEARCH:-30:0:2.5:300:100} \
+      QAP_LS_PERM=$BUILD/QAPSOLN/tai50b.sln QAP_LS_LOG=$D/runs/$NAME/ls.txt QAP_LS_DUMP=$D/runs/$NAME/dump.txt \
+      go "$NAME" -p "$BUILD/infra/phase1/recipes/tai50b.par" -u 458821518 -d 0 "$BUILD/qaplib/tai50b.dat" ;;
   root50)
     # tai50b's root under its production recipe (infra/phase1/recipes/tai50b.par, rule 9), branched on LINE,
     # its depth-1 children bounded, depth 2 set aside; incumbent best known + 1, as the laptop's run
