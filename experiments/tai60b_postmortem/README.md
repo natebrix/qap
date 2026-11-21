@@ -41,7 +41,8 @@ subtrees. The two chains take the same lines through depth 20.
 
 The estimate (`experiments/bound_lab/tai60b/README.md` on `claude/cool-babbage-ilnogj`) measured the
 path node by node and estimated the subtrees off it by Knuth dives from the path's off-path children:
-- **284 dives in all, 2 to 8 per set, and none went more than two levels below its start.** The subtrees
+- **269 finished dives (267 in E2), 1 to 22 per set, and none went more than three levels below its start**
+  (corrected Nov 21 from "284 ... two levels": the counts are the dives files' finished dives). The subtrees
   that hold the cost are 12 (depth 3) and 17 (depth 7) levels deep. A dive reaches their bottom only if
   it takes a surviving child at every level: 1 in 6 to 8 of the chain node's children at depths 3 and 7,
   and 1 to 7% of the nodes below (the run page's fathom rates by depth), and nothing in the dives biased
@@ -52,6 +53,15 @@ path node by node and estimated the subtrees off it by Knuth dives from the path
   `kidW.par` (the stall rule on), not `recipes/tai60b.par`. Shares by depth do not compare one to one.
 - E1 (the path alone) was 15,207 nodes; each chain of the run is 10 to 11 times that. E2 counted the
   mirror as a copy of the path, which it nearly is (175,311 against 155,549).
+
+## Actual against estimated, level by level (Nov 21) [m]
+
+`actual_vs_estimated.txt`, in the layout of the thesis's Table 4.1, written by `est_by_level.py` from the run's
+`results.txt` and the bound lab's dive files (`git archive origin/claude/cool-babbage-ilnogj
+experiments/bound_lab/tai60b experiments/bound_lab/tai50b_size`, then `est_by_level.py <that>/experiments/bound_lab/tai60b
+../../infra/phase1/runs/tai60b-261117/results.txt`). Each dive set's `est.out` prints the running mean of its dives by
+tree level; composed as `dive_est.py` composed E2, the levels sum to E2's 29,357 nodes and 1,003,936 CPU-s.
+The run's levels 9-14 hold 65% of its time and 20-23 13%; the estimate put 65% of its time at levels 0-8.
 
 ## What this says for the next estimates
 
