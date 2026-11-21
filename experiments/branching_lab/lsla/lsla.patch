@@ -245,7 +245,20 @@
  		      DNNWarm cw;
  		      const DNNWarm *sp = NULL;
  		      if (warm_y > 0 && dnn_warm_child(pw, a, b, cw, warm_y) && !cw.Y.empty()) { sp = &cw; lp.warm_primal = 1; }
-@@ -1294,9 +1479,20 @@
+@@ -1288,15 +1473,33 @@
+ 			rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
+ 		      sh = rr.status == DNN_FATHOMED ? 0.0 : std::max(0.0, cutoff - rr.lb);
+ 		      solves++;  iters += rr.iterations;
++		      // QAP_LA_PROGRESS=file (lsla): one line per child solve, flushed, so a killed run keeps its children
++		      static const char *la_prog = getenv("QAP_LA_PROGRESS");
++		      if (la_prog && *la_prog) if (FILE *f = fopen(la_prog, "a")) {
++			fprintf(f, "child depth %d cap %d cell %d:%d lb %.4f shortfall %.1f iters %d cpu %.2f\n", node.depth, cap,
++				frow[a], fcol[b], rr.lb, sh, rr.iterations, (double)(clock() - t0) / CLOCKS_PER_SEC);
++			fclose(f);
++		      }
+ 		    }
+ 		  }
+ 		  c.score += sh;
  		  c.open += sh > 0;
  		}
  	      }
@@ -267,7 +280,7 @@
  	      bp->how = BRANCH_FIXED;  bp->choose_row = best->row;
  	      bp->fixed_index_in_U = best->k;  bp->fixed_index_in_assign = best->row ? frow[best->k] : fcol[best->k];
  	      // on stderr, and appended to QAP_LA_LOG (default runs/la.log of the study: a coordinator's
-@@ -1314,12 +1510,22 @@
+@@ -1314,12 +1517,22 @@
  		snprintf(buf, sizeof buf, " %c%d:%.4f:%.1f:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
  		msg += buf;
  	      }

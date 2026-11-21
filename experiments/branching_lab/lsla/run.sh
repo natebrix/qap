@@ -137,8 +137,8 @@ case ${1:-} in
     # CAP iterations a child, children set aside (-d 0): NAME CAP LINES. Splits root50la's shortlist across
     # processes, so a container restart costs less; each part carries r31 as a cross-check.
     NAME=$2; CAP=$3; LINES=$4
-    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err,la}.txt
-    QAP_LA=1:$CAP:0:0 QAP_LA_LINES=$LINES QAP_LA_LOG=$D/runs/$NAME/la.txt \
+    mkdir -p "$D/runs/$NAME"; rm -f "$D/runs/$NAME/"{nodes,dnn,log,err,la,children}.txt
+    QAP_LA=1:$CAP:0:0 QAP_LA_LINES=$LINES QAP_LA_LOG=$D/runs/$NAME/la.txt QAP_LA_PROGRESS=$D/runs/$NAME/children.txt \
       go "$NAME" -p "$BUILD/infra/phase1/recipes/tai50b.par" -u 458821518 -d 0 "$BUILD/qaplib/tai50b.dat" ;;
   root50)
     # tai50b's root under its production recipe (infra/phase1/recipes/tai50b.par, rule 9), branched on LINE,

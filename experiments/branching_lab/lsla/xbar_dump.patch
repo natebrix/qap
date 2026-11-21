@@ -1,0 +1,28 @@
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -1180,6 +1180,25 @@
+ 	    for (const auto &l : L) fprintf(stderr, " %s:%.5f", l.second.c_str(), l.first);
+ 	    fprintf(stderr, "\n");
+ 	  }
++	  // QAP_XBAR_DUMP=D:file (lsla, diagnostics): at every node of depth D, its DNN marginals x-bar after its
++	  // own bound: a header, the free rows and columns (original indices), then x-bar row by row.
++	  if (const char *xd = getenv("QAP_XBAR_DUMP"); xd && *xd && atoi(xd) == node.depth && (int)dnn_xbar.size() == m * m)
++	    if (const char *xf = strchr(xd, ':'))
++	      if (FILE *f = fopen(xf + 1, "a")) {
++		fprintf(f, "xbar depth %d lb %.4f fixes", node.depth, node.bound);
++		for (int a = 0; a < n; a++) if (node.p[a] > NONE) fprintf(f, " %d:%d", a, (int)node.p[a]);
++		fprintf(f, "\nrows");
++		for (int r = 0; r < n; r++) if (lrow[r] >= 0) fprintf(f, " %d", r);
++		fprintf(f, "\ncols");
++		for (int c = 0; c < n; c++) if (lcol[c] >= 0) fprintf(f, " %d", c);
++		fprintf(f, "\n");
++		for (int a = 0; a < m; a++) {
++		  fprintf(f, "x");
++		  for (int b = 0; b < m; b++) fprintf(f, " %.6g", dnn_xbar[(size_t)a * m + b]);
++		  fprintf(f, "\n");
++		}
++		fclose(f);
++	      }
+ 	  // QAP_LS=MODE:K:DMIN:DMAX (experiments/branching_lab/lsla): the landscape signal as a line shortlist.
+ 	  // At a node of depth DMIN..DMAX whose DNN bound ran and missed: the node's own best completion from
+ 	  // the incumbent permutation (QAP_LS_PERM, a QAPLIB .sln file; or the run's best when better), a descent
