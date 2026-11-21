@@ -288,3 +288,26 @@ solve, Knuth dives k1.5, 900 s a unit, 5 dives at least per branched open node, 
   proportion to the square root of that size and solved to the end (`coord/sample.py`, as the tuning arms did):
   its weighted total is unbiased by construction. On tho40 the tuning arms' base gave 5,808 CPU h for the
   depth-3 and depth-4 open nodes (bootstrap 5-95% at depth 3: 3,882-7,308), where est3's dives gave 5,284.
+
+**The solved sample, simulated on the known tree (`sample_sim.py`, Nov 21).** The strata of sko42-est-261121b's
+dives, drawn as `coord/sample.py` draws (pi ~ the dive estimate^0.5, mix 0.2), each sampled node priced at its
+true subtree CPU in sko42-261120b, 2,000 draws a design, against the true rest of 493 CPU h:
+
+| sample at depths 2 / 3 / 4 | total, mean | 5-95% | the sample's own CPU |
+|---|---|---|---|
+| 20 / 50 / 50 | 513 | 356-697 | 92 h |
+| 30 / 60 / 60 | 513 | 380-653 | 131 h |
+| 40 / 80 / 80 | 511 | 413-626 | 173 h |
+| 60 / 100 / 100 | 513 | 436-601 | 233 h |
+
+It centres on the strata's own weighted truth (514; the 4% over 493 is which open nodes the dives run sampled,
+the first stage), and is within +-20% for about 170 CPU h, where the dives alone gave 0.56 of the truth. A
+sampled run on sko42 would add one draw of this; it was not run.
+
+**The cost per node: what it is not** (Nov 21, on this container, two sko42 subtrees of 116 and 40 nodes cold
+from `-F`, side by side): not the node and DNN traces (1,143 against 1,134 CPU s; 705 against 706), not the
+solve units' checkpoints and warm-state shipping (`-o -k 60`, `QAP_DNN_WARM_DIR`: 1,112 against 1,124; 675
+against 675), and not the solve's cutoff (it found 15,812 so late that every stratum was bounded at 15,812.05 in
+both). What is left is the work itself (the estimator's warm start for a stratum) or the machines under load
+(64 processes a worker). `QAP_EST_DNN_TRACE=1` keeps the DNN trace in a dives run's units, so that the
+iterations of the same nodes can be compared: `infra/phase1/specs/sko42-est2.spec`.

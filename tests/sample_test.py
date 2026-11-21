@@ -7,14 +7,16 @@
    parents' states must come along) through the coordinator, 2-second units, traced, for --seconds;
    then paused, its units back.
 2. A dives run of it (Knuth's dives, 2 seconds a unit) to the end: the size measure.
-3. Two sampled runs, arms a and b with the same params, each of 4 open nodes at depth 2 and 4 at depth 3
-   drawn by the dives run's estimates, each solved to the end. Checks: the two keep the same sample;
+3. Two sampled runs, arms a and b with the same params, each of 8 open nodes at the (one or two shallowest)
+   depths that hold open nodes, drawn by the dives run's estimates, each solved to the end. Checks: the two keep the same sample;
    every sampled node's subtree has the same nodes in both (the same params, the same parents' states:
    the same trees); the arms' traced nodes are all under the sampled nodes; the source is still paused
    with all its units queued (a sample reads its states, never changes them); paired.py reads both.
 About two minutes on an idle machine.
 """
 import argparse
+import collections
+import gzip
 import json
 import os
 import subprocess
@@ -96,12 +98,31 @@ def main():
                 print(f"FAIL: the source finished or left nothing queued ({b.count_by_status('src')}): fewer --seconds")
                 return 1
             print(f"source paused: {b.count_by_status('src')}")
-            qapctl("dives", "src", "--as", "src-dives", "--backend", be, "--budget", "2", "--dive-b", "k1.5", env=env)
+            qapctl("dives", "src", "--as", "src-dives", "--backend", be, "--budget", "2", "--dive-b", "k1.5",
+                   "--dive-env", "QAP_EST_DNN_TRACE=1", env=env)
             run_to_end(b, be, "src-dives", d, env)
             print("dives run finished")
+            # QAP_EST_DNN_TRACE=1: the estimator's DNN trace, joined by dives-export; every stratum the DNN
+            # bounded (its own bound, in the estimator's setup) has its line, by its fixes
+            qapctl("dives-export", "src-dives", "--backend", be, "--out", f"{d}/dx", env=env)
+            dl = gzip.open(f"{d}/dx/dnn.txt.gz", "rt").read().splitlines() if os.path.exists(f"{d}/dx/dnn.txt.gz") else []
+            seen = {frozenset(l.split("| first")[0].split("fixes", 1)[1].split()) for l in dl if "fixes" in l}
+            keys = [json.loads(l)["key"] for l in gzip.open(f"{d}/dx/dives.jsonl.gz", "rt") if '"stratum"' in l]
+            have = sum(1 for k in keys if frozenset(k.split(",")) in seen)
+            print(f"dives DNN trace: {len(dl)} lines, {have} of {len(keys)} strata among them")
+            if not dl or have < 0.8 * len(keys):
+                print("FAIL: the dives run's DNN trace (QAP_EST_DNN_TRACE=1) is missing or lacks its strata")
+                bad += 1
+            # the plan from the depths that hold open nodes (how deep the pause leaves them depends on the
+            # machine's speed: on Nov 21 one machine left none at depth 2, another none at depth 3)
+            depths = collections.Counter(json.loads(l)["depth"] for l in gzip.open(f"{d}/dx/dives.jsonl.gz", "rt")
+                                         if '"stratum"' in l)
+            use = sorted(dd for dd, c in depths.items() if c >= 2)[:2] or sorted(depths)[:1]
+            plan = ",".join(f"{dd}:{8 // len(use)}" for dd in use)
+            print(f"open nodes by depth {dict(sorted(depths.items()))}: sample plan {plan}")
             for arm in ("a", "b"):
                 out = qapctl("init", arm, "--backend", be, "--instance", dat, "--params", PAR, "--ub", "3488",
-                             "--sample-from", "src", "--sample", "2:4,3:4", *unit, env=env)
+                             "--sample-from", "src", "--sample", plan, *unit, env=env)
                 print(f"{arm}: " + next((l for l in out.splitlines() if "sample:" in l), "").split("sample: ", 1)[-1])
                 run_to_end(b, be, arm, d, env)
             sa, sb = (json.loads(b.get_bytes(f"runs/{r}/sample.json")) for r in ("a", "b"))

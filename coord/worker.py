@@ -380,6 +380,14 @@ class Worker:
         env.update({k: str(v) for k, v in self.cfg.get("dive", {}).get("env", {}).items()})
         env.pop("QAP_NODE_TRACE", None)
         env.pop("QAP_DNN_TRACE", None)
+        # QAP_EST_DNN_TRACE=1 (estimate-flow --dive-env, a spec's ESTIMATE_ENV): the DNN trace of every
+        # node the estimator bounds (its strata, their children, the dives' nodes), uploaded as the solve's
+        # units upload theirs: the iterations of the same nodes in an estimate and a solve compared
+        # (experiments/estimates_nov19, "The estimator against a known tree"). The worker's own switch:
+        # taken out before the solver, which rejects an unknown QAP_EST_ variable
+        tracef = os.path.join(wd, "trace.txt")
+        if env.pop("QAP_EST_DNN_TRACE", "0") == "1":
+            env["QAP_DNN_TRACE"] = tracef
         t0 = time.time()
         with open(logf, "w") as lf:
             proc = subprocess.Popen(cmd, cwd=os.path.join(ROOT, "latest"), stdout=lf, stderr=subprocess.STDOUT,
@@ -430,6 +438,8 @@ class Worker:
                   "wall": wall, "cpu": cpu, "killed": killed, "host": self.host, "finished_at": time.time()}
         if outcome == "done":
             self.b.put_file(prefix + "/dives.jsonl", divesf)
+            if env.get("QAP_DNN_TRACE") and os.path.exists(tracef):
+                self.b.put_file(prefix + "/trace.txt", tracef)
         self.b.put_file(prefix + "/solver.log", logf)
         self.b.put_bytes(prefix + "/result.json", json.dumps(result).encode())
         if outcome is not None:

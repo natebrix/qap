@@ -610,20 +610,26 @@ def export_dives(b, run_id, out_dir, log=print):
     """`qapctl dives-export RUN --out DIR`: a dives run's record for analysis, as the user gathered
     tho40-est-dives's by hand (infra/phase1/runs/tho40-est-dives/README.md): dives.jsonl.gz, every merged
     unit's dives.jsonl joined in merge order (the lines coord/dives.py reads), and units.tsv, a row per
-    unit, merged or not, with its line range in dives.jsonl.gz. Names no bucket."""
+    unit, merged or not, with its line range in dives.jsonl.gz; and, when its units kept the DNN trace
+    (QAP_EST_DNN_TRACE=1), dnn.txt.gz, their trace.txt joined in the same order. Names no bucket."""
     import gzip
     r = b.get_run(run_id)
     if r is None or r.get("config", {}).get("kind") != "dives":
         raise SystemExit(f"{run_id} is not a dives run")
     os.makedirs(out_dir, exist_ok=True)
     units = sorted(b.all_units(run_id), key=lambda u: (u.get("merged_seq") is None, u.get("merged_seq") or 0, u["uid"]))
-    rows, n = [], 0
-    tmp = os.path.join(out_dir, "dives.jsonl.gz.tmp")
-    with gzip.open(tmp, "wt") as f:
+    rows, n, nt = [], 0, 0
+    tmp, ttmp = os.path.join(out_dir, "dives.jsonl.gz.tmp"), os.path.join(out_dir, "dnn.txt.gz.tmp")
+    with gzip.open(tmp, "wt") as f, gzip.open(ttmp, "wt") as tf:
         for u in units:
             data = None
             if u.get("status") == "merged":
                 data = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "dives.jsonl"))
+                trace = b.get_bytes(unit_key(run_id, u["uid"], f"a{u['attempt']}", "trace.txt"))
+                for l in (trace.decode().splitlines() if trace else []):
+                    if l.strip():
+                        tf.write(l + "\n")
+                        nt += 1
             lines = [l for l in (data.decode().splitlines() if data else []) if l.strip()]
             for l in lines:
                 f.write(l + "\n")
@@ -633,11 +639,16 @@ def export_dives(b, run_id, out_dir, log=print):
                          "yes" if data is not None else "no"])
             n += len(lines)
     os.replace(tmp, os.path.join(out_dir, "dives.jsonl.gz"))
+    if nt:
+        os.replace(ttmp, os.path.join(out_dir, "dnn.txt.gz"))
+    else:
+        os.remove(ttmp)
     with open(os.path.join(out_dir, "units.tsv"), "w") as f:
         f.write("uid\tstatus\tattempt\tlane\tdepth_min\tdepth_max\tnodes\tmerged_seq\tcpu_s\twall_s\tline_from\tline_to\thas_dives\n")
         for row in rows:
             f.write("\t".join(str(x) for x in row) + "\n")
-    log(f"dives-export: {run_id}: {n} lines from {sum(1 for r in rows if r[-1] == 'yes')} of {len(rows)} units in {out_dir}")
+    log(f"dives-export: {run_id}: {n} lines from {sum(1 for r in rows if r[-1] == 'yes')} of {len(rows)} units in {out_dir}"
+        + (f"; {nt} DNN trace lines in dnn.txt.gz" if nt else ""))
     return 0
 
 
