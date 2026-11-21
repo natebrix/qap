@@ -19,8 +19,9 @@ for one large entry it shares with a row. The good line was never one of rule 9'
   9's arbitration is that close at almost every node: the two values differ by 0.1% to 5%.
 - **Shortlist or arbitration?** The failure is in the shortlist: the better line was never a candidate. r2 ranks
   9th and 15th by marginal score at 8:49 and 8:57, though 2nd by the full lookahead. Rule 2's c54 ranks 26th at
-  11:29, and at 22:31 c54 ranks 18th and r13 8th. Rule 2's lines rank 1st to 4th by the full QPB lookahead almost
-  everywhere (the table's "by LA"). Within the shortlist, the arbitration's pick at 8:49 (c30, 12) was worse than
+  11:29 (7th by lookahead). At 22:31 the best alternative, r13, ranks 18th (8th by lookahead). Elsewhere the best
+  alternative is usually 1st to 3rd by the full QPB lookahead (the table's "by LA"), and rarely in the top 2 by
+  marginal score. Within the shortlist, the arbitration's pick at 8:49 (c30, 12) was worse than
   the other candidate (r51, 5); at 8:57 it was worse by 6 against 1.
 - **Is c30 "decided" by one large entry or by several medium ones?** One large entry. At 8:49 c30 has 2 entries
   above 0.02, 2 above 0.05 and 1 above 0.1 (51:30 = 0.856). r2 has 2, 2 and 2 (2:23 = 0.546 and 2:57 = 0.455).
