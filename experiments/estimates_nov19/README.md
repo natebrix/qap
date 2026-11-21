@@ -253,3 +253,38 @@ depth 4), each arm to the end, weighted by the source's open nodes each stands f
   against 803. At depth 3 the dives' estimate is inside the band (nodes 2.45 against 2.58 million), at depth
   4 it is 2.9x the solved sample's, outside it. With est3's depth 2 (1,426 CPU h, 85 open nodes, dives only)
   and depths 5-6 (16), the rest of tho40 is about 7,250 CPU h from the solved sample against est3's 6,727.
+
+## The estimator against a known tree: sko42 (Nov 21)
+
+`sko42-est-261121b` (`infra/phase1/specs/sko42-est.spec`): sko42 under `sko42.par` estimated as tho40 was (a 0.3 h
+solve, Knuth dives k1.5, 900 s a unit, 5 dives at least per branched open node, sampling by depth 2:1, 3:0.6,
+4:0.2, deeper 0.03, the decision point off), against `sko42-261120b`, the same tree solved: **324 CPU h (5-95%:
+273-404) and 101,840 nodes estimated, 539.3 CPU h and 128,431 nodes solved**. CPU 0.60, outside the band; nodes
+0.79. The estimator cost 70 CPU h.
+
+`est_vs_solve.py`: each of the 2,246 sampled open nodes' estimate against its true subtree in the solve
+(the trees are the same node for node: the same params and solver), weighted by 1/pi:
+
+| open nodes at depth | strata (dived) | estimate CPU h | true CPU h | ratio | estimate nodes | true nodes | ratio |
+|---|---|---|---|---|---|---|---|
+| 2 | 169 (118) | 106.4 | 252.6 | 0.42 | 32,667 | 59,982 | 0.54 |
+| 3 | 1,297 (241) | 143.4 | 227.3 | 0.63 | 49,553 | 58,570 | 0.85 |
+| 4 | 750 (22) | 23.4 | 29.4 | 0.80 | 9,703 | 9,590 | 1.01 |
+| 5-6 | 26 (1) | 4.3 | 4.9 | 0.88 | 2,104 | 2,100 | 1.00 |
+| all | | 277.5 | 514.1 | 0.54 | 94,027 | 130,242 | 0.72 |
+
+- **The sample of open nodes is not the problem.** Their true subtrees, weighted, come to 514 CPU h against the
+  solve's 493 after the estimate's 46.7 done (+4%).
+- **A node bounded by the estimator costs 0.79 of the same node in the solve** (their own bound, 28.7 against
+  36.2 CPU h; 0.85 for DNN-fathomed, 0.79 cut-phase-fathomed, 0.78 branched), although bound_one is the solve's
+  own bnb() and the twelve depth-1 nodes, solved in both, cost 2.05 against 2.09 CPU h. Whether the work or its
+  timing differs, the DNN iterations would say (the two runs' dnn.txt.gz, in their exports). This is the bias
+  seen on tai50b (0.80) and on tho40's depth-3 open nodes (est3 0.81 of the solved sample).
+- **The dives miss the large subtrees.** Where the node counts are right (depths 4-6) the CPU is that 0.8-0.9;
+  from depth-3 open nodes the dives find 0.85 of the nodes, from depth-2 open nodes 0.54, and no dive went below
+  depth 6 although the tree reaches 9 and more. With a few dives an open node, Knuth's estimate of a large
+  subtree is usually low and now and then very high: the mean is right, the typical draw is not.
+- **What estimates well: a solved sample.** The open nodes sized by the dives, then a sample of them drawn in
+  proportion to the square root of that size and solved to the end (`coord/sample.py`, as the tuning arms did):
+  its weighted total is unbiased by construction. On tho40 the tuning arms' base gave 5,808 CPU h for the
+  depth-3 and depth-4 open nodes (bootstrap 5-95% at depth 3: 3,882-7,308), where est3's dives gave 5,284.
