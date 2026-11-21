@@ -1,0 +1,59 @@
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -1528,6 +1528,56 @@
+ 	      }
+ 	    }
+ 	  }
++	  // QAP_TAIL=THR[:DMIN:DMAX] (experiments/branching_lab/tail): the rule "tail". At a node of depth
++	  // DMIN..DMAX (default: every depth) that has DNN marginals, branch on the free line with the fewest
++	  // marginals above THR; ties by the larger sum of squares (rule 9's score), then rows before columns,
++	  // then the lower index. In place of the params' rule; QAP_FORCE_LINE and QAP_LS / QAP_LA still override
++	  // it only where they set a line after this (QAP_FORCE_LINE does). For instances without a symmetry
++	  // file: it may choose a column. QAP_TAIL_LOG=file: one line per choice.
++	  {
++	    static double tail_thr = -1.0;
++	    static int tail_dmin = 0, tail_dmax = 1 << 30;
++	    static bool tail_init = false;
++	    if (!tail_init) {
++	      tail_init = true;
++	      if (const char *e = getenv("QAP_TAIL")) {
++		int k = sscanf(e, "%lf:%d:%d", &tail_thr, &tail_dmin, &tail_dmax);
++		if ((k != 1 && k != 3) || tail_thr <= 0.0) { fprintf(stderr, "QAP_TAIL: cannot read '%s'\n", e);  exit(2); }
++	      }
++	    }
++	    if (tail_thr > 0.0 && (int)dnn_xbar.size() == m * m && m > 1 &&
++		node.depth >= tail_dmin && node.depth <= tail_dmax && bp->how != BRANCH_FIXED) {
++	      std::vector<int> rc(m, 0), cc(m, 0);
++	      std::vector<double> rs(m, 0.0), cs(m, 0.0);
++	      for (int a = 0; a < m; a++)
++		for (int b = 0; b < m; b++) {
++		  const double v = dnn_xbar[a * m + b];
++		  if (v > tail_thr) { rc[a]++;  cc[b]++; }
++		  rs[a] += v * v;  cs[b] += v * v;
++		}
++	      bool brow = true;  int bk = -1, bcnt = 0, ties = 0;  double bss = 0.0;
++	      for (int side = 0; side < 2; side++)       // rows first: a strict improvement is needed to replace
++		for (int k = 0; k < m; k++) {
++		  const int cnt = side == 0 ? rc[k] : cc[k];
++		  const double ss = side == 0 ? rs[k] : cs[k];
++		  if (bk < 0 || cnt < bcnt || (cnt == bcnt && ss > bss)) {
++		    if (bk < 0 || cnt < bcnt) ties = 0;
++		    brow = side == 0;  bk = k;  bcnt = cnt;  bss = ss;
++		  }
++		  if (cnt == bcnt) ties++;
++		}
++	      int idx = -1;
++	      for (int r = 0; r < n && idx < 0; r++) if ((brow ? lrow[r] : lcol[r]) == bk) idx = r;
++	      bp->how = BRANCH_FIXED;  bp->choose_row = brow;
++	      bp->fixed_index_in_U = bk;  bp->fixed_index_in_assign = idx;
++	      char buf[512];  int o = snprintf(buf, sizeof buf, "tail: depth %d lb %.4f fixes", node.depth, node.bound);
++	      for (int r = 0; r < n && o < 400; r++) if (node.p[r] > NONE) o += snprintf(buf + o, sizeof buf - o, " %d:%d", r, node.p[r]);
++	      snprintf(buf + o, sizeof buf - o, " | chose %c%d entries %d sumsq %.4f lines_at_min %d", brow ? 'r' : 'c', idx, bcnt, bss, ties);
++	      fprintf(stderr, "%s\n", buf);
++	      static const char *tl = getenv("QAP_TAIL_LOG");
++	      if (tl && *tl) if (FILE *f = fopen(tl, "a")) { fprintf(f, "%s\n", buf);  fclose(f); }
++	    }
++	  }
+ 	  for (const char *f = force_line; f && *f; ) {
+ 	    int d, idx; char side;
+ 	    if (sscanf(f, "%d:%c%d", &d, &side, &idx) != 3 || (side != 'r' && side != 'c') || idx < 0 || idx >= n) {
