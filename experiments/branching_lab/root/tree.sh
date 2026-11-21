@@ -4,14 +4,19 @@
 # + ../lsla/lsla.patch + ../tail/tail.patch + root.patch), the nug30 record recipe as it is (rule 9, no cut
 # phase, no DNN at the root) with the instance's symmetry file, the incumbent the best known + the step.
 #   tree.sh PROBLEM ROW      e.g. tree.sh tho30 25   -> runs/PROBLEM_r25/ (QAP_FORCE_LINE=0:r25)
-# The reference is ../grid/runs/PROBLEM_prod (production's own root row; tho30: r5, 14,815 nodes).
+#   tree.sh PROBLEM prod     the recipe's own root row (nug30: r0), under the same build, slots and incumbent
+# tho30's reference is ../grid/runs/tho30_prod (r5, 14,815 nodes, 3 slots).
+# Decision rule, fixed before the first tree (Nov 21): over the rows run, the rank correlation between the root
+# lookahead's score and the whole tree's nodes; the root lookahead pays on the grid if its best row's tree has
+# at most 95% of production's nodes, and its score carries no information there if the correlation is 0.3 or less.
 set -uo pipefail
 D=$(cd "$(dirname "$0")"; pwd)
 BUILD=${BUILD:-/home/user/wt-root}
 P=$1; ROW=$2
-OUT=$D/runs/${P}_r$ROW
+OUT=$D/runs/${P}_r$ROW; [ "$ROW" = prod ] && OUT=$D/runs/${P}_prod
 mkdir -p "$OUT"
-export QAP_FORCE_LINE=0:r$ROW QAP_ROOT_CACHE=off QAP_LA_LOG=$OUT/la.log
+export QAP_ROOT_CACHE=off QAP_LA_LOG=$OUT/la.log
+[ "$ROW" = prod ] || export QAP_FORCE_LINE=0:r$ROW      # ROW = prod: the recipe's own root row, nothing forced
 { date -u +%FT%TZ; echo "$P r$ROW"; env | grep -E '^QAP_' | sort; git -C "$BUILD" rev-parse --short HEAD; } > "$OUT/cmd.txt"
 SLOTS=${SLOTS:-2} OUT=$OUT PARAMS=infra/phase1/recipes/nug30.par "$BUILD/infra/laptop/solve.sh" "$P"
 rc=$?
