@@ -46,7 +46,18 @@ Spearman (entries above 0.001 against B), this node: +1.00 over 3 lines.
 
 Spearman (entries above 0.001 against B), this node: +0.89 over 5 lines.
 
-## tai50b root: no dump yet
+## tai50b root
 
-Pooled over the nodes dumped: Spearman +0.86 over 13 lines (pooling mixes nodes).
+`xbar depth 0 lb 455451614.5799 fixes`
+
+"tail" picks **r31** (49 entries above 0.001; 2 line(s) tie at that minimum; bounded: yes, B = 10). Next: c6 (49, 0.030), c34 (50, 0.089), r33 (50, 0.053), c39 (50, 0.053), r32 (50, 0.047).
+
+| line | B measured | > 0.001 | > 0.0001 | > 0.01 | sum x^2 | tail rank |
+|---|---|---|---|---|---|---|
+| r31 | 10 | 49 | 50 | 20 | 0.0684 | 1 of 100 |
+| c26 | 28 | 50 | 50 | 45 | 0.0278 | 36 of 100 |
+
+Spearman (entries above 0.001 against B), this node: +1.00 over 2 lines.
+
+Pooled over the nodes dumped: Spearman +0.90 over 15 lines (pooling mixes nodes).
 
