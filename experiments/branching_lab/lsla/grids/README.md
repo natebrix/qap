@@ -3,7 +3,11 @@
 Task (coordinator, agreed with Nathan): score every row at the roots of tho40, sko49 and wil50 with the
 150-iteration lookahead and rank production's root row among them. No whole trees.
 
-**Status: tho40 and sko49 done; wil50 running (started 19:50 UTC).**
+**Done (Nov 21, 16:25-23:44 UTC). Production's root row is 16th of 40 on tho40 (5.7% behind the best), 3rd of 49
+on sko49 (4.2%) and 2nd of 50 on wil50 (0.5%). Only on wil50 does the ranking separate a clear top: r45 and r21,
+12% ahead of the rest. On tho40 and sko49 the top rows are within 1% of each other, so the ranking picks little
+there.** No child fathoms within 150 iterations at any of the three roots (1,720 children, all open), so the
+score is the shortfall sum alone. Cost 99,065 CPU s, 27.5 core-hours, for the three [m].
 
 ## Answer so far
 
@@ -16,6 +20,12 @@ Task (coordinator, agreed with Nathan): score every row at the roots of tho40, s
   `analyze.py sko49 10 41`]; r40 is 2nd at 0.8%. Again nothing fathoms within the cap (all 490 children open), and
   the scores are close: the best ten within 6.5%, the whole range 21% (r0 worst, 1.21x). Production's rule already
   picks from the top of this ranking.
+- **wil50: production's root row r21 is 2nd of 50, 0.5% behind the best, r45** [m `runs/wil50/rank.md`,
+  `analyze.py wil50 15 21`]. Then a gap: the 3rd row, r40, is 12.4% behind; the whole range is 37% (r22 worst,
+  1.37x). This agrees with the laptop's root study (`wil50_feasibility/sampling/README.md`, "Root lines": six root
+  facilities by the lines cost of their 15 orbit children, cold, 1,500 iterations: 45 best, 21 at 1.2x, 25 at
+  5.3x). Here 45 is first, 21 second and 25 12th (1.20x). Two different measures agree that 45 and 21 are the
+  two best rows, and only these two were measured by both.
 
 ## Setup
 
@@ -54,4 +64,21 @@ Task (coordinator, agreed with Nathan): score every row at the roots of tho40, s
 - Best r45 5,501.0; r40 5,546.4 (1.008x); **r41 5,729.8 (1.042x, 3rd; production's)**; r5 and r46 5,779.9
   (1.051x), r9 1.051x, r30 and r35 1.055x. Worst r0 6,635.3 (1.206x). Each child's shortfall is about 500-700
   against the cutoff 23,386 [m].
+
+## wil50 (`runs/wil50/`, 19:50-23:44 UTC)
+
+- 50 rows x 15 children, every child solved to the cap: 750 solves, 112,500 iterations, 53,116 CPU s (14.75
+  core-hours) [m: the four parts' la.txt], about 71 s a child; the root bound about 3 min per process.
+- Checks [m]: every row has exactly 15 children, in columns 0-4, 10-14, 20-24 (SYM/wil50t.sym's J1, 1-based
+  1-5, 11-15, 21-25); the sums match each part's la.txt to 0.2.
+- Best r45 6,575.4; **r21 6,605.9 (1.005x, 2nd; production's)**; r40 7,391.2 (1.124x); r34 1.136x; r6 1.151x;
+  r27 1.162x; r31 1.168x. Worst r22 9,023.9 (1.372x). Each child's shortfall is 217-674 against the cutoff 48,816
+  [m].
+
+## What this does not show
+
+- Whether the best row makes a smaller tree. That is the coordinator's tho30 validation (whole trees with the root
+  forced to the best, a middle and the worst row). None was run here.
+- How much the scores change with the cap. Only CAP 150 was run; at tai50b's root CAP 150 ordered the three
+  bounded lines correctly (`../README.md`).
 
