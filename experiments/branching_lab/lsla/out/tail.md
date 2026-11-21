@@ -1,6 +1,20 @@
 # The "tail" predictor at the bounded nodes (tail.py)
 
-## tai60b 10:39 (depth 7): no dump yet
+## tai60b 10:39 (depth 7)
+
+`xbar depth 7 lb 607798660.8327 fixes 0:32 1:33 6:24 7:19 10:39 43:58 44:45`
+
+"tail" picks **c59** (5 entries above 0.001; 1 line(s) tie at that minimum; bounded: yes, B = 3). Next: r8 (6, 0.250), c55 (6, 0.222), r11 (7, 0.369), c35 (7, 0.347), r3 (7, 0.323).
+
+| line | B measured | > 0.001 | > 0.0001 | > 0.01 | sum x^2 | tail rank |
+|---|---|---|---|---|---|---|
+| c59 | 3 | 5 | 8 | 4 | 0.4045 | 1 of 106 |
+| r11 | 4 | 7 | 10 | 5 | 0.3686 | 4 of 106 |
+| c47 | 5 | 33 | 42 | 18 | 0.0992 | 93 of 106 |
+| c10 | 5 | 23 | 36 | 10 | 0.1979 | 47 of 106 |
+| c54 | 9 | 17 | 33 | 12 | 0.1024 | 27 of 106 |
+
+Spearman (entries above 0.001 against B), this node: +0.67 over 5 lines.
 
 ## tai60b 14:54 (depth 8)
 
@@ -34,5 +48,5 @@ Spearman (entries above 0.001 against B), this node: +0.89 over 5 lines.
 
 ## tai50b root: no dump yet
 
-Pooled over the nodes dumped: Spearman +0.94 over 8 lines (pooling mixes nodes).
+Pooled over the nodes dumped: Spearman +0.86 over 13 lines (pooling mixes nodes).
 
