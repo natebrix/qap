@@ -427,7 +427,7 @@ def main():
               f"({len(running)} tasks in flight), {total.counters[0]} nodes so far -> {args.checkpoint}",
               flush=True)
 
-    def stop_workers(signum, frame):
+    def stop_now(signum):
         if args.checkpoint:
             write_checkpoint(f"signal {signum}")
         for v in running.values():
@@ -436,6 +436,21 @@ def main():
             v[3].wait()
         sys.exit(f"interrupted (signal {signum}); workers stopped"
                  + (f"; resume with --resume {args.checkpoint}" if args.checkpoint else ""))
+
+    # With --checkpoint, a SIGTERM/SIGINT is only noted here and acted on at the top of the main loop's
+    # next pass (within 20 ms: the loop polls while checkpointing). Until Nov 21 the handler wrote the
+    # checkpoint wherever the signal landed, also in the middle of a merge: a finished task already
+    # popped from `running` but its totals and unfinished nodes not yet added, so the checkpoint held
+    # neither its nodes nor its work, and the resumed search skipped that subtree (the parallel gate
+    # failed so on sko42-est-261121's coordinator: 7,368 nodes resumed against 8,502). Without a
+    # checkpoint nothing is written, and the workers are stopped at once.
+    stop_signal = []
+
+    def stop_workers(signum, frame):
+        if args.checkpoint:
+            stop_signal.append(signum)
+        else:
+            stop_now(signum)
     signal.signal(signal.SIGTERM, stop_workers)
     signal.signal(signal.SIGINT, stop_workers)
 
@@ -443,6 +458,8 @@ def main():
     draining = False                # --wall-limit reached: no new tasks, workers stopping
 
     while pool or running:
+        if stop_signal:
+            stop_now(stop_signal[0])
         now = time.perf_counter()
         if args.checkpoint and now >= next_checkpoint:
             write_checkpoint("periodic")
