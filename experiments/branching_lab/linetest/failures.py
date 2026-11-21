@@ -73,14 +73,14 @@ for d in sorted(glob.glob(H + '/runs/dump/*')):
 import pickle
 out = []
 hdr = ['node', 'depth', 'path', 'shortfall', 'sf/root slack', 'rule 9: line (B)', 'cands row/col (LA row, LA col)', 'top score, margin',
-       'rule 9 line: entries >0.02/0.05/0.1/>1/m', 'alternative: line (B)', 'alt rank by x^2 / by LA', 'alt entries >0.02/0.05/0.1/>1/m', 'support line (B if known)']
+       'rule 9 line: entries >0.02/0.05/0.1/>1/m/>0.001', 'alternative: line (B)', 'alt rank by x^2 / by LA', 'alt entries >0.02/0.05/0.1/>1/m/>0.001', 'support line (B if known)']
 out.append('| ' + ' | '.join(hdr) + ' |'); out.append('|' + '---|' * len(hdr))
 for r in sorted(rows, key=lambda r: (r['depth'], r['name'])):
     c = r['cnt']; ln = r['chosen']; m = r['m']
     ba = r['best_alt']
     if ba: aln, (ab, _) = ba
     else: aln, ab = None, None
-    ent = lambda L: f"{c(L, .02)}/{c(L, .05)}/{c(L, .1)}/{c(L, 1/m)}"
+    ent = lambda L: f"{c(L, .02)}/{c(L, .05)}/{c(L, .1)}/{c(L, 1/m)}/{c(L, 1e-3)}"
     alts = ', '.join(f"{l} {v[0]}" for l, v in sorted(r['alts'].items()))
     sb = r['alts'].get(r['sup'], (None,))[0]
     if r['sup'] == r['r9line']: sb = r['r9b']
