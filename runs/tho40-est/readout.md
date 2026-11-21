@@ -2,7 +2,7 @@
 
 **PART-WAY**: the estimate's dives run tho40-est-dives is running, 524 of 552 dives units merged
 
-- STALE: the coordinator last wrote its status 3339 minutes ago (an interrupted coordinator? collect.sh shows the instances and why they stopped)
+- STALE: the coordinator last wrote its status 3409 minutes ago (an interrupted coordinator? collect.sh shows the instances and why they stopped)
 - PART-WAY: 28 of 552 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (0% of the rest's CPU)
 - HEAVY TAIL: the 10 largest dives make 58% of the rest's nodes and 37% of its CPU (the largest 10%, 6%): more dives where they come from
 - FEW DIVES: 828 of 1108 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)
