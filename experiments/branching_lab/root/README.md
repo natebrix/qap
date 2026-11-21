@@ -1,7 +1,6 @@
 # The root lookahead for the grids
 
-Nov 21 2026. [m] = measured here, [e] = estimate or inference. wil50's scores are still to come (marked
-below).
+Nov 21 2026. [m] = measured here, [e] = estimate or inference.
 
 **Scoring every row at a grid's root is cheap, and scoring a row by the tree its children predict sorts good
 rows from bad ones (nug30: 3,623 to 10,165 nodes over six rows; tho30: 13,812 to more than 21,000 over
@@ -23,7 +22,7 @@ The patch goes on cognac 0e6c2ecf + `experiments/line_signals/experiment_build.p
 | tho30 | 30 x 10 | 1,813 s [m] | 1 |
 | tho40 | 40 x 12 | 3.8 core-hours [m `../lsla/grids`] | none |
 | sko49 | 49 x 10 | 8.9 core-hours [m `../lsla/grids`] | none |
-| wil50 | 50 x 15 | about 12 core-hours [e], running | |
+| wil50 | 50 x 15 | 14.8 core-hours [m `../lsla/grids`] | none |
 
 ## The score
 
@@ -90,7 +89,7 @@ The patch goes on cognac 0e6c2ecf + `experiments/line_signals/experiment_build.p
 |---|---|---|---|---|---|
 | tho40 | r26 | 15 of 40 | r2 | 0.68 (nodes), 0.71 (CPU); the same under the power law | the Nov 19 estimate under r26's 12 children: R^2 0.88 to 0.92, a factor 1.3 to 1.4 a child [m] |
 | sko49 | r41 | 4 to 9 of 49, by the slope | r45 at every slope | 0.87 to 0.5 | none: its estimate is a depth-3 sample and gives no subtree under a depth-1 node [e] |
-| wil50 | r21 | to come | | | |
+| wil50 | r21 | 2 of 50 at every slope | r45 at every slope | 0.98 to 0.84 | none (as sko49) |
 
 - **tho40**: r2's children lie inside the range of shortfalls the fit saw (10,039 to 13,466 against 9,819 to
   13,366), so the form of the model does not matter there. The other rows the model puts within 0.85 of r26:
@@ -98,6 +97,12 @@ The patch goes on cognac 0e6c2ecf + `experiments/line_signals/experiment_build.p
 - With nug30's experience (top picks within +-15% of each other in fact when predicted within 30%), r2 at
   0.7 is a bet, not a finding [e].
 - **sko49**: r45 is first whatever the slope; how far ahead depends on a slope nothing here fixes.
+- **wil50**: production's r21 and r45 are the top two at every slope, their children's shortfalls nearly the
+  same cell for cell, and the third row is predicted 1.3 to 1.5 times r21. Nothing to gain at wil50's root:
+  the QPB row lookahead already has it. The laptop's root study agrees (`../../wil50_feasibility/sampling`
+  README, "Root lines": 45 best, 21 next).
+- The slope: "0.87 to 0.5" and "0.98 to 0.84" are the model with ln(nodes) = k x shortfall / the mean
+  shortfall for k from 3 to 16 (tho40's calibrated k is 12; nug30's about 4).
 
 ## What this adds up to
 
@@ -112,7 +117,6 @@ The patch goes on cognac 0e6c2ecf + `experiments/line_signals/experiment_build.p
 
 ## Not done
 
-- wil50's scores.
 - A calibration for sko49 and wil50 (their estimates would have to be totalled under each depth-1 node).
 - The same at depth 1 (10 to 15 nodes a grid: `../budget/README.md`), where rows and columns are both free
   and the children are many more.
