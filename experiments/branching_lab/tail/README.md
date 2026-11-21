@@ -1,7 +1,9 @@
 # The rule "tail": branch on the line with the fewest non-zero marginals
 
-Nov 21 2026. Status: ungated, it helps on tai35b (13% fewer nodes) and hurts on tai40b (at least 15% more: a
-weak root). A gated version (the rule only where the count is small) is running on both.
+Nov 21 2026. Status: **not established on whole trees.** Ungated it helps on tai35b (13% fewer nodes) and
+hurts on tai40b (at least 15% more: a weak root). Gated (the rule only where the count is at most m / 2) it
+has no effect on either (+3%, -0.5%). Its support is still the one-level evidence at tai60b's tight nodes,
+where the counts are 2 to 5 against 22; no whole tree here has such nodes going wrong under rule 9.
 [m] = measured here, [e] = estimate or inference.
 
 ## The rule
@@ -81,21 +83,46 @@ before the runs: at most 95% of the reference's nodes, the rule helps; at least 
 - Against tai50b's root (49-50 everywhere, where the tie-break gave rule 9's line): here one line is lower by
   four entries, enough to win and not enough to mean anything.
 
-### The gate (running)
+### The gate: no effect on either tree
 
-Hypothesis: the count is informative only once it is small. Where the rule worked the chosen line had 2 to 5
-entries of about 50 (tai60b) or 9 of 35 (tai35b's root); where it failed, 35 of 40. `QAP_TAIL_GATE=0.5`: the
-rule where the fewest-entries count is at most m / 2, the params' rule (rule 9, QPB-arbitrated) elsewhere. The
-0.5 was set before any gated run and is not fitted: in tai35b's ungated tree four choices had 17 to 29 entries
-of 32-33 and would be gated, and whether those helped is not known [e].
+Hypothesis, set before the runs: the count is informative only once it is small. `QAP_TAIL_GATE=0.5`: the rule
+where the fewest-entries count is at most m / 2, the params' rule (rule 9, QPB-arbitrated) elsewhere. The 0.5
+was not fitted.
 
-`runs/tai35b_tailg`, `runs/tai40b_tailg` (`QAP_TAIL=0.001 QAP_TAIL_GATE=0.5`): running, the same references and
-the same 95% / 105% rule. On tai40b the root is gated (rule 9's r23), so the question there is whether the
-rule keeps the single chain below it; on tai35b, whether the 13% survives the gate.
+| trace lines | production | tail, ungated | tail, gated at m / 2 |
+|---|---|---|---|
+| tai35b | 1,017 | 884 (87%) | 1,045 (103%) |
+| tai40b | 731 | at least 843 (115%) | 727 (99.5%) |
+
+Both gated trees closed at the best known value [m `runs/tai35b_tailg`, `runs/tai40b_tailg`]. (`run.sh`'s last
+lines failed in both because the script was edited while they ran; the solves had finished and the traces were
+copied by hand, as `cmd.txt` says.)
+
+- **tai40b: the gate removes the harm** [m]. The root is gated (rule 9's r23), and below it the rule chooses
+  at depths 1-6 (16, 7, 5, 4, 3, 2 entries) and the tree stays a single chain: the same node count at every
+  depth through 23. The rule's lines differ from production's from depth 2 (c33 against r22); on a chain that
+  changes nothing.
+- **tai35b: the gate removes the gain** [m]. The gated nodes are the three at depth 2 (17, 17 and 19 entries
+  of 33); rule 9's c5 there, then the rule's tight choices below (3 and 4 entries of 31-32), give 7 branching
+  nodes at depth 4 against the ungated tree's 2 and production's 5.
+- **So the hypothesis as stated is wrong**: a 17-of-33 line (r33) helped and the tight choices below rule 9's
+  c5 did not.
+- **And tai35b's gain hung on one entry** [m `runs/tai35b_d2`: the three depth-2 nodes bounded again in one
+  process, `lines.py`]. There r33 has 18 entries and rule 9's c5 19, 22 and 18 (at the third node c5 ties r33
+  and wins the tie-break); the whole-tree run saw r33 at 17. Both lines stand far below the field (quartiles
+  28 / 30 / 32), so the count separates the pair from the rest and not one from the other. Marginals differ
+  by an entry or two between runs of the same node (the ADMM's warm start), so which of the two the rule takes
+  is not stable. r33 was the better line; the count did not know it.
+- At tai40b's root nothing stands out (c23 35 against 40); at tai35b's depth 2 two lines do (18 against 30)
+  and the rule picks between them by noise; at tai60b's tight nodes one line has 2 to 5 against rule 9's 22.
+  Only the last is a margin the count can carry [e].
 
 ## Not done
 
-- A tree where the rule replaces rule 9 deep (tai50b: rule 9 at every depth, 6,629 nodes). That is the test of
-  the failures' cost; it needs the laptop (`../laptop/tai50b_tail.sh`, on hold until the gated runs are in).
+- A tree where rule 9's failures occur (tight nodes deep in a big tree) with the gated rule in its place:
+  tai50b (rule 9 at every depth, 6,629 nodes) on the laptop, `../laptop/tai50b_tail.sh`, now with the gate. On
+  tai35b and tai40b the gated rule had nothing to repair.
+- A margin in place of the count's minimum (the rule only where its line is below rule 9's candidates by more
+  than the run-to-run noise): suggested by tai35b's depth 2, not tested.
 - The rule as a shortlist for the lookahead at chain nodes, against the rule alone.
 - Grids (symmetry: rows only where symmetry remains; not implemented).
