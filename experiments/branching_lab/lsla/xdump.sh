@@ -1,6 +1,6 @@
 #!/bin/bash
 # xdump.sh NODE: re-bound one node whose lines were bounded here, under the same settings, with its children set
-# aside, and dump its DNN marginals x-bar (QAP_XBAR_DUMP, in the copy /home/user/wt-cognac/latest_x: lsla.patch
+# aside, and dump its DNN marginals x-bar (QAP_XBAR_DUMP, in the copy /home/user/wt-cognac/latest_x: lsla.patch and xbar_dump.patch;
 # plus the dump). NODE: d7 (10:39, as run.sh strong), d8 (14:54, as at8), d9 (24:2, as at9), r50 (tai50b's root,
 # as root50), r35 (tai35b's root, as t2). Output runs/xdump/NODE/{xbar,nodes,log,err}.txt.
 set -euo pipefail

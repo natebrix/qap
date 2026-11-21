@@ -1,14 +1,35 @@
 --- a/latest/bnb.C
 +++ b/latest/bnb.C
-@@ -89,6 +89,7 @@
+@@ -89,8 +89,28 @@
  #include <string>
  #include "settings.h"
  bool branch_cols_allowed(const QAPAssignment &assign);   // branch.C (experiments/line_signals)
 +#include "lsla.h"   // experiments/branching_lab/lsla
  //#include <time.h>
  
++// QAP_LA_RESUME=file (lsla): a lookahead child already in this QAP_LA_PROGRESS file (same depth, cap and
++// cell) takes its logged shortfall instead of a solve, so a run killed by a restart resumes; the file is
++// re-read per child, so processes sharing one file share children.
++static bool la_resumed(int depth, int cap, int r, int c, double &sh) {
++  static const char *fn = getenv("QAP_LA_RESUME");
++  if (!fn || !*fn) return false;
++  FILE *f = fopen(fn, "r");
++  if (!f) return false;
++  char line[512];
++  bool hit = false;
++  while (!hit && fgets(line, sizeof line, f)) {
++    int d, k, rr, cc;  double lb, s;
++    if (sscanf(line, "child depth %d cap %d cell %d:%d lb %lf shortfall %lf", &d, &k, &rr, &cc, &lb, &s) == 6 &&
++        d == depth && k == cap && rr == r && cc == c) { sh = s;  hit = true; }
++  }
++  fclose(f);
++  return hit;
++}
++
  /*
-@@ -1179,6 +1180,181 @@
+  QAP_NODE_TRACE=file (settings.C, diagnostic): one line per node taken off
+  the stack, appended where its fate is decided, so a node restored from a
+@@ -1179,6 +1199,181 @@
  	    for (const auto &l : L) fprintf(stderr, " %s:%.5f", l.second.c_str(), l.first);
  	    fprintf(stderr, "\n");
  	  }
@@ -190,7 +211,7 @@
  	  // QAP_LA=K:CAP:DMIN:DMAX (experiments/line_signals): at a node of depth DMIN..DMAX whose DNN
  	  // bound ran and missed, the candidates are the K rows and the K columns with the largest marginal
  	  // scores (columns only with no symmetry left); every child of a candidate that QPB's U does not
-@@ -1201,13 +1377,14 @@
+@@ -1201,13 +1396,14 @@
  	      la_all = sl && sl[0] == 'a';
  	    }
  	    const double inc = s->getObjective();
@@ -207,7 +228,7 @@
  	      for (int a = 0; a < m; a++) for (int b = 0; b < m; b++) {
  		const double v = dnn_xbar[a * m + b] * dnn_xbar[a * m + b];  rs[a] += v;  cs[b] += v;
  	      }
-@@ -1218,7 +1395,9 @@
+@@ -1218,7 +1414,9 @@
  	      std::sort(by.begin(), by.end(), [&](int a, int b) { return rs[a] != rs[b] ? rs[a] > rs[b] : a < b; });
  	      // QAP_LA_LINES=r1,c26,...: these lines (original indices) as the candidates instead
  	      static const char *la_lines = getenv("QAP_LA_LINES");
@@ -218,7 +239,7 @@
  		for (const char *f = la_lines; f && *f; ) {
  		  char side; int idx;
  		  if (sscanf(f, "%c%d", &side, &idx) == 2) {
-@@ -1240,10 +1419,16 @@
+@@ -1240,16 +1438,23 @@
  	      static const int warm_y = (int)setting_i("dnn.warm_y");
  	      const double cutoff = inc - DELTA;
  	      const double qb = bound + qpbp->lapU;
@@ -236,7 +257,14 @@
  	      for (Cand &c : cand) {
  		for (int t = 0; t < m; t++) {
  		  const int a = c.row ? c.k : t, b = c.row ? t : c.k;
-@@ -1259,7 +1444,7 @@
+ 		  double &sh = memo[(size_t)a * m + b];
+ 		  if (std::isnan(sh)) {
+ 		    if (U->me[a][b] + qb >= inc - DELTA_BRANCH) sh = 0.0;   // QPB drops this child
++		    else if (la_resumed(node.depth, cap, frow[a], fcol[b], sh)) {}   // QAP_LA_RESUME (lsla)
+ 		    else {
+ 		      QAPAssignment kid1 = node;
+ 		      kid1.fix(frow[a], fcol[b]);
+@@ -1259,7 +1464,7 @@
  		      lp.gamma1 = setting_d("dnn.gamma1");  lp.gamma = setting_d("dnn.gamma");
  		      lp.cheb_degree = (int)setting_i("dnn.cheb");  lp.tight_lam = (int)setting_i("dnn.tight_lam");
  		      lp.beta = setting_d("dnn.beta");  lp.refresh = (int)setting_i("dnn.refresh");
@@ -245,7 +273,20 @@
  		      DNNWarm cw;
  		      const DNNWarm *sp = NULL;
  		      if (warm_y > 0 && dnn_warm_child(pw, a, b, cw, warm_y) && !cw.Y.empty()) { sp = &cw; lp.warm_primal = 1; }
-@@ -1294,9 +1479,20 @@
+@@ -1288,15 +1493,33 @@
+ 			rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
+ 		      sh = rr.status == DNN_FATHOMED ? 0.0 : std::max(0.0, cutoff - rr.lb);
+ 		      solves++;  iters += rr.iterations;
++		      // QAP_LA_PROGRESS=file (lsla): one line per child solve, flushed, so a killed run keeps its children
++		      static const char *la_prog = getenv("QAP_LA_PROGRESS");
++		      if (la_prog && *la_prog) if (FILE *f = fopen(la_prog, "a")) {
++			fprintf(f, "child depth %d cap %d cell %d:%d lb %.4f shortfall %.1f iters %d cpu %.2f\n", node.depth, cap,
++				frow[a], fcol[b], rr.lb, sh, rr.iterations, (double)(clock() - t0) / CLOCKS_PER_SEC);
++			fclose(f);
++		      }
+ 		    }
+ 		  }
+ 		  c.score += sh;
  		  c.open += sh > 0;
  		}
  	      }
@@ -267,7 +308,7 @@
  	      bp->how = BRANCH_FIXED;  bp->choose_row = best->row;
  	      bp->fixed_index_in_U = best->k;  bp->fixed_index_in_assign = best->row ? frow[best->k] : fcol[best->k];
  	      // on stderr, and appended to QAP_LA_LOG (default runs/la.log of the study: a coordinator's
-@@ -1314,12 +1510,22 @@
+@@ -1314,12 +1537,22 @@
  		snprintf(buf, sizeof buf, " %c%d:%.4f:%.1f:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
  		msg += buf;
  	      }

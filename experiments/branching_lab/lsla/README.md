@@ -39,6 +39,10 @@ every child) to shortlist lines, and the cheap, sloppy DNN lookahead to choose a
   fixed signal's top line at tai50b's root is c25, which nobody has bounded, ahead of r31. On tai35b it passes the
   coordinator's rule, but only by building the same tree: 983 nodes, 6,610 CPU s gross [m `t2/tai35b_a_k3`,
   `summ.py`], the same five lines as mode a without the fix. See "The fix" below.
+- **At tai50b's root the CAP 150 lookahead over six lines ranks r31 first** (77.2M short against 83.4-118.0M), so
+  it agrees with rule 9 and production and rejects both of the signal's root mistakes (c26, and c25 after
+  refinement); its order of the three lines bounded there (r31 10, c25 14, c26 28) is the bounding's. Cost about
+  5.8 core-hours for six lines [m]. See "The lookahead at tai50b's root" below.
 - **The same line, c59, came out best at all three tai60b chain nodes** (depths 7, 8, 9: 3 branching
   children each), chosen by the signal at 7 and 8 and by the lookahead at 9.
 - Cheapest next step: (b) at more chain nodes (10's 8:29, and depths 3-6),
@@ -476,6 +480,45 @@ dump; every bound matches its arms' to 4 decimals), `tail.py` -> `out/tail.md`]:
   lookahead's 1.3-1.5 core-hours a firing at n = 60.
 - Caveats: 15 lines at 4 nodes, all on one tai60b chain plus one root; the chain nodes are related (c59 is the
   answer at all three). No new line was bounded: tail's pick was already bounded at every node.
+- **On whole trees it is not established** (the coordinator's runs, `experiments/branching_lab/tail/README.md`
+  on claude/cool-babbage-ilnogj; not measured here). Ungated: tai35b 884 trace lines against production's
+  1,017, but tai40b at least 843 against 731 (tai40b's root is flat: c23 35 entries against 39-40, 3 branching
+  children against r23's 1). Gated at m/2 (QAP_TAIL_GATE=0.5): tai35b 1,045, tai40b 727, no effect. tai35b's
+  gain hung on a one-entry margin at depth 2 (r33 17-18 against rule 9's c5 18-22) that moves between runs.
+  So "tail" reads well at deep tai60b nodes with sparse marginals and not at flat roots or as a whole-tree rule.
+
+## The lookahead at tai50b's root (coordinator, Nov 21)
+
+Mode (b)'s per-child lookahead (the same loop as `QAP_LA`) at tai50b's root over six lines, CAP 150, children set
+aside (-d 0): r31 (rule 9's choice), c34 (rule 9's other line), c25 and c26 (the refined fixed signal's #1 and the
+old signal's #1), r33 and c29 (the unrefined fixed signal's next two after r31) [m `run.sh root50resume`, three
+processes sharing one child file -> `runs/rl150b_*/la.txt`, `runs/rl150_shared.txt`]:
+
+| line | shortfall sum (score) | children open | branching children when bounded one level [m] |
+|---|---|---|---|
+| **r31** | **77.2M** | 43 | **10** (tai50b-r9) |
+| c25 | 83.4M | **40** | 14 (49 of 50 bounded; `runs/root50_c25`) |
+| r33 | 86.7M | 44 | not bounded |
+| c29 | 101.5M | 50 | not bounded |
+| c34 | 102.1M | 48 | not bounded |
+| c26 | 118.0M | 50 | 28 (the earlier root test) |
+
+- **The lookahead ranks r31 first, so r31 stands** and nothing more was bounded (the rule: bound a line only if
+  it is ahead of r31 on both the shortfall sum and children open). c25 has fewer children open (40 against 43)
+  but a higher sum, so it is not clearly ahead.
+- **On the three lines bounded, the score orders them as the bounding does** (r31 10, c25 14, c26 28; Spearman
+  +1.0 on 3 lines). Children open alone does not: it would put c25 first.
+- So at this root, (b) agrees with rule 9 and with production, and rejects both signal mistakes (c26 unfixed, c25
+  refined). It adds nothing over rule 9 here, which chose r31 with a QPB lookahead for seconds.
+- **Cost: about 20,900 CPU s (5.8 core-hours) for six lines [m: 17,788 s in the three parts' la.txt plus 3,131 s
+  for r31's first 45 children before a container loss], about 3,500 s a line**, on top of the root bound (about
+  80 min). No child fathoms at the root, so every child runs all 150 iterations. At K = 2 (the brief's
+  shortlist) this would be about 2 core-hours a firing [e].
+- What did not work: four container losses (02:20, 08:39, about 10:50, 11:17) killed these runs, about 15 h
+  of compute in all. The cause, found late: a cloud container is reclaimed a few minutes after the session goes
+  idle with no background task running, not at random. Fixes now in `lsla.patch`: `QAP_LA_PROGRESS=file` (one
+  flushed line per child solve) and `QAP_LA_RESUME=file` (a child already in that file is taken from it, re-read
+  per child, so processes can share one file); and a background waiter kept alive while runs go.
 
 ## Not tested yet
 
