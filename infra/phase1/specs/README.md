@@ -47,3 +47,4 @@ make. `collect.sh RUN` (or `RUN-ARM`) then shows the run, and its readout once i
 | `tho40-est.spec` | a second estimate of tho40 under tho40c with the first's diagnosis applied: 5 dives at least per branched open node, sampling by depth |
 | `tho40-est3.spec` | tho40-est2-261119's paused frontier dived again with the estimator fixed (strata states spilled, not dropped; Nov 19): est2's settings otherwise, so the difference is the fix (est2: 239 c7a CPU-days read, 196 corrected) |
 | `tho40-tune.spec` | tho40's first tuning round: four arms (tho40c; `branch.xbar_lines 4`; `dnn.cross_first 5` with a warm penalty schedule; `cut.zone 0.03`) on the same sample of tho40-est2's open nodes, 50 at depth 3 and 100 at depth 4, side by side; about 150 CPU h an arm |
+| `tho40.spec` | tho40 to the end under tho40c, public and traced, four workers: about 6,700-7,300 CPU h by est3 and the tuning arms' solved sample, about 28 h |
