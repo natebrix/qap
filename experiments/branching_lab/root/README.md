@@ -83,6 +83,28 @@ The patch goes on cognac 0e6c2ecf + `experiments/line_signals/experiment_build.p
   a factor 2 a child (nug30: 1.5). The first fit (r5's ten children alone, a narrow range) had twice the slope
   and predicted 334,000 for r25.
 
+## The size score at depth 1 (`la_tree.sh`, `QAP_LA_SCORE`)
+
+The size model holds one level down: over the depth-2 nodes of the production trees, ln(nodes under a node)
+against its own shortfall has R^2 0.67 to 0.71 and the same slope in two tho30 trees (0.0011 and 0.0010;
+nug30 0.031) [m]. `QAP_LA_SCORE=exp:B` scores a line in the lookahead by the sum of exp(B x shortfall).
+
+| the lookahead at the depth-1 nodes (`QAP_LA=4:150:1:1`) | nug30 nodes | tho30 nodes |
+|---|---|---|
+| production (none) | 4,285 and 4,365 | 14,815 |
+| the sum of shortfalls, the build of `../grid` (every column at a node with symmetry left) | | 11,100 |
+| the sum of shortfalls, this build (a row's real children only) | 4,037 | **10,083** |
+| the size score (exp:0.031, exp:0.0011), this build | 3,921 | 10,210 |
+
+- **At depth 1 the two scores do the same** [m]: 3% apart at nug30 and 1% at tho30 (the other way), under
+  the 5% set as the bar. They choose the same line at 6 of 9 and 8 of 10 nodes. The size score matters at the
+  root, where rows differ widely and the sum picks badly, not here.
+- **Restricting the lookahead to a row's real children is worth 9% at tho30** [m]: 10,083 against 11,100 with
+  the same score. With symmetry left the old build scored a row over columns that are not its children.
+- **The depth-1 lookahead is now measured on two grids** [m]: 6 to 10% fewer nodes at nug30, 32% at tho30.
+  Its cost (3,581 and about 5,160 CPU s) is more than it saves on trees this small (`../budget/README.md`
+  for the large ones).
+
 ## The open grids (scores from `../lsla/grids`)
 
 | instance | production's root row | its rank by predicted size | best row | predicted tree, best / production's | calibration |
@@ -118,13 +140,12 @@ The patch goes on cognac 0e6c2ecf + `experiments/line_signals/experiment_build.p
 ## Not done
 
 - A calibration for sko49 and wil50 (their estimates would have to be totalled under each depth-1 node).
-- The same at depth 1 (10 to 15 nodes a grid: `../budget/README.md`), where rows and columns are both free
-  and the children are many more.
+- The root's row and the depth-1 lookahead together on one tree.
 - Why the curve differs between rows at tho30 and not at nug30.
 
 ## Files
 
 `root.patch`, `grid_root.par`; `tree.sh`, `tree_tr.sh` (a tree with the root row forced; `_tr` with the node
-trace); `expscore.py` (one row's fit), `rootfit.py` (pooled, leave one row out), `models.py` (the forms
+trace); `la_tree.sh` (a tree with the lookahead at depth 1 and a chosen score); `expscore.py` (one row's fit), `rootfit.py` (pooled, leave one row out), `models.py` (the forms
 compared), `est_by_child.py` (an estimate's rest under each depth-1 node against the lookahead's shortfalls);
 `runs/PROBLEM_root150/` (the scores: `children.txt`, `la.log`), `runs/PROBLEM_rN[_tr]/` (the trees).

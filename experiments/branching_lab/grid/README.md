@@ -42,6 +42,12 @@ All three closed at 149,936 [m]. Production's count here (14,815) is the referen
 - The `la150_d1` arm was stopped once by the two-hour limit on background commands, 65 minutes in, and resumed
   from its store (`cmd.first.txt`, `cmd.txt`). Its ten firings are ten distinct nodes [m `la.log`].
 
+## Later (Nov 21, `../root/README.md`)
+
+With the lookahead restricted to a row's real children at nodes with symmetry left (`../root/root.patch`), the
+same arm gives 10,083 nodes (32% fewer than production), and nug30 with the same lookahead 4,037 against 4,285
+to 4,365.
+
 ## Not run
 
 - The lookahead at depths 1 and 2 (about a hundred more firings: roughly 50,000 CPU s here [e]).
