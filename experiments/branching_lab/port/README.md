@@ -4,8 +4,8 @@ Nov 22 2026. [m] = measured here, [e] = estimate or inference.
 
 **The rule of `../root` is in a commit on top of cognac 21dd774a (`0001-dnn-strong-branching.patch`), as `sb.*`
 settings in the params file, off by default. With it off the tree is node for node what it was; with it on, in-line
-through the coordinator, nug30 closes in 2,980 nodes against production's 4,285 to 4,365 (0.69), and its cost is in
-the run's own statistics. tho30 is running.**
+through the coordinator, nug30 closes in 2,980 nodes against production's 4,285 to 4,365 (0.69) and tho30 in 9,918
+against 14,815 (0.67), both inside the ranges written beforehand, and its cost is in the run's own statistics.**
 
 ## What went in, and what did not
 
@@ -78,7 +78,31 @@ level    nodes	  solves	      iters	    time
 
 ## tho30 (`run.sh tho30 sb tho30_sb.par`)
 
-Running. Predicted: the root takes r5, 9,200 to 10,300 nodes (production 14,815).
+4 slots, the nug30 recipe with `dnn.depths` from 0, incumbent 149938.
+
+| | nodes | CPU s: the tree | strong branching | total |
+|---|---|---|---|---|
+| production (`../grid/runs/tho30_prod`) | 14,815 | 9,375 | | 9,375 |
+| the experiment build: the sum at depth 1 and gated depth 2 (`../root/runs/tho30_d2_gate`) | 9,713 | 7,041 | 7,772 | 14,813 |
+| **the port, its defaults (`runs/tho30_sb`)** | **9,918** | **7,870** | **8,876** | **16,746** |
+
+```
+ strong branch: 17 nodes, 2736 child solves, 279927 iterations, 8876.30 s
+ 0           1	     300	      44901	 1664.98
+ 1          10	    1460	     158904	 5160.15
+ 2           6	     976	      76122	 2051.18
+```
+
+- **The root chooses r5 in-line** [m], production's row: 300 child solves, 1,665 CPU s. Predicted: r5, 9,200 to
+  10,300 nodes.
+- **The same lines as the experiment build at nine of the ten depth-1 nodes** [m] (c29 for c9 at 5:0, 811 trace
+  lines against 808), and at each of the six depth-2 nodes that fired.
+- **Six depth-2 nodes fired, not nine** [m]: the gate is on the node's own DNN bound, and with the root's DNN state
+  the depth-1 and depth-2 solves start warm and end a little higher. Three nodes that fired in the experiment build
+  sit at 0.0803 to 0.0809 here, under the 0.084. That is most of the 2% between the two trees (10,018 trace lines
+  against 9,778) [e]: the gate is a threshold read off one run, and a node near it can fall either side.
+- **Here too the rule costs more than it saves** [m]: the tree's CPU is 0.84 of production's, the total 1.79.
+  n = 30 is the wrong size to pay for 2,736 child solves; see `../budget`.
 
 ## Off is off
 
