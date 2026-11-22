@@ -366,12 +366,22 @@ static std::string hex64(unsigned long long h)
 
 static bool recorded(const Setting &s) { return s.cls == SET_POLICY || s.cls == SET_EXPERIMENT; }
 
+// A family behind a switch is in the hash only when the switch is set: the sb.* keys do nothing
+// without sb.depths, and a run without it has the hash it had before they existed (its state files
+// still resume). With sb.depths set every sb.* key is hashed, defaults included.
+static bool hashed(const Setting &s)
+{
+  if (!recorded(s)) return false;
+  if (s.key && strncmp(s.key, "sb.", 3) == 0) return !find("sb.depths")->text.empty();
+  return true;
+}
+
 static std::string hash_text()
 {
   settings_load();
   unsigned long long h = 1469598103934665603ULL;
   for (int k = 0; k < NTABLE; k++)
-    if (recorded(TABLE[k])) h = fnv1a(std::string(TABLE[k].name()) + "=" + TABLE[k].text + "\n", h);
+    if (hashed(TABLE[k])) h = fnv1a(std::string(TABLE[k].name()) + "=" + TABLE[k].text + "\n", h);
   return hex64(h);
 }
 

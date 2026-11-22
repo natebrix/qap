@@ -8,6 +8,9 @@ For each case (an instance, its optimum as the upper bound, a params file with s
  * QAP_SB_TRACE has one line per strong-branching node, and its solves and iterations add up
    to the statistics';
  * a second run over the first's QAP_SB_PROGRESS file solves no child again and has the same tree;
+ * a state file is version 10 once strong branching chose a line and version 9 otherwise;
+ * with dnn.retry = 1 the children that fail its test are retried and counted (tai15b), and where
+   none fails the tree and the child solves are the same (nug18);
  * bench/parallel.py's totals (state version 10: the strong-branching counts by level) equal
    the serial run's;
  * with sb.gap out of reach the tree is the tree without sb.depths.
@@ -31,8 +34,8 @@ CASES = [  # instance, optimum, params file
 ENV = dict(os.environ, OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1")
 
 
-def solve(solver, par, ub, name, env=()):
-    r = subprocess.run([solver, "-p", par, "-u", str(ub), os.path.join(ROOT, "qaplib", name + ".dat")],
+def solve(solver, par, ub, name, env=(), extra=()):
+    r = subprocess.run([solver, "-p", par, "-u", str(ub)] + list(extra) + [os.path.join(ROOT, "qaplib", name + ".dat")],
                        cwd=os.path.dirname(solver), capture_output=True, text=True, env=dict(ENV, **dict(env)))
     return r.returncode, r.stdout + r.stderr
 
@@ -118,6 +121,29 @@ def main():
         (rc0, o0), (rc1, o1) = solve(solver, off, opt, name), solve(solver, gated, opt, name)
         check(rc0 == 0 and rc1 == 0 and nodes(o0) == nodes(o1) and sb_line(o1) is None and sb_line(o0) is None,
               f"{name} with sb.gap out of reach: nodes {nodes(o1)}, without sb.depths {nodes(o0)}")
+
+        # a state file is version 10 only once strong branching chose a line: 9 without it
+        heads = []
+        for label, pf in (("on", par), ("gated", gated), ("off", off)):
+            st = os.path.join(tmp, f"{name}.{label}.state")
+            solve(solver, pf, opt, name, extra=("-d", "1", "-o", st))
+            text = open(st).read() if os.path.exists(st) else ""
+            heads.append((text.split("\n")[0], "sb_n_level" in text))
+        check(heads == [("QAP-STATE 10", True), ("QAP-STATE 9", False), ("QAP-STATE 9", False)],
+              f"{name} state files with strong branching, gated off, without: {heads}")
+
+        # dnn.retry = 1: a child that fails its test (tai15b's root at 40 iterations: most of them) is solved
+        # again cold (no pool here: one more solve each), and the count says so; where none fails, the same tree
+        failed1 = sum(int(re.search(r"(\d+) failed", l).group(1)) for l in tl)
+        rc3, o3 = solve(solver, variant(par, tmp, name + ".retry.par", add=("dnn.retry = 1",)), opt, name,
+                        {"QAP_SB_TRACE": os.path.join(tmp, name + ".sb3.txt")})
+        t3 = open(os.path.join(tmp, name + ".sb3.txt")).read().splitlines() if rc3 == 0 else []
+        retried = sum(int(re.search(r"(\d+) retried", l).group(1)) for l in t3)
+        s3 = sb_line(o3)
+        check(rc3 == 0 and s3 is not None and retried >= failed1 * (len(t3) > 0) and (retried > 0 or nodes(o3) == n1)
+              and (retried > 0 or s3 == s1) and s3[1] - retried == sum(int(re.search(r"\| (\d+) solves", l).group(1)) for l in t3) - retried
+              and all(" 0 retried," in l for l in tl),
+              f"{name} with dnn.retry = 1: nodes {nodes(o3)}, strong branching {s3}, {failed1} children failed without it, {retried} retried with it")
 
     # values the solver refuses
     par = os.path.join(ROOT, "tests", "par", "sb.par")

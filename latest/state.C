@@ -305,7 +305,11 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
   f << std::setprecision(17);
 
   const int n = s->n, L = stats->n + 1, m = stats->m;
-  f << STATE_MAGIC << ' ' << STATE_VERSION << '\n';
+  // version 10 only when strong branching ran: a run without it writes version 9, as before sb.*
+  bool sb_ran = false;
+  for (int i = 0; i < L; i++)
+    if (stats->sb_n_level[i] || stats->sb_s_level[i] || stats->sb_i_level[i] || stats->sb_t_level[i] != 0.0) sb_ran = true;
+  f << STATE_MAGIC << ' ' << (sb_ran ? STATE_VERSION : STATE_VERSION - 1) << '\n';
   f << "n " << n << " levels " << stats->n << " strategies " << m << '\n';
   f << "incumbent " << s->obj << ' ' << s->ifs_found;
   for (int i = 0; i < n; i++) f << ' ' << s->perm[i];
@@ -339,9 +343,11 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
     write_array(f, CUT_LEVEL_CTRS[0], stats->cut_n_level, L);
     write_array(f, CUT_LEVEL_CTRS[1], stats->cut_f_level, L);
     write_array(f, "cut_t_level", stats->cut_t_level, L);
-    QAPStatistics::ctr_type *sc[] = {stats->sb_n_level, stats->sb_s_level, stats->sb_i_level};
-    for (int k = 0; k < 3; k++) write_array(f, SB_LEVEL_CTRS[k], sc[k], L);
-    write_array(f, "sb_t_level", stats->sb_t_level, L);
+    if (sb_ran) {
+      QAPStatistics::ctr_type *sc[] = {stats->sb_n_level, stats->sb_s_level, stats->sb_i_level};
+      for (int k = 0; k < 3; k++) write_array(f, SB_LEVEL_CTRS[k], sc[k], L);
+      write_array(f, "sb_t_level", stats->sb_t_level, L);
+    }
   }
 
   // the parents' X the open nodes start from, each written once

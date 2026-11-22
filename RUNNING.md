@@ -419,7 +419,8 @@ after the other three; a run resumed from a state file before version 7 has no
 causes for its first part). Runs without `-x` print exactly what they did.
 
 With DNN strong branching (`sb.depths`, below) the head has one more line and
-a fourth table follows, both only where it chose a line (state version 10):
+a fourth table follows, both only where it chose a line (state version 10,
+written only then: other state files stay version 9):
 
 ```
  strong branch: 7 nodes, 448 child solves, 5220 iterations, 12.2 s
@@ -758,7 +759,13 @@ default: without `sb.depths` the search is node for node what it was.
   QPB does not already drop is bounded with `sb.iters` ADMM iterations, started
   as its own first solve would be (warm from the node, under the node's cut pool
   where it hands one on), with no give-up and no cut phase; a child's bound is
-  never taken below QPB's for it. A line's score is the
+  never taken below the one it inherits (QPB's for it, or the node's own DNN
+  bound, which holds for every child). With `dnn.retry = 1` a child solve that
+  fails by that setting's test (unfathomed and more than 1% of the incumbent
+  below the inherited bound) is solved again as a node's own would be: without
+  the pool, then cold, each with `sb.iters`, and the best certified bound
+  counts. The trace counts the children retried and those still failed, which
+  score as the node itself does. A line's score is the
   sum over its children of shortfall^P, the shortfall being the cutoff less the
   child's bound (0 when it fathoms); the node branches on the line with the
   least, ties to the larger marginal score.
@@ -784,12 +791,14 @@ default: without `sb.depths` the search is node for node what it was.
 - **What it costs, and where it is counted.** Its CPU is the run's: in the total
   time, in the level table's time at the node's depth, and on its own in the
   RESULTS line `strong branch: N nodes, S child solves, I iterations, T s` and
-  the table "Strong branching by level" (state files from version 10). A child
-  solve is not a node. One node costs (2 x `sb.k` x m - `sb.k`^2) x `sb.iters`
+  the table "Strong branching by level" (state files of version 10, written only
+  once strong branching has chosen a line: until then, and in every run without
+  it, state files are version 9 as before). A child solve, a retry included, is
+  not a node. One node costs (2 x `sb.k` x m - `sb.k`^2) x `sb.iters`
   iterations at dimension m - 1 at most (`experiments/branching_lab/budget` for
   the open instances: about 1% of a run at depth 1, more than the run at depth 3).
 - **`QAP_SB_TRACE=file`** (diagnostic): a line per strong-branching node:
-  `sb depth D fixes F gap G | chose LINE score S open K | N solves, R reused, I iterations, T CPU s, largest shortfall X | LINE:marginal:score:open ...`.
+  `sb depth D fixes F gap G | chose LINE score S open K | N solves, R reused, Y retried, Z failed, I iterations, T CPU s, largest shortfall X | LINE:marginal:score:open ...`.
 - **`QAP_SB_PROGRESS=file`** (run): every child solve is appended to the file and a
   child already in it (the same settings hash, root bound, node, cell, `sb.iters`
   and cutoff) is not solved again, so a node whose process stopped mid-way repeats
@@ -798,8 +807,15 @@ default: without `sb.depths` the search is node for node what it was.
   coordinator does not manage this file: it helps where the file outlives the
   process (a laptop, an instance that restarts), not across a lost instance. The
   root's own pass is kept by the coordinator's root cache as before.
+- **The settings hash.** The `sb.*` keys are in the hash only when `sb.depths` is
+  set (then all of them, defaults included). A run without it has the hash it had
+  before these keys existed, so its state files resume as before.
+- **The marginals.** The shortlist's marginal scores are the node's own copy:
+  `sb.depths` does not change what rules 8 and 9 or the estimator's `est.xbar`
+  see at a node where strong branching does not choose the line.
 - `make sb` (`tests/sb_test.py`) checks the statistics, the trace, the progress
-  file, `bench/parallel.py`'s totals and the gate.
+  file, `bench/parallel.py`'s totals, the gate, and that a state file is version
+  10 only once strong branching ran.
 
 ## Correctness checks
 

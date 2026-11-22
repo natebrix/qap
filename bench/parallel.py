@@ -194,7 +194,9 @@ class State:
         state_dir = os.path.dirname(os.path.abspath(path))
         # the current version when the file read had a settings record (8 and
         # up), else 7, the last version without one: a reader of 8+ requires it
-        magic = "QAP-STATE 10" if self.settings is not None else "QAP-STATE 7"
+        # version 10 only when strong branching ran (a nonzero sb_* array), 9 otherwise
+        sb_ran = self.settings is not None and any(x for k in self.SB for x in self.arrays.get(k, []))
+        magic = "QAP-STATE 10" if sb_ran else "QAP-STATE 9" if self.settings is not None else "QAP-STATE 7"
         out = [magic,
                f"n {self.n} levels {self.levels} strategies {self.strategies}",
                " ".join(["incumbent", repr(self.obj), str(self.found)] + list(self.perm)),
@@ -203,10 +205,10 @@ class State:
                "times " + " ".join(repr(x) for x in self.times)]
         if self.settings is not None:
             out.append("settings " + " ".join(self.settings))
-        # the strong-branching arrays close the statistics of a version 10 file (zeros when the
-        # file read had none) and are not in a version 7 one
+        # the strong-branching arrays close the statistics of a version 10 file (zeros for one
+        # the files read did not all have) and are not in a version 7 or 9 one
         arrays = collections.OrderedDict((k, v) for k, v in self.arrays.items() if k not in self.SB)
-        if self.settings is not None:
+        if sb_ran:
             for k in self.SB:
                 arrays[k] = self.arrays.get(k) or [0.0 if k in self.FLOATS else 0] * len(self.arrays["n_level"])
         for k, v in arrays.items():

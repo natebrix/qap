@@ -12,7 +12,9 @@
  It is plain text, so other tools (bench/parallel.py) can split a
  state into tasks and merge the statistics of finished ones.
 
- Format (version 10; versions 1-9, which lack the warm starts, the DNN
+ Format (version 10, written once strong branching has chosen a line; a
+ state without strong-branching counts is written as version 9, the same
+ file without the sb_*_level arrays; versions 1-9, which lack the warm starts, the DNN
  counts, dnn_ext, the cut pools, the DNN state, the per-level DNN counts,
  the settings record, the @path DNN references or the strong-branching
  counts, are still read):

@@ -341,7 +341,8 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
   const bool pooled = pool_on && !pool_out.empty() && dnn_pool_decode(pool_out, pool) &&
     pool.side == cut_side && !pool.cuts.empty();
   std::vector<double> memo((size_t)m * m, NAN);
-  long solves = 0, iters = 0, reused = 0;
+  long solves = 0, iters = 0, reused = 0, retried = 0, failed = 0;
+  static const int dnn_retry = (int)setting_i("dnn.retry");
   for (const Cand &c : cand)
     for (int t = 0; t < m; t++) {
       const int a = c.row ? c.k : t, b = c.row ? t : c.k;
@@ -350,9 +351,15 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
       if (!std::isnan(sh)) continue;
       const double qpb_child = U->me[a][b] + qpb;   // QPB's bound for the child
       if (qpb_child >= inc - DELTA_BRANCH) { sh = 0.0;  continue; }   // QPB drops this child
-      // the child's shortfall from its DNN bound, never below QPB's (and so finite whatever the solve returned)
+      // the child's bound before its solve: QPB's for it or the node's own DNN bound, which holds for every child
+      const double inherited = std::max(qpb_child, node_lb);
+      // a solve that failed, by the test of a node's own first solve (dnn.retry): unfathomed and more than
+      // 1% of |incumbent| below the inherited bound (or no certificate: -inf, NaN)
+      auto fails = [&](double lb, bool fath) { return !fath && !(lb >= inherited - 0.01 * std::max(1.0, fabs(inc))); };
+      // the child's shortfall from its DNN bound, never below the inherited one (and so finite whatever the solve returned)
       auto shortfall = [&](double lb, bool fath) {
-	double best = qpb_child;
+	if (fails(lb, fath)) failed++;
+	double best = inherited;
 	if (lb > best) best = lb;
 	return fath ? 0.0 : std::max(0.0, cutoff - best);
       };
@@ -395,15 +402,28 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
 	rr = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, fo, n, pc, sp, NULL);
       } else
 	rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
+      // dnn.retry = 1, as at a node's own first solve: a pooled solve that failed again without the pool, and
+      // a solve from the node's state that failed again cold (each with sb.iters); the best certified bound counts
+      int retry = 0;
+      auto again = [&](const DNNWarm *from) {
+	DNNResult r2 = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, from, NULL);
+	r2.iterations += rr.iterations;
+	if (r2.status != DNN_FATHOMED && !(r2.lb > rr.lb)) { r2.lb = rr.lb;  r2.status = rr.status; }
+	rr = r2;
+	solves++;
+      };
+      if (dnn_retry && pooled && fails(rr.lb, rr.status == DNN_FATHOMED)) { retry |= 1;  again(sp); }
+      if (dnn_retry && sp && fails(rr.lb, rr.status == DNN_FATHOMED)) { retry |= 2;  lp.warm_primal = 0;  again(NULL); }
+      if (retry) retried++;
       const bool fath = rr.status == DNN_FATHOMED;
       sh = shortfall(rr.lb, fath);
       solves++;  iters += rr.iterations;
       sb_done[key] = {rr.lb, fath};
       if (progress_file)
 	if (FILE *f = fopen(progress_file, "a")) {   // one fprintf per line: processes share the file
-	  fprintf(f, "sb-child %s %s %d:%d iters %d cutoff %.4f lb %.4f fathomed %d it %d cpu %.2f\n", run_key.c_str(),
+	  fprintf(f, "sb-child %s %s %d:%d iters %d cutoff %.4f lb %.4f fathomed %d it %d cpu %.2f retry %d\n", run_key.c_str(),
 		  fixes.c_str(), frow[a], fcol[b], sb_iters, cutoff, rr.lb, fath ? 1 : 0, rr.iterations,
-		  (double)(clock() - tc) / CLOCKS_PER_SEC);
+		  (double)(clock() - tc) / CLOCKS_PER_SEC, retry);
 	  fclose(f);
 	}
     }
@@ -432,9 +452,9 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
     char buf[256];
     snprintf(buf, sizeof buf, "sb depth %d fixes ", node.depth);
     std::string msg = buf + fixes;   // (the fixes of a deep node are longer than buf)
-    snprintf(buf, sizeof buf, " gap %.4f | chose %c%d score %.6g open %d | %ld solves%s, %ld reused, %ld iterations, %.2f CPU s, largest shortfall %.4f |",
+    snprintf(buf, sizeof buf, " gap %.4f | chose %c%d score %.6g open %d | %ld solves%s, %ld reused, %ld retried, %ld failed, %ld iterations, %.2f CPU s, largest shortfall %.4f |",
 	     rel_gap, best->row ? 'r' : 'c', bp->fixed_index_in_assign, best->score,
-	     best->open, solves, pooled ? " (pooled)" : "", reused, iters, cpu, smax);
+	     best->open, solves, pooled ? " (pooled)" : "", reused, retried, failed, iters, cpu, smax);
     msg += buf;
     for (const Cand &c : cand) {   // line:marginal score:score:children still open
       snprintf(buf, sizeof buf, " %c%d:%.4f:%.6g:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
@@ -1048,6 +1068,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       char dnn_fate = 0;                   // 'D' or 'C' when one of them fathomed
       void *dnn_keep = NULL;   // this node's DNN state, for its children
       std::vector<double> dnn_xbar;   // its primal marginals, for rule 8
+      std::vector<double> sb_xbar;    // the same for strong branching's shortlist: dnn_xbar keeps its rule 8/9 meaning (est.xbar reads it)
       std::string dnn_pool_out;       // its cut pool for its children (QAP_DNN_POOL)
       // QAP_DNN_EXT=k: below dnn_max_depth a node whose parent's DNN bound ran
       // and did not fathom keeps the DNN bound, up to k levels down; under a
@@ -1384,16 +1405,17 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    node.bound = std::max(node.bound, cr.best_lb);
 	    if (cr.status == DNN_FATHOMED) { dnn_fathomed = true; dnn_fate = 'C'; }
 	  }
-	  if (save && !dnn_fathomed && save->m == m &&
-	      (param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD ||
-	       (node.depth >= sb_min_depth && node.depth <= sb_max_depth))) {   // strong branching shortlists by them
+	  const bool xbar_rule = param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD;
+	  const bool xbar_sb = node.depth >= sb_min_depth && node.depth <= sb_max_depth;   // strong branching shortlists by them
+	  if (save && !dnn_fathomed && save->m == m && (xbar_rule || xbar_sb)) {
 	    // x_ij = Y_0,(ij) of the final primal iterate (row 0 of the lifted
 	    // matrix, after the leading 1), m x m row-major in local indices;
 	    // cut.xbar = 1: the cut phase's final iterate when a phase ran
 	    static const int cut_xbar = (int)setting_i("cut.xbar");
 	    const DNNWarm *xs = (cut_xbar && cut_state && cut_state->m == m && (int)cut_state->Y.size() >= m * m + 1) ? cut_state : save;
 	    const int n1 = m * m + 1;
-	    dnn_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
+	    if (xbar_rule) dnn_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
+	    if (xbar_sb) sb_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
 	  }
 	  if (have_pool && dnn_pool_out.empty() && !dnn_fathomed && !pool_mid.cuts.empty())
 	    dnn_pool_out = dnn_pool_encode(pool_mid);   // no cut phase: hand on the inherited pool
@@ -1454,7 +1476,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	// DNN strong branching (sb.*) chooses the line in place of the level's rule where it applies
 	if (sb_max_depth >= 0 && dnn_keep)
 	  dnn_strong_branch(q, node, n, m, U, bound + qpbp->lapU, s->getObjective(),
-			    std::isnan(cut_lb) ? dnn_lb : cut_lb, *(DNNWarm *)dnn_keep, dnn_xbar, dnn_pool_out, bp, stats);
+			    std::isnan(cut_lb) ? dnn_lb : cut_lb, *(DNNWarm *)dnn_keep, sb_xbar, dnn_pool_out, bp, stats);
 #endif
 	// every bound but GLB leaves its Frank-Wolfe point in X; the
 	// children start from it (copied first: branch() may use X)
