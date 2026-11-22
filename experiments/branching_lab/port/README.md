@@ -148,7 +148,9 @@ git checkout cognac && git am experiments/branching_lab/port/0001-dnn-strong-bra
 make && make test
 ```
 
-The patch is against 21dd774a. Nothing here was pushed to cognac.
+The patch is against 21dd774a. Nothing here was pushed to cognac. The same commit, rebased onto cognac 6f614567
+(three commits of run records later, no file in common), is branch `claude/dnn-strong-branching`:
+https://github.com/natebrix/qap/pull/6.
 
 ## Files
 
