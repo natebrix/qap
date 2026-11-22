@@ -1,0 +1,15 @@
+In latest/branch.C of the experiment build (cognac 0e6c2ecf + ../root's patches):
+
+select_row_lookahead and select_ind_lookahead, after U->me[di][dj] = std::max(U->me[di][dj], temp);
+    if (lookahead_print) fprintf(stderr, "ls-LAcell %d %d %.10g\n", i, j, temp + bound);
+
+the QAP_LINE_SCORES block, after the can_branch_on_cols case:
+    else if (la_env && atoi(la_env) > 0) {   // symmetry left, rows only: every row's children by QPB
+      MAT *Uc = m_copy(U, MNULL);
+      int a, b;
+      lookahead_print = true;
+      select_row_lookahead(qap, assign, J3, J3_dim, X, Uc, bound, qpbp, mm, weighted_branching(), bp->which_bound, a, b);
+      lookahead_print = false;
+      M_FREE(Uc);
+      fprintf(stderr, "ls-LAchoice: row %d\n", b);
+    }

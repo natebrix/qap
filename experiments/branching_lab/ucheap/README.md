@@ -1,0 +1,62 @@
+# ucheap: is there a cheap branching rule with the size score? (branching_lab)
+
+Nov 22 2026, Nathan's question after the port of DNN strong branching: the root's row is now chosen from the
+children's DNN bounds with a size score; can a transform of QPB's dual matrix U do the same for free, perhaps
+with rule 2's fathom count first, and should rule 9's two lines be opened up? [m] = measured here.
+
+**U itself: no. The children's own QPB bounds (rule 4's lookahead, which rule 9 already runs on its two lines):
+yes on what is in hand, if they are scored with the size score and not summed, and over every line and not the
+two by marginal score. Not yet run as a rule in a tree.**
+
+## What was measured
+
+| what the score reads | where | result |
+|---|---|---|
+| U (free): sum of (s/s_max)^P over a line's children, s = cutoff - bound - U_ij | 6 line-truth nodes, 8 lines each | Spearman with the solved subtrees +0.14 to +0.18 for P = 1 to 8; its first line 1.9x to 2.3x the best [m `out.md`] |
+| the same | 5 grid roots, every row | Spearman with the DNN root score +0.01 to +0.37; first row r6 at nug30 (4,854 nodes; the best tree is 3,623) [m `out.md`] |
+| the children's QPB bounds, summed | 6 truth nodes | best line first at 2 of 6, 1.38x [m `truthla_out.md`] |
+| the children's QPB bounds, exp or a high power | 6 truth nodes | **best line first at 5 of 6, 1.22x (worst 2.29x)**; rule 9 as it is: 1 of 6, 1.41x; the DNN children summed: 6 of 6 |
+| the same, every row | nug30's root | **r23**, the DNN score's first row and the best tree run; Spearman with the six trees +0.94 [m `rootla_out.md`] |
+| the same | tho30's root | r5, the DNN score's first row (production's) |
+| the same | tho40, sko49, wil50 roots | r26 (DNN rank 16 of 40; the DNN's r2 is its 2nd), r41 (DNN rank 7 of 49), r21 (DNN rank 2 of 50): no trees to say which is right |
+
+- **Why U fails** [m]: every child is 10 to 18% under the cutoff by QPB, so U's shortfalls span 0.80 to 1 of their
+  largest and no power changes their order (P = 1 to 8 pick the same row everywhere). U follows the plain sum of
+  the DNN children's shortfalls (+0.37 to +0.57 by row), the score that picks the worst roots, and says nothing
+  about a row's worst child (+0.01 to +0.19), which is where the tree is. Shifting the shortfalls (to the
+  smallest, or onto the node's DNN bound) does not help.
+- **Rule 2's count is 0** at every node here (no child's QPB bound + U reaches the cutoff; none of the 841 or
+  1,369 lookahead bounds does either), so "fathoms first" is its tie-break at these depths. The exponential
+  score is the smooth form of the count: a fathomed child adds 0, one far from the cutoff adds 1.
+- **A child's own QPB bound ranks its siblings' subtrees almost as the DNN bound does** [m `siblings.py` on five
+  nug30 trees and two tho30 trees]: Spearman within a sibling group +0.91 against +0.94 at the root, +0.69
+  against +0.73 at depth 1 (nug30); it names the largest subtree less often (12 of 36 groups against 24 at
+  depth 1).
+- **The exponential needs no offset** [m]: over 45 depth-1 children of nug30, DNN shortfall = -430 + 0.82 x QPB
+  shortfall (Pearson +0.86), and ln(subtree) has slope 0.042 on the QPB shortfall against 0.048 on the DNN's.
+  A sum of exp(b s) orders lines the same whatever constant is added to s; a power does not.
+- **Cost** [m]: every row's children at a root by rule 4's lookahead: 1 to 3 s (270 to 750 QPB solves), against
+  0.5 to 15 core-hours for the DNN's. All 58 lines of a tho30 depth-1 node: 841 solves.
+- **The lines must be opened** [m]: at the truth nodes the score's first line over all free lines is 6th to 63rd
+  by marginal score, outside rule 9's shortlist. At tho30's three nodes it is col9, the study's best or tied
+  best; at tho40's it is a row the study did not solve (row15, row27).
+- Earlier, with rule 9's own arbiter (`../../xbar_lines_sweep`, Nov 9): 8 lines a side took tho30 from 14,256
+  to 11,205 nodes and nug30 from 3,716 to 4,602.
+
+## What it does not show
+
+- No tree has been run under such a rule. The truth nodes are six (tho30 depth 1, tho40 depth 3), their lines
+  eight chosen by marginal score; the roots with trees are two.
+- At tho40's root it disagrees with the DNN score (r26 against r2), and the run now going uses r2.
+- tai*b: not looked at here. On Nov 18 every cheap signal ranked tai60b's four lines backwards (QPB is 29%
+  under the cutoff there).
+
+## Files
+
+`ucheap.py` (U; `out.md`), `rootla.py` (the children's QPB bounds at the roots; `rootla_out.md`), `truthla.py`
+(at the truth nodes; `truthla_out.md`), `siblings.py` (within sibling groups, from whole-tree traces).
+`dumps/`: `*_root.err` U at the roots, `*_rootla.err` and `tho30_*`, `tho40_*` with `ls-LAcell row col bound`,
+the QPB bound rule 4's lookahead gives each child. The print is three additions to the experiment build
+(`../root`'s, in `latest/branch.C`): the line after each `U->me[di][dj] = std::max(...)` in
+`select_row_lookahead` and `select_ind_lookahead`, and a rows-only call of `select_row_lookahead` in the
+`QAP_LINE_SCORES` block when symmetry is left (`lacell.txt`).
