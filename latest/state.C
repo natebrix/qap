@@ -10,13 +10,15 @@
 #include <vector>
 
 static const char *STATE_MAGIC = "QAP-STATE";
-static const int STATE_VERSION = 9;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts, 7: no settings record, 8: no @path DNN references (all still read)
+static const int STATE_VERSION = 10;   // 1: no warm starts, 2: no DNN counts, 3: no dnn_ext on the warm starts, 4: no cut pools, 5: no DNN state, 6: no per-level DNN counts, 7: no settings record, 8: no @path DNN references, 9: no strong-branching counts (all still read)
 bool state_allow_settings_change = false;   // driver.C --allow-settings-change: a settings mismatch on -r is a warning
 
 // version 7: by level, the DNN bound, its cut phase and the nodes discarded
 // when popped (stats.h), in this order after dnn_time
 static const char *const DNN_LEVEL_CTRS[] = {"pop_f_level", "dnn_n_level", "dnn_f_level", "dnn_g_level", "dnn_i_level"};
 static const char *const CUT_LEVEL_CTRS[] = {"cut_n_level", "cut_f_level"};
+// version 10: DNN strong branching by the level of the node that branched, after cut_t_level
+static const char *const SB_LEVEL_CTRS[] = {"sb_n_level", "sb_s_level", "sb_i_level"};
 
 #ifdef HAVE_DNN
 #include "dnn.h"
@@ -303,7 +305,11 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
   f << std::setprecision(17);
 
   const int n = s->n, L = stats->n + 1, m = stats->m;
-  f << STATE_MAGIC << ' ' << STATE_VERSION << '\n';
+  // version 10 only when strong branching ran: a run without it writes version 9, as before sb.*
+  bool sb_ran = false;
+  for (int i = 0; i < L; i++)
+    if (stats->sb_n_level[i] || stats->sb_s_level[i] || stats->sb_i_level[i] || stats->sb_t_level[i] != 0.0) sb_ran = true;
+  f << STATE_MAGIC << ' ' << (sb_ran ? STATE_VERSION : STATE_VERSION - 1) << '\n';
   f << "n " << n << " levels " << stats->n << " strategies " << m << '\n';
   f << "incumbent " << s->obj << ' ' << s->ifs_found;
   for (int i = 0; i < n; i++) f << ' ' << s->perm[i];
@@ -337,6 +343,11 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
     write_array(f, CUT_LEVEL_CTRS[0], stats->cut_n_level, L);
     write_array(f, CUT_LEVEL_CTRS[1], stats->cut_f_level, L);
     write_array(f, "cut_t_level", stats->cut_t_level, L);
+    if (sb_ran) {
+      QAPStatistics::ctr_type *sc[] = {stats->sb_n_level, stats->sb_s_level, stats->sb_i_level};
+      for (int k = 0; k < 3; k++) write_array(f, SB_LEVEL_CTRS[k], sc[k], L);
+      write_array(f, "sb_t_level", stats->sb_t_level, L);
+    }
   }
 
   // the parents' X the open nodes start from, each written once
@@ -405,7 +416,7 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
   int version, fn, fL, fm;
   if (!(f >> tag >> version) || tag != STATE_MAGIC || version < 1 ||
       version > STATE_VERSION)
-    return fail(file, "not a version 1-8 state file");
+    return fail(file, "not a version 1-10 state file");
   std::string t1, t2, t3;
   if (!(f >> t1 >> fn >> t2 >> fL >> t3 >> fm) || t1 != "n")
     return fail(file, "bad header");
@@ -481,6 +492,17 @@ bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
       for (int i = 0; i < L; i++) {
 	stats->dnn_t_level[i] = stats->cut_t_level[i] = 0.0;
 	stats->cut_n_level[i] = stats->cut_f_level[i] = 0;
+      }
+    }
+    QAPStatistics::ctr_type *sc[] = {stats->sb_n_level, stats->sb_s_level, stats->sb_i_level};
+    if (version >= 10) {
+      for (int k = 0; k < 3; k++)
+	if (!read_array(f, SB_LEVEL_CTRS[k], sc[k], L)) return fail(file, "bad strong-branching counts");
+      if (!read_array(f, "sb_t_level", stats->sb_t_level, L)) return fail(file, "bad strong-branching counts");
+    } else {            // earlier versions: none
+      for (int i = 0; i < L; i++) {
+	sc[0][i] = sc[1][i] = sc[2][i] = 0;
+	stats->sb_t_level[i] = 0.0;
       }
     }
   }

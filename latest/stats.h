@@ -75,6 +75,7 @@ public:
   void anotherDNN(int depth, bool fathomed, bool gave_up, int iterations, double cpu);
   // the cut phase ran on a node after a DNN miss (QAP_DNN_CUT_ZONE)
   void anotherCut(int depth, bool fathomed, double cpu);
+  void anotherStrongBranch(int depth, long solves, long iterations, double cpu);
   void anotherEnumeration() {enumerate++;};
   void print(std::ostream& outs=std::cout,int print_level=1) const;
 
@@ -142,6 +143,12 @@ public:
   ctr_type *cut_n_level;  // cut phase run
   ctr_type *cut_f_level;  // ... and fathomed
   double   *cut_t_level;  // its CPU seconds
+  // DNN strong branching (sb.*, bnb.C), from QAP-STATE 10: by the depth of the
+  // node that branched. Its CPU is in t_level and in no DNN array.
+  ctr_type *sb_n_level;   // nodes whose line it chose
+  ctr_type *sb_s_level;   // child solves
+  ctr_type *sb_i_level;   // their ADMM iterations
+  double   *sb_t_level;   // their CPU seconds
 
 #ifdef RECORD_STDDEV
   double *rg_sum;

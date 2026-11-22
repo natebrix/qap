@@ -87,6 +87,7 @@ static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
 #include <math.h>
 #include <cmath>
 #include <string>
+#include <map>
 #include "settings.h"
 //#include <time.h>
 
@@ -142,6 +143,333 @@ static void node_trace(const char *file, const QAPAssignment &a, char outcome,
     fclose(f);
   }
 }
+
+// DNN strong branching (sb.*; experiments/branching_lab/root). Off while sb_max_depth < 0.
+// sb_gap, sb_power: (depth, value) pairs by increasing depth, from sb.gap and sb.power: a node takes
+// the pair with the largest depth that is at most its own.
+int sb_min_depth = 0, sb_max_depth = -1;
+static std::vector<std::pair<int, double>> sb_gap, sb_power;
+
+// "D:V[,D:V...]" with increasing depths D and V >= lo into pairs; false when it does not parse
+static bool sb_depth_list(const char *text, double lo, std::vector<std::pair<int, double>> &out)
+{
+  for (const char *f = text; *f; ) {
+    int d, used = 0;
+    double v;
+    if (sscanf(f, "%d:%lf%n", &d, &v, &used) != 2 || d < 0 || !(v >= lo) || (f[used] && f[used] != ',') ||
+	(!out.empty() && d <= out.back().first))
+      return false;
+    out.push_back({d, v});
+    f += used;
+    if (*f == ',') { f++;  if (!*f) return false; }
+  }
+  return true;
+}
+// the value of the last pair whose depth is at most this one; false when there is none
+static bool sb_at_depth(const std::vector<std::pair<int, double>> &list, int depth, double &v)
+{
+  for (size_t k = list.size(); k-- > 0; )
+    if (depth >= list[k].first) { v = list[k].second;  return true; }
+  return false;
+}
+
+// The sb.* settings into the globals, once the registry is complete (driver.C). A value that does
+// not parse, or depths at which a node cannot have its own DNN state, stops the run with exit code 2.
+void sb_apply_settings()
+{
+  const char *depths = setting_s("sb.depths");
+  const char *gap = setting_s("sb.gap");
+  if (!*depths) {
+    if (*gap) { std::cerr << "sb.gap is set without sb.depths" << std::endl;  exit(2); }
+    return;
+  }
+#ifdef HAVE_DNN
+  int dmin, dmax;
+  char tail;
+  if (sscanf(depths, "%d:%d%c", &dmin, &dmax, &tail) != 2 || dmin < 0 || dmin > dmax) {
+    std::cerr << "sb.depths needs dmin:dmax with 0 <= dmin <= dmax, not '" << depths << "'" << std::endl;
+    exit(2);
+  }
+  if (dnn_max_depth < 0 || !dnn_warm || dmin < dnn_min_depth || dmax > dnn_max_depth) {
+    std::cerr << "sb.depths " << depths << ": a node needs its own DNN state there (dnn.depths "
+	      << setting_s("dnn.depths") << " must cover it, with dnn.warm = 1)" << std::endl;
+    exit(2);
+  }
+  if (!sb_depth_list(gap, 0.0, sb_gap)) {
+    std::cerr << "sb.gap needs D:G[,D:G...] with increasing depths D and G >= 0, not '" << gap << "'" << std::endl;
+    exit(2);
+  }
+  const char *power = setting_s("sb.power");
+  const std::string plist = strchr(power, ':') ? std::string(power) : std::string("0:") + power;   // a bare P: every depth
+  if (!sb_depth_list(plist.c_str(), 0.01, sb_power) || sb_power.empty() || sb_power[0].first > dmin) {
+    std::cerr << "sb.power needs P or D:P[,D:P...] with increasing depths D from at most " << dmin
+	      << " (sb.depths) and P >= 0.01, not '" << power << "'" << std::endl;
+    exit(2);
+  }
+  sb_min_depth = dmin;
+  sb_max_depth = dmax;
+  std::cout << "DNN strong branching at depths " << dmin << "-" << dmax << ": " << setting_s("sb.k")
+	    << " rows and columns by marginal score";
+  if (setting_i("sb.all") >= 0) std::cout << " (every line through depth " << setting_s("sb.all") << ")";
+  std::cout << ", " << setting_s("sb.iters") << " iterations a child, score sum of shortfall^P with P " << power
+	    << " (from depth D: P)";
+  if (*gap) std::cout << ", relative gap at least " << gap << " (from depth D: G)";
+  std::cout << std::endl;
+#else
+  std::cerr << "sb.depths: this build has no DNN bound (make with HAVE_DNN)" << std::endl;
+  exit(2);
+#endif
+}
+
+#ifdef HAVE_DNN
+// A strong-branching node's child solves, kept for the process: a node met again (the estimator's
+// dives pass the same top nodes many times) costs nothing the second time. QAP_SB_PROGRESS=file
+// (settings.C, run) also appends every child solve to the file and loads it at the first node, so a
+// node whose process stopped mid-way (a kill, a restart) repeats only what is missing:
+//   sb-child <settings hash> <root bound> <fixes> <row>:<col> iters <limit> cutoff <cutoff> lb <bound> fathomed <0|1> it <iterations> cpu <s>
+// A child is reused only under the same settings (the hash covers the params file), root bound (the
+// instance), node (its fixes, sorted), cell (original indices), iteration limit and cutoff.
+struct SBChild { double lb; bool fathomed; };
+static std::map<std::string, SBChild> sb_done;
+static std::string sb_child_key(const std::string &run, const std::string &fixes, int row, int col, int limit, double cutoff)
+{
+  char b[96];
+  snprintf(b, sizeof b, " %d:%d iters %d cutoff %.4f", row, col, limit, cutoff);
+  return run + " " + fixes + b;
+}
+static void sb_progress_load(const char *file)
+{
+  FILE *f = fopen(file, "r");
+  if (!f) return;
+  char line[4096], hash[64], root[64], fixes[2048];
+  while (fgets(line, sizeof line, f)) {
+    int row, col, limit, fath, it;
+    double cutoff, lb, cpu;
+    if (sscanf(line, "sb-child %63s %63s %2047s %d:%d iters %d cutoff %lf lb %lf fathomed %d it %d cpu %lf",
+	       hash, root, fixes, &row, &col, &limit, &cutoff, &lb, &fath, &it, &cpu) == 11)
+      sb_done[sb_child_key(std::string(hash) + " " + root, fixes, row, col, limit, cutoff)] = {lb, fath != 0};
+  }
+  fclose(f);
+}
+
+// At a branching node of depth sb.depths that kept its DNN state (its bound ran and missed), the
+// candidate lines are the sb.k rows and the sb.k columns with the largest marginal scores (the sum of
+// squared x_ij over the line: rule 9's score), or every free line through depth sb.all; columns only
+// where no symmetry is left, and a row's children are the columns select() would create
+// (branch_children). Every child of a candidate that QPB's U does not already drop is bounded with
+// sb.iters ADMM iterations, warm from the node's state as its own first solve would be, and under the
+// node's cut pool where it hands one on (pool.on; in the pool form also where pool.cp = 1 gives the
+// child's own first solve the CP form); no give-up, no cut phase. A child's bound is never taken below
+// QPB's for it (a pooled solve can end without a certificate). A line's score is the sum
+// over its children of shortfall^P (shortfall: cutoff - the child's bound, 0 when it fathoms or QPB
+// drops it), P from sb.power = D:P,... by depth. The default is 8 at the root and 1 below. At a root
+// the children are all far from fathoming and a row is as bad as its worst ones: the plain sum picked
+// the worst tree run at nug30 and at tho30, the 8th power the best row run at nug30 and production's
+// at tho30. Below the root many children fathom or nearly, their number counts, and the sum did
+// better (nug30 under r23: 3,020 nodes against 3,374 with the 8th power at depths 1 and 2). The node
+// branches on the line with the least score, ties to the larger marginal score. sb.gap = D:G,...:
+// from depth D on only at nodes whose relative gap (inc - the node's last DNN bound) / (inc - root
+// QPB bound) is at least G.
+// Returns whether it set bp to a line (BRANCH_FIXED). Its CPU is in the node's time (t_level) and in
+// stats' sb_*_level; QAP_SB_TRACE=file gets a line per node with every candidate's score.
+static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, const MAT *U, double qpb,
+			      double inc, double node_lb, const DNNWarm &pw, const std::vector<double> &xbar,
+			      const std::string &pool_out, BranchParameters *bp, QAPStatistics *stats)
+{
+  if (node.depth < sb_min_depth || node.depth > sb_max_depth || pw.m != m || m < 3 || inc >= 1e99 ||
+      (int)xbar.size() != m * m)
+    return false;
+  const double rel_gap = (inc - node_lb) / std::max(inc - stats->root_bound, 1e-9);
+  double min_gap = 0.0, power = 1.0;
+  if (sb_at_depth(sb_gap, node.depth, min_gap) && rel_gap < min_gap) return false;
+  sb_at_depth(sb_power, node.depth, power);
+  static const int sb_k = (int)setting_i("sb.k"), sb_all = (int)setting_i("sb.all"), sb_iters = (int)setting_i("sb.iters");
+  static const int warm_y = (int)setting_i("dnn.warm_y");
+  static const int pool_on = (int)setting_i("pool.on"), cut_side = (int)setting_i("cut.side");
+  static const char *progress_file = *setting_s("QAP_SB_PROGRESS") ? setting_s("QAP_SB_PROGRESS") : NULL;
+  static const char *trace_file = *setting_s("QAP_SB_TRACE") ? setting_s("QAP_SB_TRACE") : NULL;
+  static bool progress_loaded = false;
+  if (progress_file && !progress_loaded) { progress_loaded = true;  sb_progress_load(progress_file); }
+  // this run in the progress keys: the settings' hash and the root bound
+  static std::string run_key;
+  if (run_key.empty()) {
+    const std::string rec = settings_record();
+    char b[64];
+    snprintf(b, sizeof b, " %.6f", stats->root_bound);
+    run_key = rec.substr(0, rec.find(' ')) + b;
+  }
+
+  const clock_t t0 = clock();
+  std::vector<int> frow, fcol;   // original index of each local row / column
+  for (int r = 0; r < n; r++) if (node.p[r] <= NONE) frow.push_back(r);
+  for (int c = 0; c < n; c++) if (node.pinv[c] <= NONE) fcol.push_back(c);
+  if ((int)frow.size() != m || (int)fcol.size() != m) return false;
+  std::vector<char> col_child;
+  const bool cols_ok = branch_children(node, col_child);
+
+  // the candidates
+  std::vector<double> rs(m, 0.0), cs(m, 0.0);
+  for (int a = 0; a < m; a++)
+    for (int b = 0; b < m; b++) {
+      const double v = xbar[a * m + b] * xbar[a * m + b];
+      rs[a] += v;  cs[b] += v;
+    }
+  struct Cand { bool row; int k; double marg; double score; int open; };
+  std::vector<Cand> cand;
+  const int take = node.depth <= sb_all ? m : std::min(sb_k, m);
+  std::vector<int> by(m);
+  for (int a = 0; a < m; a++) by[a] = a;
+  std::sort(by.begin(), by.end(), [&](int a, int b) { return rs[a] != rs[b] ? rs[a] > rs[b] : a < b; });
+  for (int t = 0; t < take; t++) cand.push_back({true, by[t], rs[by[t]], 0.0, 0});
+  if (cols_ok) {
+    for (int a = 0; a < m; a++) by[a] = a;
+    std::sort(by.begin(), by.end(), [&](int a, int b) { return cs[a] != cs[b] ? cs[a] > cs[b] : a < b; });
+    for (int t = 0; t < take; t++) cand.push_back({false, by[t], cs[by[t]], 0.0, 0});
+  }
+
+  std::string fixes;   // the node's key in the progress file and the trace: its fixes, sorted
+  {
+    char b[32];
+    for (int r = 0; r < n; r++)
+      if (node.p[r] > NONE) { snprintf(b, sizeof b, "%s%d:%d", fixes.empty() ? "" : ",", r, (int)node.p[r]);  fixes += b; }
+    if (fixes.empty()) fixes = "-";
+  }
+
+  // the children's bounds: a cell's shortfall is shared by its row and its column
+  const double cutoff = inc - DELTA;
+  DNNPool pool;
+  const bool pooled = pool_on && !pool_out.empty() && dnn_pool_decode(pool_out, pool) &&
+    pool.side == cut_side && !pool.cuts.empty();
+  std::vector<double> memo((size_t)m * m, NAN);
+  long solves = 0, iters = 0, reused = 0, retried = 0, failed = 0;
+  static const int dnn_retry = (int)setting_i("dnn.retry");
+  for (const Cand &c : cand)
+    for (int t = 0; t < m; t++) {
+      const int a = c.row ? c.k : t, b = c.row ? t : c.k;
+      if (c.row && !col_child[fcol[b]]) continue;   // not a child of this row (symmetry)
+      double &sh = memo[(size_t)a * m + b];
+      if (!std::isnan(sh)) continue;
+      const double qpb_child = U->me[a][b] + qpb;   // QPB's bound for the child
+      if (qpb_child >= inc - DELTA_BRANCH) { sh = 0.0;  continue; }   // QPB drops this child
+      // the child's bound before its solve: QPB's for it, or the node's (node.bound, what branch() hands a
+      // child, and the node's last DNN bound), which holds for every child
+      const double inherited = std::max(qpb_child, std::max(node_lb, (double)node.bound));
+      // a solve that failed: unfathomed and below QPB's bound for the child, or no certificate (-inf, NaN).
+      // Not dnn.retry's test at a node (1% of |incumbent| below the inherited bound): a child solve stops at
+      // sb.iters, and one that is only short of converged ends between QPB's bound and the inherited one
+      // (tai15b's root: 52 to 196 of 222 children are 1% below at 150 to 1 iterations, none below QPB's),
+      // while the failures dnn.retry is for end far below QPB's (sko42 -36,269, tai35b -3.1e11, -inf)
+      auto fails = [&](double lb, bool fath) { return !fath && !(lb >= qpb_child); };
+      // the child's shortfall from its DNN bound, never below the inherited one (and so finite whatever the solve returned)
+      auto shortfall = [&](double lb, bool fath) {
+	if (fails(lb, fath)) failed++;
+	double best = inherited;
+	if (lb > best) best = lb;
+	return fath ? 0.0 : std::max(0.0, cutoff - best);
+      };
+      const std::string key = sb_child_key(run_key, fixes, frow[a], fcol[b], sb_iters, cutoff);
+      {
+	auto it = sb_done.find(key);
+	if (it != sb_done.end()) {
+	  sh = shortfall(it->second.lb, it->second.fathomed);
+	  reused++;
+	  continue;
+	}
+      }
+      const clock_t tc = clock();
+      QAPAssignment kid = node;
+      kid.fix(frow[a], fcol[b]);
+      QAP qc;
+      reduceQAP(q, &qc, kid);
+      DNNParams lp;
+      lp.gamma1 = setting_d("dnn.gamma1");  lp.gamma = setting_d("dnn.gamma");
+      lp.cheb_degree = (int)setting_i("dnn.cheb");  lp.tight_lam = (int)setting_i("dnn.tight_lam");
+      lp.momentum = setting_d("dnn.momentum");
+      lp.beta = setting_d("dnn.beta");  lp.refresh = (int)setting_i("dnn.refresh");
+      lp.hopeless_after = 0;  lp.hopeless_after_warm = 0;  lp.max_iter = sb_iters;
+      DNNWarm cw;
+      const DNNWarm *sp = NULL;
+      if (warm_y > 0 && dnn_warm_child(pw, a, b, cw, warm_y) && !cw.Y.empty()) { sp = &cw;  lp.warm_primal = 1; }
+      else if (dnn_warm_child(pw, a, b, cw)) sp = &cw;
+      DNNResult rr;
+      if (pooled) {
+	std::vector<int> fo, oo, fa(n, -1);
+	for (int z = 0; z < n; z++) {
+	  if ((cut_side == 0 ? kid.p[z] : kid.pinv[z]) == NONE) fo.push_back(z);
+	  if ((cut_side == 0 ? kid.pinv[z] : kid.p[z]) == NONE) oo.push_back(z);
+	  else fa[z] = cut_side == 0 ? kid.pinv[z] : kid.p[z];
+	}
+	DNNPool mid;
+	DNNCutParams pc;
+	pc.side = cut_side;  pc.pool_in = &pool;  pc.pool_out = &mid;
+	pc.other_orig = &oo;  pc.fixed_at = &fa;  pc.pool_check = 0;
+	rr = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, fo, n, pc, sp, NULL);
+      } else
+	rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
+      // dnn.retry = 1, the two retries of a node's own first solve: a pooled solve that failed again without the
+      // pool, and a solve from the node's state that failed again cold (each with sb.iters); the best certified
+      // bound counts
+      int retry = 0;
+      auto again = [&](const DNNWarm *from) {
+	DNNResult r2 = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, from, NULL);
+	r2.iterations += rr.iterations;
+	if (r2.status != DNN_FATHOMED && !(r2.lb > rr.lb)) { r2.lb = rr.lb;  r2.status = rr.status; }
+	rr = r2;
+	solves++;
+      };
+      if (dnn_retry && pooled && fails(rr.lb, rr.status == DNN_FATHOMED)) { retry |= 1;  again(sp); }
+      if (dnn_retry && sp && fails(rr.lb, rr.status == DNN_FATHOMED)) { retry |= 2;  lp.warm_primal = 0;  again(NULL); }
+      if (retry) retried++;
+      const bool fath = rr.status == DNN_FATHOMED;
+      sh = shortfall(rr.lb, fath);
+      solves++;  iters += rr.iterations;
+      sb_done[key] = {rr.lb, fath};
+      if (progress_file)
+	if (FILE *f = fopen(progress_file, "a")) {   // one fprintf per line: processes share the file
+	  fprintf(f, "sb-child %s %s %d:%d iters %d cutoff %.4f lb %.4f fathomed %d it %d cpu %.2f retry %d\n", run_key.c_str(),
+		  fixes.c_str(), frow[a], fcol[b], sb_iters, cutoff, rr.lb, fath ? 1 : 0, rr.iterations,
+		  (double)(clock() - tc) / CLOCKS_PER_SEC, retry);
+	  fclose(f);
+	}
+    }
+
+  // the scores: shortfalls over the largest at the node, so that the power stays in range
+  double smax = 0.0;
+  for (double v : memo) if (!std::isnan(v)) smax = std::max(smax, v);
+  for (Cand &c : cand)
+    for (int t = 0; t < m; t++) {
+      const double sh = memo[c.row ? (size_t)c.k * m + t : (size_t)t * m + c.k];
+      if (std::isnan(sh) || sh <= 0.0) continue;
+      c.score += pow(sh / smax, power);
+      c.open++;
+    }
+  const Cand *best = &cand[0];
+  for (const Cand &c : cand)
+    if (c.score < best->score || (c.score == best->score && c.marg > best->marg)) best = &c;
+  bp->how = BRANCH_FIXED;
+  bp->choose_row = best->row;
+  bp->fixed_index_in_U = best->k;
+  bp->fixed_index_in_assign = best->row ? frow[best->k] : fcol[best->k];
+
+  const double cpu = (double)(clock() - t0) / CLOCKS_PER_SEC;
+  stats->anotherStrongBranch(node.depth, solves, iters, cpu);
+  if (trace_file) {
+    char buf[256];
+    snprintf(buf, sizeof buf, "sb depth %d fixes ", node.depth);
+    std::string msg = buf + fixes;   // (the fixes of a deep node are longer than buf)
+    snprintf(buf, sizeof buf, " gap %.4f | chose %c%d score %.6g open %d | %ld solves%s, %ld reused, %ld retried, %ld failed, %ld iterations, %.2f CPU s, largest shortfall %.4f |",
+	     rel_gap, best->row ? 'r' : 'c', bp->fixed_index_in_assign, best->score,
+	     best->open, solves, pooled ? " (pooled)" : "", reused, retried, failed, iters, cpu, smax);
+    msg += buf;
+    for (const Cand &c : cand) {   // line:marginal score:score:children still open
+      snprintf(buf, sizeof buf, " %c%d:%.4f:%.6g:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
+      msg += buf;
+    }
+    if (FILE *f = fopen(trace_file, "a")) { fprintf(f, "%s\n", msg.c_str());  fclose(f); }
+  }
+  return true;
+}
+#endif
 
 void list_clean_up(Node *&todo, double val, QAPStatistics *s);
 
@@ -745,6 +1073,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       char dnn_fate = 0;                   // 'D' or 'C' when one of them fathomed
       void *dnn_keep = NULL;   // this node's DNN state, for its children
       std::vector<double> dnn_xbar;   // its primal marginals, for rule 8
+      std::vector<double> sb_xbar;    // the same for strong branching's shortlist: dnn_xbar keeps its rule 8/9 meaning (est.xbar reads it)
       std::string dnn_pool_out;       // its cut pool for its children (QAP_DNN_POOL)
       // QAP_DNN_EXT=k: below dnn_max_depth a node whose parent's DNN bound ran
       // and did not fathom keeps the DNN bound, up to k levels down; under a
@@ -1081,15 +1410,17 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    node.bound = std::max(node.bound, cr.best_lb);
 	    if (cr.status == DNN_FATHOMED) { dnn_fathomed = true; dnn_fate = 'C'; }
 	  }
-	  if (save && !dnn_fathomed && save->m == m &&
-	      (param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD)) {
+	  const bool xbar_rule = param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD;
+	  const bool xbar_sb = node.depth >= sb_min_depth && node.depth <= sb_max_depth;   // strong branching shortlists by them
+	  if (save && !dnn_fathomed && save->m == m && (xbar_rule || xbar_sb)) {
 	    // x_ij = Y_0,(ij) of the final primal iterate (row 0 of the lifted
 	    // matrix, after the leading 1), m x m row-major in local indices;
 	    // cut.xbar = 1: the cut phase's final iterate when a phase ran
 	    static const int cut_xbar = (int)setting_i("cut.xbar");
 	    const DNNWarm *xs = (cut_xbar && cut_state && cut_state->m == m && (int)cut_state->Y.size() >= m * m + 1) ? cut_state : save;
 	    const int n1 = m * m + 1;
-	    dnn_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
+	    if (xbar_rule) dnn_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
+	    if (xbar_sb) sb_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
 	  }
 	  if (have_pool && dnn_pool_out.empty() && !dnn_fathomed && !pool_mid.cuts.empty())
 	    dnn_pool_out = dnn_pool_encode(pool_mid);   // no cut phase: hand on the inherited pool
@@ -1146,6 +1477,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	qpbp->improve   = false;
 	qpbp->nofathom_patience = 0;   // only node bounds use patience
 	set_branch_parameters(bp, param, use_J, reorder);
+#ifdef HAVE_DNN
+	// DNN strong branching (sb.*) chooses the line in place of the level's rule where it applies
+	if (sb_max_depth >= 0 && dnn_keep)
+	  dnn_strong_branch(q, node, n, m, U, bound + qpbp->lapU, s->getObjective(),
+			    std::isnan(cut_lb) ? dnn_lb : cut_lb, *(DNNWarm *)dnn_keep, sb_xbar, dnn_pool_out, bp, stats);
+#endif
 	// every bound but GLB leaves its Frank-Wolfe point in X; the
 	// children start from it (copied first: branch() may use X)
 	WarmStart *warm = (param->which_bound != GLB_BND)

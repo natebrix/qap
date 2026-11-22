@@ -145,6 +145,7 @@ The symmetry files end in .sym (SYM/nug22.sym is a two-set example).
 ============================================================
 */
 
+#include <vector>
 #include "assign.h"
 #include "qap.h"
 #include "qpbnd.h"
@@ -193,6 +194,11 @@ void branch_set_dnn_marginals(const double *x, int m);
 // true, else a column (location), by its original index. For bnb.C's node
 // trace (QAP_NODE_TRACE): with no children left the kids cannot tell.
 void branch_last_line(bool &row, int &index);
+// The children a branching node may create, as select() decides them. col_child[c], for each
+// original column c: whether a row's child may take it (the columns of J1 at the root and of J3
+// under a path in J2; every column once no symmetry is left). Returns whether the node may branch
+// on a column at all (only with no symmetry left). For DNN strong branching (bnb.C, sb.*).
+bool branch_children(const QAPAssignment &assign, std::vector<char> &col_child);
 void merge_U(MAT *U1, double bound1, MAT *U2, double bound2);
 
 // branching functions

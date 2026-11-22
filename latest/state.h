@@ -12,10 +12,13 @@
  It is plain text, so other tools (bench/parallel.py) can split a
  state into tasks and merge the statistics of finished ones.
 
- Format (version 9; versions 1-8, which lack the warm starts, the DNN
+ Format (version 10, written once strong branching has chosen a line; a
+ state without strong-branching counts is written as version 9, the same
+ file without the sb_*_level arrays; versions 1-9, which lack the warm starts, the DNN
  counts, dnn_ext, the cut pools, the DNN state, the per-level DNN counts,
- the settings record or the @path DNN references, are still read):
-   QAP-STATE 9
+ the settings record, the @path DNN references or the strong-branching
+ counts, are still read):
+   QAP-STATE 10
    n <n> levels <stats.n> strategies <stats.m>
    incumbent <obj> <found> <perm[0..n-1]>
    root_bound <value>
@@ -37,6 +40,11 @@
                                        popped, DNN computed/fathomed/given
                                        up/iterations/CPU, cut phase run/
                                        fathomed/CPU, by level)
+   sb_n_level ... / sb_s_level ... / sb_i_level ... / sb_t_level ...
+                                      (stats.n+1 each, version 10: DNN strong
+                                       branching, sb.*: nodes whose line it
+                                       chose, child solves, their iterations
+                                       and CPU, by the node's level)
    warm_starts <count>
    warm <m> <p[0..n-1]> <X[0][0..m-1]> ... <X[m-1][0..m-1]> <dnn_ext> <pool> <dnn>
    ...                         (a branched node's X, see WarmStart in assign.h;

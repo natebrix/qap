@@ -2010,6 +2010,16 @@ void determine_J3(const QAPAssignment &assign, int *&myJ3, int &myJ3_dim)
 
 }
 
+bool branch_children(const QAPAssignment &assign, std::vector<char> &col_child)
+{
+  int *j3 = NULL, d = 0;
+  determine_J3(assign, j3, d);
+  const bool all = (d == J3_default_dim);
+  col_child.assign(assign.n, all ? 1 : 0);
+  if (!all) for (int z = 0; z < d; z++) col_child[j3[z]] = 1;
+  return all;
+}
+
 #ifdef STORE_J_MATRIX
 void scan_and_disallow(QAPAssignment &assign,int *J3,int J3_dim,
 		       MAT *U,double bound,double opt)

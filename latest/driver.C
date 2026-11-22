@@ -60,6 +60,7 @@ extern const char *bnb_state_file;
 extern double bnb_checkpoint_every;
 extern double bnb_time_limit;
 extern int dnn_min_depth, dnn_max_depth, dnn_hopeless_after, dnn_hopeless_after_warm, dnn_warm;
+void sb_apply_settings();   // bnb.C
 extern double dnn_max_gap;
 #ifdef HAVE_DNN
 #include "dnn.h"
@@ -480,6 +481,7 @@ static void apply_policy_settings()
     exit(2);
 #endif
   }
+  sb_apply_settings();   // sb.*: DNN strong branching (bnb.C)
   fw_nofathom_patience = (int)setting_i("fw.patience");
   if (fw_nofathom_patience)
     cout << "FW patience after cannot-fathom: " << fw_nofathom_patience << std::endl;
