@@ -83,7 +83,7 @@ SERIAL = [
     ("nug16a-dnn", "nug16a", ["-p", "../tests/par/default_ship64.par", "-u", "1610", "-x", "2:4:1:0:1"], {}),
     ("nug17-cut", "nug17", ["-p", SHIP_PAR, "-u", "1732", "-x", "1:3:1:20:1"], {"QAP_DNN_POOL_CHECK": "20"}),
 ]
-TIMES = ("t_level", "t_strat", "dnn_time", "dnn_t_level", "cut_t_level")
+TIMES = ("t_level", "t_strat", "dnn_time", "dnn_t_level", "cut_t_level", "sb_t_level")
 TOL = 1e-3   # the trace prints 4 decimals
 
 

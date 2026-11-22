@@ -37,6 +37,8 @@ QAPStatistics::QAPStatistics()
   dnn_t_level = NULL;
   cut_n_level = cut_f_level = NULL;
   cut_t_level = NULL;
+  sb_n_level = sb_s_level = sb_i_level = NULL;
+  sb_t_level = NULL;
 
 #ifdef RECORD_STDDEV
   rg_sum  = NULL;
@@ -55,6 +57,10 @@ void QAPStatistics::alloc_dnn_levels()
   cut_n_level = new_zero<ctr_type>(n+1);
   cut_f_level = new_zero<ctr_type>(n+1);
   cut_t_level = new_zero<double>(n+1);
+  sb_n_level = new_zero<ctr_type>(n+1);
+  sb_s_level = new_zero<ctr_type>(n+1);
+  sb_i_level = new_zero<ctr_type>(n+1);
+  sb_t_level = new_zero<double>(n+1);
 }
 
 void QAPStatistics::free_dnn_levels()
@@ -63,6 +69,7 @@ void QAPStatistics::free_dnn_levels()
   delete [] dnn_n_level;  delete [] dnn_f_level;  delete [] dnn_g_level;
   delete [] dnn_i_level;  delete [] dnn_t_level;
   delete [] cut_n_level;  delete [] cut_f_level;  delete [] cut_t_level;
+  delete [] sb_n_level;  delete [] sb_s_level;  delete [] sb_i_level;  delete [] sb_t_level;
 }
 
 QAPStatistics::QAPStatistics(int n_in,int m_in)
@@ -146,6 +153,10 @@ QAPStatistics::QAPStatistics(const QAPStatistics &s)
   this->cut_n_level = copy_array<ctr_type>(s.cut_n_level,s.n+1);
   this->cut_f_level = copy_array<ctr_type>(s.cut_f_level,s.n+1);
   this->cut_t_level = copy_array<double>(s.cut_t_level,s.n+1);
+  this->sb_n_level = copy_array<ctr_type>(s.sb_n_level,s.n+1);
+  this->sb_s_level = copy_array<ctr_type>(s.sb_s_level,s.n+1);
+  this->sb_i_level = copy_array<ctr_type>(s.sb_i_level,s.n+1);
+  this->sb_t_level = copy_array<double>(s.sb_t_level,s.n+1);
 
 #ifdef RECORD_STDDEV
   rg_sum = copy_array<double>(s.rg_sum,s.n+1);
@@ -200,6 +211,8 @@ void QAPStatistics::clear()
       dnn_t_level[i] = 0.0;
       cut_n_level[i] = cut_f_level[i] = 0;
       cut_t_level[i] = 0.0;
+      sb_n_level[i] = sb_s_level[i] = sb_i_level[i] = 0;
+      sb_t_level[i] = 0.0;
     }
   for(int i=0; i<m; i++)
     t_strat[i] = 0.0;
@@ -250,6 +263,14 @@ void QAPStatistics::print_default(std::ostream& outs,int print_level) const
   if (dnn_cut_nodes > 0)
     outs << "     cut phase: " << dnn_cut_nodes << " nodes, " << dnn_cut_fathoms
 	 << " fathomed, " << dnn_cut_time << " s" << std::endl;
+  {
+    ctr_type sbn = 0, sbs = 0, sbi = 0;
+    double sbt = 0.0;
+    for (int i = 0; i <= n; i++) { sbn += sb_n_level[i];  sbs += sb_s_level[i];  sbi += sb_i_level[i];  sbt += sb_t_level[i]; }
+    if (sbn > 0)
+      outs << " strong branch: " << sbn << " nodes, " << sbs << " child solves, " << sbi
+	   << " iterations, " << sbt << " s" << std::endl;
+  }
 
   if (print_level>0) {
     printf("\n");
@@ -376,6 +397,17 @@ void QAPStatistics::print_dnn_levels() const
       - (long long)dnn_f_level[i] - (long long)cut_f_level[i];
     printf("%2d  %10llu\t%8lld\t%8llu\t%8llu\t%8llu\n", i, f_level[i], qpb,
 	   dnn_f_level[i], cut_f_level[i], pop_f_level[i]);
+  }
+  // DNN strong branching (sb.*), only where it chose a line
+  bool any_sb = false;
+  for (i = 0; i <= n; i++) if (sb_n_level[i] > 0) any_sb = true;
+  if (any_sb) {
+    printf("\nStrong branching by level:\n");
+    printf("level    nodes\t  solves\t      iters\t    time\n");
+    for (i = 0; i <= n; i++) {
+      if (sb_n_level[i] == 0) continue;
+      printf("%2d  %10llu\t%8llu\t%11llu\t%8.2f\n", i, sb_n_level[i], sb_s_level[i], sb_i_level[i], sb_t_level[i]);
+    }
   }
   fflush(stdout);
 }
@@ -526,6 +558,15 @@ void QAPStatistics::anotherDNN(int depth, bool fathomed, bool gave_up, int itera
   dnn_t_level[depth] += cpu;
 }
 
+void QAPStatistics::anotherStrongBranch(int depth, long solves, long iterations, double cpu)
+{
+  if (depth > n) depth = n;
+  sb_n_level[depth]++;
+  sb_s_level[depth] += solves > 0 ? ctr_type(solves) : 0;
+  sb_i_level[depth] += iterations > 0 ? ctr_type(iterations) : 0;
+  sb_t_level[depth] += cpu;
+}
+
 void QAPStatistics::anotherCut(int depth, bool fathomed, double cpu)
 {
   dnn_cut_nodes++;
@@ -654,6 +695,10 @@ void QAPStatistics::merge_stats(QAPStatistics *new_stats,
     cut_n_level[i] += new_stats->cut_n_level[i];
     cut_f_level[i] += new_stats->cut_f_level[i];
     cut_t_level[i] += new_stats->cut_t_level[i];
+    sb_n_level[i] += new_stats->sb_n_level[i];
+    sb_s_level[i] += new_stats->sb_s_level[i];
+    sb_i_level[i] += new_stats->sb_i_level[i];
+    sb_t_level[i] += new_stats->sb_t_level[i];
   }
 
 #ifdef RECORD_STDDEV

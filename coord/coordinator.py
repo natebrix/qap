@@ -358,6 +358,10 @@ class Coordinator:
             a = t.arrays
             lines.append(f"     cut phase: {sum(a['cut_n_level'])} nodes, {sum(a['cut_f_level'])} fathomed, "
                          f"{sum(a['cut_t_level']):.2f} s")
+        if sum(t.arrays.get("sb_n_level", [])):   # state version 10
+            a = t.arrays
+            lines.append(f" strong branch: {sum(a['sb_n_level'])} nodes, {sum(a['sb_s_level'])} child solves, "
+                         f"{sum(a['sb_i_level'])} iterations, {sum(a['sb_t_level']):.2f} s")
         tables = self._solver_tables(state_path)
         if tables:
             lines += [""] + tables.rstrip("\n").split("\n")
