@@ -129,6 +129,40 @@ a few percent of the CPU differences is the machine).
   (nug30's r23: 16%; r2: 2.35x), not when it is within the model's error.
 - The lookahead's own CPU (3,445 and 5,264 s) is still more than it saves on trees of this size.
 
+## The lookahead at depth 2, only where the shortfall is largest (`QAP_LA=4:150:1:2 QAP_LA_GATE=2:S`)
+
+Nov 22. `QAP_LA_GATE=D:S` (in `root.patch`): from depth D on the lookahead fires only at a node at least S
+short of the incumbent (the trace's shortfall + 1.95 on these instances: the trace's cutoff is the incumbent
+less the objective's step of 2, plus 0.05). The thresholds were read off the depth-1 runs' own depth-2 nodes;
+the predictions are in `runs/d2_predictions.txt`, committed before the runs.
+
+| | nug30 | tho30 |
+|---|---|---|
+| S, and the depth-2 nodes that fired | 45.6: 14 of 59 branching | 2,184: 9 of 92 |
+| the tree under them in the depth-1 run | 56% | 41% |
+| nodes: depth-1 lookahead alone | 4,037 | 10,083 |
+| nodes: with the gated depth 2 | **3,425** (-15%) | **9,713** (-3.7%) |
+| predicted | 3,830 to 3,920 | 8,750 to 9,250 |
+| nodes under the fired nodes | 2,279 to 1,742 trace lines (-24%) | 4,189 to 3,791 (-9.5%) |
+| lines changed from rule 9's | 10 of 14: 9 smaller subtrees, 1 the same | 8 of 9: 5 smaller, 3 larger (by 5 to 7%) |
+| CPU s of the depth-2 firings | 3,237 | 2,770 |
+| tree CPU s without the lookahead's | 2,675 (2,933) | 7,041 (7,484) |
+| nodes against production | 0.79 | 0.66 |
+
+- **Both predictions missed, in opposite directions** [m]: nug30 gained three times what depth 1's rate
+  predicted, tho30 a third. The gain of a firing does not carry from one depth to the next, nor from one
+  grid to the other: depth 1 gave 6 to 10% at nug30 and 32% at tho30, depth 2 gives 24% and 9.5% under the
+  fired nodes.
+- **The rest of the tree is unchanged** [m]: at nug30 every depth-2 node outside the ten whose line changed
+  has the same subtree to the node, so the 537 trace lines are the lookahead's and not run-to-run noise. At
+  tho30 the fired nodes account for 398 of the 370 fewer lines (two depth-1 scores differ in the fifth digit).
+- **By the bar set before the runs** (5% of the tree): a gain at nug30, none at tho30. On the budget's terms
+  (`../budget/README.md`: the top tenth of depth 2 costs 0.4 to 2% of an open grid's run) a gain of 4 to 15%
+  pays, narrowly at the tho30 end [e: two trees at n = 30].
+- **Why nug30 is so regular** [m]: the lookahead chose r4 at 7 of the 14 nodes, and at six of those rule 9 chose
+  another line (r11, r23, r21, c29, c24 twice); one facility that rule 9's marginal score does not put first is the better branch across a
+  whole family of nodes.
+
 ## The open grids (scores from `../lsla/grids`)
 
 | instance | production's root row | its rank by predicted size | best row | predicted tree, best / production's | calibration |
@@ -169,6 +203,6 @@ a few percent of the CPU differences is the machine).
 ## Files
 
 `root.patch`, `grid_root.par`; `tree.sh`, `tree_tr.sh` (a tree with the root row forced; `_tr` with the node
-trace); `la_tree.sh` (a tree with the lookahead at depth 1 and a chosen score); `expscore.py` (one row's fit), `rootfit.py` (pooled, leave one row out), `models.py` (the forms
+trace); `la_tree.sh` (a tree with the lookahead and any of its settings: `QAP_LA`, `QAP_LA_SCORE`, `QAP_LA_GATE`, `QAP_FORCE_LINE`); `expscore.py` (one row's fit), `rootfit.py` (pooled, leave one row out), `models.py` (the forms
 compared), `est_by_child.py` (an estimate's rest under each depth-1 node against the lookahead's shortfalls);
 `runs/PROBLEM_root150/` (the scores: `children.txt`, `la.log`), `runs/PROBLEM_rN[_tr]/` (the trees).

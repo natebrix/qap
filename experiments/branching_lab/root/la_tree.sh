@@ -6,6 +6,8 @@
 # QAP_LA_SCORE: exp:B scores a line by the sum over its children of exp(B * shortfall), the tree they predict
 # (B from the production tree's depth-2 nodes: ln(nodes under a node) against its shortfall; nug30 0.031,
 # tho30 0.0011); unset, the sum of the shortfalls, as ../grid's runs.
+# QAP_LA_GATE=D:S: from depth D on, only at nodes at least S short of the incumbent, e.g.
+#   la_tree.sh tho30 d2_gate QAP_LA=4:150:1:2 QAP_LA_GATE=2:2184
 set -uo pipefail
 D=$(cd "$(dirname "$0")"; pwd)
 BUILD=${BUILD:-/home/user/wt-root}
