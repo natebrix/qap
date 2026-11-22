@@ -105,6 +105,30 @@ nug30 0.031) [m]. `QAP_LA_SCORE=exp:B` scores a line in the lookahead by the sum
   Its cost (3,581 and about 5,160 CPU s) is more than it saves on trees this small (`../budget/README.md`
   for the large ones).
 
+## The root's row and the depth-1 lookahead together (`la_tree.sh` with `QAP_FORCE_LINE=0:rN QAP_LA=4:150:1:1`)
+
+Nov 22. Solver's nodes; CPU s of the tree without the lookahead's own (4 slots here, 2 or 3 in the others, so
+a few percent of the CPU differences is the machine).
+
+| | nug30 nodes | tree CPU s | tho30 nodes | tree CPU s |
+|---|---|---|---|---|
+| production's row (r0, r5) | 4,285 and 4,365 | 3,314 and 3,421 | 14,815 | 9,375 |
+| the better row alone (r23, r4) | 3,623 | 2,707 | 13,812 | 9,558 |
+| the depth-1 lookahead alone | 4,037 | 2,933 | 10,083 | 7,484 |
+| both | **3,241** | 2,527 | **11,089** | 7,388 |
+| both / production | 0.75 | 0.75 | 0.75 | 0.79 |
+
+- **nug30: the two gains multiply** [m]: 0.84 (row) x 0.93 (lookahead) = 0.78 predicted, 0.75 measured. The
+  lookahead takes 10.5% off r23's tree, as it took 6 to 8% off r0's.
+- **tho30: the row's edge does not survive** [m]: with the lookahead at depth 1, r4's tree has 10% more
+  nodes than r5's and 1% less CPU; without it, 7% fewer nodes and 2% more CPU. r4 and r5 are the same tree
+  to within what one run resolves, which is what the size model said of them (its first and second, 15 to
+  25% apart the other way). The lookahead is the whole gain there: 32% of the nodes under r5 and 20% under r4.
+- **So the two levels are separate decisions** [e]: the depth-1 lookahead helps under every root row tried
+  (four trees: 6 to 10%, 10.5%, 32%, 20%), and a root row is worth changing only when it is a different tree
+  (nug30's r23: 16%; r2: 2.35x), not when it is within the model's error.
+- The lookahead's own CPU (3,445 and 5,264 s) is still more than it saves on trees of this size.
+
 ## The open grids (scores from `../lsla/grids`)
 
 | instance | production's root row | its rank by predicted size | best row | predicted tree, best / production's | calibration |
@@ -140,7 +164,6 @@ nug30 0.031) [m]. `QAP_LA_SCORE=exp:B` scores a line in the lookahead by the sum
 ## Not done
 
 - A calibration for sko49 and wil50 (their estimates would have to be totalled under each depth-1 node).
-- The root's row and the depth-1 lookahead together on one tree.
 - Why the curve differs between rows at tho30 and not at nug30.
 
 ## Files
