@@ -163,6 +163,21 @@ the predictions are in `runs/d2_predictions.txt`, committed before the runs.
   another line (r11, r23, r21, c29, c24 twice); one facility that rule 9's marginal score does not put first is the better branch across a
   whole family of nodes.
 
+### The whole stack on nug30 (`runs/nug30_r23_d2_gate`: r23, depth 1, depth 2 gated at the same S)
+
+| nug30 | nodes | against production | tree CPU s | the lookahead's CPU s |
+|---|---|---|---|---|
+| production | 4,285 and 4,365 | 1 | 3,314 and 3,421 | |
+| root row r23 | 3,623 | 0.84 | 2,707 | |
+| and the lookahead at depth 1 | 3,241 | 0.75 | 2,527 | 3,445 |
+| and at the 7 depth-2 nodes at least 45.6 short | **3,020** | **0.70** | 2,281 | 5,001 |
+
+- Predicted before the run: 2,860 to 3,090 [m: inside]. The seven firings changed five lines: three smaller
+  subtrees (by 54, 107 and 133 trace lines), two larger (by 26 and 27); 15% fewer nodes under the fired nodes,
+  6.8% off the tree.
+- **Over three trees the gated depth 2 is worth 4 to 15% of the tree** (tho30 3.7, nug30 r23 6.8, nug30 r0 15),
+  9.5 to 24% under the nodes it fires at, and it picks a worse line at about a quarter of them.
+
 ## The open grids (scores from `../lsla/grids`)
 
 | instance | production's root row | its rank by predicted size | best row | predicted tree, best / production's | calibration |
