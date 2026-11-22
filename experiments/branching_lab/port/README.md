@@ -135,11 +135,18 @@ Four comments, all taken:
 - **The state version** was 10 for every file. Now 10 only once strong branching chose a line, else 9, the file
   cognac writes [m: `tests/sb_test.py`].
 - **A failed child solve** scored at QPB's bound. Now a child's bound is never below the node's own DNN bound, and
-  with `dnn.retry = 1` a child that fails that setting's test is solved again without the pool, then cold. The
-  trace counts the retried and the failed. tai15b's root at 40 iterations: 194 of 222 children fail the test, 16
-  improve cold, the same tree [m]. Not measured: 150 iterations on the recipes that set `dnn.retry`; the retry
-  without the pool has no test.
+  with `dnn.retry = 1` a failed child is solved again without the pool, then cold. The trace counts the retried
+  and the failed. Under the first test (1% below the inherited bound) tai15b's root at 40 iterations had 194 of
+  222 children fail, 16 improve cold, the same tree [m]; the test changed in the second round, below.
 - **The marginals** for the shortlist were written into `dnn_xbar`, which `est.xbar` reads. Now their own vector.
+
+A second round (`0003-child-failure-test.patch`, 6d1dfb14): the reviewer proposed that a child solve fail only
+below QPB's bound for the child, since a capped solve that is merely short of converged ends above it. On
+tai15b's root 52 to 196 of 222 children fail the 1% test at 150 to 1 iterations and none ends below QPB's bound
+[m], so that is the test now, and the floor under a child's bound includes `node.bound`. With it no test case has
+a failed child: the cold retry was seen running only under the 1% test, the retry without the pool never.
+
+**Merged into cognac Nov 22 (7c468e25, PR 6), the three commits.**
 
 With strong branching on, nug20 and nug22 give the same node traces and strong-branching traces before and after
 [m]. The nug30 and tho30 runs above are on the first commit and were not repeated: in them no child's bound was
@@ -173,7 +180,7 @@ https://github.com/natebrix/qap/pull/6.
 
 ## Files
 
-`0001-dnn-strong-branching.patch` (the commit) and `0002-review-fixes.patch` (on top of it; the PR's branch has
-both); `run.sh`, `nug30_sb.par`, `tho30_sb.par`, `nug30_sb_p8.par` (the
+`0001-dnn-strong-branching.patch` (the commit), `0002-review-fixes.patch` and `0003-child-failure-test.patch`
+(on top of it; cognac has all three since 7c468e25); `run.sh`, `nug30_sb.par`, `tho30_sb.par`, `nug30_sb_p8.par` (the
 acceptance runs); `predictions.txt` (written before each run); `runs/` (results, the node trace, `sb.txt`: a line
 per strong-branching node, `sb_progress.txt`: its child solves).

@@ -1,0 +1,120 @@
+From 6d1dfb14d482700e33699df2c26be027a739183c Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 22 Nov 2026 15:20:53 +0000
+Subject: [PATCH] sb.*: a child solve fails below QPB's bound for it, not 1%
+ below the inherited bound
+
+From the review of PR 6. A child solve stops at sb.iters, and dnn.retry's test
+at a node (1% of the incumbent below the inherited bound) also catches children
+that are only short of converged: on tai15b's root 52 to 196 of 222 children at
+150 to 1 iterations, none of which ends below QPB's bound for the child. The
+failures the retries are for end far below it or without a certificate. So a
+child is retried, and counted as failed, when it ends unfathomed below QPB's
+bound for it or has no certificate.
+
+The floor under a child's bound is node.bound as well as the node's last DNN
+bound: what branch() hands the child.
+
+Checked: nug20 and nug22 with strong branching at depths 0 to 2, node traces and
+strong-branching traces equal the first commit's; nug20 without sb.depths, node
+trace equal to cognac's; tests/sb_test.py; the settings table.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014vvMYV3r6FDoHTc2G3VVqC
+---
+ RUNNING.md       | 14 ++++++++------
+ latest/bnb.C     | 19 ++++++++++++-------
+ tests/sb_test.py |  8 ++++----
+ 3 files changed, 24 insertions(+), 17 deletions(-)
+
+diff --git a/RUNNING.md b/RUNNING.md
+index 9bacdb3f..169ba531 100644
+--- a/RUNNING.md
++++ b/RUNNING.md
+@@ -760,12 +760,14 @@ default: without `sb.depths` the search is node for node what it was.
+   as its own first solve would be (warm from the node, under the node's cut pool
+   where it hands one on), with no give-up and no cut phase; a child's bound is
+   never taken below the one it inherits (QPB's for it, or the node's own DNN
+-  bound, which holds for every child). With `dnn.retry = 1` a child solve that
+-  fails by that setting's test (unfathomed and more than 1% of the incumbent
+-  below the inherited bound) is solved again as a node's own would be: without
+-  the pool, then cold, each with `sb.iters`, and the best certified bound
+-  counts. The trace counts the children retried and those still failed, which
+-  score as the node itself does. A line's score is the
++  bound, which holds for every child). A child solve fails when it ends
++  unfathomed below QPB's bound for the child, or with no certificate. (Not the
++  1% test of a node's own solve: a child solve stops at `sb.iters`, and one that
++  is only short of converged ends above QPB's bound.) With `dnn.retry = 1` a
++  failed child is solved again as a node's own would be: without the pool, then
++  cold, each with `sb.iters`, and the best certified bound counts. The trace
++  counts the children retried and those still failed, which score as the node
++  itself does. A line's score is the
+   sum over its children of shortfall^P, the shortfall being the cutoff less the
+   child's bound (0 when it fathoms); the node branches on the line with the
+   least, ties to the larger marginal score.
+diff --git a/latest/bnb.C b/latest/bnb.C
+index f5a171d8..13fe741d 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -351,11 +351,15 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
+       if (!std::isnan(sh)) continue;
+       const double qpb_child = U->me[a][b] + qpb;   // QPB's bound for the child
+       if (qpb_child >= inc - DELTA_BRANCH) { sh = 0.0;  continue; }   // QPB drops this child
+-      // the child's bound before its solve: QPB's for it or the node's own DNN bound, which holds for every child
+-      const double inherited = std::max(qpb_child, node_lb);
+-      // a solve that failed, by the test of a node's own first solve (dnn.retry): unfathomed and more than
+-      // 1% of |incumbent| below the inherited bound (or no certificate: -inf, NaN)
+-      auto fails = [&](double lb, bool fath) { return !fath && !(lb >= inherited - 0.01 * std::max(1.0, fabs(inc))); };
++      // the child's bound before its solve: QPB's for it, or the node's (node.bound, what branch() hands a
++      // child, and the node's last DNN bound), which holds for every child
++      const double inherited = std::max(qpb_child, std::max(node_lb, (double)node.bound));
++      // a solve that failed: unfathomed and below QPB's bound for the child, or no certificate (-inf, NaN).
++      // Not dnn.retry's test at a node (1% of |incumbent| below the inherited bound): a child solve stops at
++      // sb.iters, and one that is only short of converged ends between QPB's bound and the inherited one
++      // (tai15b's root: 52 to 196 of 222 children are 1% below at 150 to 1 iterations, none below QPB's),
++      // while the failures dnn.retry is for end far below QPB's (sko42 -36,269, tai35b -3.1e11, -inf)
++      auto fails = [&](double lb, bool fath) { return !fath && !(lb >= qpb_child); };
+       // the child's shortfall from its DNN bound, never below the inherited one (and so finite whatever the solve returned)
+       auto shortfall = [&](double lb, bool fath) {
+ 	if (fails(lb, fath)) failed++;
+@@ -402,8 +406,9 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
+ 	rr = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, fo, n, pc, sp, NULL);
+       } else
+ 	rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
+-      // dnn.retry = 1, as at a node's own first solve: a pooled solve that failed again without the pool, and
+-      // a solve from the node's state that failed again cold (each with sb.iters); the best certified bound counts
++      // dnn.retry = 1, the two retries of a node's own first solve: a pooled solve that failed again without the
++      // pool, and a solve from the node's state that failed again cold (each with sb.iters); the best certified
++      // bound counts
+       int retry = 0;
+       auto again = [&](const DNNWarm *from) {
+ 	DNNResult r2 = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, from, NULL);
+diff --git a/tests/sb_test.py b/tests/sb_test.py
+index 2d57c6a9..7a532931 100644
+--- a/tests/sb_test.py
++++ b/tests/sb_test.py
+@@ -9,8 +9,8 @@ For each case (an instance, its optimum as the upper bound, a params file with s
+    to the statistics';
+  * a second run over the first's QAP_SB_PROGRESS file solves no child again and has the same tree;
+  * a state file is version 10 once strong branching chose a line and version 9 otherwise;
+- * with dnn.retry = 1 the children that fail its test are retried and counted (tai15b), and where
+-   none fails the tree and the child solves are the same (nug18);
++ * with dnn.retry = 1 and no failed child solve (none ends below QPB's bound for the child) the
++   tree and the child solves are the same;
+  * bench/parallel.py's totals (state version 10: the strong-branching counts by level) equal
+    the serial run's;
+  * with sb.gap out of reach the tree is the tree without sb.depths.
+@@ -132,8 +132,8 @@ def main():
+         check(heads == [("QAP-STATE 10", True), ("QAP-STATE 9", False), ("QAP-STATE 9", False)],
+               f"{name} state files with strong branching, gated off, without: {heads}")
+ 
+-        # dnn.retry = 1: a child that fails its test (tai15b's root at 40 iterations: most of them) is solved
+-        # again cold (no pool here: one more solve each), and the count says so; where none fails, the same tree
++        # dnn.retry = 1: a child solve that ends below QPB's bound for it is solved again, and the count says
++        # so; none does in these cases (a child short of converged is not a failure), so the same tree
+         failed1 = sum(int(re.search(r"(\d+) failed", l).group(1)) for l in tl)
+         rc3, o3 = solve(solver, variant(par, tmp, name + ".retry.par", add=("dnn.retry = 1",)), opt, name,
+                         {"QAP_SB_TRACE": os.path.join(tmp, name + ".sb3.txt")})
+-- 
+2.43.0
+
