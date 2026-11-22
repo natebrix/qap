@@ -176,7 +176,7 @@ the predictions are in `runs/d2_predictions.txt`, committed before the runs.
   subtrees (by 54, 107 and 133 trace lines), two larger (by 26 and 27); 15% fewer nodes under the fired nodes,
   6.8% off the tree.
 - **Over three trees the gated depth 2 is worth 4 to 15% of the tree** (tho30 3.7, nug30 r23 6.8, nug30 r0 15),
-  9.5 to 24% under the nodes it fires at, and it picks a worse line at about a quarter of them.
+  9.5 to 24% under the nodes it fires at, and at 5 of the 30 its line gives a larger subtree than rule 9's (by 5 to 10%).
 
 ## The open grids (scores from `../lsla/grids`)
 
