@@ -8,7 +8,26 @@
  #include "lsla.h"   // experiments/branching_lab/lsla
  //#include <time.h>
  
-@@ -1442,6 +1443,19 @@
+@@ -1396,7 +1397,17 @@
+ 	      la_all = sl && sl[0] == 'a';
+ 	    }
+ 	    const double inc = s->getObjective();
+-	    if (((la_k > 0 && (int)dnn_xbar.size() == m * m && node.depth >= la_dmin && node.depth <= la_dmax) || ls_fire_b) &&
++	    // QAP_LA_GATE=D:S (branching_lab/root): from depth D on the lookahead fires only at a node whose own
++	    // shortfall (incumbent - its last DNN bound) is at least S.
++	    static int la_gate_d = -1;  static double la_gate_s = 0.0;
++	    if (la_gate_d < 0) {
++	      la_gate_d = 1 << 30;
++	      if (const char *e = getenv("QAP_LA_GATE")) if (*e && sscanf(e, "%d:%lf", &la_gate_d, &la_gate_s) != 2) {
++		fprintf(stderr, "QAP_LA_GATE: cannot read '%s' (D:S)\n", e);  exit(2);
++	      }
++	    }
++	    const bool la_gate_ok = node.depth < la_gate_d || inc - (std::isnan(cut_lb) ? dnn_lb : cut_lb) >= la_gate_s;
++	    if (((la_k > 0 && (int)dnn_xbar.size() == m * m && node.depth >= la_dmin && node.depth <= la_dmax && la_gate_ok) || ls_fire_b) &&
+ 		dnn_keep && ((DNNWarm *)dnn_keep)->m == m && m >= 3 && inc < 1e99) {
+ 	      const bool cols_ok = branch_cols_allowed(node);
+ 	      std::vector<int> frow, fcol;   // original index of each local row / column
+@@ -1442,6 +1453,19 @@
  	      clock_t t0 = clock();
  	      long solves = 0, iters = 0, pooled = 0;
  	      std::vector<int> caps = ls_fire_b ? ls_caps : std::vector<int>{la_cap};
@@ -28,7 +47,7 @@
  	      std::string ls_la_msg;
  	      for (int cap : caps) {
  	      std::vector<double> memo((size_t)m * m, NAN);   // a cell's shortfall, shared by its row and column
-@@ -1451,6 +1465,7 @@
+@@ -1451,6 +1475,7 @@
  	      for (Cand &c : cand) {
  		for (int t = 0; t < m; t++) {
  		  const int a = c.row ? c.k : t, b = c.row ? t : c.k;
@@ -36,7 +55,7 @@
  		  double &sh = memo[(size_t)a * m + b];
  		  if (std::isnan(sh)) {
  		    if (U->me[a][b] + qb >= inc - DELTA_BRANCH) sh = 0.0;   // QPB drops this child
-@@ -1502,7 +1517,19 @@
+@@ -1502,7 +1527,19 @@
  		      }
  		    }
  		  }
