@@ -466,6 +466,13 @@ EST_MORE=${S_ESTIMATE_ENV:-}
 if [ -n "$EST_MORE" ]; then
   [ -n "$EST_ENV" ] || [ -n "$DIVES" ] || { echo "ESTIMATE_ENV without ESTIMATE or DIVES"; exit 1; }
   for kv in $EST_MORE; do [[ $kv =~ ^QAP_EST_[A-Z_]+=[^[:space:]]+$ ]] || { echo "ESTIMATE_ENV: $kv is not QAP_EST_X=V"; exit 1; }; done
+  # each must be a setting the solver registers: the coordinating instance exports them, its gates run the
+  # solver with them, and the solver refuses a QAP_EST_* it does not know (sko42-est2-261121, Nov 21:
+  # QAP_EST_DNN_TRACE, read by the worker alone, failed every gate)
+  for kv in $EST_MORE; do
+    grep -q "ENVVAR(\"${kv%%=*}\"" "$D/../../latest/settings.C" \
+      || { echo "ESTIMATE_ENV: ${kv%%=*} is not a solver setting (latest/settings.C): the coordinating instance's gates would fail"; exit 1; }
+  done
 fi
 # a spec's ESTIMATE_DECIDE: the estimate's decision point (coord/dives.py; default 0.15, off: none):
 # the dives stop and the solve goes on when they would cost over this share of the estimated rest
