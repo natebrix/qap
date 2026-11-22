@@ -1,0 +1,22 @@
+make -C latest dnntest
+make[1]: Entering directory '/opt/qap/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c dnntest.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o dnntest.o -o dnntest -lm -L/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/opt/qap/latest'
+python3.11 -u tests/dnn_test.py
+Traceback (most recent call last):
+  File "/opt/qap/tests/dnn_test.py", line 463, in <module>
+    main()
+  File "/opt/qap/tests/dnn_test.py", line 445, in main
+    failures += part_a(args, rng)
+                ^^^^^^^^^^^^^^^^^
+  File "/opt/qap/tests/dnn_test.py", line 136, in part_a
+    res = run_dnntest(dat, nodes, flags, args.iters)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/qap/tests/dnn_test.py", line 92, in run_dnntest
+    raise RuntimeError("dnntest failed (rc=%d):\n%s\n%s" % (out.returncode, out.stdout,
+RuntimeError: dnntest failed (rc=2):
+
+settings: variable(s) not accepted: QAP_EST_DNN_TRACE (bnbdrv --print-settings lists the settings; QAP_ALLOW_UNKNOWN=1 to run anyway)
+
+make: *** [Makefile:56: dnncheck] Error 1
