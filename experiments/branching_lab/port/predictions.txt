@@ -1,0 +1,11 @@
+Written before the runs, Nov 22 2026.
+
+The port's rule in-line (sb.depths = 0:2, sb.all = 0, sb.power = 8, sb.gap at depth 2), 4 slots, the nug30 recipe
+with dnn.depths from 0.
+
+nug30 (sb.gap = 2:0.0582): the root takes r23 (first under shortfall^8 in runs/../root/runs/nug30_root150), and the
+  tree is that of ../root/runs/nug30_r23_d2_gate (3,020 nodes) to within the changes: the root has a DNN bound, so the
+  depth-1 solves start warm, and the score at depths 1 and 2 is shortfall^8, not the sum. 2,850 to 3,250 nodes.
+  The root's strong branching: 30 rows x 9 children, about 1,700 CPU s.
+tho30 (sb.gap = 2:0.084): the root takes r5 (production's), and the tree is that of ../root/runs/tho30_d2_gate
+  (9,713): 9,200 to 10,300 nodes. The root: 30 x 10 children, about 1,800 CPU s.
