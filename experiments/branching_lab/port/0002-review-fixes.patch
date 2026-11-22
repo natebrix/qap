@@ -1,0 +1,436 @@
+From cd8d5b4ebb01f73626f6ecdf81d205309bd6f2c8 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 22 Nov 2026 15:04:37 +0000
+Subject: [PATCH] sb.*: off is off for the settings hash and the state version;
+ child retries; its own marginals
+
+From the review of PR 6:
+
+- The sb.* keys are in the settings hash only when sb.depths is set (then all of
+  them, defaults included). A run without it has the hash it had before the keys
+  existed: the five settings.golden hashes are cognac's again, and a cognac state
+  file resumes under this binary and back without --allow-settings-change.
+- A state file is QAP-STATE 10 only once strong branching chose a line (a nonzero
+  sb_*_level array); otherwise write_state and bench/parallel.py write version 9,
+  the file they wrote before.
+- A child's bound is never taken below the one it inherits: QPB's for it or the
+  node's own DNN bound. With dnn.retry = 1 a child solve that fails that
+  setting's test is solved again without the pool, then cold, each with sb.iters,
+  and the best certified bound counts. QAP_SB_TRACE counts the children retried
+  and those still failed; QAP_SB_PROGRESS lines end with the retry steps.
+- The shortlist's marginals are the node's own vector (sb_xbar): dnn_xbar is
+  filled under rules 8 and 9 only, as before, so est.xbar's dive weights and the
+  rules see what they saw at nodes where strong branching does not choose.
+
+Checked: nug20 with the nug30 recipe and no sb.depths, node trace, state version
+and settings hash equal cognac 21dd774a's, and each binary resumes the other's
+checkpoint; nug20 and nug22 with strong branching at depths 0 to 2, node traces
+and strong-branching traces equal the previous commit's; make test.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014vvMYV3r6FDoHTc2G3VVqC
+---
+ RUNNING.md                                   | 28 +++++++++---
+ bench/parallel.py                            | 10 +++--
+ experiments/estimates/sko42/settings.golden  |  2 +-
+ experiments/estimates/sko49/settings.golden  |  2 +-
+ experiments/estimates/tai50b/settings.golden |  2 +-
+ experiments/estimates/tho40/settings.golden  |  2 +-
+ experiments/estimates/wil50/settings.golden  |  2 +-
+ latest/bnb.C                                 | 46 +++++++++++++++-----
+ latest/settings.C                            | 12 ++++-
+ latest/state.C                               | 14 ++++--
+ latest/state.h                               |  4 +-
+ tests/sb_test.py                             | 30 ++++++++++++-
+ 12 files changed, 119 insertions(+), 35 deletions(-)
+
+diff --git a/RUNNING.md b/RUNNING.md
+index 72e8696b..9bacdb3f 100644
+--- a/RUNNING.md
++++ b/RUNNING.md
+@@ -419,7 +419,8 @@ after the other three; a run resumed from a state file before version 7 has no
+ causes for its first part). Runs without `-x` print exactly what they did.
+ 
+ With DNN strong branching (`sb.depths`, below) the head has one more line and
+-a fourth table follows, both only where it chose a line (state version 10):
++a fourth table follows, both only where it chose a line (state version 10,
++written only then: other state files stay version 9):
+ 
+ ```
+  strong branch: 7 nodes, 448 child solves, 5220 iterations, 12.2 s
+@@ -758,7 +759,13 @@ default: without `sb.depths` the search is node for node what it was.
+   QPB does not already drop is bounded with `sb.iters` ADMM iterations, started
+   as its own first solve would be (warm from the node, under the node's cut pool
+   where it hands one on), with no give-up and no cut phase; a child's bound is
+-  never taken below QPB's for it. A line's score is the
++  never taken below the one it inherits (QPB's for it, or the node's own DNN
++  bound, which holds for every child). With `dnn.retry = 1` a child solve that
++  fails by that setting's test (unfathomed and more than 1% of the incumbent
++  below the inherited bound) is solved again as a node's own would be: without
++  the pool, then cold, each with `sb.iters`, and the best certified bound
++  counts. The trace counts the children retried and those still failed, which
++  score as the node itself does. A line's score is the
+   sum over its children of shortfall^P, the shortfall being the cutoff less the
+   child's bound (0 when it fathoms); the node branches on the line with the
+   least, ties to the larger marginal score.
+@@ -784,12 +791,14 @@ default: without `sb.depths` the search is node for node what it was.
+ - **What it costs, and where it is counted.** Its CPU is the run's: in the total
+   time, in the level table's time at the node's depth, and on its own in the
+   RESULTS line `strong branch: N nodes, S child solves, I iterations, T s` and
+-  the table "Strong branching by level" (state files from version 10). A child
+-  solve is not a node. One node costs (2 x `sb.k` x m - `sb.k`^2) x `sb.iters`
++  the table "Strong branching by level" (state files of version 10, written only
++  once strong branching has chosen a line: until then, and in every run without
++  it, state files are version 9 as before). A child solve, a retry included, is
++  not a node. One node costs (2 x `sb.k` x m - `sb.k`^2) x `sb.iters`
+   iterations at dimension m - 1 at most (`experiments/branching_lab/budget` for
+   the open instances: about 1% of a run at depth 1, more than the run at depth 3).
+ - **`QAP_SB_TRACE=file`** (diagnostic): a line per strong-branching node:
+-  `sb depth D fixes F gap G | chose LINE score S open K | N solves, R reused, I iterations, T CPU s, largest shortfall X | LINE:marginal:score:open ...`.
++  `sb depth D fixes F gap G | chose LINE score S open K | N solves, R reused, Y retried, Z failed, I iterations, T CPU s, largest shortfall X | LINE:marginal:score:open ...`.
+ - **`QAP_SB_PROGRESS=file`** (run): every child solve is appended to the file and a
+   child already in it (the same settings hash, root bound, node, cell, `sb.iters`
+   and cutoff) is not solved again, so a node whose process stopped mid-way repeats
+@@ -798,8 +807,15 @@ default: without `sb.depths` the search is node for node what it was.
+   coordinator does not manage this file: it helps where the file outlives the
+   process (a laptop, an instance that restarts), not across a lost instance. The
+   root's own pass is kept by the coordinator's root cache as before.
++- **The settings hash.** The `sb.*` keys are in the hash only when `sb.depths` is
++  set (then all of them, defaults included). A run without it has the hash it had
++  before these keys existed, so its state files resume as before.
++- **The marginals.** The shortlist's marginal scores are the node's own copy:
++  `sb.depths` does not change what rules 8 and 9 or the estimator's `est.xbar`
++  see at a node where strong branching does not choose the line.
+ - `make sb` (`tests/sb_test.py`) checks the statistics, the trace, the progress
+-  file, `bench/parallel.py`'s totals and the gate.
++  file, `bench/parallel.py`'s totals, the gate, and that a state file is version
++  10 only once strong branching ran.
+ 
+ ## Correctness checks
+ 
+diff --git a/bench/parallel.py b/bench/parallel.py
+index 7de4ffd5..20dd463f 100644
+--- a/bench/parallel.py
++++ b/bench/parallel.py
+@@ -194,7 +194,9 @@ class State:
+         state_dir = os.path.dirname(os.path.abspath(path))
+         # the current version when the file read had a settings record (8 and
+         # up), else 7, the last version without one: a reader of 8+ requires it
+-        magic = "QAP-STATE 10" if self.settings is not None else "QAP-STATE 7"
++        # version 10 only when strong branching ran (a nonzero sb_* array), 9 otherwise
++        sb_ran = self.settings is not None and any(x for k in self.SB for x in self.arrays.get(k, []))
++        magic = "QAP-STATE 10" if sb_ran else "QAP-STATE 9" if self.settings is not None else "QAP-STATE 7"
+         out = [magic,
+                f"n {self.n} levels {self.levels} strategies {self.strategies}",
+                " ".join(["incumbent", repr(self.obj), str(self.found)] + list(self.perm)),
+@@ -203,10 +205,10 @@ class State:
+                "times " + " ".join(repr(x) for x in self.times)]
+         if self.settings is not None:
+             out.append("settings " + " ".join(self.settings))
+-        # the strong-branching arrays close the statistics of a version 10 file (zeros when the
+-        # file read had none) and are not in a version 7 one
++        # the strong-branching arrays close the statistics of a version 10 file (zeros for one
++        # the files read did not all have) and are not in a version 7 or 9 one
+         arrays = collections.OrderedDict((k, v) for k, v in self.arrays.items() if k not in self.SB)
+-        if self.settings is not None:
++        if sb_ran:
+             for k in self.SB:
+                 arrays[k] = self.arrays.get(k) or [0.0 if k in self.FLOATS else 0] * len(self.arrays["n_level"])
+         for k, v in arrays.items():
+diff --git a/experiments/estimates/sko42/settings.golden b/experiments/estimates/sko42/settings.golden
+index 04a184b7..ed60497b 100644
+--- a/experiments/estimates/sko42/settings.golden
++++ b/experiments/estimates/sko42/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash f5659a27d4a9ff42
++settings 102 hash 4d9d559e682bacbe
+ setting dnn.depths 1:40 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+diff --git a/experiments/estimates/sko49/settings.golden b/experiments/estimates/sko49/settings.golden
+index 56067ffa..0e4d17d7 100644
+--- a/experiments/estimates/sko49/settings.golden
++++ b/experiments/estimates/sko49/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash 28c0f475f33aa66e
++settings 102 hash 48c9dd8170de7b12
+ setting dnn.depths 1:47 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+diff --git a/experiments/estimates/tai50b/settings.golden b/experiments/estimates/tai50b/settings.golden
+index bb6795d0..5af36b7c 100644
+--- a/experiments/estimates/tai50b/settings.golden
++++ b/experiments/estimates/tai50b/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash 2162c1d04413c18e
++settings 102 hash 2d2e930dd4892f6e
+ setting dnn.depths 1:48 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 600 par policy
+diff --git a/experiments/estimates/tho40/settings.golden b/experiments/estimates/tho40/settings.golden
+index ac4dad8d..3374e27d 100644
+--- a/experiments/estimates/tho40/settings.golden
++++ b/experiments/estimates/tho40/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash 96f47a28b8d819f6
++settings 102 hash ef87f58b91e422ae
+ setting dnn.depths 1:38 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 200 par policy
+diff --git a/experiments/estimates/wil50/settings.golden b/experiments/estimates/wil50/settings.golden
+index 0f63e5c2..40b17328 100644
+--- a/experiments/estimates/wil50/settings.golden
++++ b/experiments/estimates/wil50/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash aa7b853325993bdf
++settings 102 hash f1daea6957a1aeff
+ setting dnn.depths 1:48 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+diff --git a/latest/bnb.C b/latest/bnb.C
+index 47fee99c..f5a171d8 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -341,7 +341,8 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
+   const bool pooled = pool_on && !pool_out.empty() && dnn_pool_decode(pool_out, pool) &&
+     pool.side == cut_side && !pool.cuts.empty();
+   std::vector<double> memo((size_t)m * m, NAN);
+-  long solves = 0, iters = 0, reused = 0;
++  long solves = 0, iters = 0, reused = 0, retried = 0, failed = 0;
++  static const int dnn_retry = (int)setting_i("dnn.retry");
+   for (const Cand &c : cand)
+     for (int t = 0; t < m; t++) {
+       const int a = c.row ? c.k : t, b = c.row ? t : c.k;
+@@ -350,9 +351,15 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
+       if (!std::isnan(sh)) continue;
+       const double qpb_child = U->me[a][b] + qpb;   // QPB's bound for the child
+       if (qpb_child >= inc - DELTA_BRANCH) { sh = 0.0;  continue; }   // QPB drops this child
+-      // the child's shortfall from its DNN bound, never below QPB's (and so finite whatever the solve returned)
++      // the child's bound before its solve: QPB's for it or the node's own DNN bound, which holds for every child
++      const double inherited = std::max(qpb_child, node_lb);
++      // a solve that failed, by the test of a node's own first solve (dnn.retry): unfathomed and more than
++      // 1% of |incumbent| below the inherited bound (or no certificate: -inf, NaN)
++      auto fails = [&](double lb, bool fath) { return !fath && !(lb >= inherited - 0.01 * std::max(1.0, fabs(inc))); };
++      // the child's shortfall from its DNN bound, never below the inherited one (and so finite whatever the solve returned)
+       auto shortfall = [&](double lb, bool fath) {
+-	double best = qpb_child;
++	if (fails(lb, fath)) failed++;
++	double best = inherited;
+ 	if (lb > best) best = lb;
+ 	return fath ? 0.0 : std::max(0.0, cutoff - best);
+       };
+@@ -395,15 +402,28 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
+ 	rr = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, fo, n, pc, sp, NULL);
+       } else
+ 	rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
++      // dnn.retry = 1, as at a node's own first solve: a pooled solve that failed again without the pool, and
++      // a solve from the node's state that failed again cold (each with sb.iters); the best certified bound counts
++      int retry = 0;
++      auto again = [&](const DNNWarm *from) {
++	DNNResult r2 = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, from, NULL);
++	r2.iterations += rr.iterations;
++	if (r2.status != DNN_FATHOMED && !(r2.lb > rr.lb)) { r2.lb = rr.lb;  r2.status = rr.status; }
++	rr = r2;
++	solves++;
++      };
++      if (dnn_retry && pooled && fails(rr.lb, rr.status == DNN_FATHOMED)) { retry |= 1;  again(sp); }
++      if (dnn_retry && sp && fails(rr.lb, rr.status == DNN_FATHOMED)) { retry |= 2;  lp.warm_primal = 0;  again(NULL); }
++      if (retry) retried++;
+       const bool fath = rr.status == DNN_FATHOMED;
+       sh = shortfall(rr.lb, fath);
+       solves++;  iters += rr.iterations;
+       sb_done[key] = {rr.lb, fath};
+       if (progress_file)
+ 	if (FILE *f = fopen(progress_file, "a")) {   // one fprintf per line: processes share the file
+-	  fprintf(f, "sb-child %s %s %d:%d iters %d cutoff %.4f lb %.4f fathomed %d it %d cpu %.2f\n", run_key.c_str(),
++	  fprintf(f, "sb-child %s %s %d:%d iters %d cutoff %.4f lb %.4f fathomed %d it %d cpu %.2f retry %d\n", run_key.c_str(),
+ 		  fixes.c_str(), frow[a], fcol[b], sb_iters, cutoff, rr.lb, fath ? 1 : 0, rr.iterations,
+-		  (double)(clock() - tc) / CLOCKS_PER_SEC);
++		  (double)(clock() - tc) / CLOCKS_PER_SEC, retry);
+ 	  fclose(f);
+ 	}
+     }
+@@ -432,9 +452,9 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
+     char buf[256];
+     snprintf(buf, sizeof buf, "sb depth %d fixes ", node.depth);
+     std::string msg = buf + fixes;   // (the fixes of a deep node are longer than buf)
+-    snprintf(buf, sizeof buf, " gap %.4f | chose %c%d score %.6g open %d | %ld solves%s, %ld reused, %ld iterations, %.2f CPU s, largest shortfall %.4f |",
++    snprintf(buf, sizeof buf, " gap %.4f | chose %c%d score %.6g open %d | %ld solves%s, %ld reused, %ld retried, %ld failed, %ld iterations, %.2f CPU s, largest shortfall %.4f |",
+ 	     rel_gap, best->row ? 'r' : 'c', bp->fixed_index_in_assign, best->score,
+-	     best->open, solves, pooled ? " (pooled)" : "", reused, iters, cpu, smax);
++	     best->open, solves, pooled ? " (pooled)" : "", reused, retried, failed, iters, cpu, smax);
+     msg += buf;
+     for (const Cand &c : cand) {   // line:marginal score:score:children still open
+       snprintf(buf, sizeof buf, " %c%d:%.4f:%.6g:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
+@@ -1048,6 +1068,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+       char dnn_fate = 0;                   // 'D' or 'C' when one of them fathomed
+       void *dnn_keep = NULL;   // this node's DNN state, for its children
+       std::vector<double> dnn_xbar;   // its primal marginals, for rule 8
++      std::vector<double> sb_xbar;    // the same for strong branching's shortlist: dnn_xbar keeps its rule 8/9 meaning (est.xbar reads it)
+       std::string dnn_pool_out;       // its cut pool for its children (QAP_DNN_POOL)
+       // QAP_DNN_EXT=k: below dnn_max_depth a node whose parent's DNN bound ran
+       // and did not fathom keeps the DNN bound, up to k levels down; under a
+@@ -1384,16 +1405,17 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	    node.bound = std::max(node.bound, cr.best_lb);
+ 	    if (cr.status == DNN_FATHOMED) { dnn_fathomed = true; dnn_fate = 'C'; }
+ 	  }
+-	  if (save && !dnn_fathomed && save->m == m &&
+-	      (param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD ||
+-	       (node.depth >= sb_min_depth && node.depth <= sb_max_depth))) {   // strong branching shortlists by them
++	  const bool xbar_rule = param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD;
++	  const bool xbar_sb = node.depth >= sb_min_depth && node.depth <= sb_max_depth;   // strong branching shortlists by them
++	  if (save && !dnn_fathomed && save->m == m && (xbar_rule || xbar_sb)) {
+ 	    // x_ij = Y_0,(ij) of the final primal iterate (row 0 of the lifted
+ 	    // matrix, after the leading 1), m x m row-major in local indices;
+ 	    // cut.xbar = 1: the cut phase's final iterate when a phase ran
+ 	    static const int cut_xbar = (int)setting_i("cut.xbar");
+ 	    const DNNWarm *xs = (cut_xbar && cut_state && cut_state->m == m && (int)cut_state->Y.size() >= m * m + 1) ? cut_state : save;
+ 	    const int n1 = m * m + 1;
+-	    dnn_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
++	    if (xbar_rule) dnn_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
++	    if (xbar_sb) sb_xbar.assign(xs->Y.begin() + 1, xs->Y.begin() + n1);
+ 	  }
+ 	  if (have_pool && dnn_pool_out.empty() && !dnn_fathomed && !pool_mid.cuts.empty())
+ 	    dnn_pool_out = dnn_pool_encode(pool_mid);   // no cut phase: hand on the inherited pool
+@@ -1454,7 +1476,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	// DNN strong branching (sb.*) chooses the line in place of the level's rule where it applies
+ 	if (sb_max_depth >= 0 && dnn_keep)
+ 	  dnn_strong_branch(q, node, n, m, U, bound + qpbp->lapU, s->getObjective(),
+-			    std::isnan(cut_lb) ? dnn_lb : cut_lb, *(DNNWarm *)dnn_keep, dnn_xbar, dnn_pool_out, bp, stats);
++			    std::isnan(cut_lb) ? dnn_lb : cut_lb, *(DNNWarm *)dnn_keep, sb_xbar, dnn_pool_out, bp, stats);
+ #endif
+ 	// every bound but GLB leaves its Frank-Wolfe point in X; the
+ 	// children start from it (copied first: branch() may use X)
+diff --git a/latest/settings.C b/latest/settings.C
+index a2bb774d..7dca1924 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -366,12 +366,22 @@ static std::string hex64(unsigned long long h)
+ 
+ static bool recorded(const Setting &s) { return s.cls == SET_POLICY || s.cls == SET_EXPERIMENT; }
+ 
++// A family behind a switch is in the hash only when the switch is set: the sb.* keys do nothing
++// without sb.depths, and a run without it has the hash it had before they existed (its state files
++// still resume). With sb.depths set every sb.* key is hashed, defaults included.
++static bool hashed(const Setting &s)
++{
++  if (!recorded(s)) return false;
++  if (s.key && strncmp(s.key, "sb.", 3) == 0) return !find("sb.depths")->text.empty();
++  return true;
++}
++
+ static std::string hash_text()
+ {
+   settings_load();
+   unsigned long long h = 1469598103934665603ULL;
+   for (int k = 0; k < NTABLE; k++)
+-    if (recorded(TABLE[k])) h = fnv1a(std::string(TABLE[k].name()) + "=" + TABLE[k].text + "\n", h);
++    if (hashed(TABLE[k])) h = fnv1a(std::string(TABLE[k].name()) + "=" + TABLE[k].text + "\n", h);
+   return hex64(h);
+ }
+ 
+diff --git a/latest/state.C b/latest/state.C
+index 59a19a5b..1c7bf0d6 100644
+--- a/latest/state.C
++++ b/latest/state.C
+@@ -305,7 +305,11 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
+   f << std::setprecision(17);
+ 
+   const int n = s->n, L = stats->n + 1, m = stats->m;
+-  f << STATE_MAGIC << ' ' << STATE_VERSION << '\n';
++  // version 10 only when strong branching ran: a run without it writes version 9, as before sb.*
++  bool sb_ran = false;
++  for (int i = 0; i < L; i++)
++    if (stats->sb_n_level[i] || stats->sb_s_level[i] || stats->sb_i_level[i] || stats->sb_t_level[i] != 0.0) sb_ran = true;
++  f << STATE_MAGIC << ' ' << (sb_ran ? STATE_VERSION : STATE_VERSION - 1) << '\n';
+   f << "n " << n << " levels " << stats->n << " strategies " << m << '\n';
+   f << "incumbent " << s->obj << ' ' << s->ifs_found;
+   for (int i = 0; i < n; i++) f << ' ' << s->perm[i];
+@@ -339,9 +343,11 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
+     write_array(f, CUT_LEVEL_CTRS[0], stats->cut_n_level, L);
+     write_array(f, CUT_LEVEL_CTRS[1], stats->cut_f_level, L);
+     write_array(f, "cut_t_level", stats->cut_t_level, L);
+-    QAPStatistics::ctr_type *sc[] = {stats->sb_n_level, stats->sb_s_level, stats->sb_i_level};
+-    for (int k = 0; k < 3; k++) write_array(f, SB_LEVEL_CTRS[k], sc[k], L);
+-    write_array(f, "sb_t_level", stats->sb_t_level, L);
++    if (sb_ran) {
++      QAPStatistics::ctr_type *sc[] = {stats->sb_n_level, stats->sb_s_level, stats->sb_i_level};
++      for (int k = 0; k < 3; k++) write_array(f, SB_LEVEL_CTRS[k], sc[k], L);
++      write_array(f, "sb_t_level", stats->sb_t_level, L);
++    }
+   }
+ 
+   // the parents' X the open nodes start from, each written once
+diff --git a/latest/state.h b/latest/state.h
+index 94a3dcbb..0add88f7 100644
+--- a/latest/state.h
++++ b/latest/state.h
+@@ -12,7 +12,9 @@
+  It is plain text, so other tools (bench/parallel.py) can split a
+  state into tasks and merge the statistics of finished ones.
+ 
+- Format (version 10; versions 1-9, which lack the warm starts, the DNN
++ Format (version 10, written once strong branching has chosen a line; a
++ state without strong-branching counts is written as version 9, the same
++ file without the sb_*_level arrays; versions 1-9, which lack the warm starts, the DNN
+  counts, dnn_ext, the cut pools, the DNN state, the per-level DNN counts,
+  the settings record, the @path DNN references or the strong-branching
+  counts, are still read):
+diff --git a/tests/sb_test.py b/tests/sb_test.py
+index 33d79758..2d57c6a9 100644
+--- a/tests/sb_test.py
++++ b/tests/sb_test.py
+@@ -8,6 +8,9 @@ For each case (an instance, its optimum as the upper bound, a params file with s
+  * QAP_SB_TRACE has one line per strong-branching node, and its solves and iterations add up
+    to the statistics';
+  * a second run over the first's QAP_SB_PROGRESS file solves no child again and has the same tree;
++ * a state file is version 10 once strong branching chose a line and version 9 otherwise;
++ * with dnn.retry = 1 the children that fail its test are retried and counted (tai15b), and where
++   none fails the tree and the child solves are the same (nug18);
+  * bench/parallel.py's totals (state version 10: the strong-branching counts by level) equal
+    the serial run's;
+  * with sb.gap out of reach the tree is the tree without sb.depths.
+@@ -31,8 +34,8 @@ CASES = [  # instance, optimum, params file
+ ENV = dict(os.environ, OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1")
+ 
+ 
+-def solve(solver, par, ub, name, env=()):
+-    r = subprocess.run([solver, "-p", par, "-u", str(ub), os.path.join(ROOT, "qaplib", name + ".dat")],
++def solve(solver, par, ub, name, env=(), extra=()):
++    r = subprocess.run([solver, "-p", par, "-u", str(ub)] + list(extra) + [os.path.join(ROOT, "qaplib", name + ".dat")],
+                        cwd=os.path.dirname(solver), capture_output=True, text=True, env=dict(ENV, **dict(env)))
+     return r.returncode, r.stdout + r.stderr
+ 
+@@ -119,6 +122,29 @@ def main():
+         check(rc0 == 0 and rc1 == 0 and nodes(o0) == nodes(o1) and sb_line(o1) is None and sb_line(o0) is None,
+               f"{name} with sb.gap out of reach: nodes {nodes(o1)}, without sb.depths {nodes(o0)}")
+ 
++        # a state file is version 10 only once strong branching chose a line: 9 without it
++        heads = []
++        for label, pf in (("on", par), ("gated", gated), ("off", off)):
++            st = os.path.join(tmp, f"{name}.{label}.state")
++            solve(solver, pf, opt, name, extra=("-d", "1", "-o", st))
++            text = open(st).read() if os.path.exists(st) else ""
++            heads.append((text.split("\n")[0], "sb_n_level" in text))
++        check(heads == [("QAP-STATE 10", True), ("QAP-STATE 9", False), ("QAP-STATE 9", False)],
++              f"{name} state files with strong branching, gated off, without: {heads}")
++
++        # dnn.retry = 1: a child that fails its test (tai15b's root at 40 iterations: most of them) is solved
++        # again cold (no pool here: one more solve each), and the count says so; where none fails, the same tree
++        failed1 = sum(int(re.search(r"(\d+) failed", l).group(1)) for l in tl)
++        rc3, o3 = solve(solver, variant(par, tmp, name + ".retry.par", add=("dnn.retry = 1",)), opt, name,
++                        {"QAP_SB_TRACE": os.path.join(tmp, name + ".sb3.txt")})
++        t3 = open(os.path.join(tmp, name + ".sb3.txt")).read().splitlines() if rc3 == 0 else []
++        retried = sum(int(re.search(r"(\d+) retried", l).group(1)) for l in t3)
++        s3 = sb_line(o3)
++        check(rc3 == 0 and s3 is not None and retried >= failed1 * (len(t3) > 0) and (retried > 0 or nodes(o3) == n1)
++              and (retried > 0 or s3 == s1) and s3[1] - retried == sum(int(re.search(r"\| (\d+) solves", l).group(1)) for l in t3) - retried
++              and all(" 0 retried," in l for l in tl),
++              f"{name} with dnn.retry = 1: nodes {nodes(o3)}, strong branching {s3}, {failed1} children failed without it, {retried} retried with it")
++
+     # values the solver refuses
+     par = os.path.join(ROOT, "tests", "par", "sb.par")
+     for what, kw in (("sb.depths above dnn.depths", dict(drop=("sb.depths",), add=("sb.depths = 0:2",))),
+-- 
+2.43.0
+

@@ -125,14 +125,33 @@ memory for the process (the estimator's dives pass the same top nodes many times
 the settings hash and the root bound, long trace lines. Left as it is and documented: under `pool.cp = 1` a pooled
 child is bounded in the pool form, not the CP form of its own first solve.
 
+## The review on the PR (Nov 22, `0002-review-fixes.patch`, cd8d5b4e on the PR's branch)
+
+Four comments, all taken:
+
+- **The settings hash** covered the six new keys at their defaults, so every paused run would have needed
+  `--allow-settings-change`. Now the `sb.*` keys are hashed only when `sb.depths` is set. The five golden hashes
+  are cognac's again; cognac and the port resume each other's nug20 checkpoint (217 nodes either way) [m].
+- **The state version** was 10 for every file. Now 10 only once strong branching chose a line, else 9, the file
+  cognac writes [m: `tests/sb_test.py`].
+- **A failed child solve** scored at QPB's bound. Now a child's bound is never below the node's own DNN bound, and
+  with `dnn.retry = 1` a child that fails that setting's test is solved again without the pool, then cold. The
+  trace counts the retried and the failed. tai15b's root at 40 iterations: 194 of 222 children fail the test, 16
+  improve cold, the same tree [m]. Not measured: 150 iterations on the recipes that set `dnn.retry`; the retry
+  without the pool has no test.
+- **The marginals** for the shortlist were written into `dnn_xbar`, which `est.xbar` reads. Now their own vector.
+
+With strong branching on, nug20 and nug22 give the same node traces and strong-branching traces before and after
+[m]. The nug30 and tho30 runs above are on the first commit and were not repeated: in them no child's bound was
+below its node's, so neither the floor nor a retry would have fired.
+
 ## What to know before merging
 
-1. **The settings hash changes** (six policy keys), as with any new key: a state file written by the current
-   cognac binary resumes under the new one only with `--allow-settings-change`. The five `settings.golden` of
-   `experiments/estimates` are regenerated in the commit.
-2. **State files are version 10.** The Python and the binary go together (one commit). The website's parser reads
-   version 10 from brixius-web 39764ee on (branch `claude/cool-babbage-ilnogj`): deploy it before a run on the new
-   solver publishes its totals, or the live pages refuse the file.
+1. **A run without `sb.depths` keeps its settings hash and its state version** (after the review's fixes). The
+   five `settings.golden` of `experiments/estimates` change in their listing only.
+2. **A state file is version 10 once strong branching ran.** The website's parser reads version 10 from
+   brixius-web 39764ee on (branch `claude/cool-babbage-ilnogj`): deploy it before the first run that uses strong
+   branching publishes its totals, or the live pages refuse the file.
 3. **A strong-branching node interrupted by a lost instance starts again.** `QAP_SB_PROGRESS=file` avoids that
    where the file outlives the process; the coordinator does not manage it (the root's pass is in the
    coordinator's root cache as before). At tho40 a depth-1 node is about 2.6 core-hours.
@@ -154,6 +173,7 @@ https://github.com/natebrix/qap/pull/6.
 
 ## Files
 
-`0001-dnn-strong-branching.patch` (the commit); `run.sh`, `nug30_sb.par`, `tho30_sb.par`, `nug30_sb_p8.par` (the
+`0001-dnn-strong-branching.patch` (the commit) and `0002-review-fixes.patch` (on top of it; the PR's branch has
+both); `run.sh`, `nug30_sb.par`, `tho30_sb.par`, `nug30_sb_p8.par` (the
 acceptance runs); `predictions.txt` (written before each run); `runs/` (results, the node trace, `sb.txt`: a line
 per strong-branching node, `sb_progress.txt`: its child solves).
