@@ -9,8 +9,8 @@ For each case (an instance, its optimum as the upper bound, a params file with s
    to the statistics';
  * a second run over the first's QAP_SB_PROGRESS file solves no child again and has the same tree;
  * a state file is version 10 once strong branching chose a line and version 9 otherwise;
- * with dnn.retry = 1 the children that fail its test are retried and counted (tai15b), and where
-   none fails the tree and the child solves are the same (nug18);
+ * with dnn.retry = 1 and no failed child solve (none ends below QPB's bound for the child) the
+   tree and the child solves are the same;
  * bench/parallel.py's totals (state version 10: the strong-branching counts by level) equal
    the serial run's;
  * with sb.gap out of reach the tree is the tree without sb.depths.
@@ -132,8 +132,8 @@ def main():
         check(heads == [("QAP-STATE 10", True), ("QAP-STATE 9", False), ("QAP-STATE 9", False)],
               f"{name} state files with strong branching, gated off, without: {heads}")
 
-        # dnn.retry = 1: a child that fails its test (tai15b's root at 40 iterations: most of them) is solved
-        # again cold (no pool here: one more solve each), and the count says so; where none fails, the same tree
+        # dnn.retry = 1: a child solve that ends below QPB's bound for it is solved again, and the count says
+        # so; none does in these cases (a child short of converged is not a failure), so the same tree
         failed1 = sum(int(re.search(r"(\d+) failed", l).group(1)) for l in tl)
         rc3, o3 = solve(solver, variant(par, tmp, name + ".retry.par", add=("dnn.retry = 1",)), opt, name,
                         {"QAP_SB_TRACE": os.path.join(tmp, name + ".sb3.txt")})

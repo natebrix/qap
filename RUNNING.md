@@ -760,12 +760,14 @@ default: without `sb.depths` the search is node for node what it was.
   as its own first solve would be (warm from the node, under the node's cut pool
   where it hands one on), with no give-up and no cut phase; a child's bound is
   never taken below the one it inherits (QPB's for it, or the node's own DNN
-  bound, which holds for every child). With `dnn.retry = 1` a child solve that
-  fails by that setting's test (unfathomed and more than 1% of the incumbent
-  below the inherited bound) is solved again as a node's own would be: without
-  the pool, then cold, each with `sb.iters`, and the best certified bound
-  counts. The trace counts the children retried and those still failed, which
-  score as the node itself does. A line's score is the
+  bound, which holds for every child). A child solve fails when it ends
+  unfathomed below QPB's bound for the child, or with no certificate. (Not the
+  1% test of a node's own solve: a child solve stops at `sb.iters`, and one that
+  is only short of converged ends above QPB's bound.) With `dnn.retry = 1` a
+  failed child is solved again as a node's own would be: without the pool, then
+  cold, each with `sb.iters`, and the best certified bound counts. The trace
+  counts the children retried and those still failed, which score as the node
+  itself does. A line's score is the
   sum over its children of shortfall^P, the shortfall being the cutoff less the
   child's bound (0 when it fathoms); the node branches on the line with the
   least, ties to the larger marginal score.

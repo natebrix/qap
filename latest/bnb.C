@@ -351,11 +351,15 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
       if (!std::isnan(sh)) continue;
       const double qpb_child = U->me[a][b] + qpb;   // QPB's bound for the child
       if (qpb_child >= inc - DELTA_BRANCH) { sh = 0.0;  continue; }   // QPB drops this child
-      // the child's bound before its solve: QPB's for it or the node's own DNN bound, which holds for every child
-      const double inherited = std::max(qpb_child, node_lb);
-      // a solve that failed, by the test of a node's own first solve (dnn.retry): unfathomed and more than
-      // 1% of |incumbent| below the inherited bound (or no certificate: -inf, NaN)
-      auto fails = [&](double lb, bool fath) { return !fath && !(lb >= inherited - 0.01 * std::max(1.0, fabs(inc))); };
+      // the child's bound before its solve: QPB's for it, or the node's (node.bound, what branch() hands a
+      // child, and the node's last DNN bound), which holds for every child
+      const double inherited = std::max(qpb_child, std::max(node_lb, (double)node.bound));
+      // a solve that failed: unfathomed and below QPB's bound for the child, or no certificate (-inf, NaN).
+      // Not dnn.retry's test at a node (1% of |incumbent| below the inherited bound): a child solve stops at
+      // sb.iters, and one that is only short of converged ends between QPB's bound and the inherited one
+      // (tai15b's root: 52 to 196 of 222 children are 1% below at 150 to 1 iterations, none below QPB's),
+      // while the failures dnn.retry is for end far below QPB's (sko42 -36,269, tai35b -3.1e11, -inf)
+      auto fails = [&](double lb, bool fath) { return !fath && !(lb >= qpb_child); };
       // the child's shortfall from its DNN bound, never below the inherited one (and so finite whatever the solve returned)
       auto shortfall = [&](double lb, bool fath) {
 	if (fails(lb, fath)) failed++;
@@ -402,8 +406,9 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
 	rr = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, fo, n, pc, sp, NULL);
       } else
 	rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
-      // dnn.retry = 1, as at a node's own first solve: a pooled solve that failed again without the pool, and
-      // a solve from the node's state that failed again cold (each with sb.iters); the best certified bound counts
+      // dnn.retry = 1, the two retries of a node's own first solve: a pooled solve that failed again without the
+      // pool, and a solve from the node's state that failed again cold (each with sb.iters); the best certified
+      // bound counts
       int retry = 0;
       auto again = [&](const DNNWarm *from) {
 	DNNResult r2 = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, from, NULL);
