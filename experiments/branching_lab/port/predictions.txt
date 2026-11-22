@@ -9,3 +9,13 @@ nug30 (sb.gap = 2:0.0582): the root takes r23 (first under shortfall^8 in runs/.
   The root's strong branching: 30 rows x 9 children, about 1,700 CPU s.
 tho30 (sb.gap = 2:0.084): the root takes r5 (production's), and the tree is that of ../root/runs/tho30_d2_gate
   (9,713): 9,200 to 10,300 nodes. The root: 30 x 10 children, about 1,800 CPU s.
+
+Nov 22, after the first nug30 run (runs/nug30_sb_p8, the 8th power at every depth): the root took r23 as
+predicted, 3,374 nodes, above the range. Under r23's three largest depth-1 nodes the 8th power chose r4 where the
+sum had chosen c24 (../root/runs/nug30_r23_d2_gate), and two of those subtrees are 15 and 18% larger. The exponent
+is now by depth, sb.power = 0:8,1:1 the default: the 8th power at the root, the sum below.
+
+Written before the second runs, with that default:
+nug30: 2,900 to 3,250 nodes (the experiment build's 3,020 with the same choices; the depth-1 solves now start warm
+  from the root's DNN state, whose bounds came out about 20 higher).
+tho30: as above, 9,200 to 10,300.
