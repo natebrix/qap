@@ -1,0 +1,175 @@
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/experiments/branching_lab/ucheap/sko42sub/r10.par
+symmetry file: SYM/sko42t.sym
+incumbent: 15814
+root fixes: 36:14,7:0
+time limit 16000 s
+state file: /home/user/qap/experiments/branching_lab/ucheap/sko42sub/runs_big/36-14_7-0_r10.state
+input file: ../qaplib/sko42t.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	10	150/100/25	99	30	
+0.12	4	10	150/100/12	99	30	
+0	6	10	100/ 50/25	99	30	
+-1	1000	10	100/ 50/25	99	30	
+
+DNN bound at depths 1-40, relative gap <= 1, give up after 300 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+Rules 10 and 11: a line's score is the sum over the children QPB does not drop of exp(32 x QPB shortfall / the node's QPB gap)
+settings 103 hash e9fc63db0e72e56c
+setting dnn.depths 1:40 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 300 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 100 par policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.3 par policy
+setting dnn.refresh 40 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched two,f=1.6667,t=60,w=0.25,wc=1.4 par policy
+setting dnn.dscale 0 default policy
+setting dnn.dscale0 1 default policy
+setting dnn.dscale_until 0 default policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 1 par policy
+setting ship.bits 32 par policy
+setting cut.zone 0.025 par policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 1 par policy
+setting cut.grid 6:7 par policy
+setting cut.regions "" default policy
+setting cut.regions.hash "" default policy
+setting cut.rounds 12 par policy
+setting cut.iters 200 par policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 1000 par policy
+setting cut.warmy 1 par policy
+setting cut.damp1 0.3 par policy
+setting cut.equip "" default policy
+setting cut.cp 100:1000 par policy
+setting cut.giveup "" default policy
+setting cut.giveup_depth 0 default policy
+setting cut.cp_iters 0 default policy
+setting cut.handover 27:0:5 par policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_extrap "" default policy
+setting cut.cp_wc_gap 0 default policy
+setting cut.cp_wc_deficit 0 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 1 par policy
+setting dnn.retry 1 par policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting branch.la_exp 32 par policy
+setting sb.depths "" default policy
+setting sb.k 4 default policy
+setting sb.all -1 default policy
+setting sb.iters 150 default policy
+setting sb.power 0:8,1:1 default policy
+setting sb.gap "" default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash 92bbea61ea5c2444 par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_EST_SURV "" default run
+setting QAP_EST_SAMPLE 1 default run
+setting QAP_EST_ALLOC auto default run
+setting QAP_EST_SAMPLE_W unif default run
+setting QAP_EST_BUDGET 0 default run
+setting QAP_EST_MIN_DIVES 1 default run
+setting QAP_EST_SAMPLE_DEPTHS "" default run
+setting QAP_EST_WARM_KEEP 8 default run
+setting QAP_EST_SPILL_MB 1000 default run
+setting QAP_EST_DIVES "" default run
+setting QAP_EST_DNN_TRACE 0 default run
+setting QAP_SB_PROGRESS "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/branching_lab/ucheap/sko42sub/r10.par flag run
+setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE /home/user/qap/experiments/branching_lab/ucheap/sko42sub/runs_big/36-14_7-0_r10.nodes.txt env diagnostic
+setting QAP_SB_TRACE "" default diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_DNN 0 default run
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+root bound 13995.8 (for the relative gaps of a -F run)
+branching_weight() = 0.5
+read symmetry info from SYM/sko42t.sym
+  ---- RESULTS ----
+
+    Total Time: 5753.76 seconds 
+         Nodes: 578 / 563 / 0
+    root bound: 13995.8
+ fw iterations: 584075
+     DNN bound: 578 nodes, 526 fathomed, 3050.23 s
+     cut phase: 52 nodes, 37 fathomed, 2660.24 s
+
+level    nodes	%fathom	%c.elim	    time
+ 2           1	0.0000	0.0000	  259.49
+ 3          40	0.8250	0.0000	 1647.04
+ 4         273	0.9817	0.0000	 2442.86
+ 5         190	0.9895	0.0000	 1122.05
+ 6          74	1.0000	N/A	  282.32
+
+Strategy breakdown:
+nodes       1        0      577        0 
+time   259.49     0.00  5494.26     0.00 
+
+Relative gap information:
+      mean  	std. dev
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 2           1	0.0000	1.0000	        300	   300.0	   40.86
+ 3          40	0.5500	0.4500	       3432	    85.8	  460.94
+ 4         273	0.9121	0.0879	      12566	    46.0	 1527.42
+ 5         190	0.9579	0.0421	       7076	    37.2	  752.46
+ 6          74	0.9865	0.0135	       2771	    37.4	  268.55
+
+Cut phase by level:
+level    nodes	%fathom	    time
+ 2           1	0.0000	  216.81
+ 3          18	0.6111	 1172.95
+ 4          24	0.7917	  898.56
+ 5           8	0.7500	  360.52
+ 6           1	1.0000	   11.39
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 2           0	       0	       0	       0	       0
+ 3          33	       0	      22	      11	       0
+ 4         268	       0	     249	      19	       0
+ 5         188	       0	     182	       6	       0
+ 6          74	       0	      73	       1	       0
+
+eigendecompositions for W and U: 595 computed, 563 reused from the per-size cache
+exit 0 wall 6989 s

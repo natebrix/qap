@@ -107,3 +107,19 @@ where the cold start node lands; its children inherit bounds and fall in blocks 
 run. On 36:14,7:0 this is prod's run by construction (same line c35, rule 9 below): 575 / 5,014, not rerun. On the
 other four depth-2 subtrees (r10: 41 / 1,782, 158 / 1,475, 80 / 1,077, 235 / 2,477; 6,811 s together) the
 depth-2 line is r10's; prediction: each within 15% of r10's CPU, the four together 0.92 to 1.05 of 6,811 s.
+
+Results of rule 10 at the depth-2 node only (Nov 23; runs_big.log, runs_big/*_d2.*). Nodes / CPU s:
+
+  subtree        r10                 d2.par
+  36:16,23:0     41 / 1,782          41 / 1,836     1.03
+  36:8,35:0      158 / 1,475         158 / 1,600    1.08
+  36:9,12:0      80 / 1,077          80 / 1,131     1.05
+  36:15,27:0     235 / 2,477         235 / 2,553    1.03
+  the four       514 / 6,811         514 / 7,120    1.045
+
+Inside the range (each within 15%, the four 0.92 to 1.05). The node counts are equal because the same number of
+nodes branch at each depth; the lines from depth 3 differ (rule 9's against rule 10's). The four ran together on
+the four cores, were paused for 6 minutes for a nug30 check and shared the cores with two short tests: the
+depth-2 node of 36:15,27:0, the same computation in both arms, cost 271 s here for 239. So d2 and r10 are level
+on these four; with 36:14,7:0 (d2 = prod there, 5,014 s for r10's 5,754) the five depth-2 subtrees are
+prod 2,120 / 17,406, r10 1,092 / 12,565 (0.52 / 0.72), d2 1,089 / 12,134 (0.51 / 0.70).

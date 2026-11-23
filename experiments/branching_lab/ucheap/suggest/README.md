@@ -2,14 +2,18 @@
 
 Evidence and its limits: `../README.md`, "sko42 and tai35b".
 
-- **nug30** (the laptop record): in cognac, `experiments/nug30_record/README.md`, "Nov 23":
-  `caffeinate -i experiments/nug30_record/run.sh g5e g5e_r11x2 g5e_r11x2_gu83`.
-- **sko42**: `sko42_r10.par`. `experiments/estimates/sko42/sko42.par` with rule 10 on every line in every block
-  but the first, `branch.la_exp = 32`. The first block is the root and the 12 depth-1 nodes on sko42, left at
-  rule 9: the run has sko42-261120b's 438 depth-2 nodes and differs from there down. Over eight subtrees of that
-  run: 0.61 of its nodes, 0.78 of its CPU.
-  `sko42_r10_sb.par`: the same with `sb.depths = 0:1`, `sb.all = 0`, `dnn.depths = 0:40`, as
-  `infra/phase1/recipes/tho40c_sb.par`. Not measured on sko42.
+- **nug30** (the laptop record): no candidate stands. `g5e_r11x2` (cognac, `experiments/nug30_record/README.md`,
+  "Nov 23"; 909 nodes on Linux) ran past 15,299 nodes on the laptop and was stopped; cause not found. `g5e`
+  remains the record recipe (104.6 s that evening). `g5e_r11` and `g5e_r10` are untried on the laptop.
+- **sko42** (on Linux; not on a Mac until the nug30 difference is understood): **`sko42_d2r10.par`**.
+  `experiments/estimates/sko42/sko42.par` with rule 10 on every line at depth 2 only (five blocks: the second
+  and third are depth 2, 25 lookahead iterations as measured), `branch.la_exp = 32`. The first block is the root
+  and the 12 depth-1 nodes on sko42, left at rule 9: the run has sko42-261120b's 438 depth-2 nodes and differs
+  from the depth-2 lines down. Over five depth-2 subtrees of that run: 0.51 of its nodes, 0.70 of its CPU; from
+  depth 3 down rule 9 was the best of the three rules (rules 10 and 11 at two lines: 1.04 of its CPU).
+  `sko42_r10.par`: rule 10 in every block but the first (0.61 / 0.78 over eight subtrees; its depth-2 lookahead
+  is 12 iterations at most nodes, measured with 25). `sko42_r10_sb.par`: that with `sb.depths = 0:1`,
+  `sb.all = 0`, `dnn.depths = 0:40`, as `infra/phase1/recipes/tho40c_sb.par`. Not measured on sko42.
 - **tai50b**: no change. `infra/phase1/recipes/tai50b.par` as it is in cognac (rule 9 at every depth). On tai35b
   rule 11 gave 1.06 of rule 9's nodes, rule 10 1.10 (1.33 of the CPU), DNN strong branching at the root and
   depth 1 0.96 (1.81 of the CPU).

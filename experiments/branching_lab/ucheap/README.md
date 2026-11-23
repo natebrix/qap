@@ -10,7 +10,8 @@ score. Run as a rule (Nov 23, `trees/`): nug30 closes in 3,420 nodes and 2,392 C
 to 4,365 and 3,314 to 3,421; tho30 in 8,581 and 6,350 against 14,815 and 9,375. On three depth-3 subtrees of
 tho40 it gains nothing (1,862 nodes against 1,818; one subtree 38% larger). On eight subtrees of sko42 rule 10 takes
 0.61 of rule 9's nodes and 0.78 of its CPU, all of it from the depth-2 nodes' lines; on tai35b neither rule
-gains (Nov 23, below).**
+gains (Nov 23, below). On the laptop the nug30 record candidate `g5e_r11x2` (909 nodes on Linux) did not
+finish: over 15,299 nodes when stopped, cause not found (Nov 23, below).**
 
 ## The trees (`trees/run.sh PROBLEM exp_all`; cognac 1d7e7403 + `trees/lasize.patch`, 4 slots, the nug30 recipe)
 
@@ -132,16 +133,40 @@ with rule 11 (one and two lines a side) or rule 10 on every line. Nodes / CPU s.
   The line decides how many of the node's 40 children branch at all.
 - **From depth 3 down rule 10 is level with rule 9, not ahead** [m]: CPU 0.95, 0.82 and 1.14 on the three
   depth-3 starts and 1.15 below the shared depth-2 line of 36:14,7:0, where its lines leave 37 children to the
-  cut phase for rule 9's 23. Rule 11 with two lines a side was never behind there (1.00, 0.85, 0.98).
+  cut phase for rule 9's 23. Rule 11 with two lines a side: 1.00, 0.85, 0.98 on the depth-3 starts and 1.18
+  below 36:14,7:0's c35 (765 nodes / 5,924 s; `hyb.par`, whose first block chose c35 there too). Everything
+  measured from depth 3 down: rule 9 10,775 s, rule 10 11,205, rule 11 with two lines 11,258 (1.04 each).
+- **Rule 10 at the depth-2 node only, rule 9 below (`d2.par`) does as well as rule 10 everywhere** [m]: 41 / 1,836,
+  158 / 1,600, 80 / 1,131, 235 / 2,553 on the four subtrees where the depth-2 line changes (rule 10 everywhere:
+  41 / 1,782, 158 / 1,475, 80 / 1,077, 235 / 2,477; the lines below differ, the count of branchings does not;
+  these four ran beside other jobs, and the same depth-2 node cost 271 s for 239). At 36:14,7:0 it is rule 9's
+  run. The five depth-2 subtrees: rule 9 2,120 / 17,406; rule 10 everywhere 1,092 / 12,565 (0.52 / 0.72);
+  rule 10 at depth 2 only 1,089 / 12,134 (0.51 / 0.70).
+- **A cold start's first node is in the params file's first block** whatever its depth (no inherited bound, so
+  its relative gap is large). Every arm above has one rule in every block except `hyb.par` and `d2.par`;
+  `hyb.par` on 36:15,27:0 therefore ran rule 9 with two lines at depth 2 (r22: 882 / 5,434), not rule 10. The
+  depth-2 lookahead ran with the first block's 25 iterations; in the full run 168 of the 269 depth-2 branchings
+  were in the second block (12).
 - **Fewer nodes is not as much less CPU**: a child fathomed by its first DNN solve costs about 4 s here, one that
   needs its cut phase about 50. At 36:16,23:0 rule 10's one branching leaves 27 of 40 children to the cut phase.
 - **What the sample is**: five of the run's 269 branching depth-2 nodes and three depth-3 nodes, subtrees of
   191 to 691 nodes; the 27 largest depth-2 subtrees (over 1,150 nodes) hold 61% of the run and none is here.
   Each arm starts cold at its node, so rule 9's sizes are not the traced run's (575 for 923, 691 for 959).
   Rule 10 at depth 1 (12 nodes, 14 to 103 CPU h each in the run) is not measured.
-- Suggested files, `suggest/`: `sko42_r10.par` (rule 9 at the root and depth 1 as in the run, so the same 438
-  depth-2 nodes; rule 10 on every line below) and `sko42_r10_sb.par` (the same with DNN strong branching at the
-  root and depth 1, as `tho40c_sb.par`; unmeasured on sko42).
+- Suggested file, `suggest/sko42_d2r10.par`: rule 9 at the root and depth 1 as in the run, so the same 438
+  depth-2 nodes; rule 10 on every line at depth 2 (25 lookahead iterations, as measured); rule 9 below, as the
+  run. Also there: `sko42_r10.par` (rule 10 from depth 2 down; its depth-2 lookahead is 12 iterations for most
+  nodes, not what was measured) and `sko42_r10_sb.par` (that with DNN strong branching at the root and depth 1,
+  as `tho40c_sb.par`; unmeasured on sko42).
+- **Linux only.** See nug30 on the laptop, below, before running rule 10 or 11 on a Mac.
+
+**nug30 on the laptop** (Nov 23, Nathan's run of `experiments/nug30_record/run.sh g5e g5e_r11x2 g5e_r11x2_gu83`,
+cognac 1458dd02, solver as 626230c8): `g5e` 104.6 s and the record's tree; `g5e_r11x2` stopped by hand after about
+90 minutes at 15,299 nodes (2,935 with a DNN bound), 17,788 CPU s, 54 nodes open. The same file and commit here:
+909 nodes with 4 jobs and with 8 (`record/`; 1,281 CPU s at 8 jobs on 4 cores). So rule 11 with two lines a side
+picks other lines on macOS than on Linux, far worse ones. Cause not found; the laptop's node trace
+(`runs/g5e_r11x2/nodes.txt` there) would show the first line that differs. `g5e_r11` and `g5e_r10` are untried
+on the laptop.
 
 **tai35b whole** (`tai35b/`, the stand-in for tai50b; line_signals' recipe, 4 slots): no gain.
 
