@@ -44,14 +44,18 @@ LATEST = os.path.join(ROOT, "latest")
 
 
 def images(q, rows, cols):
-    """the solution under the grid's four symmetries (row flip, column flip)"""
+    """the solution under the grid's symmetries: row flip and column flip, and on a square grid
+    the transpose too (eight in all; sko49t.sym's root set is the 10 cells of the 7 x 7 grid
+    under all eight, so the image it keeps can be a transposed one)"""
     out = []
-    for fr in (0, 1):
-        for fc in (0, 1):
-            def g(l):
-                r, c = divmod(l, cols)
-                return (rows - 1 - r if fr else r) * cols + (cols - 1 - c if fc else c)
-            out.append([g(l) for l in q])
+    for tr in ((0, 1) if rows == cols else (0,)):
+        for fr in (0, 1):
+            for fc in (0, 1):
+                def g(l):
+                    r, c = divmod(l, cols)
+                    if tr: r, c = c, r
+                    return (rows - 1 - r if fr else r) * cols + (cols - 1 - c if fc else c)
+                out.append([g(l) for l in q])
     return out
 
 
