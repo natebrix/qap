@@ -4,7 +4,7 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
-| [tho40-261122](runs/tho40-261122/readout.md) | running | **RUNNING**: 17010 of 17805 units merged | - | 2026-11-22 20:13 | - |
+| [tho40-261122](runs/tho40-261122/readout.md) | running | **RUNNING**: 34848 of 35605 units merged | - | 2026-11-22 20:13 | - |
 | [sko42-est2-261122](runs/sko42-est2-261122/readout.md) | finished | **COMPLETE**: the estimate (sko42-est2-261122 finished) | HEAVY TAIL, WIDE | 2026-11-22 05:38 | 2026-11-22 06:54 |
 | [sko42-est-261121b](runs/sko42-est-261121b/readout.md) | paused | **COMPLETE**: the estimate (sko42-est-261121b-dives finished) | - | 2026-11-21 04:50 | - |
 | [sko42-261120b](runs/sko42-261120b/readout.md) | finished | **COMPLETE**: solved, best objective 15812 | - | 2026-11-20 14:47 | 2026-11-20 19:24 |
