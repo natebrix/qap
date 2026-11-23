@@ -1004,7 +1004,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
       qpbp->nofathom_patience =
 	(node.depth > 0 &&
 	 (param->rule == BRANCH_LOOKAHEAD || param->rule == BRANCH_LOOKAHEAD_ECC ||
-	  param->rule == BRANCH_STRONG))
+	  param->rule == BRANCH_SIZE_LOOKAHEAD || param->rule == BRANCH_STRONG))   // (not rules 9 and 11, as before)
 	? fw_nofathom_patience : 0;
       qpbp->step = param->param_step;
       qpbp->fw_iter = 0;
@@ -1132,7 +1132,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  static const int cut_max_depth = (int)setting_i("cut.maxdepth");
 	  // warm start from the parent's final multiplier, when the parent's
 	  // DNN bound ran and missed and this node fixes one more facility
-	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD || cut_zone > 0) ? new DNNWarm : NULL;
+	  DNNWarm start, *save = (dnn_warm || param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD || param->rule == BRANCH_SIZE_XBAR_LOOKAHEAD || cut_zone > 0) ? new DNNWarm : NULL;
 	  const DNNWarm *sp = NULL;
 	  int di, dj;
 	  // QAP_DNN_WARM_Y=2 (default; experiments/wil50_feasibility/warm_y): the
@@ -1410,7 +1410,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	    node.bound = std::max(node.bound, cr.best_lb);
 	    if (cr.status == DNN_FATHOMED) { dnn_fathomed = true; dnn_fate = 'C'; }
 	  }
-	  const bool xbar_rule = param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD;
+	  const bool xbar_rule = param->rule == BRANCH_DNN_XBAR || param->rule == BRANCH_XBAR_LOOKAHEAD ||
+	    param->rule == BRANCH_SIZE_XBAR_LOOKAHEAD;
 	  const bool xbar_sb = node.depth >= sb_min_depth && node.depth <= sb_max_depth;   // strong branching shortlists by them
 	  if (save && !dnn_fathomed && save->m == m && (xbar_rule || xbar_sb)) {
 	    // x_ij = Y_0,(ij) of the final primal iterate (row 0 of the lifted
@@ -1513,7 +1514,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  kid[i].set_warm(warm);
 	warm_start_release(warm);
 
-	if (params->log_file && (bp->how == BRANCH_LOOKAHEAD || bp->how == BRANCH_LOOKAHEAD_ECC)) {
+	if (params->log_file && (bp->how == BRANCH_LOOKAHEAD || bp->how == BRANCH_LOOKAHEAD_ECC ||
+				 bp->how == BRANCH_SIZE_LOOKAHEAD || bp->how == BRANCH_SIZE_XBAR_LOOKAHEAD)) {
 	  log_matrix(params, "B|_", U);
 	}
 	

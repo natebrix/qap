@@ -214,6 +214,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `branch.weighted` | par key | integer | `1` | 0..1 | policy | rules 1, 3 and 4: weight the U sums by the row's gap fraction |
 | `branch.weight` | par key | number | `0.5` | 0..1 | policy | the weight of that fraction |
 | `branch.xbar_lines` | par key | integer | `1` | 1..64 | policy | rule 9: candidate rows and columns per side from the DNN marginals |
+| `branch.la_exp` | par key | number | `0` | 0..500 | policy | rules 10 and 11: L, a line's score is the sum, over the children QPB does not drop, of exp(L x the child's QPB shortfall / the node's QPB gap); the rules need it set (32 in the runs measured); 0: unset |
 | `sb.depths` | par key | text | unset | text | policy | DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1) |
 | `sb.k` | par key | integer | `4` | 1..1000 | policy | sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score |
 | `sb.all` | par key | integer | `-1` | -1..inf | policy | sb: through this depth every free line is a candidate (-1: none) |
@@ -451,7 +452,7 @@ Example from `PARAM/default.par`:
 --- repeated L times; the last level omits the first two lines ---
 0.20  use this level when the relative gap (opt-bnd)/opt is worse than...
 2     ...and depth is at most this
-4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead, 8 DNN marginals, 9 lookahead between the two marginal lines (8 and 9 need -x; lookahead where no DNN bound ran)
+4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead, 8 DNN marginals, 9 lookahead between the two marginal lines (8 and 9 need -x; lookahead where no DNN bound ran), 10 lookahead with the size score, 11 rule 9's lines with the size score (10 and 11 need branch.la_exp)
 150   Frank-Wolfe iterations for the bound
 100   Frank-Wolfe iterations when we know we can't fathom
 25    Frank-Wolfe iterations for row selection (lookahead children; each starts from the parent's X)
@@ -507,6 +508,43 @@ did not run.
   marginal lines (rule 8's row and its column), chosen by the children's QPB
   bounds. It gives nug30 -13% and nug28 +8%
   (`experiments/wil50_feasibility/tuning`).
+- **Rule 10** is rule 4's lookahead with another score (Nov 23;
+  `experiments/branching_lab/ucheap` on `claude/cool-babbage-ilnogj`). The
+  candidates are the level's best "compute B for best _ rows of U" rows and
+  columns by U sum, every free line when that number is m or more (rows only
+  while symmetry is left). Every child of a candidate is bounded by QPB as
+  rule 4 bounds it, with the level's "Frank-Wolfe iterations, for row
+  selection". A child's shortfall s is the cutoff less that bound. The node
+  branches on the line with the least sum, over the children QPB does not
+  drop, of exp(L s / G), G the node's own QPB gap and L = `branch.la_exp` (a
+  child QPB drops adds nothing): one child far from the cutoff outweighs
+  several near it, which rule 4's sum of the children's bounds cannot see. It
+  needs no DNN bound.
+  - `branch.la_exp` has no default: a params file that uses rule 10 must set
+    it, or the run stops at startup. It is in the settings hash only when
+    set, so recipes without rule 10 keep their hash. 32 is the value of every
+    run measured.
+  - Measured with every line a candidate at every lookahead level of the
+    nug30 recipe: nug30 3,420 nodes and 2,392 CPU s (rule 9: 4,285 to 4,365 and
+    3,314 to 3,421), tho30 8,581 and 6,350 (14,815 and 9,375); the lookahead
+    over every line is under 2% of that CPU. Under DNN strong branching at
+    depth 1 (`sb.depths = 1:1`): 3,140 and 7,757 nodes. On three depth-3
+    subtrees of tho40 every line gains nothing (1,862 nodes against rule 9's
+    1,818, one subtree 38% larger): see rule 11. Not measured: a shortlist
+    shorter than every line (by U sum), and any tai instance.
+  - `PARAM/rule10.par` is the rule alone, for the brute-force check.
+- **Rule 11** is rule 9 with rule 10's score: the candidates are the
+  `branch.xbar_lines` rows and columns with the largest DNN marginal scores
+  (rule 4's candidates where no DNN bound ran or symmetry is left, as for rule
+  9), chosen by the exponential score on their children's QPB bounds. It needs
+  `branch.la_exp` as rule 10 does.
+  - Which of the two depends on the instance, as the width of rule 9's
+    shortlist did (above): nug30 3,261 nodes under rule 11 against 3,420 under
+    rule 10 with every line and 4,285 to 4,365 under rule 9; three depth-3
+    subtrees of tho40 (`branch.xbar_lines = 2`) 1,607 nodes under rule 11,
+    1,862 under rule 10 with every line, 1,818 under rule 9; tho30 14,303
+    under rule 11 (one line a side: the marginal lines hold nothing there),
+    8,581 under rule 10 with every line, 14,815 under rule 9.
 
 ### The DNN bound (-x)
 

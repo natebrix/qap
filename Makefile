@@ -15,14 +15,14 @@
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel coord settings-doc regression estimate sb clean dnntest dnncheck shipcheck nodetrace
+.PHONY: all solver test bruteforce resume parallel coord settings-doc regression estimate sb rule10 clean dnntest dnncheck shipcheck nodetrace
 
 all: solver
 
 solver:
 	$(MAKE) -C latest
 
-test: bruteforce resume parallel coord settings-doc regression estimate sb
+test: bruteforce resume parallel coord settings-doc regression estimate sb rule10
 
 bruteforce: solver
 	$(PYTHON) tests/brute_force.py
@@ -55,6 +55,9 @@ sb: solver
 	$(PYTHON) tests/sb_test.py
 dnntest:
 	$(MAKE) -C latest dnntest
+
+rule10: solver
+	$(PYTHON) tests/rule10_test.py
 
 dnncheck: dnntest
 	$(PYTHON) tests/dnn_test.py

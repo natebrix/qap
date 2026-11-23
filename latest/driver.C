@@ -649,6 +649,15 @@ int main(int argc, char *argv[])
   settings_read_par(c->param_file);   // its [settings] section (settings.h)
   record_cut_regions(n);              // cut.regions: its hash in the record, its indices checked
   apply_policy_settings();            // -x/-w or the file into the solver's globals
+  for (int lv = 0; lv < c->nlevel; lv++)   // rule 10 needs its exponent: no default, so that the settings hash names it
+    if ((params[lv].rule == BRANCH_SIZE_LOOKAHEAD || params[lv].rule == BRANCH_SIZE_XBAR_LOOKAHEAD) && !(setting_d("branch.la_exp") > 0)) {
+      cerr << "rule " << params[lv].rule << " (params level " << lv + 1 << ") needs branch.la_exp set in the params file's [settings]"
+	   << " (RUNNING.md; 32 in the runs measured)" << std::endl;
+      exit(2);
+    }
+  if (setting_d("branch.la_exp") > 0)
+    cout << "Rules 10 and 11: a line's score is the sum over the children QPB does not drop of exp(" << setting_d("branch.la_exp")
+	 << " x QPB shortfall / the node's QPB gap)" << std::endl;
   settings_dump(cout);   // every setting with its value and source (settings.h)
 
   if (!set_max_depth) {

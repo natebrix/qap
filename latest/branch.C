@@ -43,6 +43,29 @@ static bool weighted_branching() { static const bool v = setting_i("branch.weigh
 static double branching_weight() { static const double v = setting_d("branch.weight"); return v; }
 static int xbar_lines_per_side() { static const int v = (int)setting_i("branch.xbar_lines"); return v; }   // rule 9
 
+// Rule 10 (BRANCH_SIZE_LOOKAHEAD): the size score on the children's QPB bounds. A child's shortfall s is
+// the cutoff less its QPB bound as rule 4's lookahead computes it; a line's score is the sum, over the
+// children QPB does not drop (s > 0; a dropped child adds nothing), of exp(L (s - s_max) / G), G the node's
+// own QPB gap and s_max the largest shortfall at the node (a common factor, there for the range of exp:
+// the exponent runs from -L to 0, so L is kept under exp's underflow). The least score wins: one child
+// far from the cutoff outweighs several near it, which the sum of the children's bounds (rule 4's
+// score) cannot see. experiments/branching_lab/ucheap: with every line a candidate, nug30 closes in
+// 3,420 nodes against rule 9's 4,285 to 4,365 and tho30 in 8,581 against 14,815.
+static double la_exp() { static const double v = setting_d("branch.la_exp"); return v; }
+struct LaCell { int di, dj; double s; };
+static void la_size_scores(const std::vector<LaCell> &cells, double gap, int m, std::vector<double> &row, std::vector<double> &col)
+{
+  double smax = 0.0;
+  for (const LaCell &c : cells) smax = std::max(smax, c.s);
+  const double G = std::max(gap, 1e-9), L = la_exp();
+  row.assign(m, 0.0);  col.assign(m, 0.0);
+  for (const LaCell &c : cells) {
+    if (c.s <= 0.0) continue;
+    const double v = exp(L * (c.s - smax) / G);
+    row[c.di] += v;  col[c.dj] += v;
+  }
+}
+
 void set_branch_parameters(BranchParameters *bp, BNBParameters *param,
 			   bool use_J, bool reorder_children) {
   bp->use_best = param->use_best;
@@ -1555,12 +1578,13 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
 			  int *J3, int J3_dim,MAT *X,MAT *U,
 			  double bound,QPBParameters *qpbp,int use_best, 
 			  bool weighted, int which_bound,
-			  int &row_in_U,int &row_in_assign)
+			  int &row_in_U,int &row_in_assign, bool size_score = false)
 {
   int n = assign.n;
   int i,j,di,dj,k,l,bi;
   int m = U->n;
   double *u_sum,best_sum;
+  std::vector<LaCell> la_cells;   // rule 10: each bounded child's shortfall
   int *order;
   int J3_count;
   double temp;
@@ -1677,6 +1701,8 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
 	//  b) compute the row variance of the matrix.
 	double u_di = J3_child_dim * (U->me[di][dj] + bound) + best_u1_sum;
 	u_sum[di] += u_di;
+	if (size_score)
+	  la_cells.push_back({di, dj, std::max(0.0, qpbp->inc - DELTA_BRANCH - (U->me[di][dj] + bound))});
 	// lgb_U->me[di][dj] += u_di;
 	assign.unfix(i, j);
       }
@@ -1692,6 +1718,16 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
   // above, before I modify U, log U.
   
   find_max(u_sum, best_sum, row_in_U, m);
+  if (size_score) {   // rule 10: the least size score among the candidate rows, ties to rule 4's score
+    std::vector<double> rs, cs;
+    la_size_scores(la_cells, qpbp->inc - DELTA_BRANCH - bound, m, rs, cs);
+    int best = -1;
+    for (int d = 0; d < m; d++) {
+      if (order[d] >= use_best) continue;
+      if (best < 0 || rs[d] < rs[best] || (rs[d] == rs[best] && u_sum[d] > u_sum[best])) best = d;
+    }
+    if (best >= 0) row_in_U = best;
+  }
   get_row_in_assign(assign,row_in_U,row_in_assign);
 
   // print bestk
@@ -1733,7 +1769,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
 			  bool weighted, int which_bound,
 			  int &ind_in_U,int &ind_in_assign,
 			  bool &chose_row, bool eccentric_cols = false,
-			  bool xbar_lines = false)
+			  bool xbar_lines = false, bool size_score = false)
 {
   int i,j,di,dj,k,l,bi;
   int m = U->n;
@@ -1785,6 +1821,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
       xbar_used = true;
     }
   }
+  std::vector<LaCell> la_cells;   // rule 10: each bounded child's shortfall
 
   int n = assign.n;
   MAT *X1 = MNULL, *U1 = MNULL;
@@ -1884,6 +1921,8 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
       
       u_row_sum[di] += J3_child_dim*(U->me[di][dj]+bound) + best_u1_sum;
       u_col_sum[dj] += J3_child_dim*(U->me[di][dj]+bound) + best_u1_sum;
+      if (size_score)
+	la_cells.push_back({di, dj, std::max(0.0, qpbp->inc - DELTA_BRANCH - (U->me[di][dj] + bound))});
       
       assign.unfix(i,j);
     }
@@ -1898,7 +1937,26 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
   find_max(u_row_sum, best_row_sum, row_in_U, m);
   find_max(u_col_sum, best_col_sum, col_in_U, m);
 
-  if(best_row_sum >= best_col_sum) {
+  bool size_chose = false;
+  if (size_score) {   // rule 10: the least size score among the candidate lines (a candidate has every
+		      // child bounded; a row and a column tie to rule 4's score, then to the row)
+    std::vector<double> rs, cs;
+    la_size_scores(la_cells, qpbp->inc - DELTA_BRANCH - bound, m, rs, cs);
+    int br = -1, bc = -1;
+    for (int d = 0; d < m; d++) {
+      if (row_order[d] < kr && (br < 0 || rs[d] < rs[br] || (rs[d] == rs[br] && u_row_sum[d] > u_row_sum[br]))) br = d;
+      if (col_order[d] < kc && (bc < 0 || cs[d] < cs[bc] || (cs[d] == cs[bc] && u_col_sum[d] > u_col_sum[bc]))) bc = d;
+    }
+    if (br >= 0 || bc >= 0) {
+      size_chose = true;
+      chose_row = bc < 0 || (br >= 0 && (rs[br] < cs[bc] || (rs[br] == cs[bc] && u_row_sum[br] >= u_col_sum[bc])));
+      ind_in_U = chose_row ? br : bc;
+      if (chose_row) get_row_in_assign(assign, br, ind_in_assign);
+      else get_col_in_assign(assign, bc, ind_in_assign);
+    }
+  }
+  if (size_chose) ;
+  else if(best_row_sum >= best_col_sum) {
     chose_row = true;
     ind_in_U = row_in_U;
     get_row_in_assign(assign,row_in_U,ind_in_assign);
@@ -2190,6 +2248,22 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
 			   bp->use_best,
 			   weighted_branching(), bp->which_bound,
 			   row_in_U,row_in_assign);
+    break;
+
+  case BRANCH_SIZE_LOOKAHEAD:   // rule 10: rule 4's candidates and child bounds, the size score
+  case BRANCH_SIZE_XBAR_LOOKAHEAD:   // rule 11: rule 9's candidates, the same score
+    if(can_branch_on_cols) {
+      select_ind_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
+			   bp->use_best,
+			   weighted_branching(), bp->which_bound,
+			   row_in_U,row_in_assign,chose_row,false,
+			   bp->how == BRANCH_SIZE_XBAR_LOOKAHEAD,true);
+    }
+    else
+      select_row_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
+			   bp->use_best,
+			   weighted_branching(), bp->which_bound,
+			   row_in_U,row_in_assign,true);
     break;
 
   case BRANCH_LOOKAHEAD_ECC:
