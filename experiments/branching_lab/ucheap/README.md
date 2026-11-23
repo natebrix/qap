@@ -48,6 +48,31 @@ of exp(32 (s - s_max) / G) is taken, s the child's QPB shortfall, G the node's o
   than the best at nug30, 40% better at tho30.
 - Not tried: any instance outside these two, and tho40, where its root row (r26) is not the DNN score's (r2).
 
+## Nathan's conjecture (Nov 23): DNN strong branching near the root, this rule farther down
+
+`trees/sb1_exp.par`, `sb1_exp_all.par`: `sb.depths = 1:1` (the root's row is the same under both rules at nug30
+and tho30, so the root is left to the cheap rule), the exponential score everywhere else.
+
+| | nug30 nodes | CPU s, all of it | tho30 nodes | CPU s, all of it |
+|---|---|---|---|---|
+| production | 4,285 and 4,365 | 3,314 and 3,421 | 14,815 | 9,375 |
+| DNN strong branching at depths 0 to 2, rule 9 below (`../port`) | 2,980 | 8,617 | 9,918 | 16,746 |
+| the cheap rule everywhere (nug30: rule 9's lines; tho30: every line) | 3,261 | 2,250 | 8,581 | 6,350 |
+| **DNN strong branching at depth 1, the cheap rule below** | **3,140** | 4,794 (2,782 strong branching) | **7,757** | 9,826 (4,169 strong branching) |
+
+- **Both halves hold on both instances** [m]. Near the root: DNN strong branching at depth 1 in place of the
+  cheap rule, the cheap rule below in both: 3,261 to 3,140 (-4%) and 8,581 to 7,757 (-10%). Farther down: the
+  cheap rule in place of rule 9 below the DNN's depth-1 lines: nug30 3,241 (`../root/runs/nug30_r23_d1_sum`) to
+  3,140 (-3%); tho30, node by node under the same depth-1 line, smaller under all nine nodes where the line is
+  the same (2,451 to 2,033, 1,017 to 684, 577 to 349 trace lines, ...).
+- **At depth 1 the DNN's line is not always the better one** [m, tho30, the cheap rule below both]: better under
+  5:11, 5:12 and 5:13 (2,033 against 2,736, 869 against 1,170, 349 against 560), worse under 5:10 (684 against
+  339 under the cheap rule's r2).
+- **At n = 30 the depth-1 child solves cost more than they save**: the totals above. The case is the open
+  instances, where depth 1 is about 1% of a run (`../budget`).
+- Predictions (`trees/predictions.txt`): nug30 2,950 to 3,250, met; tho30 8,000 to 9,300 with no clear gain
+  expected, wrong: 7,757.
+
 ## What was measured
 
 | what the score reads | where | result |
