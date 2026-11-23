@@ -29,8 +29,19 @@ of exp(32 (s - s_max) / G) is taken, s the child's QPB shortfall, G the node's o
   to 13,500, missed on the good side; and at 5:1 it took c20, not c9 as predicted from the truth node's dump
   (another recipe and incumbent there).
 - **With the keys off** the build's nug20 trace is cognac's, node for node [m].
-- Not separated yet: how much is the score and how much the open candidates (`trees/exp.par`, `trees/all.par`).
-  Not tried: any instance outside these two, and tho40, where its root row (r26) is not the DNN score's (r2).
+- **On nug30 the score does the work, not the open candidates** [m `trees/runs/nug30_exp`, `nug30_all`]:
+
+  | nug30 | root row | nodes | CPU s |
+  |---|---|---|---|
+  | production: rule 4's score, rule 9's two lines | r0 | 4,285 and 4,365 | 3,314 and 3,421 |
+  | every line, rule 4's score (`all.par`) | r0 | 5,639 | 3,543 |
+  | the exponential score, rule 9's two lines (`exp.par`) | r23 | **3,261** | **2,250** |
+  | the exponential score, every line (`exp_all.par`) | r23 | 3,420 | 2,392 |
+
+  Opening the lines under the old score makes nug30 30% worse (as 8 lines a side did on Nov 9); under the
+  exponential score it costs 5%. At the root both `exp` arms see every row (no marginals there: rule 4's
+  candidates, 30 in the recipe). tho30 with `exp.par` is running.
+- Not tried: any instance outside these two, and tho40, where its root row (r26) is not the DNN score's (r2).
 
 ## What was measured
 
