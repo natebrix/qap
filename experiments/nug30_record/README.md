@@ -44,6 +44,41 @@ caffeinate -i experiments/nug30_record/run.sh g5e g5e_r11x2 g5e_r11x2_gu83
 must end at 6124 with no open node (the script says so if not). A run from 6126, the optimum found rather than
 given: `--ub 6126` in `run.sh`, not tried here.
 
+## Nov 23 on the laptop: rule 11 blows up on one failed pooled solve; the same arms with `dnn.retry = 1` [m]
+
+The laptop (M2 Pro, 8 jobs, commit 1458dd02), `runs/`:
+
+| run | nodes | CPU s | wall s | load at the start |
+|---|---|---|---|---|
+| `g5e-3` | 1,302 | 724 | **104.6** | 2.4 |
+| `g5e-4` | 1,302 | 751 | 116.0 | 2.1 (5.9 over 15 min) |
+| `g5e_r10` | 965 | 659 | **101.4** | 19.4 (a rule-11 run still stopping) |
+| `g5e_r11`, `g5e_r11-2`, `g5e_r11x2` | 1,292, 10,635, 15,299 when stopped | 1,362, 12,746, 17,788 | | |
+
+- **`g5e` and `g5e_r10` give the cloud container's trees node for node** (1,302 and 965). `g5e_r10` is 0.91 of `g5e`'s
+  CPU on the laptop (0.89 on the container) and 3% faster in wall time.
+- **Every rule-11 run on the laptop failed at the same node.** Laptop and container trees agree at 905 of the
+  container's 909 nodes and differ at one, depth-2 node `23:8,4:4`: its first solve under the pool its parent
+  `23:8` handed down certified 6,122.48 on the container, fathomed (cutoff 6,122.05), and **-9,023.44** on the
+  laptop (`runs/g5e_r11x2/dnn.txt`: hopeless after 110 iterations, 683 cuts kept). The node branched and its
+  subtree inherited the failed state: 4,630 first solves with a negative bound, every one `warm 1 pool 1`, and
+  32,005 nodes left to QPB. It is the failed pooled solve of sko42-261120 (`experiments/estimates/sko42/zone_nov19`,
+  "Failed pooled solves"); the two machines' arithmetic put one borderline solve on either side of it.
+- **`g5e` has no `dnn.retry`** (the record's recipe predates it); `sko42.par`, `sko49.par` and tho40c have
+  `dnn.retry = 1`, which solves such a node again without the pool, then cold. Rule 11's lines are not the fault:
+  they lead the tree past a node whose pooled solve is near the edge.
+- **`g5e_r11x2_rt.par` and `g5e_r11x2_gu83_rt.par`** are the two candidates with `dnn.retry = 1`. On the cloud
+  container `g5e_r11x2_rt` gives `g5e_r11x2`'s tree node for node (909 nodes, the same decision at every one, no
+  retry fired), 1,095 CPU s and 279 s wall at 4 jobs (1,066 and 271 before): the retry costs nothing where no
+  solve fails.
+
+To try for the record again on the laptop:
+
+```
+git pull --no-rebase
+caffeinate -i experiments/nug30_record/run.sh g5e g5e_r11x2_rt g5e_r11x2_gu83_rt
+```
+
 ## Results [m]
 
 All on one evening (18:32-19:03). Both `g5e` runs, at the start and the end, give the same tree.
