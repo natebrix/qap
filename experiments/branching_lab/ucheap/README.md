@@ -7,7 +7,8 @@ with rule 2's fathom count first, and should rule 9's two lines be opened up? [m
 **U itself: no. The children's own QPB bounds (rule 4's lookahead, which rule 9 already runs on its two lines):
 yes, if they are scored with the size score and not summed, and over every line and not the two by marginal
 score. Run as a rule (Nov 23, `trees/`): nug30 closes in 3,420 nodes and 2,392 CPU s against production's 4,285
-to 4,365 and 3,314 to 3,421; tho30 in 8,581 and 6,350 against 14,815 and 9,375.**
+to 4,365 and 3,314 to 3,421; tho30 in 8,581 and 6,350 against 14,815 and 9,375. On three depth-3 subtrees of
+tho40 it gains nothing (1,862 nodes against 1,818; one subtree 38% larger).**
 
 ## The trees (`trees/run.sh PROBLEM exp_all`; cognac 1d7e7403 + `trees/lasize.patch`, 4 slots, the nug30 recipe)
 
@@ -47,6 +48,29 @@ of exp(32 (s - s_max) / G) is taken, s the child's QPB shortfall, G the node's o
   r2 at depth 1 against c9, c20 with every line). So every line is the setting that works on both: 5% dearer
   than the best at nug30, 40% better at tho30.
 - Not tried: any instance outside these two, and tho40, where its root row (r26) is not the DNN score's (r2).
+
+## tho40: three depth-3 subtrees (`tho40sub/`, Nov 23): no gain
+
+Three depth-3 nodes under 26:10,8:0 from the traced run tho40ab-32, each solved to the end single-threaded from
+the node, incumbent 240516; tho40's recipe (`experiments/estimates/tho40/tho40.par`: rule 9, 2 lines a side)
+against the same with `branch.la_exp = 32`, `branch.la_all = 1`.
+
+| subtree | production: depth-3 line, branching children at depth 4, nodes, CPU s | the cheap rule, every line |
+|---|---|---|
+| 3:32 | c7, 9, 781, 1,647 | c39, 9, **607**, 1,514 |
+| 30:32 | c39, 8, 571, 1,302 | r5, 14, **787**, 1,768 |
+| 36:32 | c7, 8, 466, 998 | r15, 10, 468, 1,102 |
+| all | 1,818 nodes, 3,946 s | 1,862 nodes (1.02), 4,384 s (1.11) |
+
+- **The n = 30 result does not carry to these subtrees** [m]: one 22% smaller, one 38% larger, one the same. The
+  prediction written before the runs (0.6 to 0.9 of production, no subtree more than 10% larger) failed.
+- **Where it loses, it loses at the node's own choice** [m]: at 30:32 its line r5 leaves 14 branching children at
+  depth 4 where production's c39 leaves 8 (504 nodes at depth 5 against 288; the same 245 at depth 6).
+- These subtrees are three levels deep: nearly every child is fathomed by its DNN bound, and what counts is how
+  many are not. The marginal lines of rule 9 come from the DNN solution; the QPB shortfalls do not see which
+  children the DNN bound fathoms. nug30 said the same more mildly (rule 9's lines 5% better than every line).
+- Production's sizes are the traced run's exactly (781, 571, 466).
+- Running: the exponential score on rule 9's own lines (`tho40sub/exp.par`).
 
 ## Nathan's conjecture (Nov 23): DNN strong branching near the root, this rule farther down
 
