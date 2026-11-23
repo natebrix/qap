@@ -95,6 +95,7 @@ static Setting TABLE[] = {
   POLICY("branch.weighted", NULL, 'i', "1", 0, 1, "rules 1, 3 and 4: weight the U sums by the row's gap fraction"),
   POLICY("branch.weight", NULL, 'd', "0.5", 0, 1, "the weight of that fraction"),
   POLICY("branch.xbar_lines", NULL, 'i', "1", 1, 64, "rule 9: candidate rows and columns per side from the DNN marginals"),
+  POLICY("branch.la_exp", NULL, 'd', "0", 0, 500, "rules 10 and 11: L, a line's score is the sum, over the children QPB does not drop, of exp(L x the child's QPB shortfall / the node's QPB gap); the rules need it set (32 in the runs measured); 0: unset"),
   POLICY("sb.depths", NULL, 's', "", 0, 0, "DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1)"),
   POLICY("sb.k", NULL, 'i', "4", 1, 1000, "sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score"),
   POLICY("sb.all", NULL, 'i', "-1", -1, 1073741824, "sb: through this depth every free line is a candidate (-1: none)"),
@@ -373,6 +374,8 @@ static bool hashed(const Setting &s)
 {
   if (!recorded(s)) return false;
   if (s.key && strncmp(s.key, "sb.", 3) == 0) return !find("sb.depths")->text.empty();
+  // the exponent of rules 10 and 11 has no default to drift: it is in the hash only when set, and they need it set
+  if (s.key && strcmp(s.key, "branch.la_exp") == 0) return s.text != s.def;
   return true;
 }
 

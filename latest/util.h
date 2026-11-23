@@ -81,6 +81,15 @@ const int BRANCH_DNN_XBAR = 8;    // the row or column whose DNN primal marginal
 const int BRANCH_XBAR_LOOKAHEAD = 9; // lookahead between the two rule-8 lines only (the
                                   // marginal row and the marginal column), chosen by the
                                   // children's QPB bounds; lookahead where no DNN bound ran
+const int BRANCH_SIZE_LOOKAHEAD = 10; // QPB strong branching with the size score: the children of the
+                                  // level's best use_best rows and columns by U sum (every free
+                                  // line when use_best >= m) are bounded by QPB as rule 4 bounds
+                                  // them, and the line with the least sum, over the children QPB
+                                  // does not drop, of exp(L x shortfall / the node's QPB gap) is
+                                  // taken (L = branch.la_exp, which the rule needs set)
+const int BRANCH_SIZE_XBAR_LOOKAHEAD = 11; // rule 9's candidates (the branch.xbar_lines rows and columns
+                                  // with the largest DNN marginal scores; rule 4's where no DNN
+                                  // bound ran or symmetry is left) chosen by rule 10's score
 const int BRANCH_FIXED = -1;
 
 

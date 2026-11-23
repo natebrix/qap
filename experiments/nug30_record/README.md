@@ -8,6 +8,42 @@ counted in **wall time** and from the **optimum given** (`--ub 6124`), as every 
 `par/g5e.par` with one setting changed (checked by diff). The solver is `70eac8d7` with no tracked
 change under `latest/`. Each `runs/*/env.txt` has the commit and the load at the run's start.
 
+## Nov 23: the record recipe under rules 10 and 11 (candidates; not yet run on the laptop)
+
+Rules 10 and 11 (RUNNING.md; cognac 7db305d9) are rules 4 and 9 with a size score on the children's QPB bounds.
+`g5e` with rule 9 replaced, each the whole search as `run.sh` runs it (from 6124, traces on), but on a cloud
+container with 4 jobs, so only the ratios mean anything for the laptop [m, `experiments/branching_lab/ucheap/record`
+on `claude/cool-babbage-ilnogj`]:
+
+| arm | change from g5e | root row | nodes | CPU s | wall s (4 jobs) |
+|---|---|---|---|---|---|
+| `g5e` | none | r0 | 1,302 | 1,385 | 353 |
+| `g5e_r11` | rule 11 for rule 9, `branch.la_exp = 32` | r23 | 993 | 1,166 | 300 |
+| `g5e_r10` | rule 10 with every line for rule 9 | r23 | 965 | 1,227 | 311 |
+| **`g5e_r11x2`** | rule 11, `branch.xbar_lines = 2` | r23 | **909** | **1,066** | **271** |
+| (3, 4, 8 lines a side) | | r23 | 991, 1,019, 1,047 | 1,160, 1,199, 1,250 | 296, 304, 317 |
+| (`branch.la_exp` 16, 64 at 2 lines) | | r23 | 979, 1,041 | 1,192, 1,245 | 302, 316 |
+| `g5e_r11x2_gu83` | and `cut.giveup = 100:8,300:3` | r23 | 828 | 1,032 | 261 |
+
+- `g5e` reproduces the record's tree there (1,302 nodes), so the comparison is with the record itself.
+- `g5e_r11x2` takes 23% off the CPU and the wall time; at that ratio the laptop's 103 s becomes about 80 s [e].
+  Most of it is depth 3: 692 nodes and 484 CPU s under `g5e`, 504 and 288 under `g5e_r11x2`, the level the
+  conclusion below names.
+- The neighbours of `g5e_r11x2` (other widths, other exponents) are 9 to 17% slower, so part of its lead is the
+  luck of one tree: expect 0.77 to 0.85 of the record's time, not exactly 0.77 [e].
+- `g5e_r11x2_gu83` is 3% less CPU again; on Nov 19 the same stop rule lost 1% on `g5e`. Run both.
+
+To try for the record on the laptop (8 jobs, about 5 minutes for the three):
+
+```
+git pull
+caffeinate -i experiments/nug30_record/run.sh g5e g5e_r11x2 g5e_r11x2_gu83
+```
+
+`g5e` first gives the evening's baseline (101.5 to 103 s). Each line printed ends with the wall time; every run
+must end at 6124 with no open node (the script says so if not). A run from 6126, the optimum found rather than
+given: `--ub 6126` in `run.sh`, not tried here.
+
 ## Results [m]
 
 All on one evening (18:32-19:03). Both `g5e` runs, at the start and the end, give the same tree.
