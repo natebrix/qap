@@ -51,3 +51,12 @@ first (1.16) and ahead on one (0.96). By the rule I wrote (15% in CPU the same w
 one subtree. Over all six: prod 1,609 nodes / 13,020 s; r11x2 1,232 / 10,923 (0.77 / 0.84); r10 927 / 9,785
 (0.58 / 0.75). At 36:16,23:0 r10's one branching leaves 27 children to the cut phase (1,317 s of the 1,782):
 fewer nodes there, hardly less CPU.
+
+Third batch, written before the runs (Nov 23): two large depth-2 subtrees, 36:14,7:0 (923 nodes, 24 branchings,
+3.7 c7a CPU h in sko42-261120b) and 36:15,27:0 (959, 25, 3.7), prod against r10 (run_big.sh). The six small
+subtrees were at or below the 75th percentile of depth-2 subtree size; the 27 largest of the 269 hold 61% of the
+run's nodes, and these two are among them. Prediction: r10 0.5 to 0.85 of prod's nodes and 0.65 to 0.95 of its
+CPU on each. A large subtree is large because many of the node's 40 children branch under any line, so I expect
+less than the second batch's 0.33 / 0.60. Over 1.0 in CPU on either would put the suggestion in doubt.
+The first of them runs beside tai35b's sb01 arm (6 processes on 4 cores for part of it): node counts unaffected,
+CPU seconds possibly a few percent high in both arms alike.
