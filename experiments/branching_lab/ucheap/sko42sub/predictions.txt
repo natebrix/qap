@@ -80,3 +80,30 @@ A hybrid, written before its runs: hyb.par = rule 9 at the root and depth 1, rul
 lines a side from depth 3 (r11x2 was never behind rule 9 from depth 3: CPU 1.00, 0.85, 0.98). On the two large
 subtrees it has r10's depth-2 line. Prediction: 36:14,7:0 0.9 to 1.05 of prod's 5,014 s (r10: 5,754);
 36:15,27:0 within 10% of r10's 2,477 s.
+
+Results of the hybrid (Nov 23; runs_big.log). Both predictions missed, and one run did not test what I meant.
+
+  subtree        prod (rule 9)        r10                  hyb.par
+  36:14,7:0      c35  575 / 5,014     c35  578 / 5,754     c35  765 / 5,924     1.33 / 1.18 of prod
+  36:15,27:0     c41  691 / 5,134     c35  235 / 2,477     r22  882 / 5,434     1.28 / 1.06 of prod
+
+What hyb.par did: a -F run's start node has no inherited bound, so its relative gap is large and pick_param puts it
+in block 0 whatever its depth (the trace's rule level is 0 at the start node in every arm of every batch). Block 0
+of hyb.par is rule 9, with branch.xbar_lines = 2. So the depth-2 node got rule 9 with two lines a side, not rule 10,
+and the nodes below got rule 11 with two lines (block 3, as meant).
+- 36:14,7:0: the depth-2 line is c35 in all three arms, so this is a clean reading of the rule from depth 3 down
+  over the same seven depth-3 subtrees: rule 9 5,014 s, rule 10 5,754, rule 11 with two lines 5,924 (8 branchings
+  at depth 4 for 3 and 5). "r11x2 was never behind rule 9 from depth 3" does not hold here; the hybrid's reason
+  is gone. A hybrid with rule 10 at the depth-2 node would have run exactly this (rule 10 takes c35 too).
+- 36:15,27:0: rule 9 with two lines a side took r22: 882 nodes, against c41's 691 (one line a side) and c35's 235
+  (rule 10). Not a test of the hybrid; one more reading that the depth-2 line is where the factor is.
+The earlier batches are not affected: their arms have one rule in all four blocks. (Their start nodes used block
+0's 25 lookahead iterations; in the full run a depth-2 node is in block 1, 12 iterations, or block 2, 25.)
+From depth 3 down, all measured (three depth-3 starts and 36:14,7:0): rule 9 10,775 s, rule 10 11,205 (1.04),
+rule 11 with two lines 11,258 (1.04).
+
+Rule 10 at the depth-2 node only, written before the runs: d2.par = prod.par with rule 10 (every line) in block 0,
+where the cold start node lands; its children inherit bounds and fall in blocks 1 and 2, rule 9, as in the full
+run. On 36:14,7:0 this is prod's run by construction (same line c35, rule 9 below): 575 / 5,014, not rerun. On the
+other four depth-2 subtrees (r10: 41 / 1,782, 158 / 1,475, 80 / 1,077, 235 / 2,477; 6,811 s together) the
+depth-2 line is r10's; prediction: each within 15% of r10's CPU, the four together 0.92 to 1.05 of 6,811 s.
