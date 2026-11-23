@@ -26,3 +26,11 @@ not. The children here mostly fathom in their cut phase, not in the first DNN so
 of a fraction of a percent. Prediction: the root keeps r19 or takes another row with a tree within 10% (0.9 to
 1.1 of prod's 1,017 nodes), and the firings cost more than they save: total CPU 1.2 to 1.6 of prod's 6,935 s.
 Under 0.85 in nodes would make strong branching at the root worth its cost on tai50b.
+
+Result of sb01 (Nov 23; runs/tai35b_sb01, sb.txt its four firings): 975 trace nodes (0.96 of prod's 1,017),
+12,519 CPU s (1.81). The nodes inside my range, the CPU above it (1.2 to 1.6): the four firings took 1,697 s (the
+root, 264 child solves) and 644, 1,317 and about 1,300 s (depth 1, 256 each), 5,000 s in all, and two sko42 runs
+shared the four cores for part of it. The root's choice is c12 (score 1.789) over rule 9's r19 (1.819): a tie
+decided in the third digit. Strong branching buys 4% of the nodes for 80% more CPU here. On tai50b a firing would
+be 400 child solves at the root (my guess: 3 to 7 core-hours, 3 to 6% of a 116 core-hour run) for a gain this
+size at best: not worth it. tai50b's recipe stays as it is in cognac.
