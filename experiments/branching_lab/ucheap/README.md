@@ -40,7 +40,12 @@ of exp(32 (s - s_max) / G) is taken, s the child's QPB shortfall, G the node's o
 
   Opening the lines under the old score makes nug30 30% worse (as 8 lines a side did on Nov 9); under the
   exponential score it costs 5%. At the root both `exp` arms see every row (no marginals there: rule 4's
-  candidates, 30 in the recipe). tho30 with `exp.par` is running.
+  candidates, 30 in the recipe).
+- **On tho30 it is the other way: the open candidates are needed** [m `trees/runs/tho30_exp`]: the exponential
+  score on rule 9's two lines gives 14,303 nodes and 9,443 CPU s, production's tree (14,815); on every line
+  8,581 and 6,350. Rule 9's two lines by marginal score do not hold the lines the score wants there (r19, r28,
+  r2 at depth 1 against c9, c20 with every line). So every line is the setting that works on both: 5% dearer
+  than the best at nug30, 40% better at tho30.
 - Not tried: any instance outside these two, and tho40, where its root row (r26) is not the DNN score's (r2).
 
 ## What was measured
