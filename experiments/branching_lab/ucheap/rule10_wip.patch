@@ -1,8 +1,8 @@
 From de6b8c0c2f46e5e51a54c42dbfab11c212199c5f Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 23 Nov 2026 04:09:25 +0000
-Subject: [PATCH] Rule 10: QPB strong branching with the size score (work in
- progress, under review)
+Subject: [PATCH 1/2] Rule 10: QPB strong branching with the size score (work
+ in progress, under review)
 
 Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_014vvMYV3r6FDoHTc2G3VVqC
@@ -559,6 +559,181 @@ index 00000000..f078957c
 +
 +if __name__ == "__main__":
 +    sys.exit(main())
+-- 
+2.43.0
+
+
+From 780edebcc45458d4fbf4755566fad6a05dffebdd Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 23 Nov 2026 04:17:16 +0000
+Subject: [PATCH 2/2] Rule 10: the review's points (a dropped child adds
+ nothing: say so; the exponent's range; the test tells rule 10 from rule 4)
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014vvMYV3r6FDoHTc2G3VVqC
+---
+ RUNNING.md           | 13 +++++++------
+ latest/bnb.C         |  3 ++-
+ latest/branch.C      |  7 ++++---
+ latest/driver.C      |  2 +-
+ latest/settings.C    |  2 +-
+ latest/util.h        |  6 +++---
+ tests/rule10_test.py | 17 ++++++++++-------
+ 7 files changed, 28 insertions(+), 22 deletions(-)
+
+diff --git a/RUNNING.md b/RUNNING.md
+index e8d3e26a..a737d396 100644
+--- a/RUNNING.md
++++ b/RUNNING.md
+@@ -214,7 +214,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
+ | `branch.weighted` | par key | integer | `1` | 0..1 | policy | rules 1, 3 and 4: weight the U sums by the row's gap fraction |
+ | `branch.weight` | par key | number | `0.5` | 0..1 | policy | the weight of that fraction |
+ | `branch.xbar_lines` | par key | integer | `1` | 1..64 | policy | rule 9: candidate rows and columns per side from the DNN marginals |
+-| `branch.la_exp` | par key | number | `0` | 0..1e+06 | policy | rule 10: L, a line's score is the sum over its children of exp(L x the child's QPB shortfall / the node's QPB gap); the rule needs it set (32 in the runs measured); 0: unset |
++| `branch.la_exp` | par key | number | `0` | 0..500 | policy | rule 10: L, a line's score is the sum, over the children QPB does not drop, of exp(L x the child's QPB shortfall / the node's QPB gap); the rule needs it set (32 in the runs measured); 0: unset |
+ | `sb.depths` | par key | text | unset | text | policy | DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1) |
+ | `sb.k` | par key | integer | `4` | 1..1000 | policy | sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score |
+ | `sb.all` | par key | integer | `-1` | -1..inf | policy | sb: through this depth every free line is a candidate (-1: none) |
+@@ -514,11 +514,12 @@ did not run.
+   columns by U sum, every free line when that number is m or more (rows only
+   while symmetry is left). Every child of a candidate is bounded by QPB as
+   rule 4 bounds it, with the level's "Frank-Wolfe iterations, for row
+-  selection". A child's shortfall s is the cutoff less that bound, 0 when QPB
+-  drops the child. The node branches on the line with the least sum over its
+-  children of exp(L s / G), G the node's own QPB gap and L = `branch.la_exp`:
+-  one child far from the cutoff outweighs several near it, which rule 4's sum
+-  of the children's bounds cannot see. It needs no DNN bound.
++  selection". A child's shortfall s is the cutoff less that bound. The node
++  branches on the line with the least sum, over the children QPB does not
++  drop, of exp(L s / G), G the node's own QPB gap and L = `branch.la_exp` (a
++  child QPB drops adds nothing): one child far from the cutoff outweighs
++  several near it, which rule 4's sum of the children's bounds cannot see. It
++  needs no DNN bound.
+   - `branch.la_exp` has no default: a params file that uses rule 10 must set
+     it, or the run stops at startup. It is in the settings hash only when
+     set, so recipes without rule 10 keep their hash. 32 is the value of every
+diff --git a/latest/bnb.C b/latest/bnb.C
+index f501728b..49bfca40 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -1513,7 +1513,8 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	  kid[i].set_warm(warm);
+ 	warm_start_release(warm);
+ 
+-	if (params->log_file && (bp->how == BRANCH_LOOKAHEAD || bp->how == BRANCH_LOOKAHEAD_ECC)) {
++	if (params->log_file && (bp->how == BRANCH_LOOKAHEAD || bp->how == BRANCH_LOOKAHEAD_ECC ||
++				 bp->how == BRANCH_SIZE_LOOKAHEAD)) {
+ 	  log_matrix(params, "B|_", U);
+ 	}
+ 	
+diff --git a/latest/branch.C b/latest/branch.C
+index d4c08bb3..2a1d6750 100644
+--- a/latest/branch.C
++++ b/latest/branch.C
+@@ -44,9 +44,10 @@ static double branching_weight() { static const double v = setting_d("branch.wei
+ static int xbar_lines_per_side() { static const int v = (int)setting_i("branch.xbar_lines"); return v; }   // rule 9
+ 
+ // Rule 10 (BRANCH_SIZE_LOOKAHEAD): the size score on the children's QPB bounds. A child's shortfall s is
+-// the cutoff less its QPB bound as rule 4's lookahead computes it (0 when QPB drops it); a line's score is
+-// the sum over its children of exp(L (s - s_max) / G), G the node's own QPB gap and s_max the largest
+-// shortfall at the node (a common factor, there for the range of exp). The least score wins: one child
++// the cutoff less its QPB bound as rule 4's lookahead computes it; a line's score is the sum, over the
++// children QPB does not drop (s > 0; a dropped child adds nothing), of exp(L (s - s_max) / G), G the node's
++// own QPB gap and s_max the largest shortfall at the node (a common factor, there for the range of exp:
++// the exponent runs from -L to 0, so L is kept under exp's underflow). The least score wins: one child
+ // far from the cutoff outweighs several near it, which the sum of the children's bounds (rule 4's
+ // score) cannot see. experiments/branching_lab/ucheap: with every line a candidate, nug30 closes in
+ // 3,420 nodes against rule 9's 4,285 to 4,365 and tho30 in 8,581 against 14,815.
+diff --git a/latest/driver.C b/latest/driver.C
+index 4c7314c3..8dd5acc1 100644
+--- a/latest/driver.C
++++ b/latest/driver.C
+@@ -656,7 +656,7 @@ int main(int argc, char *argv[])
+       exit(2);
+     }
+   if (setting_d("branch.la_exp") > 0)
+-    cout << "Rule 10: a line's score is the sum over its children of exp(" << setting_d("branch.la_exp")
++    cout << "Rule 10: a line's score is the sum over the children QPB does not drop of exp(" << setting_d("branch.la_exp")
+ 	 << " x QPB shortfall / the node's QPB gap)" << std::endl;
+   settings_dump(cout);   // every setting with its value and source (settings.h)
+ 
+diff --git a/latest/settings.C b/latest/settings.C
+index e25a06a5..300d2153 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -95,7 +95,7 @@ static Setting TABLE[] = {
+   POLICY("branch.weighted", NULL, 'i', "1", 0, 1, "rules 1, 3 and 4: weight the U sums by the row's gap fraction"),
+   POLICY("branch.weight", NULL, 'd', "0.5", 0, 1, "the weight of that fraction"),
+   POLICY("branch.xbar_lines", NULL, 'i', "1", 1, 64, "rule 9: candidate rows and columns per side from the DNN marginals"),
+-  POLICY("branch.la_exp", NULL, 'd', "0", 0, 1000000, "rule 10: L, a line's score is the sum over its children of exp(L x the child's QPB shortfall / the node's QPB gap); the rule needs it set (32 in the runs measured); 0: unset"),
++  POLICY("branch.la_exp", NULL, 'd', "0", 0, 500, "rule 10: L, a line's score is the sum, over the children QPB does not drop, of exp(L x the child's QPB shortfall / the node's QPB gap); the rule needs it set (32 in the runs measured); 0: unset"),
+   POLICY("sb.depths", NULL, 's', "", 0, 0, "DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1)"),
+   POLICY("sb.k", NULL, 'i', "4", 1, 1000, "sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score"),
+   POLICY("sb.all", NULL, 'i', "-1", -1, 1073741824, "sb: through this depth every free line is a candidate (-1: none)"),
+diff --git a/latest/util.h b/latest/util.h
+index 9180624c..7ff29730 100644
+--- a/latest/util.h
++++ b/latest/util.h
+@@ -84,9 +84,9 @@ const int BRANCH_XBAR_LOOKAHEAD = 9; // lookahead between the two rule-8 lines o
+ const int BRANCH_SIZE_LOOKAHEAD = 10; // QPB strong branching with the size score: the children of the
+                                   // level's best use_best rows and columns by U sum (every free
+                                   // line when use_best >= m) are bounded by QPB as rule 4 bounds
+-                                  // them, and the line with the least sum over its children of
+-                                  // exp(L x shortfall / the node's QPB gap) is taken
+-                                  // (L = branch.la_exp, which the rule needs set)
++                                  // them, and the line with the least sum, over the children QPB
++                                  // does not drop, of exp(L x shortfall / the node's QPB gap) is
++                                  // taken (L = branch.la_exp, which the rule needs set)
+ const int BRANCH_FIXED = -1;
+ 
+ 
+diff --git a/tests/rule10_test.py b/tests/rule10_test.py
+index f078957c..fb979bf4 100644
+--- a/tests/rule10_test.py
++++ b/tests/rule10_test.py
+@@ -4,7 +4,8 @@
+   python3 tests/rule10_test.py [--jobs 4]
+ 
+  * with every line a candidate the root of nug30 branches on row 23 and the root of tho30 on row 5
+-   (experiments/branching_lab/ucheap: the rows the score names; rule 4's own score takes rows 0 and 5);
++   (experiments/branching_lab/ucheap: the rows the score names), and rule 4 on the same candidates takes
++   row 0 at nug30, so the nug30 check tells the two scores apart (tho30's does not: both take row 5);
+  * a params file that uses rule 10 without branch.la_exp is refused (exit code 2);
+  * nug18 under the DNN bound with rule 10 at every level closes at the optimum, serially and through
+    bench/parallel.py with the same totals;
+@@ -25,11 +26,11 @@ BLOCK = """ {rule}   branching rule
+ """
+ 
+ 
+-def par(tmp, name, best, settings):
++def par(tmp, name, best, settings, rule=10):
+     path = os.path.join(tmp, name)
+     with open(path, "w") as f:
+         f.write("0    has the location of a symmetry file been provided?\n-1    restriction on tree depth\n"
+-                "1    number of branching rules\n\n" + BLOCK.format(rule=10, best=best) + "\n[settings]\n"
++                "1    number of branching rules\n\n" + BLOCK.format(rule=rule, best=best) + "\n[settings]\n"
+                 + "\n".join(settings) + "\n")
+     return path
+ 
+@@ -59,12 +60,14 @@ def main():
+         print(f"{'ok  ' if ok else 'FAIL'} {what}")
+ 
+     allp = par(tmp, "all.par", 99, ["branch.la_exp = 32"])
+-    for name, ub, row in (("nug30", 6126, "r23"), ("tho30", 149938, "r5")):
+-        trace = os.path.join(tmp, name + ".root.txt")
+-        rc, out = run(solver, ["-p", allp, "-s", f"SYM/{name}.sym", "-u", str(ub), "-d", "0",
++    rule4 = par(tmp, "rule4.par", 99, ["ship.bits = 64"], rule=4)
++    for name, ub, row, pf, what in (("nug30", 6126, "r23", allp, "rule 10"), ("tho30", 149938, "r5", allp, "rule 10"),
++                                    ("nug30", 6126, "r0", rule4, "rule 4 (the same candidates and child bounds, its own score)")):
++        trace = os.path.join(tmp, name + what[:7].replace(" ", "") + ".root.txt")
++        rc, out = run(solver, ["-p", pf, "-s", f"SYM/{name}.sym", "-u", str(ub), "-d", "0",
+                                os.path.join(ROOT, "qaplib", name + ".dat")], {"QAP_NODE_TRACE": trace})
+         f = open(trace).read().split() if os.path.exists(trace) else []
+-        check(rc == 0 and len(f) > 9 and f[9] == row, f"{name}'s root, every row: branches on {f[9] if len(f) > 9 else None} (expected {row})")
++        check(rc == 0 and len(f) > 9 and f[9] == row, f"{name}'s root, every row, {what}: branches on {f[9] if len(f) > 9 else None} (expected {row})")
+ 
+     rc, out = run(solver, ["-p", par(tmp, "noexp.par", 99, ["ship.bits = 64"]), "-u", "1930", os.path.join(ROOT, "qaplib", "nug18.dat")])
+     check(rc == 2 and "branch.la_exp" in out, f"rule 10 without branch.la_exp: exit code {rc}")
 -- 
 2.43.0
 
