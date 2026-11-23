@@ -8,3 +8,21 @@ r11 (rule 9's lines, the size score), r11x2 (two lines a side): sko42 is a 6 x 7
   tho40's 5 x 8 than to tho30's 3 x 10. Prediction: r11 and r11x2 0.8 to 1.0 of prod's nodes over the three, r10
   (every line) 0.9 to 1.15, as on the tho40 subtrees. If r10 is the best arm by more than 10%, sko42 is in tho30's
   regime instead.
+
+Results (Nov 23; runs.log, runs/). Nodes / CPU s, this box, one core each:
+
+  subtree            prod (rule 9)   r11           r11x2         r10 (every line)
+  36:1,7:0,5:7       191 / 1,600     191 / 1,619   191 / 1,595   191 / 1,526
+  36:16,5:0,22:35    338 / 2,524     338 / 2,359   264 / 2,140   192 / 2,064
+  36:3,22:0,24:41    226 / 1,637     226 / 1,627   227 / 1,599   265 / 1,861
+  total              755 / 5,761     755 / 5,605   682 / 5,334   648 / 5,451
+  of prod            1               1.00 / 0.97   0.90 / 0.93   0.86 / 0.95
+
+Against the prediction: r11x2 inside its range (0.90), r11 at its edge (1.00: the same nodes, other lines at a few
+nodes), r10 below its range in nodes (0.86, predicted 0.9 to 1.15) but not in CPU (0.95). Not tho30's regime: r10
+is not the best arm by 10%, and its lead over r11x2 is one subtree (192 against 264) with the third going the other
+way (265 against 227).
+What the sample is: 5 to 9 branchings a subtree (every other node is a child fathomed by its DNN bound or its cut
+phase), so 20 branchings an arm in all. One subtree gave the same 191 nodes under all four; the differences are one
+subtree each. prod itself moved from the run's 227 / 226 / 226 to 191 / 338 / 226 by starting cold. A sample this
+small cannot rank r11x2 against r10; it says neither is worse than rule 9 here, by about 5% in CPU.
