@@ -60,3 +60,23 @@ CPU on each. A large subtree is large because many of the node's 40 children bra
 less than the second batch's 0.33 / 0.60. Over 1.0 in CPU on either would put the suggestion in doubt.
 The first of them runs beside tai35b's sb01 arm (6 processes on 4 cores for part of it): node counts unaffected,
 CPU seconds possibly a few percent high in both arms alike.
+
+Results of the third batch (Nov 23; runs_big.log, runs_big/). Nodes / CPU s; the depth-2 node's line:
+
+  subtree        prod (rule 9)        r10 (every line)
+  36:14,7:0      c35  575 / 5,014     c35  578 / 5,754     1.01 / 1.15
+  36:15,27:0     c41  691 / 5,134     c35  235 / 2,477     0.34 / 0.48
+  total               1,266 / 10,148       813 / 8,231     0.64 / 0.81
+
+One inside my range and far better, one outside it on the bad side (I wrote that over 1.0 in CPU on either would
+put the suggestion in doubt). At 36:14,7:0 both rules take c35 at the depth-2 node and the same 7 of its 40
+children branch; rule 10's lines at those seven leave 5 branchings at depth 4 for 3 and 37 nodes to the cut phase
+for 23 (1,832 s against 1,378). So: where rule 10 changes the depth-2 line it wins by a factor (four subtrees of
+five: 41 for 197 nodes, 158 for 347, 80 for 310, 235 for 691); where it does not, or from depth 3 down, it is
+level with rule 9 or behind (CPU 0.95, 0.82, 1.14 on the depth-3 starts, 1.15 here).
+All eight subtrees: prod 2,875 nodes / 23,168 s, r10 1,740 / 18,016 (0.61 / 0.78).
+
+A hybrid, written before its runs: hyb.par = rule 9 at the root and depth 1, rule 10 at depth 2, rule 11 with two
+lines a side from depth 3 (r11x2 was never behind rule 9 from depth 3: CPU 1.00, 0.85, 0.98). On the two large
+subtrees it has r10's depth-2 line. Prediction: 36:14,7:0 0.9 to 1.05 of prod's 5,014 s (r10: 5,754);
+36:15,27:0 within 10% of r10's 2,477 s.
