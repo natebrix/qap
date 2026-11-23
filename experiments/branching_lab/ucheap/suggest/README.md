@@ -14,9 +14,12 @@ Evidence and its limits: `../README.md`, "sko42 and tai35b".
   **`sko42_d2r10_sb.par`** (Nathan's choice, Nov 23): the same with DNN strong branching at the root and depth
   1 (`sb.depths = 0:1`, `sb.all = 0`, `dnn.depths = 0:40`, as `infra/phase1/recipes/tho40c_sb.par`). Unmeasured as
   a whole. At the 12 depth-1 nodes of sko42-261120b strong branching took rule 9's line at 11, for 18 CPU h of
-  firings (`experiments/sb_depth1` in cognac); the root's row under it: `../sko42root/` (running Nov 23). If it
-  is not r36 the run shares no node below the root with sko42-261120b, and the depth-2 evidence above is from
-  another tree.
+  firings (`experiments/sb_depth1` in cognac); the root's firing run here
+  (`../sko42root/`, Nov 23) **chose r22, not the run's r36**: score 1.057, then r35 1.233, r1 1.250, r5 1.302;
+  r36 1.779, tenth of 42 rows; 504 child solves, none retried, 12,688 CPU s. So a run with this file shares no
+  node below the root with sko42-261120b: the depth-2 evidence above is from another tree, its 18 CPU h of
+  depth-1 firings are at other nodes, and its total cannot be split between the root's row and rule 10. No tree
+  under r22 has been measured.
   `sko42_r10.par`: rule 10 in every block but the first (0.61 / 0.78 over eight subtrees; its depth-2 lookahead
   is 12 iterations at most nodes, measured with 25). `sko42_r10_sb.par`: that with `sb.depths = 0:1`,
   `sb.all = 0`, `dnn.depths = 0:40`, as `infra/phase1/recipes/tho40c_sb.par`. Not measured on sko42.

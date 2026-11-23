@@ -158,6 +158,13 @@ with rule 11 (one and two lines a side) or rule 10 on every line. Nodes / CPU s.
   run. Also there: `sko42_r10.par` (rule 10 from depth 2 down; its depth-2 lookahead is 12 iterations for most
   nodes, not what was measured) and `sko42_r10_sb.par` (that with DNN strong branching at the root and depth 1,
   as `tho40c_sb.par`; unmeasured on sko42).
+- With DNN strong branching at the root and depth 1 (Nathan's choice, Nov 23): `suggest/sko42_d2r10_sb.par`. The
+  root's firing alone, `sko42root/` (this container, one process): **r22**, score 1.057 (r35 1.233, r1 1.250,
+  r5 1.302; the run's r36 1.779, tenth of 42), 504 child solves of 150 iterations, none retried, 12,688 CPU s
+  (3.5 CPU h, 25 s a child). r22 is also first by the DNN marginal score (0.122; r40 next, 0.078;
+  r36 0.041). The run with that file is therefore another tree from the first branching: nothing measured under
+  r36 (rule 10 at depth 2 here, strong branching at depth 1 in cognac's `experiments/sb_depth1`) is about its
+  nodes, and no tree under r22 has been measured.
 - **Linux only.** See nug30 on the laptop, below, before running rule 10 or 11 on a Mac.
 
 **nug30 on the laptop** (Nov 23, Nathan's run of `experiments/nug30_record/run.sh g5e g5e_r11x2 g5e_r11x2_gu83`,
