@@ -1,0 +1,564 @@
+From de6b8c0c2f46e5e51a54c42dbfab11c212199c5f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 23 Nov 2026 04:09:25 +0000
+Subject: [PATCH] Rule 10: QPB strong branching with the size score (work in
+ progress, under review)
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014vvMYV3r6FDoHTc2G3VVqC
+---
+ Makefile                                     |  7 +-
+ RUNNING.md                                   | 26 +++++-
+ experiments/estimates/sko42/settings.golden  |  3 +-
+ experiments/estimates/sko49/settings.golden  |  3 +-
+ experiments/estimates/tai50b/settings.golden |  3 +-
+ experiments/estimates/tho40/settings.golden  |  3 +-
+ experiments/estimates/wil50/settings.golden  |  3 +-
+ latest/PARAM/rule10.par                      | 14 ++++
+ latest/bnb.C                                 |  2 +-
+ latest/branch.C                              | 77 ++++++++++++++++-
+ latest/driver.C                              |  9 ++
+ latest/settings.C                            |  3 +
+ latest/util.C                                |  2 +-
+ latest/util.h                                |  6 ++
+ tests/brute_force.py                         |  2 +-
+ tests/rule10_test.py                         | 88 ++++++++++++++++++++
+ 16 files changed, 237 insertions(+), 14 deletions(-)
+ create mode 100644 latest/PARAM/rule10.par
+ create mode 100644 tests/rule10_test.py
+
+diff --git a/Makefile b/Makefile
+index c64f5b3d..aa72b40e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,14 +15,14 @@
+ 
+ PYTHON ?= python3
+ 
+-.PHONY: all solver test bruteforce resume parallel coord settings-doc regression estimate sb clean dnntest dnncheck shipcheck nodetrace
++.PHONY: all solver test bruteforce resume parallel coord settings-doc regression estimate sb rule10 clean dnntest dnncheck shipcheck nodetrace
+ 
+ all: solver
+ 
+ solver:
+ 	$(MAKE) -C latest
+ 
+-test: bruteforce resume parallel coord settings-doc regression estimate sb
++test: bruteforce resume parallel coord settings-doc regression estimate sb rule10
+ 
+ bruteforce: solver
+ 	$(PYTHON) tests/brute_force.py
+@@ -56,6 +56,9 @@ sb: solver
+ dnntest:
+ 	$(MAKE) -C latest dnntest
+ 
++rule10: solver
++	$(PYTHON) tests/rule10_test.py
++
+ dnncheck: dnntest
+ 	$(PYTHON) tests/dnn_test.py
+ 
+diff --git a/RUNNING.md b/RUNNING.md
+index 169ba531..e8d3e26a 100644
+--- a/RUNNING.md
++++ b/RUNNING.md
+@@ -214,6 +214,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
+ | `branch.weighted` | par key | integer | `1` | 0..1 | policy | rules 1, 3 and 4: weight the U sums by the row's gap fraction |
+ | `branch.weight` | par key | number | `0.5` | 0..1 | policy | the weight of that fraction |
+ | `branch.xbar_lines` | par key | integer | `1` | 1..64 | policy | rule 9: candidate rows and columns per side from the DNN marginals |
++| `branch.la_exp` | par key | number | `0` | 0..1e+06 | policy | rule 10: L, a line's score is the sum over its children of exp(L x the child's QPB shortfall / the node's QPB gap); the rule needs it set (32 in the runs measured); 0: unset |
+ | `sb.depths` | par key | text | unset | text | policy | DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1) |
+ | `sb.k` | par key | integer | `4` | 1..1000 | policy | sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score |
+ | `sb.all` | par key | integer | `-1` | -1..inf | policy | sb: through this depth every free line is a candidate (-1: none) |
+@@ -451,7 +452,7 @@ Example from `PARAM/default.par`:
+ --- repeated L times; the last level omits the first two lines ---
+ 0.20  use this level when the relative gap (opt-bnd)/opt is worse than...
+ 2     ...and depth is at most this
+-4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead, 8 DNN marginals, 9 lookahead between the two marginal lines (8 and 9 need -x; lookahead where no DNN bound ran)
++4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead, 8 DNN marginals, 9 lookahead between the two marginal lines (8 and 9 need -x; lookahead where no DNN bound ran), 10 lookahead with the size score (needs branch.la_exp)
+ 150   Frank-Wolfe iterations for the bound
+ 100   Frank-Wolfe iterations when we know we can't fathom
+ 25    Frank-Wolfe iterations for row selection (lookahead children; each starts from the parent's X)
+@@ -507,6 +508,29 @@ did not run.
+   marginal lines (rule 8's row and its column), chosen by the children's QPB
+   bounds. It gives nug30 -13% and nug28 +8%
+   (`experiments/wil50_feasibility/tuning`).
++- **Rule 10** is rule 4's lookahead with another score (Nov 23;
++  `experiments/branching_lab/ucheap` on `claude/cool-babbage-ilnogj`). The
++  candidates are the level's best "compute B for best _ rows of U" rows and
++  columns by U sum, every free line when that number is m or more (rows only
++  while symmetry is left). Every child of a candidate is bounded by QPB as
++  rule 4 bounds it, with the level's "Frank-Wolfe iterations, for row
++  selection". A child's shortfall s is the cutoff less that bound, 0 when QPB
++  drops the child. The node branches on the line with the least sum over its
++  children of exp(L s / G), G the node's own QPB gap and L = `branch.la_exp`:
++  one child far from the cutoff outweighs several near it, which rule 4's sum
++  of the children's bounds cannot see. It needs no DNN bound.
++  - `branch.la_exp` has no default: a params file that uses rule 10 must set
++    it, or the run stops at startup. It is in the settings hash only when
++    set, so recipes without rule 10 keep their hash. 32 is the value of every
++    run measured.
++  - Measured with every line a candidate at every lookahead level of the
++    nug30 recipe: nug30 3,420 nodes and 2,392 CPU s (rule 9: 4,285 to 4,365 and
++    3,314 to 3,421), tho30 8,581 and 6,350 (14,815 and 9,375); the lookahead
++    over every line is under 2% of that CPU. Under DNN strong branching at
++    depth 1 (`sb.depths = 1:1`): 3,140 and 7,757 nodes. Three depth-3 subtrees
++    of tho40 are in the same study. Not measured: a shortlist shorter than
++    every line (by U sum), and any tai instance.
++  - `PARAM/rule10.par` is the rule alone, for the brute-force check.
+ 
+ ### The DNN bound (-x)
+ 
+diff --git a/experiments/estimates/sko42/settings.golden b/experiments/estimates/sko42/settings.golden
+index ed60497b..aa722101 100644
+--- a/experiments/estimates/sko42/settings.golden
++++ b/experiments/estimates/sko42/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash 4d9d559e682bacbe
++settings 103 hash 4d9d559e682bacbe
+ setting dnn.depths 1:40 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting branch.la_exp 0 default policy
+ setting sb.depths "" default policy
+ setting sb.k 4 default policy
+ setting sb.all -1 default policy
+diff --git a/experiments/estimates/sko49/settings.golden b/experiments/estimates/sko49/settings.golden
+index 0e4d17d7..fe600cfc 100644
+--- a/experiments/estimates/sko49/settings.golden
++++ b/experiments/estimates/sko49/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash 48c9dd8170de7b12
++settings 103 hash 48c9dd8170de7b12
+ setting dnn.depths 1:47 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting branch.la_exp 0 default policy
+ setting sb.depths "" default policy
+ setting sb.k 4 default policy
+ setting sb.all -1 default policy
+diff --git a/experiments/estimates/tai50b/settings.golden b/experiments/estimates/tai50b/settings.golden
+index 5af36b7c..9b89c2e5 100644
+--- a/experiments/estimates/tai50b/settings.golden
++++ b/experiments/estimates/tai50b/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash 2d2e930dd4892f6e
++settings 103 hash 2d2e930dd4892f6e
+ setting dnn.depths 1:48 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 600 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting branch.la_exp 0 default policy
+ setting sb.depths "" default policy
+ setting sb.k 4 default policy
+ setting sb.all -1 default policy
+diff --git a/experiments/estimates/tho40/settings.golden b/experiments/estimates/tho40/settings.golden
+index 3374e27d..b58284ad 100644
+--- a/experiments/estimates/tho40/settings.golden
++++ b/experiments/estimates/tho40/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash ef87f58b91e422ae
++settings 103 hash ef87f58b91e422ae
+ setting dnn.depths 1:38 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 200 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 2 par policy
++setting branch.la_exp 0 default policy
+ setting sb.depths "" default policy
+ setting sb.k 4 default policy
+ setting sb.all -1 default policy
+diff --git a/experiments/estimates/wil50/settings.golden b/experiments/estimates/wil50/settings.golden
+index 40b17328..93dae20a 100644
+--- a/experiments/estimates/wil50/settings.golden
++++ b/experiments/estimates/wil50/settings.golden
+@@ -1,4 +1,4 @@
+-settings 102 hash f1daea6957a1aeff
++settings 103 hash f1daea6957a1aeff
+ setting dnn.depths 1:48 par policy
+ setting dnn.maxgap 1 par policy
+ setting dnn.giveup 300 par policy
+@@ -62,6 +62,7 @@ setting pool.cp 0 default policy
+ setting branch.weighted 1 default policy
+ setting branch.weight 0.5 default policy
+ setting branch.xbar_lines 1 default policy
++setting branch.la_exp 0 default policy
+ setting sb.depths "" default policy
+ setting sb.k 4 default policy
+ setting sb.all -1 default policy
+diff --git a/latest/PARAM/rule10.par b/latest/PARAM/rule10.par
+new file mode 100644
+index 00000000..faa117d4
+--- /dev/null
++++ b/latest/PARAM/rule10.par
+@@ -0,0 +1,14 @@
++0    has the location of a symmetry file been provided?
++-1    restriction on tree depth (-1 means none)
++1    number of branching rules
++
++ 10   branching rule: QPB strong branching with the size score (needs branch.la_exp)
++ 150  Frank-Wolfe iterations, for bound 
++ 150  Frank-wolfe iterations, when we know we can't fathom
++ 50   Frank-Wolfe iterations, for row selection
++ 1    which bound?
++ 30   step for parametric bound
++ 5    compute B for best _ rows of U
++
++[settings]
++branch.la_exp = 32
+diff --git a/latest/bnb.C b/latest/bnb.C
+index 13fe741d..f501728b 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -1004,7 +1004,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+       qpbp->nofathom_patience =
+ 	(node.depth > 0 &&
+ 	 (param->rule == BRANCH_LOOKAHEAD || param->rule == BRANCH_LOOKAHEAD_ECC ||
+-	  param->rule == BRANCH_STRONG))
++	  param->rule == BRANCH_SIZE_LOOKAHEAD || param->rule == BRANCH_STRONG))
+ 	? fw_nofathom_patience : 0;
+       qpbp->step = param->param_step;
+       qpbp->fw_iter = 0;
+diff --git a/latest/branch.C b/latest/branch.C
+index a5ed804b..d4c08bb3 100644
+--- a/latest/branch.C
++++ b/latest/branch.C
+@@ -43,6 +43,28 @@ static bool weighted_branching() { static const bool v = setting_i("branch.weigh
+ static double branching_weight() { static const double v = setting_d("branch.weight"); return v; }
+ static int xbar_lines_per_side() { static const int v = (int)setting_i("branch.xbar_lines"); return v; }   // rule 9
+ 
++// Rule 10 (BRANCH_SIZE_LOOKAHEAD): the size score on the children's QPB bounds. A child's shortfall s is
++// the cutoff less its QPB bound as rule 4's lookahead computes it (0 when QPB drops it); a line's score is
++// the sum over its children of exp(L (s - s_max) / G), G the node's own QPB gap and s_max the largest
++// shortfall at the node (a common factor, there for the range of exp). The least score wins: one child
++// far from the cutoff outweighs several near it, which the sum of the children's bounds (rule 4's
++// score) cannot see. experiments/branching_lab/ucheap: with every line a candidate, nug30 closes in
++// 3,420 nodes against rule 9's 4,285 to 4,365 and tho30 in 8,581 against 14,815.
++static double la_exp() { static const double v = setting_d("branch.la_exp"); return v; }
++struct LaCell { int di, dj; double s; };
++static void la_size_scores(const std::vector<LaCell> &cells, double gap, int m, std::vector<double> &row, std::vector<double> &col)
++{
++  double smax = 0.0;
++  for (const LaCell &c : cells) smax = std::max(smax, c.s);
++  const double G = std::max(gap, 1e-9), L = la_exp();
++  row.assign(m, 0.0);  col.assign(m, 0.0);
++  for (const LaCell &c : cells) {
++    if (c.s <= 0.0) continue;
++    const double v = exp(L * (c.s - smax) / G);
++    row[c.di] += v;  col[c.dj] += v;
++  }
++}
++
+ void set_branch_parameters(BranchParameters *bp, BNBParameters *param,
+ 			   bool use_J, bool reorder_children) {
+   bp->use_best = param->use_best;
+@@ -1555,12 +1577,13 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
+ 			  int *J3, int J3_dim,MAT *X,MAT *U,
+ 			  double bound,QPBParameters *qpbp,int use_best, 
+ 			  bool weighted, int which_bound,
+-			  int &row_in_U,int &row_in_assign)
++			  int &row_in_U,int &row_in_assign, bool size_score = false)
+ {
+   int n = assign.n;
+   int i,j,di,dj,k,l,bi;
+   int m = U->n;
+   double *u_sum,best_sum;
++  std::vector<LaCell> la_cells;   // rule 10: each bounded child's shortfall
+   int *order;
+   int J3_count;
+   double temp;
+@@ -1677,6 +1700,8 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
+ 	//  b) compute the row variance of the matrix.
+ 	double u_di = J3_child_dim * (U->me[di][dj] + bound) + best_u1_sum;
+ 	u_sum[di] += u_di;
++	if (size_score)
++	  la_cells.push_back({di, dj, std::max(0.0, qpbp->inc - DELTA_BRANCH - (U->me[di][dj] + bound))});
+ 	// lgb_U->me[di][dj] += u_di;
+ 	assign.unfix(i, j);
+       }
+@@ -1692,6 +1717,16 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
+   // above, before I modify U, log U.
+   
+   find_max(u_sum, best_sum, row_in_U, m);
++  if (size_score) {   // rule 10: the least size score among the candidate rows, ties to rule 4's score
++    std::vector<double> rs, cs;
++    la_size_scores(la_cells, qpbp->inc - DELTA_BRANCH - bound, m, rs, cs);
++    int best = -1;
++    for (int d = 0; d < m; d++) {
++      if (order[d] >= use_best) continue;
++      if (best < 0 || rs[d] < rs[best] || (rs[d] == rs[best] && u_sum[d] > u_sum[best])) best = d;
++    }
++    if (best >= 0) row_in_U = best;
++  }
+   get_row_in_assign(assign,row_in_U,row_in_assign);
+ 
+   // print bestk
+@@ -1733,7 +1768,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+ 			  bool weighted, int which_bound,
+ 			  int &ind_in_U,int &ind_in_assign,
+ 			  bool &chose_row, bool eccentric_cols = false,
+-			  bool xbar_lines = false)
++			  bool xbar_lines = false, bool size_score = false)
+ {
+   int i,j,di,dj,k,l,bi;
+   int m = U->n;
+@@ -1785,6 +1820,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+       xbar_used = true;
+     }
+   }
++  std::vector<LaCell> la_cells;   // rule 10: each bounded child's shortfall
+ 
+   int n = assign.n;
+   MAT *X1 = MNULL, *U1 = MNULL;
+@@ -1884,6 +1920,8 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+       
+       u_row_sum[di] += J3_child_dim*(U->me[di][dj]+bound) + best_u1_sum;
+       u_col_sum[dj] += J3_child_dim*(U->me[di][dj]+bound) + best_u1_sum;
++      if (size_score)
++	la_cells.push_back({di, dj, std::max(0.0, qpbp->inc - DELTA_BRANCH - (U->me[di][dj] + bound))});
+       
+       assign.unfix(i,j);
+     }
+@@ -1898,7 +1936,26 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+   find_max(u_row_sum, best_row_sum, row_in_U, m);
+   find_max(u_col_sum, best_col_sum, col_in_U, m);
+ 
+-  if(best_row_sum >= best_col_sum) {
++  bool size_chose = false;
++  if (size_score) {   // rule 10: the least size score among the candidate lines (a candidate has every
++		      // child bounded; a row and a column tie to rule 4's score, then to the row)
++    std::vector<double> rs, cs;
++    la_size_scores(la_cells, qpbp->inc - DELTA_BRANCH - bound, m, rs, cs);
++    int br = -1, bc = -1;
++    for (int d = 0; d < m; d++) {
++      if (row_order[d] < kr && (br < 0 || rs[d] < rs[br] || (rs[d] == rs[br] && u_row_sum[d] > u_row_sum[br]))) br = d;
++      if (col_order[d] < kc && (bc < 0 || cs[d] < cs[bc] || (cs[d] == cs[bc] && u_col_sum[d] > u_col_sum[bc]))) bc = d;
++    }
++    if (br >= 0 || bc >= 0) {
++      size_chose = true;
++      chose_row = bc < 0 || (br >= 0 && (rs[br] < cs[bc] || (rs[br] == cs[bc] && u_row_sum[br] >= u_col_sum[bc])));
++      ind_in_U = chose_row ? br : bc;
++      if (chose_row) get_row_in_assign(assign, br, ind_in_assign);
++      else get_col_in_assign(assign, bc, ind_in_assign);
++    }
++  }
++  if (size_chose) ;
++  else if(best_row_sum >= best_col_sum) {
+     chose_row = true;
+     ind_in_U = row_in_U;
+     get_row_in_assign(assign,row_in_U,ind_in_assign);
+@@ -2192,6 +2249,20 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
+ 			   row_in_U,row_in_assign);
+     break;
+ 
++  case BRANCH_SIZE_LOOKAHEAD:   // rule 10: rule 4's candidates and child bounds, the size score
++    if(can_branch_on_cols) {
++      select_ind_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
++			   bp->use_best,
++			   weighted_branching(), bp->which_bound,
++			   row_in_U,row_in_assign,chose_row,false,false,true);
++    }
++    else
++      select_row_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
++			   bp->use_best,
++			   weighted_branching(), bp->which_bound,
++			   row_in_U,row_in_assign,true);
++    break;
++
+   case BRANCH_LOOKAHEAD_ECC:
+     if(can_branch_on_cols) {
+       select_ind_lookahead(qap,assign,J3,J3_dim,X,U,bound,qpbp,
+diff --git a/latest/driver.C b/latest/driver.C
+index b97d6330..4c7314c3 100644
+--- a/latest/driver.C
++++ b/latest/driver.C
+@@ -649,6 +649,15 @@ int main(int argc, char *argv[])
+   settings_read_par(c->param_file);   // its [settings] section (settings.h)
+   record_cut_regions(n);              // cut.regions: its hash in the record, its indices checked
+   apply_policy_settings();            // -x/-w or the file into the solver's globals
++  for (int lv = 0; lv < c->nlevel; lv++)   // rule 10 needs its exponent: no default, so that the settings hash names it
++    if (params[lv].rule == BRANCH_SIZE_LOOKAHEAD && !(setting_d("branch.la_exp") > 0)) {
++      cerr << "rule 10 (params level " << lv + 1 << ") needs branch.la_exp set in the params file's [settings]"
++	   << " (RUNNING.md; 32 in the runs measured)" << std::endl;
++      exit(2);
++    }
++  if (setting_d("branch.la_exp") > 0)
++    cout << "Rule 10: a line's score is the sum over its children of exp(" << setting_d("branch.la_exp")
++	 << " x QPB shortfall / the node's QPB gap)" << std::endl;
+   settings_dump(cout);   // every setting with its value and source (settings.h)
+ 
+   if (!set_max_depth) {
+diff --git a/latest/settings.C b/latest/settings.C
+index 7dca1924..e25a06a5 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -95,6 +95,7 @@ static Setting TABLE[] = {
+   POLICY("branch.weighted", NULL, 'i', "1", 0, 1, "rules 1, 3 and 4: weight the U sums by the row's gap fraction"),
+   POLICY("branch.weight", NULL, 'd', "0.5", 0, 1, "the weight of that fraction"),
+   POLICY("branch.xbar_lines", NULL, 'i', "1", 1, 64, "rule 9: candidate rows and columns per side from the DNN marginals"),
++  POLICY("branch.la_exp", NULL, 'd', "0", 0, 1000000, "rule 10: L, a line's score is the sum over its children of exp(L x the child's QPB shortfall / the node's QPB gap); the rule needs it set (32 in the runs measured); 0: unset"),
+   POLICY("sb.depths", NULL, 's', "", 0, 0, "DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1)"),
+   POLICY("sb.k", NULL, 'i', "4", 1, 1000, "sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score"),
+   POLICY("sb.all", NULL, 'i', "-1", -1, 1073741824, "sb: through this depth every free line is a candidate (-1: none)"),
+@@ -373,6 +374,8 @@ static bool hashed(const Setting &s)
+ {
+   if (!recorded(s)) return false;
+   if (s.key && strncmp(s.key, "sb.", 3) == 0) return !find("sb.depths")->text.empty();
++  // rule 10's exponent has no default to drift: it is in the hash only when set, and rule 10 needs it set
++  if (s.key && strcmp(s.key, "branch.la_exp") == 0) return s.text != s.def;
+   return true;
+ }
+ 
+diff --git a/latest/util.C b/latest/util.C
+index 09c5cba1..9ddef040 100644
+--- a/latest/util.C
++++ b/latest/util.C
+@@ -202,7 +202,7 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
+   // every value after it. Catch that instead of branching on garbage.
+   for(i=0;i<nlevel;i++) {
+     const BNBParameters &q = params[i];
+-    if(!f || q.rule < 1 || q.rule > 9 || q.which_bound < 0 || q.which_bound > 7 ||
++    if(!f || q.rule < 1 || q.rule > 10 || q.which_bound < 0 || q.which_bound > 7 ||
+        q.maxier_bnd < 0 || q.maxier_nofathom < 0 || q.maxier_br < 0 ||
+        q.use_best < 0 ||
+        // the parametric bounds update S,T every param_step iterations; 0 would
+diff --git a/latest/util.h b/latest/util.h
+index 6e56e333..9180624c 100644
+--- a/latest/util.h
++++ b/latest/util.h
+@@ -81,6 +81,12 @@ const int BRANCH_DNN_XBAR = 8;    // the row or column whose DNN primal marginal
+ const int BRANCH_XBAR_LOOKAHEAD = 9; // lookahead between the two rule-8 lines only (the
+                                   // marginal row and the marginal column), chosen by the
+                                   // children's QPB bounds; lookahead where no DNN bound ran
++const int BRANCH_SIZE_LOOKAHEAD = 10; // QPB strong branching with the size score: the children of the
++                                  // level's best use_best rows and columns by U sum (every free
++                                  // line when use_best >= m) are bounded by QPB as rule 4 bounds
++                                  // them, and the line with the least sum over its children of
++                                  // exp(L x shortfall / the node's QPB gap) is taken
++                                  // (L = branch.la_exp, which the rule needs set)
+ const int BRANCH_FIXED = -1;
+ 
+ 
+diff --git a/tests/brute_force.py b/tests/brute_force.py
+index 4c19b1e4..4bf494e9 100644
+--- a/tests/brute_force.py
++++ b/tests/brute_force.py
+@@ -36,7 +36,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ DEFAULT_SOLVER = os.path.join(ROOT, "latest", "bnbdrv")
+ 
+ PARAMS = ["PARAM/default.par", "PARAM/rule1.par", "PARAM/rule2.par",
+-          "PARAM/rule3.par", "PARAM/rule4.par", "PARAM/rule6.par", "PARAM/rule7.par", "PARAM/glb.par",
++          "PARAM/rule3.par", "PARAM/rule4.par", "PARAM/rule6.par", "PARAM/rule7.par", "PARAM/rule10.par", "PARAM/glb.par",
+           # plain QP bound (bound type 0), which the PARAM/ files don't cover
+           os.path.join(ROOT, "tests", "params", "qp0.par")]
+ # initial upper bound modes: None = solver default (no incumbent)
+diff --git a/tests/rule10_test.py b/tests/rule10_test.py
+new file mode 100644
+index 00000000..f078957c
+--- /dev/null
++++ b/tests/rule10_test.py
+@@ -0,0 +1,88 @@
++#!/usr/bin/env python3
++"""Rule 10 (QPB strong branching with the size score, branch.la_exp).
++
++  python3 tests/rule10_test.py [--jobs 4]
++
++ * with every line a candidate the root of nug30 branches on row 23 and the root of tho30 on row 5
++   (experiments/branching_lab/ucheap: the rows the score names; rule 4's own score takes rows 0 and 5);
++ * a params file that uses rule 10 without branch.la_exp is refused (exit code 2);
++ * nug18 under the DNN bound with rule 10 at every level closes at the optimum, serially and through
++   bench/parallel.py with the same totals;
++ * with "best _ rows" 1 the rule has one row and one column to choose from and still closes.
++"""
++import argparse, os, re, subprocess, sys, tempfile
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++PAR = os.path.join(ROOT, "bench", "parallel.py")
++ENV = dict(os.environ, OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1")
++BLOCK = """ {rule}   branching rule
++ 150  Frank-Wolfe iterations, for bound
++ 100  Frank-wolfe iterations, when we know we can't fathom
++ 25   Frank-Wolfe iterations, for row selection
++ 1    which bound?
++ 30   step for parametric bound
++ {best}   compute B for best _ rows of U
++"""
++
++
++def par(tmp, name, best, settings):
++    path = os.path.join(tmp, name)
++    with open(path, "w") as f:
++        f.write("0    has the location of a symmetry file been provided?\n-1    restriction on tree depth\n"
++                "1    number of branching rules\n\n" + BLOCK.format(rule=10, best=best) + "\n[settings]\n"
++                + "\n".join(settings) + "\n")
++    return path
++
++
++def run(solver, args, env=()):
++    r = subprocess.run([solver] + args, cwd=os.path.dirname(solver), capture_output=True, text=True, env=dict(ENV, **dict(env)))
++    return r.returncode, r.stdout + r.stderr
++
++
++def nodes(text):
++    m = re.search(r"Nodes:\s*(\d+)\s*/\s*(\d+)\s*/\s*(\d+)", text)
++    return tuple(int(x) for x in m.groups()) if m else None
++
++
++def main():
++    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    p.add_argument("--solver", default=os.path.join(ROOT, "latest", "bnbdrv"))
++    p.add_argument("--jobs", type=int, default=4)
++    args = p.parse_args()
++    solver = os.path.abspath(args.solver)
++    tmp = tempfile.mkdtemp(prefix="qap-rule10-")
++    fails = 0
++
++    def check(ok, what):
++        nonlocal fails
++        fails += not ok
++        print(f"{'ok  ' if ok else 'FAIL'} {what}")
++
++    allp = par(tmp, "all.par", 99, ["branch.la_exp = 32"])
++    for name, ub, row in (("nug30", 6126, "r23"), ("tho30", 149938, "r5")):
++        trace = os.path.join(tmp, name + ".root.txt")
++        rc, out = run(solver, ["-p", allp, "-s", f"SYM/{name}.sym", "-u", str(ub), "-d", "0",
++                               os.path.join(ROOT, "qaplib", name + ".dat")], {"QAP_NODE_TRACE": trace})
++        f = open(trace).read().split() if os.path.exists(trace) else []
++        check(rc == 0 and len(f) > 9 and f[9] == row, f"{name}'s root, every row: branches on {f[9] if len(f) > 9 else None} (expected {row})")
++
++    rc, out = run(solver, ["-p", par(tmp, "noexp.par", 99, ["ship.bits = 64"]), "-u", "1930", os.path.join(ROOT, "qaplib", "nug18.dat")])
++    check(rc == 2 and "branch.la_exp" in out, f"rule 10 without branch.la_exp: exit code {rc}")
++
++    dnn = ["ship.bits = 64", "dnn.depths = 1:4", "dnn.giveup = 20", "dnn.warm = 1", "branch.la_exp = 32"]
++    for label, best in (("every line", 99), ("one row and one column", 1)):
++        pf = par(tmp, f"dnn{best}.par", best, dnn)
++        rc, out = run(solver, ["-p", pf, "-u", "1930", os.path.join(ROOT, "qaplib", "nug18.dat")])
++        n1 = nodes(out)
++        best_obj = re.findall(r"New objective value:\s*(\S+)", out)
++        check(rc == 0 and n1 is not None and (not best_obj or float(best_obj[-1]) == 1930), f"nug18, rule 10, {label}: nodes {n1}")
++        r = subprocess.run([sys.executable, PAR, os.path.join(ROOT, "qaplib", "nug18.dat"), "--solver", solver, "--jobs", str(args.jobs),
++                            "--ub", "1930", "--params", pf], capture_output=True, text=True, env=ENV)
++        check(r.returncode == 0 and nodes(r.stdout) == n1, f"nug18, rule 10, {label}, bench/parallel.py: nodes {nodes(r.stdout)}")
++
++    print(f"\n{'all rule 10 checks passed' if not fails else f'{fails} rule 10 check(s) FAILED'}")
++    return 1 if fails else 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+-- 
+2.43.0
+
