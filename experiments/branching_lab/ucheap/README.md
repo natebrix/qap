@@ -55,12 +55,17 @@ Three depth-3 nodes under 26:10,8:0 from the traced run tho40ab-32, each solved 
 the node, incumbent 240516; tho40's recipe (`experiments/estimates/tho40/tho40.par`: rule 9, 2 lines a side)
 against the same with `branch.la_exp = 32`, `branch.la_all = 1`.
 
-| subtree | production: depth-3 line, branching children at depth 4, nodes, CPU s | the cheap rule, every line |
-|---|---|---|
-| 3:32 | c7, 9, 781, 1,647 | c39, 9, **607**, 1,514 |
-| 30:32 | c39, 8, 571, 1,302 | r5, 14, **787**, 1,768 |
-| 36:32 | c7, 8, 466, 998 | r15, 10, 468, 1,102 |
-| all | 1,818 nodes, 3,946 s | 1,862 nodes (1.02), 4,384 s (1.11) |
+| subtree | production: depth-3 line, branching children at depth 4, nodes, CPU s | the score, every line (`exp_all.par`) | the score, rule 9's two lines a side (`exp.par`) |
+|---|---|---|---|
+| 3:32 | c7, 9, 781, 1,647 | c39, 9, 607, 1,514 | c39, 677, 1,506 |
+| 30:32 | c39, 8, 571, 1,302 | r5, 14, 787, 1,768 | c39, 571, 1,285 |
+| 36:32 | c7, 8, 466, 998 | r15, 10, 468, 1,102 | c39, **359**, 762 |
+| all | 1,818 nodes, 3,946 s | 1,862 nodes (1.02), 4,384 s (1.11) | **1,607 nodes (0.88), 3,553 s (0.90)** |
+
+- **On rule 9's own lines the score gains 12% and loses nowhere** [m]: the control, run after the first two arms.
+  So at tho40's depth 3, as at nug30, the lines to choose among are the DNN's marginal lines and the score to
+  choose by is the exponential; at tho30 the marginal shortlist (one line a side there) holds nothing and every
+  line is needed. Both are in cognac: rule 10 (rule 4's candidates) and rule 11 (rule 9's), same score.
 
 - **The n = 30 result does not carry to these subtrees** [m]: one 22% smaller, one 38% larger, one the same. The
   prediction written before the runs (0.6 to 0.9 of production, no subtree more than 10% larger) failed.
@@ -70,7 +75,6 @@ against the same with `branch.la_exp = 32`, `branch.la_all = 1`.
   many are not. The marginal lines of rule 9 come from the DNN solution; the QPB shortfalls do not see which
   children the DNN bound fathoms. nug30 said the same more mildly (rule 9's lines 5% better than every line).
 - Production's sizes are the traced run's exactly (781, 571, 466).
-- Running: the exponential score on rule 9's own lines (`tho40sub/exp.par`).
 
 ## Nathan's conjecture (Nov 23): DNN strong branching near the root, this rule farther down
 
