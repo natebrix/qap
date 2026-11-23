@@ -1,0 +1,14 @@
+Written before the runs, Nov 23 2026.
+
+exp_all (branch.la_exp = 32, branch.la_all = 1): at every node the recipe's lookahead rule (rule 9, rule 4 at the
+root) chooses, every free line is a candidate and the line with the least sum of exp(32 (s - s_max) / G) over its
+children's QPB shortfalls is taken. 4 slots, the nug30 recipe, incumbents 6126 and 149938.
+
+nug30: the root takes r23 (checked: bnbdrv -d 0). r23 with rule 9 below gave 3,623 nodes. If the score is as good
+  below the root as at the six truth nodes: 3,000 to 3,500. The risk is the other way: 8 lines a side under rule
+  9's own arbiter made nug30 worse (4,602). Prediction: 3,100 to 3,700 nodes; production 4,285 and 4,365; DNN
+  strong branching 2,980.
+tho30: the root takes r5 (checked); at 5:1, 5:2, 5:3 it takes c9, the best line known there (rule 9's c0 is 1.24x
+  to 1.47x). Prediction: 11,000 to 13,500 nodes; production 14,815; rule 9 with 8 lines a side 11,205; DNN strong
+  branching 9,918.
+CPU: every line's children at every branching node, m^2 QPB solves of about 3 ms: 10 to 25% on top of the tree.

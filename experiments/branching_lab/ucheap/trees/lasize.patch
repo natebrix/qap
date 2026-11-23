@@ -1,0 +1,122 @@
+diff --git a/latest/branch.C b/latest/branch.C
+index a5ed804b..f53d56c2 100644
+--- a/latest/branch.C
++++ b/latest/branch.C
+@@ -42,6 +42,26 @@
+ static bool weighted_branching() { static const bool v = setting_i("branch.weighted") > 0; return v; }   // rules 1, 3, 4
+ static double branching_weight() { static const double v = setting_d("branch.weight"); return v; }
+ static int xbar_lines_per_side() { static const int v = (int)setting_i("branch.xbar_lines"); return v; }   // rule 9
++// experiments/branching_lab/ucheap (an experiment build): the lookahead rules (4, 7, 9) choose by the size
++// score on the children's QPB bounds. branch.la_exp = L > 0: a line's score is the sum over its children of
++// exp(L (s - s_max) / G), s the child's shortfall (cutoff less its QPB bound, 0 when QPB drops it), G the
++// node's own QPB gap; the least wins, ties to rule 4's own score. branch.la_all = 1: every free line is a
++// candidate (every row where symmetry is left).
++static double la_exp() { static const double v = setting_d("branch.la_exp"); return v; }
++static int la_all() { static const int v = (int)setting_i("branch.la_all"); return v; }
++struct LaCell { int di, dj; double s; };
++static void la_size_scores(const std::vector<LaCell> &cells, double gap, int m, std::vector<double> &row, std::vector<double> &col)
++{
++  double smax = 0.0;
++  for (const LaCell &c : cells) smax = std::max(smax, c.s);
++  const double G = std::max(gap, 1e-9), L = la_exp();
++  row.assign(m, 0.0);  col.assign(m, 0.0);
++  for (const LaCell &c : cells) {
++    if (c.s <= 0.0) continue;
++    const double v = exp(L * (c.s - smax) / G);
++    row[c.di] += v;  col[c.dj] += v;
++  }
++}
+ 
+ void set_branch_parameters(BranchParameters *bp, BNBParameters *param,
+ 			   bool use_J, bool reorder_children) {
+@@ -1578,6 +1598,8 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
+ 
+   // rank row sums
+   row_rank_sum(assign,qpbp,J3,J3_dim,U,weighted,u_sum,order,m);
++  if (la_all()) use_best = m;
++  std::vector<LaCell> la_cells;
+ 
+   MAT *X1 = MNULL, *U1 = MNULL;
+   int *J3_child, J3_child_dim,J3_child_count;
+@@ -1677,6 +1699,7 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
+ 	//  b) compute the row variance of the matrix.
+ 	double u_di = J3_child_dim * (U->me[di][dj] + bound) + best_u1_sum;
+ 	u_sum[di] += u_di;
++	la_cells.push_back({di, dj, std::max(0.0, qpbp->inc - DELTA_BRANCH - (U->me[di][dj] + bound))});
+ 	// lgb_U->me[di][dj] += u_di;
+ 	assign.unfix(i, j);
+       }
+@@ -1692,6 +1715,16 @@ void select_row_lookahead(QAP *qap,QAPAssignment &assign,
+   // above, before I modify U, log U.
+   
+   find_max(u_sum, best_sum, row_in_U, m);
++  if (la_exp() > 0.0) {
++    std::vector<double> rs, cs;
++    la_size_scores(la_cells, qpbp->inc - DELTA_BRANCH - bound, m, rs, cs);
++    int best = -1;
++    for (int d = 0; d < m; d++) {
++      if (order[d] >= use_best) continue;
++      if (best < 0 || rs[d] < rs[best] || (rs[d] == rs[best] && u_sum[d] > u_sum[best])) best = d;
++    }
++    if (best >= 0) row_in_U = best;
++  }
+   get_row_in_assign(assign,row_in_U,row_in_assign);
+ 
+   // print bestk
+@@ -1785,6 +1818,8 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+       xbar_used = true;
+     }
+   }
++  if (la_all()) kr = kc = m;
++  std::vector<LaCell> la_cells;
+ 
+   int n = assign.n;
+   MAT *X1 = MNULL, *U1 = MNULL;
+@@ -1884,6 +1919,7 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+       
+       u_row_sum[di] += J3_child_dim*(U->me[di][dj]+bound) + best_u1_sum;
+       u_col_sum[dj] += J3_child_dim*(U->me[di][dj]+bound) + best_u1_sum;
++      la_cells.push_back({di, dj, std::max(0.0, qpbp->inc - DELTA_BRANCH - (U->me[di][dj] + bound))});
+       
+       assign.unfix(i,j);
+     }
+@@ -1898,7 +1934,25 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+   find_max(u_row_sum, best_row_sum, row_in_U, m);
+   find_max(u_col_sum, best_col_sum, col_in_U, m);
+ 
+-  if(best_row_sum >= best_col_sum) {
++  bool la_chose = false;
++  if (la_exp() > 0.0) {   // the size score over the candidate lines: a candidate has every child bounded
++    std::vector<double> rs, cs;
++    la_size_scores(la_cells, qpbp->inc - DELTA_BRANCH - bound, m, rs, cs);
++    int br = -1, bc = -1;
++    for (int d = 0; d < m; d++) {
++      if (row_order[d] < kr && (br < 0 || rs[d] < rs[br] || (rs[d] == rs[br] && u_row_sum[d] > u_row_sum[br]))) br = d;
++      if (col_order[d] < kc && (bc < 0 || cs[d] < cs[bc] || (cs[d] == cs[bc] && u_col_sum[d] > u_col_sum[bc]))) bc = d;
++    }
++    if (br >= 0 || bc >= 0) {
++      la_chose = true;
++      chose_row = bc < 0 || (br >= 0 && (rs[br] < cs[bc] || (rs[br] == cs[bc] && u_row_sum[br] >= u_col_sum[bc])));
++      ind_in_U = chose_row ? br : bc;
++      if (chose_row) get_row_in_assign(assign, br, ind_in_assign);
++      else get_col_in_assign(assign, bc, ind_in_assign);
++    }
++  }
++  if (la_chose) ;
++  else if(best_row_sum >= best_col_sum) {
+     chose_row = true;
+     ind_in_U = row_in_U;
+     get_row_in_assign(assign,row_in_U,ind_in_assign);
+diff --git a/latest/settings.C b/latest/settings.C
+index 7dca1924..9a5a2dbb 100644
+--- a/latest/settings.C
++++ b/latest/settings.C
+@@ -95,6 +95,8 @@ static Setting TABLE[] = {
+   POLICY("branch.weighted", NULL, 'i', "1", 0, 1, "rules 1, 3 and 4: weight the U sums by the row's gap fraction"),
+   POLICY("branch.weight", NULL, 'd', "0.5", 0, 1, "the weight of that fraction"),
+   POLICY("branch.xbar_lines", NULL, 'i', "1", 1, 64, "rule 9: candidate rows and columns per side from the DNN marginals"),
++  POLICY("branch.la_exp", NULL, 'd', "0", 0, 1e6, "experiment (branching_lab/ucheap): the lookahead rules choose the line with the least sum over its children of exp(L (s - s_max) / G), s the child's QPB shortfall, G the node's QPB gap (0: rule 4's score)"),
++  POLICY("branch.la_all", NULL, 'i', "0", 0, 1, "experiment (branching_lab/ucheap): 1: every free line is a lookahead candidate"),
+   POLICY("sb.depths", NULL, 's', "", 0, 0, "DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1)"),
+   POLICY("sb.k", NULL, 'i', "4", 1, 1000, "sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score"),
+   POLICY("sb.all", NULL, 'i', "-1", -1, 1073741824, "sb: through this depth every free line is a candidate (-1: none)"),
