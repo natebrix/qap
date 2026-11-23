@@ -5,8 +5,32 @@ children's DNN bounds with a size score; can a transform of QPB's dual matrix U 
 with rule 2's fathom count first, and should rule 9's two lines be opened up? [m] = measured here.
 
 **U itself: no. The children's own QPB bounds (rule 4's lookahead, which rule 9 already runs on its two lines):
-yes on what is in hand, if they are scored with the size score and not summed, and over every line and not the
-two by marginal score. Not yet run as a rule in a tree.**
+yes, if they are scored with the size score and not summed, and over every line and not the two by marginal
+score. Run as a rule (Nov 23, `trees/`): nug30 closes in 3,420 nodes and 2,392 CPU s against production's 4,285
+to 4,365 and 3,314 to 3,421; tho30 in 8,581 and 6,350 against 14,815 and 9,375.**
+
+## The trees (`trees/run.sh PROBLEM exp_all`; cognac 1d7e7403 + `trees/lasize.patch`, 4 slots, the nug30 recipe)
+
+`branch.la_exp = 32`, `branch.la_all = 1`: wherever the recipe's lookahead rule chooses (rule 9; rule 4 at the
+root, which has no DNN bound), every free line is a candidate and the line with the least sum over its children
+of exp(32 (s - s_max) / G) is taken, s the child's QPB shortfall, G the node's own QPB gap.
+
+| | nug30 nodes | CPU s, all of it | tho30 nodes | CPU s, all of it |
+|---|---|---|---|---|
+| production (rule 9, its two lines) | 4,285 and 4,365 | 3,314 and 3,421 | 14,815 | 9,375 |
+| DNN strong branching at depths 0 to 2 (`../port`) | 2,980 | 8,617 | 9,918 | 16,746 |
+| **this rule** | **3,420** | **2,392** | **8,581** | **6,350** |
+| against production | 0.79 | 0.71 | 0.58 | 0.68 |
+
+- **The roots** [m]: r23 at nug30 and r5 at tho30, the DNN score's rows, for under a second each.
+- **The rule's cost is small** [m]: everything but the DNN bound (QPB, the lookahead over every line, branching)
+  is 49 CPU s of nug30's 2,392 and 113 of tho30's 6,350.
+- **Predictions** (`trees/predictions.txt`, committed before the runs): nug30 3,100 to 3,700, met. tho30 11,000
+  to 13,500, missed on the good side; and at 5:1 it took c20, not c9 as predicted from the truth node's dump
+  (another recipe and incumbent there).
+- **With the keys off** the build's nug20 trace is cognac's, node for node [m].
+- Not separated yet: how much is the score and how much the open candidates (`trees/exp.par`, `trees/all.par`).
+  Not tried: any instance outside these two, and tho40, where its root row (r26) is not the DNN score's (r2).
 
 ## What was measured
 
@@ -45,8 +69,8 @@ two by marginal score. Not yet run as a rule in a tree.**
 
 ## What it does not show
 
-- No tree has been run under such a rule. The truth nodes are six (tho30 depth 1, tho40 depth 3), their lines
-  eight chosen by marginal score; the roots with trees are two.
+- Two trees have been run under the rule, both at n = 30. The truth nodes are six (tho30 depth 1, tho40 depth
+  3), their lines eight chosen by marginal score; the roots with trees are two.
 - At tho40's root it disagrees with the DNN score (r26 against r2), and the run now going uses r2.
 - tai*b: not looked at here. On Nov 18 every cheap signal ranked tai60b's four lines backwards (QPB is 29%
   under the cutoff there).
