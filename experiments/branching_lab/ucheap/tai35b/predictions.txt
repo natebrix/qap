@@ -18,3 +18,11 @@ root and at depths 1 and 2 (r19, r18, c5: one line a side leaves the score two c
 Rule 10 chose c5 at the root for r19: 6 depth-1 nodes branched for 3, and 204 depth-2 nodes for 102. QPB sits 30%
 under the cutoff here, so the children's QPB shortfalls rank nothing; the DNN marginals that shortlist for rules 9
 and 11 carry the choice. On a tai b instance: keep the shortlist (rule 9 or 11), never rule 10.
+
+Third arm, written before the run (Nov 23): sb01 = prod with DNN strong branching at the root and depth 1
+(sb.depths = 0:1, the default shortlist of 4 rows and 4 columns by marginal score, 150 iterations a child, the 8th
+power at the root). The question for tai50b: does the children's DNN shortfall rank lines where the QPB one does
+not. The children here mostly fathom in their cut phase, not in the first DNN solve, so the score sees shortfalls
+of a fraction of a percent. Prediction: the root keeps r19 or takes another row with a tree within 10% (0.9 to
+1.1 of prod's 1,017 nodes), and the firings cost more than they save: total CPU 1.2 to 1.6 of prod's 6,935 s.
+Under 0.85 in nodes would make strong branching at the root worth its cost on tai50b.
