@@ -32,3 +32,22 @@ Second batch, written before the runs (Nov 23): three depth-2 subtrees (36:16,23
 both new arms sit near 0.9 of prod in nodes with one subtree deciding each. Prediction: over the three, r11x2 0.85
 to 1.0 of prod's nodes, r10 0.8 to 1.05; in CPU both 0.9 to 1.0. I expect no clear winner between the two again;
 a gap between them above 15% in CPU, the same way on at least two subtrees, would decide it.
+
+Results of the second batch (Nov 23; runs_d2.log, runs_d2/). Nodes / CPU s; the depth-2 node's line:
+
+  subtree        prod (rule 9)        r11x2                r10 (every line)
+  36:16,23:0     r22  197 / 2,064     c35  197 / 1,793     r1    41 / 1,782
+  36:8,35:0      c7   347 / 2,723     r40  273 / 2,696     c35  158 / 1,475
+  36:9,12:0      c41  310 / 2,471     c6    80 / 1,100     c6    80 / 1,077
+  total               854 / 7,259          550 / 5,589          279 / 4,334
+  of prod             1                    0.64 / 0.77          0.33 / 0.60
+
+Both predictions wrong, on the good side: I gave 0.85 to 1.0 (r11x2) and 0.8 to 1.05 (r10) in nodes and 0.9 to
+1.0 in CPU. The first batch started at depth 3, where the gap is already 1.2% and five to nine nodes branch
+whatever the line; at depth 2 the line decides how many of the 40 children branch at all (r10: 0, 3 and 1 of
+them; prod: 4, 3 and 3, with four more below).
+r11x2 against r10: r10 never behind in this batch (CPU 0.99, 0.55, 0.98 of r11x2's), behind on one subtree of the
+first (1.16) and ahead on one (0.96). By the rule I wrote (15% in CPU the same way on two subtrees) not decided:
+one subtree. Over all six: prod 1,609 nodes / 13,020 s; r11x2 1,232 / 10,923 (0.77 / 0.84); r10 927 / 9,785
+(0.58 / 0.75). At 36:16,23:0 r10's one branching leaves 27 children to the cut phase (1,317 s of the 1,782):
+fewer nodes there, hardly less CPU.
