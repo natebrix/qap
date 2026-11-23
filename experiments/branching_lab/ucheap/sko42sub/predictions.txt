@@ -26,3 +26,9 @@ What the sample is: 5 to 9 branchings a subtree (every other node is a child fat
 phase), so 20 branchings an arm in all. One subtree gave the same 191 nodes under all four; the differences are one
 subtree each. prod itself moved from the run's 227 / 226 / 226 to 191 / 338 / 226 by starting cold. A sample this
 small cannot rank r11x2 against r10; it says neither is worse than rule 9 here, by about 5% in CPU.
+
+Second batch, written before the runs (Nov 23): three depth-2 subtrees (36:16,23:0; 36:8,35:0; 36:9,12:0: 273, 309,
+310 nodes and 7 or 8 branchings each in sko42-261120b), arms prod, r11x2, r10 (run_d2.sh). The first batch says
+both new arms sit near 0.9 of prod in nodes with one subtree deciding each. Prediction: over the three, r11x2 0.85
+to 1.0 of prod's nodes, r10 0.8 to 1.05; in CPU both 0.9 to 1.0. I expect no clear winner between the two again;
+a gap between them above 15% in CPU, the same way on at least two subtrees, would decide it.
