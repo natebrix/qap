@@ -11,6 +11,12 @@ Evidence and its limits: `../README.md`, "sko42 and tai35b".
   and the 12 depth-1 nodes on sko42, left at rule 9: the run has sko42-261120b's 438 depth-2 nodes and differs
   from the depth-2 lines down. Over five depth-2 subtrees of that run: 0.51 of its nodes, 0.70 of its CPU; from
   depth 3 down rule 9 was the best of the three rules (rules 10 and 11 at two lines: 1.04 of its CPU).
+  **`sko42_d2r10_sb.par`** (Nathan's choice, Nov 23): the same with DNN strong branching at the root and depth
+  1 (`sb.depths = 0:1`, `sb.all = 0`, `dnn.depths = 0:40`, as `infra/phase1/recipes/tho40c_sb.par`). Unmeasured as
+  a whole. At the 12 depth-1 nodes of sko42-261120b strong branching took rule 9's line at 11, for 18 CPU h of
+  firings (`experiments/sb_depth1` in cognac); the root's row under it: `../sko42root/` (running Nov 23). If it
+  is not r36 the run shares no node below the root with sko42-261120b, and the depth-2 evidence above is from
+  another tree.
   `sko42_r10.par`: rule 10 in every block but the first (0.61 / 0.78 over eight subtrees; its depth-2 lookahead
   is 12 iterations at most nodes, measured with 25). `sko42_r10_sb.par`: that with `sb.depths = 0:1`,
   `sb.all = 0`, `dnn.depths = 0:40`, as `infra/phase1/recipes/tho40c_sb.par`. Not measured on sko42.
