@@ -6,3 +6,15 @@ experiment build of cognac 0e6c2ecf; `../../lsla/t2/tai35b_prod`).
 r11 (rule 11 for rule 9), r10 (rule 10 with every line for rule 9): on tai instances every cheap signal so far
   ranked lines no better than chance (QPB is 20 to 30% under the cutoff). Prediction: no gain: both 0.95 to 1.2 of
   prod's nodes. A tree under 0.9 of prod's would be a surprise worth a second tai instance.
+
+Results (Nov 23; runs/tai35b_r11, runs/tai35b_r10; 4 slots, cognac 626230c8). Trace nodes / CPU s:
+
+  prod (rule 9; ../../lsla/t2/tai35b_prod)   1,017 / 6,935
+  r11                                        1,079 / 6,951     1.06 / 1.00 of prod
+  r10 (every line)                           1,123 / 9,211     1.10 / 1.33
+
+As predicted, no gain; rule 10's CPU is outside the range I gave for nodes. Rule 11 chose rule 9's lines at the
+root and at depths 1 and 2 (r19, r18, c5: one line a side leaves the score two candidates) and differed below.
+Rule 10 chose c5 at the root for r19: 6 depth-1 nodes branched for 3, and 204 depth-2 nodes for 102. QPB sits 30%
+under the cutoff here, so the children's QPB shortfalls rank nothing; the DNN marginals that shortlist for rules 9
+and 11 carry the choice. On a tai b instance: keep the shortlist (rule 9 or 11), never rule 10.
