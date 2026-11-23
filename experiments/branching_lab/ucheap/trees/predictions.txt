@@ -17,3 +17,16 @@ Nov 23, after the runs:
 nug30: the root took r23; 3,420 nodes, 2,392 CPU s. In the range.
 tho30: the root took r5; 8,581 nodes, 6,350 CPU s. Below the range (better than predicted). At 5:1 it took c20,
   not c9; at 5:0, 5:2, 5:3 and 5:4 c9.
+
+Nov 23, written before the combined runs. Nathan's conjecture: DNN strong branching is better near the root, the
+exponential score on QPB bounds better than rule 9 farther down. The test: DNN strong branching at depth 1 only
+(sb.depths = 1:1; the root's row is the same under both rules at nug30 and tho30, so the root is left to the
+cheap rule and its half hour of child solves is not paid), the exponential score everywhere else.
+What the trees in hand say, depth-1 node by depth-1 node under the same root row: the DNN's lines leave fewer
+branching children at depth 2 (nug30 44 against 51 and 58; tho30 95 against 122), but at tho30 the cheap rule's
+subtrees are smaller at 8 of 10 nodes (8,623 trace lines against 10,017), with rule 9 below the DNN's lines and
+the exponential score below its own.
+nug30 (sb1_exp: rule 9's lines below): 2,950 to 3,250 nodes (exp alone 3,261; DNN strong branching at 0 to 2 with
+  rule 9 below 2,980).
+tho30 (sb1 with exp or exp_all, whichever the control favours): 8,000 to 9,300. I do not expect a clear gain over
+  the cheap rule alone (8,581) there.
