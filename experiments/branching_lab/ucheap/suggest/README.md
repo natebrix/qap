@@ -2,16 +2,17 @@
 
 Evidence and its limits: `../README.md`, "sko42 and tai35b".
 
-- **nug30** (the laptop record): no candidate stands. `g5e_r11x2` (cognac, `experiments/nug30_record/README.md`,
-  "Nov 23"; 909 nodes on Linux) ran past 15,299 nodes on the laptop and was stopped; cause not found. `g5e`
-  remains the record recipe (104.6 s that evening). `g5e_r11` and `g5e_r10` are untried on the laptop.
-- **sko42** (on Linux; not on a Mac until the nug30 difference is understood): **`sko42_d2r10.par`**.
+- **nug30** (the laptop record): `g5e_r11x2_gu83_rt` on cognac, 82.8 s against 103 (f3666c27,
+  `experiments/nug30_record/README.md` there). `g5e_r11x2` failed on the laptop for want of `dnn.retry`, not for
+  its lines: one pooled solve failed there and its subtree inherited the state.
+- **sko42**: **`sko42_d2r10.par`**.
   `experiments/estimates/sko42/sko42.par` with rule 10 on every line at depth 2 only (five blocks: the second
   and third are depth 2, 25 lookahead iterations as measured), `branch.la_exp = 32`. The first block is the root
   and the 12 depth-1 nodes on sko42, left at rule 9: the run has sko42-261120b's 438 depth-2 nodes and differs
   from the depth-2 lines down. Over five depth-2 subtrees of that run: 0.51 of its nodes, 0.70 of its CPU; from
   depth 3 down rule 9 was the best of the three rules (rules 10 and 11 at two lines: 1.04 of its CPU).
-  **`sko42_d2r10_sb.par`** (Nathan's choice, Nov 23): the same with DNN strong branching at the root and depth
+  **`sko42_d2r10_sb.par`** (Nathan's choice, Nov 23; on cognac since 91cf6dbe as
+  `infra/phase1/recipes/sko42_d2r10_sb.par`, sko42's default in `recipes/defaults.txt`): the same with DNN strong branching at the root and depth
   1 (`sb.depths = 0:1`, `sb.all = 0`, `dnn.depths = 0:40`, as `infra/phase1/recipes/tho40c_sb.par`). Unmeasured as
   a whole. At the 12 depth-1 nodes of sko42-261120b strong branching took rule 9's line at 11, for 18 CPU h of
   firings (`experiments/sb_depth1` in cognac); the root's firing run here
@@ -27,5 +28,6 @@ Evidence and its limits: `../README.md`, "sko42 and tai35b".
   rule 11 gave 1.06 of rule 9's nodes, rule 10 1.10 (1.33 of the CPU), DNN strong branching at the root and
   depth 1 0.96 (1.81 of the CPU).
 
-To run one on the laptop from a checkout of cognac at 626230c8 or later, with the file copied in:
+On cognac at 91cf6dbe or later `infra/phase1/start.sh sko42` and `caffeinate -i infra/laptop/solve.sh sko42` take
+`sko42_d2r10_sb.par` by default. Another of these files, copied in:
 `PARAMS=<path from the repository root> caffeinate -i infra/laptop/solve.sh sko42`.

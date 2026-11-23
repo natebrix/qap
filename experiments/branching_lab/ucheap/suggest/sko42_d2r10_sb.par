@@ -105,17 +105,23 @@ dnn.maxgap = 1
 dnn.giveup = 300
 dnn.warm = 1
 
-# --- ucheap/suggest (Nov 23): rule 10 (every line, the size score) at depth 2 only; rule 9 everywhere else, as
-# sko42-261120b. The first block is the root and the 12 depth-1 nodes (that run used it nowhere else), so this run
-# has the same root line (r36) and depth-1 lines, the same 438 depth-2 nodes, and differs from the depth-2 lines down.
-# Evidence: ucheap/README.md and ucheap/sko42sub/predictions.txt.
+# --- sko42_d2r10_sb (Nov 23): experiments/estimates/sko42/sko42.par with two changes, Nathan's choice for sko42's
+# next run. The evidence is on claude/cool-babbage-ilnogj, experiments/branching_lab/ucheap (README.md, "sko42 and
+# tai35b"; suggest/README.md; sko42sub/predictions.txt; sko42root/).
+#
+# 1. Rule 10 (every line, the size score on the children's QPB bounds) at depth 2 only: the second and third
+#    blocks above, 25 lookahead iterations as measured. Over five depth-2 subtrees of sko42-261120b, cold starts:
+#    0.51 of rule 9's nodes, 0.70 of its CPU; from depth 3 down rule 9 was the best of rules 9, 10 and 11, so it
+#    stays there. Rule 10 needs branch.la_exp.
 branch.la_exp = 32
 
-# --- and DNN strong branching at the root and depth 1 (Nathan, Nov 23), as infra/phase1/recipes/tho40c_sb.par:
-# every row at the root (8th-power score), 4 rows and 4 columns by marginal score at depth 1 (plain sum).
-# dnn.depths starts at 0 for the root's own DNN bound, which the firing needs (1:40 until now).
-# Unmeasured as a whole on sko42. At the 12 depth-1 nodes of sko42-261120b strong branching took rule 9's line at
-# 11 (experiments/sb_depth1), for 18 CPU h of firings; the root's line under it is not known, and if it is not
-# r36 the run shares no node with sko42-261120b below the root.
+# 2. DNN strong branching at the root and depth 1, as infra/phase1/recipes/tho40c_sb.par: every row at the root
+#    (8th-power score), 4 rows and 4 columns by marginal score at depth 1 (plain sum). dnn.depths starts at 0 for
+#    the root's own DNN bound, which the firing needs (1:40 in sko42.par).
+#    The root's firing with this file, run alone (ucheap/sko42root): r22, score 1.057 (r35 1.233, r1 1.250,
+#    r5 1.302; r36, the row of sko42-261120b, 1.779, tenth of 42); 504 child solves, none retried, 3.5 CPU h on
+#    one process. So this run is another tree than sko42-261120b from the first branching: the depth-2 evidence
+#    in 1 and the depth-1 probe (experiments/sb_depth1: rule 9's line at 11 of 12 nodes, 18 CPU h) are from
+#    r36's tree, no tree under r22 has been measured, and the run's total cannot be split between the two changes.
 sb.depths = 0:1
 sb.all = 0

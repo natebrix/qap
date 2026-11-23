@@ -165,7 +165,10 @@ with rule 11 (one and two lines a side) or rule 10 on every line. Nodes / CPU s.
   r36 0.041). The run with that file is therefore another tree from the first branching: nothing measured under
   r36 (rule 10 at depth 2 here, strong branching at depth 1 in cognac's `experiments/sb_depth1`) is about its
   nodes, and no tree under r22 has been measured.
-- **Linux only.** See nug30 on the laptop, below, before running rule 10 or 11 on a Mac.
+- On cognac since 91cf6dbe as sko42's default (`infra/phase1/recipes/sko42_d2r10_sb.par`, named in
+  `recipes/defaults.txt`): Nathan's choice, Nov 23.
+- A Mac is no obstacle: the nug30 failure below was one failed pooled solve in a file without `dnn.retry`
+  (later the same day, below); `sko42.par` and these files have `dnn.retry = 1`.
 
 **nug30 on the laptop** (Nov 23, Nathan's run of `experiments/nug30_record/run.sh g5e g5e_r11x2 g5e_r11x2_gu83`,
 cognac 1458dd02, solver as 626230c8): `g5e` 104.6 s and the record's tree; `g5e_r11x2` stopped by hand after about
@@ -174,6 +177,12 @@ cognac 1458dd02, solver as 626230c8): `g5e` 104.6 s and the record's tree; `g5e_
 picks other lines on macOS than on Linux, far worse ones. Cause not found; the laptop's node trace
 (`runs/g5e_r11x2/nodes.txt` there) would show the first line that differs. `g5e_r11` and `g5e_r10` are untried
 on the laptop.
+
+**Explained later that day, by another session on cognac** (272c9451 to f3666c27, `experiments/nug30_record/README.md`
+there): not the lines. At depth-2 node 23:8,4:4 the laptop's pooled first DNN solve certified -9,023 (6,122.48
+and fathomed here) and its subtree inherited the failed state; `g5e` has no `dnn.retry`. With `dnn.retry = 1`
+(`g5e_r11x2_rt`, `g5e_r11x2_gu83_rt`) the laptop solves nug30 in 937 and 856 nodes, **82.8 s** against the
+record's 103 (0.80): rule 11 with two lines a side holds the laptop record.
 
 **tai35b whole** (`tai35b/`, the stand-in for tai50b; line_signals' recipe, 4 slots): no gain.
 
