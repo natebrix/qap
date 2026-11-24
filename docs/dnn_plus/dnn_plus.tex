@@ -55,12 +55,12 @@ near-planar distances) these inequalities act directly on the terms of the
 objective, are linear in the DNN matrix, and are not implied by the DNN
 relaxation. They are enforced inside the ADMM by a cutting-plane projection, at a
 cost of a few per cent per iteration, and every intermediate value remains
-certified. We call the result $\DNNp$. At the root it improves the best published
-lower bounds for several large QAPLIB problems, for example tho40 from 226,522 to
-230,453, tai50b from 431,245,612 to 453,552,676 and tai60b from 592,829,061 to
-605,315,696, and it closes 96\% or more of the DNN gap on tai25b and tai30b.
-\todo{Final figures after the root runs of Section~\ref{sec:results} are redone
-under one stopping rule; add sko42, sko49, wil50.} We also describe the properties
+certified. We call the result $\DNNp$. At the root it closes 25\% to 33\% of the gap between
+the DNN bound and the best known value on the large grid problems of QAPLIB
+(for example tho40, from 226,522 to 230,634, and wil50, from 48,126 to 48,299)
+and 82\% to 99.5\% on Taillard's tai$n$b problems (tai50b, from 431,245,612 to
+455,449,197; tai60b, from 592,829,061 to 606,041,781), in each case within
+under an hour on one core. We also describe the properties
 that make the bound usable in branch and bound: validity at every iteration, warm
 starts from a parent's state, and cuts that are inherited by a node's children.
 \end{abstract}
@@ -693,11 +693,16 @@ within a fixed iteration budget; these need a measurement.}
 
 \section{Computational results}\label{sec:results}
 
-\todo{Machine, compiler, BLAS, threads; the stopping rule for root bounds (a
-fixed iteration limit, or a stall rule on the certified value); the settings
-file for each row. All root bounds below were computed in different sessions with
-different limits and several were still rising when stopped; they are to be
-recomputed under one rule (\texttt{docs/dnn\_plus/root\_runs.md}).}
+All bounds in this section are computed at the root, from a cold start, on one
+core. Those of Tables~\ref{tab:large} and~\ref{tab:cost} were computed on an Apple
+M2 Pro laptop with the Accelerate BLAS. The DNN bound is the certified value
+after 4,000 iterations. The $\DNNp$ bound is the certified value after a first
+solve without cuts of 110 to 470 iterations followed by 6,000 iterations of the
+cutting-plane form, with 1,000 inequalities added every 100 iterations. The
+regions are the row and column prefixes of the grid for nug30, sko42, sko49,
+tho40 and wil50, and the cluster regions of Section~\ref{sec:regions} for the
+tai$n$b problems. \todo{Compiler and OS versions; the penalty settings per
+family, which differ (\texttt{runs/*/plus.par}).}
 
 \subsection{The certified DNN bound on small and medium problems}
 
@@ -792,52 +797,92 @@ Peaceman--Rachford method of \cite{graham}, NB the Newton-bracketing method of
 \caption{Root lower bounds for large QAPLIB problems. BKV: best known value.
 Published DNN bounds from \cite{graham} (rPRSM), \cite{kkt} (NB) and \cite{bbcpop}
 (BBCPOP); --: not reported. DNN and $\DNNp$: the certified bounds of this paper
-without and with regional cuts. Gap: $(\mathrm{BKV}-\DNNp)/\mathrm{BKV}$.}\label{tab:large}
-\small\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lrrrrrrr}
+without and with regional cuts, rounded up. Gap: $(\mathrm{BKV}-\DNNp)/\mathrm{BKV}$.
+Closed: $(\DNNp-\DNN)/(\mathrm{BKV}-\DNN)$.}\label{tab:large}
+\small\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrrrrrrr}
 \toprule
-Problem & BKV & rPRSM & NB & BBCPOP & DNN & $\DNNp$ & Gap\\
+Problem & BKV & rPRSM & NB & BBCPOP & DNN & $\DNNp$ & Gap & Closed\\
 \midrule
-sko42 & 15,812 & 15,336 & 15,334 & -- & \todo{run} & \todo{run} & \\
-sko49 & 23,386 & 22,654 & 22,653 & 22,650 & \todo{run} & \todo{run} & \\
-tho40 & 240,516 & 226,522 & 226,516 & 226,490 & \todo{run} & 230,453 & 4.18\%\\
-wil50 & 48,816 & 48,126 & 48,123 & 48,121 & \todo{run} & \todo{run} & \\
+nug30 & 6,124 & -- & -- & -- & 5,950 & 5,996 & 2.09\% & 27\%\\
+sko42 & 15,812 & 15,336 & 15,334 & -- & 15,335 & 15,492 & 2.03\% & 33\%\\
+sko49 & 23,386 & 22,654 & 22,653 & 22,650 & 22,653 & 22,862 & 2.24\% & 28\%\\
+tho40 & 240,516 & 226,522 & 226,516 & 226,490 & 226,518 & 230,634 & 4.11\% & 29\%\\
+wil50 & 48,816 & 48,126 & 48,123 & 48,121 & 48,124 & 48,299 & 1.06\% & 25\%\\
 \midrule
-tai25b & 344,355,646 & -- & -- & \todo{look up} & 337,285,170 & 344,084,304 & 0.08\%\\
-tai30b & 637,117,113 & -- & -- & 598,629,428 & 597,633,906 & 636,993,730 & 0.02\%\\
-tai35b & 283,315,445 & -- & -- & \todo{look up} & 269,414,422 & 280,789,962 & 0.89\%\\
-tai40b & 637,250,948 & -- & -- & \todo{look up} & 608,514,446 & 636,110,765 & 0.18\%\\
-tai50b & 458,821,517 & -- & 431,245,612 & 431,090,745 & 430,147,161 & 453,552,676 & 1.15\%\\
-tai60b & 608,215,054 & -- & 592,829,061 & -- & \todo{run} & 605,315,696 & 0.48\%\\
+tai25b & 344,355,646 & -- & -- & \todo{?} & 337,736,748 & 344,227,915 & 0.04\% & 98\%\\
+tai30b & 637,117,113 & -- & -- & 598,629,428 & 598,833,927 & 636,919,474 & 0.03\% & 99\%\\
+tai35b & 283,315,445 & -- & -- & \todo{?} & 269,653,227 & 280,789,620 & 0.89\% & 82\%\\
+tai40b & 637,250,948 & -- & -- & \todo{?} & 609,163,541 & 636,079,619 & 0.18\% & 96\%\\
+tai50b & 458,821,517 & -- & 431,245,612 & 431,090,745 & 431,082,190 & 455,449,197 & 0.73\% & 88\%\\
+tai60b & 608,215,054 & -- & 592,829,061 & -- & 592,687,738 & 606,041,781 & 0.36\% & 86\%\\
 \bottomrule
 \end{tabular}
 \end{table}
-% SOURCE: published columns: experiments/bound_lab/literature/README.md (Q1 table).
-% tho40 230,452.99: bound_lab/cpfast (logs/R_wc288_long.log), 300 + 2,500 iterations.
-% tai25b, tai30b: bound_lab/regions/README.md section 6, 2,300 total iterations; tai30b DNN+ at 6,300.
-% tai35b, tai40b: DNN at 2,300 iterations (same source); DNN+ from bound_lab/tai_solves section 2
-%   (runs/root35: 6,190 iterations, 583 CPU s; runs/root40: 6,470 iterations, 1,227 CPU s).
-% tai50b: bound_lab/tai50b_size (470 + 6,000 iterations, 4,341 CPU s); plain 430,147,161 at 1,500 iterations.
-% tai60b: docs/next_runs.md (605,315,696.64), computed on branch claude/cool-babbage-ilnogj.
+% SOURCE: docs/dnn_plus/runs/results.txt (root_bound.sh, commit 8554018d, the M2 Pro laptop, Nov 24 2026).
+% Published columns: experiments/bound_lab/literature/README.md (Q1 table).
 
-\todo{Discussion, once the table is complete. Points the present numbers support:
-on the tai$n$b problems regional cuts close most of the gap left by the
-DNN relaxation; on tho40 they close about 28\% of it (from 226,522 to 230,453
-against 240,516), and the bound was still rising. Points not yet supported: sko42,
-sko49 and wil50 have no root $\DNNp$ value; the flows of wil50 are 90\% dense and
-of sko49 69\%, against 40\% for tho40, and triangle inequalities on partition
-relaxations are known to gain less on dense graphs \cite{dmswz}, so the gain there
-may be small and should be reported as it is.}
+\begin{table}[t]\centering
+\caption{Iterations and CPU seconds (one core of an Apple M2 Pro) for the bounds of
+Table~\ref{tab:large}. The $\DNNp$ figures include the first solve without cuts;
+the last column is the mean time per iteration of the $\DNNp$ run, in
+milliseconds.}\label{tab:cost}
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+ & \multicolumn{2}{c}{DNN} & \multicolumn{3}{c}{$\DNNp$}\\
+Problem & iterations & CPU s & iterations & CPU s & ms/it.\\
+\midrule
+nug30 & 4,000 & 67 & 6,200 & 137 & 22\\
+sko42 & 4,000 & 507 & 6,300 & 798 & 127\\
+sko49 & 4,000 & 951 & 6,300 & 1,236 & 196\\
+tho40 & 4,000 & 362 & 6,250 & 600 & 96\\
+wil50 & 4,000 & 982 & 6,300 & 1,406 & 223\\
+\midrule
+tai25b & 4,000 & 26 & 6,110 & 50 & 8\\
+tai30b & 4,000 & 61 & 6,300 & 125 & 20\\
+tai35b & 4,000 & 138 & 6,190 & 276 & 45\\
+tai40b & 4,000 & 301 & 6,470 & 548 & 85\\
+tai50b & 4,000 & 900 & 6,380 & 1,190 & 187\\
+tai60b & 4,000 & 1,870 & 6,470 & 2,530 & 391\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The DNN column reproduces the published bounds to within 0.04\%; our values are
+slightly lower because they are certified values after a fixed 4,000 iterations,
+not dual values at convergence. With regional cuts the bound improves on every
+problem. On the six tai$n$b problems the cuts close 82\% to 99.5\% of the gap
+that the DNN relaxation leaves, and the bound is within 1\% of the best known
+value in every case. On the grid problems they close 25\% to 33\%: the gap of
+wil50 falls from 1.42\% to 1.06\%, of sko49 from 3.14\% to 2.24\%, of sko42 from
+3.02\% to 2.03\% and of tho40 from 5.82\% to 4.11\%. The share closed is smallest
+on wil50, whose flow matrix is the densest (90\% nonzero, against 69\% for sko49
+and 40\% for tho40), in line with the observation of \cite{dmswz} that triangle
+inequalities on partition relaxations gain most on sparse graphs. For each of
+the eight problems with $n\ge35$ the $\DNNp$ value is above the best lower bound
+we have found in the literature. \todo{The last sentence needs the QAPLIB check
+and the missing BBCPOP entries for tai25b, tai35b and tai40b.} All eleven
+$\DNNp$ values were still rising when stopped, by $10^{-5}$ to $10^{-4}$ of the
+best known value over the last 500 iterations, so they are not the values of
+the relaxation with all regional triangle inequalities, which we have not
+computed.
 
 \subsection{Cost}
 
-\todo{Table: iterations and CPU time for each row of Table~\ref{tab:large}, with
-the time per iteration, on one machine. For orientation, the published times for
-the DNN relaxation of tho40 are 2,323 s (rPRSM, 6,200 iterations), about 5,000 s
-(NB), and 18,000 s (BBCPOP) on their authors' machines; the tai50b value above
-took 4,341 CPU seconds. A figure of certified bound against iterations for one
-grid problem and one tai$n$b problem, with and without cuts, would show both the
-any-time property and the effect of the cuts.}
+Table~\ref{tab:cost} gives the work for each bound. An iteration with cuts
+costs between 0.8 and 1.3 times an iteration without at the same size (the
+projection adds work, and the eigensolver has less to do on the iterates of the
+cut phase), so the strengthening is paid for in iterations, not in cost per
+iteration. \todo{These runs shared the laptop four at a time; repeat the
+timings one at a time before quoting them.} For orientation only, since the machines and stopping rules differ,
+the published times for the DNN relaxation of wil50 are 6,133 s (rPRSM,
+\cite{graham}), about 13,000 s (NB, \cite{kkt}) and 67,000 s (BBCPOP,
+\cite{bbcpop}); the $\DNNp$ bound of Table~\ref{tab:large} took 1,406 s.
+\todo{Figure: certified bound against iterations for one grid problem and one
+tai$n$b problem, with and without cuts, from the histories in
+\texttt{runs/*/plus.trace}. The DNN arm did not record a history; rerun it with
+one if the figure is wanted.}
 
 \section{Conclusion}
 
