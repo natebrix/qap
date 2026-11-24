@@ -1,0 +1,335 @@
+From be7566da6fa4cf78828a49db52d4e67823a64388 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 24 Nov 2026 05:16:39 +0000
+Subject: [PATCH] phase 0: BLAS variants on one instance (--blas): the wheel's
+ kernels, BLIS, gcc 14 (local, not pushed)
+
+---
+ infra/phase0/README.md    |  32 ++++++++++
+ infra/phase0/bench.sh     | 123 +++++++++++++++++++++++++++-----------
+ infra/phase0/launch.sh    |  16 +++--
+ infra/phase0/summarize.py |  22 ++++---
+ 4 files changed, 144 insertions(+), 49 deletions(-)
+
+diff --git a/infra/phase0/README.md b/infra/phase0/README.md
+index 3ffc2169..59eb6e68 100644
+--- a/infra/phase0/README.md
++++ b/infra/phase0/README.md
+@@ -79,6 +79,38 @@ git add infra/phase0/runs && git commit -m 'phase 0: ...' && git push
+   profile and the role; `--all --bucket` deletes the bucket too, after
+   asking.
+ 
++## BLAS variants (Nov 24)
++
++The solver's Linux build links the scipy-openblas32 wheel and lets it pick its kernels. That was never compared
++with anything on the EPYC workers (c7a, m7a, r7a: Zen 4). `--blas "NAME ..."` benchmarks each named variant on
++the same instance, one after another (alone, then loaded, as above), each in `out/blas_NAME/`; the table gets a
++row and a BLAS column per variant:
++
++```
++infra/phase0/launch.sh --families c7a --on-demand --blas "openblas openblas-skylakex openblas-zen blis gcc14"
++infra/phase0/collect.sh
++```
++
++| variant | what |
++|---|---|
++| `openblas` | the build as it is: the wheel, its own choice of kernels (the row's BLAS column names them) |
++| `openblas-CORE` | the same binary with `OPENBLAS_CORETYPE=CORE`: `skylakex` (AVX-512), `zen` and `haswell` (AVX2) |
++| `blis` | AMD's BLIS (AOCL-BLAS, github.com/amd/blis at tag 5.1, `QAP_BLIS_TAG`) cloned and built on the instance for its CPU, single-threaded, with Amazon Linux's reference LAPACK on top of it (`-lblis` first, so LAPACK's own BLAS calls go to BLIS too) |
++| `gcc14` | the wheel, and the solver compiled by Amazon Linux's gcc 14, which knows Zen 4 (the default gcc 11 does not) |
++| `netlib` | reference BLAS and LAPACK: about 7x slower, a check of the rebuild mechanism |
++
++A variant that cannot be prepared (no package, a failed build) is recorded in `steps.txt` and skipped. The
++time limit becomes 60 + 25 minutes a variant. `--on-demand` because the Spot quota is the worker groups'.
++
++What to read: ms per iteration loaded is what a full worker sees (every core busy: memory bandwidth counts);
++alone is the kernels' own speed. The fathom column must agree with the reference to within the usual edge
++differences: another BLAS rounds differently, so iteration counts move by a few.
++
++Tested Nov 24 on a cloud container (Sapphire Rapids, `QAP_LOCAL=1`): `openblas`, `openblas-haswell` and `netlib`
++on two nodes. **Not tested: `blis` and `gcc14`** (the container may not build downloaded code, and has no gcc
++14); their first run on an instance is their test. Not covered: AOCL's LAPACK (libflame), a longer build; if
++`blis` shows a gain, the reduction to tridiagonal form (`ssytrd`, most of a refresh) is where it would matter.
++
+ ## On a Lightsail instance (no EC2 quota needed)
+ 
+ Lightsail has its own limits, separate from the EC2 vCPU quotas. The same
+diff --git a/infra/phase0/bench.sh b/infra/phase0/bench.sh
+index 664434b4..99d68165 100755
+--- a/infra/phase0/bench.sh
++++ b/infra/phase0/bench.sh
+@@ -14,6 +14,7 @@
+ #   QAP_LOADED="17 19 20 21"  the loaded nodes (default all 32)
+ #   QAP_CORES=2  at most this many cores for the loaded run
+ #   QAP_GATES="bruteforce"  the gates (default bruteforce resume parallel regression dnncheck)
++#   QAP_BLAS="openblas openblas-skylakex blis"  BLAS variants, each benchmarked in out/blas_NAME/ (README.md)
+ set -uo pipefail
+ R=$(pwd)
+ OUT=$R/out
+@@ -86,49 +87,101 @@ for g in $GATES; do
+ done
+ step "gates: $(tr '\n' ' ' < "$OUT/gates.txt")"
+ 
++# --- BLAS variants (QAP_BLAS, README.md "BLAS variants"): each prepares its own dnntest and environment.
++# Unset: the build above, as before. A variant that cannot be prepared is recorded and skipped.
++DNNTEST=latest/dnntest; BENV=()
++corename() {   # the kernels the wheel's OpenBLAS picks under the current BENV
++  env "${BENV[@]}" $PY -c "import ctypes, glob, scipy_openblas32 as o
++l = ctypes.CDLL(glob.glob(o.get_lib_dir() + '/libscipy_openblas*.so')[0]); f = l.scipy_openblas_get_corename; f.restype = ctypes.c_char_p; print(f().decode())" 2> /dev/null || echo "?"
++}
++build_variant() {   # name, make variables...: a copy of latest/ built on its own (dnn.o depends on the BLAS defines)
++  local v=$1; shift
++  rm -rf "latest_$v" && cp -r latest "latest_$v" && make -C "latest_$v" clean > /dev/null 2>&1
++  make -C "latest_$v" dnntest PYTHON=$PY "$@" > "$OUT/build_$v.log" 2>&1 || return 1
++  DNNTEST=latest_$v/dnntest
++}
++gcc14() {   # Amazon Linux 2023's gcc 14 (it knows znver4; the default gcc 11 does not)
++  [ "$INSTALL" = 1 ] && dnf install -y -q gcc14 gcc14-c++ >> "$OUT/dnf.log" 2>&1
++  G14=$(command -v gcc14-g++ || command -v g++-14) && C14=$(command -v gcc14-gcc || command -v gcc-14)
++}
++BLIS_TAG=${QAP_BLIS_TAG:-5.1}   # github.com/amd/blis (AOCL-BLAS), built here for this CPU
++blis() {   # /opt/blis: one process per core is the solver's parallelism, so no threading
++  [ -f /opt/blis/lib/libblis.so ] && return 0
++  [ "$INSTALL" = 1 ] || return 1
++  dnf install -y -q git lapack >> "$OUT/dnf.log" 2>&1 || return 1
++  gcc14 || C14=gcc
++  { rm -rf /opt/blis-src && git clone -q --depth 1 -b "$BLIS_TAG" https://github.com/amd/blis /opt/blis-src &&
++    cd /opt/blis-src && CC=$C14 ./configure --prefix=/opt/blis --disable-threading --disable-static auto &&
++    make -j "$(nproc)" && make install; } > "$OUT/build_blis_lib.log" 2>&1
++  local rc=$?; cd "$R"; return $rc
++}
++prep_variant() {
++  local v=$1
++  DNNTEST=latest/dnntest; BENV=()
++  case $v in
++    openblas) ;;                                                    # the wheel, its own choice of kernels
++    openblas-*) BENV=("OPENBLAS_CORETYPE=$(echo "${v#openblas-}" | tr a-z A-Z)") ;;   # the wheel, these kernels
++    gcc14) gcc14 && build_variant "$v" CPP="$G14" CC="$C14" ;;   # the wheel; the solver compiled by gcc 14
++    netlib) build_variant "$v" DNN_LAPACK="-l:liblapack.so.3 -l:libblas.so.3" DNN_LAPACK_DEFS= ;;   # reference BLAS: a check of the mechanism
++    blis) blis && build_variant "$v" DNN_LAPACK="-L/opt/blis/lib -lblis -l:liblapack.so.3 -Wl,-rpath,/opt/blis/lib" DNN_LAPACK_DEFS= ;;
++    *) return 1 ;;
++  esac
++}
++
+ # --- the benchmark: production DNN flags (bundle D), AMX where the CPU has it
+ run_node() {   # node line, cpu, directory, [extra flags]
+   local k=$1 cpu=$2 dir=$3 spec
+   spec=$(sed -n "${k}p" "$NODES" | awk '{print $1}')
+-  env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+-    taskset -c "$cpu" latest/dnntest -p infra/phase0/dnntest.par -T 1 -d 3 -L 2 -r 40 -g 1.0 -G 1.0 -H 300 -i "${4:-2500}" -u 48816 -v \
++  env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 "${BENV[@]}" \
++    taskset -c "$cpu" "$DNNTEST" -p infra/phase0/dnntest.par -T 1 -d 3 -L 2 -r 40 -g 1.0 -G 1.0 -H 300 -i "${4:-2500}" -u 48816 -v \
+     -x "$spec" qaplib/wil50.dat > "$dir/node_$k.log" 2>&1
+ }
+ first=$(echo "$CORES" | head -1)
+-mkdir -p "$OUT/alone" "$OUT/loaded"
+-for k in $ALONE; do
+-  run_node "$k" "$first" "$OUT/alone"
+-  step "alone node $k: $(grep -o 'status=[a-z]* iters=[0-9]* cpu=[0-9.]* ms_per_iter=[0-9.]*' "$OUT/alone/node_$k.log")"
+-done
+-
+-# loaded: one process per physical core, a shared queue; once it is empty the
+-# idle cores run short filler solves, so the load stays full until the last
+-# real node ends
+-Q=$OUT/loaded/queue
+-printf '%s\n' $LOADED > "$Q"
+-: > "$OUT/loaded/finished"
+-rm -f "$OUT/loaded/done"
+-worker() {
+-  local cpu=$1 k
+-  mkdir -p "$OUT/loaded/filler_$cpu"
++n_loaded=$(echo $LOADED | wc -w)
++worker() {   # cpu, directory
++  local cpu=$1 O=$2 k
++  mkdir -p "$O/loaded/filler_$cpu"
+   while :; do
+-    k=$(flock "$Q.lock" sh -c "head -1 '$Q'; sed -i 1d '$Q'")
++    k=$(flock "$O/loaded/queue.lock" sh -c "head -1 '$O/loaded/queue'; sed -i 1d '$O/loaded/queue'")
+     [ -z "$k" ] && break
+-    run_node "$k" "$cpu" "$OUT/loaded"
+-    echo "$k" >> "$OUT/loaded/finished"
++    run_node "$k" "$cpu" "$O/loaded"
++    echo "$k" >> "$O/loaded/finished"
+   done
+-  while [ ! -f "$OUT/loaded/done" ]; do run_node 1 "$cpu" "$OUT/loaded/filler_$cpu" 40; done
+-  rm -rf "$OUT/loaded/filler_$cpu"
++  while [ ! -f "$O/loaded/done" ]; do run_node 1 "$cpu" "$O/loaded/filler_$cpu" 40; done
++  rm -rf "$O/loaded/filler_$cpu"
+ }
+-n_loaded=$(echo $LOADED | wc -w)
+-t0=$(date +%s)
+-pids=()
+-for c in $CORES; do worker "$c" & pids+=($!); done
+-while [ "$(wc -l < "$OUT/loaded/finished")" -lt "$n_loaded" ]; do sleep 10; done
+-echo "loaded_wall_s $(( $(date +%s) - t0 ))" >> "$OUT/sysinfo.txt"
+-touch "$OUT/loaded/done"
+-for p in "${pids[@]}"; do wait "$p"; done
+-step "loaded: $n_loaded nodes on $NC cores in $(( $(date +%s) - t0 )) s"
+-
+-$PY infra/phase0/summarize.py instance "$OUT" > "$OUT/summary.txt" 2>&1
+-step "summary: $(head -c 400 "$OUT/summary.txt" | tr '\n' ' ')"
++bench() {   # directory, label: alone, then loaded, then the summary
++  local O=$1 lab=$2 k t0 c p pids=()
++  mkdir -p "$O/alone" "$O/loaded"
++  for k in $ALONE; do
++    run_node "$k" "$first" "$O/alone"
++    step "${lab}alone node $k: $(grep -o 'status=[a-z]* iters=[0-9]* cpu=[0-9.]* ms_per_iter=[0-9.]*' "$O/alone/node_$k.log")"
++  done
++  # loaded: one process per physical core, a shared queue; once it is empty the
++  # idle cores run short filler solves, so the load stays full until the last
++  # real node ends
++  printf '%s\n' $LOADED > "$O/loaded/queue"
++  : > "$O/loaded/finished"
++  rm -f "$O/loaded/done"
++  t0=$(date +%s)
++  for c in $CORES; do worker "$c" "$O" & pids+=($!); done
++  while [ "$(wc -l < "$O/loaded/finished")" -lt "$n_loaded" ]; do sleep 10; done
++  echo "loaded_wall_s $(( $(date +%s) - t0 ))" >> "$O/sysinfo.txt"
++  touch "$O/loaded/done"
++  for p in "${pids[@]}"; do wait "$p"; done
++  step "${lab}loaded: $n_loaded nodes on $NC cores in $(( $(date +%s) - t0 )) s"
++  $PY infra/phase0/summarize.py instance "$O" > "$O/summary.txt" 2>&1
++  step "${lab}summary: $(head -c 400 "$O/summary.txt" | tr '\n' ' ')"
++}
++if [ -z "${QAP_BLAS:-}" ]; then
++  bench "$OUT" ""
++else
++  for v in $QAP_BLAS; do
++    if ! prep_variant "$v"; then step "blas $v: not prepared (out/build_$v.log, out/build_blis_lib.log, out/dnf.log)"; continue; fi
++    O=$OUT/blas_$v; mkdir -p "$O"
++    cp "$OUT/sysinfo.txt" "$OUT/gates.txt" "$O/"
++    { echo "blas $v"; echo "blas_core $(ldd "$DNNTEST" | grep -q scipy_openblas && corename || echo -)"; echo "blas_libs $(ldd "$DNNTEST" | grep -iE 'blas|lapack|blis' | awk '{print $1}' | tr '\n' ' ')"; } >> "$O/sysinfo.txt"
++    step "blas $v: $DNNTEST ${BENV[*]:-} | $(tail -2 "$O/sysinfo.txt" | tr '\n' ' ')"
++    bench "$O" "$v "
++  done
++fi
+diff --git a/infra/phase0/launch.sh b/infra/phase0/launch.sh
+index c875c1ca..74150218 100755
+--- a/infra/phase0/launch.sh
++++ b/infra/phase0/launch.sh
+@@ -10,10 +10,12 @@
+ #
+ #   infra/phase0/launch.sh [--region eu-north-1] [--families "c7i c7a c7g c8g"]
+ #                          [--size 4xlarge] [--on-demand] [--serial] [--limit 75]
+-#                          [--dry-run]
++#                          [--blas "openblas openblas-skylakex blis"] [--dry-run]
+ #
+ #   --serial     one instance at a time (for a vCPU quota below the total)
+ #   --on-demand  on-demand instead of Spot (about 3-4x the price; same results)
++#   --blas       BLAS variants, benchmarked one after another on the same instance (README.md,
++#                "BLAS variants"); the limit becomes 60 + 25 minutes a variant unless --limit is given
+ #   --dry-run    print the AWS calls that change something, make none of them
+ #
+ # Then: infra/phase0/collect.sh (results and the table), infra/phase0/cleanup.sh.
+@@ -25,7 +27,8 @@ FAMILIES="c7i c7a c7g c8g"
+ SIZE=4xlarge
+ MARKET=spot
+ SERIAL=0
+-LIMIT=75
++LIMIT=""
++BLASV=""
+ DRY=0
+ while [ $# -gt 0 ]; do
+   case $1 in
+@@ -35,11 +38,14 @@ while [ $# -gt 0 ]; do
+     --on-demand) MARKET=on-demand; shift ;;
+     --serial) SERIAL=1; shift ;;
+     --limit) LIMIT=$2; shift 2 ;;
++    --blas) BLASV=$2; shift 2 ;;
+     --dry-run) DRY=1; shift ;;
+-    -h|--help) sed -n 2,21p "$0"; exit 0 ;;
++    -h|--help) sed -n 2,24p "$0"; exit 0 ;;
+     *) echo "unknown argument $1"; exit 2 ;;
+   esac
+ done
++[[ $BLASV =~ ^[a-z0-9\ -]*$ ]] || { echo "--blas: names of letters, digits and -, separated by spaces"; exit 2; }
++if [ -z "$LIMIT" ]; then LIMIT=75; [ -z "$BLASV" ] || LIMIT=$(( 60 + 25 * $(echo $BLASV | wc -w) )); fi
+ command -v aws > /dev/null || { echo "the AWS CLI is not installed (brew install awscli)"; exit 1; }
+ export AWS_DEFAULT_REGION=$REGION AWS_PAGER=""
+ aws() { command aws --region "$REGION" "$@"; }
+@@ -128,7 +134,7 @@ launch() {
+   case $fam in *g|*gd|*gn) ami=$AMI_ARM ;; esac
+   cat > "$ud" << EOF
+ #!/bin/bash
+-export AWS_DEFAULT_REGION=$REGION QAP_BUCKET=$B QAP_OUT=results/$RUN/$fam
++export AWS_DEFAULT_REGION=$REGION QAP_BUCKET=$B QAP_OUT=results/$RUN/$fam QAP_BLAS="$BLASV"
+ shutdown -h +$LIMIT
+ mkdir -p /opt/qap && cd /opt/qap
+ for i in 1 2 3 4 5 6; do aws s3 cp --only-show-errors s3://$B/$SRC src.tgz && break; sleep 10; done
+@@ -166,4 +172,4 @@ EOF
+ }
+ for fam in $FAMILIES; do launch "$fam" || true; done
+ echo "$B" > "$L/bucket.txt"
+-say "launched. Each instance takes about 30-45 minutes. Then: infra/phase0/collect.sh $RUN"
++say "launched. Each instance takes about 30-45 minutes$([ -z "$BLASV" ] || echo ", and about 20 more for each BLAS variant after the first"). Then: infra/phase0/collect.sh $RUN"
+diff --git a/infra/phase0/summarize.py b/infra/phase0/summarize.py
+index 1569c3e2..a6818cb0 100755
+--- a/infra/phase0/summarize.py
++++ b/infra/phase0/summarize.py
+@@ -2,8 +2,8 @@
+ """Phase-0 summaries (README.md).
+ 
+   summarize.py instance OUT    on the instance: OUT/summary.json and a short text
+-  summarize.py table RUNDIR    on the laptop: one row per family from
+-                               RUNDIR/<family>/out/summary.json and RUNDIR/prices.tsv,
++  summarize.py table RUNDIR    on the laptop: one row per family (and per BLAS variant,
++                               out/blas_NAME/) from RUNDIR/<family>/out/summary.json and RUNDIR/prices.tsv,
+                                written to RUNDIR/summary.md
+ 
+ The reference for the fathom set is the 32-node run on the cloud box's 2.1 GHz
+@@ -108,7 +108,8 @@ def table(rundir):
+             if len(p) >= 3 and p[0] != "type":
+                 prices[p[0]] = (p[1], p[2])          # type -> (market, $/h at launch)
+     rows = []
+-    for sj in sorted(glob.glob(os.path.join(rundir, "*", "out", "summary.json"))):
++    for sj in sorted(glob.glob(os.path.join(rundir, "*", "out", "summary.json")) +
++                     glob.glob(os.path.join(rundir, "*", "out", "blas_*", "summary.json"))):
+         s = json.load(open(sj))
+         si = s["sysinfo"]
+         typ = si.get("instance_type", "?")
+@@ -122,7 +123,10 @@ def table(rundir):
+         core_h = ph / cores if ph and cores else None
+         per_node = L["cpu_s_per_node"]
+         usd_1k = per_node * 1000 * core_h / 3600 if per_node and core_h else None
+-        rows.append(dict(typ=typ, model=si.get("model", "?"), arch=si.get("arch", "?"), cores=cores,
++        blas = si.get("blas", "")
++        if blas and si.get("blas_core", "-") != "-":
++            blas += f" ({si['blas_core']})"
++        rows.append(dict(blas=blas, name=typ + (" " + si["blas"] if si.get("blas") else ""), typ=typ, model=si.get("model", "?"), arch=si.get("arch", "?"), cores=cores,
+                          amx=si.get("amx_bf16", "?"), alone=s["alone"]["ms_per_iter"], loaded=L["ms_per_iter"],
+                          ratio=s.get("loaded_over_alone"), per_node=per_node, market=mk, ph=ph, core_h=core_h,
+                          usd_1k=usd_1k, gates=s["gates"], fath=s["fathom"]))
+@@ -135,25 +139,25 @@ def table(rundir):
+             partial.append(f"- {fam}: no summary; last steps: " + " | ".join(last))
+     ref = min((r["loaded"] for r in rows if r["loaded"]), default=None)
+     out = [f"# Phase 0, {os.path.basename(os.path.normpath(rundir))}", "",
+-           "| instance | CPU | arch | cores | AMX | ms/iteration alone | loaded | loaded / alone | CPU s per node (loaded) "
++           "| instance | BLAS | CPU | arch | cores | AMX | ms/iteration alone | loaded | loaded / alone | CPU s per node (loaded) "
+            "| market, $/h | $/core-hour | $ per 1,000 DNN nodes | gates | fathomed (reference) |",
+-           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
++           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+     f = lambda x, fmt: (fmt % x) if x is not None else "-"
+     for r in rows:
+         g = " ".join(f"{k}:{v}" for k, v in r["gates"].items() if v != "pass") or "all pass"
+         fa = f"{r['fath']['fathomed']} ({r['fath']['reference_fathomed']})"
+         if r["fath"]["differences"]:
+             fa += f", {len(r['fath']['differences'])} differ"
+-        out.append(f"| {r['typ']} | {r['model']} | {r['arch']} | {r['cores']} | {r['amx']} | {f(r['alone'], '%.1f')} | "
++        out.append(f"| {r['typ']} | {r['blas'] or 'openblas wheel'} | {r['model']} | {r['arch']} | {r['cores']} | {r['amx']} | {f(r['alone'], '%.1f')} | "
+                    f"{f(r['loaded'], '%.1f')} | {f(r['ratio'], '%.2f')} | {f(r['per_node'], '%.1f')} | "
+                    f"{r['market']} {f(r['ph'], '%.4f')} | {f(r['core_h'], '%.4f')} | {f(r['usd_1k'], '%.3f')} | {g} | {fa} |")
+     out.append("")
+     if ref:
+         out.append("Per-iteration speed under load, relative to the fastest: " +
+-                   ", ".join(f"{r['typ']} {r['loaded'] / ref:.2f}x" for r in rows if r["loaded"]))
++                   ", ".join(f"{r['name']} {r['loaded'] / ref:.2f}x" for r in rows if r["loaded"]))
+     for r in rows:
+         for d in r["fath"]["differences"]:
+-            out.append(f"- {r['typ']}: {d}")
++            out.append(f"- {r['name']}: {d}")
+     out += partial
+     txt = "\n".join(out) + "\n"
+     open(os.path.join(rundir, "summary.md"), "w").write(txt)
+-- 
+2.43.0
+
