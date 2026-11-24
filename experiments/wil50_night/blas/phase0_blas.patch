@@ -1,21 +1,27 @@
-From be7566da6fa4cf78828a49db52d4e67823a64388 Mon Sep 17 00:00:00 2001
+From 744952ac514b0967ed50c085e263d4bb82aae21c Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Tue, 24 Nov 2026 05:16:39 +0000
 Subject: [PATCH] phase 0: BLAS variants on one instance (--blas): the wheel's
- kernels, BLIS, gcc 14 (local, not pushed)
+ kernels, BLIS, gcc 14
 
+launch.sh --blas "NAME ..." benchmarks each variant on the same instance (bench.sh, QAP_BLAS;
+out/blas_NAME/), and the table gets a BLAS column. Tested locally: openblas, openblas-haswell,
+netlib. Not tested: blis (cloned and built on the instance) and gcc14.
+
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_014vvMYV3r6FDoHTc2G3VVqC
 ---
- infra/phase0/README.md    |  32 ++++++++++
+ infra/phase0/README.md    |  33 ++++++++++
  infra/phase0/bench.sh     | 123 +++++++++++++++++++++++++++-----------
  infra/phase0/launch.sh    |  16 +++--
- infra/phase0/summarize.py |  22 ++++---
- 4 files changed, 144 insertions(+), 49 deletions(-)
+ infra/phase0/summarize.py |  25 ++++----
+ 4 files changed, 147 insertions(+), 50 deletions(-)
 
 diff --git a/infra/phase0/README.md b/infra/phase0/README.md
-index 3ffc2169..59eb6e68 100644
+index 3ffc2169..80928021 100644
 --- a/infra/phase0/README.md
 +++ b/infra/phase0/README.md
-@@ -79,6 +79,38 @@ git add infra/phase0/runs && git commit -m 'phase 0: ...' && git push
+@@ -79,6 +79,39 @@ git add infra/phase0/runs && git commit -m 'phase 0: ...' && git push
    profile and the role; `--all --bucket` deletes the bucket too, after
    asking.
  
@@ -47,7 +53,8 @@ index 3ffc2169..59eb6e68 100644
 +differences: another BLAS rounds differently, so iteration counts move by a few.
 +
 +Tested Nov 24 on a cloud container (Sapphire Rapids, `QAP_LOCAL=1`): `openblas`, `openblas-haswell` and `netlib`
-+on two nodes. **Not tested: `blis` and `gcc14`** (the container may not build downloaded code, and has no gcc
++on two nodes (there the wheel picks its SkylakeX kernels, and the Haswell ones are 1.14x slower per iteration
++under load: the choice of kernels is worth that much). **Not tested: `blis` and `gcc14`** (the container may not build downloaded code, and has no gcc
 +14); their first run on an instance is their test. Not covered: AOCL's LAPACK (libflame), a longer build; if
 +`blis` shows a gain, the reduction to tridiagonal form (`ssytrd`, most of a refresh) is where it would matter.
 +
@@ -263,7 +270,7 @@ index c875c1ca..74150218 100755
 -say "launched. Each instance takes about 30-45 minutes. Then: infra/phase0/collect.sh $RUN"
 +say "launched. Each instance takes about 30-45 minutes$([ -z "$BLASV" ] || echo ", and about 20 more for each BLAS variant after the first"). Then: infra/phase0/collect.sh $RUN"
 diff --git a/infra/phase0/summarize.py b/infra/phase0/summarize.py
-index 1569c3e2..a6818cb0 100755
+index 1569c3e2..7c18f47a 100755
 --- a/infra/phase0/summarize.py
 +++ b/infra/phase0/summarize.py
 @@ -2,8 +2,8 @@
@@ -299,7 +306,14 @@ index 1569c3e2..a6818cb0 100755
                           amx=si.get("amx_bf16", "?"), alone=s["alone"]["ms_per_iter"], loaded=L["ms_per_iter"],
                           ratio=s.get("loaded_over_alone"), per_node=per_node, market=mk, ph=ph, core_h=core_h,
                           usd_1k=usd_1k, gates=s["gates"], fath=s["fathom"]))
-@@ -135,25 +139,25 @@ def table(rundir):
+@@ -130,30 +134,31 @@ def table(rundir):
+     partial = []
+     for st in sorted(glob.glob(os.path.join(rundir, "*", "out", "steps.txt"))):
+         fam = st.split(os.sep)[-3]
+-        if not os.path.exists(os.path.join(os.path.dirname(st), "summary.json")):
++        if not os.path.exists(os.path.join(os.path.dirname(st), "summary.json")) and \
++                not glob.glob(os.path.join(os.path.dirname(st), "blas_*", "summary.json")):
+             last = open(st).read().strip().splitlines()[-2:]
              partial.append(f"- {fam}: no summary; last steps: " + " | ".join(last))
      ref = min((r["loaded"] for r in rows if r["loaded"]), default=None)
      out = [f"# Phase 0, {os.path.basename(os.path.normpath(rundir))}", "",
