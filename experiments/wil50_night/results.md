@@ -39,6 +39,7 @@ First solves 52% of the DNN CPU, phases 48%; DNN 100% of the run's CPU.
 | extrap | 181 | 12,519 (7,099 + 5,420) | 3,047 | 0.993 | 1.010 | 181 nodes: 0.993 |
 | g150 | 181 | 11,252 (7,042 + 4,210) | 2,847 | 0.892 | 0.943 | 181 nodes: 0.892 |
 | g150x | 181 | 11,032 (7,038 + 3,994) | 2,724 | 0.875 | 0.902 | 181 nodes: 0.875 |
+| g150xl2 | 137 | 8,171 (5,392 + 2,779) | 2,224 | 0.648 | 0.737 | 47 nodes: 0.842 |
 | gw150 | 181 | 12,257 (9,177 + 3,080) | 2,926 | 0.972 | 0.969 | 181 nodes: 0.972 |
 | refresh80 | 181 | 13,242 (6,935 + 6,307) | 3,180 | 1.050 | 1.054 | 181 nodes: 1.050 |
 | wc025 | 181 | 11,833 (7,118 + 4,715) | 3,074 | 0.938 | 1.018 | 181 nodes: 0.938 |
@@ -60,6 +61,7 @@ First solves 53% of the DNN CPU, phases 47%; DNN 100% of the run's CPU.
 | arm | nodes | DNN iterations (first + phase) | CPU s | iterations / base | CPU / base | nodes both bounded: iterations / base |
 |---|---|---|---|---|---|---|
 | base | 28 | 2,264 (1,294 + 970) | 770 | 1.000 | 1.000 | 28 nodes: 1.000 |
+| g150x | 28 | 2,236 (1,306 + 930) | 778 | 0.988 | 1.011 | 28 nodes: 0.988 |
 | xl2 | 28 | 2,264 (1,294 + 970) | 811 | 1.000 | 1.053 | 28 nodes: 1.000 |
 
 ## d178: base 140 nodes, 10,817 DNN iterations, 3,688 CPU s
@@ -75,6 +77,8 @@ First solves 48% of the DNN CPU, phases 52%; DNN 100% of the run's CPU.
 | arm | nodes | DNN iterations (first + phase) | CPU s | iterations / base | CPU / base | nodes both bounded: iterations / base |
 |---|---|---|---|---|---|---|
 | base | 140 | 10,817 (5,476 + 5,341) | 3,688 | 1.000 | 1.000 | 140 nodes: 1.000 |
+| g150x | 186 | 10,499 (6,407 + 4,092) | 3,418 | 0.971 | 0.927 | 140 nodes: 0.884 |
+| g150xl2 | 48 | 3,917 (2,612 + 1,305) | 1,309 | 0.362 | 0.355 | 1 nodes: 0.934 |
 | xl2 | 48 | 4,179 (2,665 + 1,514) | 1,450 | 0.386 | 0.393 | 1 nodes: 1.000 |
 
 ## e212: base 186 nodes, 11,220 DNN iterations, 3,681 CPU s
@@ -90,5 +94,6 @@ First solves 57% of the DNN CPU, phases 43%; DNN 99% of the run's CPU.
 | arm | nodes | DNN iterations (first + phase) | CPU s | iterations / base | CPU / base | nodes both bounded: iterations / base |
 |---|---|---|---|---|---|---|
 | base | 186 | 11,220 (6,850 + 4,370) | 3,681 | 1.000 | 1.000 | 186 nodes: 1.000 |
+| g150x | 186 | 10,419 (6,897 + 3,522) | 3,240 | 0.929 | 0.880 | 186 nodes: 0.929 |
 | xl2 | 186 | 11,220 (6,850 + 4,370) | 3,594 | 1.000 | 0.976 | 186 nodes: 1.000 |
 

@@ -21,7 +21,7 @@ DNN iterations (first solves + cut phases) against base, summed over the subtree
 | arm | lines added to base | subtrees | nodes | iterations / base |
 |---|---|---|---|---|
 | `xl2` | `branch.xbar_lines = 2` | all five | 631 for 767 | **0.80** |
-| `g150x` | `cut.cp_wc_gap = 150`, `cut.cp_extrap = 100:1:30:2` | a220, b83 | the same | **0.91** |
+| `g150x` | `cut.cp_wc_gap = 150`, `cut.cp_extrap = 100:1:30:2` | all five | 813 for 767 | **0.93** (a220 and b83: 0.91) |
 | `g150` | `cut.cp_wc_gap = 150` | a220, b83 | the same | 0.93 |
 | `wcg150`, `wcg80` | wc = 1.4 and the gap key at 150, 80 | a220, b83 | the same | 0.91 |
 | `wc2g150` | wc = 2.0, gap 150 | a220, b83 | the same | 0.92 |
@@ -36,7 +36,7 @@ DNN iterations (first solves + cut phases) against base, summed over the subtree
    and c20); a220 keeps 232 nodes with another line at one depth-4 node (0.99); c135 and e212 are the same runs
    as base. The five subtrees have 17 branching nodes under base and four of them change line, so this is four line
    choices, and the setting is
-   global: it also widens rule 9's shortlist at depth 1 (the root keeps r21; `top.sh`, below). On tho40, 2 against
+   global: it also widens rule 9's shortlist at depth 1, where it changes no line (wave 2, below). On tho40, 2 against
    4 was neutral on a solved sample of 150 nodes (`experiments/estimates_nov19`); 1 against 2 there was 723 -> 581
    nodes on three depth-3 subtrees. A solved sample is the test that would settle it for wil50.
 2. **Near phases at w: `cut.cp_wc_gap = 150`, 0.93.** A cut phase that starts within the gap of the cutoff keeps
@@ -71,6 +71,30 @@ DNN iterations (first solves + cut phases) against base, summed over the subtree
 
 Where base spends its iterations: first solves 55% and 52% of the DNN CPU on a220 and b83 (first-solve fathoms
 47% and 41%), cut phases 45% and 48%; the DNN is all of the run's CPU.
+
+## Wave 2
+
+**The top of the tree does not move under `branch.xbar_lines = 2`.** Each of the root's 15 children, cold, under
+base and under `xl2` (`top.sh`, `top/`): the same line and the same bounds at every one (`21:0`, `21:11`, `21:20`,
+`21:21` r45; `21:22`, `21:23`, `21:24` r31; the other eight c0), and the root keeps r21. Depth 2 is rule 10, which
+has no shortlist. So the setting acts at depth 3 and below, which is where a solved sample tests it.
+
+**`g150x` on all five subtrees: 0.93 of the iterations, 813 nodes for 767.** By subtree 0.95 (a220), 0.875 (b83),
+0.99 (c135), 0.97 (d178), 0.93 (e212). The extra nodes are one miss: d178's depth-4 node `24:48` starts 36 short;
+base's phase grinds it to a fathom in 2,130 iterations, `g150x`'s at w = 0.25 stalls 2.4 short after 1,330 and
+the node branches into 46 children that fathom in their first solves. On the 140 nodes both arms bound, 0.88.
+
+**The two together (`g150xl2`) keep both gains** on the two subtrees `xl2` shrank: b83 137 nodes and 0.65 of
+base's iterations (`xl2` alone 0.73), d178 48 nodes and 0.36 (0.39).
+
+## What follows from it
+
+- `suggest/wil50-tune.spec` and `suggest/wil50_d2r10_{g150x,xl2,g150xl2}.par`: a tuning round on a solved sample of
+  the paused frontier of `wil50-est-261124` (not on cognac, and it needs that estimate to have run): base, the
+  two candidates and both together, as `tho40-tune-261119` was. Its sample is a placeholder until the estimate
+  reads.
+- `blas/phase0_blas.patch`: `infra/phase0`'s benchmark with BLAS variants (`--blas`); on cognac since 744952ac
+  (and 1767cb10, the launcher under macOS's bash), launched Nov 24 as run 20261124-1425-eu-north-1.
 
 ## The tables (`analyze.py`)
 
@@ -115,6 +139,7 @@ First solves 52% of the DNN CPU, phases 48%; DNN 100% of the run's CPU.
 | extrap | 181 | 12,519 (7,099 + 5,420) | 3,047 | 0.993 | 1.010 | 181 nodes: 0.993 |
 | g150 | 181 | 11,252 (7,042 + 4,210) | 2,847 | 0.892 | 0.943 | 181 nodes: 0.892 |
 | g150x | 181 | 11,032 (7,038 + 3,994) | 2,724 | 0.875 | 0.902 | 181 nodes: 0.875 |
+| g150xl2 | 137 | 8,171 (5,392 + 2,779) | 2,224 | 0.648 | 0.737 | 47 nodes: 0.842 |
 | gw150 | 181 | 12,257 (9,177 + 3,080) | 2,926 | 0.972 | 0.969 | 181 nodes: 0.972 |
 | refresh80 | 181 | 13,242 (6,935 + 6,307) | 3,180 | 1.050 | 1.054 | 181 nodes: 1.050 |
 | wc025 | 181 | 11,833 (7,118 + 4,715) | 3,074 | 0.938 | 1.018 | 181 nodes: 0.938 |
@@ -136,6 +161,7 @@ First solves 53% of the DNN CPU, phases 47%; DNN 100% of the run's CPU.
 | arm | nodes | DNN iterations (first + phase) | CPU s | iterations / base | CPU / base | nodes both bounded: iterations / base |
 |---|---|---|---|---|---|---|
 | base | 28 | 2,264 (1,294 + 970) | 770 | 1.000 | 1.000 | 28 nodes: 1.000 |
+| g150x | 28 | 2,236 (1,306 + 930) | 778 | 0.988 | 1.011 | 28 nodes: 0.988 |
 | xl2 | 28 | 2,264 (1,294 + 970) | 811 | 1.000 | 1.053 | 28 nodes: 1.000 |
 
 ## d178: base 140 nodes, 10,817 DNN iterations, 3,688 CPU s
@@ -151,6 +177,8 @@ First solves 48% of the DNN CPU, phases 52%; DNN 100% of the run's CPU.
 | arm | nodes | DNN iterations (first + phase) | CPU s | iterations / base | CPU / base | nodes both bounded: iterations / base |
 |---|---|---|---|---|---|---|
 | base | 140 | 10,817 (5,476 + 5,341) | 3,688 | 1.000 | 1.000 | 140 nodes: 1.000 |
+| g150x | 186 | 10,499 (6,407 + 4,092) | 3,418 | 0.971 | 0.927 | 140 nodes: 0.884 |
+| g150xl2 | 48 | 3,917 (2,612 + 1,305) | 1,309 | 0.362 | 0.355 | 1 nodes: 0.934 |
 | xl2 | 48 | 4,179 (2,665 + 1,514) | 1,450 | 0.386 | 0.393 | 1 nodes: 1.000 |
 
 ## e212: base 186 nodes, 11,220 DNN iterations, 3,681 CPU s
@@ -166,17 +194,6 @@ First solves 57% of the DNN CPU, phases 43%; DNN 99% of the run's CPU.
 | arm | nodes | DNN iterations (first + phase) | CPU s | iterations / base | CPU / base | nodes both bounded: iterations / base |
 |---|---|---|---|---|---|---|
 | base | 186 | 11,220 (6,850 + 4,370) | 3,681 | 1.000 | 1.000 | 186 nodes: 1.000 |
+| g150x | 186 | 10,419 (6,897 + 3,522) | 3,240 | 0.929 | 0.880 | 186 nodes: 0.929 |
 | xl2 | 186 | 11,220 (6,850 + 4,370) | 3,594 | 1.000 | 0.976 | 186 nodes: 1.000 |
 
-
-## What follows from it
-
-- `suggest/wil50-tune.spec` and `suggest/wil50_d2r10_{g150x,xl2,g150xl2}.par`: a tuning round on a solved sample of
-  the paused frontier of `wil50-est-261124` (not on cognac, and it needs that estimate to have run): base, the
-  two candidates and both together, as `tho40-tune-261119` was. Its sample is a placeholder until the estimate
-  reads.
-- Wave 2 (`wave2.sh`, in progress): the line `branch.xbar_lines = 2` picks at each of the root's 15 children
-  against base's (`top.sh`, output in `top/`), then `g150xl2` on b83 and d178 and `g150x` on c135, d178 and e212.
-- `blas/phase0_blas.patch`: `infra/phase0`'s benchmark with BLAS variants (`--blas`), for one c7a instance: the
-  wheel's OpenBLAS with its Zen and SkylakeX kernels, AMD's BLIS, gcc 14. Tested here with the OpenBLAS variants
-  only (BLIS and gcc 14 could not be built in this container).
