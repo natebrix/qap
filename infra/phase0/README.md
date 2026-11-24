@@ -121,7 +121,7 @@ gain from the BLAS on c7a.
 | `openblas-skylakex` | SkylakeX | 337.5 | 382.6 | 1.00 |
 | `openblas-zen` | Haswell (the wheel has no Zen kernels of its own) | 327.7 | 377.0 | 0.985 |
 | `gcc14` | SkylakeX | 341.5 | 382.8 | 1.00 |
-| `blis` (AMD's, 5.1, with the reference LAPACK) | zen4 | 355.6 | 421.0 | 1.10 |
+| `blis` (AMD's, 5.1, with the reference LAPACK) | its own, configured `auto` on the instance | 355.6 | 421.0 | 1.10 |
 
 The wheel's AVX-512 and AVX2 kernels are the same speed on Zen 4 to 1.5% (one run each: not a difference to act
 on), gcc 14 changes nothing, and AMD's BLIS under the reference LAPACK is 10% slower. AOCL's own LAPACK
