@@ -29,6 +29,9 @@ for n in names:
     if not all(os.path.isfile(os.path.join(x, f)) for x in (a, b) for f in ("results.txt", "trace.txt")):
         continue
     (la, na, ca), (lb, nb, cb) = arm(a), arm(b)
+    if not na or not nb:
+        print(f"| {n} | {na:,} nodes | {nb:,} nodes | an arm ran nothing: not a result | |")
+        continue
     node = n.replace("_", ",").replace("-", ":")
     print(f"| {node} | {la}, {na:,}, {ca:,.0f} | {lb}, {nb:,}, {cb:,.0f} | {na / nb:.2f} | {ca / cb:.2f} |" + (" same line" if la == lb != "?" else ""))
     tot[0] += na; tot[1] += ca; tot[2] += nb; tot[3] += cb
