@@ -148,7 +148,7 @@ EOF
       --iam-instance-profile Name=$ROLE --security-group-ids "$SG" --instance-initiated-shutdown-behavior terminate \
       --metadata-options HttpTokens=required,HttpEndpoint=enabled \
       --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=16,VolumeType=gp3,DeleteOnTermination=true}' \
-      "${mo[@]}" --user-data "file://$ud" \
+      ${mo[@]+"${mo[@]}"} --user-data "file://$ud" \
       --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=qap-phase0-$fam},{Key=qap-phase0,Value=$RUN}]" \
       --query 'Instances[0].InstanceId' --output text 2> "$L/launch_$fam.err") && break
     say "$typ: not launched in $s ($(tail -1 "$L/launch_$fam.err")); trying the next zone"
@@ -170,6 +170,7 @@ EOF
     done
   fi
 }
-for fam in $FAMILIES; do launch "$fam" || true; done
+n=0; for fam in $FAMILIES; do launch "$fam" && n=$((n + 1)); done
 echo "$B" > "$L/bucket.txt"
+[ "$n" -gt 0 ] || { say "nothing launched"; exit 1; }
 say "launched. Each instance takes about 30-45 minutes$([ -z "$BLASV" ] || echo ", and about 20 more for each BLAS variant after the first"). Then: infra/phase0/collect.sh $RUN"
