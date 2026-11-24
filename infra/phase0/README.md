@@ -112,6 +112,22 @@ under load: the choice of kernels is worth that much). **Not tested: `blis` and 
 14); their first run on an instance is their test. Not covered: AOCL's LAPACK (libflame), a longer build; if
 `blis` shows a gain, the reduction to tridiagonal form (`ssytrd`, most of a refresh) is where it would matter.
 
+**The result (Nov 24, run 20261124-1425-eu-north-1, one c7a.4xlarge, EPYC 9R14, every gate passing):** nothing to
+gain from the BLAS on c7a.
+
+| variant | kernels | ms/iteration alone | loaded | loaded, relative |
+|---|---|---|---|---|
+| `openblas` (the wheel as the workers run it) | SkylakeX | 337.0 | 382.8 | 1.00 |
+| `openblas-skylakex` | SkylakeX | 337.5 | 382.6 | 1.00 |
+| `openblas-zen` | Haswell (the wheel has no Zen kernels of its own) | 327.7 | 377.0 | 0.985 |
+| `gcc14` | SkylakeX | 341.5 | 382.8 | 1.00 |
+| `blis` (AMD's, 5.1, with the reference LAPACK) | zen4 | 355.6 | 421.0 | 1.10 |
+
+The wheel's AVX-512 and AVX2 kernels are the same speed on Zen 4 to 1.5% (one run each: not a difference to act
+on), gcc 14 changes nothing, and AMD's BLIS under the reference LAPACK is 10% slower. AOCL's own LAPACK
+(libflame) is still not covered; with BLIS behind by 10% it would have to gain more than that in the
+factorizations alone.
+
 ## On a Lightsail instance (no EC2 quota needed)
 
 Lightsail has its own limits, separate from the EC2 vCPU quotas. The same

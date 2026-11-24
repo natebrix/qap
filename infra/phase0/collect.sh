@@ -18,7 +18,8 @@ aws ec2 describe-instances --filters "Name=tag:qap-phase0,Values=$RUN" \
 for fam in $(aws s3 ls "s3://$B/results/$RUN/" | awk '/PRE/ {print $2}' | tr -d /); do
   mkdir -p "$L/$fam"
   aws s3 cp --only-show-errors "s3://$B/results/$RUN/$fam/out.tgz" "$L/$fam/out.tgz" && tar xzf "$L/$fam/out.tgz" -C "$L/$fam" && rm -f "$L/$fam/out.tgz"
-  echo "$fam: $(tail -1 "$L/$fam/out/steps.txt")"
+  last=$(tail -1 "$L/$fam/out/steps.txt")
+  case "$last" in *" end "*) echo "$fam: FINISHED ($last)";; *) echo "$fam: still running; its last step: $last";; esac
 done
 python3 "$D/summarize.py" table "$L"
 echo "To share: git add infra/phase0/runs/$RUN && git commit -m 'phase 0: $RUN' && git push"
