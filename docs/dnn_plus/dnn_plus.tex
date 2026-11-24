@@ -456,10 +456,8 @@ value 9. For the three facilities of the first group it violates \eqref{eq:t2} b
 $\frac18$. Finally, with $g = 1 - z_1 - z_2 - z_3 + z_1z_2 + z_1z_3 + z_2z_3$
 the slack of that inequality, the objective equals $10 + 8g$ on permutations, so
 with multiplier 8 the Lagrangian is constant and equal to 10.
-\todo{The feasibility and the spectrum were verified in exact rational
-arithmetic (\texttt{experiments/wil50\_feasibility/stronger\_bounds}); recheck
-the statement line by line before submission, and decide whether the verification
-script is cited or an explicit factorization given.}
+Each of these statements is verified in exact rational arithmetic by the script
+\texttt{k33\_check.py} that accompanies this paper.
 \end{proof}
 
 The example shows the mechanism: the relaxation can behave as if $\frac32$
@@ -659,17 +657,39 @@ children, for example tho40 or wil50 depth-4 nodes.}
 
 \paragraph{Two phases.} At a node we first run the ADMM without new cuts (with
 the inherited pool, if any), and enter the cutting-plane phase only if the node
-is not fathomed and its bound is within a given fraction of the cutoff.
-\todo{Decide how much of the policy (zone, hand-over rule, phase penalty) is
-described here and how much in the companion paper. Proposal: the two-phase
-structure and the zone only.}
+is not fathomed and its bound is within a given fraction of the cutoff, the
+\emph{zone}. Rules for ending a phase that will not fathom, and the choice of
+penalty within it, affect the cost of a search considerably; they are described
+in \cite{companion}.
 
-\paragraph{An illustration.} \todo{One table on problems solved by others, to
-show the effect per node without announcing new solutions: for example the
-fraction of depth-$d$ subproblems of nug30 and sko42 fathomed by DNN and by
-$\DNNp$ within a fixed iteration budget; and tai35b and tai40b, whose trees
-under $\DNNp$ have 922 and 733 nodes (\texttt{bound\_lab/tai\_solves}) against
-$2.6\times10^6$ and $2.8\times10^5$ in \cite{fujii}. To be agreed.}
+\paragraph{An illustration.} Table~\ref{tab:trees} gives the size of the
+branch-and-bound trees for two problems first solved by others, when every node
+is bounded by $\DNNp$ with cluster regions and the search starts from an
+incumbent one above the optimum. The comparison is of bounds, not of codes: the
+searches of \cite{fujii} bound every node with the DNN relaxation, on other
+hardware and with other branching rules.
+
+\begin{table}[t]\centering
+\caption{Branch-and-bound trees for tai35b and tai40b with $\DNNp$ at every
+node, against the DNN-based searches of \cite[Table~4]{fujii}.}\label{tab:trees}
+\small
+\begin{tabular}{lrrrr}
+\toprule
+ & \multicolumn{2}{c}{$\DNNp$} & \multicolumn{2}{c}{\cite{fujii}}\\
+Problem & nodes & CPU hours & nodes & core hours\\
+\midrule
+tai35b & 922 & 1.5 & 2,620,547 & $1.2\times10^5$\\
+tai40b & 733 & 1.4 & 278,465 & $5.0\times10^4$\\
+\bottomrule
+\end{tabular}
+\end{table}
+% SOURCE: bound_lab/tai_solves/README.md (5,275 and 4,862 CPU s on a shared 4-core cloud machine;
+% each solved a second time with another region family: 890 and 726 nodes).
+% Fujii et al.: nodes from their Table 4; core hours = wall time x cores, computed in
+% bound_lab/literature/README.md.
+
+\todo{Add fathoming rates per depth for DNN against $\DNNp$ on nug30 and sko42
+within a fixed iteration budget; these need a measurement.}
 
 \section{Computational results}\label{sec:results}
 
@@ -785,8 +805,8 @@ wil50 & 48,816 & 48,126 & 48,123 & 48,121 & \todo{run} & \todo{run} & \\
 \midrule
 tai25b & 344,355,646 & -- & -- & \todo{look up} & 337,285,170 & 344,084,304 & 0.08\%\\
 tai30b & 637,117,113 & -- & -- & 598,629,428 & 597,633,906 & 636,993,730 & 0.02\%\\
-tai35b & 283,315,445 & -- & -- & \todo{look up} & 269,414,422 & 279,325,031 & 1.41\%\\
-tai40b & 637,250,948 & -- & -- & \todo{look up} & 608,514,446 & 627,372,144 & 1.55\%\\
+tai35b & 283,315,445 & -- & -- & \todo{look up} & 269,414,422 & 280,789,962 & 0.89\%\\
+tai40b & 637,250,948 & -- & -- & \todo{look up} & 608,514,446 & 636,110,765 & 0.18\%\\
 tai50b & 458,821,517 & -- & 431,245,612 & 431,090,745 & 430,147,161 & 453,552,676 & 1.15\%\\
 tai60b & 608,215,054 & -- & 592,829,061 & -- & \todo{run} & 605,315,696 & 0.48\%\\
 \bottomrule
@@ -794,14 +814,14 @@ tai60b & 608,215,054 & -- & 592,829,061 & -- & \todo{run} & 605,315,696 & 0.48\%
 \end{table}
 % SOURCE: published columns: experiments/bound_lab/literature/README.md (Q1 table).
 % tho40 230,452.99: bound_lab/cpfast (logs/R_wc288_long.log), 300 + 2,500 iterations.
-% tai25b-40b: bound_lab/regions/README.md section 6, 2,300 total iterations; tai30b DNN+ at 6,300.
-% tai35b, tai40b: the 6,000-iteration roots of bound_lab/tai_solves are 0.89% and 0.18% under the optimum,
-%   higher than the values above; use those once the exact figures are read from the logs.
+% tai25b, tai30b: bound_lab/regions/README.md section 6, 2,300 total iterations; tai30b DNN+ at 6,300.
+% tai35b, tai40b: DNN at 2,300 iterations (same source); DNN+ from bound_lab/tai_solves section 2
+%   (runs/root35: 6,190 iterations, 583 CPU s; runs/root40: 6,470 iterations, 1,227 CPU s).
 % tai50b: bound_lab/tai50b_size (470 + 6,000 iterations, 4,341 CPU s); plain 430,147,161 at 1,500 iterations.
 % tai60b: docs/next_runs.md (605,315,696.64), computed on branch claude/cool-babbage-ilnogj.
 
 \todo{Discussion, once the table is complete. Points the present numbers support:
-on the tai$n$b problems regional cuts close 66\% to 99.7\% of the gap left by the
+on the tai$n$b problems regional cuts close most of the gap left by the
 DNN relaxation; on tho40 they close about 28\% of it (from 226,522 to 230,453
 against 240,516), and the bound was still rising. Points not yet supported: sko42,
 sko49 and wil50 have no root $\DNNp$ value; the flows of wil50 are 90\% dense and
@@ -988,12 +1008,13 @@ the authors' responsibility statement should meet the target journal's policy.}
   (1992) 727--739.
 \bibitem{bbcpop} N. Ito, S. Kim, M. Kojima, A. Takeda and K.-C. Toh, Algorithm 996:
   BBCPOP: a sparse doubly nonnegative relaxation of polynomial optimization
-  problems with binary, box, and complementarity constraints, \emph{ACM
+  problems with binary, box and complementarity constraints, \emph{ACM
   Transactions on Mathematical Software} 45 (2019) 34. (verify)
 \bibitem{jk} M. J\"unger and V. Kaibel, Box-inequalities for quadratic assignment
   polytopes, \emph{Mathematical Programming} 91 (2001) 175--197.
-\bibitem{kang} S. Kang, X. Han, D. Groudiev and H. Yang, \todo{title},
-  arXiv:2507.09165 (2025). (verify)
+\bibitem{kang} S. Kang, H. Han, A. Groudiev and H. Yang, Factorization-free orthogonal
+  projection onto the positive semidefinite cone with composite polynomial
+  filtering, arXiv:2507.09165 (2025).
 \bibitem{kkt} S. Kim, M. Kojima and K.-C. Toh, A Newton-bracketing method for a
   simple conic optimization problem, \emph{Optimization Methods and Software} 36
   (2021) 371--388. (verify)
@@ -1012,7 +1033,8 @@ the authors' responsibility statement should meet the target journal's policy.}
   facets and relatives, \emph{Mathematical Programming} 45 (1989) 139--172.
 \bibitem{rump} S.M. Rump, Verification of positive definiteness, \emph{BIT
   Numerical Mathematics} 46 (2006) 433--452.
-\bibitem{sunkang} \todo{Sun, Kang and Yang}, arXiv:2609.21102 (2026). (verify)
+\bibitem{sunkang} H. Sun, S. Kang and H. Yang, Spectral deflation for factorization-free
+  matrix filtering in Muon and semidefinite programming, arXiv:2609.21102 (2026).
 \bibitem{taillard} E.D. Taillard, Comparison of iterative searches for the
   quadratic assignment problem, \emph{Location Science} 3 (1995) 87--105.
 \bibitem{zkrw} Q. Zhao, S.E. Karisch, F. Rendl and H. Wolkowicz, Semidefinite
