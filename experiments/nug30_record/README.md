@@ -79,6 +79,28 @@ git pull --no-rebase
 caffeinate -i experiments/nug30_record/run.sh g5e g5e_r11x2_rt g5e_r11x2_gu83_rt
 ```
 
+## Nov 23 on the laptop, with the retry: a new record, 82.8 s [m]
+
+Two rounds of `run.sh g5e g5e_r11x2_rt g5e_r11x2_gu83_rt` (8 jobs, commit 272c9451). In the first, solvers left
+over from the stopped rule-11 runs were still running (load 23 to 25 at the rule-11 arms' starts), so only the
+second round counts:
+
+| run | nodes | CPU s | wall s | load at the start |
+|---|---|---|---|---|
+| `g5e-6` | 1,302 | 721 | 106.4 | 2.6 |
+| `g5e_r11x2_rt-2` | 937 | 588 | 83.0 | 7.7 |
+| **`g5e_r11x2_gu83_rt-2`** | **856** | **587** | **82.8** | 9.8 |
+| (first round: `g5e-5`, `g5e_r11x2_rt`, `g5e_r11x2_gu83_rt`) | 1,302, 937, 856 | 845, 651, 656 | 144.1, 98.2, 99.3 | 4.9, 23.5, 24.8 |
+
+- **82.8 s, against the record's 103 s (0.80)**, and 0.78 of the same round's `g5e`. Both rule-11 arms end at 6124
+  with no open node; the two rounds give the same trees.
+- **The retry rescues the node that broke rule 11 here**: at `23:8,4:4` the pooled first solve still certifies
+  -9,023, the retry without the pool and then cold (`retry 3`) certifies 6,122.33 and the node fathoms, as on the
+  container. A second node, `23:8,4:0`, also retries (`retry 1`: 5,965 under the pool, 6,098 without it, then its cut
+  phase), which the container never needed: 937 nodes here against its 909.
+- The CPU ratio to `g5e` (0.82) is close to the container's (0.77 at 4 jobs). The stop rule (`gu83`) shrinks the
+  tree 9% here for the same CPU, as on Nov 19.
+
 ## Results [m]
 
 All on one evening (18:32-19:03). Both `g5e` runs, at the start and the end, give the same tree.
