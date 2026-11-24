@@ -376,7 +376,10 @@ class AwsBackend:
         kw = {"region_name": region}
         if q.get("endpoint"):
             kw["endpoint_url"] = q["endpoint"]
-        self.s3 = boto3.client("s3", **kw)
+        # 64 pooled connections (botocore keeps 10): qapctl export reads with 64 threads, and past the pool's
+        # size a connection that falls idle is closed and the next read opens a new one (a TLS handshake)
+        from botocore.config import Config
+        self.s3 = boto3.client("s3", config=Config(max_pool_connections=64), **kw)
         self.sqs = boto3.client("sqs", **kw)
         self.ddb = boto3.client("dynamodb", **kw)
         self._qurl = {}
