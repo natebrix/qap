@@ -15,12 +15,19 @@ DEFAULT="21:0,45:13 21:3,34:0"
 if [ "$(uname -s)" = Darwin ]; then P=$(sysctl -n hw.perflevel0.physicalcpu 2> /dev/null || sysctl -n hw.physicalcpu); else P=$(nproc); fi
 SLOTS=${SLOTS:-$(( P / 2 ))}; [ "$SLOTS" -ge 1 ] || SLOTS=1
 [ -x "$R/latest/bnbdrv" ] || { echo "no latest/bnbdrv: make -C latest first"; exit 1; }
+# Each arm keeps its own local store, whatever the shell says: both arms name the run after the node, so on a
+# shared store (EST_BACKEND set, Nov 23) they were one run with two coordinators, closed with nothing merged.
+unset EST_BACKEND EST_RUNS
 STOP=0; PIDS=""
 trap 'STOP=1; echo "stopping: both arms drain (a minute or two); the same command resumes"; [ -z "$PIDS" ] || kill -TERM $PIDS 2> /dev/null' INT TERM
 for node in $NODES; do
   [[ $node =~ ^[0-9]+:[0-9]+,[0-9]+:[0-9]+$ ]] || { echo "not a depth-2 node: $node"; exit 2; }
   name=$(echo "$node" | tr ':,' '-_'); PIDS=""
   for arm in r10 r9; do
+    A=$D/$arm/subtrees/$name
+    if [ -f "$A/init.done" ] && ! grep -q '^local:' "$A/init.done"; then   # made on a shared store: not this arm's own
+      mv "$A" "$A.shared-store.$(date +%m%d%H%M%S)"; echo "$node $arm: set aside a run made on a shared store"
+    fi
     [ -f "$D/$arm/subtrees/$name/results.txt" ] && { echo "$(date '+%m-%d %H:%M') $node $arm: finished already"; continue; }
     "$R/experiments/estimates/subtree.sh" "$D/$arm/settings.sh" "$name" "$node" "$SLOTS" >> "$D/run.log" 2>&1 &
     PIDS="$PIDS $!"
