@@ -1,0 +1,1023 @@
+\documentclass[11pt]{article}
+% Draft of paper 1 (the bound). Reshaped from docs/dnn_bound/dnn_bound.tex (Nov 5 2026),
+% whose branch-and-bound and nug30 material moves to the companion paper.
+% Conventions in this draft:
+%   \todo{...}   something missing or to be decided (red in the PDF)
+%   % SOURCE:    where in the repository a number comes from
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage[labelfont=bf,labelsep=period,font=small]{caption}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{lemma}[proposition]{Lemma}
+\theoremstyle{remark}
+\newtheorem{remark}[proposition]{Remark}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Sym}{\mathcal{S}}
+\newcommand{\tr}{\operatorname{tr}}
+\newcommand{\vecop}{\operatorname{vec}}
+\newcommand{\inner}[2]{\langle #1, #2\rangle}
+\newcommand{\lmax}{\lambda_{\max}}
+\newcommand{\Pspd}{\mathcal{P}_{+}}
+\newcommand{\QPB}{\mathrm{QPB}}
+\newcommand{\DNN}{\mathrm{DNN}}
+\newcommand{\DNNp}{\mathrm{DNN}^{+}}
+\newcommand{\GL}{\mathrm{GL}}
+\newcommand{\LAP}{\mathrm{LAP}}
+\newcommand{\todo}[1]{{\color{red}[#1]}}
+
+\title{An extended doubly nonnegative bound\\ for the quadratic assignment problem}
+\author{Nathan W. Brixius \and Jean-Pierre Goux}
+\date{Draft, November 24, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We describe a lower bound for the quadratic assignment problem (QAP) that extends
+the doubly nonnegative (DNN) semidefinite relaxation in two ways. First, the bound
+is \emph{certified}: it is the dual value of an ADMM multiplier whose projection
+onto the relaxation's face is negative semidefinite by construction, evaluated by
+a Gilmore--Lawler computation on the lifted cost matrix, less explicit
+floating-point allowances, so that it is a valid bound after any number of
+iterations. Second, the relaxation is strengthened by \emph{regional} triangle
+inequalities: Boolean-quadric inequalities on the indicators that a facility is
+assigned to a given set of locations. For sets that decompose the distance matrix
+(row and column prefixes of a rectangular grid, or half-planes and clusters for
+near-planar distances) these inequalities act directly on the terms of the
+objective, are linear in the DNN matrix, and are not implied by the DNN
+relaxation. They are enforced inside the ADMM by a cutting-plane projection, at a
+cost of a few per cent per iteration, and every intermediate value remains
+certified. We call the result $\DNNp$. At the root it improves the best published
+lower bounds for several large QAPLIB problems, for example tho40 from 226,522 to
+230,453, tai50b from 431,245,612 to 453,552,676 and tai60b from 592,829,061 to
+605,315,696, and it closes 96\% or more of the DNN gap on tai25b and tai30b.
+\todo{Final figures after the root runs of Section~\ref{sec:results} are redone
+under one stopping rule; add sko42, sko49, wil50.} We also describe the properties
+that make the bound usable in branch and bound: validity at every iteration, warm
+starts from a parent's state, and cuts that are inherited by a node's children.
+\end{abstract}
+
+\section{Introduction}
+
+The quadratic assignment problem (QAP) in ``Koopmans--Beckmann'' form is to
+\[
+  \min_{\pi}\ \sum_{i=1}^n\sum_{k=1}^n a_{ik}\,b_{\pi(i),\pi(k)} + \sum_{i=1}^n c_{i,\pi(i)},
+\]
+where $a_{ik}$ is the flow between facilities $i$ and $k$, $b_{jl}$ is the
+distance between locations $j$ and $l$, $c_{ij}$ is the fixed cost of assigning
+facility $i$ to location $j$, and $\pi(i) = j$ if facility $i$ is assigned to
+location $j$. In matrix form,
+\begin{equation}\label{eq:qap}
+  \begin{array}{rl}
+  \mathrm{QAP}(A,B,C): & \min\ \tr(AXB + C)X^T\\
+  & \ \text{s.t.}\ \ X\in\Pi,
+  \end{array}
+\end{equation}
+where $\Pi$ is the set of $n\times n$ permutation matrices. QAPLIB \cite{qaplib}
+has long served as the benchmark library for the QAP; for surveys see
+\cite{burkardsurvey,loiola}.
+
+The QAP is NP-hard, and in practice is one of the hardest discrete optimization
+problems to solve to optimality. Exact methods are almost exclusively branch and
+bound, and their success rests on the lower bound: on its quality, on its cost,
+and on how well it can be reused from one node of the tree to the next. The
+Gilmore--Lawler bound (GLB) \cite{gilmore,lawler} is cheap but weak for larger
+problems. Bounds based on eigenvalues \cite{hrw}, on convex quadratic programming
+\cite{ab01}, on the reformulation-linearization technique \cite{datenagi} and on
+semidefinite programming (SDP) \cite{zkrw} are progressively stronger and more
+expensive. Among the bounds that have been computed for problems with $n\ge30$,
+the strongest are those from the doubly nonnegative (DNN) relaxation of Zhao,
+Karisch, Rendl and Wolkowicz \cite{zkrw}: the SDP relaxation of the lifted matrix
+$yy^T$, $y = (1,\vecop(X))$, restricted to its minimal face, with the ``gangster''
+zeros and elementwise nonnegativity. First-order methods made this relaxation
+computable at $n = 30$ to $60$: the ADMM of Oliveira, Wolkowicz and Xu \cite{owx},
+the restricted Peaceman--Rachford method of Graham et al.\ \cite{graham}, and the
+bisection--projection and Newton-bracketing methods for the Lagrangian-DNN
+relaxation \cite{bbcpop,kkt}. Fujii et al.\ \cite{fujii} used the last of these
+at every node of a branch-and-bound tree on large parallel computers. The best
+published lower bounds for the large unsolved QAPLIB problems are all values of
+this one relaxation, differing in the last digits with the accuracy of the solver.
+
+This paper extends the DNN bound in two directions.
+\begin{itemize}
+\item[(i)] \emph{A certified bound} (Section~\ref{sec:cert}). First-order iterates
+  are neither primal feasible nor dual optimal, and published DNN bounds are
+  obtained by running a solver to a tolerance and evaluating a dual function at the
+  final iterate. We give a bound that is valid for \emph{any} multiplier, with
+  explicit allowances for floating-point error, and a choice of multiplier and of
+  polyhedral relaxation that make it tight and cheap to evaluate at every few
+  iterations. The dual function is that of \cite{graham}; the multiplier, the
+  two-level assignment evaluation and the error analysis are new.
+\item[(ii)] \emph{Regional cuts} (Section~\ref{sec:cuts}). For a set $S$ of
+  locations, the indicators $z_i = \sum_{a\in S}x_{ia}$ that facility $i$ is placed
+  in $S$ are binary, and their first and second moments are linear functions of
+  the DNN matrix. The triangle inequalities of the Boolean quadric polytope
+  \cite{padberg} on these moments are valid for the QAP and not implied by the DNN
+  relaxation. When the sets $S$ are chosen so that the distance matrix is a
+  nonnegative combination of their cut semimetrics, as it is exactly for the
+  Manhattan distances of grid problems and approximately for the clustered
+  distances of Taillard's ``b'' problems, the inequalities constrain exactly the
+  quantities that appear in the objective. Triangle inequalities on the entries of
+  the lifted matrix itself, by contrast, gain almost nothing.
+\item[(iii)] \emph{Cuts inside the ADMM} (Section~\ref{sec:cpadmm}). Following the
+  cutting-plane ADMM of de Meijer et al.\ \cite{dmswz} for graph partition, the
+  inequalities are imposed in the polyhedral step of the ADMM by Dykstra's
+  algorithm, which here reduces to updates on the small moment matrices of the
+  regions. The multipliers of that projection extend the certificate of (i), so
+  that the bound with cuts is also valid at every iteration.
+\end{itemize}
+We call the resulting bound $\DNNp$. Section~\ref{sec:bnb} describes the
+properties that matter for its use in branch and bound, and
+Section~\ref{sec:results} compares it with published bounds. The validation of the
+bound is described in Appendix~\ref{sec:validation}.
+
+The bound was developed for a branch-and-bound code descended from that of
+\cite{ba01,abgl}. That algorithm, its branching rules, and the solution to
+optimality of several QAPLIB problems with it, including problems for which the
+values listed here as ``best known'' are thereby proved optimal, are the subject
+of a companion paper \cite{companion}. Here we consider only the bound.
+
+\paragraph{Notation.} We use $\tr(\cdot)$ to denote the trace of a matrix. If $A$
+and $B$ are matrices then $\inner{A}{B} = \tr(AB^T)$, $A\otimes B$ is the Kronecker
+product of $A$ and $B$, and $\vecop(A)$ is the vector formed by ``stacking'' the
+columns of $A$. We use $e$ to denote a vector with each component equal to one,
+$\Sym^N$ for the symmetric $N\times N$ matrices, and $\lmax(\cdot)$ for the largest
+eigenvalue of a symmetric matrix. For convenience we let the name of an
+optimization problem, like $\mathrm{QAP}(A,B,C)$, also refer to its optimal value.
+
+\section{The DNN relaxation}\label{sec:dnn}
+
+Consider a node of the branch-and-bound tree with $m$ facilities left to assign.
+Its subproblem is again a QAP \eqref{eq:qap} of size $m$, with reduced matrices
+$A, B \in \R^{m\times m}$, a linear term $C$ that collects the interactions with the
+fixed assignments, and a constant $s$. For $X\in\Pi$ let $x = \vecop(X^T)$, ordered
+so that $x_{ij}$ (facility $i$ at location $j$) has lifted index $1 + im + j$, and
+let $y = (1, x)$ and $N = m^2+1$. Define the symmetric lifted cost $L\in\Sym^N$ by
+\begin{equation}\label{eq:L}
+  L_{(ij),(kl)} = \tfrac12(a_{ik}b_{jl} + a_{ki}b_{lj}), \qquad
+  L_{0,(ij)} = L_{(ij),0} = \tfrac12 c_{ij}, \qquad L_{00} = 0.
+\end{equation}
+Then for every permutation, $\inner{L}{yy^T} = \sum a_{ik}b_{jl}x_{ij}x_{kl} +
+\sum c_{ij}x_{ij}$, the subproblem objective without $s$, for any $A$ and $B$,
+symmetric or not.
+
+\paragraph{The face.} The constraints $Xe = X^Te = e$ say that $y$ lies in the null
+space of a linear map, so every lifted permutation $Y = yy^T$ has its range in a
+fixed subspace of dimension $(m-1)^2+1$. Let $V \in\R^{N\times K}$, $K = (m-1)^2+1$,
+be an orthonormal basis of it. Zhao et al.\ \cite{zkrw} take
+$V = \begin{pmatrix}1 & 0\\ e/m & V_m\otimes V_m\end{pmatrix}$, suitably normalized,
+where the columns of $V_m\in\R^{m\times(m-1)}$ span $e^\perp$. Every lifted
+permutation then satisfies $Y = VRV^T$ with $R \succeq 0$. The DNN relaxation of the
+subproblem is
+\begin{equation}\label{eq:dnn}
+  \begin{array}{rl}
+  \DNN(A,B,C) = s + \min & \inner{L}{Y}\\
+  \text{s.t.} & Y = VRV^T,\ R\succeq 0,\ Y_{00}=1,\ \mathcal{G}(Y) = 0,\ 0 \le Y \le 1,
+  \end{array}
+\end{equation}
+where $\mathcal{G}$ selects the ``gangster'' entries $Y_{(ij),(il)}$, $l\ne j$, and
+$Y_{(ij),(kj)}$, $k\ne i$, which vanish for permutations since a facility has one
+location and a location one facility. Oliveira, Wolkowicz and Xu \cite{owx} solve
+\eqref{eq:dnn} by ADMM on the splitting $Y = VRV^T$, alternating
+\begin{align}
+  R &\leftarrow \Pspd\big(V^T(Y + Z/\beta)V\big), \label{eq:rstep}\\
+  Y &\leftarrow \Pi_{\mathcal{Y}}\big(VRV^T - (L + Z)/\beta\big), \label{eq:ystep}\\
+  Z &\leftarrow Z + \gamma\beta\,(Y - VRV^T), \label{eq:zstep}
+\end{align}
+where $\Pspd$ projects onto the positive semidefinite cone,
+$\mathcal{Y} = \{Y: Y_{00}=1, \mathcal{G}(Y)=0, 0\le Y\le1\}$ is a box with fixed
+entries (so $\Pi_{\mathcal{Y}}$ is entrywise clipping), $\beta>0$ is the penalty
+and $\gamma\in(0,\frac{1+\sqrt5}{2})$ the dual step.
+
+\paragraph{Published bounds.} The values of \eqref{eq:dnn} reported in the
+literature are obtained by running a first-order method to a tolerance, typically
+$10^{-5}$ in relative residuals, and evaluating a dual function at the final
+iterate, rounded up for integer data \cite{owx,graham,kkt,bbcpop}. Graham et
+al.\ \cite{graham} strengthen the subproblems with the redundant constraint
+$\tr R = m+1$ and with the constraints of the polyhedral set, which improves the
+dual function and the convergence but not the value of the relaxation. For a
+branch-and-bound algorithm, in which a bound is needed after a few hundred
+iterations at most and an invalid bound invalidates the proof, we need more: a
+number that is below the optimum whatever the state of the iteration.
+
+\section{A certified bound}\label{sec:cert0}
+
+\subsection{A bound from any multiplier}\label{sec:cert}
+
+ADMM iterates are neither primal feasible nor dual optimal, and the primal value
+$\inner{L}{Y}$ is not a bound: stopped early, it can lie above the optimum.
+Branch and bound needs a number that is provably below the subproblem optimum after
+any number of iterations. We obtain one from the multiplier.
+
+\begin{lemma}\label{lem:trace}
+Every lifted permutation $Y = yy^T$ satisfies $Y = VRV^T$ with
+$R = V^TYV\succeq0$ and $\tr(R) = m+1$.
+\end{lemma}
+\begin{proof}
+Since $y$ lies in the range of $V$,
+\[
+  Y = VV^TYVV^T = VRV^T, \qquad R = V^TYV = (V^Ty)(V^Ty)^T\succeq0,
+\]
+and $\tr R = \|V^Ty\|^2 = \|y\|^2 = 1 + \sum x_{ij}^2 = m+1$.
+\end{proof}
+
+\begin{proposition}\label{prop:cert}
+Let $Z\in\Sym^N$ be any symmetric matrix, $\lambda \ge \lmax(V^TZV)$, and let
+$\mathcal{P}\supseteq\{yy^T : X\in\Pi\}$. Then the subproblem optimum is at least
+\begin{equation}\label{eq:cert}
+  s + \min_{Y\in\mathcal{P}} \inner{L+Z}{Y} - (m+1)\lambda .
+\end{equation}
+\end{proposition}
+\begin{proof}
+For a lifted permutation $Y = VRV^T$ (Lemma~\ref{lem:trace}), since $R\succeq0$,
+\[
+  \inner{Z}{Y} = \inner{V^TZV}{R} \le \lmax(V^TZV)\tr R \le (m+1)\lambda .
+\]
+Hence
+\begin{align*}
+  \inner{L}{Y} = \inner{L+Z}{Y} - \inner{Z}{Y} &\ge \inner{L+Z}{Y} - (m+1)\lambda\\
+  &\ge \min_{\mathcal{P}}\inner{L+Z}{\cdot} - (m+1)\lambda. \qedhere
+\end{align*}
+\end{proof}
+
+The same bound appears as the dual function of Graham et al.\ \cite[eq.~(3.11),
+Thm.~3.4]{graham}. Proposition~\ref{prop:cert} holds for every $Z$; the quality of
+the bound depends on $Z$ being near a dual optimum of \eqref{eq:dnn}, and on
+choosing $Z$ so that $\lambda$ can be small. Two choices of $\mathcal{P}$ and one of
+$Z$ make it both cheap and tight.
+
+\paragraph{The multiplier.} The approach of \cite{owx} projects $V^TZV$ onto the
+negative semidefinite cone, which costs an extra eigendecomposition per check.
+Instead we use the multiplier implied by the $R$-step. Let $W = V^T(Y+Z/\beta)V$ be
+the matrix projected in \eqref{eq:rstep}, and
+\[
+  Z' = Z + \beta(Y - VRV^T), \qquad\text{so that}\qquad V^TZ'V = \beta(W - \Pspd(W)) \preceq 0 .
+\]
+The last matrix is $\beta$ times the negative part of $W$, negative semidefinite by
+construction. This holds even when the eigenvectors used for $\Pspd$ are
+inaccurate: if $\Pspd(W)$ is formed as $W$ minus the computed negative part
+$\sum_{w_k<0} w_k v_kv_k^T$, the difference is exactly that sum. In floating
+point, $\lmax(V^TZ'V)$ is a tiny positive number, which we bound below.
+
+\paragraph{The polyhedral part.} With $\mathcal{P}$ the box $\mathcal{Y}$ itself,
+$\min_{\mathcal{P}}\inner{M}{Y}$ for $M = L+Z'$ is $M_{00}$ plus the sum of the
+negative entries of $M$ outside the gangster set, the simplest choice. A much
+tighter, still cheap choice uses that every permutation is an assignment in two
+levels. Write $M_{(ij),\cdot}$ for row $(ij)$ of $M$. For a permutation $\sigma$,
+\begin{equation}\label{eq:gl}
+\inner{M}{yy^T} = M_{00} + \sum_{i}\Big( 2M_{0,(i\sigma_i)} + M_{(i\sigma_i),(i\sigma_i)}
+ + \sum_{k\ne i} M_{(i\sigma_i),(k\sigma_k)} \Big).
+\end{equation}
+The inner sum is a perfect matching between facilities $k\ne i$ and locations
+$l\ne\sigma_i$, so it is at least the value $\LAP_{ij}$ of the $(m-1)\times(m-1)$
+assignment problem on the block $M_{(ij),(kl)}$, $k\ne i$, $l\ne j$. Hence
+\begin{equation}\label{eq:glbound}
+\min_{\sigma}\inner{M}{yy^T} \;\ge\; \GL(M) := M_{00} + \LAP\big(c\big),\qquad
+c_{ij} = 2M_{0,(ij)} + M_{(ij),(ij)} + \LAP_{ij},
+\end{equation}
+a Gilmore--Lawler computation \cite{gilmore,lawler} on the lifted matrix. It also
+bounds the DNN relaxation itself, not only permutations: for feasible $Y$ of
+\eqref{eq:dnn}, column $(ij)$ restricted to $k\ne i$, $l\ne j$ is nonnegative with
+all row and column sums $x_{ij} = Y_{0,(ij)}$, so it is $x_{ij}$ times a doubly
+stochastic matrix, and assignment duality applies twice. It is never below the box
+value and reaches a given value 1.5--6$\times$ sooner in the nug20 tests. Any lower
+bound on each $\LAP_{ij}$ may replace it, for example the row-then-column
+reduction, which costs $O(m^2)$. The implementation uses the reduction, plus exact
+Hungarian solves when the result is within a small gap of the cutoff.
+
+\begin{remark}
+Nothing in the certificate depends on the ADMM having converged, on the accuracy
+of its eigenvectors, or on the single-precision arithmetic used in the $R$-step
+(Section~\ref{sec:impl}). Only the multiplier $Z'$, the Cholesky test below and
+\eqref{eq:glbound} enter the certified value, all in double precision.
+\end{remark}
+
+\subsection{Floating-point safety}\label{sec:fp}
+
+We assume IEEE binary64 arithmetic with rounding to nearest, an extended type
+(\texttt{long double}) with a $p$-bit significand ($p=64$ on x86), and no overflow
+or underflow; a non-finite value anywhere yields no certificate. The certified
+value is $s + \GL(L+Z') - \mu$, rounded down, where the inputs and the margin $\mu$
+cover:
+\begin{itemize}
+\item[(o)] the subproblem data: $s$ and the reduced linear term $C$, sums of
+  products that can cancel, are replaced by lower bounds (exact when all operands
+  are multiples of $\frac12$ and the sum of magnitudes is below $2^{p-2}$, as for
+  integer data; otherwise the extended-precision sum less $(k+2)\,2^{-p}\sum|t|$
+  for $k$ terms $t$, rounded down). Bounds for the lowered subproblem are bounds for
+  the exact one, since assignment variables are nonnegative;
+\item[(i)] $(m+1)\lambda$ with $\lambda\ge\lmax(V^TZ'V)$, obtained by Rump's
+  criterion \cite{rump}: if the floating-point Cholesky factorization of
+  $\delta I - S$ succeeds for the computed $S \approx V^TZ'V$, then
+  $\lmax(S) \le \delta + c$ with an explicit $c$ depending on the dimension, the
+  unit roundoff $u$ and $\tr(\delta I - S)$. To this is added
+  $64\,m\,u\,\|Z'\|_F$ for the error of computing $S$ through Householder
+  transforms rather than with an exact $V$;
+\item[(ii)] the summation and rounding errors of \eqref{eq:glbound}, accumulated in
+  extended precision: $8(m+2)u\,\|M\|_1$, plus $(m+2)u\sum_{(ij),(kl)}
+  \frac12(|a_{ik}b_{jl}|+|a_{ki}b_{lj}|)$ for forming and scaling $L$.
+\end{itemize}
+These are standard error bounds with generous constants, not interval arithmetic,
+and not every constant is derived here: the allowance $64\,m\,u\|Z'\|_F$ for the
+Householder transforms rests on a standard backward-error argument and was checked
+empirically (errors at most $2.1\,u\|Z'\|_F$), not proved. At $m=28$ the largest
+margin seen was about $10^{-7}$ in objective units, against integer objective
+values.
+
+\subsection{Implementation}\label{sec:impl}
+
+The bound is implemented in C++ with LAPACK and BLAS.
+
+\paragraph{Products with $V$.} Forming $V$ explicitly and computing $V^TMV$ and
+$VRV^T$ with dense products of order $N\times N$ costs $O(m^6)$. We take for
+$V_m$ the first $m-1$ columns of the Householder reflector $H$ with
+$He_{m-1} = e/\sqrt m$. Then $V^TMV$ and $VRV^T$ are a reflection along each of the
+four tensor modes plus a $2\times2$ rotation coupling the constant coordinate,
+$O(m^4)$ per product. Both the $R$-step and the certificate are invariant under
+an orthogonal change of basis of the face, so any orthonormal $V$ gives the same
+iterates and bound.
+
+\paragraph{Eigensolver.} Each $R$-step needs the projection of a $K\times K$
+symmetric matrix ($K = 730$ at $m=28$, $2{,}402$ at $m = 50$) with hundreds of
+eigenvalues of each sign, so a partial spectrum does not help directly. Between
+iterations the matrix changes little. We track its negative eigenspace by a
+Chebyshev-filtered subspace iteration in single precision (BLAS level 3), with a
+full single-precision eigendecomposition at intervals (every 20 to 120
+iterations). Because $R$ is formed as $W$ minus the computed negative part, the
+certificate is unaffected by the accuracy of the subspace. When a check fails the
+Cholesky test, or the semidefinite penalty alone decides whether the bound
+exceeds a given cutoff, the multiplier is re-projected in double precision before
+certifying. A similar design, polynomial-filtered projections with a tracked
+subspace in reduced precision, has since been proposed for first-order SDP solvers
+on GPUs \cite{kang,sunkang}.
+
+\paragraph{The iteration.} The objective is scaled to $\max|L| = 1$. We use the
+Peaceman--Rachford form of the method \cite{graham}, with a second dual update
+between the $R$-step and the $Y$-step and $\gamma_1 = \gamma = 1$; the certificate
+is read from the $R$-step multiplier before that update. The penalty is
+$\beta = \theta\, m/3$ with $\theta$ between 0.2 and 0.3 \todo{state the schedule
+actually used in Section~\ref{sec:results}, including the separate penalty of the
+cut phase (\texttt{dnn.beta\_sched})}. A certificate is computed every 10
+iterations.
+
+\todo{Table: cost per iteration by $m$ on a named machine, and the split between
+the $R$-step, the $Y$-step and the certificate. The Nov 5 report's
+Table~1 compared the C++ code with the numpy prototype, which is of no interest
+here; it is dropped.}
+
+\section{Regional cuts}\label{sec:cuts}
+
+The DNN relaxation is weak in a specific way on the problems that interest us.
+On a grid problem such as nug30 or wil50 its optimal $Y$ nearly satisfies every
+triangle inequality of the Boolean quadric polytope on its own entries: at the
+root of nug30 the largest violation is $0.004$, and adding these inequalities
+raised the bounds of two difficult nug30 subproblems by 0.2 and 0.4, against gaps
+of 76 and 29. % SOURCE: experiments/dnn_cuts/README.md
+The slack of the relaxation is not in triples of individual assignments but in
+aggregates of them.
+
+\subsection{Regional moments}
+
+Let $S$ be a set of locations. For a permutation, let
+\[
+  z_i^S = \sum_{a\in S} x_{ia} \in\{0,1\}
+\]
+indicate that facility $i$ is assigned to a location in $S$. The first and second
+moments of these indicators are linear in the lifted matrix $Y = yy^T$:
+\begin{equation}\label{eq:moments}
+  p_i^S = \sum_{a\in S} Y_{(ia),(ia)} = z_i^S, \qquad
+  W_{ij}^S = \sum_{a,b\in S} Y_{(ia),(jb)} = z_i^Sz_j^S \quad (i\ne j).
+\end{equation}
+For any $Y$ feasible for \eqref{eq:dnn} we take \eqref{eq:moments} as the
+definition of $p^S$ and $W^S$. The matrix
+$\begin{pmatrix}1 & (p^S)^T\\ p^S & W^S\end{pmatrix}$, with $W^S_{ii} = p^S_i$, is
+a linear compression of $Y$ and so is positive semidefinite for every feasible
+$Y$: requiring this adds nothing. What the relaxation does not know is that the
+$z_i^S$ are binary.
+
+\begin{proposition}\label{prop:tri}
+Let $S$ be a set of locations and $i,j,k$ distinct facilities. Every lifted
+permutation satisfies
+\begin{align}
+  W_{ij}^S + W_{ik}^S - W_{jk}^S - p_i^S &\le 0, \label{eq:t1}\\
+  p_i^S + p_j^S + p_k^S - W_{ij}^S - W_{ik}^S - W_{jk}^S &\le 1, \label{eq:t2}
+\end{align}
+and the two inequalities obtained from \eqref{eq:t1} by exchanging $i$ with $j$
+or with $k$.
+\end{proposition}
+\begin{proof}
+With $z = (z_i^S, z_j^S, z_k^S)\in\{0,1\}^3$, the left side of \eqref{eq:t1} is
+$z_iz_j + z_iz_k - z_jz_k - z_i = -z_i(1-z_j)(1-z_k) - (1-z_i)z_jz_k \le 0$, and
+\eqref{eq:t2} is $(1-z_i)(1-z_j)(1-z_k) + z_iz_jz_k \ge 0$ expanded.
+\end{proof}
+
+These are the triangle inequalities of the Boolean quadric polytope
+\cite{padberg} applied to $z^S$. The same construction applies with the roles of
+facilities and locations exchanged ($S$ a set of facilities, and $i,j,k$
+locations), and at a node of a branch-and-bound tree with $S$ restricted to the
+free locations. We call \eqref{eq:t1}--\eqref{eq:t2} \emph{regional} triangle
+inequalities and $S$ a \emph{region}. The case $|S| = 1$ gives the triangle
+inequalities on the entries of $Y$.
+
+\subsection{The inequalities are not implied}
+
+\begin{proposition}\label{prop:strict}
+There is a QAP with nonnegative data for which the DNN relaxation \eqref{eq:dnn}
+has value at most 9, the optimum is 10, and \eqref{eq:dnn} together with a single
+inequality \eqref{eq:t2} has value 10.
+\end{proposition}
+\begin{proof}
+Take $n = 6$, split the facilities into two groups of three and the locations
+into two groups of three, and let $A = B$ be the adjacency matrix of $K_{3,3}$:
+entries 1 across the groups and 0 within. If $t$ facilities of the first group
+occupy the first group of locations, the objective is
+$2(t^2 + (3-t)^2) = 9 + 4(t-\tfrac32)^2$, so the optimum is 10. Let $S$ be the
+first group of locations and define $Q\in\Sym^6$ with unit diagonal, $-\frac12$
+between facilities of the same group and 0 between groups, $p_i = \frac12$ and
+$W = \frac14(ee^T + Q)$. Set $Y_{00} = 1$,
+$Y_{0,(ia)} = Y_{(ia),(ia)} = \frac16$, zero on the gangster entries, and for
+$i\ne j$, $a\ne b$,
+\[
+  Y_{(ia),(jb)} = \begin{cases} W_{ij}/6, & a, b \text{ in the same group of locations},\\
+  (\frac12 - W_{ij})/9, & \text{otherwise}. \end{cases}
+\]
+This $Y$ is feasible for \eqref{eq:dnn} (its eigenvalues are $2$, $\frac14$ eight
+times, $\frac3{16}$ sixteen times and $0$ twelve times), satisfies every triangle
+inequality on its own entries with slack at least $\frac1{12}$, and has objective
+value 9. For the three facilities of the first group it violates \eqref{eq:t2} by
+$\frac18$. Finally, with $g = 1 - z_1 - z_2 - z_3 + z_1z_2 + z_1z_3 + z_2z_3$
+the slack of that inequality, the objective equals $10 + 8g$ on permutations, so
+with multiplier 8 the Lagrangian is constant and equal to 10.
+\todo{The feasibility and the spectrum were verified in exact rational
+arithmetic (\texttt{experiments/wil50\_feasibility/stronger\_bounds}); recheck
+the statement line by line before submission, and decide whether the verification
+script is cited or an explicit factorization given.}
+\end{proof}
+
+The example shows the mechanism: the relaxation can behave as if $\frac32$
+facilities of a group were in $S$, with zero variance. The regional inequalities
+forbid a small variance around a fractional count.
+
+\subsection{Choosing the regions}\label{sec:regions}
+
+Proposition~\ref{prop:tri} holds for any $S$. Which regions are useful depends on
+the distance matrix.
+
+\paragraph{Grid problems.} For the nug, sko, tho and wil problems of QAPLIB, $B$
+is the matrix of Manhattan distances between the cells of an $r\times c$ grid.
+Let $\mathcal{S}$ be the $r-1$ row prefixes $\{a : \mathrm{row}(a) < t\}$ and the
+$c-1$ column prefixes $\{a: \mathrm{col}(a) < t\}$. Then
+\begin{equation}\label{eq:decomp}
+  b_{ab} = \sum_{S\in\mathcal{S}} \big|\mathbf{1}_{a\in S} - \mathbf{1}_{b\in S}\big|,
+  \qquad\text{so}\qquad
+  \sum_{i,j} a_{ij}\,b_{\pi(i)\pi(j)} = \sum_{S\in\mathcal{S}}\sum_{i,j} a_{ij}\big(z_i^S + z_j^S - 2z_i^Sz_j^S\big).
+\end{equation}
+The objective is a sum over the $r + c - 2$ regions of the flow cut by the set of
+facilities placed in the region: a stack of graph-partition problems with
+prescribed part sizes, coupled by the requirement that one assignment produce all
+the partitions. The regional moments are exactly the variables of these partition
+problems, and \eqref{eq:t1}--\eqref{eq:t2} are the triangle inequalities that
+strengthen SDP relaxations of graph partition
+\cite{dmswz}. For wil50 ($5\times10$) there are 13 regions and
+$13\cdot4\binom{50}{3}\approx10^6$ inequalities at the root, few enough to
+separate by enumeration.
+
+\paragraph{Clustered distances.} In Taillard's problems tai$n$b \cite{taillard}
+the distances are rounded Euclidean distances between points in the plane that lie
+in a few tight, well separated clusters, so that 92--98\% of the total distance is
+between clusters; on tai20b, tai25b, tai30b and tai50b the clusters are moreover
+nearly collinear. % SOURCE: experiments/bound_lab/regions/README.md section 1
+A metric on a line decomposes into the cut semimetrics of the prefixes of the
+sorted order exactly as \eqref{eq:decomp}, and a planar Euclidean metric
+approximately into those of half-planes. We use as regions the prefixes of the
+locations sorted along the first principal axis of a two-dimensional scaling of
+$B$, the clusters of an average-linkage dendrogram of $B$ and their unions, and
+the half-planes in a few further directions that fall between clusters (86
+regions for tai60b). \todo{State the family precisely (\texttt{gen\_regions.py},
+family \texttt{comb}) and give the number of regions per problem.} Regions on the
+facility side, from the flow matrix, and random regions gave no improvement on
+these problems.
+
+\paragraph{Related work.} Mittelmann and Peng \cite{mp} use the structure of
+Manhattan and Hamming distance matrices through a different fact, the
+positive semidefiniteness of $\alpha ee^T - XBX^T$, to obtain small SDP
+relaxations; that constraint is implied by \eqref{eq:dnn}, and their bounds are
+below the DNN bound (wil50: 46,526). Box inequalities for the QAP polytope
+\cite{jk} are inequalities of the form $(q - \beta)(q-\beta-1)\ge0$ on integer
+counts $q$ of assignments. The regional triangle inequalities with three
+facilities are related to them, and we tested the larger members of that family
+(Section~\ref{sec:other}). De Meijer et al.\ \cite{dmswz} add triangle
+inequalities to DNN relaxations of the graph partition problem by a cutting-plane
+ADMM; the compression of \eqref{eq:dnn} to one region is such a relaxation of a
+bisection problem. We have not found the regional inequalities, with regions
+taken from a decomposition of the distance matrix, used for the QAP.
+\todo{Literature check to be repeated before submission
+(\texttt{experiments/bound\_lab/literature}; Gueye and Michelon 2015 was read in
+abstract only).}
+
+\subsection{The certificate with cuts}\label{sec:certcuts}
+
+Write the inequalities in use as $\inner{G_t}{Y}\le h_t$, $t = 1,\dots,T$, with
+$G_t\in\Sym^N$ sparse and $h_t\in\{0,1\}$.
+
+\begin{proposition}\label{prop:certcuts}
+For any $Z\in\Sym^N$, $\lambda\ge\lmax(V^TZV)$ and $\mu\in\R^T$, $\mu\ge0$, the
+subproblem optimum is at least
+\begin{equation}\label{eq:certcuts}
+  s + \GL\Big(L + \sum_t\mu_tG_t + Z\Big) - \sum_t \mu_th_t - (m+1)\lambda .
+\end{equation}
+\end{proposition}
+\begin{proof}
+For a lifted permutation $Y$, $\inner{L}{Y}\ge\inner{L+\sum_t\mu_tG_t}{Y} -
+\sum_t\mu_th_t$ by Proposition~\ref{prop:tri} and $\mu\ge0$. Apply
+Proposition~\ref{prop:cert} and \eqref{eq:glbound} to the lifted cost
+$L + \sum_t\mu_tG_t$.
+\end{proof}
+
+So a bound with cuts is the certified bound of Section~\ref{sec:cert0} for a
+modified cost matrix, less a constant. The floating-point margins of
+Section~\ref{sec:fp} are extended by the magnitudes of the added terms, with
+$\sum_t\mu_th_t$ rounded up.
+
+\subsection{Cuts inside the ADMM}\label{sec:cpadmm}
+
+Our first implementation used \eqref{eq:certcuts} directly: solve \eqref{eq:dnn}
+with cost $L + \sum\mu_tG_t$, separate the most violated inequalities at the final
+$Y$, update $\mu$ by a subgradient step, and repeat. This needs many rounds of
+several hundred iterations each. It is far more effective to treat the
+inequalities as constraints of the polyhedral step, as in the cutting-plane ADMM
+of \cite{dmswz}. The $Y$-step \eqref{eq:ystep} becomes the projection of
+$X = VRV^T - (L+Z)/\beta$ onto
+\[
+  \mathcal{Y}\cap\{Y : \inner{G_t}{Y}\le h_t,\ t = 1,\dots,T\},
+\]
+computed approximately by Dykstra's algorithm \cite{dykstra}, cycling over
+$\mathcal{Y}$ and the half-spaces. The correction that Dykstra's algorithm keeps
+for half-space $t$ is a multiple $\nu_tG_t$ of its normal with $\nu_t\ge0$, and
+the step for it is Hildreth's,
+\[
+  \nu_t' = \max\big(0,\ \nu_t + (\inner{G_t}{Y} - h_t)/\|G_t\|^2\big),\qquad
+  Y \leftarrow Y - (\nu_t'-\nu_t)\,G_t .
+\]
+Since $\mathcal{Y}$ is visited first in each sweep, its step is
+$Y = \Pi_{\mathcal{Y}}(X - \sum_t\nu_tG_t)$ regardless of its own previous
+correction, so the state of the projection is the vector $\nu$ alone, which is
+carried from one ADMM iteration to the next. We use one sweep per iteration.
+
+\paragraph{Cost.} An inequality \eqref{eq:t1}--\eqref{eq:t2} is linear in the
+moments $(p^S, W^S)$ of its region, and a step along $G_t$ changes the moments of
+another region $S'$ by multiples that depend only on $|S\cap S'|$. The half-space
+steps therefore run on the moment matrices of the regions, about 80 floating-point
+operations per inequality, and $Y$ is touched once per sweep, to form
+$X - \sum\nu_tG_t$, clip it, and accumulate the moments of the result. With a
+pool of 13,000 inequalities at a wil50 subproblem with $m = 47$ the projection
+adds 4\% to 13\% to the cost of an iteration, depending on how often the
+certificate is evaluated. % SOURCE: experiments/wil50_feasibility/roadmap/admm/cpadmm/README.md
+
+\paragraph{The certificate.} The optimality conditions of the projection give
+multipliers $\mu = \beta\nu$ for the inequalities, in the units of the scaled
+cost (times $\max|L|$ in the original units), and $\mu\ge0$ by construction. At
+each check the bound \eqref{eq:certcuts} is evaluated with this $\mu$ and the
+multiplier $Z'$ of Section~\ref{sec:cert}. As before, nothing in the certified
+value depends on the projection having converged.
+
+\paragraph{Separation.} Every 100 iterations, the 1,000 most violated regional
+triangle inequalities at the current (projected) $Y$ are added to the pool with
+$\nu_t = 0$; separation is by enumeration over the regions and triples.
+\todo{Describe the ranking, and whether inequalities are ever dropped in the
+settings used for the results.}
+
+\paragraph{Effect on convergence.} On a wil50 subproblem at depth 3, with the
+same pool of 13,000 inequalities, the cutting-plane form reaches a given
+certified value in 4.7 times fewer iterations than the subgradient form (1,040
+against 4,860) and continues to a higher value; on two further subproblems the
+ratios are 5.7 and 4.8. % SOURCE: cpadmm/README.md, "Short answer"
+
+\subsection{Other inequalities}\label{sec:other}
+
+The triangle inequalities are the smallest members of larger families on the
+same moments: the inequalities $(q-\beta)(q-\beta-1)\ge0$ for the count
+$q = \sum_{i\in T}z_i^S$ of a set $T$ of facilities (for $|T|=5$ these include the
+pentagonal inequalities of \cite{padberg}; for general $T$, the box inequalities
+of \cite{jk}), and all valid inequalities on seven indicators, separated by
+projection onto the convex hull of the feasible $0/1$ configurations. We
+implemented these and found them not worth their cost after the triangle
+inequalities on wil50 and on tho40. We also tested inequalities valid only for
+permutations that no pairwise exchange improves; they are valid for an optimal
+solution and their exact strength is considerable, but the DNN relaxation
+realized about a tenth of it. \todo{One sentence each with the measured gains
+(\texttt{bound\_lab/tho40\_nodes}, \texttt{bound\_lab/swapcuts},
+\texttt{wil50\_feasibility/new\_cuts}), or drop the subsection.}
+
+\section{Use in branch and bound}\label{sec:bnb}
+
+A bound for branch and bound is judged by more than its value at the root. At a
+node we want to know, as cheaply as possible, whether the bound exceeds the
+incumbent value less a tolerance (the \emph{cutoff}), in which case the node is
+fathomed; and if it does not, we want what was computed to be of use to the
+node's children. We describe the properties of $\DNNp$ that serve these ends.
+How they are combined with a cheaper bound, with branching rules and with a
+parallel search is described in \cite{companion}.
+
+\paragraph{Stopping at the cutoff.} Because the certified value is a bound at
+every check, the iteration stops at the first check at which it exceeds the
+cutoff. Most fathomed nodes need a small fraction of the iterations that
+convergence would. No tolerance on residuals is involved.
+
+\paragraph{Giving up.} Conversely, a node whose certified value, extrapolated
+generously from its recent gains, stays below the cutoff can be abandoned early
+and branched on. This affects the cost of the search but not its validity.
+
+\paragraph{Warm starts.} A child subproblem fixes one more assignment
+$x_{ij} = 1$. Its ADMM is started from the parent's final multiplier $Z$ with the
+row and column of the new assignment removed from the lifted indices, and from
+the parent's final $Y$ conditioned on the assignment: the parent's row $(ij)$,
+divided by its diagonal entry, becomes the child's row 0, and the remaining
+entries are rescaled so that the diagonal of $Y$ equals that row. The certificate
+does not depend on the start. \todo{Measured effect with the current code; the
+Nov 5 report had 40\% fewer iterations from $Z$ alone on nug30 and a factor 1.3
+from adding $Y$ on 16 wil50 children.} The parent's state is stored with the
+node in single precision (the upper triangles of $Y$ and $Z$), so that a child
+can be bounded in another process or on another machine.
+
+\paragraph{Inheriting cuts.} Proposition~\ref{prop:tri} holds for any region and
+any three free facilities, so an inequality of the parent's pool is valid for a
+child as long as none of its three facilities is the one just fixed; the region is
+restricted to the child's free locations, and the right-hand side is unchanged.
+A child therefore starts with the parent's active inequalities and their
+multipliers, in addition to $Y$ and $Z$, and a parent that is not fathomed still
+equips its children. \todo{Measured effect of inheritance on a fixed set of
+children, for example tho40 or wil50 depth-4 nodes.}
+
+\paragraph{Two phases.} At a node we first run the ADMM without new cuts (with
+the inherited pool, if any), and enter the cutting-plane phase only if the node
+is not fathomed and its bound is within a given fraction of the cutoff.
+\todo{Decide how much of the policy (zone, hand-over rule, phase penalty) is
+described here and how much in the companion paper. Proposal: the two-phase
+structure and the zone only.}
+
+\paragraph{An illustration.} \todo{One table on problems solved by others, to
+show the effect per node without announcing new solutions: for example the
+fraction of depth-$d$ subproblems of nug30 and sko42 fathomed by DNN and by
+$\DNNp$ within a fixed iteration budget; and tai35b and tai40b, whose trees
+under $\DNNp$ have 922 and 733 nodes (\texttt{bound\_lab/tai\_solves}) against
+$2.6\times10^6$ and $2.8\times10^5$ in \cite{fujii}. To be agreed.}
+
+\section{Computational results}\label{sec:results}
+
+\todo{Machine, compiler, BLAS, threads; the stopping rule for root bounds (a
+fixed iteration limit, or a stall rule on the certified value); the settings
+file for each row. All root bounds below were computed in different sessions with
+different limits and several were still rising when stopped; they are to be
+recomputed under one rule (\texttt{docs/dnn\_plus/root\_runs.md}).}
+
+\subsection{The certified DNN bound on small and medium problems}
+
+In Table~\ref{tab:bounds} we give, for the problems of \cite[Table~1]{ab01}, the
+optimum value and the lower bounds GLB, PB, QPB and SDPB1 reported there, together
+with the certified DNN bound of Section~\ref{sec:cert0}, without cuts, at the
+root. GLB, PB and SDPB1 (the cheapest SDP relaxation of \cite{zkrw}) are taken
+from \cite{zkrw}, and QPB is the bound computed in \cite{ab01} with one step of
+its dual improvement. The DNN bound was computed with up to 4,000 ADMM iterations.
+All bounds are rounded up to the next integer, since the data for these problems
+is integral.
+
+\begin{table}[p]\centering
+\caption{Bounds for QAPLIB problems. GLB, PB, QPB and SDPB1 from
+\cite[Table~1]{ab01}; DNN: the certified bound of Section~\ref{sec:cert0} at the
+root, after at most 4,000 ADMM iterations; --: held out (see text).}\label{tab:bounds}
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+Problem & OPT & GLB & PB & QPB & SDPB1 & DNN\\
+\midrule
+esc16a & 68 & 38 & 47 & 55 & 47 & 64\\
+esc16b & 292 & 220 & 250 & 250 & 250 & 290\\
+esc16c & 160 & 83 & 95 & 95 & 95 & 154\\
+esc16d & 16 & 3 & $-$19 & $-$19 & $-$19 & 13\\
+esc16e & 28 & 12 & 6 & 6 & 6 & 27\\
+esc16g & 26 & 12 & 9 & 9 & 9 & 25\\
+esc16h & 996 & 625 & 708 & 708 & 708 & 977\\
+esc16i & 14 & 0 & $-$25 & $-$25 & $-$25 & 12\\
+esc16j & 8 & 1 & $-$6 & $-$6 & $-$6 & 8\\
+\midrule
+had12 & 1652 & 1536 & 1573 & 1592 & 1604 & 1652\\
+had14 & 2724 & 2492 & 2609 & 2630 & 2651 & 2724\\
+had16 & 3720 & 3358 & 3560 & 3595 & 3612 & 3720\\
+had18 & 5358 & 4776 & 5104 & 5143 & 5174 & 5358\\
+had20 & 6922 & 6166 & 6625 & 6677 & 6713 & 6922\\
+\midrule
+kra30a & 88900 & 68360 & 63717 & 68572 & 69736 & --\\
+kra30b & 91420 & 69065 & 63818 & 69021 & 70324 & --\\
+\midrule
+nug12 & 578 & 493 & 472 & 482 & 486 & 568\\
+nug14 & 1014 & 852 & 871 & 891 & 903 & 1011\\
+nug15 & 1150 & 963 & 973 & 996 & 1009 & 1141\\
+nug16a & 1610 & 1314 & 1403 & 1448 & 1461 & 1600\\
+nug16b & 1240 & 1022 & 1046 & 1071 & 1082 & 1219\\
+nug17 & 1732 & 1388 & 1487 & 1529 & 1548 & 1708\\
+nug18 & 1930 & 1554 & 1663 & 1705 & 1723 & 1894\\
+nug20 & 2570 & 2057 & 2196 & 2254 & 2281 & 2507\\
+nug21 & 2438 & 1833 & 1979 & 2055 & 2090 & 2382\\
+nug22 & 3596 & 2483 & 2966 & 3080 & 3140 & 3529\\
+nug24 & 3488 & 2676 & 2960 & 3028 & 3068 & 3402\\
+nug25 & 3744 & 2869 & 3190 & 3272 & 3305 & 3626\\
+nug30 & 6124 & 4539 & 5266 & 5365 & 5413 & 5950\\
+\midrule
+rou12 & 235528 & 202272 & 200024 & 206102 & 208685 & 235528\\
+rou15 & 354210 & 298548 & 296705 & 303777 & 306833 & 350217\\
+rou20 & 725520 & 599948 & 597045 & 607822 & 615549 & 695181\\
+\midrule
+scr12 & 31410 & 27858 & 4727 & 8585 & 11117 & 31410\\
+scr15 & 51140 & 44737 & 10355 & 12479 & 17046 & 51140\\
+scr20 & 110030 & 86766 & 16113 & 23960 & 28535 & 106802\\
+\midrule
+tai12a & 224416 & 195918 & 193124 & 199597 & 203595 & 224416\\
+tai15a & 388214 & 327501 & 325019 & 330310 & 333437 & 377101\\
+tai17a & 491812 & 412722 & 408910 & 416033 & 419619 & 476525\\
+tai20a & 703482 & 580674 & 575831 & 585139 & 591994 & 671675\\
+tai25a & 1167256 & 962417 & 956657 & 983456 & 974004 & 1096657\\
+tai30a & 1818146 & 1504688 & 1500407 & 1518059 & 1529135 & 1706870\\
+\midrule
+tho30 & 149936 & 90578 & 119254 & 124684 & 125972 & 143576\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Over the 40 problems other than kra30a and kra30b the DNN bound closes on
+average 89\% of the gap between QPB and the optimum, and at least 62\% on every
+problem. It equals the optimum on ten of them. \todo{kra30a and kra30b: the Nov 5
+table held these out because the ADMM did not converge with the default penalty.
+\texttt{experiments/kra30\_solve} later quotes root bounds of 86,837 and 87,858;
+confirm and fill in. Add a DNN$^+$ column for the grid problems (nug, tho30) and
+decide whether this table keeps PB and SDPB1.}
+
+\subsection{Large problems}
+
+Table~\ref{tab:large} compares $\DNNp$ at the root with the best published lower
+bounds for the larger grid and tai$n$b problems of QAPLIB. The published values
+are all bounds from the DNN relaxation \eqref{eq:dnn}: rPRSM is the restricted
+Peaceman--Rachford method of \cite{graham}, NB the Newton-bracketing method of
+\cite{kkt}, and BBCPOP the bisection and projection method of \cite{bbcpop}.
+
+\begin{table}[t]\centering
+\caption{Root lower bounds for large QAPLIB problems. BKV: best known value.
+Published DNN bounds from \cite{graham} (rPRSM), \cite{kkt} (NB) and \cite{bbcpop}
+(BBCPOP); --: not reported. DNN and $\DNNp$: the certified bounds of this paper
+without and with regional cuts. Gap: $(\mathrm{BKV}-\DNNp)/\mathrm{BKV}$.}\label{tab:large}
+\small\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrrr}
+\toprule
+Problem & BKV & rPRSM & NB & BBCPOP & DNN & $\DNNp$ & Gap\\
+\midrule
+sko42 & 15,812 & 15,336 & 15,334 & -- & \todo{run} & \todo{run} & \\
+sko49 & 23,386 & 22,654 & 22,653 & 22,650 & \todo{run} & \todo{run} & \\
+tho40 & 240,516 & 226,522 & 226,516 & 226,490 & \todo{run} & 230,453 & 4.18\%\\
+wil50 & 48,816 & 48,126 & 48,123 & 48,121 & \todo{run} & \todo{run} & \\
+\midrule
+tai25b & 344,355,646 & -- & -- & \todo{look up} & 337,285,170 & 344,084,304 & 0.08\%\\
+tai30b & 637,117,113 & -- & -- & 598,629,428 & 597,633,906 & 636,993,730 & 0.02\%\\
+tai35b & 283,315,445 & -- & -- & \todo{look up} & 269,414,422 & 279,325,031 & 1.41\%\\
+tai40b & 637,250,948 & -- & -- & \todo{look up} & 608,514,446 & 627,372,144 & 1.55\%\\
+tai50b & 458,821,517 & -- & 431,245,612 & 431,090,745 & 430,147,161 & 453,552,676 & 1.15\%\\
+tai60b & 608,215,054 & -- & 592,829,061 & -- & \todo{run} & 605,315,696 & 0.48\%\\
+\bottomrule
+\end{tabular}
+\end{table}
+% SOURCE: published columns: experiments/bound_lab/literature/README.md (Q1 table).
+% tho40 230,452.99: bound_lab/cpfast (logs/R_wc288_long.log), 300 + 2,500 iterations.
+% tai25b-40b: bound_lab/regions/README.md section 6, 2,300 total iterations; tai30b DNN+ at 6,300.
+% tai35b, tai40b: the 6,000-iteration roots of bound_lab/tai_solves are 0.89% and 0.18% under the optimum,
+%   higher than the values above; use those once the exact figures are read from the logs.
+% tai50b: bound_lab/tai50b_size (470 + 6,000 iterations, 4,341 CPU s); plain 430,147,161 at 1,500 iterations.
+% tai60b: docs/next_runs.md (605,315,696.64), computed on branch claude/cool-babbage-ilnogj.
+
+\todo{Discussion, once the table is complete. Points the present numbers support:
+on the tai$n$b problems regional cuts close 66\% to 99.7\% of the gap left by the
+DNN relaxation; on tho40 they close about 28\% of it (from 226,522 to 230,453
+against 240,516), and the bound was still rising. Points not yet supported: sko42,
+sko49 and wil50 have no root $\DNNp$ value; the flows of wil50 are 90\% dense and
+of sko49 69\%, against 40\% for tho40, and triangle inequalities on partition
+relaxations are known to gain less on dense graphs \cite{dmswz}, so the gain there
+may be small and should be reported as it is.}
+
+\subsection{Cost}
+
+\todo{Table: iterations and CPU time for each row of Table~\ref{tab:large}, with
+the time per iteration, on one machine. For orientation, the published times for
+the DNN relaxation of tho40 are 2,323 s (rPRSM, 6,200 iterations), about 5,000 s
+(NB), and 18,000 s (BBCPOP) on their authors' machines; the tai50b value above
+took 4,341 CPU seconds. A figure of certified bound against iterations for one
+grid problem and one tai$n$b problem, with and without cuts, would show both the
+any-time property and the effect of the cuts.}
+
+\section{Conclusion}
+
+\todo{To be written when the results are complete. Themes: the DNN relaxation's
+slack on structured QAPs lies in aggregates that a decomposition of the distance
+matrix identifies; imposing integrality of those aggregates through triangle
+inequalities is cheap inside a first-order method; certification at every
+iteration makes the bound usable in branch and bound. Open: regions for problems
+without metric structure (tai$n$a), denser flows, a verified evaluation of the
+certificate in interval arithmetic, a GPU implementation.}
+
+\appendix
+\section{Validation}\label{sec:validation}
+
+A branch-and-bound proof is only as good as its bounds, so the DNN bound was
+checked in several independent ways.
+\begin{itemize}
+\item \textbf{Exhaustive checks.} 1,512 certified bounds on random instances and
+  subproblems with $m\le8$ (several families, including linear terms and ties),
+  each compared with the optimum found by enumeration. No bound exceeds the
+  optimum, and no fathom is ever claimed with the cutoff at the optimum.
+\item \textbf{Inside the search.} The solver's brute-force test (4,536 runs on
+  random instances with $n\le 8$, eight parameter sets, three upper-bound modes)
+  passes with the DNN bound applied at every depth, with and without the give-up
+  rule.
+\item \textbf{Against the prototype.} In prototype mode the C++ bound reproduces the
+  numpy prototype's certified values at 44 checkpoints to a relative $8.6\cdot10^{-8}$.
+  On nug20 nodes whose subproblems were solved exactly, the bounds are below the
+  optima and fathom the same nodes.
+\item \textbf{Reproducibility.} Results are bitwise identical across runs on one
+  machine. Valgrind reports no memory errors on a debug build. Serial, resumed and
+  parallel runs give identical node counts.
+\item \textbf{Independent mathematical review.} A separate AI agent, given the code
+  and this claim but not our arguments, re-derived every step: the face basis
+  actually used (Householder reflector and rotation) has the required range, so
+  Lemma~\ref{lem:trace} holds for it; Proposition~\ref{prop:cert} holds for any
+  sign of $\lmax$; the Gilmore--Lawler evaluation counts every quadratic term
+  once and is valid for any dual potentials, so neither the inexact inner LAPs
+  nor the outer Hungarian solve need to be exact; the lifting matches the
+  solver's objective convention without symmetry assumptions; a NaN or infinite
+  multiplier cannot produce a fathom; and the search uses the DNN value only to
+  fathom. It found no proof-breaking issue.
+\item \textbf{Independent code review and stress tests.} A second agent reviewed
+  the implementation and ran 2,592 bounds on brute-forced instances with
+  $m\le7$ (asymmetric and negative data, ties, scales up to $10^6$), 540
+  warm-started children, an independent long-double check of the face
+  transforms (error at most $2.1\,u\|Z\|_F$ against the $64\,m\,u\|Z\|_F$
+  allowed), 21,000 random assignment problems against the Hungarian solver,
+  and determinism tests, under address, undefined-behavior and leak sanitizers.
+  No bound exceeded an optimum and nothing crashed. Its minor findings (and the
+  mathematical review's) were fixed: a loop that could skip the last Cholesky
+  attempt, widened error constants, an explicit finiteness test on the
+  certified value, and skipping the bound while there is no incumbent.
+\item \textbf{Adversarial tests.} A third agent tried to break the bound with
+  extreme data: magnitudes up to $10^{9}$ and beyond, products above $2^{53}$,
+  signed, non-integer and non-symmetric data, rank-one, constant and all-zero
+  matrices, subproblems with one to three free facilities, and parameter
+  fuzzing; about 15,000 bounds and 8,600 solver runs in all, with an
+  instrumented build checking every DNN call inside the search against the
+  exact subproblem optimum. On ordinary data no bound was invalid, and the
+  rounding part of the margin was never needed (the unmargined value minus the
+  semidefinite penalty stayed below the optimum by at least 1.6\% of the rounding
+  margin). It did find two ways to exceed the optimum, both needing data that is
+  neither symmetric nor small. When neither $A$ nor $B$ is symmetric, an entry of
+  $L$ can be the difference of two large products whose rounding errors the
+  margin, which scaled with $\sum|L|$, did not cover; the margin now uses the sum
+  of the products' magnitudes. And the shift and linear term of a subproblem, sums
+  of products that can cancel, were rounded in double before any bound saw them.
+  Integer data whose products exceed $2^{53}$ is no longer given an integer
+  fathoming tolerance. It also found
+  two older bugs outside the DNN bound: a finite sentinel ($10^8$) in the
+  assignment solver, which crashed or gave invalid QPB bounds when costs exceeded
+  it (fixed), and wrong QPB results on data with negative entries in $A$ or $B$
+  (open; QAPLIB data are nonnegative). None of this affects nonnegative integer
+  data whose objective values stay below $2^{53}$, where every product and sum is
+  exact. That includes all of QAPLIB, even the bur26 family, in which neither
+  matrix is symmetric. On the regression instances, node counts are unchanged.
+\item \textbf{External review.} An independent review of an earlier draft and the
+  code (Astra, an OpenAI Codex agent) re-derived the bound and confirmed that QPB
+  values stay paired with their own reduced costs. It showed that accumulating the
+  shift and linear terms in extended precision, our first repair, is not enough:
+  with $ab = 2^{64}+2^{34}+3$ and $c = -(2^{64}+2^{34})$ the extended-precision
+  product rounds by 1 before cancelling, and both the $m=1$ path and a reduced
+  subproblem fathomed at a cutoff equal to the optimum. These data now get the
+  lower bounds of item (o) in Section~\ref{sec:fp}; both cases, and the
+  adversarial ones above, are regression tests (\texttt{tests/dnn\_test.py}, part D)
+  that check the bound against optima computed in exact rational arithmetic.
+\end{itemize}
+
+\paragraph{Limitations.} The certificate is a theorem in exact arithmetic
+(Proposition~\ref{prop:cert} and \eqref{eq:glbound}). In floating point it rests
+on the margins of Section~\ref{sec:fp}: standard error bounds with generous
+constants under the stated arithmetic model, not interval arithmetic, and not
+every constant is derived. The validation above is strong regression evidence, not
+a formal verification. For the nug instances the data are small integers, so the
+subproblem data are exact, and a false fathom would need a certified value above
+the optimum by more than the 0.05 cushion, five to six orders of magnitude above
+any margin observed. For non-integer data, where the tolerance is zero, validity
+rests on the margins alone; a verified evaluation (directed rounding or interval
+arithmetic) of each fathoming certificate would be the safe choice.
+
+\paragraph{Validation of the cuts.} \todo{Rewrite as prose.} The bound with
+regional cuts was checked against optima found by enumeration: for the
+subgradient form, \todo{count} values; for the cutting-plane form, 12,656
+certified values on 77 nodes of random instances with $n = 7, 8, 9$ and of nug12,
+none above the optimum (the largest exceeds it by $-1.2\cdot10^{-9}$), and no
+fathom with the cutoff at the optimum; for arbitrary regions, 240 node checks and
+32 root checks on small tai$n$b and random problems. The assembled cut terms were
+compared entry by entry with an independent assembly (relative difference
+$10^{-15}$).
+% SOURCE: cpadmm/README.md "Validity"; bound_lab/regions/README.md section 3.
+
+\section*{Acknowledgments}
+\todo{Nathan to write. The facts, from the repository's record: Claude (an AI
+system by Anthropic) wrote the software, ran the experiments and drafted this
+report, using independent AI agents for prototype studies, reviews and the
+literature search. Astra (an OpenAI Codex agent) proposed imposing consistency
+of regional membership indicators on the DNN relaxation, with the
+$K_{3,3}$ example of Proposition~\ref{prop:strict} and the first pilot on a wil50
+subproblem (memo of October 31, 2026,
+\texttt{experiments/wil50\_feasibility/stronger\_bounds/research\_memo\_astra.md}),
+and, reviewing an earlier draft, found the cancellation cases of
+Appendix~\ref{sec:validation}. The cluster regions for the tai$n$b problems, the
+cutting-plane form and its certificate were developed in Claude sessions
+(\texttt{experiments/bound\_lab}, \texttt{experiments/wil50\_feasibility/roadmap}).
+Journals and arXiv require disclosure of the use of AI tools; this section and
+the authors' responsibility statement should meet the target journal's policy.}
+
+{\small
+\begin{thebibliography}{99}
+% \todo: every entry below marked (verify) was written from memory or from the
+% repository's notes and must be checked against the publication.
+\bibitem{ab01} K.M. Anstreicher and N.W. Brixius, A new bound for the quadratic
+  assignment problem based on convex quadratic programming, \emph{Mathematical
+  Programming} 89 (2001) 341--357.
+\bibitem{abgl} K. Anstreicher, N. Brixius, J.-P. Goux and J. Linderoth, Solving large
+  quadratic assignment problems on computational grids, \emph{Mathematical
+  Programming} 91 (2002) 563--588.
+\bibitem{ba01} N.W. Brixius and K.M. Anstreicher, Solving quadratic assignment
+  problems using convex quadratic programming relaxations, \emph{Optimization
+  Methods and Software} 16 (2001) 49--68.
+\bibitem{companion} N.W. Brixius and J.-P. Goux, \todo{companion paper: title},
+  in preparation.
+\bibitem{burkardsurvey} R.E. Burkard, E. \c{C}ela, P.M. Pardalos and L.S. Pitsoulis,
+  The quadratic assignment problem, in: D.-Z. Du and P.M. Pardalos (eds.),
+  \emph{Handbook of Combinatorial Optimization}, vol.~3, Kluwer (1998) 241--337.
+\bibitem{qaplib} R.E. Burkard, S.E. Karisch and F. Rendl, QAPLIB -- a quadratic
+  assignment problem library, \emph{Journal of Global Optimization} 10 (1997) 391--403.
+\bibitem{datenagi} K. Date and R. Nagi, Level 2 reformulation linearization
+  technique-based parallel algorithms for solving large quadratic assignment
+  problems on graphics processing unit clusters, \emph{INFORMS Journal on
+  Computing} 31 (2019) 771--789. (verify)
+\bibitem{dmswz} F. de Meijer, R. Sotirov, A. Wiegele and S. Zhao, Partitioning
+  through projections: strong SDP bounds for large graph partition problems,
+  \emph{Computers \& Operations Research} 151 (2023) 106088. (verify)
+\bibitem{dykstra} R.L. Dykstra, An algorithm for restricted least squares
+  regression, \emph{Journal of the American Statistical Association} 78 (1983)
+  837--842.
+\bibitem{fujii} K. Fujii, N. Ito, S. Kim, M. Kojima, Y. Shinano and K.-C. Toh, Solving
+  challenging large scale QAPs, arXiv:2101.09629 (2021).
+\bibitem{gilmore} P.C. Gilmore, Optimal and suboptimal algorithms for the quadratic
+  assignment problem, \emph{SIAM Journal on Applied Mathematics} 10 (1962) 305--313.
+\bibitem{graham} N. Graham, H. Hu, J. Im, X. Li and H. Wolkowicz, A restricted dual
+  Peaceman--Rachford splitting method for a strengthened DNN relaxation for QAP,
+  \emph{INFORMS Journal on Computing} 34 (2022) 2125--2143.
+\bibitem{hrw} S.W. Hadley, F. Rendl and H. Wolkowicz, A new lower bound via projection
+  for the quadratic assignment problem, \emph{Mathematics of Operations Research} 17
+  (1992) 727--739.
+\bibitem{bbcpop} N. Ito, S. Kim, M. Kojima, A. Takeda and K.-C. Toh, Algorithm 996:
+  BBCPOP: a sparse doubly nonnegative relaxation of polynomial optimization
+  problems with binary, box, and complementarity constraints, \emph{ACM
+  Transactions on Mathematical Software} 45 (2019) 34. (verify)
+\bibitem{jk} M. J\"unger and V. Kaibel, Box-inequalities for quadratic assignment
+  polytopes, \emph{Mathematical Programming} 91 (2001) 175--197.
+\bibitem{kang} S. Kang, X. Han, D. Groudiev and H. Yang, \todo{title},
+  arXiv:2507.09165 (2025). (verify)
+\bibitem{kkt} S. Kim, M. Kojima and K.-C. Toh, A Newton-bracketing method for a
+  simple conic optimization problem, \emph{Optimization Methods and Software} 36
+  (2021) 371--388. (verify)
+\bibitem{lawler} E.L. Lawler, The quadratic assignment problem, \emph{Management
+  Science} 9 (1963) 586--599.
+\bibitem{loiola} E.M. Loiola, N.M.M. de Abreu, P.O. Boaventura-Netto, P. Hahn and
+  T. Querido, A survey for the quadratic assignment problem, \emph{European Journal
+  of Operational Research} 176 (2007) 657--690.
+\bibitem{mp} H. Mittelmann and J. Peng, Estimating bounds for quadratic assignment
+  problems associated with Hamming and Manhattan distance matrices based on
+  semidefinite programming, \emph{SIAM Journal on Optimization} 20 (2010)
+  3408--3426. (verify)
+\bibitem{owx} D.E. Oliveira, H. Wolkowicz and Y. Xu, ADMM for the SDP relaxation of
+  the QAP, \emph{Mathematical Programming Computation} 10 (2018) 631--658.
+\bibitem{padberg} M. Padberg, The Boolean quadric polytope: some characteristics,
+  facets and relatives, \emph{Mathematical Programming} 45 (1989) 139--172.
+\bibitem{rump} S.M. Rump, Verification of positive definiteness, \emph{BIT
+  Numerical Mathematics} 46 (2006) 433--452.
+\bibitem{sunkang} \todo{Sun, Kang and Yang}, arXiv:2609.21102 (2026). (verify)
+\bibitem{taillard} E.D. Taillard, Comparison of iterative searches for the
+  quadratic assignment problem, \emph{Location Science} 3 (1995) 87--105.
+\bibitem{zkrw} Q. Zhao, S.E. Karisch, F. Rendl and H. Wolkowicz, Semidefinite
+  programming relaxations for the quadratic assignment problem, \emph{Journal of
+  Combinatorial Optimization} 2 (1998) 71--109.
+\end{thebibliography}}
+
+\end{document}
