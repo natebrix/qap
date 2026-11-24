@@ -10,13 +10,13 @@
 # Results: r10/subtrees/NODE/ and r9/subtrees/NODE/ (results.txt, trace.txt, summary.txt), then summary.py.
 set -u
 D=$(cd "$(dirname "$0")" && pwd); R=$(cd "$D/../.." && pwd)
-DEFAULT="@NODES@"
+DEFAULT="21:0,45:13 21:3,34:0"
 [ $# -gt 0 ] && NODES="$*" || NODES=$DEFAULT
 if [ "$(uname -s)" = Darwin ]; then P=$(sysctl -n hw.perflevel0.physicalcpu 2> /dev/null || sysctl -n hw.physicalcpu); else P=$(nproc); fi
 SLOTS=${SLOTS:-$(( P / 2 ))}; [ "$SLOTS" -ge 1 ] || SLOTS=1
 [ -x "$R/latest/bnbdrv" ] || { echo "no latest/bnbdrv: make -C latest first"; exit 1; }
 STOP=0; PIDS=""
-trap 'STOP=1; echo "stopping: both arms drain (up to a minute); the same command resumes"; [ -z "$PIDS" ] || kill -TERM $PIDS 2> /dev/null' INT TERM
+trap 'STOP=1; echo "stopping: both arms drain (a minute or two); the same command resumes"; [ -z "$PIDS" ] || kill -TERM $PIDS 2> /dev/null' INT TERM
 for node in $NODES; do
   [[ $node =~ ^[0-9]+:[0-9]+,[0-9]+:[0-9]+$ ]] || { echo "not a depth-2 node: $node"; exit 2; }
   name=$(echo "$node" | tr ':,' '-_'); PIDS=""
