@@ -36,3 +36,7 @@ On cognac at 91cf6dbe or later `infra/phase1/start.sh sko42` and `caffeinate -i 
 rule 10 at depth 2 as here, no strong branching). `wil50-est.spec` here is a draft of an overnight estimate under
 it, for `infra/phase1/specs/` on cognac once Nathan says so: its keys pass `start.sh --spec`'s check; the dry run
 itself needs the AWS CLI, which this container lacks.
+On cognac since 1a7c43bf (`infra/phase1/specs/wil50-est.spec`), with `sko42_d2r10_sb.par`'s first block through
+depth 1 (it went through depth 2, so a depth-2 node more than 0.20 of the root's gap short would have kept
+rule 9). `experiments/wil50_pair` (in progress here, for cognac): rule 10 against rule 9 at wil50 depth-2 nodes
+on the laptop.
