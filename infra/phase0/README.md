@@ -79,6 +79,39 @@ git add infra/phase0/runs && git commit -m 'phase 0: ...' && git push
   profile and the role; `--all --bucket` deletes the bucket too, after
   asking.
 
+## BLAS variants (Nov 24)
+
+The solver's Linux build links the scipy-openblas32 wheel and lets it pick its kernels. That was never compared
+with anything on the EPYC workers (c7a, m7a, r7a: Zen 4). `--blas "NAME ..."` benchmarks each named variant on
+the same instance, one after another (alone, then loaded, as above), each in `out/blas_NAME/`; the table gets a
+row and a BLAS column per variant:
+
+```
+infra/phase0/launch.sh --families c7a --on-demand --blas "openblas openblas-skylakex openblas-zen blis gcc14"
+infra/phase0/collect.sh
+```
+
+| variant | what |
+|---|---|
+| `openblas` | the build as it is: the wheel, its own choice of kernels (the row's BLAS column names them) |
+| `openblas-CORE` | the same binary with `OPENBLAS_CORETYPE=CORE`: `skylakex` (AVX-512), `zen` and `haswell` (AVX2) |
+| `blis` | AMD's BLIS (AOCL-BLAS, github.com/amd/blis at tag 5.1, `QAP_BLIS_TAG`) cloned and built on the instance for its CPU, single-threaded, with Amazon Linux's reference LAPACK on top of it (`-lblis` first, so LAPACK's own BLAS calls go to BLIS too) |
+| `gcc14` | the wheel, and the solver compiled by Amazon Linux's gcc 14, which knows Zen 4 (the default gcc 11 does not) |
+| `netlib` | reference BLAS and LAPACK: about 7x slower, a check of the rebuild mechanism |
+
+A variant that cannot be prepared (no package, a failed build) is recorded in `steps.txt` and skipped. The
+time limit becomes 60 + 25 minutes a variant. `--on-demand` because the Spot quota is the worker groups'.
+
+What to read: ms per iteration loaded is what a full worker sees (every core busy: memory bandwidth counts);
+alone is the kernels' own speed. The fathom column must agree with the reference to within the usual edge
+differences: another BLAS rounds differently, so iteration counts move by a few.
+
+Tested Nov 24 on a cloud container (Sapphire Rapids, `QAP_LOCAL=1`): `openblas`, `openblas-haswell` and `netlib`
+on two nodes (there the wheel picks its SkylakeX kernels, and the Haswell ones are 1.14x slower per iteration
+under load: the choice of kernels is worth that much). **Not tested: `blis` and `gcc14`** (the container may not build downloaded code, and has no gcc
+14); their first run on an instance is their test. Not covered: AOCL's LAPACK (libflame), a longer build; if
+`blis` shows a gain, the reduction to tridiagonal form (`ssytrd`, most of a refresh) is where it would matter.
+
 ## On a Lightsail instance (no EC2 quota needed)
 
 Lightsail has its own limits, separate from the EC2 vCPU quotas. The same

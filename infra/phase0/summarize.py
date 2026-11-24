@@ -2,8 +2,8 @@
 """Phase-0 summaries (README.md).
 
   summarize.py instance OUT    on the instance: OUT/summary.json and a short text
-  summarize.py table RUNDIR    on the laptop: one row per family from
-                               RUNDIR/<family>/out/summary.json and RUNDIR/prices.tsv,
+  summarize.py table RUNDIR    on the laptop: one row per family (and per BLAS variant,
+                               out/blas_NAME/) from RUNDIR/<family>/out/summary.json and RUNDIR/prices.tsv,
                                written to RUNDIR/summary.md
 
 The reference for the fathom set is the 32-node run on the cloud box's 2.1 GHz
@@ -108,7 +108,8 @@ def table(rundir):
             if len(p) >= 3 and p[0] != "type":
                 prices[p[0]] = (p[1], p[2])          # type -> (market, $/h at launch)
     rows = []
-    for sj in sorted(glob.glob(os.path.join(rundir, "*", "out", "summary.json"))):
+    for sj in sorted(glob.glob(os.path.join(rundir, "*", "out", "summary.json")) +
+                     glob.glob(os.path.join(rundir, "*", "out", "blas_*", "summary.json"))):
         s = json.load(open(sj))
         si = s["sysinfo"]
         typ = si.get("instance_type", "?")
@@ -122,7 +123,10 @@ def table(rundir):
         core_h = ph / cores if ph and cores else None
         per_node = L["cpu_s_per_node"]
         usd_1k = per_node * 1000 * core_h / 3600 if per_node and core_h else None
-        rows.append(dict(typ=typ, model=si.get("model", "?"), arch=si.get("arch", "?"), cores=cores,
+        blas = si.get("blas", "")
+        if blas and si.get("blas_core", "-") != "-":
+            blas += f" ({si['blas_core']})"
+        rows.append(dict(blas=blas, name=typ + (" " + si["blas"] if si.get("blas") else ""), typ=typ, model=si.get("model", "?"), arch=si.get("arch", "?"), cores=cores,
                          amx=si.get("amx_bf16", "?"), alone=s["alone"]["ms_per_iter"], loaded=L["ms_per_iter"],
                          ratio=s.get("loaded_over_alone"), per_node=per_node, market=mk, ph=ph, core_h=core_h,
                          usd_1k=usd_1k, gates=s["gates"], fath=s["fathom"]))
@@ -130,30 +134,31 @@ def table(rundir):
     partial = []
     for st in sorted(glob.glob(os.path.join(rundir, "*", "out", "steps.txt"))):
         fam = st.split(os.sep)[-3]
-        if not os.path.exists(os.path.join(os.path.dirname(st), "summary.json")):
+        if not os.path.exists(os.path.join(os.path.dirname(st), "summary.json")) and \
+                not glob.glob(os.path.join(os.path.dirname(st), "blas_*", "summary.json")):
             last = open(st).read().strip().splitlines()[-2:]
             partial.append(f"- {fam}: no summary; last steps: " + " | ".join(last))
     ref = min((r["loaded"] for r in rows if r["loaded"]), default=None)
     out = [f"# Phase 0, {os.path.basename(os.path.normpath(rundir))}", "",
-           "| instance | CPU | arch | cores | AMX | ms/iteration alone | loaded | loaded / alone | CPU s per node (loaded) "
+           "| instance | BLAS | CPU | arch | cores | AMX | ms/iteration alone | loaded | loaded / alone | CPU s per node (loaded) "
            "| market, $/h | $/core-hour | $ per 1,000 DNN nodes | gates | fathomed (reference) |",
-           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     f = lambda x, fmt: (fmt % x) if x is not None else "-"
     for r in rows:
         g = " ".join(f"{k}:{v}" for k, v in r["gates"].items() if v != "pass") or "all pass"
         fa = f"{r['fath']['fathomed']} ({r['fath']['reference_fathomed']})"
         if r["fath"]["differences"]:
             fa += f", {len(r['fath']['differences'])} differ"
-        out.append(f"| {r['typ']} | {r['model']} | {r['arch']} | {r['cores']} | {r['amx']} | {f(r['alone'], '%.1f')} | "
+        out.append(f"| {r['typ']} | {r['blas'] or 'openblas wheel'} | {r['model']} | {r['arch']} | {r['cores']} | {r['amx']} | {f(r['alone'], '%.1f')} | "
                    f"{f(r['loaded'], '%.1f')} | {f(r['ratio'], '%.2f')} | {f(r['per_node'], '%.1f')} | "
                    f"{r['market']} {f(r['ph'], '%.4f')} | {f(r['core_h'], '%.4f')} | {f(r['usd_1k'], '%.3f')} | {g} | {fa} |")
     out.append("")
     if ref:
         out.append("Per-iteration speed under load, relative to the fastest: " +
-                   ", ".join(f"{r['typ']} {r['loaded'] / ref:.2f}x" for r in rows if r["loaded"]))
+                   ", ".join(f"{r['name']} {r['loaded'] / ref:.2f}x" for r in rows if r["loaded"]))
     for r in rows:
         for d in r["fath"]["differences"]:
-            out.append(f"- {r['typ']}: {d}")
+            out.append(f"- {r['name']}: {d}")
     out += partial
     txt = "\n".join(out) + "\n"
     open(os.path.join(rundir, "summary.md"), "w").write(txt)

@@ -14,6 +14,7 @@
 #   QAP_LOADED="17 19 20 21"  the loaded nodes (default all 32)
 #   QAP_CORES=2  at most this many cores for the loaded run
 #   QAP_GATES="bruteforce"  the gates (default bruteforce resume parallel regression dnncheck)
+#   QAP_BLAS="openblas openblas-skylakex blis"  BLAS variants, each benchmarked in out/blas_NAME/ (README.md)
 set -uo pipefail
 R=$(pwd)
 OUT=$R/out
@@ -86,49 +87,101 @@ for g in $GATES; do
 done
 step "gates: $(tr '\n' ' ' < "$OUT/gates.txt")"
 
+# --- BLAS variants (QAP_BLAS, README.md "BLAS variants"): each prepares its own dnntest and environment.
+# Unset: the build above, as before. A variant that cannot be prepared is recorded and skipped.
+DNNTEST=latest/dnntest; BENV=()
+corename() {   # the kernels the wheel's OpenBLAS picks under the current BENV
+  env "${BENV[@]}" $PY -c "import ctypes, glob, scipy_openblas32 as o
+l = ctypes.CDLL(glob.glob(o.get_lib_dir() + '/libscipy_openblas*.so')[0]); f = l.scipy_openblas_get_corename; f.restype = ctypes.c_char_p; print(f().decode())" 2> /dev/null || echo "?"
+}
+build_variant() {   # name, make variables...: a copy of latest/ built on its own (dnn.o depends on the BLAS defines)
+  local v=$1; shift
+  rm -rf "latest_$v" && cp -r latest "latest_$v" && make -C "latest_$v" clean > /dev/null 2>&1
+  make -C "latest_$v" dnntest PYTHON=$PY "$@" > "$OUT/build_$v.log" 2>&1 || return 1
+  DNNTEST=latest_$v/dnntest
+}
+gcc14() {   # Amazon Linux 2023's gcc 14 (it knows znver4; the default gcc 11 does not)
+  [ "$INSTALL" = 1 ] && dnf install -y -q gcc14 gcc14-c++ >> "$OUT/dnf.log" 2>&1
+  G14=$(command -v gcc14-g++ || command -v g++-14) && C14=$(command -v gcc14-gcc || command -v gcc-14)
+}
+BLIS_TAG=${QAP_BLIS_TAG:-5.1}   # github.com/amd/blis (AOCL-BLAS), built here for this CPU
+blis() {   # /opt/blis: one process per core is the solver's parallelism, so no threading
+  [ -f /opt/blis/lib/libblis.so ] && return 0
+  [ "$INSTALL" = 1 ] || return 1
+  dnf install -y -q git lapack >> "$OUT/dnf.log" 2>&1 || return 1
+  gcc14 || C14=gcc
+  { rm -rf /opt/blis-src && git clone -q --depth 1 -b "$BLIS_TAG" https://github.com/amd/blis /opt/blis-src &&
+    cd /opt/blis-src && CC=$C14 ./configure --prefix=/opt/blis --disable-threading --disable-static auto &&
+    make -j "$(nproc)" && make install; } > "$OUT/build_blis_lib.log" 2>&1
+  local rc=$?; cd "$R"; return $rc
+}
+prep_variant() {
+  local v=$1
+  DNNTEST=latest/dnntest; BENV=()
+  case $v in
+    openblas) ;;                                                    # the wheel, its own choice of kernels
+    openblas-*) BENV=("OPENBLAS_CORETYPE=$(echo "${v#openblas-}" | tr a-z A-Z)") ;;   # the wheel, these kernels
+    gcc14) gcc14 && build_variant "$v" CPP="$G14" CC="$C14" ;;   # the wheel; the solver compiled by gcc 14
+    netlib) build_variant "$v" DNN_LAPACK="-l:liblapack.so.3 -l:libblas.so.3" DNN_LAPACK_DEFS= ;;   # reference BLAS: a check of the mechanism
+    blis) blis && build_variant "$v" DNN_LAPACK="-L/opt/blis/lib -lblis -l:liblapack.so.3 -Wl,-rpath,/opt/blis/lib" DNN_LAPACK_DEFS= ;;
+    *) return 1 ;;
+  esac
+}
+
 # --- the benchmark: production DNN flags (bundle D), AMX where the CPU has it
 run_node() {   # node line, cpu, directory, [extra flags]
   local k=$1 cpu=$2 dir=$3 spec
   spec=$(sed -n "${k}p" "$NODES" | awk '{print $1}')
-  env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-    taskset -c "$cpu" latest/dnntest -p infra/phase0/dnntest.par -T 1 -d 3 -L 2 -r 40 -g 1.0 -G 1.0 -H 300 -i "${4:-2500}" -u 48816 -v \
+  env OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 "${BENV[@]}" \
+    taskset -c "$cpu" "$DNNTEST" -p infra/phase0/dnntest.par -T 1 -d 3 -L 2 -r 40 -g 1.0 -G 1.0 -H 300 -i "${4:-2500}" -u 48816 -v \
     -x "$spec" qaplib/wil50.dat > "$dir/node_$k.log" 2>&1
 }
 first=$(echo "$CORES" | head -1)
-mkdir -p "$OUT/alone" "$OUT/loaded"
-for k in $ALONE; do
-  run_node "$k" "$first" "$OUT/alone"
-  step "alone node $k: $(grep -o 'status=[a-z]* iters=[0-9]* cpu=[0-9.]* ms_per_iter=[0-9.]*' "$OUT/alone/node_$k.log")"
-done
-
-# loaded: one process per physical core, a shared queue; once it is empty the
-# idle cores run short filler solves, so the load stays full until the last
-# real node ends
-Q=$OUT/loaded/queue
-printf '%s\n' $LOADED > "$Q"
-: > "$OUT/loaded/finished"
-rm -f "$OUT/loaded/done"
-worker() {
-  local cpu=$1 k
-  mkdir -p "$OUT/loaded/filler_$cpu"
-  while :; do
-    k=$(flock "$Q.lock" sh -c "head -1 '$Q'; sed -i 1d '$Q'")
-    [ -z "$k" ] && break
-    run_node "$k" "$cpu" "$OUT/loaded"
-    echo "$k" >> "$OUT/loaded/finished"
-  done
-  while [ ! -f "$OUT/loaded/done" ]; do run_node 1 "$cpu" "$OUT/loaded/filler_$cpu" 40; done
-  rm -rf "$OUT/loaded/filler_$cpu"
-}
 n_loaded=$(echo $LOADED | wc -w)
-t0=$(date +%s)
-pids=()
-for c in $CORES; do worker "$c" & pids+=($!); done
-while [ "$(wc -l < "$OUT/loaded/finished")" -lt "$n_loaded" ]; do sleep 10; done
-echo "loaded_wall_s $(( $(date +%s) - t0 ))" >> "$OUT/sysinfo.txt"
-touch "$OUT/loaded/done"
-for p in "${pids[@]}"; do wait "$p"; done
-step "loaded: $n_loaded nodes on $NC cores in $(( $(date +%s) - t0 )) s"
-
-$PY infra/phase0/summarize.py instance "$OUT" > "$OUT/summary.txt" 2>&1
-step "summary: $(head -c 400 "$OUT/summary.txt" | tr '\n' ' ')"
+worker() {   # cpu, directory
+  local cpu=$1 O=$2 k
+  mkdir -p "$O/loaded/filler_$cpu"
+  while :; do
+    k=$(flock "$O/loaded/queue.lock" sh -c "head -1 '$O/loaded/queue'; sed -i 1d '$O/loaded/queue'")
+    [ -z "$k" ] && break
+    run_node "$k" "$cpu" "$O/loaded"
+    echo "$k" >> "$O/loaded/finished"
+  done
+  while [ ! -f "$O/loaded/done" ]; do run_node 1 "$cpu" "$O/loaded/filler_$cpu" 40; done
+  rm -rf "$O/loaded/filler_$cpu"
+}
+bench() {   # directory, label: alone, then loaded, then the summary
+  local O=$1 lab=$2 k t0 c p pids=()
+  mkdir -p "$O/alone" "$O/loaded"
+  for k in $ALONE; do
+    run_node "$k" "$first" "$O/alone"
+    step "${lab}alone node $k: $(grep -o 'status=[a-z]* iters=[0-9]* cpu=[0-9.]* ms_per_iter=[0-9.]*' "$O/alone/node_$k.log")"
+  done
+  # loaded: one process per physical core, a shared queue; once it is empty the
+  # idle cores run short filler solves, so the load stays full until the last
+  # real node ends
+  printf '%s\n' $LOADED > "$O/loaded/queue"
+  : > "$O/loaded/finished"
+  rm -f "$O/loaded/done"
+  t0=$(date +%s)
+  for c in $CORES; do worker "$c" "$O" & pids+=($!); done
+  while [ "$(wc -l < "$O/loaded/finished")" -lt "$n_loaded" ]; do sleep 10; done
+  echo "loaded_wall_s $(( $(date +%s) - t0 ))" >> "$O/sysinfo.txt"
+  touch "$O/loaded/done"
+  for p in "${pids[@]}"; do wait "$p"; done
+  step "${lab}loaded: $n_loaded nodes on $NC cores in $(( $(date +%s) - t0 )) s"
+  $PY infra/phase0/summarize.py instance "$O" > "$O/summary.txt" 2>&1
+  step "${lab}summary: $(head -c 400 "$O/summary.txt" | tr '\n' ' ')"
+}
+if [ -z "${QAP_BLAS:-}" ]; then
+  bench "$OUT" ""
+else
+  for v in $QAP_BLAS; do
+    if ! prep_variant "$v"; then step "blas $v: not prepared (out/build_$v.log, out/build_blis_lib.log, out/dnf.log)"; continue; fi
+    O=$OUT/blas_$v; mkdir -p "$O"
+    cp "$OUT/sysinfo.txt" "$OUT/gates.txt" "$O/"
+    { echo "blas $v"; echo "blas_core $(ldd "$DNNTEST" | grep -q scipy_openblas && corename || echo -)"; echo "blas_libs $(ldd "$DNNTEST" | grep -iE 'blas|lapack|blis' | awk '{print $1}' | tr '\n' ' ')"; } >> "$O/sysinfo.txt"
+    step "blas $v: $DNNTEST ${BENV[*]:-} | $(tail -2 "$O/sysinfo.txt" | tr '\n' ' ')"
+    bench "$O" "$v "
+  done
+fi
