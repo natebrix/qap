@@ -168,3 +168,15 @@ First solves 57% of the DNN CPU, phases 43%; DNN 99% of the run's CPU.
 | base | 186 | 11,220 (6,850 + 4,370) | 3,681 | 1.000 | 1.000 | 186 nodes: 1.000 |
 | xl2 | 186 | 11,220 (6,850 + 4,370) | 3,594 | 1.000 | 0.976 | 186 nodes: 1.000 |
 
+
+## What follows from it
+
+- `suggest/wil50-tune.spec` and `suggest/wil50_d2r10_{g150x,xl2,g150xl2}.par`: a tuning round on a solved sample of
+  the paused frontier of `wil50-est-261124` (not on cognac, and it needs that estimate to have run): base, the
+  two candidates and both together, as `tho40-tune-261119` was. Its sample is a placeholder until the estimate
+  reads.
+- Wave 2 (`wave2.sh`, in progress): the line `branch.xbar_lines = 2` picks at each of the root's 15 children
+  against base's (`top.sh`, output in `top/`), then `g150xl2` on b83 and d178 and `g150x` on c135, d178 and e212.
+- `blas/phase0_blas.patch`: `infra/phase0`'s benchmark with BLAS variants (`--blas`), for one c7a instance: the
+  wheel's OpenBLAS with its Zen and SkylakeX kernels, AMD's BLIS, gcc 14. Tested here with the OpenBLAS variants
+  only (BLIS and gcc 14 could not be built in this container).
