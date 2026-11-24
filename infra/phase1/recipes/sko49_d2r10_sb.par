@@ -114,6 +114,14 @@ sb.all = 0
 #    already runs a phase at 0.018 (bound_lab/wil50_policy), so the wider zone changes little there. On sko42,
 #    0.010 to 0.025 built the same trees for 0.65 of the CPU (estimates/sko42/zone_nov19). Not measured on sko49.
 #
+# Path check (Nov 24, experiments/tho40b_analysis/path_check, warm_sko49_d2r10.tsv): PASS, with this file less its
+# two sb.* lines (strong branching chooses lines and never bounds a node; its root firing would have been 8-9 h
+# here). From 23,388, the warm dive toward sko49.sln kept the path child at every node, 47 nodes to depth 46, where
+# the leaf enumerated 23,386, the solution. The highest bound on the path is 23,386.0000, the subtree's optimum,
+# under the cutoff 23,386.05; within one unit of it from depth 18. Depth 1 (41:9) ran a phase: 22,774 to 22,971,
+# 415 short. 3,148 CPU s on the cloud container. (The first try stopped at the root: dive.py knew a square grid's
+# four flips and not its transposes; 9b12f95b.)
+#
 # The comments below are sko49.par's.
 # sko49's current settings (experiments/estimates/README.md), from Nov 13: tuning arm Cw,
 # experiments/estimates/sko49/tune/Cw.par. That is wil50's full run
