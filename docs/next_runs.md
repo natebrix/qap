@@ -5,6 +5,28 @@ cut phase (no solver change), against 1,308 as tho40-b runs, and tai50b at about
 with cluster-region cuts. This page decides what that means for tho40-b and plans a tai50b run of
 record. The subtree A/B in `experiments/tho40b_analysis/giveup_ab/` settles tho40's settings first.
 
+## tho40: solved (Nov 23)
+
+**tho40's optimum is 240,516**, QAPLIB's best known, proved from incumbent 240,518 (the best known + 2;
+tho40's values are even), the solution found by the search. No proof had been published (the bound lab's
+literature note: Fujii et al. 2021 projected 3.7e7 nodes with their rule P and did not run it).
+- **The run of record, `tho40-261122`** (`infra/phase1/recipes/tho40c_sb.par`: tho40c with DNN strong
+  branching at the root and depth 1, cognac 30b82149; a c7a.2xlarge coordinator and four Spot workers, 263
+  slots): launched 16:40 UTC Nov 22, the root (bound and strong branching, row 2) 3.4 h inside `qapctl init`,
+  finished 23:47 UTC Nov 23. 2,720,424 nodes (2,641,077 fathomed, 1 enumerated), 24,460,549 CPU s = 6,795
+  c7a CPU h (283 CPU-days), 27.6 h of wall after the root. Strong branching: 13 nodes, 3,216 child solves,
+  70,421 CPU s (0.3% of the run). The collect's comparison: "PASS: the optimum" (`infra/phase1/runs/tho40-261122/`;
+  the node trace, over 25 MB, stays in the export and the store).
+- **Against the estimates.** Under tho40c with production's root row (r26), est3 said 6,844 CPU h and 3.7 million
+  nodes, and est2, corrected for its cold strata, about 4,700 CPU h (above, "Knuth dives from cold strata" in
+  `experiments/estimates_nov19`). This run took 0.99 of est3's CPU and 0.74 of its nodes. The root study
+  (`experiments/branching_lab/root` on claude/cool-babbage-ilnogj) put r2's tree at 0.71 of r26's CPU, 4,860 h
+  against est3; the run does not show that against either estimate. No tree under r26 with these settings was
+  run, so what strong branching at the root and depth 1 did is not measured.
+- **The wall's end.** The run page read "stalled" at 23:20 UTC for a status 16 minutes old, with 131 open nodes; it
+  updated at 23:20 and finished 27 minutes later. The collect's export (2.7 million nodes in about 37,000 units)
+  took about an hour from the laptop; from 07d9faa4 it reads with 64 threads, not 16.
+
 ## tai60b: solved (Nov 18)
 
 **tai60b's optimum is 608,215,054**, QAPLIB's best known, proved from incumbent 608,215,055 (the best
