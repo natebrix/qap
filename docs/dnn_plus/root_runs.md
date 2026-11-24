@@ -60,3 +60,21 @@ about 25 runs.
 - tai80b: the bound lab saw a root above the published 786,900,529 and rising. A row for it
   would be the largest instance in the table; memory and time not sized here.
 - Whether a root with strong settings and one with the search's settings are both reported.
+
+## Results (Nov 24, the laptop) and follow-ups
+
+`runs/results.txt` has the eleven problems, both arms, and the tables of `dnn_plus.tex` are filled
+from it. The stopping rule above never triggered: at 6,000 phase iterations every DNN+ value was
+still gaining 1e-5 to 1e-4 of the best known value per 500 iterations, so the tables report the
+value at the limit. Not blocking the first draft (Nathan, Nov 24); to do later:
+
+- **Longer runs**: `ITERS=20000 ARMS=plus docs/dnn_plus/root_bound.sh wil50 tho40 tai50b`, to see
+  where the bounds level off.
+- **Timings one at a time**: the runs shared the laptop four at a time.
+- **A history for the plain arm**, for the bound-against-iterations figure (the plain solve does
+  not record one; the cut phase does).
+- **kra30a, kra30b, tho30**: added to `root_bound.sh` (QAPLIB's unscaled kra files, plain only;
+  tho30 with its 3 x 10 grid); being run in a cloud container Nov 24 for the values.
+- **Warm starts and inherited pools**: the paper's section 5 quotes measurements of Nov 5 and of
+  the wil50 pool study; repeat with the current code on a fixed set of children.
+- **QAPLIB's current listings**, by hand: the site is not reachable from cloud sessions.

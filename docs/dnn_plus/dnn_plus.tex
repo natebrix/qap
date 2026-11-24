@@ -363,15 +363,12 @@ on GPUs \cite{kang,sunkang}.
 Peaceman--Rachford form of the method \cite{graham}, with a second dual update
 between the $R$-step and the $Y$-step and $\gamma_1 = \gamma = 1$; the certificate
 is read from the $R$-step multiplier before that update. The penalty is
-$\beta = \theta\, m/3$ with $\theta$ between 0.2 and 0.3 \todo{state the schedule
-actually used in Section~\ref{sec:results}, including the separate penalty of the
-cut phase (\texttt{dnn.beta\_sched})}. A certificate is computed every 10
+$\beta = \theta\, m/3$ with $\theta = 0.21$ or $0.3$, and is changed by a fixed
+factor on entering the cutting-plane phase of Section~\ref{sec:cpadmm}; the
+values used are given in Section~\ref{sec:results}. A certificate is computed every 10
 iterations.
 
-\todo{Table: cost per iteration by $m$ on a named machine, and the split between
-the $R$-step, the $Y$-step and the certificate. The Nov 5 report's
-Table~1 compared the C++ code with the numpy prototype, which is of no interest
-here; it is dropped.}
+Times per iteration are given in Section~\ref{sec:results}.
 
 \section{Regional cuts}\label{sec:cuts}
 
@@ -499,8 +496,11 @@ approximately into those of half-planes. We use as regions the prefixes of the
 locations sorted along the first principal axis of a two-dimensional scaling of
 $B$, the clusters of an average-linkage dendrogram of $B$ and their unions, and
 the half-planes in a few further directions that fall between clusters (86
-regions for tai60b). \todo{State the family precisely (\texttt{gen\_regions.py},
-family \texttt{comb}) and give the number of regions per problem.} Regions on the
+regions for tai60b). Precisely: the $n-1$ prefixes along the first principal axis; the $K$ top
+clusters of the dendrogram and all their unions, $K$ being the number of clusters
+at the largest jump in merge height; and, in four directions, the half-plane
+prefixes whose gap to the next location is at least 3\% of the diameter. This
+gives 27, 32, 42, 48, 61 and 86 regions for tai25b to tai60b. Regions on the
 facility side, from the flow matrix, and random regions gave no improvement on
 these problems.
 
@@ -590,8 +590,10 @@ value depends on the projection having converged.
 \paragraph{Separation.} Every 100 iterations, the 1,000 most violated regional
 triangle inequalities at the current (projected) $Y$ are added to the pool with
 $\nu_t = 0$; separation is by enumeration over the regions and triples.
-\todo{Describe the ranking, and whether inequalities are ever dropped in the
-settings used for the results.}
+Inequalities violated by more than $10^{-4}$ are ranked by violation, and those
+already in the pool are skipped. No inequality is dropped from the pool in the
+runs reported here; at the root at most 61,000 are added, and 800 to 8,700 have a positive
+multiplier at the end.
 
 \paragraph{Effect on convergence.} On a wil50 subproblem at depth 3, with the
 same pool of 13,000 inequalities, the cutting-plane form reaches a given
@@ -608,12 +610,16 @@ pentagonal inequalities of \cite{padberg}; for general $T$, the box inequalities
 of \cite{jk}), and all valid inequalities on seven indicators, separated by
 projection onto the convex hull of the feasible $0/1$ configurations. We
 implemented these and found them not worth their cost after the triangle
-inequalities on wil50 and on tho40. We also tested inequalities valid only for
-permutations that no pairwise exchange improves; they are valid for an optimal
-solution and their exact strength is considerable, but the DNN relaxation
-realized about a tenth of it. \todo{One sentence each with the measured gains
-(\texttt{bound\_lab/tho40\_nodes}, \texttt{bound\_lab/swapcuts},
-\texttt{wil50\_feasibility/new\_cuts}), or drop the subsection.}
+inequalities: on a tho40 subproblem, 200 box inequalities added 30 to a gain of
+2,200 from the triangles, and the five-point and seven-point families were
+behind the triangles alone at equal iterations, as they were on wil50. We also
+tested inequalities valid only for permutations that no pairwise exchange
+improves. They are valid for an optimal solution, and as linear inequalities
+their strength is considerable, but the DNN relaxation realized about a tenth of
+it: a gain of about 1.4 on a wil50 subproblem and of 70 to 290 per round on
+tho40 subproblems that miss the cutoff by far more.
+
+% SOURCE (other inequalities): bound_lab/tho40_nodes/README.md item 7; bound_lab/swapcuts/README.md.
 
 \section{Use in branch and bound}\label{sec:bnb}
 
@@ -640,9 +646,11 @@ row and column of the new assignment removed from the lifted indices, and from
 the parent's final $Y$ conditioned on the assignment: the parent's row $(ij)$,
 divided by its diagonal entry, becomes the child's row 0, and the remaining
 entries are rescaled so that the diagonal of $Y$ equals that row. The certificate
-does not depend on the start. \todo{Measured effect with the current code; the
-Nov 5 report had 40\% fewer iterations from $Z$ alone on nug30 and a factor 1.3
-from adding $Y$ on 16 wil50 children.} The parent's state is stored with the
+does not depend on the start. On nug30 subproblems, starting from the parent's $Z$ alone cut the iterations
+to fathom a child by about 40\%; adding the conditioned $Y$ made fathoms a
+further 1.3 times faster on 16 children of wil50 subproblems, with no decision
+changed. \todo{These are measurements of November 5 with an earlier version;
+repeat with the current code.} The parent's state is stored with the
 node in single precision (the upper triangles of $Y$ and $Z$), so that a child
 can be bounded in another process or on another machine.
 
@@ -652,8 +660,9 @@ child as long as none of its three facilities is the one just fixed; the region 
 restricted to the child's free locations, and the right-hand side is unchanged.
 A child therefore starts with the parent's active inequalities and their
 multipliers, in addition to $Y$ and $Z$, and a parent that is not fathomed still
-equips its children. \todo{Measured effect of inheritance on a fixed set of
-children, for example tho40 or wil50 depth-4 nodes.}
+equips its children. At six children of a wil50 subproblem of depth 3, the inherited pool with its
+multipliers frozen raised the bound after 1,500 iterations by a median of 54
+over the bound without cuts. % SOURCE: experiments/wil50_feasibility/pool_search/README.md (Astra's study, arms A and B)
 
 \paragraph{Two phases.} At a node we first run the ADMM without new cuts (with
 the inherited pool, if any), and enter the cutting-plane phase only if the node
@@ -688,8 +697,31 @@ tai40b & 733 & 1.4 & 278,465 & $5.0\times10^4$\\
 % Fujii et al.: nodes from their Table 4; core hours = wall time x cores, computed in
 % bound_lab/literature/README.md.
 
-\todo{Add fathoming rates per depth for DNN against $\DNNp$ on nug30 and sko42
-within a fixed iteration budget; these need a measurement.}
+Table~\ref{tab:ab} gives two comparisons within our own code, in which the
+branching rules and the hardware are the same and the cut phase is switched on:
+the whole search for nug30, and one subtree of tho40 rooted at depth 2.
+
+\begin{table}[t]\centering
+\caption{The effect of the cut phase on branch-and-bound trees, other settings
+equal. nug30: the whole search from the optimal value as incumbent. tho40: the
+subtree below one node of depth 2.}\label{tab:ab}
+\small
+\begin{tabular}{llrr}
+\toprule
+Tree & bound & nodes & CPU s\\
+\midrule
+nug30 & DNN & 3,688 & 3,030\\
+ & $\DNNp$ & 1,302 & 1,667\\
+\midrule
+tho40, subtree & DNN & 22,895 & 31,594\\
+ & $\DNNp$, zone 0.06 & 1,312 & 9,796\\
+ & $\DNNp$, zone 0.06 and the rules of \cite{companion} & 877 & 3,894\\
+\bottomrule
+\end{tabular}
+\end{table}
+% SOURCE: nug30: experiments/bound_lab/README.md section 3 (nug30_phase; a 4-core cloud machine; the
+% DNN+ arm also has the phase penalty and early entry). tho40: docs/next_runs.md, "Settled on the subtree"
+% (subtree -F 26:10,8:0, M2 Pro CPU seconds, arms g200 / cut06 / comb).
 
 \section{Computational results}\label{sec:results}
 
@@ -804,23 +836,24 @@ Closed: $(\DNNp-\DNN)/(\mathrm{BKV}-\DNN)$.}\label{tab:large}
 \toprule
 Problem & BKV & rPRSM & NB & BBCPOP & DNN & $\DNNp$ & Gap & Closed\\
 \midrule
-nug30 & 6,124 & -- & -- & -- & 5,950 & 5,996 & 2.09\% & 27\%\\
-sko42 & 15,812 & 15,336 & 15,334 & -- & 15,335 & 15,492 & 2.03\% & 33\%\\
+nug30 & 6,124 & -- & -- & 5,949 & 5,950 & 5,996 & 2.09\% & 27\%\\
+sko42 & 15,812 & 15,336 & 15,334 & 15,333 & 15,335 & 15,492 & 2.03\% & 33\%\\
 sko49 & 23,386 & 22,654 & 22,653 & 22,650 & 22,653 & 22,862 & 2.24\% & 28\%\\
 tho40 & 240,516 & 226,522 & 226,516 & 226,490 & 226,518 & 230,634 & 4.11\% & 29\%\\
 wil50 & 48,816 & 48,126 & 48,123 & 48,121 & 48,124 & 48,299 & 1.06\% & 25\%\\
 \midrule
-tai25b & 344,355,646 & -- & -- & \todo{?} & 337,736,748 & 344,227,915 & 0.04\% & 98\%\\
+tai25b & 344,355,646 & -- & -- & -- & 337,736,748 & 344,227,915 & 0.04\% & 98\%\\
 tai30b & 637,117,113 & -- & -- & 598,629,428 & 598,833,927 & 636,919,474 & 0.03\% & 99\%\\
-tai35b & 283,315,445 & -- & -- & \todo{?} & 269,653,227 & 280,789,620 & 0.89\% & 82\%\\
-tai40b & 637,250,948 & -- & -- & \todo{?} & 609,163,541 & 636,079,619 & 0.18\% & 96\%\\
+tai35b & 283,315,445 & -- & 269,754,270 & 269,532,369 & 269,653,227 & 280,789,620 & 0.89\% & 82\%\\
+tai40b & 637,250,948 & -- & 609,242,568 & 608,808,415 & 609,163,541 & 636,079,619 & 0.18\% & 96\%\\
 tai50b & 458,821,517 & -- & 431,245,612 & 431,090,745 & 431,082,190 & 455,449,197 & 0.73\% & 88\%\\
 tai60b & 608,215,054 & -- & 592,829,061 & -- & 592,687,738 & 606,041,781 & 0.36\% & 86\%\\
 \bottomrule
 \end{tabular}
 \end{table}
 % SOURCE: docs/dnn_plus/runs/results.txt (root_bound.sh, commit 8554018d, the M2 Pro laptop, Nov 24 2026).
-% Published columns: experiments/bound_lab/literature/README.md (Q1 table).
+% Published columns: experiments/bound_lab/literature/README.md (Q1 table); nug30, sko42 (BBCPOP), tai35b,
+% tai40b read Nov 24 from arXiv:1804.00761 (QAP table) and arXiv:1905.12840 (Table 2), rounded up.
 
 \begin{table}[t]\centering
 \caption{Iterations and CPU seconds (one core of an Apple M2 Pro) for the bounds of
@@ -861,8 +894,8 @@ on wil50, whose flow matrix is the densest (90\% nonzero, against 69\% for sko49
 and 40\% for tho40), in line with the observation of \cite{dmswz} that triangle
 inequalities on partition relaxations gain most on sparse graphs. For each of
 the eight problems with $n\ge35$ the $\DNNp$ value is above the best lower bound
-we have found in the literature. \todo{The last sentence needs the QAPLIB check
-and the missing BBCPOP entries for tai25b, tai35b and tai40b.} All eleven
+we have found in the literature. \todo{Check against the current QAPLIB
+listings by hand; the site was not reachable from the sessions that wrote this.} All eleven
 $\DNNp$ values were still rising when stopped, by $10^{-5}$ to $10^{-4}$ of the
 best known value over the last 500 iterations, so they are not the values of
 the relaxation with all regional triangle inequalities, which we have not
@@ -886,13 +919,39 @@ one if the figure is wanted.}
 
 \section{Conclusion}
 
-\todo{To be written when the results are complete. Themes: the DNN relaxation's
-slack on structured QAPs lies in aggregates that a decomposition of the distance
-matrix identifies; imposing integrality of those aggregates through triangle
-inequalities is cheap inside a first-order method; certification at every
-iteration makes the bound usable in branch and bound. Open: regions for problems
-without metric structure (tai$n$a), denser flows, a verified evaluation of the
-certificate in interval arithmetic, a GPU implementation.}
+The DNN relaxation has been the strongest bound computable for large quadratic
+assignment problems for some years, and the published bounds for the hard
+QAPLIB problems had converged on its value. We have shown that this value can be
+improved substantially at little cost per iteration. The slack of the relaxation
+on structured problems lies less in individual assignments than in aggregates of
+them: the number of facilities of a given set that are placed in a given
+region. When the regions come from a decomposition of the distance matrix into
+cut semimetrics, these aggregates are exactly the quantities the objective
+depends on, their integrality is expressed by triangle inequalities that are
+linear in the DNN matrix, and those inequalities can be imposed inside a
+first-order method by a projection that works on small moment matrices. At the
+root this closes a quarter to a third of the gap of the DNN bound on grid
+problems with $n$ from 30 to 50, and most of it on Taillard's clustered
+problems up to $n = 60$.
+
+For branch and bound, a bound must also be valid when stopped early, cheap to
+restart, and hereditary. The certificate of Section~\ref{sec:cert0} makes every
+intermediate value of the method a bound, with or without cuts, and the state of
+a node, including its inequalities and their multipliers, starts its children.
+The use of $\DNNp$ in a complete branch-and-bound algorithm is described in
+\cite{companion}.
+
+Several questions are open. The values we report are not converged, and we do
+not know the value of the relaxation with all regional triangle inequalities.
+The regions are chosen from the structure of the distance matrix; for problems
+without such structure, such as the uniformly random tai$n$a problems, we have
+no useful regions, and the same is true of the flow side of the problems
+considered here. The gain decreases with the density of the flow matrix, and
+larger inequalities on the same moments did not help. The floating-point
+margins of the certificate are error bounds with generous constants, not a
+verified computation; an evaluation in interval arithmetic would close that
+gap. Finally, the iteration consists almost entirely of dense level-3 linear
+algebra in single precision and would suit a GPU.
 
 \appendix
 \section{Validation}\label{sec:validation}
@@ -984,16 +1043,21 @@ any margin observed. For non-integer data, where the tolerance is zero, validity
 rests on the margins alone; a verified evaluation (directed rounding or interval
 arithmetic) of each fathoming certificate would be the safe choice.
 
-\paragraph{Validation of the cuts.} \todo{Rewrite as prose.} The bound with
-regional cuts was checked against optima found by enumeration: for the
-subgradient form, \todo{count} values; for the cutting-plane form, 12,656
-certified values on 77 nodes of random instances with $n = 7, 8, 9$ and of nug12,
-none above the optimum (the largest exceeds it by $-1.2\cdot10^{-9}$), and no
-fathom with the cutoff at the optimum; for arbitrary regions, 240 node checks and
-32 root checks on small tai$n$b and random problems. The assembled cut terms were
-compared entry by entry with an independent assembly (relative difference
-$10^{-15}$).
-% SOURCE: cpadmm/README.md "Validity"; bound_lab/regions/README.md section 3.
+\paragraph{Validation of the cuts.} The bound with regional cuts was checked
+against optima found by enumeration in each of its forms. In the subgradient
+form, 84 certified values on 12 random instances with $n = 7$ were compared
+with the optimum, none above it. In the cutting-plane form, 12,656 certified
+values were computed on 77 nodes of random instances with $n = 7, 8, 9$ and of
+nug12; none exceeds the optimum (the closest is $1.2\cdot10^{-9}$ below it), and
+no run fathomed with the cutoff at the optimum. With arbitrary regions, 240
+node checks and 32 root checks on small tai$n$b and random problems found no
+violation. The cut terms assembled by the projection were compared entry by
+entry with an independent assembly and agree to a relative $10^{-15}$. In the
+searches of Table~\ref{tab:trees} no node on the path to the optimal solution
+received a bound above the optimum, and each problem was solved a second time
+with a different family of regions, with the same result.
+% SOURCE: stronger_bounds/README.md (validate_cuts.py); cpadmm/README.md "Validity";
+% bound_lab/regions/README.md section 3; bound_lab/tai_solves/README.md.
 
 \section*{Acknowledgments}
 \todo{Nathan to write. The facts, from the repository's record: Claude (an AI
@@ -1002,7 +1066,7 @@ report, using independent AI agents for prototype studies, reviews and the
 literature search. Astra (an OpenAI Codex agent) proposed imposing consistency
 of regional membership indicators on the DNN relaxation, with the
 $K_{3,3}$ example of Proposition~\ref{prop:strict} and the first pilot on a wil50
-subproblem (memo of October 31, 2026,
+subproblem, and the first study of cut pools inherited by children (memo of October 31, 2026,
 \texttt{experiments/wil50\_feasibility/stronger\_bounds/research\_memo\_astra.md}),
 and, reviewing an earlier draft, found the cancellation cases of
 Appendix~\ref{sec:validation}. The cluster regions for the tai$n$b problems, the

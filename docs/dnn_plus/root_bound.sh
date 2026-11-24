@@ -5,7 +5,7 @@
 #   docs/dnn_plus/root_bound.sh PROBLEM [PROBLEM ...]
 #   printf '%s\n' sko42 sko49 wil50 tho40 | xargs -P 4 -n 1 docs/dnn_plus/root_bound.sh   # four at a time
 #
-# Problems: sko42 sko49 wil50 tho40 nug30 tai25b tai30b tai35b tai40b tai50b tai60b.
+# Problems: sko42 sko49 wil50 tho40 nug30 tho30 kra30a kra30b tai25b tai30b tai35b tai40b tai50b tai60b.
 # Environment: ITERS (cut-phase iteration limit, default 6000), ARMS ("plain plus"),
 # OUT (default docs/dnn_plus/runs).
 #
@@ -38,6 +38,10 @@ for P in "$@"; do
     tho40)  PAR=$REC/tho40c_sb.par;      DAT=qaplib/tho40t.dat; BEST=240516;    STEP=2 ;;
     nug30)  PAR=$REC/nug30.par;          DAT=qaplib/nug30.dat;  BEST=6124;      STEP=2
             GRID="pool.on = 1|cut.grid = 5:6|cut.side = 1|cut.cp = 100:1000|cut.warmy = 1" ;;   # its recipe has no cut phase
+    tho30)  PAR=$REC/nug30.par;          DAT=qaplib/tho30.dat;  BEST=149936;    STEP=2
+            GRID="pool.on = 1|cut.grid = 3:10|cut.side = 1|cut.cp = 100:1000|cut.warmy = 1" ;;
+    kra30a) PAR=$REC/nug30.par; DAT=qaplib/kra30a-old.dat; BEST=88900; STEP=10; ARMS=plain ;;   # QAPLIB's originals; no regions
+    kra30b) PAR=$REC/nug30.par; DAT=qaplib/kra30b-old.dat; BEST=91420; STEP=10; ARMS=plain ;;
     tai25b|tai30b|tai35b|tai40b)
             PAR=$REC/tai50b.par; DAT=qaplib/$P.dat; STEP=1; CUTS=$R/$REG/$P.comb.txt
             BEST=$(awk 'NR == 1 {print $2; exit}' QAPSOLN/$P.sln | tr -d '\r[:space:]') ;;
