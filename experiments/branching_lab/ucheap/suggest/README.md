@@ -31,3 +31,8 @@ Evidence and its limits: `../README.md`, "sko42 and tai35b".
 On cognac at 91cf6dbe or later `infra/phase1/start.sh sko42` and `caffeinate -i infra/laptop/solve.sh sko42` take
 `sko42_d2r10_sb.par` by default. Another of these files, copied in:
 `PARAMS=<path from the repository root> caffeinate -i infra/laptop/solve.sh sko42`.
+
+**wil50** (Nov 24): its next-run file is cognac's `infra/phase1/recipes/wil50_d2r10.par` (another session's, Nov 23;
+rule 10 at depth 2 as here, no strong branching). `wil50-est.spec` here is a draft of an overnight estimate under
+it, for `infra/phase1/specs/` on cognac once Nathan says so: its keys pass `start.sh --spec`'s check; the dry run
+itself needs the AWS CLI, which this container lacks.
