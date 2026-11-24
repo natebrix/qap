@@ -1,0 +1,172 @@
+0    has the location of a symmetry file been provided?
+-1    restriction on tree depth (-1 means none)
+8    number of branching rules
+
+0.20 use this rule when gap is worse than...
+1    use this rule thru this depth. (the root, and depth 1 above 0.20: sko49.par's first block, which went to depth 2)
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 30    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+1    use this rule thru this depth. (depth 1 at 0.12-0.20: sko49.par's second block)
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+2    use this rule thru this depth. (depth 2 above 0.12)
+ 10   branching rule: every line, the size score on the children's QPB bounds
+ 150  Frank-Wolfe iterations, for bound
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection (25: what ucheap/sko42sub measured)
+ 1    which bound?
+ 30   step for parametric bound
+ 99   compute B for best _ rows of U (rule 10: 99 = every row and column)
+
+0.12 use this rule when gap is worse than...
+4    use this rule thru this depth. (depths 3 and 4 above 0.12: sko49.par's second block, unchanged)
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than...
+1    use this rule thru this depth. (depth 1 at or below 0.12: sko49.par's third block)
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than...
+2    use this rule thru this depth. (depth 2 at or below 0.12)
+ 10   branching rule: every line, the size score on the children's QPB bounds
+ 100   Frank-Wolfe iterations, for bound
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 99   compute B for best _ rows of U (rule 10: 99 = every row and column)
+
+0.0 use this rule when gap is worse than...
+6    use this rule thru this depth. (depths 3 to 6: sko49.par's third block, unchanged)
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+ 9    branching rule at bottom of tree (rule 9 for 2: rule9_bottom)
+ 100   Frank-Wolfe iterations, for bound
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+[settings]
+# --- sko49_d2r10_sb (Nov 23): sko49's next run. experiments/estimates/sko49/sko49.par (arm Cw with the bound
+# lab's policy block and dnn.retry, as in sko42-261120b's sko42.par) with sko42's next-run changes
+# (infra/phase1/recipes/sko42_d2r10_sb.par) and a wider zone. sko42 is the same family (a Skorin-Kapov grid, the
+# same settings file but for the grid and the zone), so its retry under sko42_d2r10_sb is this file's test: run it
+# first, and keep or drop items 1 and 2 by its result against sko42-261120b (539.3 CPU h, 128,431 nodes).
+# The test (Nov 24, sko42-261124, docs/next_runs.md): 326.9 CPU h and 68,312 nodes, 0.61 and 0.53 of sko42-261120b,
+# strong branching's 30.8 CPU h included; so items 1 and 2 stay. Its cost in wall: the root about 5 h inside
+# qapctl init, then the depth-1 firings about 2.8 h with at most 12 of 135 slots busy. At n = 49 each depth-1
+# firing is about 2.5 times sko42's [e], some 7 h: launch sko49 with one worker and grow the group
+# (start.sh sko49 again) once the depth-1 nodes have branched.
+#
+# 1. Rule 10 (every line, the size score on the children's QPB bounds) at depth 2, rule 9 everywhere else. On five
+#    depth-2 subtrees of sko42-261120b, cold starts: 0.51 of rule 9's nodes and 0.70 of its CPU; from depth 3 down
+#    rule 9 was the best of rules 9, 10 and 11 (experiments/branching_lab/ucheap on claude/cool-babbage-ilnogj).
+#    The blocks keep every other depth on the block sko49.par gives it. sko42_d2r10_sb's five blocks would move
+#    depths 3 and 4 above 0.12 from the second block to the third; sko42 has no such node (0.12 of its root gap is
+#    218 short, its depth-3 nodes at most 189), sko49 has (0.12 of 2,384 is 286 short, its sample up to 396).
+branch.la_exp = 32
+#
+# 2. DNN strong branching at the root and depth 1, as sko42_d2r10_sb and tho40c_sb: every row at the root
+#    (8th-power score), 4 rows and 4 columns by marginal score at depth 1 (plain sum). The DNN bound from depth 0,
+#    which the root's firing needs (the gap blocks still measure from the root's QPB bound, latest/bnb.C).
+#    Not measured on sko49. At its root the DNN score ranks r45 first and production's lookahead r41
+#    (branching_lab/root, uncalibrated); at sko42's depth 1 strong branching took rule 9's line at 11 of 12 nodes
+#    (experiments/sb_depth1). The cost [e]: the root's firing about 490 child solves (49 rows x 10 cells under
+#    the symmetry), about 60 s each at n = 49 against sko42's 25: 8-9 h on one process inside qapctl init, before
+#    the workers start; the 10 depth-1 firings about 20 CPU h. Against a tree of tens of thousands of CPU hours
+#    both are small; the root's is wall time.
+#
+# 3. cut.zone = 0.028 (655 short), from 0.018 (421): every depth-1 node runs a phase and hands its pool to its
+#    children, as every one of sko42's did at 0.025 (sb_depth1: each depth-1 node's phase handed one on). sko49's 10
+#    depth-1 nodes were 451-642 short after 300 iterations (sko49_feasibility/NOTES.md), outside 0.018, so under
+#    sko49.par no depth-2 node starts with a pool. Below depth 2 every unfathomed node of the measured subtrees
+#    already runs a phase at 0.018 (bound_lab/wil50_policy), so the wider zone changes little there. On sko42,
+#    0.010 to 0.025 built the same trees for 0.65 of the CPU (estimates/sko42/zone_nov19). Not measured on sko49.
+#
+# Path check (Nov 24, experiments/tho40b_analysis/path_check, warm_sko49_d2r10.tsv): PASS, with this file less its
+# two sb.* lines (strong branching chooses lines and never bounds a node; its root firing would have been 8-9 h
+# here). From 23,388, the warm dive toward sko49.sln kept the path child at every node, 47 nodes to depth 46, where
+# the leaf enumerated 23,386, the solution. The highest bound on the path is 23,386.0000, the subtree's optimum,
+# under the cutoff 23,386.05; within one unit of it from depth 18. Depth 1 (41:9) ran a phase: 22,774 to 22,971,
+# 415 short. 3,148 CPU s on the cloud container. (The first try stopped at the root: dive.py knew a square grid's
+# four flips and not its transposes; 9b12f95b.)
+#
+# The comments below are sko49.par's.
+# sko49's current settings (experiments/estimates/README.md), from Nov 13: tuning arm Cw,
+# experiments/estimates/sko49/tune/Cw.par. That is wil50's full run
+# (experiments/wil50_feasibility/fullrun/fullrun.par: CP cut phase, rule 9, DNN at depths
+# 1-4 then 20 levels below a miss until Nov 14, every depth since, give-up 300) with the grid 7 x 7 and cut.zone = 0.018
+# (421 short on sko49). On sko49t.dat the grid is the second matrix (checked: rectilinear,
+# row-major, 7 columns), so cut.side = 1 as on wil50t.
+# By the sampling plan (tune/README.md), arm C (sko42's zone, 0.010: 234 short here) puts
+# the tree at 48,000-56,000 cloud core-hours and Cw at 37,000-41,000, 0.74-0.77x of C.
+# Until Nov 13 this file had wil50's zone, 0.0075.
+dnn.gamma1 = 1.0
+dnn.gamma = 1.0
+dnn.ext = 20
+dnn.amx = 1
+dnn.cheb = 3
+dnn.tight_lam = 2
+dnn.refresh = 40
+dnn.warm_y = 2
+pool.on = 1
+dnn.beta = 0.3
+dnn.gu_zone = 0
+cut.grid = 7:7
+cut.side = 1
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+cut.damp1 = 0.3
+cut.cp = 100:1000
+# Nov 19: the bound lab's sko49 policy block (experiments/bound_lab/wil50_policy, arm hoe2w: 1.21x and 1.34x
+# fewer iterations on two sko49 subtrees): early entry, the hand-over rule fitted on sko49, and the
+# phase's own penalty at wc=1.4 (in dnn.beta_sched below; 0.7 until Nov 19). In sko42.par and sko49.par alike
+# Nov 20: dnn.retry = 1, as tho40c: a pooled first solve that fails (its certified bound more than 1% of the
+# incumbent below the inherited one) is solved again without the pool, then cold. Without it one such node
+# grew 36:7,28:0 of sko42-261120 to 236,000 nodes and 387 CPU h, and three made z25's tails (189 CPU h)
+dnn.retry = 1
+ship.bits = 32
+dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=1.4
+dnn.cross = 2
+dnn.lazycert = 1
+# dnn.depths from 0 for the root's strong branching (item 2); 1:47 in sko49.par: the DNN bound at every depth
+# with two facilities left (m >= 2 in latest/bnb.C).
+dnn.maxgap = 1
+dnn.warm = 1
+dnn.depths = 0:0
+cut.zone = 0
