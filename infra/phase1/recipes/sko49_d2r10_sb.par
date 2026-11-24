@@ -86,6 +86,11 @@
 # (infra/phase1/recipes/sko42_d2r10_sb.par) and a wider zone. sko42 is the same family (a Skorin-Kapov grid, the
 # same settings file but for the grid and the zone), so its retry under sko42_d2r10_sb is this file's test: run it
 # first, and keep or drop items 1 and 2 by its result against sko42-261120b (539.3 CPU h, 128,431 nodes).
+# The test (Nov 24, sko42-261124, docs/next_runs.md): 326.9 CPU h and 68,312 nodes, 0.61 and 0.53 of sko42-261120b,
+# strong branching's 30.8 CPU h included; so items 1 and 2 stay. Its cost in wall: the root about 5 h inside
+# qapctl init, then the depth-1 firings about 2.8 h with at most 12 of 135 slots busy. At n = 49 each depth-1
+# firing is about 2.5 times sko42's [e], some 7 h: launch sko49 with one worker and grow the group
+# (start.sh sko49 again) once the depth-1 nodes have branched.
 #
 # 1. Rule 10 (every line, the size score on the children's QPB bounds) at depth 2, rule 9 everywhere else. On five
 #    depth-2 subtrees of sko42-261120b, cold starts: 0.51 of rule 9's nodes and 0.70 of its CPU; from depth 3 down

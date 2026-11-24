@@ -5,6 +5,34 @@ cut phase (no solver change), against 1,308 as tho40-b runs, and tai50b at about
 with cluster-region cuts. This page decides what that means for tho40-b and plans a tai50b run of
 record. The subtree A/B in `experiments/tho40b_analysis/giveup_ab/` settles tho40's settings first.
 
+## sko42 again, with strong branching and rule 10 (Nov 24)
+
+**`sko42-261124`** (`infra/phase1/recipes/sko42_d2r10_sb.par`, cognac f801ef08; a c7a.2xlarge coordinator and two Spot
+workers, 135 slots, from 15,814): sko42.par with DNN strong branching at the root and depth 1 and rule 10 (every line,
+the size score on the children's QPB bounds) at depth 2. The search found 15,812 and closed the tree: "PASS: the
+optimum" (`infra/phase1/runs/sko42-261124/`).
+
+| | sko42-261124 | sko42-261120b (sko42.par) | ratio |
+|---|---|---|---|
+| CPU | 1,176,912 s = 326.9 h | 539.3 h | **0.61** |
+| nodes | 68,312 | 128,431 | **0.53** |
+| root row | r22 (strong branching; the cloud container's firing alone chose it too) | r36 | |
+| nodes by depth 3 / 4 / 5 / 6 | 9,702 / 20,514 / 16,074 / 11,026 | 10,580 / 42,783 / 41,154 / 22,496 | |
+| strong branching | 13 nodes, 3,590 child solves, 110,891 CPU s (9.4% of the run) | none | |
+| wall | the root about 5 h inside `qapctl init` (launched 02:33 UTC, the run created 07:32), then 5.2 h | 4 h 37 min | |
+
+- **The saving is at depths 4 to 6**: the depth-3 counts are close, and from them far fewer nodes branch. Below depth 7
+  the new tree is a little larger (2,380 against 1,960 at depth 8), small in absolute terms.
+- **The three changes are not separated**: the root's row, strong branching at depth 1, and rule 10 at depth 2 came
+  together, on a tree with another first branching. Strong branching's own 30.8 CPU h are in the 0.61; the rest of
+  the tree is 0.55. Two runs of one tree have differed by 13-20% (`experiments/estimates_nov19`, tai50b-est against
+  tai50b-r9), so 0.61 is not that.
+- **Its cost in wall, for sko49.** The depth-1 nodes' own CPU was 27.5 h (sko42-261120b's: 2.1 h), most of it their
+  firings (9,500-10,600 s each where no symmetry is left, about 3,000 s on the four r7 nodes), and for about 2.8 h
+  (07:32-10:20 UTC) at most 12 of the 135 slots had work. At n = 49 a firing is about 2.5 times sko42's [e]:
+  `sko49_d2r10_sb.par` says to launch with one worker and grow the group once depth 1 has branched.
+- **For sko49**: `sko49_d2r10_sb.par` has these changes (and a wider zone); this run is its test, and it says keep them.
+
 ## tho40: solved (Nov 23)
 
 **tho40's optimum is 240,516**, QAPLIB's best known, proved from incumbent 240,518 (the best known + 2;
