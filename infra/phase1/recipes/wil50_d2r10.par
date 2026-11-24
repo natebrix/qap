@@ -89,6 +89,12 @@
 # 9's line at 11 of 12 nodes (experiments/sb_depth1). To add it at depth 1: sb.depths = 1:1 (15 firings, about
 # 65 CPU h [e]); at the root also dnn.depths = 0:48 and about 8 h of root on one process.
 #
+# Path check (Nov 24, experiments/tho40b_analysis/path_check, warm_wil50_d2r10.tsv): PASS. From 48,818, the warm
+# dive toward wil50.sln with this file kept the path child at every node, 48 nodes to depth 47, where the leaf
+# enumerated 48,816 (another optimal permutation). The highest bound on the path is 48,815.9999, from depth 20 on
+# within one unit of the optimum. Every node from depth 1 down ran a cut phase (depth 1: 48,244 to 48,429, 387
+# short). 3,389 CPU s on the cloud container.
+#
 # 1. The bound lab's wil50 policy block, arm hoe2 (experiments/bound_lab/wil50_policy): early entry and the
 #    hand-over rule refitted for wil50, less patient far from the cutoff than tho40's. 1.35x and 1.09x fewer
 #    iterations on two complete subtrees (the same trees node for node), about 1.15-1.2x on the whole [e]. Not
