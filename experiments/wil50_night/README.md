@@ -101,6 +101,10 @@ attempt stopped at depth 2 on a settings mismatch of my making (the recipe's com
 check ran, and a state carries the file's hash): the recipe file must not be edited while the estimate's
 paused solve may be resumed or sampled.
 
+**Its lines at depth 1** (`top15.sh g150xl2`, `top/g150xl2_*`): each of the root's 15 children takes the line it
+takes under `wil50_d2r10` (r45 at `21:0`, `21:11`, `21:20`, `21:21`; r31 at `21:22`, `21:23`, `21:24`; c0 at the
+other eight), with the extrapolation leaving the bound after the phase 3 to 5 higher at every one.
+
 ## What follows from it
 
 - `suggest/wil50-tune.spec` and `suggest/wil50_d2r10_{g150x,xl2,g150xl2}.par`: a tuning round on a solved sample of
