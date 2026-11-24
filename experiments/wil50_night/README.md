@@ -87,6 +87,20 @@ the node branches into 46 children that fathom in their first solves. On the 140
 **The two together (`g150xl2`) keep both gains** on the two subtrees `xl2` shrank: b83 137 nodes and 0.65 of
 base's iterations (`xl2` alone 0.73), d178 48 nodes and 0.36 (0.39).
 
+## The best-guess recipe (Nov 24)
+
+Nathan, Nov 24: "I'd rather go aggressive here." `wil50-est-261124` runs under
+`infra/phase1/recipes/wil50_d2r10_g150xl2.par` (cognac 0a4c0f83): `wil50_d2r10.par` with `cut.cp_wc_gap = 150`,
+`cut.cp_extrap = 100:1:30:2` and `branch.xbar_lines = 2`, on four workers from a 1.5 h solve.
+
+**Its path check: PASS** (`pathcheck/warm_wil50_d2r10_g150xl2.tsv`; `experiments/tho40b_analysis/path_check/dive.py
+--warm`, from 48,818 toward `wil50.sln`): 48 nodes to depth 47, every one branched and kept the path child, the
+leaf enumerated 48,816; the highest bound on the path 48,816.0000; 3,442 CPU s (`wil50_d2r10`: 3,389). The lines
+are `wil50_d2r10`'s down to depth 4 (r21, c0, r31, c40, c49) and others from depth 5 (c9 for c48). A first
+attempt stopped at depth 2 on a settings mismatch of my making (the recipe's comment was reworded while the
+check ran, and a state carries the file's hash): the recipe file must not be edited while the estimate's
+paused solve may be resumed or sampled.
+
 ## What follows from it
 
 - `suggest/wil50-tune.spec` and `suggest/wil50_d2r10_{g150x,xl2,g150xl2}.par`: a tuning round on a solved sample of
