@@ -243,6 +243,10 @@ at the end, the coordinator writes `public/runs/RUN/status.json`, `totals.state`
 brixius-web's live run page; `--visibility private` publishes nothing, and
 `qapctl publish RUN` publishes at once. `infra/phase1/publish_setup.sh` serves
 `public/` through CloudFront with the bucket kept private.
+`qapctl unpublish RUN` takes a finished or stopped run out of public view for good: out of the
+catalog (`runs/index.json` and `public/runs/index.json`), `public/runs/RUN/` deleted, the run marked
+private so that no later publish lists it again; its record under `runs/RUN/` stays
+(`tests/unpublish_test.py`).
 
 On EC2, `infra/phase1/` (README.md there) runs a run on one instance: the
 launcher, the instance script with a Spot-notice watcher that drains the

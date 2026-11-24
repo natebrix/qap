@@ -28,6 +28,8 @@ files) or aws:BUCKET[/PREFIX][?region=R&name=N] (S3, SQS, DynamoDB).
   python3 -m coord.qapctl stop RUN --backend B        (give the run up: status stopped, a final
         public status; its coordinator and workers exit, other runs' workers delete its queued
         units' messages. Terminate its instances apart: infra/phase1/cleanup.sh)
+  python3 -m coord.qapctl unpublish RUN --backend B   (a finished or stopped run that should not be
+        listed: out of the catalog, its public files deleted, marked private; its record stays)
   python3 -m coord.qapctl purge-states RUN --backend B   (a stopped or finished run: delete its
         unit state files, the bulk of its store; ledger, totals, results, logs, traces stay)
   python3 -m coord.qapctl results RUN --backend B   (a paused or stopped solve: its RESULTS block as
@@ -90,7 +92,7 @@ def cfg_from(a):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["init", "coordinator", "worker", "status", "pause", "resume", "local",
-                                       "aws-setup", "requeue-leased", "publish", "nodes", "export", "stop",
+                                       "aws-setup", "requeue-leased", "publish", "unpublish", "nodes", "export", "stop",
                                        "purge-states", "dives", "estimate", "estimate-flow", "readout", "dives-export", "results"])
     p.add_argument("run", nargs="?")
     p.add_argument("--backend", required=True)
@@ -268,6 +270,9 @@ def main(argv=None):
         print(s.decode() if s else json.dumps(b.get_run(a.run), indent=1))
         print("units:", b.count_by_status(a.run))
         return 0
+    if a.command == "unpublish":
+        from coord.publish import unpublish
+        return unpublish(b, a.run, log=log)
     if a.command == "publish":
         c = Coordinator(b, a.run, log=log)
         if c.publisher.publish(b.count_by_status(a.run), final=c.run.get("status") in ("finished", "stopped")):
