@@ -1,9 +1,29 @@
-# Root runs the DNN+ paper needs (spec, not launched)
+# Root runs the DNN+ paper needs
 
 `dnn_plus.tex`'s results tables need root bounds computed under one rule on one named machine.
 What exists was computed in different sessions with different limits (sources in the comments
-under Table 2 of the .tex). Nothing here has been run; the commands are to be written by
-whoever launches, from the settings named.
+under Table 2 of the .tex).
+
+## Running them (the laptop, Nov 24)
+
+On a checkout of `claude/dnn-plus-paper`, after `make`:
+
+```
+caffeinate -i sh -c "printf '%s\n' sko42 sko49 wil50 tho40 | xargs -P 4 -n 1 docs/dnn_plus/root_bound.sh"
+caffeinate -i sh -c "printf '%s\n' tai25b tai30b tai35b tai40b tai50b tai60b nug30 | xargs -P 4 -n 1 docs/dnn_plus/root_bound.sh"
+```
+
+`root_bound.sh` runs, per problem, the plain bound (4,000 iterations, no give-up) and the bound
+with cuts (the recipe's first solve, then 6,000 CP-ADMM iterations; `ITERS=` changes it), each on
+one core through `bnbdrv -d 0`, and appends a line per arm to `docs/dnn_plus/runs/results.txt`.
+The trace of the arm with cuts has the certified value at every check, so the stopping rule
+below is applied afterwards, on the history. Commit `docs/dnn_plus/runs/` when done.
+
+Tested in a cloud container (Nov 24): tai25b both arms (plain 337,736,517 at 4,000 iterations;
+with cuts 340,674,316 after only 300 phase iterations), nug30 with cuts (5,952.45 after 200 phase
+iterations, above the plain 5,950 of the Nov 5 table). The grid recipes' arms (sko42, sko49,
+wil50, tho40) and tai35b-tai60b were not run there: only their params files were generated.
+Not in the script: kra30a/b, tho30 (no recipe with a cut phase), tai80b.
 
 ## The rule (proposal, to be agreed)
 
