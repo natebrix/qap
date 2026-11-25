@@ -1,0 +1,106 @@
+0    has the location of a symmetry file been provided?
+-1    restriction on tree depth (-1 means none)
+4    number of branching rules
+
+0.20 use this rule when gap is worse than...
+2    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 30    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+4    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound 
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than... (all nodes thru depth 6 use rule 8)
+6    use this rule thru this depth.
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+ 9    branching rule at bottom of tree (rule 9 for 2: rule9_bottom)
+ 100   Frank-Wolfe iterations, for bound 
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+[settings]
+# infra/phase1/recipes/tho40.par: the settings of the whole tho40 run (tho40.sh):
+# experiments/estimates/tho40/tho40.par with ship.bits = 32, each parent's DNN state in
+# fp32 (upper triangles), one copy per parent in the run's store (coord/warm.py), as in
+# the tho40ab-ship32 arm of Nov 14.
+# tho40's current settings (experiments/estimates/README.md): the Nov 8 nug30 record
+# recipe (infra/phase1/recipes/nug30.par: rule 9, DNN at depths 1-7, give-up 200, no cut
+# phase, ship.bits = 64) with branch.xbar_lines = 2, the setting the tho40 A/B of Nov 9
+# carries into any long run (experiments/xbar_lines_sweep/tho40_ab/: 723 to 581 nodes on
+# three depth-3 subtrees). Identical to that A/B's logs/x2.par.
+dnn.gamma1 = 1.0
+dnn.gamma = 1.0
+dnn.cheb = 3
+dnn.tight_lam = 2
+dnn.beta = 0.21
+dnn.refresh = 120
+dnn.warm_y = 2
+dnn.ext = 20
+dnn.gu_zone = 0
+ship.bits = 32
+dnn.cross = 2
+dnn.lazycert = 1
+dnn.beta_sched = w=0.36,wc=2.88
+# dnn.depths = 1:38 since Nov 14 (1:7 before): the DNN bound at every depth with two
+# facilities left (m >= 2 in latest/bnb.C). 1:7 with dnn.ext = 20 reached the same nodes
+# down to depth 27 (below depth 7 a node got the bound when its parent was a DNN miss)
+# and left the depths below 27 to QPB alone, where a run that must find or beat
+# the incumbent goes on its way to a leaf (experiments/estimates/README.md).
+# tho40c_sb (Nov 22): from 0, since strong branching at the root needs the root's own DNN state
+# (RUNNING.md, "DNN strong branching (sb.*)"); the depth-1 nodes then start warm from it.
+dnn.maxgap = 1
+dnn.giveup = 200
+dnn.warm = 1
+branch.xbar_lines = 2
+# --- tho40-c (Nov 16): the bound lab's full block (experiments/bound_lab/README.md, section 2),
+# on tho40-b's settings above with dnn.gu_zone = 0 and dnn.beta_sched = w=0.36,wc=2.88: the grid cut
+# phase used widely (zone 0.06), pools handed to children, early entry (dnn.giveup_warm = 100), the
+# phase's own penalty (wc), the hand-over rule and the gap-dependent phase penalty. On the tho40ab
+# subtree -F 26:10,8:0 (bound_lab/laptop/runs_tho40ab, the "comb" arm): 877 nodes and 3,894 CPU s
+# against tho40-b's 22,895 and 31,594 (8.1x). dnn.retry = 1 as on that run, whose solver (5f644a1)
+# had the pooled-solve retry always on.
+pool.on = 1
+cut.grid = 5:8
+cut.side = 1
+cut.cp = 100:1000
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+dnn.giveup_warm = 100
+dnn.retry = 1
+# --- tho40c_sb (Nov 22): tho40c with DNN strong branching at the root and depth 1 (RUNNING.md, "DNN strong
+# branching (sb.*)"; experiments/branching_lab/root and port on claude/cool-babbage-ilnogj). At the root every
+# row (sb.all = 0; the grid's symmetry leaves rows only, each with the 12 columns of J1: 480 child solves, about
+# 4 core-hours in the coordinator's frontier pass); at the 12 depth-1 nodes the 4-row shortlist by marginal
+# score (at most 2.6 core-hours a node, side by side). Depth 2 (sb.gap) left off for this first run. Defaults in
+# effect: sb.k = 4, sb.iters = 150, sb.power = 0:8,1:1 (the 8th power at the root: r2 for every power from 2 to
+# 12 at tho40 in ../root, against production's r26).
+dnn.depths = 0:0
+cut.zone = 1
+cut.stall = 0
+cut.freeze = 0
+cut.cp_iters = 6000
+cut.giveup = 100000000:0
+cut.giveup_depth = 0
