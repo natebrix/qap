@@ -82,5 +82,5 @@ value at the limit. Not blocking the first draft (Nathan, Nov 24); to do later:
   cold, from the parent's Z, from Z and Y (no cuts anywhere), and then with and without the
   parent's cut pool after a 2,000-iteration phase at the parent. Cases: nug30 `0:14`, tho40
   `26:10,8:0,33:32`, wil50 `27:39,48:30,49:25`, tai35b's root (pool arms only).
-  `warm_pool_summary.py` prints the tables. Tested in a cloud container on nug20's root only.
+  `warm_pool_summary.py` prints the tables. Done Nov 25 on the laptop (`runs_warm/`); in the paper as Table `tab:warm`.
 - **QAPLIB's current listings**, by hand: the site is not reachable from cloud sessions.
