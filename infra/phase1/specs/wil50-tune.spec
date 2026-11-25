@@ -1,0 +1,26 @@
+# wil50's tuning round: four arms side by side, each solving the same sample of wil50-est-261124's open
+# nodes to the end (FROM, SAMPLE: coord/sample.py), compared node by node
+# (experiments/estimates_nov19/paired.py), as tho40-tune-261119 was. The estimate ran under the best guess,
+# wil50_d2r10_g150xl2.par (its two candidates come from a night's screening on five subtrees,
+# experiments/wil50_night in claude/cool-babbage-ilnogj), and read 10,145 CPU h (5-95%: 7,013 to 14,443). The
+# arms are the two candidates' 2 x 2:
+#   both     wil50_d2r10_g150xl2.par, the estimate's recipe
+#   noxl2    without branch.xbar_lines = 2 (wil50_d2r10_g150x.par)
+#   nogap    without cut.cp_wc_gap = 150 and cut.cp_extrap = 100:1:30:2 (wil50_d2r10_xl2.par)
+#   neither  wil50_d2r10.par
+# The sample is 150 open nodes at depth 4, drawn in proportion to the square root of their subtrees' estimates:
+# about 175 CPU h an arm by the dives (three nodes certain, about 52 that branch). Depth 4 and not above: the
+# open nodes at depths 2 and 3 hold 86% of the estimated rest, but most of it in a few subtrees of hundreds of
+# CPU hours each (the largest at depth 2 is 1,393 CPU h from five dives of 0 to 6,899), so a sample that drew
+# them would cost 500 to 1,000 CPU h an arm. The subtrees under depth-4 nodes are made of the nodes at depths
+# 5 and 6 where the estimate puts three quarters of the rest's CPU, and both candidates act there as anywhere
+# below depth 3. The solved sample is also a check of the dives at depth 4 (1,294 CPU h of the rest by them).
+PROBLEM=wil50
+RUN=wil50-tune-261125
+FROM=wil50-est-261124
+SAMPLE=4:150
+SAMPLE_SEED=1
+ARMS="both=infra/phase1/recipes/wil50_d2r10_g150xl2.par noxl2=infra/phase1/recipes/wil50_d2r10_g150x.par nogap=infra/phase1/recipes/wil50_d2r10_xl2.par neither=infra/phase1/recipes/wil50_d2r10.par"
+VISIBILITY=private
+WORKERS=1
+HOURS=8
