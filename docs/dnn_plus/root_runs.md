@@ -68,15 +68,19 @@ from it. The stopping rule above never triggered: at 6,000 phase iterations ever
 still gaining 1e-5 to 1e-4 of the best known value per 500 iterations, so the tables report the
 value at the limit. Not blocking the first draft (Nathan, Nov 24); to do later:
 
-- **Longer runs**: `ITERS=20000 ARMS=plus docs/dnn_plus/root_bound.sh wil50 tho40 tai50b`, to see
-  where the bounds level off.
-- **Timings one at a time**: the runs shared the laptop four at a time.
+- **Longer runs**: done Nov 25 (`runs_long/`): wil50 48,302.31, tho40 230,659.65, tai50b
+  455,919,510.84 at 20,000 phase iterations; in the paper with `fig_history.py`'s figure.
+- **Timings one at a time**: done Nov 25 (`runs_serial/`); the bounds are identical to Nov 24's.
 - **A history for the plain arm**, for the bound-against-iterations figure (the plain solve does
   not record one; the cut phase does).
 - **kra30a, kra30b, tho30**: done Nov 24-25 in a cloud container (Linux x86_64, commit 5b21644b;
   `runs_container/results.txt`). Plain DNN after 4,000 iterations: kra30a 86,836.56, kra30b
   87,856.27, tho30 143,573.65. DNN+ for tho30 (3 x 10 grid, 6,200 iterations): 146,123.70.
   The values are in the paper; the container's timings are not for the paper.
-- **Warm starts and inherited pools**: the paper's section 5 quotes measurements of Nov 5 and of
-  the wil50 pool study; repeat with the current code on a fixed set of children.
+- **Warm starts and inherited pools**: to be redone with the current code (Nathan, Nov 25), by
+  `warm_pool.sh` (the header has the arms): the children of one fixed node per problem, bounded
+  cold, from the parent's Z, from Z and Y (no cuts anywhere), and then with and without the
+  parent's cut pool after a 2,000-iteration phase at the parent. Cases: nug30 `0:14`, tho40
+  `26:10,8:0,33:32`, wil50 `27:39,48:30,49:25`, tai35b's root (pool arms only).
+  `warm_pool_summary.py` prints the tables. Tested in a cloud container on nug20's root only.
 - **QAPLIB's current listings**, by hand: the site is not reachable from cloud sessions.
