@@ -4,7 +4,11 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
-| [wil50-est-261124](runs/wil50-est-261124/readout.md) | paused | **PART-WAY**: the estimate's dives run wil50-est-261124-dives is running, 997 of 998 dives units merged | PART-WAY, SLOW PENDING, SETUP-BOUND, WIDE | 2026-11-24 16:47 | - |
+| [wil50-tune-261125-neither](runs/wil50-tune-261125-neither/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of wil50-est-261124 asked (depth:count 4:150) to the end under wil50_d2r10.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-25 05:03 | 2026-11-25 08:29 |
+| [wil50-tune-261125-nogap](runs/wil50-tune-261125-nogap/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of wil50-est-261124 asked (depth:count 4:150) to the end under wil50_d2r10_xl2.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-25 05:03 | 2026-11-25 08:15 |
+| [wil50-tune-261125-noxl2](runs/wil50-tune-261125-noxl2/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of wil50-est-261124 asked (depth:count 4:150) to the end under wil50_d2r10_g150x.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-25 05:02 | 2026-11-25 07:58 |
+| [wil50-tune-261125-both](runs/wil50-tune-261125-both/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of wil50-est-261124 asked (depth:count 4:150) to the end under wil50_d2r10_g150xl2.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-25 05:01 | 2026-11-25 07:57 |
+| [wil50-est-261124](runs/wil50-est-261124/readout.md) | paused | **COMPLETE**: the estimate (wil50-est-261124-dives finished) | SETUP-BOUND | 2026-11-24 16:47 | - |
 | [sko42-261124](runs/sko42-261124/readout.md) | finished | **COMPLETE**: solved, best objective 15812 | - | 2026-11-24 07:32 | 2026-11-24 12:45 |
 | [21-3_34-0](runs/21-3_34-0/readout.md) | finished | **COMPLETE**: solved, best objective 48818 | - | 2026-11-24 05:03 | 2026-11-24 05:06 |
 | [21-0_45-13](runs/21-0_45-13/readout.md) | finished | **COMPLETE**: solved, best objective 48818 | - | 2026-11-24 04:56 | 2026-11-24 05:00 |

@@ -1,11 +1,8 @@
 # wil50-est-261124
 
-**PART-WAY**: the estimate's dives run wil50-est-261124-dives is running, 997 of 998 dives units merged
+**COMPLETE**: the estimate (wil50-est-261124-dives finished)
 
-- PART-WAY: 1 of 998 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (0% of the rest's CPU)
-- SLOW PENDING: 1 pending units have run longer than 90% of the merged ones took (3710 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
-- SETUP-BOUND: bounding the sampled open nodes took 196.0 CPU h, the dives 141.6 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
-- WIDE: the jackknife over units gives a standard error of 27% of the rest's CPU
+- SETUP-BOUND: bounding the sampled open nodes took 197.0 CPU h, the dives 142.7 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
 
 ## The run
 
@@ -32,18 +29,16 @@
 ## The estimate
 
 ```
-PART-WAY: 1 of 998 dives units not merged; their open nodes are imputed, depth by depth, from the merged units' (0% of the rest's CPU)
-SLOW PENDING: 1 pending units have run longer than 90% of the merged ones took (3710 s): a unit runs long when its open nodes branch, so these likely hold the large subtrees, and the imputation stands in for them with small ones: read the estimate as a floor until they merge
-SETUP-BOUND: bounding the sampled open nodes took 196.0 CPU h, the dives 141.6 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
-WIDE: the jackknife over units gives a standard error of 27% of the rest's CPU
+the estimate's cost: 339.7 CPU h of estimator CPU, 3% of the estimated rest of the tree (9,847.1 CPU h)
+SETUP-BOUND: bounding the sampled open nodes took 197.0 CPU h, the dives 142.7 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)
 done so far: 17,309 nodes, 298.0 CPU h
-estimated rest: 984,894 nodes (5-95%: 756,860 to 1,260,763), 8,620.0 CPU h (6,054.2 CPU h to 11,561.0 CPU h)
-estimated tree: 1,002,203 nodes (5-95%: 774,169 to 1,278,072), 8,918.0 CPU h (6,352.2 CPU h to 11,859.0 CPU h)
-4515 open nodes (950 with children that branch), 10224 dives in 950 of them, deepest dive node at depth 7; estimator 337.6 CPU h
-4,515 of the 18,576 open nodes sampled (each weighted 1/pi)
-jackknife over units: standard error 142,251 nodes, 2,342.6 CPU h
-the largest dive makes 16% of the rest's CPU, the 10 largest 41%; 0 of 950 dived open nodes got one dive; estimator CPU: setup 196.0 CPU h, dives 141.6 CPU h
-dives going deeper, by depth (reached, went on): 3: 776/99, 4: 6526/426, 5: 3356/61, 6: 152/2, 7: 2/0
+estimated rest: 1,005,804 nodes (5-95%: 757,015 to 1,291,987), 9,847.1 CPU h (6,714.6 CPU h to 14,144.7 CPU h)
+estimated tree: 1,023,113 nodes (5-95%: 774,324 to 1,309,296), 10,145.1 CPU h (7,012.6 CPU h to 14,442.8 CPU h)
+4525 open nodes (958 with children that branch), 10264 dives in 958 of them, deepest dive node at depth 7; estimator 339.7 CPU h
+4,525 of the 18,597 open nodes sampled (each weighted 1/pi)
+jackknife over units: standard error 167,302 nodes, 2,100.8 CPU h
+the largest dive makes 14% of the rest's CPU, the 10 largest 47%; 0 of 958 dived open nodes got one dive; estimator CPU: setup 197.0 CPU h, dives 142.7 CPU h
+dives going deeper, by depth (reached, went on): 3: 776/99, 4: 6566/433, 5: 3363/62, 6: 153/2, 7: 2/0
 
 ```
 
@@ -52,8 +47,8 @@ dives going deeper, by depth (reached, went on): 3: 776/99, 4: 6526/426, 5: 3356
 | 0 | 1 | 0 | 0.00 | 0.00 |
 | 1 | 15 | 0 | 5.93 | 0.00 |
 | 2 | 476 | 159 | 51.46 | 19.65 |
-| 3 | 6,486 | 7,669 | 160.21 | 395.47 |
-| 4 | 9,590 | 106,958 | 76.60 | 1,707.10 |
-| 5 | 741 | 439,732 | 3.79 | 4,901.75 |
-| 6 | 0 | 363,390 | 0.00 | 1,359.96 |
+| 3 | 6,486 | 7,686 | 160.21 | 397.11 |
+| 4 | 9,590 | 107,568 | 76.60 | 1,720.56 |
+| 5 | 741 | 444,299 | 3.79 | 4,955.67 |
+| 6 | 0 | 382,929 | 0.00 | 2,544.89 |
 | 7 | 0 | 63,164 | 0.00 | 209.22 |
