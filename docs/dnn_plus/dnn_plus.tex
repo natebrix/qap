@@ -733,8 +733,17 @@ solve without cuts of 110 to 470 iterations followed by 6,000 iterations of the
 cutting-plane form, with 1,000 inequalities added every 100 iterations. The
 regions are the row and column prefixes of the grid for nug30, sko42, sko49,
 tho40 and wil50, and the cluster regions of Section~\ref{sec:regions} for the
-tai$n$b problems. \todo{Compiler and OS versions; the penalty settings per
-family, which differ (\texttt{runs/*/plus.par}).}
+tai$n$b problems. The ADMM penalty, in the solver's units, is $0.21$ for nug30, tho40 and the
+tai$n$b problems and $0.3$ for sko42, sko49 and wil50. The cutting-plane
+iterations run at a multiple of it: $2.88$ for tho40 and the tai$n$b problems,
+$1.4$ for sko42 and sko49, $0.7$ for wil50 and $0.36$ for nug30. For wil50
+three sweeps over the active inequalities are made per iteration, and one
+elsewhere. These are the settings of the branch-and-bound runs of the
+companion paper~\cite{companion}; they were not tuned for the root.
+\todo{Compiler and OS versions of the laptop.}
+% SOURCE: docs/dnn_plus/runs/*/plus.par (dnn.beta, dnn.beta_sched wc, or w when
+% wc is unset; cut.cp_sweeps). dnn.beta is "a multiple of dnn.py's m/3"
+% (RUNNING.md); say what m is when the penalty is defined in Section 3.
 
 \subsection{The certified DNN bound on small and medium problems}
 
@@ -772,8 +781,8 @@ had16 & 3720 & 3358 & 3560 & 3595 & 3612 & 3720\\
 had18 & 5358 & 4776 & 5104 & 5143 & 5174 & 5358\\
 had20 & 6922 & 6166 & 6625 & 6677 & 6713 & 6922\\
 \midrule
-kra30a & 88900 & 68360 & 63717 & 68572 & 69736 & --\\
-kra30b & 91420 & 69065 & 63818 & 69021 & 70324 & --\\
+kra30a & 88900 & 68360 & 63717 & 68572 & 69736 & 86837\\
+kra30b & 91420 & 69065 & 63818 & 69021 & 70324 & 87857\\
 \midrule
 nug12 & 578 & 493 & 472 & 482 & 486 & 568\\
 nug14 & 1014 & 852 & 871 & 891 & 903 & 1011\\
@@ -809,13 +818,17 @@ tho30 & 149936 & 90578 & 119254 & 124684 & 125972 & 143576\\
 \end{tabular}
 \end{table}
 
-Over the 40 problems other than kra30a and kra30b the DNN bound closes on
-average 89\% of the gap between QPB and the optimum, and at least 62\% on every
-problem. It equals the optimum on ten of them. \todo{kra30a and kra30b: the Nov 5
-table held these out because the ADMM did not converge with the default penalty.
-\texttt{experiments/kra30\_solve} later quotes root bounds of 86,837 and 87,858;
-confirm and fill in. Add a DNN$^+$ column for the grid problems (nug, tho30) and
-decide whether this table keeps PB and SDPB1.}
+Over the 42 problems the DNN bound closes on average 88\% of the gap between
+QPB and the optimum, and at least 62\% on every problem. It equals the optimum
+on ten of them. With the row and column prefixes of its $3\times 10$ grid as
+regions, $\DNNp$ raises the bound for tho30 from 143,574 to 146,124, which
+closes 40\% of the remaining gap.
+% SOURCE: kra30a, kra30b (DNN, 4,000 iterations) and tho30 (DNN 143,573.65,
+% DNN+ 146,123.70 after 6,200 iterations) were run Nov 24-25 in a cloud
+% container with docs/dnn_plus/root_bound.sh at commit 5b21644b; see
+% root_runs.md. The table's tho30 entry 143,576 is the Nov 5 value (different
+% settings). kra30b: experiments/kra30_solve quotes 87,858; this run gives
+% 87,856.27. Whether the table keeps PB and SDPB1 is Nathan's call.
 
 \subsection{Large problems}
 

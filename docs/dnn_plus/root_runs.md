@@ -73,8 +73,10 @@ value at the limit. Not blocking the first draft (Nathan, Nov 24); to do later:
 - **Timings one at a time**: the runs shared the laptop four at a time.
 - **A history for the plain arm**, for the bound-against-iterations figure (the plain solve does
   not record one; the cut phase does).
-- **kra30a, kra30b, tho30**: added to `root_bound.sh` (QAPLIB's unscaled kra files, plain only;
-  tho30 with its 3 x 10 grid); being run in a cloud container Nov 24 for the values.
+- **kra30a, kra30b, tho30**: done Nov 24-25 in a cloud container (Linux x86_64, commit 5b21644b;
+  `runs_container/results.txt`). Plain DNN after 4,000 iterations: kra30a 86,836.56, kra30b
+  87,856.27, tho30 143,573.65. DNN+ for tho30 (3 x 10 grid, 6,200 iterations): 146,123.70.
+  The values are in the paper; the container's timings are not for the paper.
 - **Warm starts and inherited pools**: the paper's section 5 quotes measurements of Nov 5 and of
   the wil50 pool study; repeat with the current code on a fixed set of children.
 - **QAPLIB's current listings**, by hand: the site is not reachable from cloud sessions.
