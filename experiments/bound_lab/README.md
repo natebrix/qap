@@ -29,6 +29,9 @@ and tai80b; tai50b level by level).
 - New best lower bounds at the root, all certified: tho40 230,452.99 (published 226,522); tai50b
   453,552,676 (431,245,612); tai60b 605,315,696 (592,829,061); tai80b above its published
   786,900,529 and rising when last seen.
+- tai80b's root levelled off at 801,397,334, 46% of its published gap (tai60b's 81%), with the
+  regions `comb7`; a two-dimensional family (`line:4,top:7`, a superset) was 1.4M behind it at phase
+  iteration 500 (Nov 25, `tai80b_2d/`). tai80b stays out of reach.
 
 ## What was found
 
