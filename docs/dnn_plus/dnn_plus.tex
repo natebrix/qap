@@ -7,6 +7,7 @@
 \usepackage[letterpaper,margin=1in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
+\usepackage{graphicx}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
 \usepackage{array}
@@ -740,7 +741,8 @@ $1.4$ for sko42 and sko49, $0.7$ for wil50 and $0.36$ for nug30. For wil50
 three sweeps over the active inequalities are made per iteration, and one
 elsewhere. These are the settings of the branch-and-bound runs of the
 companion paper~\cite{companion}; they were not tuned for the root.
-\todo{Compiler and OS versions of the laptop.}
+The code was compiled with Apple clang 17.0.0 under macOS 26.7.1, and each
+bound was computed with nothing else running on the machine.
 % SOURCE: docs/dnn_plus/runs/*/plus.par (dnn.beta, dnn.beta_sched wc, or w when
 % wc is unset; cut.cp_sweeps). dnn.beta is "a multiple of dnn.py's m/3"
 % (RUNNING.md); say what m is when the penalty is defined in Section 3.
@@ -879,18 +881,18 @@ milliseconds.}\label{tab:cost}
  & \multicolumn{2}{c}{DNN} & \multicolumn{3}{c}{$\DNNp$}\\
 Problem & iterations & CPU s & iterations & CPU s & ms/it.\\
 \midrule
-nug30 & 4,000 & 67 & 6,200 & 137 & 22\\
-sko42 & 4,000 & 507 & 6,300 & 798 & 127\\
-sko49 & 4,000 & 951 & 6,300 & 1,236 & 196\\
-tho40 & 4,000 & 362 & 6,250 & 600 & 96\\
-wil50 & 4,000 & 982 & 6,300 & 1,406 & 223\\
+nug30 & 4,000 & 43 & 6,200 & 84 & 14\\
+sko42 & 4,000 & 268 & 6,300 & 486 & 77\\
+sko49 & 4,000 & 551 & 6,300 & 1,011 & 160\\
+tho40 & 4,000 & 195 & 6,250 & 353 & 56\\
+wil50 & 4,000 & 563 & 6,300 & 1,166 & 185\\
 \midrule
-tai25b & 4,000 & 26 & 6,110 & 50 & 8\\
-tai30b & 4,000 & 61 & 6,300 & 125 & 20\\
-tai35b & 4,000 & 138 & 6,190 & 276 & 45\\
-tai40b & 4,000 & 301 & 6,470 & 548 & 85\\
-tai50b & 4,000 & 900 & 6,380 & 1,190 & 187\\
-tai60b & 4,000 & 1,870 & 6,470 & 2,530 & 391\\
+tai25b & 4,000 & 18 & 6,110 & 34 & 6\\
+tai30b & 4,000 & 42 & 6,300 & 82 & 13\\
+tai35b & 4,000 & 94 & 6,190 & 170 & 27\\
+tai40b & 4,000 & 181 & 6,470 & 341 & 53\\
+tai50b & 4,000 & 623 & 6,380 & 1,038 & 163\\
+tai60b & 4,000 & 1,471 & 6,470 & 2,362 & 365\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -908,27 +910,35 @@ and 40\% for tho40), in line with the observation of \cite{dmswz} that triangle
 inequalities on partition relaxations gain most on sparse graphs. For each of
 the eight problems with $n\ge35$ the $\DNNp$ value is above the best lower bound
 we have found in the literature. \todo{Check against the current QAPLIB
-listings by hand; the site was not reachable from the sessions that wrote this.} All eleven
-$\DNNp$ values were still rising when stopped, by $10^{-5}$ to $10^{-4}$ of the
-best known value over the last 500 iterations, so they are not the values of
-the relaxation with all regional triangle inequalities, which we have not
-computed.
+listings by hand; the site was not reachable from the sessions that wrote this.} 
+
+The $\DNNp$ values of Table~\ref{tab:large} are not the values of the relaxation
+with all regional triangle inequalities, which we have not computed: all
+eleven were still rising when stopped, by $10^{-5}$ to $10^{-4}$ of the best
+known value over the last 500 iterations. Figure~\ref{fig:hist} shows how
+little is left. With 20,000 cutting-plane iterations in place of 6,000 the
+bound for wil50 rises from 48,299 to 48,303, that for tho40 from 230,634 to
+230,660, and that for tai50b from 455,449,197 to 455,919,511, which takes its
+gap from 0.73\% to 0.63\%.
+% SOURCE: runs_long/results.txt (laptop, Nov 25): 48,302.31; 230,659.65; 455,919,510.84.
+
+\begin{figure}[t]\centering
+\includegraphics[width=\textwidth]{fig_history.pdf}
+\caption{The certified $\DNNp$ value at each check of a cutting-plane phase of
+20,000 iterations, as the gap to the best known value. The dashed line is the
+certified DNN bound after 4,000 iterations.}\label{fig:hist}
+\end{figure}
+% SOURCE: fig_history.py from runs_long/*/plus.trace and runs_serial/results.txt.
 
 \subsection{Cost}
 
-Table~\ref{tab:cost} gives the work for each bound. An iteration with cuts
-costs between 0.8 and 1.3 times an iteration without at the same size (the
-projection adds work, and the eigensolver has less to do on the iterates of the
-cut phase), so the strengthening is paid for in iterations, not in cost per
-iteration. \todo{These runs shared the laptop four at a time; repeat the
-timings one at a time before quoting them.} For orientation only, since the machines and stopping rules differ,
+Table~\ref{tab:cost} gives the work for each bound. Averaged over a run, an iteration of
+the $\DNNp$ computation costs 1.0 to 1.3 times an iteration of the DNN
+computation at the same size, so the strengthening is paid for in iterations
+more than in cost per iteration. For orientation only, since the machines and stopping rules differ,
 the published times for the DNN relaxation of wil50 are 6,133 s (rPRSM,
 \cite{graham}), about 13,000 s (NB, \cite{kkt}) and 67,000 s (BBCPOP,
-\cite{bbcpop}); the $\DNNp$ bound of Table~\ref{tab:large} took 1,406 s.
-\todo{Figure: certified bound against iterations for one grid problem and one
-tai$n$b problem, with and without cuts, from the histories in
-\texttt{runs/*/plus.trace}. The DNN arm did not record a history; rerun it with
-one if the figure is wanted.}
+\cite{bbcpop}); the $\DNNp$ bound of Table~\ref{tab:large} took 1,166 s.
 
 \section{Conclusion}
 
