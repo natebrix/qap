@@ -122,3 +122,19 @@ are even), warm, on cognac 2a6adef (`warm_sko42.tsv`):
 python3 dive.py OUT --warm --instance qaplib/sko42t.dat --sln sko42.sln --transposed \
   --params ../experiments/estimates/sko42/sko42.par --sym SYM/sko42t.sym --grid 6x7 --plus 2
 ```
+
+## wil50 with the estimate's best-guess recipe (Nov 24): PASS
+
+`infra/phase1/recipes/wil50_d2r10_g150xl2.par` (`wil50_d2r10.par` with `cut.cp_wc_gap = 150`,
+`cut.cp_extrap = 100:1:30:2` and `branch.xbar_lines = 2`; `wil50-est-261124` runs under it), warm, from
+48,818 toward `wil50.sln` (`warm_wil50_d2r10_g150xl2.tsv`): 48 nodes to depth 47, every one branched and kept
+the path child, and the leaf enumerated 48,816 (another optimal permutation). The highest bound on the path is
+48,816.0000. The lines are `wil50_d2r10`'s down to depth 4 (r21, c0, r31, c40, c49) and others from depth 5,
+where the wider shortlist first picks another (c9 for c48). 3,442 CPU s here (`wil50_d2r10`: 3,389). The
+recipe file says nothing of this check: a run's states carry the file's hash, so it is not edited while
+`wil50-est-261124`'s paused solve may be resumed or sampled.
+
+```
+python3 dive.py OUT --warm --instance qaplib/wil50t.dat --sln wil50.sln --transposed \
+  --params ../infra/phase1/recipes/wil50_d2r10_g150xl2.par --sym SYM/wil50t.sym --grid 5x10 --plus 2
+```
