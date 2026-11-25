@@ -4,6 +4,7 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
+| [wil50-est-261124](runs/wil50-est-261124/readout.md) | paused | **PART-WAY**: the estimate's dives run wil50-est-261124-dives is running, 997 of 998 dives units merged | PART-WAY, SLOW PENDING, SETUP-BOUND, WIDE | 2026-11-24 16:47 | - |
 | [sko42-261124](runs/sko42-261124/readout.md) | finished | **COMPLETE**: solved, best objective 15812 | - | 2026-11-24 07:32 | 2026-11-24 12:45 |
 | [21-3_34-0](runs/21-3_34-0/readout.md) | finished | **COMPLETE**: solved, best objective 48818 | - | 2026-11-24 05:03 | 2026-11-24 05:06 |
 | [21-0_45-13](runs/21-0_45-13/readout.md) | finished | **COMPLETE**: solved, best objective 48818 | - | 2026-11-24 04:56 | 2026-11-24 05:00 |
