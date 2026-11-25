@@ -5,7 +5,8 @@
 #   docs/dnn_plus/root_bound.sh PROBLEM [PROBLEM ...]
 #   printf '%s\n' sko42 sko49 wil50 tho40 | xargs -P 4 -n 1 docs/dnn_plus/root_bound.sh   # four at a time
 #
-# Problems: sko42 sko49 wil50 tho40 nug30 tho30 kra30a kra30b tai25b tai30b tai35b tai40b tai50b tai60b.
+# Problems: sko42 sko49 wil50 tho40 nug30 tho30 tai25b tai30b tai35b tai40b tai50b tai60b, and (DNN only)
+# the small and medium problems of the paper's first table: esc16*, had*, kra30*, nug12-25, rou*, scr*, tai*a.
 # Environment: ITERS (cut-phase iteration limit, default 6000), ARMS ("plain plus"),
 # OUT (default docs/dnn_plus/runs).
 #
@@ -30,7 +31,7 @@ REC=infra/phase1/recipes
 REG=experiments/bound_lab/regions/regions
 
 for P in "$@"; do
-  CUTS=""; GRID=""
+  CUTS=""; GRID=""; ARMS_P=$ARMS
   case $P in
     sko42)  PAR=$REC/sko42_d2r10_sb.par; DAT=qaplib/sko42t.dat; BEST=15812;     STEP=2 ;;
     sko49)  PAR=$REC/sko49_d2r10_sb.par; DAT=qaplib/sko49t.dat; BEST=23386;     STEP=2 ;;
@@ -40,8 +41,12 @@ for P in "$@"; do
             GRID="pool.on = 1|cut.grid = 5:6|cut.side = 1|cut.cp = 100:1000|cut.warmy = 1" ;;   # its recipe has no cut phase
     tho30)  PAR=$REC/nug30.par;          DAT=qaplib/tho30.dat;  BEST=149936;    STEP=2
             GRID="pool.on = 1|cut.grid = 3:10|cut.side = 1|cut.cp = 100:1000|cut.warmy = 1" ;;
-    kra30a) PAR=$REC/nug30.par; DAT=qaplib/kra30a-old.dat; BEST=88900; STEP=10; ARMS=plain ;;   # QAPLIB's originals; no regions
-    kra30b) PAR=$REC/nug30.par; DAT=qaplib/kra30b-old.dat; BEST=91420; STEP=10; ARMS=plain ;;
+    kra30a|kra30b|esc16[a-j]|had1[2468]|had20|nug1[2-8]*|nug2[0-5]|rou*|scr*|tai1[257]a|tai2[05]a|tai30a)
+            # the small and medium problems of the 42-instance table: the DNN bound only
+            PAR=$REC/nug30.par; DAT=qaplib/$P.dat; ARMS_P=plain
+            case $P in kra30*) DAT=qaplib/$P-old.dat ;; esac                                # QAPLIB's originals
+            BEST=$(awk 'NR == 1 {print $2; exit}' QAPSOLN/$P.sln | tr -d '\r[:space:]')
+            STEP=$(python3 infra/phase1/objstep.py "$DAT" | awk '{print $1}') ;;
     tai25b|tai30b|tai35b|tai40b)
             PAR=$REC/tai50b.par; DAT=qaplib/$P.dat; STEP=1; CUTS=$R/$REG/$P.comb.txt
             BEST=$(awk 'NR == 1 {print $2; exit}' QAPSOLN/$P.sln | tr -d '\r[:space:]') ;;
@@ -52,7 +57,7 @@ for P in "$@"; do
   for f in "$PAR" "$DAT" ${CUTS:+"$CUTS"}; do [ -f "$f" ] || { echo "$P: missing $f"; exit 2; }; done
   [[ $BEST =~ ^[0-9]+$ ]] || { echo "$P: no best known value"; exit 2; }
   D=$OUT/$P; mkdir -p "$D"
-  for ARM in $ARMS; do
+  for ARM in $ARMS_P; do
     # the recipe without the keys this script sets
     grep -v -E '^(dnn\.depths|sb\.|cut\.(zone|handover|stall|cp_iters|giveup|giveup_depth|freeze|cp_wc_gap|regions|equip|pgate))' \
       "$PAR" > "$D/$ARM.par"

@@ -42,28 +42,28 @@
 \maketitle
 
 \begin{abstract}
-We describe a lower bound for the quadratic assignment problem (QAP) that extends
-the doubly nonnegative (DNN) semidefinite relaxation in two ways. First, the bound
-is \emph{certified}: it is the dual value of an ADMM multiplier whose projection
-onto the relaxation's face is negative semidefinite by construction, evaluated by
-a Gilmore--Lawler computation on the lifted cost matrix, less explicit
-floating-point allowances, so that it is a valid bound after any number of
-iterations. Second, the relaxation is strengthened by \emph{regional} triangle
-inequalities: Boolean-quadric inequalities on the indicators that a facility is
-assigned to a given set of locations. For sets that decompose the distance matrix
-(row and column prefixes of a rectangular grid, or half-planes and clusters for
-near-planar distances) these inequalities act directly on the terms of the
-objective, are linear in the DNN matrix, and are not implied by the DNN
-relaxation. They are enforced inside the ADMM by a cutting-plane projection, at a
-cost of a few per cent per iteration, and every intermediate value remains
-certified. We call the result $\DNNp$. At the root it closes 25\% to 33\% of the gap between
+We describe a lower bound for the quadratic assignment problem (QAP) that makes
+the doubly nonnegative (DNN) semidefinite relaxation stronger and faster to use.
+It is stronger through \emph{regional} triangle inequalities: Boolean-quadric
+inequalities on the indicators that a facility is assigned to a given set of
+locations. For sets that decompose the distance matrix (row and column prefixes
+of a rectangular grid, or half-planes and clusters for near-planar distances)
+these inequalities act directly on the terms of the objective, are linear in the
+DNN matrix, and are not implied by the DNN relaxation. It is faster because the
+bound is \emph{certified}: it is the dual value of an ADMM multiplier whose
+projection onto the relaxation's face is negative semidefinite by construction,
+evaluated by a Gilmore--Lawler computation on the lifted cost matrix, so that
+it is a valid bound after any number of iterations and a computation can stop
+as soon as it has proved what is needed. The inequalities are enforced inside
+the ADMM by a cutting-plane projection, at a cost of a few per cent per
+iteration, and every intermediate value remains certified. We call the result $\DNNp$. At the root it closes 25\% to 33\% of the gap between
 the DNN bound and the best known value on the large grid problems of QAPLIB
 (for example tho40, from 226,522 to 230,634, and wil50, from 48,126 to 48,299)
 and 82\% to 99.5\% on Taillard's tai$n$b problems (tai50b, from 431,245,612 to
 455,449,197; tai60b, from 592,829,061 to 606,041,781), in each case within
-under an hour on one core. We also describe the properties
-that make the bound usable in branch and bound: validity at every iteration, warm
-starts from a parent's state, and cuts that are inherited by a node's children.
+under an hour on one core. In branch and bound, a node's children start from its
+multipliers and inherit its cuts, which reduces the iterations they need
+several times over.
 \end{abstract}
 
 \section{Introduction}
@@ -107,37 +107,48 @@ at every node of a branch-and-bound tree on large parallel computers. The best
 published lower bounds for the large unsolved QAPLIB problems are all values of
 this one relaxation, differing in the last digits with the accuracy of the solver.
 
-This paper extends the DNN bound in two directions.
+This paper extends the DNN bound in two directions: it makes the bound stronger,
+and it makes it faster to use in branch and bound.
+
+\emph{Stronger: regional cuts} (Section~\ref{sec:cuts}). For a set $S$ of
+locations, the indicators $z_i = \sum_{a\in S}x_{ia}$ that facility $i$ is placed
+in $S$ are binary, and their first and second moments are linear functions of
+the DNN matrix. The triangle inequalities of the Boolean quadric polytope
+\cite{padberg} on these moments are valid for the QAP and not implied by the DNN
+relaxation. When the sets $S$ are chosen so that the distance matrix is a
+nonnegative combination of their cut semimetrics, as it is exactly for the
+Manhattan distances of grid problems and approximately for the clustered
+distances of Taillard's ``b'' problems, the inequalities constrain exactly the
+quantities that appear in the objective. Triangle inequalities on the entries of
+the lifted matrix itself, by contrast, gain almost nothing.
+
+\emph{Faster}, in three ways.
 \begin{itemize}
-\item[(i)] \emph{A certified bound} (Section~\ref{sec:cert}). First-order iterates
-  are neither primal feasible nor dual optimal, and published DNN bounds are
-  obtained by running a solver to a tolerance and evaluating a dual function at the
-  final iterate. We give a bound that is valid for \emph{any} multiplier, with
-  explicit allowances for floating-point error, and a choice of multiplier and of
-  polyhedral relaxation that make it tight and cheap to evaluate at every few
-  iterations. The dual function is that of \cite{graham}; the multiplier, the
-  two-level assignment evaluation and the error analysis are new.
-\item[(ii)] \emph{Regional cuts} (Section~\ref{sec:cuts}). For a set $S$ of
-  locations, the indicators $z_i = \sum_{a\in S}x_{ia}$ that facility $i$ is placed
-  in $S$ are binary, and their first and second moments are linear functions of
-  the DNN matrix. The triangle inequalities of the Boolean quadric polytope
-  \cite{padberg} on these moments are valid for the QAP and not implied by the DNN
-  relaxation. When the sets $S$ are chosen so that the distance matrix is a
-  nonnegative combination of their cut semimetrics, as it is exactly for the
-  Manhattan distances of grid problems and approximately for the clustered
-  distances of Taillard's ``b'' problems, the inequalities constrain exactly the
-  quantities that appear in the objective. Triangle inequalities on the entries of
-  the lifted matrix itself, by contrast, gain almost nothing.
-\item[(iii)] \emph{Cuts inside the ADMM} (Section~\ref{sec:cpadmm}). Following the
-  cutting-plane ADMM of de Meijer et al.\ \cite{dmswz} for graph partition, the
-  inequalities are imposed in the polyhedral step of the ADMM by Dykstra's
+\item[(i)] \emph{A certified bound} (Section~\ref{sec:cert0}). First-order
+  iterates are neither primal feasible nor dual optimal, and published DNN
+  bounds are obtained by running a solver to a tolerance and evaluating a dual
+  function at the final iterate. We give a bound that is valid for \emph{any}
+  multiplier, with explicit allowances for floating-point error, and a choice
+  of multiplier and of polyhedral relaxation that make it tight and cheap to
+  evaluate every few iterations. A computation can then stop at the first
+  iteration that proves what is needed, which in branch and bound is long
+  before convergence. The dual function is that of \cite{graham}; the
+  multiplier, the two-level assignment evaluation and the error analysis are
+  new.
+\item[(ii)] \emph{Cuts inside the ADMM} (Section~\ref{sec:cpadmm}). Following
+  the cutting-plane ADMM of de Meijer et al.\ \cite{dmswz} for graph partition,
+  the inequalities are imposed in the polyhedral step of the ADMM by Dykstra's
   algorithm, which here reduces to updates on the small moment matrices of the
-  regions. The multipliers of that projection extend the certificate of (i), so
-  that the bound with cuts is also valid at every iteration.
+  regions. This reaches a given bound in about five times fewer iterations than
+  re-solving with updated multipliers, and the multipliers of the projection
+  extend the certificate of (i), so that the bound with cuts is also valid at
+  every iteration.
+\item[(iii)] \emph{Reuse from node to node} (Section~\ref{sec:bnb}). A child
+  subproblem starts from its parent's multiplier and primal matrix and inherits
+  its parent's active cuts.
 \end{itemize}
-We call the resulting bound $\DNNp$. Section~\ref{sec:bnb} describes the
-properties that matter for its use in branch and bound, and
-Section~\ref{sec:results} compares it with published bounds. The validation of the
+We call the resulting bound $\DNNp$. Section~\ref{sec:results} compares it with
+published bounds. The validation of the
 bound is described in Appendix~\ref{sec:validation}.
 
 The bound was developed for a branch-and-bound code descended from that of
@@ -198,25 +209,12 @@ $\mathcal{Y} = \{Y: Y_{00}=1, \mathcal{G}(Y)=0, 0\le Y\le1\}$ is a box with fixe
 entries (so $\Pi_{\mathcal{Y}}$ is entrywise clipping), $\beta>0$ is the penalty
 and $\gamma\in(0,\frac{1+\sqrt5}{2})$ the dual step.
 
-\paragraph{Published bounds.} The values of \eqref{eq:dnn} reported in the
-literature are obtained by running a first-order method to a tolerance, typically
-$10^{-5}$ in relative residuals, and evaluating a dual function at the final
-iterate, rounded up for integer data \cite{owx,graham,kkt,bbcpop}. Graham et
-al.\ \cite{graham} strengthen the subproblems with the redundant constraint
-$\tr R = m+1$ and with the constraints of the polyhedral set, which improves the
-dual function and the convergence but not the value of the relaxation. For a
-branch-and-bound algorithm, in which a bound is needed after a few hundred
-iterations at most and an invalid bound invalidates the proof, we need more: a
-number that is below the optimum whatever the state of the iteration.
-
 \section{A certified bound}\label{sec:cert0}
 
 \subsection{A bound from any multiplier}\label{sec:cert}
 
-ADMM iterates are neither primal feasible nor dual optimal, and the primal value
-$\inner{L}{Y}$ is not a bound: stopped early, it can lie above the optimum.
-Branch and bound needs a number that is provably below the subproblem optimum after
-any number of iterations. We obtain one from the multiplier.
+Stopped early, the primal value $\inner{L}{Y}$ of an ADMM iterate can lie above
+the optimum. A valid bound is obtained from the multiplier instead.
 
 \begin{lemma}\label{lem:trace}
 Every lifted permutation $Y = yy^T$ satisfies $Y = VRV^T$ with
@@ -250,7 +248,8 @@ Hence
 \end{proof}
 
 The same bound appears as the dual function of Graham et al.\ \cite[eq.~(3.11),
-Thm.~3.4]{graham}. Proposition~\ref{prop:cert} holds for every $Z$; the quality of
+Thm.~3.4]{graham}, who add the redundant constraint $\tr R = m+1$ to the
+subproblems of their method. Proposition~\ref{prop:cert} holds for every $Z$; the quality of
 the bound depends on $Z$ being near a dual optimum of \eqref{eq:dnn}, and on
 choosing $Z$ so that $\lambda$ can be small. Two choices of $\mathcal{P}$ and one of
 $Z$ make it both cheap and tight.
@@ -297,89 +296,51 @@ Hungarian solves when the result is within a small gap of the cutoff.
 \begin{remark}
 Nothing in the certificate depends on the ADMM having converged, on the accuracy
 of its eigenvectors, or on the single-precision arithmetic used in the $R$-step
-(Section~\ref{sec:impl}). Only the multiplier $Z'$, the Cholesky test below and
+(Section~\ref{sec:impl}). Only the multiplier $Z'$, the Cholesky test of Appendix~\ref{sec:fp} and
 \eqref{eq:glbound} enter the certified value, all in double precision.
 \end{remark}
 
-\subsection{Floating-point safety}\label{sec:fp}
-
-We assume IEEE binary64 arithmetic with rounding to nearest, an extended type
-(\texttt{long double}) with a $p$-bit significand ($p=64$ on x86), and no overflow
-or underflow; a non-finite value anywhere yields no certificate. The certified
-value is $s + \GL(L+Z') - \mu$, rounded down, where the inputs and the margin $\mu$
-cover:
-\begin{itemize}
-\item[(o)] the subproblem data: $s$ and the reduced linear term $C$, sums of
-  products that can cancel, are replaced by lower bounds (exact when all operands
-  are multiples of $\frac12$ and the sum of magnitudes is below $2^{p-2}$, as for
-  integer data; otherwise the extended-precision sum less $(k+2)\,2^{-p}\sum|t|$
-  for $k$ terms $t$, rounded down). Bounds for the lowered subproblem are bounds for
-  the exact one, since assignment variables are nonnegative;
-\item[(i)] $(m+1)\lambda$ with $\lambda\ge\lmax(V^TZ'V)$, obtained by Rump's
-  criterion \cite{rump}: if the floating-point Cholesky factorization of
-  $\delta I - S$ succeeds for the computed $S \approx V^TZ'V$, then
-  $\lmax(S) \le \delta + c$ with an explicit $c$ depending on the dimension, the
-  unit roundoff $u$ and $\tr(\delta I - S)$. To this is added
-  $64\,m\,u\,\|Z'\|_F$ for the error of computing $S$ through Householder
-  transforms rather than with an exact $V$;
-\item[(ii)] the summation and rounding errors of \eqref{eq:glbound}, accumulated in
-  extended precision: $8(m+2)u\,\|M\|_1$, plus $(m+2)u\sum_{(ij),(kl)}
-  \frac12(|a_{ik}b_{jl}|+|a_{ki}b_{lj}|)$ for forming and scaling $L$.
-\end{itemize}
-These are standard error bounds with generous constants, not interval arithmetic,
-and not every constant is derived here: the allowance $64\,m\,u\|Z'\|_F$ for the
-Householder transforms rests on a standard backward-error argument and was checked
-empirically (errors at most $2.1\,u\|Z'\|_F$), not proved. At $m=28$ the largest
-margin seen was about $10^{-7}$ in objective units, against integer objective
-values.
+\paragraph{Floating-point arithmetic.} The certified value is computed in
+double precision with explicit allowances for rounding error in the subproblem
+data, in the bound on $\lmax(V^TZ'V)$, which is obtained from a Cholesky
+factorization by the criterion of Rump \cite{rump}, and in the sums of
+\eqref{eq:glbound}. The allowances are given in Appendix~\ref{sec:fp}; the
+largest we have seen is about $10^{-7}$ in objective units.
 
 \subsection{Implementation}\label{sec:impl}
 
-The bound is implemented in C++ with LAPACK and BLAS.
+Three choices keep an iteration cheap; none of them enters the certified value.
 
-\paragraph{Products with $V$.} Forming $V$ explicitly and computing $V^TMV$ and
-$VRV^T$ with dense products of order $N\times N$ costs $O(m^6)$. We take for
-$V_m$ the first $m-1$ columns of the Householder reflector $H$ with
-$He_{m-1} = e/\sqrt m$. Then $V^TMV$ and $VRV^T$ are a reflection along each of the
-four tensor modes plus a $2\times2$ rotation coupling the constant coordinate,
-$O(m^4)$ per product. Both the $R$-step and the certificate are invariant under
-an orthogonal change of basis of the face, so any orthonormal $V$ gives the same
-iterates and bound.
+\paragraph{Products with $V$.} We take for $V_m$ the first $m-1$ columns of the
+Householder reflector $H$ with $He_{m-1} = e/\sqrt m$. Then $V^TMV$ and $VRV^T$
+are a reflection along each of the four tensor modes and a $2\times2$ rotation
+coupling the constant coordinate, at a cost of $O(m^4)$ where products with an
+explicit $V$ cost $O(m^6)$.
 
-\paragraph{Eigensolver.} Each $R$-step needs the projection of a $K\times K$
-symmetric matrix ($K = 730$ at $m=28$, $2{,}402$ at $m = 50$) with hundreds of
-eigenvalues of each sign, so a partial spectrum does not help directly. Between
-iterations the matrix changes little. We track its negative eigenspace by a
-Chebyshev-filtered subspace iteration in single precision (BLAS level 3), with a
-full single-precision eigendecomposition at intervals (every 20 to 120
-iterations). Because $R$ is formed as $W$ minus the computed negative part, the
-certificate is unaffected by the accuracy of the subspace. When a check fails the
-Cholesky test, or the semidefinite penalty alone decides whether the bound
-exceeds a given cutoff, the multiplier is re-projected in double precision before
-certifying. A similar design, polynomial-filtered projections with a tracked
-subspace in reduced precision, has since been proposed for first-order SDP solvers
-on GPUs \cite{kang,sunkang}.
+\paragraph{Eigensolver.} The matrix projected in the $R$-step has order
+$(m-1)^2+1$ and hundreds of eigenvalues of each sign, but it changes little
+between iterations. We track its negative eigenspace by a Chebyshev-filtered
+subspace iteration in single precision, with a full eigendecomposition every 20
+to 120 iterations. Because $R$ is formed as $W$ minus the computed negative
+part, the certificate is unaffected by the accuracy of the subspace. Similar
+designs have since been proposed for first-order SDP solvers on GPUs
+\cite{kang,sunkang}.
 
 \paragraph{The iteration.} The objective is scaled to $\max|L| = 1$. We use the
-Peaceman--Rachford form of the method \cite{graham}, with a second dual update
-between the $R$-step and the $Y$-step and $\gamma_1 = \gamma = 1$; the certificate
-is read from the $R$-step multiplier before that update. The penalty is
-$\beta = \theta\, m/3$ with $\theta = 0.21$ or $0.3$, and is changed by a fixed
-factor on entering the cutting-plane phase of Section~\ref{sec:cpadmm}; the
-values used are given in Section~\ref{sec:results}. A certificate is computed every 10
+Peaceman--Rachford form of the method \cite{graham}, with dual steps
+$\gamma_1 = \gamma = 1$ and penalty $\beta = \theta\,m/3$; the values of $\theta$
+are given in Section~\ref{sec:results}. A certificate is computed every 10
 iterations.
-
-Times per iteration are given in Section~\ref{sec:results}.
 
 \section{Regional cuts}\label{sec:cuts}
 
-The DNN relaxation is weak in a specific way on the problems that interest us.
-On a grid problem such as nug30 or wil50 its optimal $Y$ nearly satisfies every
+The gap that the DNN relaxation leaves on the problems that interest us has a
+specific form. On a grid problem such as nug30 or wil50 its optimal $Y$ nearly satisfies every
 triangle inequality of the Boolean quadric polytope on its own entries: at the
 root of nug30 the largest violation is $0.004$, and adding these inequalities
 raised the bounds of two difficult nug30 subproblems by 0.2 and 0.4, against gaps
 of 76 and 29. % SOURCE: experiments/dnn_cuts/README.md
-The slack of the relaxation is not in triples of individual assignments but in
+What remains to be gained is not in triples of individual assignments but in
 aggregates of them.
 
 \subsection{Regional moments}
@@ -552,7 +513,7 @@ $L + \sum_t\mu_tG_t$.
 
 So a bound with cuts is the certified bound of Section~\ref{sec:cert0} for a
 modified cost matrix, less a constant. The floating-point margins of
-Section~\ref{sec:fp} are extended by the magnitudes of the added terms, with
+Appendix~\ref{sec:fp} are extended by the magnitudes of the added terms, with
 $\sum_t\mu_th_t$ rounded up.
 
 \subsection{Cuts inside the ADMM}\label{sec:cpadmm}
@@ -771,7 +732,7 @@ solve without cuts of 110 to 470 iterations followed by 6,000 iterations of the
 cutting-plane form, with 1,000 inequalities added every 100 iterations. The
 regions are the row and column prefixes of the grid for nug30, sko42, sko49,
 tho40 and wil50, and the cluster regions of Section~\ref{sec:regions} for the
-tai$n$b problems. The ADMM penalty, in the solver's units, is $0.21$ for nug30, tho40 and the
+tai$n$b problems. The penalty parameter $\theta$ of Section~\ref{sec:impl} is $0.21$ for nug30, tho40 and the
 tai$n$b problems and $0.3$ for sko42, sko49 and wil50. The cutting-plane
 iterations run at a multiple of it: $2.88$ for tho40 and the tai$n$b problems,
 $1.4$ for sko42 and sko49, $0.7$ for wil50 and $0.36$ for nug30. For wil50
@@ -934,9 +895,12 @@ tai60b & 4,000 & 1,471 & 6,470 & 2,362 & 365\\
 \end{tabular}
 \end{table}
 
-The DNN column reproduces the published bounds to within 0.04\%; our values are
-slightly lower because they are certified values after a fixed 4,000 iterations,
-not dual values at convergence. With regional cuts the bound improves on every
+The published values are obtained by running a first-order method to a
+tolerance, typically $10^{-5}$ in relative residuals, and evaluating a dual
+function at the final iterate, rounded up for integer data
+\cite{owx,graham,kkt,bbcpop}. The DNN column reproduces them to within 0.04\%; our
+values are slightly lower because they are certified values after a fixed 4,000
+iterations, not dual values at convergence. With regional cuts the bound improves on every
 problem. On the six tai$n$b problems the cuts close 82\% to 99.5\% of the gap
 that the DNN relaxation leaves, and the bound is within 1\% of the best known
 value in every case. On the grid problems they close 25\% to 33\%: the gap of
@@ -1014,6 +978,38 @@ gap. Finally, the iteration consists almost entirely of dense level-3 linear
 algebra in single precision and would suit a GPU.
 
 \appendix
+\section{Floating-point safety}\label{sec:fp}
+
+We assume IEEE binary64 arithmetic with rounding to nearest, an extended type
+(\texttt{long double}) with a $p$-bit significand ($p=64$ on x86), and no overflow
+or underflow; a non-finite value anywhere yields no certificate. The certified
+value is $s + \GL(L+Z') - \mu$, rounded down, where the inputs and the margin $\mu$
+cover:
+\begin{itemize}
+\item[(o)] the subproblem data: $s$ and the reduced linear term $C$, sums of
+  products that can cancel, are replaced by lower bounds (exact when all operands
+  are multiples of $\frac12$ and the sum of magnitudes is below $2^{p-2}$, as for
+  integer data; otherwise the extended-precision sum less $(k+2)\,2^{-p}\sum|t|$
+  for $k$ terms $t$, rounded down). Bounds for the lowered subproblem are bounds for
+  the exact one, since assignment variables are nonnegative;
+\item[(i)] $(m+1)\lambda$ with $\lambda\ge\lmax(V^TZ'V)$, obtained by Rump's
+  criterion \cite{rump}: if the floating-point Cholesky factorization of
+  $\delta I - S$ succeeds for the computed $S \approx V^TZ'V$, then
+  $\lmax(S) \le \delta + c$ with an explicit $c$ depending on the dimension, the
+  unit roundoff $u$ and $\tr(\delta I - S)$. To this is added
+  $64\,m\,u\,\|Z'\|_F$ for the error of computing $S$ through Householder
+  transforms rather than with an exact $V$;
+\item[(ii)] the summation and rounding errors of \eqref{eq:glbound}, accumulated in
+  extended precision: $8(m+2)u\,\|M\|_1$, plus $(m+2)u\sum_{(ij),(kl)}
+  \frac12(|a_{ik}b_{jl}|+|a_{ki}b_{lj}|)$ for forming and scaling $L$.
+\end{itemize}
+These are standard error bounds with generous constants, not interval arithmetic,
+and not every constant is derived here: the allowance $64\,m\,u\|Z'\|_F$ for the
+Householder transforms rests on a standard backward-error argument and was checked
+empirically (errors at most $2.1\,u\|Z'\|_F$), not proved. At $m=28$ the largest
+margin seen was about $10^{-7}$ in objective units, against integer objective
+values.
+
 \section{Validation}\label{sec:validation}
 
 A branch-and-bound proof is only as good as its bounds, so the DNN bound was
@@ -1086,14 +1082,14 @@ checked in several independent ways.
   with $ab = 2^{64}+2^{34}+3$ and $c = -(2^{64}+2^{34})$ the extended-precision
   product rounds by 1 before cancelling, and both the $m=1$ path and a reduced
   subproblem fathomed at a cutoff equal to the optimum. These data now get the
-  lower bounds of item (o) in Section~\ref{sec:fp}; both cases, and the
+  lower bounds of item (o) in Appendix~\ref{sec:fp}; both cases, and the
   adversarial ones above, are regression tests (\texttt{tests/dnn\_test.py}, part D)
   that check the bound against optima computed in exact rational arithmetic.
 \end{itemize}
 
 \paragraph{Limitations.} The certificate is a theorem in exact arithmetic
 (Proposition~\ref{prop:cert} and \eqref{eq:glbound}). In floating point it rests
-on the margins of Section~\ref{sec:fp}: standard error bounds with generous
+on the margins of Appendix~\ref{sec:fp}: standard error bounds with generous
 constants under the stated arithmetic model, not interval arithmetic, and not
 every constant is derived. The validation above is strong regression evidence, not
 a formal verification. For the nug instances the data are small integers, so the

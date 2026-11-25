@@ -84,3 +84,17 @@ value at the limit. Not blocking the first draft (Nathan, Nov 24); to do later:
   `26:10,8:0,33:32`, wil50 `27:39,48:30,49:25`, tai35b's root (pool arms only).
   `warm_pool_summary.py` prints the tables. Done Nov 25 on the laptop (`runs_warm/`); in the paper as Table `tab:warm`.
 - **QAPLIB's current listings**, by hand: the site is not reachable from cloud sessions.
+
+## The 42-instance table on the laptop (proposed Nov 25)
+
+`root_bound.sh` now takes the small and medium problems of the paper's first table (DNN arm only,
+nug30's settings, 4,000 iterations). One command reruns the whole table on the laptop:
+
+    OUT=$PWD/docs/dnn_plus/runs_small docs/dnn_plus/root_bound.sh esc16a esc16b esc16c esc16d esc16e \
+      esc16g esc16h esc16i esc16j had12 had14 had16 had18 had20 kra30a kra30b nug12 nug14 nug15 nug16a \
+      nug16b nug17 nug18 nug20 nug21 nug22 nug24 nug25 nug30 rou12 rou15 rou20 scr12 scr15 scr20 tai12a \
+      tai15a tai17a tai20a tai25a tai30a tho30
+
+Checked in a cloud container on esc16a, nug12, had12, scr12. With one setting for every problem some
+values come out lower than the Nov 5 table's (esc16a 62.56, so 63 against 64): the Nov 5 runs used
+other settings. Decide: one setting for all, or settings per family.
