@@ -98,3 +98,10 @@ nug30's settings, 4,000 iterations). One command reruns the whole table on the l
 Checked in a cloud container on esc16a, nug12, had12, scr12. With one setting for every problem some
 values come out lower than the Nov 5 table's (esc16a 62.56, so 63 against 64): the Nov 5 runs used
 other settings. Decide: one setting for all, or settings per family.
+
+Done Nov 25-26 (`runs_small/`), one setting, and the paper's first table is filled from it. Five esc16
+entries and nine others are lower than the Nov 5 table's, by 1 to 6. **nug25 failed on the laptop**:
+`status error` at iteration 2,662 (the eigendecomposition returned an error; `latest/dnn.C`, `proj_psd`),
+reported bound 1,707.38. The same command in a Linux cloud container ran 4,000 iterations and gave
+3,625.85, which is the table's entry for now. To do: rerun nug25 on the laptop; if it repeats, it is a
+solver matter (Accelerate's eigensolver on this matrix), not a paper matter.

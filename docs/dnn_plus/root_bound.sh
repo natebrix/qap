@@ -80,9 +80,9 @@ for P in "$@"; do
     [ -s "$D/$ARM.trace" ] || { echo "$P $ARM: no trace (exit $rc); see $D/$ARM.log"; continue; }
     awk -v p="$P" -v arm="$ARM" -v best="$BEST" -v c="$(git rev-parse --short HEAD)" -v h="$(uname -sm | tr ' ' '-')" '
       { for (i = 1; i <= NF; i++) { if ($i == "lb" && $(i-1) == "first") lb = $(i+1); if ($i == "best") cb = $(i+1)
-          if ($i == "iters") { n++; it[n] = $(i+1) } if ($i == "cpu") { m++; cpu[m] = $(i+1) } } }
+          if ($i == "status") { st = st (st == "" ? "" : ",") $(i+1) } if ($i == "iters") { n++; it[n] = $(i+1) } if ($i == "cpu") { m++; cpu[m] = $(i+1) } } }
       END { v = (arm == "plus" && cb != "") ? cb : lb; its = it[1] + (arm == "plus" ? it[2] : 0); t = cpu[1] + (arm == "plus" ? cpu[2] : 0)
-            printf "%s %s bound %.4f gap %.4f%% iters %d cpu_s %.0f first_lb %.4f commit %s host %s\n", p, arm, v, 100 * (best - v) / best, its, t, lb, c, h }' \
+            printf "%s %s bound %.4f gap %.4f%% iters %d cpu_s %.0f first_lb %.4f commit %s host %s status %s\n", p, arm, v, 100 * (best - v) / best, its, t, lb, c, h, st }' \
       "$D/$ARM.trace" | tee -a "$OUT/results.txt"
   done
 done

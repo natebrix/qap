@@ -725,8 +725,7 @@ tho40, subtree & DNN & 22,895 & 31,594\\
 \section{Computational results}\label{sec:results}
 
 All bounds in this section are computed at the root, from a cold start, on one
-core. Those of Tables~\ref{tab:large} and~\ref{tab:cost} were computed on an Apple
-M2 Pro laptop with the Accelerate BLAS. The DNN bound is the certified value
+core of an Apple M2 Pro laptop with the Accelerate BLAS. The DNN bound is the certified value
 after 4,000 iterations. The $\DNNp$ bound is the certified value after a first
 solve without cuts of 110 to 470 iterations followed by 6,000 iterations of the
 cutting-plane form, with 1,000 inequalities added every 100 iterations. The
@@ -752,27 +751,28 @@ optimum value and the lower bounds GLB, PB, QPB and SDPB1 reported there, togeth
 with the certified DNN bound of Section~\ref{sec:cert0}, without cuts, at the
 root. GLB, PB and SDPB1 (the cheapest SDP relaxation of \cite{zkrw}) are taken
 from \cite{zkrw}, and QPB is the bound computed in \cite{ab01} with one step of
-its dual improvement. The DNN bound was computed with up to 4,000 ADMM iterations.
+its dual improvement. The DNN bound is the certified value after 4,000 ADMM
+iterations, with the same parameters for every problem ($\theta = 0.21$).
 All bounds are rounded up to the next integer, since the data for these problems
 is integral.
 
 \begin{table}[p]\centering
 \caption{Bounds for QAPLIB problems. GLB, PB, QPB and SDPB1 from
 \cite[Table~1]{ab01}; DNN: the certified bound of Section~\ref{sec:cert0} at the
-root, after at most 4,000 ADMM iterations; --: held out (see text).}\label{tab:bounds}
+root, after 4,000 ADMM iterations.}\label{tab:bounds}
 \small
 \begin{tabular}{lrrrrrr}
 \toprule
 Problem & OPT & GLB & PB & QPB & SDPB1 & DNN\\
 \midrule
-esc16a & 68 & 38 & 47 & 55 & 47 & 64\\
+esc16a & 68 & 38 & 47 & 55 & 47 & 63\\
 esc16b & 292 & 220 & 250 & 250 & 250 & 290\\
-esc16c & 160 & 83 & 95 & 95 & 95 & 154\\
+esc16c & 160 & 83 & 95 & 95 & 95 & 153\\
 esc16d & 16 & 3 & $-$19 & $-$19 & $-$19 & 13\\
-esc16e & 28 & 12 & 6 & 6 & 6 & 27\\
+esc16e & 28 & 12 & 6 & 6 & 6 & 26\\
 esc16g & 26 & 12 & 9 & 9 & 9 & 25\\
-esc16h & 996 & 625 & 708 & 708 & 708 & 977\\
-esc16i & 14 & 0 & $-$25 & $-$25 & $-$25 & 12\\
+esc16h & 996 & 625 & 708 & 708 & 708 & 971\\
+esc16i & 14 & 0 & $-$25 & $-$25 & $-$25 & 11\\
 esc16j & 8 & 1 & $-$6 & $-$6 & $-$6 & 8\\
 \midrule
 had12 & 1652 & 1536 & 1573 & 1592 & 1604 & 1652\\
@@ -799,21 +799,21 @@ nug25 & 3744 & 2869 & 3190 & 3272 & 3305 & 3626\\
 nug30 & 6124 & 4539 & 5266 & 5365 & 5413 & 5950\\
 \midrule
 rou12 & 235528 & 202272 & 200024 & 206102 & 208685 & 235528\\
-rou15 & 354210 & 298548 & 296705 & 303777 & 306833 & 350217\\
-rou20 & 725520 & 599948 & 597045 & 607822 & 615549 & 695181\\
+rou15 & 354210 & 298548 & 296705 & 303777 & 306833 & 350216\\
+rou20 & 725520 & 599948 & 597045 & 607822 & 615549 & 695179\\
 \midrule
 scr12 & 31410 & 27858 & 4727 & 8585 & 11117 & 31410\\
 scr15 & 51140 & 44737 & 10355 & 12479 & 17046 & 51140\\
 scr20 & 110030 & 86766 & 16113 & 23960 & 28535 & 106802\\
 \midrule
 tai12a & 224416 & 195918 & 193124 & 199597 & 203595 & 224416\\
-tai15a & 388214 & 327501 & 325019 & 330310 & 333437 & 377101\\
-tai17a & 491812 & 412722 & 408910 & 416033 & 419619 & 476525\\
-tai20a & 703482 & 580674 & 575831 & 585139 & 591994 & 671675\\
-tai25a & 1167256 & 962417 & 956657 & 983456 & 974004 & 1096657\\
-tai30a & 1818146 & 1504688 & 1500407 & 1518059 & 1529135 & 1706870\\
+tai15a & 388214 & 327501 & 325019 & 330310 & 333437 & 377100\\
+tai17a & 491812 & 412722 & 408910 & 416033 & 419619 & 476524\\
+tai20a & 703482 & 580674 & 575831 & 585139 & 591994 & 671674\\
+tai25a & 1167256 & 962417 & 956657 & 983456 & 974004 & 1096653\\
+tai30a & 1818146 & 1504688 & 1500407 & 1518059 & 1529135 & 1706864\\
 \midrule
-tho30 & 149936 & 90578 & 119254 & 124684 & 125972 & 143576\\
+tho30 & 149936 & 90578 & 119254 & 124684 & 125972 & 143575\\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -821,14 +821,14 @@ tho30 & 149936 & 90578 & 119254 & 124684 & 125972 & 143576\\
 Over the 42 problems the DNN bound closes on average 88\% of the gap between
 QPB and the optimum, and at least 62\% on every problem. It equals the optimum
 on ten of them. With the row and column prefixes of its $3\times 10$ grid as
-regions, $\DNNp$ raises the bound for tho30 from 143,574 to 146,124, which
+regions, $\DNNp$ raises the bound for tho30 from 143,575 to 146,124, which
 closes 40\% of the remaining gap.
-% SOURCE: kra30a, kra30b (DNN, 4,000 iterations) and tho30 (DNN 143,573.65,
-% DNN+ 146,123.70 after 6,200 iterations) were run Nov 24-25 in a cloud
-% container with docs/dnn_plus/root_bound.sh at commit 5b21644b; see
-% root_runs.md. The table's tho30 entry 143,576 is the Nov 5 value (different
-% settings). kra30b: experiments/kra30_solve quotes 87,858; this run gives
-% 87,856.27. Whether the table keeps PB and SDPB1 is Nathan's call.
+\todo{nug25: the laptop run stopped with an eigensolver error at iteration
+2,662; the entry 3,626 is from the same run on a Linux machine (3,625.85).
+Rerun on the laptop.}
+% SOURCE: docs/dnn_plus/runs_small/results.txt (laptop, Nov 25-26, one setting: nug30's
+% recipe, 4,000 iterations); tho30 DNN 143,574.38, DNN+ 146,123.22 after 6,200 iterations.
+% Whether the table keeps PB and SDPB1 is Nathan's call.
 
 \subsection{Large problems}
 
