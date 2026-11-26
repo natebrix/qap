@@ -173,7 +173,7 @@ dnn.lazycert = 1
 # down to depth 24 (below depth 4 a node got the bound when its parent was a DNN miss)
 # and left the depths below 24 to QPB alone, where a run that must find or beat
 # the incumbent goes on its way to a leaf (experiments/estimates/README.md).
-dnn.depths = 0:48
+dnn.depths = 1:48
 dnn.maxgap = 1
 dnn.giveup = 300
 dnn.warm = 1
@@ -191,26 +191,29 @@ cut.cp_extrap = 100:1:30:2
 branch.xbar_lines = 2
 
 # --- wil50_d2r10_g150xl2_sb (Nov 26): wil50's next run. wil50_d2r10_g150xl2.par (the settings of
-# wil50-est-261124, kept unedited: that run's states carry its hash) with DNN strong branching at the root and
-# depth 1, as sko42_d2r10_sb and sko49_d2r10_sb: every row at the root (8th-power score), 4 rows and 4 columns
-# by marginal score at depth 1 (plain sum; rows only where symmetry is left), and dnn.depths from 0 above, which
-# the root's firing needs. Nathan, Nov 26: a hunch. Not measured on wil50: no subtree has been solved under a
-# changed line.
-# What the firings chose (experiments/wil50_sb on claude/cool-babbage-ilnogj: these settings, the root and
-# eight of its fifteen children fired, Nov 25-26): r45 at the root, a coin flip with wil50_d2r10's r21 (661.6
-# against 670.0 in the 8th-power norm, their children's shortfalls within about 20 location by location); under
-# r21, r45 at every depth-1 node fired, which is wil50_d2r10_g150xl2's line except at 21:10 and 21:1 (c0
-# there), 45% of wil50-est-261124's estimated work. A size model fitted to that estimate's shares puts r45 at
-# 0.73 to 0.83 of c0's work at 21:10 and 0.81 to 0.88 at 21:1: 7 to 11% of the tree [e], inside the model's and
-# the estimate's errors. The tree is not the estimate's from the root down.
-# The cost: the root's firing 750 child solves, 14.7 CPU h on one process inside qapctl init, on the coordinator,
-# before the workers have work; each depth-1 firing up to 376 solves and 6.8 CPU h (2.1 with symmetry left), at
-# most about 107 CPU h in all. As sko49: start with one worker and grow the group (start.sh wil50 again) once the
-# depth-1 nodes have branched.
+# wil50-est-261124, kept unedited: that run's states carry its hash) with DNN strong branching at depth 1:
+# 4 rows and 4 columns by marginal score (sb.k's default) at each of the fifteen depth-1 nodes (plain sum; rows
+# only where symmetry is left). Not at the root, and no DNN bound there: dnn.depths stays 1:48. Nathan, Nov 26: a hunch.
+# Not measured on wil50: no subtree has been solved under a changed line.
+# What the firings chose (experiments/wil50_sb on claude/cool-babbage-ilnogj: sb.depths = 0:1 with the DNN
+# bound from depth 0, the root and eight of its fifteen children fired, Nov 25-26): under r21, r45 at every
+# depth-1 node fired, which is wil50_d2r10_g150xl2's line except at 21:10 and 21:1 (c0 there), 45% of
+# wil50-est-261124's estimated work. A size model fitted to that estimate's shares puts r45 at 0.73 to 0.83 of
+# c0's work at 21:10 and 0.81 to 0.88 at 21:1: 7 to 11% of the tree [e], inside the model's and the estimate's
+# errors. Those nodes started warm from the root's DNN state there and start cold here (300 iterations, as in
+# the estimate); r45 led by 15 to 50% in score, so the same lines are expected [e].
+# Why not the root (first version of this file, 8d8f3876, sb.depths = 0:1): its firing took r45, a coin flip
+# with r21 (661.6 against 670.0 in the 8th-power norm, their children's shortfalls within about 20 location by
+# location), for 750 child solves and 14.7 CPU h on one process inside qapctl init, before any worker has
+# work, with no progress file (the coordinator sets no QAP_SB_PROGRESS); and r45 would take the run off the
+# tree the estimate, the tuning and the depth-1 firings describe, all under r21. Under r21 the root's line is
+# the estimate's.
+# The cost: each depth-1 firing up to 376 solves and 6.8 CPU h (2.1 with symmetry left), about 92 CPU h in
+# all, from minutes after the launch, in parallel on at most 15 slots for about 7 h. As sko49: start with one
+# worker and grow the group (start.sh wil50 again) once the depth-1 nodes have branched.
 # Open: the depth-1 exponent (sb.power's default 0:8,1:1 here). Tail-weighted scores fit the estimate's shares
 # better than the sum (a factor 1.3 against 2.1) and would take c9 or c40 at 21:0 and 21:10; five points, the
 # noisiest children, and nug30 measured the other way (latest/bnb.C). Left at the default.
-# Path check: wil50_d2r10_g150xl2's (PASS, above), which this file is less its two sb.* lines and the root's
-# DNN bound: strong branching chooses lines and never bounds a node.
-sb.depths = 0:1
-sb.all = 0
+# Path check: wil50_d2r10_g150xl2's (PASS, above), which this file is less its sb.depths line: strong branching
+# chooses lines and never bounds a node. Checked Nov 26: the root takes r21, 15 children, in 1.5 s.
+sb.depths = 1:1

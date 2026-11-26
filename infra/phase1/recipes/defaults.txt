@@ -12,9 +12,9 @@ sko42   infra/phase1/recipes/sko42_d2r10_sb.par
 # sko42-261120b's CPU); a solver process at n = 49-50 holds about 0.85 GB at the root, so the c7a default's 2 GiB a slot
 sko49   infra/phase1/recipes/sko49_d2r10_sb.par
 # wil50 (Nov 26): wil50_d2r10_g150xl2 (0.80 of wil50_d2r10's CPU on 133 depth-4 subtrees, wil50-tune-261125)
-# with DNN strong branching at the root and depth 1 (a hunch, not measured: the file's last comments). The
-# root's firing is one process, about 15 CPU h inside qapctl init on the coordinator, before the first worker
-# has work; then up to 7 h of depth-1 firings on at most 15 slots: start with one worker and grow the group.
+# with DNN strong branching at depth 1 (a hunch, not measured: the file's last comments; not at the root, a
+# coin flip there for 15 CPU h before any worker has work). The depth-1 firings take up to 7 h on at most 15
+# slots from minutes after the launch: start with one worker and grow the group once they have branched.
 wil50   infra/phase1/recipes/wil50_d2r10_g150xl2_sb.par
 tai50b  infra/phase1/recipes/tai50b.par
 # tai60b: a solver process at n = 60 holds about 2.3 GB (measured Nov 17), 3 with the parents' states it
