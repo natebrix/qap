@@ -60,6 +60,19 @@ a process). Checked on Linux by making the divide and conquer "fail" and return 
 
 `make regression dnncheck sb`: OK.
 
+**Confirmed on the laptop** (Nov 26, cognac 459f4089 with this branch's `latest/dnn.C` at 7a98bf2a):
+
+```
+=== one-thread
+dnn: sstedc returned info 125714 (K = 577): ssteqr instead, info 0
+first lb 3625.8559 primal 3625.7101 status iter_limit iters 4000 cpu 16.91
+=== default-threads
+first lb 3625.8555 primal 3625.7266 status iter_limit iters 4000 cpu 17.69
+```
+
+The one failure in 4,000 iterations, the solve to its limit, the bound within 0.0004 of the default-threading
+run's. Not yet on cognac.
+
 ## On the laptop
 
 From any checkout of the repository (it builds in a temporary worktree and touches nothing else; about a
