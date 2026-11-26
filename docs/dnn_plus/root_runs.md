@@ -105,3 +105,14 @@ entries and nine others are lower than the Nov 5 table's, by 1 to 6. **nug25 fai
 reported bound 1,707.38. The same command in a Linux cloud container ran 4,000 iterations and gave
 3,625.85, which is the table's entry for now. To do: rerun nug25 on the laptop; if it repeats, it is a
 solver matter (Accelerate's eigensolver on this matrix), not a paper matter.
+
+**nug25 on the laptop repeats** (Nathan, Nov 26, commit 44c284b5): `status error` at iteration 2,662 again,
+the same reported bound 1,707.3828 to the last digit. So it is deterministic on macOS (Accelerate) and
+does not occur on Linux (OpenBLAS), where the run completes at 3,625.8496. What is known:
+- `status error` comes from the R-step's projection returning false (`latest/dnn.C`, `proj_psd` /
+  `proj_psd_subspace`): a LAPACK call there returned a nonzero `info`. Which call is not known.
+- The reported bound, 1,707, is far below what the certificate must have reached by iteration 2,662 (the
+  primal is 3,625.59 and the Linux run's final value is 3,625.85). Suspected, not checked: on the error
+  path the result does not carry the best certified value seen so far.
+- Reproduce: `OUT=/tmp/x docs/dnn_plus/root_bound.sh nug25` on the laptop (11 s).
+The paper's nug25 entry stays the Linux value, with its red note, until this is resolved.
