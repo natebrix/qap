@@ -8,6 +8,7 @@
   from the 2000 nug30 solve and his thesis (`docs/sources/`), not from instinct.
 - Be persistent, but don't rush: settle a question with evidence before acting
   on it (a launch, a relaunch, a support case).
+- Give times in Pacific time (America/Los_Angeles), not UTC.
 
 ## Primary sources
 
