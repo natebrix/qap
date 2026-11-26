@@ -45,7 +45,8 @@ for P in "$@"; do
             # the small and medium problems of the 42-instance table: the DNN bound only
             PAR=$REC/nug30.par; DAT=qaplib/$P.dat; ARMS_P=plain
             case $P in kra30*) DAT=qaplib/$P-old.dat ;; esac                                # QAPLIB's originals
-            BEST=$(awk 'NR == 1 {print $2; exit}' QAPSOLN/$P.sln | tr -d '\r[:space:]')
+            BEST=$(awk 'NR == 1 {print $2; exit}' "QAPSOLN/$(basename "$DAT" .dat).sln" 2>/dev/null | tr -d '\r[:space:]')
+            [ "$P" = tai30a ] && BEST=1818146                                               # no .sln in the repository
             STEP=$(python3 infra/phase1/objstep.py "$DAT" | awk '{print $1}') ;;
     tai25b|tai30b|tai35b|tai40b)
             PAR=$REC/tai50b.par; DAT=qaplib/$P.dat; STEP=1; CUTS=$R/$REG/$P.comb.txt
