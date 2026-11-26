@@ -58,7 +58,7 @@ adaptive cuts above. Under branching, the 63 root cuts kept and the LP solved ag
 | depth 2 under 0:7, 11 children | 577.9 to 593.1 | 578.0 to 602.3 | 578.0 to 616.0 | 47 to 100%, mean 65% |
 
 With the optimum 578 as incumbent the DNN fathoms all twelve depth-1 children; the LP with the root's cuts
-fathoms none (it needs depth 2, where the plain LP already fathoms nine of the eleven). CPU a child: LP 1.1 s
+fathoms none (it needs depth 2, where the plain LP already fathoms all eleven). CPU a child: LP 1.1 s
 (HiGHS IPM), LP + 63 cuts 24 to 29 s (Clarabel), DNN 0.5 to 2.7 s (our ADMM, to convergence). HiGHS could not
 solve the LP with 40 or more of these dense rows: its IPM stopped short of optimal and its dual simplex did not
 finish in 50 minutes.
