@@ -33,3 +33,37 @@ with the right directions; the same fact closed the spectral bundle there.
 - `out/nug12_k10.txt`, `out/nug12_k40.txt`: a line per round.
 
 Not run: nug15, nug20 (where the LP starts below QPB), sparsified cuts, dropping slack cuts.
+
+## Cuts taken once from the SDP's dual, kept under branching (`dualcuts.py`, Nov 26)
+
+Jeff Linderoth's variant (Gunluk, Junger, Linderoth, Lodi, Luedtke, "Sparse Cuts for the Positive Semidefinite
+Cone", arXiv 2603.09864; its section 4.3 calls these "dense dual SDP cuts"): solve the SDP once, take a cut
+v'Yv >= 0 for each eigenvector of the dual PSD matrix S* with a positive eigenvalue, put them in the LP, branch,
+and hope the geometry does not change much. nug12 (`out/nug12_dualcuts.txt`; the root's dual from Clarabel,
+`out/nug12_rootdual.npz`; children's DNN bounds from `latest/dnntest`, run to convergence):
+
+| root, LP 522.9, DNN 568.0 | bound | share of the gap |
+|---|---|---|
+| 10 cuts (largest eigenvalues of S*) | 544.8 | 49% |
+| 20 | 556.6 | 75% |
+| 40 | 567.9 | 99.8% |
+| 63 (all above 1e-6 of the largest) | 568.0 | 100% |
+
+So at the node the cuts come from, a modest number recovers the SDP: 20 of them do better than 800 of the
+adaptive cuts above. Under branching, the 63 root cuts kept and the LP solved again at each child of row 0:
+
+| | LP | LP + root cuts | DNN | share of the child's gap closed |
+|---|---|---|---|---|
+| depth 1, 12 children | 551.9 to 560.3 | 571.1 to 575.8 | 578.0 to 593.7 | 53 to 73%, mean 59% |
+| depth 2 under 0:7, 11 children | 577.9 to 593.1 | 578.0 to 602.3 | 578.0 to 616.0 | 47 to 100%, mean 65% |
+
+With the optimum 578 as incumbent the DNN fathoms all twelve depth-1 children; the LP with the root's cuts
+fathoms none (it needs depth 2, where the plain LP already fathoms nine of the eleven). CPU a child: LP 1.1 s
+(HiGHS IPM), LP + 63 cuts 24 to 29 s (Clarabel), DNN 0.5 to 2.7 s (our ADMM, to convergence). HiGHS could not
+solve the LP with 40 or more of these dense rows: its IPM stopped short of optimal and its dual simplex did not
+finish in 50 minutes.
+
+At wil50's size the dual has rank about 600 (`../wil50_feasibility/roadmap/admm/alternatives.md`), each cut is
+a dense row over 3.7 million variables (some 2 billion nonzeros against the LP's 10 to 15 million), the instance
+is dense so the paper's sparsification has nothing to drop, and the LP without any cut already takes PDLP 20 to
+31 minutes (`../branching_lab/lpbound`) against about 70 CPU s for a warm child DNN bound. Not pursued.
