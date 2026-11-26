@@ -138,3 +138,22 @@ recipe file says nothing of this check: a run's states carry the file's hash, so
 python3 dive.py OUT --warm --instance qaplib/wil50t.dat --sln wil50.sln --transposed \
   --params ../infra/phase1/recipes/wil50_d2r10_g150xl2.par --sym SYM/wil50t.sym --grid 5x10 --plus 2
 ```
+
+## ste36a, ste36b and ste36c with their first recipes (Nov 26): PASS
+
+`infra/phase1/recipes/ste36{a,b,c}.par`, warm, from the best known + 2 toward each solution
+(`warm_ste36a.tsv`, `warm_ste36b.tsv`, `warm_ste36c.tsv`): 34 nodes each to depth 33, every one branched and
+kept the path child, and the leaf enumerated the solution's value (9,526; 15,852; 8,239,110). The highest bound
+on each path is the optimum itself (within 1e-4), under the cutoff (+ 2.05). The root branches on r10 (GLB's
+lookahead) into 10 children; the depth-1 node 10:4 ran its phase to 79, 98 and 47,440 short and kept 13, 12
+and 14 of its 35 children. Six, ten and six of the 33 branchings are on a column; the two dummies stay free
+until depth 20 or the leaf. 706, 1,061 and 712 CPU s here, one thread each.
+
+```
+python3 dive.py OUT --warm --instance qaplib/ste36a.dat --sln ste36a.sln \
+  --params ../infra/phase1/recipes/ste36a.par --sym SYM/ste36a.sym --grid 4x9 --plus 2
+python3 dive.py OUT --warm --instance qaplib/ste36bt.dat --sln ste36b.sln --transposed \
+  --params ../infra/phase1/recipes/ste36b.par --sym SYM/ste36bt.sym --grid 4x9 --plus 2
+```
+(ste36c as ste36b, with ste36ct.dat, ste36c.sln, ste36c.par and ste36ct.sym. `ste36a.dat` is already flows
+first and `QAPSOLN/ste36a.sln` in its order, so no `--transposed`.)
