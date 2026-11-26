@@ -142,6 +142,15 @@ void F77(ssytrd)(const char *uplo, const lapack_int *n, float *a, const lapack_i
 void F77(sstedc)(const char *compz, const lapack_int *n, float *d, float *e, float *z,
                  const lapack_int *ldz, float *work, const lapack_int *lwork, lapack_int *iwork,
                  const lapack_int *liwork, lapack_int *info, size_t);
+// the QR eigensolvers, for when a divide and conquer (sstedc, ssyevd, dsyevd) fails to converge
+void F77(ssteqr)(const char *compz, const lapack_int *n, float *d, float *e, float *z,
+                 const lapack_int *ldz, float *work, lapack_int *info, size_t);
+void F77(ssyev)(const char *jobz, const char *uplo, const lapack_int *n, float *a,
+                const lapack_int *lda, float *w, float *work, const lapack_int *lwork,
+                lapack_int *info, size_t, size_t);
+void F77(dsyev)(const char *jobz, const char *uplo, const lapack_int *n, double *a,
+                const lapack_int *lda, double *w, double *work, const lapack_int *lwork,
+                lapack_int *info, size_t, size_t);
 void F77(sormtr)(const char *side, const char *uplo, const char *trans, const lapack_int *m,
                  const lapack_int *n, const float *a, const lapack_int *lda, const float *tau,
                  float *c, const lapack_int *ldc, float *work, const lapack_int *lwork,
@@ -496,6 +505,7 @@ struct Work {
   std::vector<float> Xs, Ys, Ts, Hs;
   std::vector<float> vtop, vtmp;   // top eigenvector estimate (tight_lam)
   std::vector<float> trd_e, trd_tau;   // ssytrd's off-diagonal and reflector scalars (the partial refresh)
+  std::vector<float> trd_d0, trd_e0;   // the tridiagonal as ssytrd left it, for ssteqr when sstedc fails
   double rsp[3] = {0, 0, 0};           // refresh split, s: ssytrd, sstedc, sormtr (verbose >= 2)
   std::vector<double> Wprev;
   int kb, since_refresh;
@@ -641,7 +651,7 @@ struct Work {
     alloc_single();
     Xs.assign(kk, 0); Ys.assign(kk, 0); Ts.assign(kk, 0); Hs.assign(kk, 0);
     vtop.assign(K, 0); vtmp.assign(K, 0);
-    trd_e.assign(K, 0); trd_tau.assign(K, 0);
+    trd_e.assign(K, 0); trd_tau.assign(K, 0); trd_d0.assign(K, 0); trd_e0.assign(K, 0);
     Wprev.assign(kk, 0);
     kb = since_refresh = 0;
     have_basis = false;
@@ -856,6 +866,18 @@ void expand(Work &w, const double *R, double *Mout)
   // keeps it a bound for sym(Zc), and <Zc, Y> = <sym(Zc), Y> for every symmetric Y.
 }
 
+// A divide-and-conquer eigensolver that fails to converge (info > 0) is followed by the QR algorithm on the same
+// matrix. Accelerate's sstedc does so on an M2 with VECLIB_MAXIMUM_THREADS=1 at iteration 2,663 of nug25's root
+// solve (info 125714 at K = 577: the block of rows 217 to 288; W finite; Nov 26 2026), and never with its
+// default threading or under OpenBLAS. One line on stderr each time, at most 20 a process.
+static void dc_fallback_note(const char *dc, const char *qr, long info_dc, long K, long info_qr)
+{
+  static int notes = 0;
+  if (notes >= 20) return;
+  notes++;
+  fprintf(stderr, "dnn: %s returned info %ld (K = %ld): %s instead, info %ld\n", dc, info_dc, K, qr, info_qr);
+}
+
 // A failed R-step projection ends the solve with DNN_ERROR. Say on stderr which LAPACK call failed, with what
 // info, and whether W was finite: nug25's root solve ends this way at iteration 2,662 under Accelerate on an
 // M2 (Nov 26 2026; never on Linux with OpenBLAS). At most 20 lines a process.
@@ -900,6 +922,12 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
     lapack_int lwork = (lapack_int)w.ework.size();
     F77(dsyevd)("V", "L", &K, A, &K, w.evals.data(), w.ework.data(), &lwork,
                 w.eiwork.data(), &liwork, &info, 1, 1);
+    if (info > 0) {   // not converged: A is overwritten, so from W again, by QR
+      const lapack_int info_dc = info;
+      memcpy(A, Win, kk * sizeof(double));
+      F77(dsyev)("V", "L", &K, A, &K, w.evals.data(), w.ework.data(), &lwork, &info, 1, 1);
+      dc_fallback_note("dsyevd", "dsyev", (long)info_dc, (long)K, (long)info);
+    }
   } else {
     // about twice as fast; eigenvectors good to ~1e-7, enough for the ADMM
     // step (the certificate checks its own semidefiniteness in double)
@@ -908,6 +936,12 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
     lapack_int lwork = (lapack_int)w.eworkf.size();
     F77(ssyevd)("V", "L", &K, Af, &K, w.evalsf.data(), w.eworkf.data(), &lwork,
                 w.eiwork.data(), &liwork, &info, 1, 1);
+    if (info > 0) {   // not converged: as above
+      const lapack_int info_dc = info;
+      for (size_t t = 0; t < kk; t++) Af[t] = (float)Win[t];
+      F77(ssyev)("V", "L", &K, Af, &K, w.evalsf.data(), w.eworkf.data(), &lwork, &info, 1, 1);
+      dc_fallback_note("ssyevd", "ssyev", (long)info_dc, (long)K, (long)info);
+    }
     for (int i = 0; i < K; i++) w.evals[i] = w.evalsf[i];
     // (review E5, Nov 9: F is built from the fp32 eigenvectors below, so the
     // K^2 widening pass into A is gone)
@@ -1061,8 +1095,22 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
         w.rsp[0] += thread_cpu() - tr; tr = thread_cpu();
         if (info == 0) {
           full_call = "sstedc";
+          // sstedc leaves the tridiagonal undefined when it fails: keep it for the QR algorithm
+          memcpy(w.trd_d0.data(), theta.data(), (size_t)K * sizeof(float));
+          memcpy(w.trd_e0.data(), e, (size_t)K * sizeof(float));
           F77(sstedc)("I", &K, theta.data(), e, Zt, &K, w.eworkf.data(), &lwork,
                       w.eiwork.data(), &liwork, &info, 1);
+          if (info > 0) {
+            // the same tridiagonal by implicit QR: the same eigenvalues (ascending) and vectors to rounding,
+            // slower (it is the refresh's cheap third when it works), and what sstedc itself falls back on
+            // for small blocks
+            const lapack_int info_dc = info;
+            memcpy(theta.data(), w.trd_d0.data(), (size_t)K * sizeof(float));
+            memcpy(e, w.trd_e0.data(), (size_t)K * sizeof(float));
+            full_call = "ssteqr (after sstedc failed)";
+            F77(ssteqr)("I", &K, theta.data(), e, Zt, &K, w.eworkf.data(), &info, 1);
+            dc_fallback_note("sstedc", "ssteqr", (long)info_dc, (long)K, (long)info);
+          }
         }
         w.rsp[1] += thread_cpu() - tr; tr = thread_cpu();
         if (info == 0) {
