@@ -856,6 +856,28 @@ void expand(Work &w, const double *R, double *Mout)
   // keeps it a bound for sym(Zc), and <Zc, Y> = <sym(Zc), Y> for every symmetric Y.
 }
 
+// A failed R-step projection ends the solve with DNN_ERROR. Say on stderr which LAPACK call failed, with what
+// info, and whether W was finite: nug25's root solve ends this way at iteration 2,662 under Accelerate on an
+// M2 (Nov 26 2026; never on Linux with OpenBLAS). At most 20 lines a process.
+static void proj_fail_report(const char *where, const char *call, long info, const double *Win,
+                             const float *Wf, long K, const char *why)
+{
+  static int reports = 0;
+  if (reports >= 20) return;
+  reports++;
+  const size_t kk = (size_t)K * K;
+  size_t bad = 0, badf = 0;
+  double mx = 0, mxf = 0;
+  for (size_t t = 0; t < kk; t++) {
+    if (!std::isfinite(Win[t])) bad++; else mx = std::max(mx, fabs(Win[t]));
+    if (Wf) { if (!std::isfinite(Wf[t])) badf++; else mxf = std::max(mxf, (double)fabsf(Wf[t])); }
+  }
+  fprintf(stderr, "dnn: R-step projection failed in %s: %s returned info %ld (K = %ld; %s); W has %zu non-finite "
+          "entries of %zu, largest finite |W| %.6g", where, call, info, K, why, bad, kk, mx);
+  if (Wf) fprintf(stderr, "; its fp32 copy %zu non-finite, largest %.6g", badf, mxf);
+  fprintf(stderr, "\n");
+}
+
 /*
  R = P_psd(W) for symmetric K x K W (row-major = column-major). Uses
  the eigendecomposition (dsyevd) and sums the smaller of the positive
@@ -890,7 +912,11 @@ bool proj_psd(Work &w, const double *Win, double *Rout, int *npos, bool single =
     // (review E5, Nov 9: F is built from the fp32 eigenvectors below, so the
     // K^2 widening pass into A is gone)
   }
-  if (info != 0) return false;
+  if (info != 0) {
+    proj_fail_report("proj_psd", single ? "ssyevd" : "dsyevd", (long)info, Win, single ? w.Wf.data() : NULL, (long)K,
+                     "the full eigendecomposition");
+    return false;
+  }
   const double *ev = w.evals.data();
   const float *Af = single ? w.Wf.data() : NULL;
   int np = 0;
@@ -993,6 +1019,10 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
   }
 
   bool full = !w.have_basis || w.since_refresh >= refresh || w.theta_top >= w.lam_hi;
+  // why this call refreshes (proj_fail_report), and which of the refresh's calls failed
+  const char *full_why = !full ? "" : !w.have_basis ? "the first refresh" : w.since_refresh >= refresh
+                         ? "a scheduled refresh" : "a refresh forced by the eigenvalue bound";
+  const char *full_call = "ssytrd";
   if (full) { if (!w.have_basis || w.since_refresh >= refresh) w.ref_sched++; else w.ref_weyl++; }
   int nneg = 0;
   lapack_int kb = w.kb;
@@ -1029,16 +1059,21 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
         double tr = thread_cpu();
         F77(ssytrd)("L", &K, X, &K, theta.data(), e, tau, w.eworkf.data(), &lwork, &info, 1);
         w.rsp[0] += thread_cpu() - tr; tr = thread_cpu();
-        if (info == 0) F77(sstedc)("I", &K, theta.data(), e, Zt, &K, w.eworkf.data(), &lwork,
-                                   w.eiwork.data(), &liwork, &info, 1);
+        if (info == 0) {
+          full_call = "sstedc";
+          F77(sstedc)("I", &K, theta.data(), e, Zt, &K, w.eworkf.data(), &lwork,
+                      w.eiwork.data(), &liwork, &info, 1);
+        }
         w.rsp[1] += thread_cpu() - tr; tr = thread_cpu();
         if (info == 0) {
           nneg = 0;
           while (nneg < K && theta[nneg] < 0) nneg++;
           kb = std::min<lapack_int>(K, nneg + guard);
+          full_call = "sormtr";
           F77(sormtr)("L", "L", "N", &K, &kb, X, &K, tau, Zt, &K, w.eworkf.data(), &lwork, &info, 1, 1, 1);
           if (info == 0 && tight_lam > 0 && kb < K) {
             const lapack_int one = 1;
+            full_call = "sormtr (top vector)";
             F77(sormtr)("L", "L", "N", &K, &one, X, &K, tau, Zt + (size_t)(K - 1) * K, &K,
                         w.eworkf.data(), &lwork, &info, 1, 1, 1);
           }
@@ -1050,7 +1085,10 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
         }
       }
       w.prof[5] += thread_cpu() - tf0; w.n_refresh++;
-      if (info != 0) return false;
+      if (info != 0) {
+        proj_fail_report("proj_psd_subspace", full_call, (long)info, Win, Wf, (long)K, full_why);
+        return false;
+      }
       nneg = 0;
       while (nneg < K && theta[nneg] < 0) nneg++;
       kb = std::min<lapack_int>(K, nneg + guard);
@@ -1102,7 +1140,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
       }
     } while (0);
     w.sp[5] += (thread_cpu() - tc0) * 1e3;
-    if (!ok) { w.ref_fail++; full = true; continue; }
+    if (!ok) { w.ref_fail++; full = true; full_why = "a refresh after the subspace step's Cholesky (spotrf or strtri) failed"; continue; }
     // Rayleigh-Ritz: H = Y' W Y, X = Y Q
     WY(Y, T);
     tc0 = thread_cpu();
@@ -1118,7 +1156,7 @@ bool proj_psd_subspace(Work &w, const double *Win, double *Rout, int *npos, int 
                  info = 0;
       F77(ssyevd)("V", "L", &kb, G, &kb, theta.data(), w.eworkf.data(), &lwork,
                   w.eiwork.data(), &liwork, &info, 1, 1);
-      if (info != 0) { w.ref_fail++; full = true; continue; }
+      if (info != 0) { w.ref_fail++; full = true; full_why = "a refresh after the subspace step's ssyevd failed"; continue; }
     }
     w.sp[7] += (thread_cpu() - tc0) * 1e3; tc0 = thread_cpu();
     float *Xn = (Y == X) ? T : X;
@@ -2012,6 +2050,8 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
                    : proj_psd(w, w.W.data(), w.R.data(), &npos,
                               par.eig_mode == DNN_EIG_SINGLE, rstep_cert);
     if (!okp) {
+      fprintf(stderr, "dnn: the solve stops with status error at iteration %d (m = %d, %s start)\n", it, m,
+              warm_call ? "warm" : "cold");
       status = DNN_ERROR;
       break;
     }
@@ -2502,10 +2542,15 @@ DNNResult dnn_bound(const MAT *A, const MAT *B, const MAT *C, double shift,
       for (int c = 0; c < n1; c++) { yr[c] *= ir * idsc[c]; zr[c] *= dr * dsc[c]; }
     }
   }
-  if (lazy_ok && status != DNN_FATHOMED && status != DNN_ERROR && (lz_exit || lz_have)) {
+  if (lazy_ok && status != DNN_FATHOMED && (lz_exit || lz_have)) {
     // DNN_CORE_LAZYCERT: the checks that skipped Rump's test left no certified value.
     // Certify the multiplier of the check that stopped the run (still in Zc) and the
     // stored one with the best polyhedral estimate, if either can raise the result.
+    // On DNN_ERROR too (Nov 26 2026): the stored multiplier is a copy taken at an earlier
+    // check, a valid dual point whatever happened to the iterates since, and without it an
+    // error exit returned only the last value a check had certified in full (nug25's root on
+    // an M2: 1,707 at iteration 2,662 where the checks stood near 3,625). No exit sets lz_exit
+    // on an error, so only the stored one is certified there.
     for (int pass = 0; pass < 2; pass++) {
       const double *Zx = pass == 0 ? Zc : lz_Z.data();
       if (pass == 0 && !lz_exit) continue;
