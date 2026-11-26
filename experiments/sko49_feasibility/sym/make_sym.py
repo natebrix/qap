@@ -2,7 +2,7 @@
 # (latest/branch.C read_symmetry): J1 = the locations to branch on at the root (one per orbit
 # of the group: the 10 cells with row <= col <= 3), then J2/J3 pairs: when every assigned
 # location lies in J2 (the fixed cells of a reflection), the children need only cover J3 (a
-# fundamental domain of that reflection). Cells are 1-based, row-major, 7 per row.
+# fundamental domain of that reflection; first, the centre and the rest of J1). Cells are 1-based, row-major, 7 per row.
 # The solver's symmetry acts on the columns (locations, the second matrix), and sko49's grid
 # is its first matrix, so this file is for the transposed instance (sko49t.dat: B, A), which
 # has the same optimal value (sum A_ij B_p(i)p(j) = sum B_kl A_q(k)q(l), q = p^-1).
@@ -11,6 +11,11 @@ R = C = 7
 def cell(r, c): return r * C + c + 1
 J1 = sorted(cell(r, c) for r in range(R) for c in range(C) if r <= c <= 3)
 pairs = []
+# the centre (Nov 26): a node whose only assigned location is the centre keeps all eight
+# symmetries, which fix the centre, so its children need only the other nine cells of J1. It
+# must come first: the solver takes the first J2 set that holds every assigned location, and
+# the centre lies on all four axes below, each of which would allow 27 children.
+pairs.append(([cell(3, 3)], [x for x in J1 if x != cell(3, 3)]))
 # diagonal reflection (r,c)->(c,r): fixed r==c, domain r<=c
 pairs.append((sorted(cell(i, i) for i in range(7)), sorted(cell(r, c) for r in range(R) for c in range(C) if r <= c)))
 # anti-diagonal reflection (r,c)->(6-c,6-r): fixed r+c==6, domain r+c<=6

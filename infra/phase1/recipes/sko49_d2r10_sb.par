@@ -127,6 +127,13 @@ sb.all = 0
 # 415 short. 3,148 CPU s on the cloud container. (The first try stopped at the root: dive.py knew a square grid's
 # four flips and not its transposes; 9b12f95b.)
 #
+# Symmetry (Nov 26): latest/SYM/sko49t.sym's first J2/J3 entry is now the centre. A depth-1 node with its
+# facility at the centre keeps all eight symmetries, and the file let it use one reflection: 27 children where
+# 9 classes suffice. In sampling_C (estimates/sko49/tune) 41:24's 27 children fall into exactly 9 classes, equal
+# bounds within each, and its subtree held 954 of the 13,682 depth-3 nodes (7%); the entry takes two thirds of
+# that away, about 5% of the tree [e]. Checked on this file less sb.*: root 10 children, 41:24 9 (27 before),
+# 41:3 27, 41:1 48. The path above runs through 41:9, off every axis, so it is unchanged.
+#
 # The comments below are sko49.par's.
 # sko49's current settings (experiments/estimates/README.md), from Nov 13: tuning arm Cw,
 # experiments/estimates/sko49/tune/Cw.par. That is wil50's full run

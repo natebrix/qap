@@ -235,6 +235,13 @@ off every axis is assigned, so it realises the order-8 reduction at depth 1 (10 
 and most of it at depth 2; below that the tree is the plain one under each inequivalent
 depth-2 node, which is where the factor 8 of the table comes from.
 
+Nov 26: the one depth-1 node the four reflections did not cover is the centre's, which keeps
+all eight symmetries; it took the first axis it lies on and had 27 children for 9 classes
+(sampling_C in `../estimates/sko49/tune`: 41:24's children, equal bounds within each class).
+`make_sym.py` now writes a centre entry first (J2 = {25}, J3 = J1 less 25), and the files
+here and in `latest/SYM/sko49t.sym` are its output: 9 children there, about 5% of the tree
+[e] (the recipe `infra/phase1/recipes/sko49_d2r10_sb.par` has the numbers).
+
 ## 6. Putting it together: the tree model (`model.py`, estimates)
 
 The `../wil50_feasibility/NOTES.md` section-5 model, applied to the depth-3 sample: a
