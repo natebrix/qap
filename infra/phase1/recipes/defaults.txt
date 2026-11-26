@@ -16,6 +16,12 @@ sko49   infra/phase1/recipes/sko49_d2r10_sb.par
 # coin flip there for 15 CPU h before any worker has work). The depth-1 firings take up to 7 h on at most 15
 # slots from minutes after the launch: start with one worker and grow the group once they have branched.
 wil50   infra/phase1/recipes/wil50_d2r10_g150xl2_sb.par
+# ste36a, ste36b, ste36c (Nov 26): first recipes (the file's comments): GLB as the cheap bound (QPB is negative at
+# the roots), rule 9, the 4 x 9 grid's cut phase. start.sh takes qaplib/ste36a.dat (already flows first) with
+# SYM/ste36a.sym, and qaplib/ste36bt.dat and ste36ct.dat with their .sym files.
+ste36a  infra/phase1/recipes/ste36a.par
+ste36b  infra/phase1/recipes/ste36b.par
+ste36c  infra/phase1/recipes/ste36c.par
 tai50b  infra/phase1/recipes/tai50b.par
 # tai60b: a solver process at n = 60 holds about 2.3 GB (measured Nov 17), 3 with the parents' states it
 # keeps; m7a.16xlarge has 256 GiB for its 64 cores (c7a.16xlarge 128: 41 slots at 3 GiB)
