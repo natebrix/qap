@@ -42,18 +42,22 @@ def dnn_own(fixes):
     mm = re.search(r'RESULT .* lb=(\S+) .* cpu=(\S+)', o)
     return float(mm.group(1)), None, float(mm.group(2))
 
-def lpsolve(fixes, cuts, solver='ipm'):
-    h = lp.highs({'solver': 'ipm', 'run_crossover': 'off'} if solver == 'ipm' else {'solver': 'simplex', 'simplex_strategy': 1})
-    for i, j in fixes: h.changeColBounds(i * m + j, 1.0, 1.0)
-    ar = np.arange(nz, dtype=np.int32)
-    for v in cuts:
-        h.addRow(-v[0] ** 2, highspy.kHighsInf, nz, ar, np.concatenate([2 * v[0] * v[1:] + v[1:] ** 2, 2 * v[p1] * v[p2]]))
-    t = time.process_time(); h.run(); cpu = time.process_time() - t
-    if h.getModelStatus() != highspy.HighsModelStatus.kOptimal:
-        if solver == 'ipm':
-            b, c2 = lpsolve(fixes, cuts, 'simplex'); return b, cpu + c2
-        raise RuntimeError(h.modelStatusToString(h.getModelStatus()))
-    return h.getInfo().objective_function_value + s, cpu
+def lpsolve(fixes, cuts):
+    """the LP, with the cuts as dense rows. HiGHS's IPM stops short of optimal once there are some 40 of them and its
+    dual simplex did not finish in 50 minutes, so the LP with cuts goes to Clarabel (an interior-point conic solver)."""
+    if not cuts:
+        h = lp.highs({'solver': 'ipm', 'run_crossover': 'off'})
+        for i, j in fixes: h.changeColBounds(i * m + j, 1.0, 1.0)
+        t = time.process_time(); h.run(); cpu = time.process_time() - t
+        assert h.getModelStatus() == highspy.HighsModelStatus.kOptimal
+        return h.getInfo().objective_function_value + s, cpu
+    V = np.array(cuts)                                           # k x N
+    G = np.hstack([2 * V[:, :1] * V[:, 1:] + V[:, 1:] ** 2, 2 * V[:, p1] * V[:, p2]]); rhs = -V[:, 0] ** 2
+    z = cp.Variable(nz, nonneg=True)
+    pr = cp.Problem(cp.Minimize(lp.c @ z), [lp.M @ z == lp.b, G @ z >= rhs] + [z[i * m + j] == 1 for i, j in fixes])
+    t = time.process_time(); pr.solve(solver=cp.CLARABEL); cpu = time.process_time() - t
+    assert pr.status in ('optimal', 'optimal_inaccurate'), pr.status
+    return pr.value + s, cpu
 
 print(f"# {name} m={m} order {N} vars {nz} rows {lp.nrow} opt {opt}", flush=True)
 cache = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'out', f'{name}_rootdual.npz')
