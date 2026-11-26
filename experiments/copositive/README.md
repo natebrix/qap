@@ -19,7 +19,7 @@ depth-3 node.** Two reasons, one structural and one measured.
 
 | | nug12 root | wil50 node 13 |
 |---|---|---|
-| Horn cuts, 5-cycles of the strongest scaled entries (`cop5.py`): cycles tested, least value (negative = violated) | 0.9M, +0.027 | 1.4M, +0.055 |
+| Horn cuts, 5-cycles of the strongest scaled entries (`cop5.py`): cycles tested, least value (negative = violated) | 1.2M, +0.027 | 1.1M, +0.055 |
 | Horn cuts, local search over all 5-sets (`cop5_ls.py`): starts, least value | 300, +0.011 | 60, +0.046 |
 | largest atomic triangle violation, all triples (`hull5.py`) | 0.0208 | 0.0066 |
 | largest distance from the exact hull, 5-sets grown from the 20 worst triangles | 0.0052 | 0.0016 |
