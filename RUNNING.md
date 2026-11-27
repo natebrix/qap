@@ -220,6 +220,8 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `sb.all` | par key | integer | `-1` | -1..inf | policy | sb: through this depth every free line is a candidate (-1: none) |
 | `sb.iters` | par key | integer | `150` | 1..1000000 | policy | sb: warm ADMM iterations per child |
 | `sb.power` | par key | text | `0:8,1:1` | text | policy | sb: P, or D:P[,D:P...]: from depth D on a line's score is the sum over its children of shortfall^P (1: the sum of shortfalls; the default: the 8th power at the root, the sum below) |
+| `sb.early` | par key | integer | `0` | 0..2 | policy | sb: 1 or 2: a candidate line is left as soon as its partial score passes the best complete line's, and its other children are not solved; the line chosen is the same. A line's children by decreasing marginal x_ij (1) or by increasing QPB bound (2). 0: every child of every candidate is solved |
+| `sb.reuse` | par key | integer | `0` | 0..1 | policy | sb: 1: a child of the chosen line that strong branching fathomed is not created, and the others start from the bound they reached there |
 | `sb.gap` | par key | text | unset | text | policy | sb: D:G[,D:G...]: from depth D on only at nodes whose relative gap (inc - the node's DNN bound)/(inc - root QPB) is at least G (unset: every node in sb.depths) |
 | `fw.patience` | par key or `-w` | integer | `0` | 0..100000000 | policy | -w: Frank-Wolfe patience at lookahead/strong levels (0: off) |
 | `est.xbar` | par key | number | `0` | 0..inf | policy | estimator: child weights x_ij^a from the DNN marginals (0: QPB scores) |
@@ -828,6 +830,21 @@ default: without `sb.depths` the search is node for node what it was.
   the node is bounded. For example `sb.depths = 0:2`, `sb.all = 0`,
   `sb.gap = 2:0.06`: every row at the root, the shortlist at every depth-1 node,
   and at the depth-2 nodes at least 6% of the root gap short.
+- **Leaving a losing line early.** `sb.early = 1` (or 2): a line's score is a sum of
+  nonnegative terms, so once its partial sum passes the best complete line's it cannot
+  win, and its remaining children are not solved. Lines are taken in decreasing
+  marginal score; within a line the cells already known come first, then the children
+  by decreasing x_ij of the node's marginals (1) or by increasing QPB bound (2). The
+  line chosen is the one every solve would choose (to the rounding of the sums). The
+  trace marks a line left early with `>` before its partial score, and scores are
+  then over the largest shortfall a child of the node can have, not over the largest
+  found. Default 0: every child is solved, and the trace has every line's full score.
+- **Using the chosen line's solves.** `sb.reuse = 1`: a child of the chosen line that
+  strong branching fathomed is not created (it counts with the children eliminated
+  at branching), and the others start from the bound they reached there. Both are
+  certified bounds; the tree can differ where a child's higher starting bound moves
+  it to another block of the params file. The children's states at `sb.iters` are
+  not handed on: each child's own first solve still starts from the node's.
 - **What it costs, and where it is counted.** Its CPU is the run's: in the total
   time, in the level table's time at the node's depth, and on its own in the
   RESULTS line `strong branch: N nodes, S child solves, I iterations, T s` and
