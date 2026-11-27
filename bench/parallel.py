@@ -115,7 +115,9 @@ class State:
               "t_strat", "rg_sum", "rg_sumsq"]
     # the arrays of doubles; every other array holds counts (version 7 adds
     # dnn_t_level and cut_t_level among the per-level DNN arrays)
-    FLOATS = ("t_level", "t_strat", "rg_sum", "rg_sumsq", "dnn_time", "dnn_t_level", "cut_t_level")
+    FLOATS = ("t_level", "t_strat", "rg_sum", "rg_sumsq", "dnn_time", "dnn_t_level", "cut_t_level", "sb_t_level")
+    # version 10: DNN strong branching by level, the last arrays of the file
+    SB = ("sb_n_level", "sb_s_level", "sb_i_level", "sb_t_level")
 
     def __init__(self, path):
         with open(path) as f:
@@ -178,8 +180,10 @@ class State:
     def add_stats(self, other):
         self.counters = [a + b for a, b in zip(self.counters, other.counters)]
         self.times = [a + b for a, b in zip(self.times, other.times)]
-        for k in self.arrays:
-            self.arrays[k] = [a + b for a, b in zip(self.arrays[k], other.arrays[k])]
+        # an array only one side has (the strong-branching arrays, absent before version 10) is kept as it is
+        for k in list(self.arrays) + [k for k in other.arrays if k not in self.arrays]:
+            a, b = self.arrays.get(k), other.arrays.get(k)
+            self.arrays[k] = list(b) if a is None else a if b is None else [x + y for x, y in zip(a, b)]
 
     def write(self, path, nodes=None, link_dir=None, inline=False):
         """link_dir: the store directory this file's DNN references point into
@@ -190,7 +194,9 @@ class State:
         state_dir = os.path.dirname(os.path.abspath(path))
         # the current version when the file read had a settings record (8 and
         # up), else 7, the last version without one: a reader of 8+ requires it
-        magic = "QAP-STATE 9" if self.settings is not None else "QAP-STATE 7"
+        # version 10 only when strong branching ran (a nonzero sb_* array), 9 otherwise
+        sb_ran = self.settings is not None and any(x for k in self.SB for x in self.arrays.get(k, []))
+        magic = "QAP-STATE 10" if sb_ran else "QAP-STATE 9" if self.settings is not None else "QAP-STATE 7"
         out = [magic,
                f"n {self.n} levels {self.levels} strategies {self.strategies}",
                " ".join(["incumbent", repr(self.obj), str(self.found)] + list(self.perm)),
@@ -199,7 +205,13 @@ class State:
                "times " + " ".join(repr(x) for x in self.times)]
         if self.settings is not None:
             out.append("settings " + " ".join(self.settings))
-        for k, v in self.arrays.items():
+        # the strong-branching arrays close the statistics of a version 10 file (zeros for one
+        # the files read did not all have) and are not in a version 7 or 9 one
+        arrays = collections.OrderedDict((k, v) for k, v in self.arrays.items() if k not in self.SB)
+        if sb_ran:
+            for k in self.SB:
+                arrays[k] = self.arrays.get(k) or [0.0 if k in self.FLOATS else 0] * len(self.arrays["n_level"])
+        for k, v in arrays.items():
             out.append(" ".join([k] + [repr(x) if isinstance(x, float) else str(x) for x in v]))
         ids = {}
         for _, w in nodes:
@@ -254,6 +266,10 @@ def print_head(total):
         a = total.arrays
         print(f"     cut phase: {sum(a['cut_n_level'])} nodes, {sum(a['cut_f_level'])} fathomed, "
               f"{sum(a['cut_t_level']):.2f} s")
+    if sum(total.arrays.get("sb_n_level", [])):   # state version 10
+        a = total.arrays
+        print(f" strong branch: {sum(a['sb_n_level'])} nodes, {sum(a['sb_s_level'])} child solves, "
+              f"{sum(a['sb_i_level'])} iterations, {sum(a['sb_t_level']):.2f} s")
 
 
 # ---------------------------------------------------------------- main
@@ -427,7 +443,7 @@ def main():
               f"({len(running)} tasks in flight), {total.counters[0]} nodes so far -> {args.checkpoint}",
               flush=True)
 
-    def stop_workers(signum, frame):
+    def stop_now(signum):
         if args.checkpoint:
             write_checkpoint(f"signal {signum}")
         for v in running.values():
@@ -436,6 +452,21 @@ def main():
             v[3].wait()
         sys.exit(f"interrupted (signal {signum}); workers stopped"
                  + (f"; resume with --resume {args.checkpoint}" if args.checkpoint else ""))
+
+    # With --checkpoint, a SIGTERM/SIGINT is only noted here and acted on at the top of the main loop's
+    # next pass (within 20 ms: the loop polls while checkpointing). Until Nov 21 the handler wrote the
+    # checkpoint wherever the signal landed, also in the middle of a merge: a finished task already
+    # popped from `running` but its totals and unfinished nodes not yet added, so the checkpoint held
+    # neither its nodes nor its work, and the resumed search skipped that subtree (the parallel gate
+    # failed so on sko42-est-261121's coordinator: 7,368 nodes resumed against 8,502). Without a
+    # checkpoint nothing is written, and the workers are stopped at once.
+    stop_signal = []
+
+    def stop_workers(signum, frame):
+        if args.checkpoint:
+            stop_signal.append(signum)
+        else:
+            stop_now(signum)
     signal.signal(signal.SIGTERM, stop_workers)
     signal.signal(signal.SIGINT, stop_workers)
 
@@ -443,6 +474,8 @@ def main():
     draining = False                # --wall-limit reached: no new tasks, workers stopping
 
     while pool or running:
+        if stop_signal:
+            stop_now(stop_signal[0])
         now = time.perf_counter()
         if args.checkpoint and now >= next_checkpoint:
             write_checkpoint("periodic")

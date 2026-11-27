@@ -59,6 +59,7 @@ static Setting TABLE[] = {
   POLICY("cut.side", "QAP_DNN_CUT_SIDE", 'i', "0", 0, 1, "regions over the first (0) or the second (1) matrix"),
   POLICY("cut.grid", "QAP_DNN_CUT_GRID", 's', "", 0, 0, "R:C grid whose prefixes are the regions (unset: prefixes of the free elements)"),
   POLICY("cut.regions", "QAP_DNN_CUT_REGIONS", 's', "", 0, 0, "file of regions, one per line: original indices of cut.side (any sets; with cut.grid, added to its prefixes)"),
+  POLICY("cut.regions.hash", NULL, 's', "", 0, 0, "FNV-1a of the cut.regions file's bytes (set by bnbdrv; a resume with another file fails the -r check)"),
   POLICY("cut.rounds", "QAP_DNN_CUT_ROUNDS", 'i', "12", 1, 1000, "cut rounds per phase"),
   POLICY("cut.iters", "QAP_DNN_CUT_ITERS", 'i', "300", 1, 1000000, "ADMM iterations per cut round"),
   POLICY("cut.k", "QAP_DNN_CUT_K", 'i', "1000", 0, 1000000, "new triangle cuts per round"),
@@ -88,11 +89,19 @@ static Setting TABLE[] = {
   POLICY("cut.cp_lazycert", "DNN_CP_LAZYCERT", 'i', "0", 0, 1, "1: the lazy certificate in CP-ADMM solves too"),
   POLICY("cut.xbar", "QAP_DNN_CUT_XBAR", 'i', "0", 0, 1, "1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's)"),
   POLICY("pool.on", "QAP_DNN_POOL", 'i', "0", 0, 1, "1: a node hands its cut pool to its children"),
+  POLICY("dnn.retry", "QAP_DNN_RETRY", 'i', "0", 0, 1, "1: a warm-started first solve that ends unfathomed more than 1% of the incumbent below the bound the node inherited is solved again, without its inherited pool and then cold (bound_lab/tai_solves; in the DNN trace as retry S rlb X)"),
   POLICY("pool.cp", "QAP_DNN_POOL_CP", 'i', "0", 0, 1, "1: a pooled child's first solve in CP form"),
   // ---- branching (branch.C), Frank-Wolfe (fw.C), the estimator (estimate.C)
   POLICY("branch.weighted", NULL, 'i', "1", 0, 1, "rules 1, 3 and 4: weight the U sums by the row's gap fraction"),
   POLICY("branch.weight", NULL, 'd', "0.5", 0, 1, "the weight of that fraction"),
   POLICY("branch.xbar_lines", NULL, 'i', "1", 1, 64, "rule 9: candidate rows and columns per side from the DNN marginals"),
+  POLICY("branch.la_exp", NULL, 'd', "0", 0, 500, "rules 10 and 11: L, a line's score is the sum, over the children QPB does not drop, of exp(L x the child's QPB shortfall / the node's QPB gap); the rules need it set (32 in the runs measured); 0: unset"),
+  POLICY("sb.depths", NULL, 's', "", 0, 0, "DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1)"),
+  POLICY("sb.k", NULL, 'i', "4", 1, 1000, "sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score"),
+  POLICY("sb.all", NULL, 'i', "-1", -1, 1073741824, "sb: through this depth every free line is a candidate (-1: none)"),
+  POLICY("sb.iters", NULL, 'i', "150", 1, 1000000, "sb: warm ADMM iterations per child"),
+  POLICY("sb.power", NULL, 's', "0:8,1:1", 0, 0, "sb: P, or D:P[,D:P...]: from depth D on a line's score is the sum over its children of shortfall^P (1: the sum of shortfalls; the default: the 8th power at the root, the sum below)"),
+  POLICY("sb.gap", NULL, 's', "", 0, 0, "sb: D:G[,D:G...]: from depth D on only at nodes whose relative gap (inc - the node's DNN bound)/(inc - root QPB) is at least G (unset: every node in sb.depths)"),
   POLICY("fw.patience", NULL, 'i', "0", 0, 100000000, "-w: Frank-Wolfe patience at lookahead/strong levels (0: off)"),
   POLICY("est.xbar", "QAP_EST_XBAR", 'd', "0", 0, INF, "estimator: child weights x_ij^a from the DNN marginals (0: QPB scores)"),
   POLICY("est.xbar_mix", "QAP_EST_XBAR_MIX", 'd', "0.1", 0, 1, "estimator: uniform share mixed into the x_ij^a weights"),
@@ -104,6 +113,18 @@ static Setting TABLE[] = {
   ENVVAR("DNN_ADMM_WARM_DAMP", 's', "", 0, 0, SET_EXPERIMENT, "D:K: both dual steps scaled by D for the first K iterations of a warm call"),
   // ---- this run (environment, -p)
   ENVVAR("QAP_EST_SEED", 's', "", 0, 0, SET_RUN, "estimator: seed for rand() (unset: the fixed sequence)"),
+  ENVVAR("QAP_EST_SURV", 's', "", 0, 0, SET_RUN, "estimator: b, survivor dives with weights exp(b x); kQ, Knuth's dives inside each start node, g^Q of the child's QPB bound (estimate.C; unset: Knuth's dives from the root)"),
+  ENVVAR("QAP_EST_SAMPLE", 'd', "1", 0, 1, SET_RUN, "estimator, QAP_EST_SURV: the share of the start nodes sampled as strata (weighted 1/pi)"),
+  ENVVAR("QAP_EST_ALLOC", 's', "auto", 0, 0, SET_RUN, "estimator, QAP_EST_SURV: neyman (dives where the variance per CPU s is; reads low with Knuth's heavy tails), equal (round the strata in turn), auto (equal for kQ, neyman for survivor dives)"),
+  ENVVAR("QAP_EST_SAMPLE_W", 's', "unif", 0, 0, SET_RUN, "estimator, QAP_EST_SAMPLE: unif, or qpb (each start node weighted g^2 of its own QPB bound)"),
+  ENVVAR("QAP_EST_BUDGET", 'd', "0", 0, INF, SET_RUN, "estimator, survivor dives: stop starting dives after this many wall seconds, counted from the end of the strata's setup (0: estimate.par's trials)"),
+  ENVVAR("QAP_EST_MIN_DIVES", 'i', "1", 1, 1000000, SET_RUN, "estimator, survivor dives: every stratum with children that branch gets this many dives whatever the budget (then QAP_EST_BUDGET)"),
+  ENVVAR("QAP_EST_SAMPLE_DEPTHS", 's', "", 0, 0, SET_RUN, "estimator, survivor dives: D:F,D:F,... a start node at depth D is a stratum with probability F, whatever QAP_EST_SAMPLE (unset: QAP_EST_SAMPLE for every depth)"),
+  ENVVAR("QAP_EST_WARM_KEEP", 'i', "8", 0, 1000000, SET_RUN, "estimator: the strata whose children keep their parent's DNN state in memory (the rest spill it to a file, QAP_EST_SPILL_MB)"),
+  ENVVAR("QAP_EST_SPILL_MB", 'd', "1000", 0, 1e9, SET_RUN, "estimator: MB of spilled strata states a process may write beside QAP_EST_DIVES (past it a stratum's children start cold, without the parent's pool)"),
+  ENVVAR("QAP_EST_DIVES", 's', "", 0, 0, SET_RUN, "estimator, survivor dives: append a JSON line per stratum and per dive to this file"),
+  ENVVAR("QAP_EST_DNN_TRACE", 'i', "0", 0, 1, SET_RUN, "dives runs: 1, the coordinator's worker keeps the DNN trace of every node a dives unit bounds (coord/worker.py sets QAP_DNN_TRACE for the unit and drops this one); the solver ignores it. Registered so that a coordinating instance whose environment has it (a spec's ESTIMATE_ENV) can still run the solver: sko42-est2-261121's gates failed on it, Nov 21"),
+  ENVVAR("QAP_SB_PROGRESS", 's', "", 0, 0, SET_RUN, "DNN strong branching: append every child solve to this file and reuse the ones already in it (a node whose process stopped mid-way repeats only what is missing)"),
   ENVVAR("QAP_DNN_WARM_DIR", 's', "", 0, 0, SET_RUN, "parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline)"),
   ENVVAR("QAP_ALLOW_UNKNOWN", 'i', "0", 0, 1, SET_RUN, "1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error"),
   {"par.file", NULL, NULL, 's', "", 0, 0, SET_RUN, "-p: the params file"},
@@ -111,8 +132,10 @@ static Setting TABLE[] = {
   ENVVAR("QAP_DNN_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per DNN node to this file"),
   ENVVAR("QAP_DNN_TRACE_HIST", 'i', "0", 0, 1, SET_DIAGNOSTIC, "1: the trace line carries the CP cut phase's running best at each check (| hist it:best ...)"),
   ENVVAR("QAP_NODE_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per node taken off the stack (fixes, bounds, how it ended, the branching line; bnb.C) to this file"),
+  ENVVAR("QAP_SB_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per strong-branching node (the line chosen, every candidate's score, solves, iterations, CPU; bnb.C) to this file"),
   ENVVAR("QAP_DNN_POOL_CHECK", 'i', "0", 0, 1000000, SET_DIAGNOSTIC, "check each assembled pool term on this many random permutations"),
   ENVVAR("QAP_EST_HIST", 's', "dive_history_nug25_2.txt", 0, 0, SET_DIAGNOSTIC, "estimator: the per-dive history file"),
+  ENVVAR("QAP_EST_CHILD_DNN", 'i', "0", 0, 100000, SET_RUN, "estimator, Knuth's dives: weight each child a dive may take by its own short DNN solve of this many ADMM iterations, warm from its parent's state (experiments/estimates_nov19; 0: by QPB)"),
   ENVVAR("QAP_EST_CHILD_QPB", 'i', "0", 0, 1, SET_DIAGNOSTIC, "estimator: 1 weights each child a dive may take (and the first draw) by its own QPB bound, not the parent's prediction"),
   ENVVAR("QAP_XBAR_DEBUG", 'i', "0", 0, 2, SET_DIAGNOSTIC, "1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score"),
 };
@@ -120,7 +143,7 @@ static Setting TABLE[] = {
 #undef ENVVAR
 static const int NTABLE = (int)(sizeof TABLE / sizeof TABLE[0]);
 
-static const char *PREFIXES[] = {"QAP_DNN_", "QAP_EST_", "QAP_XBAR_", "QAP_NODE_", "DNN_", NULL};
+static const char *PREFIXES[] = {"QAP_DNN_", "QAP_EST_", "QAP_XBAR_", "QAP_NODE_", "QAP_SB_", "DNN_", NULL};
 static const char *CLASS_NAMES[] = {"policy", "experiment", "run", "diagnostic"};
 static const char *SOURCE_NAMES[] = {"default", "env", "flag", "par"};
 
@@ -344,12 +367,24 @@ static std::string hex64(unsigned long long h)
 
 static bool recorded(const Setting &s) { return s.cls == SET_POLICY || s.cls == SET_EXPERIMENT; }
 
+// A family behind a switch is in the hash only when the switch is set: the sb.* keys do nothing
+// without sb.depths, and a run without it has the hash it had before they existed (its state files
+// still resume). With sb.depths set every sb.* key is hashed, defaults included.
+static bool hashed(const Setting &s)
+{
+  if (!recorded(s)) return false;
+  if (s.key && strncmp(s.key, "sb.", 3) == 0) return !find("sb.depths")->text.empty();
+  // the exponent of rules 10 and 11 has no default to drift: it is in the hash only when set, and they need it set
+  if (s.key && strcmp(s.key, "branch.la_exp") == 0) return s.text != s.def;
+  return true;
+}
+
 static std::string hash_text()
 {
   settings_load();
   unsigned long long h = 1469598103934665603ULL;
   for (int k = 0; k < NTABLE; k++)
-    if (recorded(TABLE[k])) h = fnv1a(std::string(TABLE[k].name()) + "=" + TABLE[k].text + "\n", h);
+    if (hashed(TABLE[k])) h = fnv1a(std::string(TABLE[k].name()) + "=" + TABLE[k].text + "\n", h);
   return hex64(h);
 }
 

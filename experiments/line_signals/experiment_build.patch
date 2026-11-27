@@ -1,0 +1,304 @@
+diff --git a/latest/bnb.C b/latest/bnb.C
+index d62cae56..cf932807 100644
+--- a/latest/bnb.C
++++ b/latest/bnb.C
+@@ -88,6 +88,7 @@ static void free_dnn_warm(void *p) { delete (DNNWarm *)p; }
+ #include <cmath>
+ #include <string>
+ #include "settings.h"
++bool branch_cols_allowed(const QAPAssignment &assign);   // branch.C (experiments/line_signals)
+ //#include <time.h>
+ 
+ /*
+@@ -1146,6 +1147,199 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
+ 	qpbp->improve   = false;
+ 	qpbp->nofathom_patience = 0;   // only node bounds use patience
+ 	set_branch_parameters(bp, param, use_J, reorder);
++#ifdef HAVE_DNN
++	// experiments/tai60b_lines (an experiment build, never cognac's latest/):
++	// QAP_LINE_RANK=D prints, at every node of depth D, its free lines ranked by
++	// marginal score (sum of squared x_ij over the line); QAP_FORCE_LINE=D:rI or
++	// D:cJ (comma-separated, one per depth) branches every node of depth D on
++	// facility I (row) or location J (column) in place of the params' rule.
++	{
++	  static const char *force_line = getenv("QAP_FORCE_LINE");
++	  static const char *line_rank = getenv("QAP_LINE_RANK");
++	  std::vector<int> lrow(n, -1), lcol(n, -1);
++	  for (int r = 0, k = 0; r < n; r++) if (node.p[r] <= NONE) lrow[r] = k++;
++	  for (int c = 0, k = 0; c < n; c++) if (node.pinv[c] <= NONE) lcol[c] = k++;
++	  if (line_rank && atoi(line_rank) == node.depth && (int)dnn_xbar.size() == m * m) {
++	    std::vector<std::pair<double, std::string>> L;
++	    for (int r = 0; r < n; r++) {
++	      if (lrow[r] < 0) continue;
++	      double s = 0.0;
++	      for (int c = 0; c < n; c++) if (lcol[c] >= 0) { double v = dnn_xbar[lrow[r] * m + lcol[c]]; s += v * v; }
++	      L.push_back({s, "r" + std::to_string(r)});
++	    }
++	    for (int c = 0; c < n; c++) {
++	      if (lcol[c] < 0) continue;
++	      double s = 0.0;
++	      for (int r = 0; r < n; r++) if (lrow[r] >= 0) { double v = dnn_xbar[lrow[r] * m + lcol[c]]; s += v * v; }
++	      L.push_back({s, "c" + std::to_string(c)});
++	    }
++	    std::sort(L.begin(), L.end(), [](const std::pair<double, std::string> &a,
++					     const std::pair<double, std::string> &b) { return a.first > b.first; });
++	    fprintf(stderr, "line-rank: depth %d lb %.4f", node.depth, node.bound);
++	    for (const auto &l : L) fprintf(stderr, " %s:%.5f", l.second.c_str(), l.first);
++	    fprintf(stderr, "\n");
++	  }
++	  // QAP_LA=K:CAP:DMIN:DMAX (experiments/line_signals): at a node of depth DMIN..DMAX whose DNN
++	  // bound ran and missed, the candidates are the K rows and the K columns with the largest marginal
++	  // scores (columns only with no symmetry left); every child of a candidate that QPB's U does not
++	  // already drop is solved warm from the node's state (the children's own start) for CAP ADMM
++	  // iterations, no give-up, no cut phase, under the node's cut pool where it has one (dnn_pool_bound,
++	  // the pool's cuts as they are); the node branches on the line whose children's
++	  // shortfall sum (cutoff - lb where positive) is least, ties to the larger marginal score.
++	  // QAP_LA_SHORTLIST=m (default) or a (every line: K ignored).
++	  {
++	    static int la_k = 0, la_cap = 0, la_dmin = 0, la_dmax = -1;
++	    static bool la_all = false;
++	    static bool la_init = false;
++	    if (!la_init) {
++	      la_init = true;
++	      const char *e = getenv("QAP_LA");
++	      if (e && sscanf(e, "%d:%d:%d:%d", &la_k, &la_cap, &la_dmin, &la_dmax) != 4) {
++		fprintf(stderr, "QAP_LA: cannot read '%s' (K:CAP:DMIN:DMAX)\n", e);  exit(2);
++	      }
++	      const char *sl = getenv("QAP_LA_SHORTLIST");
++	      la_all = sl && sl[0] == 'a';
++	    }
++	    const double inc = s->getObjective();
++	    if (la_k > 0 && dnn_keep && ((DNNWarm *)dnn_keep)->m == m && (int)dnn_xbar.size() == m * m &&
++		node.depth >= la_dmin && node.depth <= la_dmax && m >= 3 && inc < 1e99) {
++	      const bool cols_ok = branch_cols_allowed(node);
++	      std::vector<int> frow, fcol;   // original index of each local row / column
++	      for (int r = 0; r < n; r++) if (node.p[r] <= NONE) frow.push_back(r);
++	      for (int c = 0; c < n; c++) if (node.pinv[c] <= NONE) fcol.push_back(c);
++	      std::vector<double> rs(m, 0.0), cs(m, 0.0);
++	      for (int a = 0; a < m; a++) for (int b = 0; b < m; b++) {
++		const double v = dnn_xbar[a * m + b] * dnn_xbar[a * m + b];  rs[a] += v;  cs[b] += v;
++	      }
++	      struct Cand { bool row; int k; double marg; double score; int open; };
++	      std::vector<Cand> cand;
++	      std::vector<int> by(m);
++	      for (int a = 0; a < m; a++) by[a] = a;
++	      std::sort(by.begin(), by.end(), [&](int a, int b) { return rs[a] != rs[b] ? rs[a] > rs[b] : a < b; });
++	      // QAP_LA_LINES=r1,c26,...: these lines (original indices) as the candidates instead
++	      static const char *la_lines = getenv("QAP_LA_LINES");
++	      if (la_lines && *la_lines) {
++		for (const char *f = la_lines; f && *f; ) {
++		  char side; int idx;
++		  if (sscanf(f, "%c%d", &side, &idx) == 2) {
++		    const std::vector<int> &v = side == 'r' ? frow : fcol;
++		    for (int a = 0; a < m; a++)
++		      if (v[a] == idx) cand.push_back({side == 'r', a, side == 'r' ? rs[a] : cs[a], 0.0, 0});
++		  }
++		  f = strchr(f, ',');
++		  if (f) f++;
++		}
++	      } else {
++	      for (int t = 0; t < m && (la_all || t < la_k); t++) cand.push_back({true, by[t], rs[by[t]], 0.0, 0});
++	      if (cols_ok) {
++		for (int a = 0; a < m; a++) by[a] = a;
++		std::sort(by.begin(), by.end(), [&](int a, int b) { return cs[a] != cs[b] ? cs[a] > cs[b] : a < b; });
++		for (int t = 0; t < m && (la_all || t < la_k); t++) cand.push_back({false, by[t], cs[by[t]], 0.0, 0});
++	      }
++	      }
++	      static const int warm_y = (int)setting_i("dnn.warm_y");
++	      const double cutoff = inc - DELTA;
++	      const double qb = bound + qpbp->lapU;
++	      std::vector<double> memo((size_t)m * m, NAN);   // a cell's shortfall, shared by its row and column
++	      const DNNWarm &pw = *(DNNWarm *)dnn_keep;
++	      clock_t t0 = clock();
++	      long solves = 0, iters = 0, pooled = 0;
++	      for (Cand &c : cand) {
++		for (int t = 0; t < m; t++) {
++		  const int a = c.row ? c.k : t, b = c.row ? t : c.k;
++		  double &sh = memo[(size_t)a * m + b];
++		  if (std::isnan(sh)) {
++		    if (U->me[a][b] + qb >= inc - DELTA_BRANCH) sh = 0.0;   // QPB drops this child
++		    else {
++		      QAPAssignment kid1 = node;
++		      kid1.fix(frow[a], fcol[b]);
++		      QAP qc;
++		      reduceQAP(q, &qc, kid1);
++		      DNNParams lp;
++		      lp.gamma1 = setting_d("dnn.gamma1");  lp.gamma = setting_d("dnn.gamma");
++		      lp.cheb_degree = (int)setting_i("dnn.cheb");  lp.tight_lam = (int)setting_i("dnn.tight_lam");
++		      lp.beta = setting_d("dnn.beta");  lp.refresh = (int)setting_i("dnn.refresh");
++		      lp.hopeless_after = 0;  lp.hopeless_after_warm = 0;  lp.max_iter = la_cap;
++		      DNNWarm cw;
++		      const DNNWarm *sp = NULL;
++		      if (warm_y > 0 && dnn_warm_child(pw, a, b, cw, warm_y) && !cw.Y.empty()) { sp = &cw; lp.warm_primal = 1; }
++		      else if (dnn_warm_child(pw, a, b, cw)) sp = &cw;
++		      // as the child's own first solve: with the node's cut pool when it hands one on
++		      // (pool.on; tai's settings), else plain
++		      DNNResult rr;
++		      static const int la_pool_on = (int)setting_i("pool.on");
++		      static const int la_cut_side = (int)setting_i("cut.side");
++		      DNNPool la_pool, la_mid;
++		      if (la_pool_on && !dnn_pool_out.empty() && dnn_pool_decode(dnn_pool_out, la_pool) &&
++			  la_pool.side == la_cut_side && !la_pool.cuts.empty()) {
++			std::vector<int> fo, oo, fa(n, -1);
++			for (int z = 0; z < n; z++) {
++			  if ((la_cut_side == 0 ? kid1.p[z] : kid1.pinv[z]) == NONE) fo.push_back(z);
++			  if ((la_cut_side == 0 ? kid1.pinv[z] : kid1.p[z]) == NONE) oo.push_back(z);
++			  else fa[z] = la_cut_side == 0 ? kid1.pinv[z] : kid1.p[z];
++			}
++			DNNCutParams pc;
++			pc.side = la_cut_side; pc.pool_in = &la_pool; pc.pool_out = &la_mid;
++			pc.other_orig = &oo; pc.fixed_at = &fa; pc.pool_check = 0;
++			int kept = 0, dropped = 0;
++			rr = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, fo, n, pc, sp, NULL, &kept, &dropped);
++			pooled++;
++		      } else
++			rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
++		      sh = rr.status == DNN_FATHOMED ? 0.0 : std::max(0.0, cutoff - rr.lb);
++		      solves++;  iters += rr.iterations;
++		    }
++		  }
++		  c.score += sh;
++		  c.open += sh > 0;
++		}
++	      }
++	      const Cand *best = &cand[0];
++	      for (const Cand &c : cand)
++		if (c.score < best->score || (c.score == best->score && c.marg > best->marg)) best = &c;
++	      bp->how = BRANCH_FIXED;  bp->choose_row = best->row;
++	      bp->fixed_index_in_U = best->k;  bp->fixed_index_in_assign = best->row ? frow[best->k] : fcol[best->k];
++	      // on stderr, and appended to QAP_LA_LOG (default runs/la.log of the study: a coordinator's
++	      // unit logs go with their work directories)
++	      std::string msg;
++	      char buf[512];
++	      snprintf(buf, sizeof buf, "dnn-la: %s pid %d depth %d fixes", getenv("QAP_LA"), (int)getpid(), node.depth);
++	      msg += buf;
++	      for (int a = 0; a < n; a++) if (node.p[a] != NONE) { snprintf(buf, sizeof buf, " %d:%d", a, (int)node.p[a]); msg += buf; }
++	      snprintf(buf, sizeof buf, " | chose %c%d score %.1f open %d; %ld solves (%ld pooled), %ld iterations, %.1f CPU s;",
++		       best->row ? 'r' : 'c', bp->fixed_index_in_assign, best->score, best->open, solves, pooled, iters,
++		       (double)(clock() - t0) / CLOCKS_PER_SEC);
++	      msg += buf;
++	      for (const Cand &c : cand) {
++		snprintf(buf, sizeof buf, " %c%d:%.4f:%.1f:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
++		msg += buf;
++	      }
++	      fprintf(stderr, "%s\n", msg.c_str());
++	      const char *lf = getenv("QAP_LA_LOG");
++	      if (FILE *f = fopen(lf && *lf ? lf : "/home/user/qap/experiments/line_signals/runs/la.log", "a")) {
++		fprintf(f, "%s\n", msg.c_str());
++		fclose(f);
++	      }
++	    }
++	  }
++	  for (const char *f = force_line; f && *f; ) {
++	    int d, idx; char side;
++	    if (sscanf(f, "%d:%c%d", &d, &side, &idx) != 3 || (side != 'r' && side != 'c') || idx < 0 || idx >= n) {
++	      fprintf(stderr, "QAP_FORCE_LINE: cannot read '%s'\n", f);  exit(2);
++	    }
++	    if (d == node.depth) {
++	      const bool row = side == 'r';
++	      const int in_u = row ? lrow[idx] : lcol[idx];
++	      if (in_u < 0) { fprintf(stderr, "QAP_FORCE_LINE: %c%d is not free at depth %d\n", side, idx, d);  exit(2); }
++	      bp->how = BRANCH_FIXED;  bp->choose_row = row;
++	      bp->fixed_index_in_U = in_u;  bp->fixed_index_in_assign = idx;
++	      fprintf(stderr, "force-line: depth %d %c%d\n", d, side, idx);
++	    }
++	    f = strchr(f, ',');
++	    if (f) f++;
++	  }
++	}
++#endif
+ 	// every bound but GLB leaves its Frank-Wolfe point in X; the
+ 	// children start from it (copied first: branch() may use X)
+ 	WarmStart *warm = (param->which_bound != GLB_BND)
+diff --git a/latest/branch.C b/latest/branch.C
+index b0b1bfc4..f0004e08 100644
+--- a/latest/branch.C
++++ b/latest/branch.C
+@@ -41,6 +41,7 @@
+ // registry could run before the registry's own static initialisation).
+ static bool weighted_branching() { static const bool v = setting_i("branch.weighted") > 0; return v; }   // rules 1, 3, 4
+ static double branching_weight() { static const double v = setting_d("branch.weight"); return v; }
++static bool lookahead_print = false;   // experiments/line_signals: QAP_LINE_SCORES_LA
+ static int xbar_lines_per_side() { static const int v = (int)setting_i("branch.xbar_lines"); return v; }   // rule 9
+ 
+ void set_branch_parameters(BranchParameters *bp, BNBParameters *param,
+@@ -1895,6 +1896,13 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+ 
+   
+   // This is where we are actually selecting the best rows and cols.
++  if (lookahead_print) {   // experiments/line_signals: every line's lookahead score
++    fprintf(stderr, "ls-LArow:");
++    for (int k = 0; k < m; k++) fprintf(stderr, " %.10g", u_row_sum[k]);
++    fprintf(stderr, "\nls-LAcol:");
++    for (int k = 0; k < m; k++) fprintf(stderr, " %.10g", u_col_sum[k]);
++    fprintf(stderr, "\n");
++  }
+   find_max(u_row_sum, best_row_sum, row_in_U, m);
+   find_max(u_col_sum, best_col_sum, col_in_U, m);
+ 
+@@ -1948,6 +1956,14 @@ void select_ind_lookahead(QAP *qap,QAPAssignment &assign,
+    children corresponding to those columns)
+ ============================================================ 
+  */
++// experiments/line_signals: whether a node may branch on a column (no symmetry left), as select() decides
++bool branch_cols_allowed(const QAPAssignment &assign)
++{
++  int *J3, d;
++  determine_J3(assign, J3, d);
++  return d == J3_default_dim;
++}
++
+ void determine_J3(const QAPAssignment &assign, int *&myJ3, int &myJ3_dim)
+ {
+   // check J1 -- if in there, set J3 and get out
+@@ -2115,6 +2131,50 @@ inline void select(QAP *qap, QAPAssignment &assign, MAT *X, MAT *U,
+ #endif
+ 
+   bool can_branch_on_cols = (J3_dim == J3_default_dim);
++  // experiments/line_signals (an experiment build, never cognac's latest/): QAP_LINE_SCORES=D dumps,
++  // at every node of depth D, what the branching rules read: QPB's U, the bound, the cutoff, the DNN
++  // marginals; QAP_LINE_SCORES_LA=1 adds rule 4's lookahead score of every line (on a copy of U, so the
++  // node branches as it would have).
++  {
++    static const char *ls_env = getenv("QAP_LINE_SCORES");
++    static const char *la_env = getenv("QAP_LINE_SCORES_LA");
++    if (ls_env && atoi(ls_env) == assign.nfix) {
++      const int mm = U->m;
++      fprintf(stderr, "ls-node: depth %d m %d bound %.10g inc %.10g delta %.10g cols %d J3 %d\n", assign.nfix, mm,
++	      bound, qpbp->inc, DELTA_BRANCH, can_branch_on_cols ? 1 : 0, J3_dim);
++      fprintf(stderr, "ls-rows:");
++      for (int i = 0; i < assign.n; i++) if (assign.p[i] <= NONE) fprintf(stderr, " %d", i);
++      fprintf(stderr, "\nls-cols:");
++      for (int j = 0; j < assign.n; j++) if (assign.pinv[j] <= NONE) fprintf(stderr, " %d", j);
++      fprintf(stderr, "\n");
++      int ndis = 0;
++      for (int i = 0; i < assign.n; i++) for (int j = 0; j < assign.n; j++)
++	if (assign.p[i] <= NONE && assign.pinv[j] <= NONE && assign.disallowed(i, j)) ndis++;
++      fprintf(stderr, "ls-disallowed: %d\n", ndis);
++      for (int di = 0; di < mm; di++) {
++	fprintf(stderr, "ls-U %d:", di);
++	for (int dj = 0; dj < mm; dj++) fprintf(stderr, " %.10g", U->me[di][dj]);
++	fprintf(stderr, "\n");
++      }
++      if (dnn_xbar != NULL && dnn_xbar_m == mm)
++	for (int di = 0; di < mm; di++) {
++	  fprintf(stderr, "ls-X %d:", di);
++	  for (int dj = 0; dj < mm; dj++) fprintf(stderr, " %.8g", dnn_xbar[di * mm + dj]);
++	  fprintf(stderr, "\n");
++	}
++      if (la_env && atoi(la_env) > 0 && can_branch_on_cols) {
++	MAT *Uc = m_copy(U, MNULL);
++	int a, b;  bool c;
++	lookahead_print = true;
++	select_ind_lookahead(qap, assign, J3, J3_dim, X, Uc, bound, qpbp, mm, weighted_branching(),
++			     bp->which_bound, a, b, c);
++	lookahead_print = false;
++	M_FREE(Uc);
++	fprintf(stderr, "ls-LAchoice: %s %d\n", c ? "row" : "col", b);
++      }
++      fprintf(stderr, "ls-end\n");
++    }
++  }
+   /*
+     if there is no symmetry left, then we may do either row- or
+     column-branching.  Otherwise, we can only do row-branching.

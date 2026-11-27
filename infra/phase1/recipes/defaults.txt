@@ -1,0 +1,28 @@
+# start.sh's default params file per problem, relative to the repository: the settings of that
+# problem's next run. A problem not listed here falls back to recipes/PROBLEM.par, then to the
+# estimate's experiments/estimates/PROBLEM/PROBLEM.par. The file must be committed.
+# After it, optionally: type=T (the instance type; default c7a.16xlarge), mem=G (GiB a solver process
+# needs: the slots default to what the type's memory holds, less 4 GiB) or slots=S (slots per instance).
+tho40   infra/phase1/recipes/tho40c.par
+# sko42 (Nov 23): sko42.par with DNN strong branching at the root and depth 1 and rule 10 at depth 2. The root's
+# firing is one process, about 3.5 CPU h, before the first worker has work; it chooses r22, so the tree is not
+# sko42-261120b's (the file's last comments). experiments/estimates/sko42/sko42.par is that run's file.
+sko42   infra/phase1/recipes/sko42_d2r10_sb.par
+# sko49, wil50 (Nov 23): sko49_d2r10_sb's changes tested by sko42's retry (sko42-261124, Nov 24: 0.61 of
+# sko42-261120b's CPU); a solver process at n = 49-50 holds about 0.85 GB at the root, so the c7a default's 2 GiB a slot
+sko49   infra/phase1/recipes/sko49_d2r10_sb.par
+# wil50 (Nov 26): wil50_d2r10_g150xl2 (0.80 of wil50_d2r10's CPU on 133 depth-4 subtrees, wil50-tune-261125)
+# with DNN strong branching at depth 1 (a hunch, not measured: the file's last comments; not at the root, a
+# coin flip there for 15 CPU h before any worker has work). The depth-1 firings take up to 7 h on at most 15
+# slots from minutes after the launch: start with one worker and grow the group once they have branched.
+wil50   infra/phase1/recipes/wil50_d2r10_g150xl2_sb.par
+# ste36a, ste36b, ste36c (Nov 26): first recipes (the file's comments): GLB as the cheap bound (QPB is negative at
+# the roots), rule 9, the 4 x 9 grid's cut phase. start.sh takes qaplib/ste36a.dat (already flows first) with
+# SYM/ste36a.sym, and qaplib/ste36bt.dat and ste36ct.dat with their .sym files.
+ste36a  infra/phase1/recipes/ste36a.par
+ste36b  infra/phase1/recipes/ste36b.par
+ste36c  infra/phase1/recipes/ste36c.par
+tai50b  infra/phase1/recipes/tai50b.par
+# tai60b: a solver process at n = 60 holds about 2.3 GB (measured Nov 17), 3 with the parents' states it
+# keeps; m7a.16xlarge has 256 GiB for its 64 cores (c7a.16xlarge 128: 41 slots at 3 GiB)
+tai60b  infra/phase1/recipes/tai60b.par type=m7a.16xlarge mem=3

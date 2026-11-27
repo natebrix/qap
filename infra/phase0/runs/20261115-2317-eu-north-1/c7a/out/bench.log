@@ -1,0 +1,11 @@
+2026-11-15T23:18:12Z start
+2026-11-15T23:18:13Z machine: instance_type c7a.4xlarge az eu-north-1c lifecycle spot instance_id i-05f5e3233b7c290ef physical_cores 16 vcpus 16 arch x86_64 model AMD EPYC 9R14 amx_bf16 0 mem_gb 30 kernel 6.18.62-127.179.amzn2023.x86_64 
+2026-11-15T23:18:40Z toolchain: g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5) cc: cc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5) Python 3.11.18 scipy-openblas32 /usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib 
+2026-11-15T23:19:03Z build ok: 	libscipy_openblas.so => /usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib/libscipy_openblas.so (0x00007fcfac200000) 
+2026-11-15T23:21:23Z gates: bruteforce pass 44s resume pass 8s parallel pass 16s regression pass 6s dnncheck pass 66s 
+2026-11-15T23:21:55Z alone node 19: status=fathomed iters=122 cpu=31.653 ms_per_iter=259.45
+2026-11-15T23:22:48Z alone node 21: status=fathomed iters=178 cpu=52.037 ms_per_iter=292.34
+2026-11-15T23:24:39Z alone node 1: status=hopeless iters=300 cpu=110.583 ms_per_iter=368.61
+2026-11-15T23:26:23Z alone node 11: status=fathomed iters=284 cpu=103.735 ms_per_iter=365.27
+2026-11-15T23:31:11Z loaded: 32 nodes on 16 cores in 287 s
+2026-11-15T23:31:11Z summary: c7a.4xlarge AMD EPYC 9R14 cores 16 amx 0 gates bruteforce:pass resume:pass parallel:pass regression:pass dnncheck:pass alone: 4/4 nodes, 884 iterations, 337.1 ms per iteration, 74.5 CPU s per node loaded: 32/32 nodes, 8858 iterations, 385.0 ms per iteration, 106.6 CPU s per node loaded / alone per iteration: 1.142 fathomed 18 (reference 18 on the same nodes); differences: ['node 11: fathomed 290 -

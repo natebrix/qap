@@ -5,7 +5,9 @@ the store:
 
   status.json    what the run is doing: status, units, incumbent, CPU, and
                  the open nodes by depth (as handed out in queued and running
-                 units); the names of the other files
+                 units); for a --trace run, the branched nodes by depth and
+                 how many of them have closed subtrees (every child bounded
+                 and closed, coord/tree.py); the names of the other files
   totals.state   the merged statistics (QAP-STATE 7, no open nodes): every
                  per-level table of the solver's report, the DNN ones too
   report.txt     the solver's report for them: the RESULTS head, the
@@ -156,6 +158,8 @@ class Publisher:
             try:
                 if self.tree.publish(final, now):
                     status["files"]["tree"] = "tree/meta.json"
+                    # by depth, the branched nodes and those whose subtrees are closed (coord/tree.py)
+                    status["nodes"]["subtrees_by_depth"] = self.tree.tree.subtrees_by_depth()
             except Exception as e:      # the tree must never stop the status, nor the run
                 c.log(f"coordinator: publishing the tree failed: {e!r}")
         sample = {"t": iso(now), "wall_s": round(wall, 1), "nodes": node, "fathomed": fathom,
@@ -235,3 +239,34 @@ def update_catalog(b, entry, verify=False, tries=3):
         if back and any(r.get("run") == entry["run"] and r.get("final") == entry["final"]
                         for r in json.loads(back).get("runs", [])):
             return
+
+
+def unpublish(b, run_id, log=print):
+    """take a run out of public view for good: its catalog entry (the master copy and the public
+    one), its public bundle (public/runs/RUN/), and its visibility, set private so that no later
+    publish puts it back. Its private record (runs/RUN/: ledger, totals, results, logs) stays.
+    For a run that should never have been listed (two strays of Nov 23, made by a laptop script
+    on the shared store). A running or paused run is refused: its coordinator would list it again."""
+    run = b.get_run(run_id)
+    if run is not None and run.get("status") in ("running", "paused"):
+        log(f"run {run_id} is {run.get('status')}: stop it first (qapctl stop)")
+        return 1
+    if run is not None and run.get("visibility", "public") != "private":
+        b.update_run(run_id, {"visibility": "private", "unpublished_at": time.time()})
+    data = b.get_bytes(CATALOG)
+    runs = json.loads(data).get("runs", []) if data else []
+    keep = [r for r in runs if r.get("run") != run_id]
+    if len(keep) != len(runs):
+        body = json.dumps({"schema": 1, "generated_at": iso(time.time()), "runs": keep}, indent=1).encode()
+        b.put_bytes(CATALOG, body)
+        b.put_bytes(f"{PUBLIC}/index.json", body, "application/json", CACHE)
+    keys = list(b.list(f"{PUBLIC}/{run_id}/"))
+    if keys:
+        b.delete_many(keys)
+    if run is None and len(keep) == len(runs) and not keys:
+        log(f"no run {run_id}: not in the ledger, not in the catalog, no public files")
+        return 1
+    log(f"run {run_id}: " + ("taken out of the catalog" if len(keep) != len(runs) else "was not in the catalog") +
+        f", {len(keys)} public files deleted" + ("" if run is None else ", marked private"))
+    return 0
+

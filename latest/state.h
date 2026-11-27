@@ -12,10 +12,13 @@
  It is plain text, so other tools (bench/parallel.py) can split a
  state into tasks and merge the statistics of finished ones.
 
- Format (version 9; versions 1-8, which lack the warm starts, the DNN
+ Format (version 10, written once strong branching has chosen a line; a
+ state without strong-branching counts is written as version 9, the same
+ file without the sb_*_level arrays; versions 1-9, which lack the warm starts, the DNN
  counts, dnn_ext, the cut pools, the DNN state, the per-level DNN counts,
- the settings record or the @path DNN references, are still read):
-   QAP-STATE 9
+ the settings record, the @path DNN references or the strong-branching
+ counts, are still read):
+   QAP-STATE 10
    n <n> levels <stats.n> strategies <stats.m>
    incumbent <obj> <found> <perm[0..n-1]>
    root_bound <value>
@@ -37,6 +40,11 @@
                                        popped, DNN computed/fathomed/given
                                        up/iterations/CPU, cut phase run/
                                        fathomed/CPU, by level)
+   sb_n_level ... / sb_s_level ... / sb_i_level ... / sb_t_level ...
+                                      (stats.n+1 each, version 10: DNN strong
+                                       branching, sb.*: nodes whose line it
+                                       chose, child solves, their iterations
+                                       and CPU, by the node's level)
    warm_starts <count>
    warm <m> <p[0..n-1]> <X[0][0..m-1]> ... <X[m-1][0..m-1]> <dnn_ext> <pool> <dnn>
    ...                         (a branched node's X, see WarmStart in assign.h;
@@ -74,5 +82,13 @@ bool write_state(const char *file, Node *stack, QAPSolution *s,
 // stack must be empty; on return it holds the nodes in the saved order.
 bool read_state(const char *file, int n, Node *&stack, QAPSolution *s,
 		QAPStatistics *stats);
+
+// A warm start's DNN state as the state file's token at 16, 32 or 64 bits ("-" for none), and back
+// (a DNNWarm, freed with dnn_state_free; NULL if the token is not one). The estimator spills the
+// states of the strata past QAP_EST_WARM_KEEP with them (estimate.C).
+#include <string>
+std::string dnn_state_encode(const WarmStart *w, int bits);
+void *dnn_state_decode(const std::string &t);
+void dnn_state_free(void *p);
 
 #endif

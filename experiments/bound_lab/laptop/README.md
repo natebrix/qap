@@ -46,3 +46,30 @@ nug30 whole, 8 jobs [m]: base 3,716 nodes, 111,182 iterations, 1,261 CPU s, 179 
 
 `tho40ab_cut.sh`'s table step failed on the laptop's Python 3.11 (a backslash inside an f-string);
 fixed after that run, and the table above was built by hand from the arms' results.
+
+## tai50b solved on the M2 Pro (Nov 16; `runs_tai50b/`, pushed from the laptop)
+
+`tai50b.sh` (overnight.sh's third step), 10 slots, solver at 11094c69 (5f644a13's `latest/`), from
+incumbent 458,821,518 (the best known + 1) [m]:
+
+- **The tree closed at 458,821,517.** 8,206 nodes (8,000 fathomed, 1 enumerated), 1,082 units all
+  merged, nothing open. 11.0 hours of wall (02:36 to 13:56 laptop time), 247,515 CPU s (68.8 core-hours,
+  slots busy 97.9%). The DNN bound at 8,163 nodes (7,592 fathomed, 89,890 s); the cut phase at 571
+  (358 fathomed, 154,893 s).
+- **The solution was found by the search** at 13:56:01, ten seconds before the end, by unit
+  `u2.1.4.1.4.3.0.3.2.3.2.2.3.0.0.2.0.1.8.14.11.3.8.0.0.2`, and verified by the coordinator
+  (`coord/common.py verify_incumbent`: the exact integer objective recomputed in Python from
+  `qaplib/tai50b.dat` and the reported permutation). With an incumbent of the best known + 1, nodes on
+  its path could not be fathomed (cutoff 458,821,517.05), so the search had to reach its leaf.
+- **The levels:** 1 / 50 / 490 / 576 / 282 / 782 / 585 ... nodes at depths 0-6, the deepest node at depth
+  47. 40 of the 50 depth-1 nodes fathomed. Against the level-by-level rehearsal (`tai50b_bfs`, its
+  phases stopped by the stall rule): 1,398 nodes at depths 1-4 here, 1,401 there; 37 of 50 depth-1 nodes
+  fathomed there, the longer phases here fathoming three more.
+- **Against the estimates:** the dives' 5,000-13,000 nodes and 60-250 cloud-box core-hours
+  (`../tai50b_size`). 68.8 M2 Pro core-hours is about 125 on the cloud box and 170 on c7a.
+
+What it is: a complete branch and bound with certified bounds, on one machine, through the
+coordinator's local mode, with the region family `line:1,top:5,linegap:4:0.03`. Not yet a run of
+record: the next one is `infra/phase1/start.sh tai50b` on cognac (`docs/next_runs.md`), which carries
+the same settings with the region file's hash in its record; and a second route, another region family,
+as for tai35b and tai40b.

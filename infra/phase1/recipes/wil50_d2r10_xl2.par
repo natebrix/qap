@@ -1,0 +1,183 @@
+0    has the location of a symmetry file been provided?
+-1    restriction on tree depth (-1 means none)
+8    number of branching rules
+
+0.20 use this rule when gap is worse than...
+1    use this rule thru this depth. (the root, and depth 1 above 0.20: wil50.par's first block, which went to depth 2)
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 30    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+1    use this rule thru this depth. (depth 1 at 0.12-0.20: wil50.par's second block)
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.12 use this rule when gap is worse than...
+2    use this rule thru this depth. (depth 2 above 0.12)
+ 10   branching rule: every line, the size score on the children's QPB bounds
+ 150  Frank-Wolfe iterations, for bound
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection (25: what ucheap/sko42sub measured)
+ 1    which bound?
+ 30   step for parametric bound
+ 99   compute B for best _ rows of U (rule 10: 99 = every row and column)
+
+0.12 use this rule when gap is worse than...
+4    use this rule thru this depth. (depths 3 and 4 above 0.12: wil50.par's second block, unchanged)
+ 9    branching rule at top of tree
+ 150  Frank-Wolfe iterations, for bound
+ 100  Frank-wolfe iterations, when we know we can't fathom
+ 12   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 3    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than...
+1    use this rule thru this depth. (depth 1 at or below 0.12: wil50.par's third block)
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+0.0 use this rule when gap is worse than...
+2    use this rule thru this depth. (depth 2 at or below 0.12)
+ 10   branching rule: every line, the size score on the children's QPB bounds
+ 100   Frank-Wolfe iterations, for bound
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 99   compute B for best _ rows of U (rule 10: 99 = every row and column)
+
+0.0 use this rule when gap is worse than...
+6    use this rule thru this depth. (depths 3 to 6: wil50.par's third block, unchanged)
+ 9    branching rule at top of tree
+ 100   Frank-Wolfe iterations, for bound
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+ 9    branching rule at bottom of tree (rule 9 for 2: rule9_bottom)
+ 100   Frank-Wolfe iterations, for bound
+ 50   Frank-wolfe iterations, when we know we can't fathom
+ 25   Frank-Wolfe iterations, for row selection
+ 1    which bound?
+ 30   step for parametric bound
+ 5    compute B for best _ rows of U
+
+[settings]
+# --- wil50_d2r10 (Nov 23): wil50's next run. experiments/estimates/wil50/wil50.par (the full run's settings,
+# rule 9 at the bottom) with four changes. wil50 has had no run since the Nov 10-11 estimate; these bring it to
+# what sko42 and sko49 have, plus rule 10 at depth 2. No strong branching: at wil50's root the DNN score's r45
+# and production's r21 are the top two at every slope, their children's shortfalls nearly cell for cell, and
+# the QPB size score also picks r21 (branching_lab/root, ucheap); at sko42's depth 1 strong branching took rule
+# 9's line at 11 of 12 nodes (experiments/sb_depth1). To add it at depth 1: sb.depths = 1:1 (15 firings, about
+# 65 CPU h [e]); at the root also dnn.depths = 0:48 and about 8 h of root on one process.
+#
+# Path check (Nov 24, experiments/tho40b_analysis/path_check, warm_wil50_d2r10.tsv): PASS. From 48,818, the warm
+# dive toward wil50.sln with this file kept the path child at every node, 48 nodes to depth 47, where the leaf
+# enumerated 48,816 (another optimal permutation). The highest bound on the path is 48,815.9999, from depth 20 on
+# within one unit of the optimum. Every node from depth 1 down ran a cut phase (depth 1: 48,244 to 48,429, 387
+# short). 3,389 CPU s on the cloud container.
+#
+# 1. The bound lab's wil50 policy block, arm hoe2 (experiments/bound_lab/wil50_policy): early entry and the
+#    hand-over rule refitted for wil50, less patient far from the cutoff than tho40's. 1.35x and 1.09x fewer
+#    iterations on two complete subtrees (the same trees node for node), about 1.15-1.2x on the whole [e]. Not
+#    wc=1.4 in dnn.beta_sched (sko49's arm): it made both wil50 subtrees worse.
+dnn.giveup_warm = 100
+cut.handover = 32:0:25
+#
+# 2. dnn.retry = 1, as sko42, sko49 and tho40c: a pooled first solve that fails (its certified bound more than 1%
+#    of the incumbent below the inherited one) is solved again without the pool, then cold. Without it one such
+#    node grew a 236,000-node subtree in sko42-261120, and one made the laptop's nug30 run 15,000 nodes.
+dnn.retry = 1
+#
+# 3. Rule 10 (every line, the size score on the children's QPB bounds) at depth 2, rule 9 everywhere else:
+#    sko42's next-run change (infra/phase1/recipes/sko42_d2r10_sb.par; on five depth-2 subtrees of sko42-261120b,
+#    0.51 of rule 9's nodes and 0.70 of its CPU; experiments/branching_lab/ucheap on claude/cool-babbage-ilnogj).
+#    Not measured on wil50. wil50's 304 branching depth-2 nodes make its 14,192-node depth-3 frontier, where the
+#    cost is (wil50_feasibility/sampling). The blocks keep every other depth on the block wil50.par gives it:
+#    the gaps measure from the root's QPB bound, 46,101, so 0.12 is 326 short and depths 3 and 4 have such nodes.
+branch.la_exp = 32
+#
+# 4. cut.zone = 0.012 (586 short), from 0.0075 (366): every depth-1 node runs a phase and hands its pool to its
+#    children (the 15 depth-1 nodes were 333-570 short after 300 iterations, wil50_feasibility/sampling; the root
+#    has QPB only), and the depth-2 nodes 366-500 short run one too. Below depth 2 every unfathomed node of the
+#    measured subtrees already runs a phase at 0.0075 (bound_lab/wil50_policy), so it changes little there, and
+#    the hand-over rule keeps far phases short. On sko42 0.010 to 0.025 gave the same trees for 0.65 of the CPU
+#    (estimates/sko42/zone_nov19), on sko49 0.010 to 0.018 0.75 (estimates/sko49/tune). Not measured on wil50.
+#
+# The comments below are wil50.par's.
+# experiments/estimates/wil50/wil50.par (Nov 18): wil50's next-run settings, a copy of
+# experiments/wil50_feasibility/fullrun/fullrun.par (kept as that run's record) with rule 9 for
+# rule 2 in the bottom block (experiments/rule9_bottom). The comments below are fullrun's.
+# The full wil50 run (README.md here): the cpcutt arm of
+# ../pipeline_ab/run_pair.sh (its 24 QAP_DNN_*/DNN_* exports, Nov 7) as keys,
+# then the sampling plan's depth spec, -x 1:4:1:300:1: the DNN bound from
+# depth 1 through depth 4 (dnn.ext = 20 levels below a last-level miss), give
+# up after 300 iterations when hopeless, children warm-started from the parent.
+# dnn.beta = 0.3 and dnn.gu_zone = 0 are pinned: 34e347c (Nov 8) changed those
+# defaults and the gated arm and stages A and B ran the old values.
+# cut.zone = 0.0075 from Nov 10 (0.005 before; stages A and B ran 0.005): a
+# node up to 366 short runs a phase before it branches, so its children inherit
+# a pool. 1.110x in DNN CPU on the complete subtree of a 325-short node, no
+# fathom lost (review_nov10/README.md, section 3.5). 0.012 here (item 4).
+# dnn.cross_first = 5 since Nov 12: one extra certificate at iteration 5 of a
+# warm call, 1.016x in DNN CPU on the node-10 subtree (review_nov10, 2.1).
+dnn.gamma1 = 1.0
+dnn.gamma = 1.0
+dnn.ext = 20
+dnn.amx = 1
+dnn.cheb = 3
+dnn.tight_lam = 2
+dnn.refresh = 40
+dnn.warm_y = 2
+pool.on = 1
+dnn.beta = 0.3
+dnn.gu_zone = 0
+cut.grid = 5:10
+cut.side = 1
+cut.zone = 0.012
+cut.warmy = 1
+cut.rounds = 12
+cut.iters = 200
+cut.freeze = 1000
+cut.damp1 = 0.3
+cut.cp = 100:1000
+# cut.cp_sweeps = 3:1 since Nov 13: three Dykstra sweeps per CP-ADMM iteration
+# (review_nov10 item 2: node 5's subtree 1.033x in DNN CPU on the matched
+# children, one fathom gained, none lost)
+cut.cp_sweeps = 3:1
+ship.bits = 32
+dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
+dnn.cross = 2
+dnn.cross_first = 5
+dnn.lazycert = 1
+# dnn.depths = 1:48 since Nov 14 (1:4 before): the DNN bound at every depth with two
+# facilities left (m >= 2 in latest/bnb.C). 1:4 with dnn.ext = 20 reached the same nodes
+# down to depth 24 (below depth 4 a node got the bound when its parent was a DNN miss)
+# and left the depths below 24 to QPB alone, where a run that must find or beat
+# the incumbent goes on its way to a leaf (experiments/estimates/README.md).
+dnn.depths = 1:48
+dnn.maxgap = 1
+dnn.giveup = 300
+dnn.warm = 1
+
+# --- wil50_d2r10_xl2 (Nov 25): an arm of wil50's tuning round, wil50_d2r10_g150xl2.par without the cut
+# phase's two keys (specs/wil50-tune.spec).
+branch.xbar_lines = 2

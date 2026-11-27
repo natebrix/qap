@@ -1,0 +1,174 @@
+{
+ "done": {
+  "nodes": 1117.0,
+  "cpu": 117974.0139240002
+ },
+ "rest": {
+  "nodes": 2958.98007782,
+  "cpu": 159974.00402499994,
+  "nodes_5_95": [
+   2958.98007782,
+   2958.98007782
+  ],
+  "cpu_5_95": [
+   159974.00402499994,
+   159974.00402499994
+  ]
+ },
+ "total": {
+  "nodes": 4075.98007782,
+  "cpu": 277948.0179490001,
+  "nodes_5_95": [
+   4075.98007782,
+   4075.98007782
+  ],
+  "cpu_5_95": [
+   277948.0179490001,
+   277948.0179490001
+  ]
+ },
+ "strata": 282,
+ "with_survivors": 7,
+ "dived": 7,
+ "dives": 7,
+ "strata_with_survivors_not_dived": 0,
+ "deepest_dive": 11,
+ "estimator_cpu": 134983.90768499998,
+ "by_depth": {
+  "0": {
+   "done_nodes": 1.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 4318.739941,
+   "rest_cpu": 0.0
+  },
+  "1": {
+   "done_nodes": 50.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 26111.983843999995,
+   "rest_cpu": 0.0
+  },
+  "2": {
+   "done_nodes": 490.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 59765.56649700001,
+   "rest_cpu": 0.0
+  },
+  "3": {
+   "done_nodes": 576.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 27774.24894000001,
+   "rest_cpu": 0.0
+  },
+  "4": {
+   "done_nodes": 0.0,
+   "rest_nodes": 282.0,
+   "done_cpu": 0.0,
+   "rest_cpu": 59834.44323000002
+  },
+  "5": {
+   "done_nodes": 0.0,
+   "rest_nodes": 782.734882858,
+   "done_cpu": 0.0,
+   "rest_cpu": 41491.486189
+  },
+  "6": {
+   "done_nodes": 0.0,
+   "rest_nodes": 663.06972863,
+   "done_cpu": 0.0,
+   "rest_cpu": 25685.023555699998
+  },
+  "7": {
+   "done_nodes": 0.0,
+   "rest_nodes": 344.2843835,
+   "done_cpu": 0.0,
+   "rest_cpu": 13515.294829999999
+  },
+  "8": {
+   "done_nodes": 0.0,
+   "rest_nodes": 293.4597384,
+   "done_cpu": 0.0,
+   "rest_cpu": 8029.582654999999
+  },
+  "9": {
+   "done_nodes": 0.0,
+   "rest_nodes": 202.6350934,
+   "done_cpu": 0.0,
+   "rest_cpu": 4306.793035
+  },
+  "10": {
+   "done_nodes": 0.0,
+   "rest_nodes": 197.8104483,
+   "done_cpu": 0.0,
+   "rest_cpu": 4520.787683
+  },
+  "11": {
+   "done_nodes": 0.0,
+   "rest_nodes": 192.9858032,
+   "done_cpu": 0.0,
+   "rest_cpu": 2590.592852
+  }
+ },
+ "source_run": "tai50b-est-261119",
+ "open_nodes": 282,
+ "open_sampled": 282,
+ "units": 259,
+ "units_pending": 0,
+ "imputed": {
+  "nodes": 0.0,
+  "cpu": 0.0,
+  "open": 0,
+  "unmatched_open": 0
+ },
+ "jackknife_nodes": 1291.747429273433,
+ "jackknife_cpu": 49466.108585378,
+ "diag": {
+  "top1_nodes": 0.4174104277545372,
+  "top10_nodes": 0.6451479995182741,
+  "top1_cpu": 0.2737057599255775,
+  "top10_cpu": 0.4396527500556197,
+  "dived_strata": 7,
+  "one_dive_strata": 7,
+  "continuation": {
+   "5": [
+    7,
+    7
+   ],
+   "6": [
+    7,
+    4
+   ],
+   "7": [
+    4,
+    3
+   ],
+   "8": [
+    3,
+    1
+   ],
+   "9": [
+    1,
+    1
+   ],
+   "10": [
+    1,
+    1
+   ],
+   "11": [
+    1,
+    0
+   ]
+  },
+  "deepest_well_sampled": null,
+  "continuation_there": null,
+  "mass_depth": 5,
+  "setup_cpu": 100797.45868199997,
+  "dive_cpu": 34186.449003
+ },
+ "flags": [
+  "HEAVY TAIL: the 10 largest dives make 65% of the rest's nodes and 44% of its CPU (the largest 42%, 27%): more dives where they come from",
+  "FEW DIVES: 7 of 7 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)",
+  "SETUP-BOUND: bounding the sampled open nodes took 28.0 CPU h, the dives 9.5 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)",
+  "WIDE: the jackknife over units gives a standard error of 31% of the rest's CPU"
+ ],
+ "text": "HEAVY TAIL: the 10 largest dives make 65% of the rest's nodes and 44% of its CPU (the largest 42%, 27%): more dives where they come from\nFEW DIVES: 7 of 7 dived open nodes got one dive (QAP_EST_MIN_DIVES, a longer dive budget)\nSETUP-BOUND: bounding the sampled open nodes took 28.0 CPU h, the dives 9.5 CPU h (sample fewer, or by depth: QAP_EST_SAMPLE_DEPTHS)\nWIDE: the jackknife over units gives a standard error of 31% of the rest's CPU\ndone so far: 1,117 nodes, 32.8 CPU h\nestimated rest: 2,959 nodes (5-95%: 2,959 to 2,959), 44.4 CPU h (44.4 CPU h to 44.4 CPU h)\nestimated tree: 4,076 nodes (5-95%: 4,076 to 4,076), 77.2 CPU h (77.2 CPU h to 77.2 CPU h)\n282 open nodes (7 with children that branch), 7 dives in 7 of them, deepest dive node at depth 11; estimator 37.5 CPU h\njackknife over units: standard error 1,292 nodes, 13.7 CPU h\nthe largest dive makes 27% of the rest's CPU, the 10 largest 44%; 7 of 7 dived open nodes got one dive; estimator CPU: setup 28.0 CPU h, dives 9.5 CPU h\n\n| depth | nodes done | nodes estimated, rest | CPU h done | CPU h estimated, rest |\n|---|---|---|---|---|\n| 0 | 1 | 0 | 1.20 | 0.00 |\n| 1 | 50 | 0 | 7.25 | 0.00 |\n| 2 | 490 | 0 | 16.60 | 0.00 |\n| 3 | 576 | 0 | 7.72 | 0.00 |\n| 4 | 0 | 282 | 0.00 | 16.62 |\n| 5 | 0 | 783 | 0.00 | 11.53 |\n| 6 | 0 | 663 | 0.00 | 7.13 |\n| 7 | 0 | 344 | 0.00 | 3.75 |\n| 8 | 0 | 293 | 0.00 | 2.23 |\n| 9 | 0 | 203 | 0.00 | 1.20 |\n| 10 | 0 | 198 | 0.00 | 1.26 |\n| 11 | 0 | 193 | 0.00 | 0.72 |"
+}

@@ -32,7 +32,7 @@
  30   step for parametric bound
  5    compute B for best _ rows of U
 
- 2    branching rule at bottom of tree
+ 9    branching rule at bottom of tree (rule 9 for 2: rule9_bottom)
  100   Frank-Wolfe iterations, for bound 
  50   Frank-wolfe iterations, when we know we can't fathom
  25   Frank-Wolfe iterations, for row selection
@@ -63,15 +63,26 @@ dnn.beta = 0.3
 dnn.gu_zone = 0
 cut.grid = 6:7
 cut.side = 1
-cut.zone = 0.010
+# Nov 19: 0.025, from 0.010: on the subtrees two whole-tree runs both closed, the same trees for 0.65 of the
+# CPU (zone_nov19/README.md)
+cut.zone = 0.025
 cut.warmy = 1
 cut.rounds = 12
 cut.iters = 200
 cut.freeze = 1000
 cut.damp1 = 0.3
 cut.cp = 100:1000
+# Nov 19: the bound lab's sko49 policy block (experiments/bound_lab/wil50_policy, arm hoe2w: 1.21x and 1.34x
+# fewer iterations on two sko49 subtrees): early entry, the hand-over rule fitted on sko49, and the
+# phase's own penalty at wc=1.4 (in dnn.beta_sched below; 0.7 until Nov 19). In sko42.par and sko49.par alike
+dnn.giveup_warm = 100
+cut.handover = 27:0:5
+# Nov 20: dnn.retry = 1, as tho40c: a pooled first solve that fails (its certified bound more than 1% of the
+# incumbent below the inherited one) is solved again without the pool, then cold. Without it one such node
+# grew 36:7,28:0 of sko42-261120 to 236,000 nodes and 387 CPU h, and three made z25's tails (189 CPU h)
+dnn.retry = 1
 ship.bits = 32
-dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=0.7
+dnn.beta_sched = two,f=1.6667,t=60,w=0.25,wc=1.4
 dnn.cross = 2
 dnn.lazycert = 1
 # dnn.depths = 1:40 since Nov 14 (1:4 before): the DNN bound at every depth with two

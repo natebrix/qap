@@ -23,8 +23,29 @@
 # (for uploads before boto3 is installed), QAP_RECIPE (a name in recipes/;
 # needed only to create the run), QAP_ROLE, QAP_NO_UB=1 (no incumbent),
 # QAP_REFERENCE (default 1), QAP_GATES (default below; "none" skips them),
-# QAP_SLOTS (default: the physical cores), QAP_VISIBILITY (public or private:
-# the coordinator's public status, coord/publish.py; for a new run only).
+# QAP_SLOTS (this instance's worker slots; default: the physical cores),
+# QAP_RUN_SLOTS (the run's slots, for `qapctl init`: the sum over every instance
+# the run is launched with; default QAP_SLOTS), QAP_RECIPE_FILE (a recipe outside
+# recipes/, which launch.sh --recipe-file writes from the user data; it wins over
+# QAP_RECIPE), QAP_RUN_WAIT_MIN (a worker's wait for its run to exist; default 30),
+# QAP_VISIBILITY (public or private: the coordinator's public status,
+# coord/publish.py; for a new run only). QAP_ESTIMATE=SOLVE_S:DIVE_S[:B] (on every
+# instance of the run; docs/estimates_plan.md): an estimate run, `qapctl estimate-flow`
+# in place of the coordinator: the solve for SOLVE_S seconds of its wall time, then
+# paused and RUN-dives, DIVE_S seconds of survivor dives per open unit (weights exp(B x),
+# default 0.4), the workers following (`worker --follow`); out/estimate.txt at the end,
+# no reference run. The solve stays paused in the store: `qapctl resume RUN` goes on.
+# QAP_ESTIMATE=SOLVE_S:DIVE_S:B:SAMPLE:W: B = kQ for Knuth's dives (bushy trees), SAMPLE the
+# share of the open nodes sampled (default 1), W their weights, unif or qpb (coord/dives.py).
+# Any other QAP_EST_* exported on the coordinating instance (QAP_EST_MIN_DIVES, QAP_EST_SAMPLE_DEPTHS)
+# goes to every dives unit (estimate-flow --dive-env). QAP_ESTIMATE_DECIDE=F (coordinating instance):
+# the estimate's decision point, estimate-flow --decide F (default 0.15; 0: off): when finishing the
+# dives would cost over F of the estimated rest, they stop and the solve goes on to the end.
+# QAP_ASG (launch.sh --workers): the run's worker group, an EC2 Auto Scaling group. The
+# coordinating instance raises it to QAP_WORKERS instances once the run exists and sets it to 0
+# when it ends (unless drained for a relaunch); a worker leaves it (terminate, decrementing the
+# group) when its run is over or its build or gates fail, so that the group does not start
+# another; a worker drained by a Spot notice just goes, and the group replaces it.
 #
 # Local test (any Linux; no dnf, no shutdown): QAP_LOCAL=1, QAP_BACKEND pointing
 # at a moto server (aws:B?region=eu-north-1&endpoint=http://127.0.0.1:PORT),
@@ -45,6 +66,28 @@ NO_UB=${QAP_NO_UB:-0}
 REFERENCE=${QAP_REFERENCE:-1}
 GATES=${QAP_GATES:-"bruteforce resume parallel regression dnncheck coord"}
 [ "$GATES" = none ] && GATES=""
+EST=${QAP_ESTIMATE:-}
+EST_SOLVE= EST_DIVE= EST_B=
+if [ -n "$EST" ]; then
+  IFS=: read -r EST_SOLVE EST_DIVE EST_B EST_SAMPLE EST_W <<< "$EST"
+  EST_B=${EST_B:-0.4} EST_SAMPLE=${EST_SAMPLE:-1} EST_W=${EST_W:-unif}
+  [ -n "$EST_SOLVE" ] && [ -n "$EST_DIVE" ] || { echo "QAP_ESTIMATE must be SOLVE_S:DIVE_S[:B]"; exit 2; }
+  REFERENCE=0
+fi
+# QAP_FROM=SRC with QAP_DIVES=DIVE_S[:B[:SAMPLE[:W]]] (start.sh FROM= DIVES=): the run is a dives run of the
+# paused run SRC (qapctl dives SRC --as RUN: a second estimate of its frontier; coord/dives.py), the
+# coordinating instance's QAP_EST_* settings for every unit. With QAP_SAMPLE=D:N,... (start.sh FROM=
+# SAMPLE=): the run is a sampled run of SRC's open nodes under the recipe's params (qapctl init
+# --sample-from SRC; QAP_SAMPLE_BY, QAP_SAMPLE_SEED; coord/sample.py), for an A/B side by side.
+FROM=${QAP_FROM:-}; DIVES=${QAP_DIVES:-}; SAMPLE=${QAP_SAMPLE:-}
+if [ -n "$FROM" ]; then
+  [ -n "$DIVES" ] || [ -n "$SAMPLE" ] || { echo "QAP_FROM needs QAP_DIVES or QAP_SAMPLE"; exit 2; }
+  [ -z "$EST" ] || { echo "QAP_FROM and QAP_ESTIMATE do not go together"; exit 2; }
+  REFERENCE=0
+fi
+ASG=${QAP_ASG:-}
+WORKERS=${QAP_WORKERS:-}
+LEAVE=0   # a worker: leave the group at the end (its run is over, or this instance cannot work)
 IMDS=${QAP_IMDS:-}
 [ "$LOCAL" = 1 ] || IMDS=${IMDS:-http://169.254.169.254}
 PY=python3
@@ -69,11 +112,27 @@ up() {   # out/ to the store; never fatal
   fi
 }
 step() { echo "$(date -u +%FT%TZ) $*" | tee -a "$OUT/steps.txt"; up; }
+group() {   # group N: the worker group's desired size (the coordinating instance); never fatal
+  [ -n "$ASG" ] || return 0
+  aws autoscaling update-auto-scaling-group --auto-scaling-group-name "$ASG" --min-size 0 --desired-capacity "$1" \
+    > "$OUT/group.log" 2>&1 && echo "$(date -u +%FT%TZ) worker group $ASG: $1 instances" >> "$OUT/steps.txt" \
+    || echo "$(date -u +%FT%TZ) worker group $ASG: setting $1 failed ($(tail -1 "$OUT/group.log"))" >> "$OUT/steps.txt"
+}
 finish() {
   echo "$(date -u +%FT%TZ) end ($1)" >> "$OUT/steps.txt"
   touch "$OUT/finished"
   for f in worker coordinator; do [ -f "$OUT/$f.pid" ] && kill -TERM "$(cat "$OUT/$f.pid")" 2> /dev/null; done
   kill $(jobs -p) 2> /dev/null
+  # the worker group: the coordinating instance ends it (a drained one leaves it for its relaunch);
+  # a worker leaves it when told to, so the group starts no other in its place
+  if [ -n "$ASG" ] && [ ! -f "$OUT/draining" ]; then
+    if [ "$ROLE" = all ]; then group 0
+    elif [ "$LEAVE" = 1 ]; then
+      aws autoscaling terminate-instance-in-auto-scaling-group --instance-id "$HOST" --should-decrement-desired-capacity \
+        > "$OUT/group.log" 2>&1 && echo "$(date -u +%FT%TZ) left the worker group $ASG" >> "$OUT/steps.txt" \
+        || echo "$(date -u +%FT%TZ) leaving the worker group $ASG failed ($(tail -1 "$OUT/group.log"))" >> "$OUT/steps.txt"
+    fi
+  fi
   up
   [ "$LOCAL" = 1 ] || shutdown -h now
 }
@@ -86,7 +145,8 @@ step "start: run $RUN, role $ROLE, host $HOST"
 CORES=$(lscpu -p=CPU,CORE,SOCKET | grep -v '^#' | sort -t, -k3,3n -k2,2n -k1,1n | awk -F, '!seen[$3","$2]++ {print $1}')
 NC=$(echo "$CORES" | wc -l)
 SLOTS=${QAP_SLOTS:-$NC}
-{ echo "physical_cores $NC"; echo "slots $SLOTS"; echo "vcpus $(nproc)"; echo "arch $(uname -m)"
+RUN_SLOTS=${QAP_RUN_SLOTS:-$SLOTS}
+{ echo "physical_cores $NC"; echo "slots $SLOTS"; echo "run_slots $RUN_SLOTS"; echo "vcpus $(nproc)"; echo "arch $(uname -m)"
   echo "model $(lscpu | sed -n 's/^Model name: *//p' | head -1)"
   echo "amx_bf16 $(grep -m1 -c amx_bf16 /proc/cpuinfo)"
   echo "mem_gb $(free -g | awk '/^Mem/ {print $2}')"; echo "kernel $(uname -r)"; } >> "$OUT/sysinfo.txt"
@@ -114,11 +174,16 @@ $PY -c "import boto3" 2> /dev/null && HAVE_BK=1
   $PY -c "import boto3; print('boto3', boto3.__version__)" 2> /dev/null || echo "no boto3"; } > "$OUT/toolchain.txt" 2>&1
 step "toolchain: $(tr '\n' ' ' < "$OUT/toolchain.txt")"
 [ "$HAVE_BK" = 1 ] || { step "no boto3 for $PY"; exit 1; }
+# a worker of a group started for a run that is over (the coordinator's 0 not seen yet): no build
+if [ "$ROLE" = worker ] && [ -n "$ASG" ]; then
+  case $(bk status "$RUN" 2> /dev/null) in finished|stopped) LEAVE=1; step "run $RUN is over: leaving the worker group"; exit 0 ;; esac
+  [ -n "$EST" ] && [ "$(bk status "$RUN-dives" 2> /dev/null)" = finished ] && { LEAVE=1; step "run $RUN's estimate is finished: leaving the worker group"; exit 0; }
+fi
 # from here on out/ also goes up every 5 minutes, whatever the main line is doing
 ( while [ ! -f "$OUT/finished" ]; do sleep 300; up > /dev/null; done ) &
 
 # --- the build and the gates (a failed gate stops the node: no units on a build that fails them)
-if ! make solver PYTHON=$PY > "$OUT/build.log" 2>&1; then step "build FAILED (out/build.log)"; exit 1; fi
+if ! make solver PYTHON=$PY > "$OUT/build.log" 2>&1; then LEAVE=1; step "build FAILED (out/build.log)"; exit 1; fi
 ldd latest/bnbdrv | grep -iE 'blas|lapack' > "$OUT/blas.txt"
 step "build ok: ${QAP_COMMIT:-$(git -C "$R" rev-parse --short HEAD 2> /dev/null)} $(tr '\n' ' ' < "$OUT/blas.txt")"
 : > "$OUT/gates.txt"
@@ -140,7 +205,7 @@ for g in $GATES; do
   echo "$g $r $(( $(date +%s) - t0 ))s" >> "$OUT/gates.txt"
 done
 step "gates: $(tr '\n' ' ' < "$OUT/gates.txt")"
-grep -q -E 'FAIL|TIMEOUT' "$OUT/gates.txt" && { step "a gate failed: stopping (out/gate_*.log)"; exit 1; }
+grep -q -E 'FAIL|TIMEOUT' "$OUT/gates.txt" && { LEAVE=1; step "a gate failed: stopping (out/gate_*.log)"; exit 1; }
 
 # --- the Spot watcher: an interruption notice drains the worker (2 minutes' warning)
 spot_watch() {
@@ -161,14 +226,20 @@ spot_watch() {
 spot_watch &
 
 # --- the worker and the coordinator, each restarted if it dies before the run is finished
+# (an estimate run is over when the solve finished inside its budget or its dives run finished)
+run_done() {
+  [ "$(bk status "$RUN")" = finished ] && return 0
+  [ -n "$EST" ] && [ "$(bk status "$RUN-dives")" = finished ]
+}
 worker_loop() {
-  local n=0 rc
+  local n=0 rc follow=()
+  [ -n "$EST" ] && follow=(--follow)
   while [ ! -f "$OUT/draining" ] && [ ! -f "$OUT/stopping" ]; do
-    $PY -m coord.qapctl worker "$RUN" --backend "$BK" --slots "$SLOTS" --workdir "$R/work" >> "$OUT/worker.log" 2>&1 &
+    $PY -m coord.qapctl worker "$RUN" --backend "$BK" --slots "$SLOTS" --workdir "$R/work" ${follow[@]+"${follow[@]}"} >> "$OUT/worker.log" 2>&1 &
     echo $! > "$OUT/worker.pid"
     wait $!; rc=$?
     rm -f "$OUT/worker.pid"
-    [ "$(bk status "$RUN")" = finished ] && return 0
+    run_done && return 0
     [ -f "$OUT/draining" ] || [ -f "$OUT/stopping" ] && return 1
     n=$((n + 1)); step "worker exited ($rc) before the run finished; restart $n of 5"
     [ $n -ge 5 ] && return 1
@@ -177,9 +248,19 @@ worker_loop() {
   return 1
 }
 coord_loop() {
-  local n=0 rc
+  local n=0 rc cmd=(coordinator "$RUN")
+  [ -n "$EST" ] && cmd=(estimate-flow "$RUN" --solve-wall "$EST_SOLVE" --dive-budget "$EST_DIVE" --dive-b "$EST_B"
+                        --dive-sample "$EST_SAMPLE" --dive-weights "$EST_W")
+  [ -n "$EST" ] && [ -n "${QAP_ESTIMATE_DECIDE:-}" ] && cmd+=(--decide "$QAP_ESTIMATE_DECIDE")
+  # the estimator's other settings exported here (a spec's ESTIMATE_ENV: QAP_EST_MIN_DIVES, ...): the
+  # dives run keeps them in its config, for every unit on every instance
+  if [ -n "$EST" ]; then
+    for kv in $(env | grep -E '^QAP_EST_[A-Z_]+=[^ ]*$' | grep -vE '^QAP_EST_(SURV|SAMPLE|SAMPLE_W|BUDGET|DIVES|SEED)=' || true); do
+      cmd+=(--dive-env "$kv")
+    done
+  fi
   while :; do
-    $PY -m coord.qapctl coordinator "$RUN" --backend "$BK" >> "$OUT/coordinator.log" 2>&1 &
+    $PY -m coord.qapctl "${cmd[@]}" --backend "$BK" >> "$OUT/coordinator.log" 2>&1 &
     echo $! > "$OUT/coordinator.pid"
     wait $!; rc=$?
     rm -f "$OUT/coordinator.pid"
@@ -201,39 +282,68 @@ coord_loop() {
 
 ST=$(bk status "$RUN") || { step "cannot read run $RUN from $BK: stopping"; exit 1; }
 if [ "$ROLE" = worker ]; then
-  for i in $(seq 60); do [ "$ST" != none ] && break; sleep 30; ST=$(bk status "$RUN"); done
-  [ "$ST" = none ] && { step "no run $RUN after 30 minutes: stopping"; exit 1; }
-  [ "$ST" = finished ] && { step "run $RUN is finished: nothing to do"; exit 0; }
-  step "worker: $SLOTS slots on run $RUN ($ST)"
+  # the run exists only once qapctl init has bounded the root on the coordinating instance: minutes
+  # for a QPB root, hours for tai60b's long phase, so start.sh gives a new run's extra instances
+  # QAP_RUN_WAIT_MIN=240 (default 30)
+  WAIT_MIN=${QAP_RUN_WAIT_MIN:-30}
+  for i in $(seq $((WAIT_MIN * 2))); do [ "$ST" != none ] && break; sleep 30; ST=$(bk status "$RUN"); done
+  [ "$ST" = none ] && { LEAVE=1; step "no run $RUN after $WAIT_MIN minutes: stopping"; exit 1; }
+  [ "$ST" = finished ] && { LEAVE=1; step "run $RUN is finished: nothing to do"; exit 0; }
+  run_done && { LEAVE=1; step "run $RUN's estimate is finished: nothing to do"; exit 0; }
+  step "worker: $SLOTS slots on run $RUN ($ST)$([ -n "$EST" ] && echo ", following it to $RUN-dives")"
   worker_loop; rc=$?
   step "worker: $([ $rc = 0 ] && echo "run $RUN finished" || echo stopped) ($(grep -c ' -> ' "$OUT/worker.log" 2> /dev/null) units)"
+  # a group's worker leaves it unless drained (a Spot notice: the group replaces it)
+  LEAVE=1
   exit 0
 fi
 
 # role all: the run
 if [ "$ST" = finished ]; then step "run $RUN is finished already: nothing to do"; exit 0; fi
-if [ "$ST" = none ]; then
-  RF=infra/phase1/recipes/${QAP_RECIPE:-}.sh
-  [ -n "${QAP_RECIPE:-}" ] && [ -f "$RF" ] || { step "no run $RUN and no recipe (QAP_RECIPE=${QAP_RECIPE:-}): stopping"; exit 1; }
+if run_done; then step "run $RUN's estimate is finished already: nothing to do"; exit 0; fi
+if [ "$ST" = none ] && [ -n "$DIVES" ]; then
+  # a dives run of the paused run FROM: its units read FROM's states and parents, never change them
+  IFS=: read -r DV_S DV_B DV_SAMPLE DV_W <<< "$DIVES"
+  dargs=(dives "$FROM" --as "$RUN" --backend "$BK" --budget "$DV_S" --dive-b "${DV_B:-0.4}" --dive-sample "${DV_SAMPLE:-1}"
+         --dive-weights "${DV_W:-unif}")
+  for kv in $(env | grep -E '^QAP_EST_[A-Z_]+=[^ ]*$' | grep -vE '^QAP_EST_(SURV|SAMPLE|SAMPLE_W|BUDGET|DIVES|SEED)=' || true); do
+    dargs+=(--dive-env "$kv")
+  done
+  step "init: run $RUN, a dives run of $FROM ($DIVES)"
+  if ! $PY -m coord.qapctl "${dargs[@]}" > "$OUT/init.log" 2>&1; then
+    step "init FAILED (out/init.log)"; exit 1
+  fi
+  step "init: $(tail -1 "$OUT/init.log" | sed 's/^[0-9:]* //' | cut -c1-200)"
+elif [ "$ST" = none ]; then
+  RF=infra/phase1/recipes/${QAP_RECIPE:-}.sh; RN=recipes/${QAP_RECIPE:-}.sh
+  [ -n "${QAP_RECIPE_FILE:-}" ] && RF=$QAP_RECIPE_FILE && RN="the recipe launch.sh sent (runs/$RUN/recipe.sh on the laptop)"
+  { [ -n "${QAP_RECIPE:-}" ] || [ -n "${QAP_RECIPE_FILE:-}" ]; } && [ -f "$RF" ] \
+    || { step "no run $RUN and no recipe (QAP_RECIPE=${QAP_RECIPE:-}, QAP_RECIPE_FILE=${QAP_RECIPE_FILE:-}): stopping"; exit 1; }
   INSTANCE= PARAMS= OPT= UB= EXTRA= ENV= COORD=
   source "$RF"
   [ "$NO_UB" = 1 ] && UB=
   # the recipe as this run uses it, for the reference run and for a relaunch
-  { echo "# run $RUN: recipes/$QAP_RECIPE.sh$([ "$NO_UB" = 1 ] && echo ', --no-ub')"; declare -p INSTANCE PARAMS OPT UB EXTRA ENV COORD; } > "$OUT/recipe.sh"
-  args=(--instance "$INSTANCE" --params "$PARAMS" --slots "$SLOTS" "--extra=$EXTRA")
+  { echo "# run $RUN: $RN$([ "$NO_UB" = 1 ] && echo ', --no-ub'), $RUN_SLOTS slots"; declare -p INSTANCE PARAMS OPT UB EXTRA ENV COORD; } > "$OUT/recipe.sh"
+  args=(--instance "$INSTANCE" --params "$PARAMS" --slots "$RUN_SLOTS" "--extra=$EXTRA")
   for kv in $ENV; do args+=(--env "$kv"); done
   [ -n "$UB" ] && args+=(--ub "$UB")
   args+=(--visibility "${QAP_VISIBILITY:-public}" $COORD)
-  step "init: run $RUN from recipes/$QAP_RECIPE.sh$([ -n "$UB" ] && echo ", incumbent $UB" || echo ", no incumbent"): the frontier pass"
+  if [ -n "$SAMPLE" ]; then   # a sampled run of FROM's open nodes (coord/sample.py)
+    args+=(--sample-from "$FROM" --sample "$SAMPLE")
+    [ -n "${QAP_SAMPLE_BY:-}" ] && args+=(--sample-by "$QAP_SAMPLE_BY")
+    [ -n "${QAP_SAMPLE_SEED:-}" ] && args+=(--sample-seed "$QAP_SAMPLE_SEED")
+  fi
+  step "init: run $RUN from $RN$([ -n "$UB" ] && echo ", incumbent $UB" || echo ", no incumbent"), $RUN_SLOTS slots: $([ -n "$SAMPLE" ] && echo "a sample of $FROM's open nodes ($SAMPLE)" || echo "the frontier pass")"
   if ! $PY -m coord.qapctl init "$RUN" --backend "$BK" "${args[@]}" > "$OUT/init.log" 2>&1; then
     step "init FAILED (out/init.log)"; exit 1
   fi
   bk put "runs/$RUN/recipe.sh" "$OUT/recipe.sh"
-  step "init: $(grep -o 'frontier at depth .*' "$OUT/init.log")"
+  step "init: $(grep -o 'frontier at depth .*\|a sample of .*' "$OUT/init.log" | head -1)"
 else
   bk get "runs/$RUN/recipe.sh" "$OUT/recipe.sh" || : > "$OUT/recipe.sh"
   step "run $RUN exists ($ST): resuming"
 fi
+[ -n "$WORKERS" ] && group "$WORKERS"   # the worker group, now that the run exists
 coord_loop & CL=$!
 step "coordinator and worker ($SLOTS slots) running"
 worker_loop; WR=$?
@@ -245,10 +355,29 @@ if [ -f "$OUT/draining" ]; then
 fi
 wait $CL; CR=$?
 [ -f "$OUT/stopping" ] && { step "stopped: the coordinator failed 5 times (out/coordinator.log)"; exit 1; }
+if [ -n "$EST" ] && [ "$(bk status "$RUN")" != finished ]; then
+  # an estimate run: its dives run's results.txt is the estimate (coord/dives.py)
+  if [ $WR != 0 ] || [ $CR != 0 ] || ! bk get "runs/$RUN-dives/results.txt" "$OUT/estimate.txt"; then
+    step "the estimate did not finish (worker $WR, estimate-flow $CR): see out/worker.log, out/coordinator.log"; exit 1
+  fi
+  bk get "runs/$RUN-dives/estimate.json" "$OUT/estimate.json" || :
+  step "estimate: $(grep -E '^estimated tree' "$OUT/estimate.txt")"
+  step "the solve $RUN is paused in the store: qapctl resume $RUN goes on with it"
+  exit 0
+fi
 if [ $WR != 0 ] || [ $CR != 0 ] || ! bk get "runs/$RUN/results.txt" "$OUT/results.txt"; then
   step "the run did not finish (worker $WR, coordinator $CR): see out/worker.log, out/coordinator.log"; exit 1
 fi
+if [ -n "$DIVES" ]; then   # a dives run of FROM: its results are the estimate
+  cp "$OUT/results.txt" "$OUT/estimate.txt"; bk get "runs/$RUN/estimate.json" "$OUT/estimate.json" || :
+  step "estimate (a dives run of $FROM): $(grep -E '^estimated tree' "$OUT/estimate.txt")"
+  exit 0
+fi
 step "finished: $(grep -E 'Nodes:|best objective' "$OUT/results.txt" | tr -s ' ' | tr '\n' ' ')"
+if [ -n "$SAMPLE" ]; then   # a sampled run's results are its sampled subtrees', not a solve of the problem
+  step "a sampled run of $FROM's open nodes: no acceptance check (compare the arms: experiments/estimates_nov19/paired.py)"
+  exit 0
+fi
 
 # --- the acceptance check: bench/parallel.py with the same settings, here
 INSTANCE= PARAMS= OPT= UB= EXTRA= ENV= COORD=

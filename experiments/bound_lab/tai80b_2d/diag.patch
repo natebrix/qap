@@ -1,0 +1,28 @@
+diff --git a/latest/dnncut.C b/latest/dnncut.C
+index 86c56f0c..e3a7cd82 100644
+--- a/latest/dnncut.C
++++ b/latest/dnncut.C
+@@ -1269,6 +1269,10 @@ public:
+ 
+   bool stop(int it, double best) override
+   {
++    {   // bound_lab/tai60b live.patch: QAP_CP_LIVE=FILE appends the phase's running best at every check (diagnostic only)
++      static const char *lv = getenv("QAP_CP_LIVE");
++      if (lv && *lv) { FILE *f = fopen(lv, "a"); if (f) { fprintf(f, "cp %d %.4f cpu %.1f\n", it, std::max(best, stall_first), tcpu()); fclose(f); } }
++    }
+     if ((stall_window <= 0 && giveup.empty() && ho_w <= 0) || !std::isfinite(stall_cutoff)) return false;
+     const double b = std::max(best, stall_first);
+     best_hist.push_back({it, b});
+diff --git a/latest/driver.C b/latest/driver.C
+index e31fee8d..935208f9 100644
+--- a/latest/driver.C
++++ b/latest/driver.C
+@@ -465,7 +465,7 @@ static void apply_policy_settings()
+     // one core per solver process. Accelerate (macOS) has no such call;
+     // it reads VECLIB_MAXIMUM_THREADS when it is loaded, so that must be
+     // set in the environment (bench/parallel.py sets it for its workers).
+-    if (!dnn_set_blas_threads(1) && !getenv("VECLIB_MAXIMUM_THREADS"))
++    if (!dnn_set_blas_threads(getenv("QAP_BLAS_THREADS") ? atoi(getenv("QAP_BLAS_THREADS")) : 1) && !getenv("VECLIB_MAXIMUM_THREADS"))
+       cerr << "warning: the BLAS may use several threads per process; "
+ 	   << "export VECLIB_MAXIMUM_THREADS=1 when running several solvers"
+ 	   << std::endl;

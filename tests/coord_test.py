@@ -17,13 +17,27 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
              one replays and finishes
   drain      the worker gets SIGTERM mid-run (spot notice): running units
              return their open nodes; a new worker finishes
+  viscap     the queue refuses to keep a message hidden past 0.2 seconds from its
+             receipt (QAP_TEST_VISIBILITY_CAP, the stand-in for SQS's 12 hours),
+             with 1-second leases and 6-second units: no unit may be taken over
+             (retried 0), as wil50-261126's depth-1 firings were every 12 hours
   noub       no incumbent given: the run finds the optimum and publishes it
              (totals then depend on timing; only the objective is checked)
   aws        `normal` on the AWS backend against a local moto server
              (needs boto3 and moto: --python VENV/bin/python)
-  tworuns    two runs on one backend at the same time: they share the
-             queues, so each run's worker also receives the other's messages;
-             both must reproduce the serial totals
+  awstworuns `tworuns` on the AWS backend (moto): each run's SQS queues, and
+             none left once both have finished
+  rootcache  nug18 with the DNN (the nug30 recipe's params) and --frontier-depth 1:
+             run b, with run a's data, settings and incumbent, reads a's frontier
+             pass from the root cache, its nodes' parent states too, and both
+             reproduce the serial totals
+  tworuns    two runs on one backend at the same time, each on its own
+             queues; one is paused partway with units queued (as an estimate
+             leaves its solve) and the other must finish meanwhile; the paused
+             one is resumed and finishes; both must reproduce the serial totals
+  stopped    qapctl stop partway: the coordinator and worker exit, the public
+             status says stopped, purge-states deletes the state files; a run
+             stopped before any worker came has its queues deleted
 
 Every scenario also checks the public status (coord/publish.py), published
 every second: status.json final, with the run's totals; totals.state the same
@@ -87,6 +101,10 @@ def public_problems(r, private=False):
     if s["files"].get("params") != "params.par" or \
             b.get_bytes(key("params.par")) != b.get_bytes(f"runs/{r.run_id}/params.par"):
         problems.append("params.par is not the params file the run was given")
+    # a --trace run's tree: at the end every branched node's subtree is closed (coord/tree.py)
+    sub = s["nodes"].get("subtrees_by_depth")
+    if s["files"].get("tree") and not (sub and sum(sub["branched"]) > 0 and sub["branched"] == sub["closed"]):
+        problems.append(f"status.json subtrees_by_depth {sub}: not every branched node closed")
     h = json.loads(b.get_bytes(key("history.json")) or b"[]")
     if len(h) < 2 or h[-1]["nodes"] != want[0][0] or any(x["wall_s"] > y["wall_s"] for x, y in zip(h, h[1:])):
         problems.append(f"history.json: {len(h)} samples, not ending on the totals or not in time order")
@@ -130,9 +148,9 @@ class Run:
         self.procs.append(p)
         return p
 
-    def worker(self, tag):
+    def worker(self, tag, env=None):
         return self.ctl("worker", self.run_id, *self.args, "--slots", "3", "--workdir",
-                        os.path.join(self.tmp, tag), wait=False, log=os.path.join(self.tmp, tag + ".log"))
+                        os.path.join(self.tmp, tag), wait=False, log=os.path.join(self.tmp, tag + ".log"), env=env)
 
     def coordinator(self, tag="coord", env=None):
         return self.ctl("coordinator", self.run_id, *self.args, "--poll", "0.3", wait=False,
@@ -156,37 +174,137 @@ def wait_all(procs, timeout):
         p.wait(timeout=max(1, timeout - (time.time() - t0)))
 
 
-def two_runs(name, py, base, inst, opt):
-    be = f"local:{os.path.join(base, name)}"
+def two_runs(name, py, base, inst, opt, aws_endpoint=None):
+    """two runs on one backend, each on its own queues (docs/review_nov18_runs.md, item 1): run a
+    is paused once it has merged a few units, run b must finish while a stays paused with its
+    units queued, then a is resumed and finishes"""
+    from coord.backend import open_backend
+    be = f"local:{os.path.join(base, name)}" if not aws_endpoint else \
+        f"aws:qaptest/{name}?region=eu-north-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
     runs = [Run(py, be, f"{name}_{x}", inst, opt) for x in "ab"]
+    a, b = runs
+    store = open_backend(be)
+    problems = []
     try:
+        if aws_endpoint:
+            a.ctl("aws-setup", *a.args)
         for r in runs:
             r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
-        procs = [p for r in runs for p in (r.coordinator(), r.worker("w1"))]
+        pa = [a.coordinator(), a.worker("w1")]
+        pb = [b.coordinator(), b.worker("w1")]
+        t_end = time.time() + 60
+        while time.time() < t_end and store.count_by_status(a.run_id).get("merged", 0) < 3:
+            time.sleep(0.05)
+        a.ctl("pause", a.run_id, *a.args, log=os.path.join(a.tmp, "pause.log"))
+        # its worker drained (it looks at the run's status every 10 s, longer than this run takes),
+        # as an estimate's instances go: the running units return their open nodes
+        pa[1].send_signal(signal.SIGTERM)
         try:
-            wait_all(procs, 120)
+            pa[1].wait(timeout=60)
         except subprocess.TimeoutExpired:
-            pass                                # a stranded run never finishes: reported below
+            problems.append("run a's worker did not drain")
+        try:
+            wait_all(pb, 120)
+        except subprocess.TimeoutExpired:
+            problems.append("run b did not finish while run a was paused")
+        if store.get_run(a.run_id).get("status") != "paused":
+            problems.append(f"run a is {store.get_run(a.run_id).get('status')}, not paused")
+        if not store.count_by_status(a.run_id).get("queued"):
+            problems.append(f"run a was paused with nothing queued ({store.count_by_status(a.run_id)}): "
+                            f"the scenario did not test a paused run's units")
+        a.ctl("resume", a.run_id, *a.args, log=os.path.join(a.tmp, "pause.log"))
+        pa[1] = a.worker("w2")
+        try:
+            wait_all(pa, 120)
+        except subprocess.TimeoutExpired:
+            problems.append("run a did not finish after its resume")
         got = [totals(r.results()) for r in runs]
-        from coord.backend import open_backend
-        units = [u for r in runs for u in open_backend(be).all_units(r.run_id)]
-        r0 = runs[0]
-        r0.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
-                    "returned": sum(u.get("outcome") == "returned" for u in units),
-                    "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
-        r0.tmp = " and ".join(r.tmp for r in runs)
-        return (got[0] if got[0] == got[1] else (None, None, None)), r0
+        if got[0] != got[1]:
+            problems.append(f"the two runs' totals differ: {got[0]} and {got[1]}")
+        left = sum(store.depth(r.run_id, lane) for r in runs for lane in ("large", "small"))
+        if left:
+            problems.append(f"{left} messages left in the finished runs' queues")
+        if aws_endpoint:
+            q = store.sqs.list_queues(QueueNamePrefix=f"{store.name}-units-").get("QueueUrls", [])
+            if q:
+                problems.append(f"queues left after both runs finished: {q}")
+        units = [u for r in runs for u in store.all_units(r.run_id)]
+        a.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
+                   "returned": sum(u.get("outcome") == "returned" for u in units),
+                   "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
+        a.public = problems
+        a.tmp = " and ".join(r.tmp for r in runs)
+        return got[1], a
     finally:
         for r in runs:
             r.cleanup()
+
+
+def root_cache(name, py, base, inst, opt):
+    """run a's frontier pass goes to the root cache; run b, the same problem, settings and incumbent,
+    reads it back instead of running it (its init log says so), parent states included (the depth-1
+    nodes were bounded with the DNN: their children start from them); both match the serial run"""
+    from coord.backend import open_backend
+    par = "../infra/phase1/recipes/nug30.par"
+    inst, opt = "nug18", 1930
+    ref = serial_with(inst, opt, par)
+    be = f"local:{os.path.join(base, name)}"
+    extra = ["--params", par, "--frontier-depth", "1", "--budget", "2", "--target-unit-cpu", "2"]
+    a, b = (Run(py, be, f"{name}_{x}", inst, opt, extra) for x in "ab")
+    store = open_backend(be)
+    problems = []
+    try:
+        for r in (a, b):
+            r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
+            try:
+                wait_all([r.coordinator(), r.worker("w1")], 300)
+            except subprocess.TimeoutExpired:
+                problems.append(f"run {r.run_id} did not finish")
+        la, lb = (open(os.path.join(r.tmp, "init.log")).read() for r in (a, b))
+        if "root cache" in la:
+            problems.append("run a read the root cache, which was empty")
+        if "from the root cache" not in lb:
+            problems.append("run b ran its frontier pass instead of reading the root cache")
+        # the depth-2 nodes start from their depth-1 parents' DNN states, which the cached frontier
+        # holds (inline at ship.bits 64, or as warm/ files): a cold start would change the iterations
+        if "missing from the store" in open(os.path.join(b.tmp, "w1.log")).read():
+            problems.append("run b's worker found parent states missing (w1.log)")
+        da, db = (dnn_by_level(r.results()) for r in (a, b))
+        if not da or da != db:
+            problems.append(f"DNN nodes and iterations by level differ: {da} and {db}")
+        got = [totals(r.results()) for r in (a, b)]
+        if got[0] != got[1] or got[0][0] != ref[0] or got[0][1] != ref[1]:
+            problems.append(f"totals {got[0]} and {got[1]} against the serial {ref}")
+        units = store.all_units(b.run_id)
+        b.stats = {"units": len(units), "retried": sum(u["attempt"] > 1 for u in units),
+                   "returned": sum(u.get("outcome") == "returned" for u in units), "resumed": 0}
+        b.public = problems
+        return (ref[0], ref[1], float(opt)) if not problems else got[1], b
+    finally:
+        for r in (a, b):
+            r.cleanup()
+
+
+def dnn_by_level(text):
+    """(level, nodes, iterations) of a report's "DNN bound by level" table"""
+    part = text.split("DNN bound by level:")[-1] if "DNN bound by level:" in text else ""
+    return [(int(m.group(1)), int(m.group(2)), int(m.group(3))) for m in
+            re.finditer(r"^\s*(\d+)\s+(\d+)\s+[\d.]+\s+[\d.]+\s+(\d+)", part.split("\n\n")[0], re.M)]
+
+
+def serial_with(inst, opt, params):
+    r = subprocess.run([os.path.join(ROOT, "latest", "bnbdrv"), "-p", params, "-u", str(opt),
+                        os.path.join(ROOT, "qaplib", inst + ".dat")], cwd=os.path.join(ROOT, "latest"),
+                       capture_output=True, text=True, env=dict(os.environ, OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1"))
+    return totals(r.stdout)
 
 
 def stopped_run(name, py, base, inst, opt):
     """qapctl stop on a run partway (a): its coordinator and worker exit, its
     public status and catalog entry say stopped and final, purge-states
     deletes its unit state files. A run stopped before any worker came (c)
-    leaves its queued units' messages; a run (b) on the same queues then
-    finishes, its worker deleting them."""
+    has its queues deleted with its queued units' messages; a run (b) on the
+    same backend then finishes."""
     import glob
     import json
     from coord.backend import open_backend
@@ -211,21 +329,24 @@ def stopped_run(name, py, base, inst, opt):
         if (s.get("status"), s.get("final")) != ("stopped", True) or not entry or \
                 (entry[0]["status"], entry[0]["final"]) != ("stopped", True):
             problems.append(f"public status {s.get('status')}/{s.get('final')}, catalog {entry}")
+        part = (store.get_bytes(f"runs/{a.run_id}/results_partial.txt") or b"").decode()
+        if not part.startswith("PARTIAL: the solve stopped") or "---- RESULTS ----" not in part:
+            problems.append("the stopped run has no results_partial.txt in results.txt's format")
         a.ctl("purge-states", a.run_id, *a.args, log=os.path.join(a.tmp, "stop.log"))
         left = glob.glob(os.path.join(base, name, "store", "runs", a.run_id, "units", "**", "*.state"), recursive=True)
         if left:
             problems.append(f"{len(left)} state files left after purge-states")
         c.ctl(*c.init, log=os.path.join(c.tmp, "init.log"))
+        queued = sum(store.depth(c.run_id, lane) for lane in LANES)
         c.ctl("stop", c.run_id, *c.args, log=os.path.join(c.tmp, "stop.log"))
-        queued = sum(store.depth(lane) for lane in LANES)
+        depth = sum(store.depth(c.run_id, lane) for lane in LANES)
+        if depth or not queued:
+            problems.append(f"{depth} messages left in the stopped run's queues, of its {queued}")
         b.ctl(*b.init, log=os.path.join(b.tmp, "init.log"))
         try:
             wait_all([b.coordinator(), b.worker("w1")], 120)
         except subprocess.TimeoutExpired:
             problems.append("the second run did not finish")
-        depth = sum(store.depth(lane) for lane in LANES)
-        if depth or not queued:
-            problems.append(f"{depth} messages left in the queues, of the stopped runs' {queued}")
         b.public = problems
         b.stats = {"units": len(store.all_units(b.run_id)), "retried": 0, "returned": 0, "resumed": 0}
         return totals(b.results()), b
@@ -235,21 +356,25 @@ def stopped_run(name, py, base, inst, opt):
 
 
 def scenario(name, py, base, inst, opt, aws_endpoint=None):
-    if name == "tworuns":
-        return two_runs(name, py, base, inst, opt)
+    if name in ("tworuns", "awstworuns"):
+        return two_runs(name, py, base, inst, opt, aws_endpoint if name == "awstworuns" else None)
     if name == "stopped":
         return stopped_run(name, py, base, inst, opt)
+    if name == "rootcache":
+        return root_cache(name, py, base, inst, opt)
     if name == "aws":
         backend = f"aws:qaptest/{name}?region=eu-north-1&name=qt{int(time.time())}&endpoint={aws_endpoint}"
         r = Run(py, backend, name, inst, opt)
         r.ctl("aws-setup", *r.args)
     else:
         extra = ["--budget", "4", "--target-unit-cpu", "4", "--steal-after", "3"] if name == "kill9ckpt" else []
+        extra += ["--budget", "6", "--target-unit-cpu", "6", "--steal-after", "3"] if name == "viscap" else []
         extra += ["--visibility", "private"] if name == "noub" else []
         # fixes: a subtree run, -F in the solver flags (the units resume state
         # files, which the solver does not take together with -F)
         extra += ["--extra", " ".join(FIXES), "--trace"] if name == "fixes" else []
-        r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra)
+        r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra,
+                lease=1 if name == "viscap" else 4)
     try:
         r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
         crash = name.startswith("crash_")
@@ -257,7 +382,7 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         # (its 3rd save for crash_saving: one save per cycle, after several merges)
         n_crash = 3 if name == "crash_saving" else 20
         c = r.coordinator(env={"QAP_COORD_CRASH": f"{name[6:]}:{n_crash}"} if crash else None)
-        w = r.worker("w1")
+        w = r.worker("w1", env={"QAP_TEST_VISIBILITY_CAP": "0.2"} if name == "viscap" else None)
         if name == "kill9ckpt":
             # kill once a running unit has uploaded a checkpoint
             from coord.backend import open_backend
@@ -298,6 +423,8 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
                    "returned": sum(u.get("outcome") == "returned" for u in units),
                    "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
         r.public = public_problems(r, private=name == "noub")
+        if name == "viscap" and r.stats["retried"]:
+            r.public = r.public + [f"{r.stats['retried']} unit(s) taken over by another attempt with no worker lost"]
         # a worker removes each unit attempt's directory once it is over (a
         # SIGKILLed worker cannot: kill9's and kill9ckpt's first)
         import glob
@@ -314,7 +441,9 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
             parents = glob.glob(os.path.join(store_dir, "warm", "*"))
             if states or parents:
                 r.public = r.public + [f"{len(states)} unit state files and {len(parents)} parent states left in the store"]
-        if name == "fixes":
+        if name == "rootcache":
+            ok = True            # against its own serial run (nug18, the DNN params): in r.public
+        elif name == "fixes":
             # a -F run's live tree: the -F node is the root, every traced node under it
             import json
             from coord.backend import open_backend
@@ -359,7 +488,7 @@ def main():
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,crash_marked,crash_applied,crash_saving,"
-                                      "drain,noub,fixes,aws,tworuns,stopped")
+                                      "drain,viscap,noub,fixes,aws,tworuns,awstworuns,stopped,rootcache")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args()
     ref = serial(a.instance, int(a.opt))
@@ -369,7 +498,7 @@ def main():
     endpoint = None
     bad = 0
     for name in a.only.split(","):
-        if name == "aws" and server is None:
+        if name in ("aws", "awstworuns") and server is None:
             try:
                 import importlib
                 subprocess.run([a.python, "-c", "import boto3, moto"], check=True)
@@ -390,14 +519,24 @@ def main():
                 continue
         t0 = time.time()
         got, r = scenario(name, a.python, base, a.instance, a.opt, endpoint)
-        if name == "fixes":
+        if name == "rootcache":
+            ok = True            # against its own serial run (nug18, the DNN params): in r.public
+        elif name == "fixes":
             # the subtree under FIXES against the serial run with the same -F
             # (the bound is the incumbent passed with -u: the subtree may not hold the optimum)
             sub = serial(a.instance, int(a.opt), FIXES)
             ok = got[0] == sub[0] and got[1] == sub[1]
-        else:
+        elif name != "rootcache":
             ok = got[2] == a.opt if name == "noub" else (got[0] == ref[0] and got[1] == ref[1] and got[2] == a.opt)
         public = getattr(r, "public", [])
+        # the readout the coordinator writes at the end (coord/readout.py)
+        try:
+            from coord.backend import open_backend
+            ro = (open_backend(r.backend).get_bytes(f"runs/{r.run_id}/readout.md") or b"").decode()
+            if "**COMPLETE**: solved" not in ro:
+                public = public + [f"readout.md: {ro.splitlines()[2] if len(ro.splitlines()) > 2 else 'missing'}"]
+        except Exception as e:
+            public = public + [f"readout.md: {e!r}"]
         ok = ok and not public
         bad += not ok
         print(f"{name:10s} {'ok ' if ok else 'BAD'} nodes {got[0]} fw {got[1]} best {got[2]}  ({time.time() - t0:.0f} s)"

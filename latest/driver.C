@@ -60,6 +60,7 @@ extern const char *bnb_state_file;
 extern double bnb_checkpoint_every;
 extern double bnb_time_limit;
 extern int dnn_min_depth, dnn_max_depth, dnn_hopeless_after, dnn_hopeless_after_warm, dnn_warm;
+void sb_apply_settings();   // bnb.C
 extern double dnn_max_gap;
 #ifdef HAVE_DNN
 #include "dnn.h"
@@ -480,6 +481,7 @@ static void apply_policy_settings()
     exit(2);
 #endif
   }
+  sb_apply_settings();   // sb.*: DNN strong branching (bnb.C)
   fw_nofathom_patience = (int)setting_i("fw.patience");
   if (fw_nofathom_patience)
     cout << "FW patience after cannot-fathom: " << fw_nofathom_patience << std::endl;
@@ -518,6 +520,45 @@ void handler(int sig) {
   exit(1);
 }
 
+
+// cut.regions (bound_lab/integration/REVIEW_cognac.md, findings 4 and 14): the region file's bytes go
+// into the settings record as cut.regions.hash, so a state file written with another file fails the
+// -r check like any other change of settings; and with n known, its indices are checked here, before
+// any node runs, instead of at the first cut phase (bnb.C reads the file again then).
+static void record_cut_regions(int n)
+{
+  const char *e = setting_s("cut.regions");
+  if (!*e) return;
+  FILE *f = fopen(e, "r");
+  if (!f) { cerr << "cut.regions: cannot read " << e << std::endl; exit(2); }
+  settings_set("cut.regions.hash", settings_hash_file(e), SRC_PAR);
+  if (n <= 0) { fclose(f); return; }
+  char line[1 << 14];
+  int regions = 0, lineno = 0;
+  while (fgets(line, sizeof line, f)) {
+    lineno++;
+    if (char *h = strchr(line, '#')) *h = 0;
+    char *q = line;
+    int count = 0;
+    for (;;) {
+      char *end;
+      long x = strtol(q, &end, 10);
+      if (end == q) break;
+      if (x < 0 || x >= n) {
+        cerr << "cut.regions: " << e << " line " << lineno << ": index " << x << " is outside 0.." << n - 1 << std::endl;
+        exit(2);
+      }
+      count++;
+      q = end;
+    }
+    while (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r') q++;
+    if (*q) { cerr << "cut.regions: " << e << " line " << lineno << ": not an index: " << q << std::endl; exit(2); }
+    if (count) regions++;
+  }
+  fclose(f);
+  if (!regions) { cerr << "cut.regions: no regions in " << e << std::endl; exit(2); }
+}
+
 int main(int argc, char *argv[])
 {
   signal(SIGSEGV, handler);   // install our handler
@@ -550,6 +591,7 @@ int main(int argc, char *argv[])
       settings_set("par.file", c->param_file, SRC_FLAG);
       settings_set("par.hash", settings_hash_file(c->param_file), SRC_PAR);
       settings_read_par(c->param_file);
+      record_cut_regions(0);   // the hash only: no instance here
     }
     settings_dump(cout);
     return 0;
@@ -605,7 +647,17 @@ int main(int argc, char *argv[])
   
   qap_read_params(c->param_file,params, c->nlevel, c->sym_file,param_max_depth);
   settings_read_par(c->param_file);   // its [settings] section (settings.h)
+  record_cut_regions(n);              // cut.regions: its hash in the record, its indices checked
   apply_policy_settings();            // -x/-w or the file into the solver's globals
+  for (int lv = 0; lv < c->nlevel; lv++)   // rule 10 needs its exponent: no default, so that the settings hash names it
+    if ((params[lv].rule == BRANCH_SIZE_LOOKAHEAD || params[lv].rule == BRANCH_SIZE_XBAR_LOOKAHEAD) && !(setting_d("branch.la_exp") > 0)) {
+      cerr << "rule " << params[lv].rule << " (params level " << lv + 1 << ") needs branch.la_exp set in the params file's [settings]"
+	   << " (RUNNING.md; 32 in the runs measured)" << std::endl;
+      exit(2);
+    }
+  if (setting_d("branch.la_exp") > 0)
+    cout << "Rules 10 and 11: a line's score is the sum over the children QPB does not drop of exp(" << setting_d("branch.la_exp")
+	 << " x QPB shortfall / the node's QPB gap)" << std::endl;
   settings_dump(cout);   // every setting with its value and source (settings.h)
 
   if (!set_max_depth) {

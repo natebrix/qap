@@ -1,7 +1,9 @@
 #!/bin/bash
 # Phase 1 (README.md, "From GitHub"): let the GitHub workflow .github/workflows/phase1.yml
 # launch, collect and stop runs with short-lived AWS credentials (OpenID Connect), so no
-# AWS key is stored anywhere. Run once on the laptop, signed in to AWS as for launch.sh and
+# AWS key is stored anywhere; and .github/workflows/phase1-readouts.yml read every run's
+# readout hourly with a read-only role and no approval (role qap-gha-readouts, environment
+# aws-phase1-read). Run once on the laptop, signed in to AWS as for launch.sh and
 # to GitHub with the gh CLI (brew install gh; gh auth login). Idempotent: run it again after
 # a change to this file.
 #
@@ -95,12 +97,45 @@ POLICY="{\"Version\":\"2012-10-17\",\"Statement\":[
    \"arn:aws:ec2:*:$ACCT:security-group/*\",\"arn:aws:ec2:*:$ACCT:volume/*\",\"arn:aws:ec2:*:$ACCT:spot-instances-request/*\"]},
  {\"Sid\":\"TagAtLaunch\",\"Effect\":\"Allow\",\"Action\":\"ec2:CreateTags\",\"Resource\":\"arn:aws:ec2:*:$ACCT:instance/*\",
   \"Condition\":{\"StringEquals\":{\"ec2:CreateAction\":\"RunInstances\"}}},
+ {\"Sid\":\"SeeGroups\",\"Effect\":\"Allow\",\"Action\":[\"autoscaling:DescribeAutoScalingGroups\",
+  \"autoscaling:DescribeScalingActivities\",\"ec2:DescribeLaunchTemplates\"],\"Resource\":\"*\"},
+ {\"Sid\":\"StopGroups\",\"Effect\":\"Allow\",\"Action\":[\"autoscaling:DeleteAutoScalingGroup\",\"autoscaling:UpdateAutoScalingGroup\"],
+  \"Resource\":\"arn:aws:autoscaling:*:$ACCT:autoScalingGroup:*:autoScalingGroupName/qap-*\"},
+ {\"Sid\":\"StopGroupTemplates\",\"Effect\":\"Allow\",\"Action\":\"ec2:DeleteLaunchTemplate\",
+  \"Resource\":\"arn:aws:ec2:*:$ACCT:launch-template/*\",\"Condition\":{\"Null\":{\"ec2:ResourceTag/qap-phase1\":\"false\"}}},
  {\"Sid\":\"StopOwnInstances\",\"Effect\":\"Allow\",\"Action\":\"ec2:TerminateInstances\",\"Resource\":\"arn:aws:ec2:*:$ACCT:instance/*\",
   \"Condition\":{\"Null\":{\"ec2:ResourceTag/qap-phase1\":\"false\"}}}]}"
 python3 -c 'import json, sys; json.loads(sys.argv[1]); json.loads(sys.argv[2])' "$TRUST" "$POLICY" || { echo "bad policy JSON"; exit 1; }
 change aws iam put-role-policy --role-name $ROLE --policy-name qap-gha-phase1 --policy-document "$POLICY"
 say "role $ROLE: policy qap-gha-phase1 written (no IAM writes; tagged compute instances only)"
 ARN=arn:aws:iam::$ACCT:role/$ROLE
+
+# --- the readouts role (.github/workflows/phase1-readouts.yml): only jobs in the environment
+# aws-phase1-read, which has no reviewer, so the hourly readouts need no approval; it may read the
+# coordinator's store (runs/) and ledger and nothing else: no write anywhere in AWS
+RROLE=qap-gha-readouts; RENV=aws-phase1-read
+RTRUST="{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",
+ \"Principal\":{\"Federated\":\"$PROV\"},\"Action\":\"sts:AssumeRoleWithWebIdentity\",
+ \"Condition\":{\"StringEquals\":{\"token.actions.githubusercontent.com:aud\":\"sts.amazonaws.com\",
+  \"token.actions.githubusercontent.com:sub\":\"repo:$REPO:environment:$RENV\"}}}]}"
+RPOLICY="{\"Version\":\"2012-10-17\",\"Statement\":[
+ {\"Sid\":\"Bucket\",\"Effect\":\"Allow\",\"Action\":\"s3:ListBucket\",\"Resource\":\"$B\"},
+ {\"Sid\":\"ReadRuns\",\"Effect\":\"Allow\",\"Action\":\"s3:GetObject\",\"Resource\":\"$B/runs/*\"},
+ {\"Sid\":\"Ledger\",\"Effect\":\"Allow\",\"Action\":[\"dynamodb:DescribeTable\",\"dynamodb:GetItem\",\"dynamodb:Query\",\"dynamodb:Scan\"],
+  \"Resource\":[\"arn:aws:dynamodb:*:$ACCT:table/qap-runs\",\"arn:aws:dynamodb:*:$ACCT:table/qap-units\",
+   \"arn:aws:dynamodb:*:$ACCT:table/qap-units/index/*\"]}]}"
+python3 -c 'import json, sys; json.loads(sys.argv[1]); json.loads(sys.argv[2])' "$RTRUST" "$RPOLICY" || { echo "bad readouts policy JSON"; exit 1; }
+if aws iam get-role --role-name $RROLE > /dev/null 2>&1; then
+  change aws iam update-assume-role-policy --role-name $RROLE --policy-document "$RTRUST"
+else
+  say "creating role $RROLE"
+  change aws iam create-role --role-name $RROLE --max-session-duration 3600 \
+    --description "qap phase 1 readouts from GitHub Actions ($REPO, environment $RENV): read only" \
+    --assume-role-policy-document "$RTRUST" > /dev/null
+fi
+change aws iam put-role-policy --role-name $RROLE --policy-name qap-gha-readouts --policy-document "$RPOLICY"
+say "role $RROLE: policy qap-gha-readouts written (reads runs/ and the ledger; writes nothing)"
+RARN=arn:aws:iam::$ACCT:role/$RROLE
 
 # --- GitHub: the environment with you as reviewer, cognac only, the secret, 14-day logs
 if ! command -v gh > /dev/null || ! gh auth status > /dev/null 2>&1; then
@@ -110,6 +145,9 @@ if ! command -v gh > /dev/null || ! gh auth status > /dev/null 2>&1; then
   echo "    Deployment branches = Selected branches, add '$BRANCH'"
   echo "  in that environment, Environment secrets > AWS_ROLE_ARN = the ARN of role $ROLE (aws iam get-role --role-name $ROLE)"
   echo "  Settings > Actions > General > Artifact and log retention = 14 days"
+  echo "  Settings > Environments > New environment '$RENV': no reviewers; Deployment branches = Selected"
+  echo "    branches, add 'master' (the scheduled readouts run on the default branch)"
+  echo "  in that environment, Environment secrets > AWS_READ_ROLE_ARN = the ARN of role $RROLE"
   exit 0
 fi
 ME=$(gh api user --jq .id)
@@ -125,4 +163,16 @@ if [ "$DRY" = 1 ]; then echo "  [dry-run] gh secret set AWS_ROLE_ARN --env $ENVN
 else printf '%s' "$ARN" | gh secret set AWS_ROLE_ARN --env "$ENVNAME" --repo "$REPO"; fi
 change gh api -X PUT "repos/$REPO/actions/permissions/artifact-and-log-retention" -F days=14 > /dev/null 2>&1 \
   || echo "set the log retention by hand: Settings > Actions > General > Artifact and log retention = 14 days"
+# the readouts' environment: no reviewer (the role only reads), the default branch only (a scheduled
+# workflow runs there), and the read role's ARN
+say "GitHub: environment $RENV on $REPO, no reviewer, branch master"
+change gh api -X PUT "repos/$REPO/environments/$RENV" --input - > /dev/null << EOF
+{"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
+EOF
+if ! gh api "repos/$REPO/environments/$RENV/deployment-branch-policies" --jq '.branch_policies[].name' 2> /dev/null | grep -qx master; then
+  change gh api -X POST "repos/$REPO/environments/$RENV/deployment-branch-policies" -f name=master -f type=branch > /dev/null
+fi
+if [ "$DRY" = 1 ]; then echo "  [dry-run] gh secret set AWS_READ_ROLE_ARN --env $RENV --repo $REPO" >&2
+else printf '%s' "$RARN" | gh secret set AWS_READ_ROLE_ARN --env "$RENV" --repo "$REPO"; fi
 say "ready: gh workflow run phase1 --repo $REPO --ref $BRANCH -f action=collect -f run=nug30-live (then approve it)"
+say "ready: gh workflow run phase1-readouts --repo $REPO (hourly by itself; needs the workflow on master)"

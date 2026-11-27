@@ -10,10 +10,12 @@
 #
 #   infra/phase0/launch.sh [--region eu-north-1] [--families "c7i c7a c7g c8g"]
 #                          [--size 4xlarge] [--on-demand] [--serial] [--limit 75]
-#                          [--dry-run]
+#                          [--blas "openblas openblas-skylakex blis"] [--dry-run]
 #
 #   --serial     one instance at a time (for a vCPU quota below the total)
 #   --on-demand  on-demand instead of Spot (about 3-4x the price; same results)
+#   --blas       BLAS variants, benchmarked one after another on the same instance (README.md,
+#                "BLAS variants"); the limit becomes 60 + 25 minutes a variant unless --limit is given
 #   --dry-run    print the AWS calls that change something, make none of them
 #
 # Then: infra/phase0/collect.sh (results and the table), infra/phase0/cleanup.sh.
@@ -25,7 +27,8 @@ FAMILIES="c7i c7a c7g c8g"
 SIZE=4xlarge
 MARKET=spot
 SERIAL=0
-LIMIT=75
+LIMIT=""
+BLASV=""
 DRY=0
 while [ $# -gt 0 ]; do
   case $1 in
@@ -35,11 +38,14 @@ while [ $# -gt 0 ]; do
     --on-demand) MARKET=on-demand; shift ;;
     --serial) SERIAL=1; shift ;;
     --limit) LIMIT=$2; shift 2 ;;
+    --blas) BLASV=$2; shift 2 ;;
     --dry-run) DRY=1; shift ;;
-    -h|--help) sed -n 2,21p "$0"; exit 0 ;;
+    -h|--help) sed -n 2,24p "$0"; exit 0 ;;
     *) echo "unknown argument $1"; exit 2 ;;
   esac
 done
+[[ $BLASV =~ ^[a-z0-9\ -]*$ ]] || { echo "--blas: names of letters, digits and -, separated by spaces"; exit 2; }
+if [ -z "$LIMIT" ]; then LIMIT=75; [ -z "$BLASV" ] || LIMIT=$(( 60 + 25 * $(echo $BLASV | wc -w) )); fi
 command -v aws > /dev/null || { echo "the AWS CLI is not installed (brew install awscli)"; exit 1; }
 export AWS_DEFAULT_REGION=$REGION AWS_PAGER=""
 aws() { command aws --region "$REGION" "$@"; }
@@ -128,7 +134,7 @@ launch() {
   case $fam in *g|*gd|*gn) ami=$AMI_ARM ;; esac
   cat > "$ud" << EOF
 #!/bin/bash
-export AWS_DEFAULT_REGION=$REGION QAP_BUCKET=$B QAP_OUT=results/$RUN/$fam
+export AWS_DEFAULT_REGION=$REGION QAP_BUCKET=$B QAP_OUT=results/$RUN/$fam QAP_BLAS="$BLASV"
 shutdown -h +$LIMIT
 mkdir -p /opt/qap && cd /opt/qap
 for i in 1 2 3 4 5 6; do aws s3 cp --only-show-errors s3://$B/$SRC src.tgz && break; sleep 10; done
@@ -142,7 +148,7 @@ EOF
       --iam-instance-profile Name=$ROLE --security-group-ids "$SG" --instance-initiated-shutdown-behavior terminate \
       --metadata-options HttpTokens=required,HttpEndpoint=enabled \
       --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=16,VolumeType=gp3,DeleteOnTermination=true}' \
-      "${mo[@]}" --user-data "file://$ud" \
+      ${mo[@]+"${mo[@]}"} --user-data "file://$ud" \
       --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=qap-phase0-$fam},{Key=qap-phase0,Value=$RUN}]" \
       --query 'Instances[0].InstanceId' --output text 2> "$L/launch_$fam.err") && break
     say "$typ: not launched in $s ($(tail -1 "$L/launch_$fam.err")); trying the next zone"
@@ -164,6 +170,7 @@ EOF
     done
   fi
 }
-for fam in $FAMILIES; do launch "$fam" || true; done
+n=0; for fam in $FAMILIES; do launch "$fam" && n=$((n + 1)); done
 echo "$B" > "$L/bucket.txt"
-say "launched. Each instance takes about 30-45 minutes. Then: infra/phase0/collect.sh $RUN"
+[ "$n" -gt 0 ] || { say "nothing launched"; exit 1; }
+say "launched. Each instance takes about 30-45 minutes$([ -z "$BLASV" ] || echo ", and about 20 more for each BLAS variant after the first"). Then: infra/phase0/collect.sh $RUN"

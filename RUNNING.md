@@ -64,7 +64,7 @@ Other flags (`./bnbdrv` with no arguments prints help):
 | `-d X` | stop at tree depth X (overrides the params file) |
 | `-f X` | scale reported times by X |
 | `-h` | run the heuristic only (no branch and bound) |
-| `-e` | estimate tree size with Knuth-style dives (`latest/estimate.C`). Reads `./estimate.par`: six numbers, `start_dive_level trials print_every print_everything_every score_exponent ignore_depth` (the checked-in file is `2 1000 100 100 1.5 1000`). Without the file it silently uses the defaults in `estimate.h` (10,000 trials, exponent 1.0). Pass the known optimum with `-u`: dives are weighted by it. `rand()` is seeded only when `QAP_EST_SEED` is set, so set a different seed per process when running several in parallel; `QAP_EST_HIST=F` writes the per-dive history (depth, node estimate, time estimate) to F instead of `dive_history_nug25_2.txt` |
+| `-e` | estimate tree size with Knuth-style dives (`latest/estimate.C`). Reads `./estimate.par`: six numbers, `start_dive_level trials print_every print_everything_every score_exponent ignore_depth` (the checked-in file is `2 1000 100 100 1.5 1000`). Without the file it silently uses the defaults in `estimate.h` (10,000 trials, exponent 1.0). Pass the known optimum with `-u`: dives are weighted by it. `rand()` is seeded only when `QAP_EST_SEED` is set, so set a different seed per process when running several in parallel; `QAP_EST_HIST=F` writes the per-dive history (depth, node estimate, time estimate) to F instead of `dive_history_nug25_2.txt`. `QAP_EST_SURV=b` (Nov 18) replaces Knuth's dives with survivor dives: every node of the start stack (`-e -r F`: the state's open nodes) is a stratum, bounded with its children; a dive goes on into a child that branches (weights exp(b x), x the shortfall over the depth's median), bounding all of each node's children, so it ends where the tree does. `QAP_EST_BUDGET` (wall seconds), `QAP_EST_DIVES` (JSON lines: coord/dives.py adds them up), `QAP_EST_WARM_KEEP`; experiments/estimator_replay for why |
 | `-b` | benchmark mode |
 | `-c` / `-a F` | interactive console / run console commands from file F |
 | `-l F` | log file |
@@ -92,16 +92,16 @@ sees the same value. Where a setting lives follows from its class:
 
 - **policy** (changes the search): a key in the params file's `[settings]`
   section, after the positional blocks ("Params file format" below). The
-  families are `dnn.*`, `cut.*`, `pool.*`, `ship.*`, `branch.*`, `est.*`,
+  families are `dnn.*`, `cut.*`, `pool.*`, `ship.*`, `branch.*`, `sb.*`, `est.*`,
   `fw.*`. The flags `-x` and `-w` are aliases of `dnn.depths`, `dnn.maxgap`,
   `dnn.giveup`, `dnn.warm` and `fw.patience`, and override the file.
 - **experiment** (an A/B switch in flight): an environment variable (`DNN_*`).
   It graduates to a key or a default, or goes.
 - **run** (this run's identity): the `-p` path, `QAP_EST_SEED`,
-  `QAP_ALLOW_UNKNOWN`.
+  `QAP_ALLOW_UNKNOWN`, `QAP_SB_PROGRESS`.
 - **diagnostic** (output only): `QAP_DNN_TRACE`, `QAP_NODE_TRACE` (a line
   per node: format in `latest/bnb.C`), `QAP_DNN_POOL_CHECK`, `QAP_XBAR_DEBUG`,
-  `QAP_EST_HIST`.
+  `QAP_EST_HIST`, `QAP_SB_TRACE`.
 
 Each run prints the resolved table after it has read the params file, as the
 dump `bnbdrv --print-settings [-p file.par] [-x ...]` gives on its own:
@@ -121,7 +121,7 @@ defaults included, so a changed default changes it.
 
 - **An unknown name is an error.** A `[settings]` key not in the table, a
   variable in the environment whose name starts with `QAP_DNN_`, `QAP_EST_`,
-  `QAP_XBAR_`, `QAP_NODE_` or `DNN_` and is not in the table, and a value that does not
+  `QAP_XBAR_`, `QAP_NODE_`, `QAP_SB_` or `DNN_` and is not in the table, and a value that does not
   parse or is out of range all stop the run with exit code 2 and a message
   naming it. The environment name a policy setting had before Nov 9
   (`QAP_DNN_BETA`, `DNN_BETA_SCHED`, ...) is such an error, and the message
@@ -181,6 +181,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `cut.side` | par key | integer | `0` | 0..1 | policy | regions over the first (0) or the second (1) matrix |
 | `cut.grid` | par key | text | unset | text | policy | R:C grid whose prefixes are the regions (unset: prefixes of the free elements) |
 | `cut.regions` | par key | text | unset | text | policy | file of regions, one per line: original indices of cut.side (any sets; with cut.grid, added to its prefixes) |
+| `cut.regions.hash` | par key | text | unset | text | policy | FNV-1a of the cut.regions file's bytes (set by bnbdrv; a resume with another file fails the -r check) |
 | `cut.rounds` | par key | integer | `12` | 1..1000 | policy | cut rounds per phase |
 | `cut.iters` | par key | integer | `300` | 1..1000000 | policy | ADMM iterations per cut round |
 | `cut.k` | par key | integer | `1000` | 0..1000000 | policy | new triangle cuts per round |
@@ -208,10 +209,18 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `cut.cp_lazycert` | par key | integer | `0` | 0..1 | policy | 1: the lazy certificate in CP-ADMM solves too |
 | `cut.xbar` | par key | integer | `0` | 0..1 | policy | 1: rules 8/9 take their marginals from the cut phase's final iterate when a phase ran (0: the first solve's) |
 | `pool.on` | par key | integer | `0` | 0..1 | policy | 1: a node hands its cut pool to its children |
+| `dnn.retry` | par key | integer | `0` | 0..1 | policy | 1: a warm-started first solve that ends unfathomed more than 1% of the incumbent below the bound the node inherited is solved again, without its inherited pool and then cold (bound_lab/tai_solves; in the DNN trace as retry S rlb X) |
 | `pool.cp` | par key | integer | `0` | 0..1 | policy | 1: a pooled child's first solve in CP form |
 | `branch.weighted` | par key | integer | `1` | 0..1 | policy | rules 1, 3 and 4: weight the U sums by the row's gap fraction |
 | `branch.weight` | par key | number | `0.5` | 0..1 | policy | the weight of that fraction |
 | `branch.xbar_lines` | par key | integer | `1` | 1..64 | policy | rule 9: candidate rows and columns per side from the DNN marginals |
+| `branch.la_exp` | par key | number | `0` | 0..500 | policy | rules 10 and 11: L, a line's score is the sum, over the children QPB does not drop, of exp(L x the child's QPB shortfall / the node's QPB gap); the rules need it set (32 in the runs measured); 0: unset |
+| `sb.depths` | par key | text | unset | text | policy | DNN strong branching: dmin:dmax, the depths at which a branching node bounds the children of its candidate lines and branches on the line whose children predict the smallest tree (unset: off; needs dnn.depths over them and dnn.warm = 1) |
+| `sb.k` | par key | integer | `4` | 1..1000 | policy | sb: the candidate rows, and the candidate columns where no symmetry is left, by marginal score |
+| `sb.all` | par key | integer | `-1` | -1..inf | policy | sb: through this depth every free line is a candidate (-1: none) |
+| `sb.iters` | par key | integer | `150` | 1..1000000 | policy | sb: warm ADMM iterations per child |
+| `sb.power` | par key | text | `0:8,1:1` | text | policy | sb: P, or D:P[,D:P...]: from depth D on a line's score is the sum over its children of shortfall^P (1: the sum of shortfalls; the default: the 8th power at the root, the sum below) |
+| `sb.gap` | par key | text | unset | text | policy | sb: D:G[,D:G...]: from depth D on only at nodes whose relative gap (inc - the node's DNN bound)/(inc - root QPB) is at least G (unset: every node in sb.depths) |
 | `fw.patience` | par key or `-w` | integer | `0` | 0..100000000 | policy | -w: Frank-Wolfe patience at lookahead/strong levels (0: off) |
 | `est.xbar` | par key | number | `0` | 0..inf | policy | estimator: child weights x_ij^a from the DNN marginals (0: QPB scores) |
 | `est.xbar_mix` | par key | number | `0.1` | 0..1 | policy | estimator: uniform share mixed into the x_ij^a weights |
@@ -221,14 +230,28 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `DNN_ADMM_WARM_BETA` | environment | text | unset | text | experiment | F1:T:F2[:force]: a warm call's own penalty schedule |
 | `DNN_ADMM_WARM_DAMP` | environment | text | unset | text | experiment | D:K: both dual steps scaled by D for the first K iterations of a warm call |
 | `QAP_EST_SEED` | environment | text | unset | text | run | estimator: seed for rand() (unset: the fixed sequence) |
+| `QAP_EST_SURV` | environment | text | unset | text | run | estimator: b, survivor dives with weights exp(b x); kQ, Knuth's dives inside each start node, g^Q of the child's QPB bound (estimate.C; unset: Knuth's dives from the root) |
+| `QAP_EST_SAMPLE` | environment | number | `1` | 0..1 | run | estimator, QAP_EST_SURV: the share of the start nodes sampled as strata (weighted 1/pi) |
+| `QAP_EST_ALLOC` | environment | text | `auto` | text | run | estimator, QAP_EST_SURV: neyman (dives where the variance per CPU s is; reads low with Knuth's heavy tails), equal (round the strata in turn), auto (equal for kQ, neyman for survivor dives) |
+| `QAP_EST_SAMPLE_W` | environment | text | `unif` | text | run | estimator, QAP_EST_SAMPLE: unif, or qpb (each start node weighted g^2 of its own QPB bound) |
+| `QAP_EST_BUDGET` | environment | number | `0` | 0..inf | run | estimator, survivor dives: stop starting dives after this many wall seconds, counted from the end of the strata's setup (0: estimate.par's trials) |
+| `QAP_EST_MIN_DIVES` | environment | integer | `1` | 1..1000000 | run | estimator, survivor dives: every stratum with children that branch gets this many dives whatever the budget (then QAP_EST_BUDGET) |
+| `QAP_EST_SAMPLE_DEPTHS` | environment | text | unset | text | run | estimator, survivor dives: D:F,D:F,... a start node at depth D is a stratum with probability F, whatever QAP_EST_SAMPLE (unset: QAP_EST_SAMPLE for every depth) |
+| `QAP_EST_WARM_KEEP` | environment | integer | `8` | 0..1000000 | run | estimator: the strata whose children keep their parent's DNN state in memory (the rest spill it to a file, QAP_EST_SPILL_MB) |
+| `QAP_EST_SPILL_MB` | environment | number | `1000` | 0..1e+09 | run | estimator: MB of spilled strata states a process may write beside QAP_EST_DIVES (past it a stratum's children start cold, without the parent's pool) |
+| `QAP_EST_DIVES` | environment | text | unset | text | run | estimator, survivor dives: append a JSON line per stratum and per dive to this file |
+| `QAP_EST_DNN_TRACE` | environment | integer | `0` | 0..1 | run | dives runs: 1, the coordinator's worker keeps the DNN trace of every node a dives unit bounds (coord/worker.py sets QAP_DNN_TRACE for the unit and drops this one); the solver ignores it. Registered so that a coordinating instance whose environment has it (a spec's ESTIMATE_ENV) can still run the solver: sko42-est2-261121's gates failed on it, Nov 21 |
+| `QAP_SB_PROGRESS` | environment | text | unset | text | run | DNN strong branching: append every child solve to this file and reuse the ones already in it (a node whose process stopped mid-way repeats only what is missing) |
 | `QAP_DNN_WARM_DIR` | environment | text | unset | text | run | parent-state store: write each parent's DNN state to this directory and reference it from state files (unset: inline) |
 | `QAP_ALLOW_UNKNOWN` | environment | integer | `0` | 0..1 | run | 1: an unknown or pre-Phase-2 QAP_DNN_/QAP_EST_/QAP_XBAR_/QAP_NODE_/DNN_ variable is a warning, not an error |
 | `par.file` | `-p` | text | unset | text | run | -p: the params file |
 | `QAP_DNN_TRACE` | environment | text | unset | text | diagnostic | append a line per DNN node to this file |
 | `QAP_DNN_TRACE_HIST` | environment | integer | `0` | 0..1 | diagnostic | 1: the trace line carries the CP cut phase's running best at each check (| hist it:best ...) |
 | `QAP_NODE_TRACE` | environment | text | unset | text | diagnostic | append a line per node taken off the stack (fixes, bounds, how it ended, the branching line; bnb.C) to this file |
+| `QAP_SB_TRACE` | environment | text | unset | text | diagnostic | append a line per strong-branching node (the line chosen, every candidate's score, solves, iterations, CPU; bnb.C) to this file |
 | `QAP_DNN_POOL_CHECK` | environment | integer | `0` | 0..1000000 | diagnostic | check each assembled pool term on this many random permutations |
 | `QAP_EST_HIST` | environment | text | `dive_history_nug25_2.txt` | text | diagnostic | estimator: the per-dive history file |
+| `QAP_EST_CHILD_DNN` | environment | integer | `0` | 0..100000 | run | estimator, Knuth's dives: weight each child a dive may take by its own short DNN solve of this many ADMM iterations, warm from its parent's state (experiments/estimates_nov19; 0: by QPB) |
 | `QAP_EST_CHILD_QPB` | environment | integer | `0` | 0..1 | diagnostic | estimator: 1 weights each child a dive may take (and the first draw) by its own QPB bound, not the parent's prediction |
 | `QAP_XBAR_DEBUG` | environment | integer | `0` | 0..2 | diagnostic | 1: print the rule 8/9 line choice per node to stderr; 2: also every free line ranked by its marginal score |
 <!-- settings-table-end -->
@@ -396,6 +419,22 @@ popped after the incumbent improved past their bound (`qpb` is what is left
 after the other three; a run resumed from a state file before version 7 has no
 causes for its first part). Runs without `-x` print exactly what they did.
 
+With DNN strong branching (`sb.depths`, below) the head has one more line and
+a fourth table follows, both only where it chose a line (state version 10,
+written only then: other state files stay version 9):
+
+```
+ strong branch: 7 nodes, 448 child solves, 5220 iterations, 12.2 s
+
+Strong branching by level:
+level    nodes	  solves	      iters	    time
+ 1           7	     448	       5220	   12.20
+```
+
+by the depth of the node that branched: the nodes whose line it chose, the
+child solves it ran, their ADMM iterations and CPU seconds. That time is in
+the level table's and the total, and in none of the DNN tables.
+
 `bnbdrv -p P -r F instance` on a state file with no open nodes prints its
 statistics as a finished run's report and stops. `bench/parallel.py` and the
 coordinator (`coord/`) use it to print the solver's own tables after their
@@ -413,7 +452,7 @@ Example from `PARAM/default.par`:
 --- repeated L times; the last level omits the first two lines ---
 0.20  use this level when the relative gap (opt-bnd)/opt is worse than...
 2     ...and depth is at most this
-4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead, 8 DNN marginals, 9 lookahead between the two marginal lines (8 and 9 need -x; lookahead where no DNN bound ran)
+4     branching rule: 1 U-sum, 2 U-fathom, 3 strong, 4 lookahead, 5 learned (BUFF), 6 eccentric, 7 eccentric lookahead, 8 DNN marginals, 9 lookahead between the two marginal lines (8 and 9 need -x; lookahead where no DNN bound ran), 10 lookahead with the size score, 11 rule 9's lines with the size score (10 and 11 need branch.la_exp)
 150   Frank-Wolfe iterations for the bound
 100   Frank-Wolfe iterations when we know we can't fathom
 25    Frank-Wolfe iterations for row selection (lookahead children; each starts from the parent's X)
@@ -469,6 +508,43 @@ did not run.
   marginal lines (rule 8's row and its column), chosen by the children's QPB
   bounds. It gives nug30 -13% and nug28 +8%
   (`experiments/wil50_feasibility/tuning`).
+- **Rule 10** is rule 4's lookahead with another score (Nov 23;
+  `experiments/branching_lab/ucheap` on `claude/cool-babbage-ilnogj`). The
+  candidates are the level's best "compute B for best _ rows of U" rows and
+  columns by U sum, every free line when that number is m or more (rows only
+  while symmetry is left). Every child of a candidate is bounded by QPB as
+  rule 4 bounds it, with the level's "Frank-Wolfe iterations, for row
+  selection". A child's shortfall s is the cutoff less that bound. The node
+  branches on the line with the least sum, over the children QPB does not
+  drop, of exp(L s / G), G the node's own QPB gap and L = `branch.la_exp` (a
+  child QPB drops adds nothing): one child far from the cutoff outweighs
+  several near it, which rule 4's sum of the children's bounds cannot see. It
+  needs no DNN bound.
+  - `branch.la_exp` has no default: a params file that uses rule 10 must set
+    it, or the run stops at startup. It is in the settings hash only when
+    set, so recipes without rule 10 keep their hash. 32 is the value of every
+    run measured.
+  - Measured with every line a candidate at every lookahead level of the
+    nug30 recipe: nug30 3,420 nodes and 2,392 CPU s (rule 9: 4,285 to 4,365 and
+    3,314 to 3,421), tho30 8,581 and 6,350 (14,815 and 9,375); the lookahead
+    over every line is under 2% of that CPU. Under DNN strong branching at
+    depth 1 (`sb.depths = 1:1`): 3,140 and 7,757 nodes. On three depth-3
+    subtrees of tho40 every line gains nothing (1,862 nodes against rule 9's
+    1,818, one subtree 38% larger): see rule 11. Not measured: a shortlist
+    shorter than every line (by U sum), and any tai instance.
+  - `PARAM/rule10.par` is the rule alone, for the brute-force check.
+- **Rule 11** is rule 9 with rule 10's score: the candidates are the
+  `branch.xbar_lines` rows and columns with the largest DNN marginal scores
+  (rule 4's candidates where no DNN bound ran or symmetry is left, as for rule
+  9), chosen by the exponential score on their children's QPB bounds. It needs
+  `branch.la_exp` as rule 10 does.
+  - Which of the two depends on the instance, as the width of rule 9's
+    shortlist did (above): nug30 3,261 nodes under rule 11 against 3,420 under
+    rule 10 with every line and 4,285 to 4,365 under rule 9; three depth-3
+    subtrees of tho40 (`branch.xbar_lines = 2`) 1,607 nodes under rule 11,
+    1,862 under rule 10 with every line, 1,818 under rule 9; tho30 14,303
+    under rule 11 (one line a side: the marginal lines hold nothing there),
+    8,581 under rule 10 with every line, 14,815 under rule 9.
 
 ### The DNN bound (-x)
 
@@ -705,6 +781,81 @@ depth d always has n-d children, so only the number of misses can change.
 More QPB lookahead is not a lever. Branching on the DNN marginals is: rule 8
 in every block (`nug_deep_xbar_all.par`) cut nug30's depth-3 misses from 85
 to 59 and its CPU by 16% (above), though it lost on nug28.
+
+### DNN strong branching (sb.*)
+
+`sb.depths = D1:D2` in the params file's `[settings]` turns it on at branching
+nodes of those depths (Nov 22; `experiments/branching_lab/root` and
+`experiments/branching_lab/port` for the measurements). It chooses the line in
+place of the level's rule; everything else about the node is unchanged. Off by
+default: without `sb.depths` the search is node for node what it was.
+
+- **What it does at a node.** The candidates are the `sb.k` rows and the `sb.k`
+  columns with the largest marginal scores (rule 9's score), or every free line
+  through depth `sb.all`. With symmetry left only rows are candidates and a row's
+  children are the columns the node would create. Every child of a candidate that
+  QPB does not already drop is bounded with `sb.iters` ADMM iterations, started
+  as its own first solve would be (warm from the node, under the node's cut pool
+  where it hands one on), with no give-up and no cut phase; a child's bound is
+  never taken below the one it inherits (QPB's for it, or the node's own DNN
+  bound, which holds for every child). A child solve fails when it ends
+  unfathomed below QPB's bound for the child, or with no certificate. (Not the
+  1% test of a node's own solve: a child solve stops at `sb.iters`, and one that
+  is only short of converged ends above QPB's bound.) With `dnn.retry = 1` a
+  failed child is solved again as a node's own would be: without the pool, then
+  cold, each with `sb.iters`, and the best certified bound counts. The trace
+  counts the children retried and those still failed, which score as the node
+  itself does. A line's score is the
+  sum over its children of shortfall^P, the shortfall being the cutoff less the
+  child's bound (0 when it fathoms); the node branches on the line with the
+  least, ties to the larger marginal score.
+- **The exponent, by depth.** `sb.power = D:P[,D:P...]`: from depth D on, P (a
+  bare P: every depth). The
+  default `0:8,1:1` is the 8th power at the root and the plain sum below. At a
+  root every child is far from fathoming and a row is as bad as its worst
+  children: the sum's first choice was the worst tree run at nug30 and at tho30;
+  the 8th power's is the best root row run at nug30, production's at tho30, and
+  at tho40 row 2 for every power from 2 to 12. Below the root many children
+  fathom or nearly and their number counts: on nug30 the 8th power at depths 1
+  and 2 gave 3,374 nodes where the sum gave 3,020.
+- **Where it needs the DNN bound.** A node needs its own DNN state: `dnn.depths`
+  must cover `sb.depths` with `dnn.warm = 1`, or the run stops at startup. For the
+  root that means `dnn.depths` from 0 (the grids' recipes start at 1).
+- **The gap gate.** `sb.gap = D:G[,D:G...]`: from depth D on, only at nodes whose
+  relative gap (incumbent - the node's last DNN bound) / (incumbent - root QPB
+  bound) is at least G. The same quantity as the params blocks' "use this rule
+  when gap is worse than", with the DNN bound in place of QPB's and tested after
+  the node is bounded. For example `sb.depths = 0:2`, `sb.all = 0`,
+  `sb.gap = 2:0.06`: every row at the root, the shortlist at every depth-1 node,
+  and at the depth-2 nodes at least 6% of the root gap short.
+- **What it costs, and where it is counted.** Its CPU is the run's: in the total
+  time, in the level table's time at the node's depth, and on its own in the
+  RESULTS line `strong branch: N nodes, S child solves, I iterations, T s` and
+  the table "Strong branching by level" (state files of version 10, written only
+  once strong branching has chosen a line: until then, and in every run without
+  it, state files are version 9 as before). A child solve, a retry included, is
+  not a node. One node costs (2 x `sb.k` x m - `sb.k`^2) x `sb.iters`
+  iterations at dimension m - 1 at most (`experiments/branching_lab/budget` for
+  the open instances: about 1% of a run at depth 1, more than the run at depth 3).
+- **`QAP_SB_TRACE=file`** (diagnostic): a line per strong-branching node:
+  `sb depth D fixes F gap G | chose LINE score S open K | N solves, R reused, Y retried, Z failed, I iterations, T CPU s, largest shortfall X | LINE:marginal:score:open ...`.
+- **`QAP_SB_PROGRESS=file`** (run): every child solve is appended to the file and a
+  child already in it (the same settings hash, root bound, node, cell, `sb.iters`
+  and cutoff) is not solved again, so a node whose process stopped mid-way repeats
+  only what is missing. Within a process the child solves are kept in memory
+  whether or not the file is set, so the estimator's dives pay for a node once. The
+  coordinator does not manage this file: it helps where the file outlives the
+  process (a laptop, an instance that restarts), not across a lost instance. The
+  root's own pass is kept by the coordinator's root cache as before.
+- **The settings hash.** The `sb.*` keys are in the hash only when `sb.depths` is
+  set (then all of them, defaults included). A run without it has the hash it had
+  before these keys existed, so its state files resume as before.
+- **The marginals.** The shortlist's marginal scores are the node's own copy:
+  `sb.depths` does not change what rules 8 and 9 or the estimator's `est.xbar`
+  see at a node where strong branching does not choose the line.
+- `make sb` (`tests/sb_test.py`) checks the statistics, the trace, the progress
+  file, `bench/parallel.py`'s totals, the gate, and that a state file is version
+  10 only once strong branching ran.
 
 ## Correctness checks
 

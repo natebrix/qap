@@ -1,0 +1,73 @@
+01:49:42 coordinator: 0h00m00s units {'queued': 9} nodes 1 (DNN 0, fathomed 0) CPU 1 s
+01:50:13 coordinator: 0h00m30s units {'leased': 7, 'queued': 2} nodes 1 (DNN 0, fathomed 0) CPU 1 s
+01:50:52 coordinator: 0h01m09s units {'merged': 4, 'done': 18, 'leased': 7, 'queued': 100, 'returned': 3} nodes 276 (DNN 275, fathomed 261) CPU 229 s
+01:51:25 coordinator: 0h01m42s units {'merged': 66, 'queued': 103, 'leased': 7, 'done': 1} nodes 692 (DNN 691, fathomed 657) CPU 549 s
+01:51:57 coordinator: 0h02m14s units {'merged': 88, 'queued': 137, 'leased': 7, 'done': 1} nodes 960 (DNN 959, fathomed 911) CPU 775 s
+01:52:29 coordinator: 0h02m46s units {'merged': 113, 'queued': 123, 'leased': 7, 'done': 2} nodes 1174 (DNN 1173, fathomed 1118) CPU 922 s
+01:52:59 coordinator: 0h03m16s units {'merged': 134, 'queued': 133, 'leased': 7} nodes 1475 (DNN 1474, fathomed 1408) CPU 1136 s
+01:53:29 coordinator: 0h03m47s units {'merged': 175, 'leased': 7, 'queued': 102, 'done': 1} nodes 1930 (DNN 1929, fathomed 1848) CPU 1447 s
+01:54:00 coordinator: 0h04m17s units {'merged': 195, 'queued': 83, 'leased': 7} nodes 2150 (DNN 2149, fathomed 2061) CPU 1581 s
+01:54:31 coordinator: 0h04m48s units {'merged': 230, 'queued': 48, 'leased': 7} nodes 2474 (DNN 2473, fathomed 2375) CPU 1781 s
+01:55:05 coordinator: 0h05m22s units {'merged': 263, 'queued': 43, 'leased': 7, 'done': 9} nodes 2660 (DNN 2659, fathomed 2554) CPU 1895 s
+01:55:36 coordinator: 0h05m53s units {'merged': 362, 'queued': 46, 'done': 5, 'leased': 5} nodes 3193 (DNN 3192, fathomed 3069) CPU 2229 s
+01:56:07 coordinator: 0h06m24s units {'merged': 416, 'leased': 2} nodes 3359 (DNN 3358, fathomed 3231) CPU 2336 s
+01:56:38 coordinator: 0h06m55s units {'merged': 435, 'leased': 3} nodes 3578 (DNN 3577, fathomed 3441) CPU 2471 s
+01:57:02 coordinator: 0h07m19s units {'merged': 438} nodes 3688 (DNN 3687, fathomed 3547) CPU 2527 s
+01:57:02   ---- RESULTS ----
+
+    Total Time: 2527.190312 seconds 
+         Nodes: 3688 / 3547 / 0
+    root bound: 5342.2609646393284
+ fw iterations: 380512
+     DNN bound: 3687 nodes, 3547 fathomed, 2507.02 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    0.87
+ 1           9	0.0000	0.0000	   55.80
+ 2         225	0.7289	0.0000	  668.93
+ 3        1624	0.9698	0.0000	 1045.23
+ 4        1287	0.9868	0.0000	  570.41
+ 5         442	0.9910	0.0000	  158.32
+ 6         100	1.0000	N/A	   27.12
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 9 
+ 2 |   0.0000   0.8711   0.1289   0.0000  | 225 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 1624 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1287 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 442 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 100 
+nodes      10      196     3482        0 
+time    56.67   637.11  1832.89     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.865794	0.019082
+ 2| 0.137071	0.023564
+ 3| 0.037146	0.024313
+ 4| 0.024801	0.015878
+ 5| 0.014141	0.007600
+ 6| 0.005819	0.001871
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           9	0.0000	1.0000	       1800	   200.0	   54.85
+ 2         225	0.7289	0.2711	      23770	   105.6	  665.66
+ 3        1624	0.9698	0.0302	      43256	    26.6	 1037.25
+ 4        1287	0.9868	0.0132	      29459	    22.9	  565.59
+ 5         442	0.9910	0.0090	      10441	    23.6	  156.93
+ 6         100	1.0000	0.0000	       2183	    21.8	   26.73
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2         164	       0	     164	       0	       0
+ 3        1575	       0	    1575	       0	       0
+ 4        1270	       0	    1270	       0	       0
+ 5         438	       0	     438	       0	       0
+ 6         100	       0	     100	       0	       0
+
+coordinator: 71 slots, 438 units, wall 437.38 s, CPU 2527.19 s (x5.78), slots busy 8.3%, best objective 6124

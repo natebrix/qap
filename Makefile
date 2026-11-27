@@ -1,11 +1,12 @@
 # Build the solver and run the checks. See RUNNING.md and CONTRIBUTING.md.
 #
 #   make               build latest/bnbdrv
-#   make test          brute-force, resume and parallel tests, the settings table, then the regression check
+#   make test          brute-force, resume and parallel tests, the settings table, the regression check, the estimator, strong branching
 #   make bruteforce    solver vs full enumeration on small random instances (~10 s)
 #   make regression    quick suite vs bench/reference/ (~15 s)
 #   make resume        stop/resume a run in slices; totals must not change (~10 s)
 #   make parallel      bench/parallel.py matches the serial solver (~20 s)
+#   make sb            DNN strong branching (sb.*): statistics, trace, progress file, parallel totals (~80 s)
 #   make dnntest       latest/dnntest, the DNN bound's driver (needs LAPACK, see latest/makefile)
 #   make dnncheck      validate the DNN bound (tests/dnn_test.py, ~2 min)
 #   make continuationcheck  same-node DNN continuation and exact-bound checks
@@ -14,14 +15,14 @@
 
 PYTHON ?= python3
 
-.PHONY: all solver test bruteforce resume parallel coord settings-doc regression estimate clean dnntest dnncheck shipcheck nodetrace
+.PHONY: all solver test bruteforce resume parallel coord settings-doc regression estimate sb rule10 clean dnntest dnncheck shipcheck nodetrace
 
 all: solver
 
 solver:
 	$(MAKE) -C latest
 
-test: bruteforce resume parallel coord settings-doc regression estimate
+test: bruteforce resume parallel coord settings-doc regression estimate sb rule10
 
 bruteforce: solver
 	$(PYTHON) tests/brute_force.py
@@ -49,8 +50,14 @@ regression: solver
 estimate: solver
 	$(PYTHON) tests/estimate_test.py
 
+# DNN strong branching (sb.*, latest/bnb.C)
+sb: solver
+	$(PYTHON) tests/sb_test.py
 dnntest:
 	$(MAKE) -C latest dnntest
+
+rule10: solver
+	$(PYTHON) tests/rule10_test.py
 
 dnncheck: dnntest
 	$(PYTHON) tests/dnn_test.py

@@ -1,0 +1,27 @@
+make -C latest dnntest
+make[1]: Entering directory '/opt/qap/latest'
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN -I -I./ -c dnntest.C
+g++ -O3 -march=native -ffp-contract=off -std=gnu++17 -Wno-register -MMD -MP -DHAVE_DNN qpbnd.o qpbnd2.o dlap.o qap.o assign.o link1.o solution.o branch.o bnb.o util.o linalg.o fw.o estimate.o mat.o sa_qap.o stats.o console.o lgb_train.o state.o symeig.o settings.o dnn.o dnncut.o amx_gemm.o dnntest.o -o dnntest -lm -L/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib -lscipy_openblas -Wl,-rpath,/usr/local/lib64/python3.11/site-packages/scipy_openblas32/lib
+make[1]: Leaving directory '/opt/qap/latest'
+python3.11 -u tests/dnn_test.py
+A. brute force: 2592 node bounds in 1152 dnntest runs, 39 s
+   max(lb - optimum) = 0, over nodes with m >= 2: -1.23e-13 (must be <= 0 up to 1e-9 relative)
+   bound within 1e-3 of the optimum: 2479 of 2592; fathomed at cutoff opt-1: 2533
+   nug12 [-] m=12: certified lb after 900 iterations C 567.9802, python 567.9802
+   nug12 [0:3,5:7] m=10: certified lb after 300 iterations C 604.3876, python 604.3876
+   nug12 [2:2,7:0,9:11] m=9: certified lb after 300 iterations C 608.2250, python 608.2250
+   nug20 [0:19,1:0] m=18: certified lb after 300 iterations C 2579.5553, python 2579.5553
+   nug20 [1:7,19:11] m=18: certified lb after 200 iterations C 2445.6672, python 2445.6672
+   nug20 [1:1,12:19,16:15] m=17: certified lb after 200 iterations C 2458.4815, python 2458.4815
+B. prototype agreement: 44 checkpoint values, max relative difference 8.6e-08, 14 s
+   nug20 [1:6,19:12] optimum 2570: lb 2549.208 hopeless in 200 iterations (0.4 s), study not fathomed
+   nug20 [1:6,19:13] optimum 2588: lb 2566.886 hopeless in 920 iterations (1.9 s), study not fathomed
+   nug20 [1:7,19:11] optimum 2594: lb 2568.070 fathomed in 265 iterations (0.5 s), study fathomed
+   nug20 [1:6,19:8] optimum 2594: lb 2568.057 fathomed in 330 iterations (0.7 s), study fathomed
+   nug20 [0:19,1:0] optimum 2646: lb 2569.684 fathomed in 59 iterations (0.1 s), study fathomed
+   nug20 [1:1,12:19,16:15] optimum 2584: lb 2568.090 fathomed in 138 iterations (0.2 s), study fathomed
+   nug20 [1:6,15:4,19:10] optimum 2644: lb 2572.457 fathomed in 50 iterations (0.1 s), study fathomed
+C. nug20 nodes with known optima: 11 s
+D. cancellation regressions: 13 cases, 0 s
+E. eliminated assignments: 160 nodes (87 with a stronger bound than without eliminations), 3 s
+OK

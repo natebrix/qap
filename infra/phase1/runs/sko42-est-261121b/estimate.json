@@ -1,0 +1,150 @@
+{
+ "done": {
+  "nodes": 7793.0,
+  "cpu": 167941.17954200003
+ },
+ "rest": {
+  "nodes": 94047.37520956536,
+  "cpu": 998972.3641751491,
+  "nodes_5_95": [
+   74827.45472501374,
+   125846.46986790071
+  ],
+  "cpu_5_95": [
+   815164.9477435471,
+   1285412.982359834
+  ]
+ },
+ "total": {
+  "nodes": 101840.37520956536,
+  "cpu": 1166913.5437171492,
+  "nodes_5_95": [
+   82620.45472501374,
+   133639.4698679007
+  ],
+  "cpu_5_95": [
+   983106.1272855472,
+   1453354.161901834
+  ]
+ },
+ "strata": 2246,
+ "with_survivors": 382,
+ "dived": 382,
+ "dives": 13949,
+ "strata_with_survivors_not_dived": 0,
+ "deepest_dive": 6,
+ "estimator_cpu": 251973.0357080006,
+ "by_depth": {
+  "0": {
+   "done_nodes": 1.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 1.137586,
+   "rest_cpu": 0.0
+  },
+  "1": {
+   "done_nodes": 12.0,
+   "rest_nodes": 0.0,
+   "done_cpu": 7393.199143999999,
+   "rest_cpu": 0.0
+  },
+  "2": {
+   "done_nodes": 269.0,
+   "rest_nodes": 169.0,
+   "done_cpu": 34346.12184199999,
+   "rest_cpu": 27627.17387900001
+  },
+  "3": {
+   "done_nodes": 3859.0,
+   "rest_nodes": 6770.895200630387,
+   "done_cpu": 92231.65659600002,
+   "rest_cpu": 259407.75798449694
+  },
+  "4": {
+   "done_nodes": 3112.0,
+   "rest_nodes": 40975.86174620477,
+   "done_cpu": 29981.473885999992,
+   "rest_cpu": 421870.24502507516
+  },
+  "5": {
+   "done_nodes": 493.0,
+   "rest_nodes": 30788.321591687236,
+   "done_cpu": 3713.9846690000004,
+   "rest_cpu": 239708.03385934446
+  },
+  "6": {
+   "done_nodes": 47.0,
+   "rest_nodes": 15343.29667023437,
+   "done_cpu": 270.342281,
+   "rest_cpu": 50359.153420983
+  }
+ },
+ "source_run": "sko42-est-261121b",
+ "open_nodes": 6701,
+ "open_sampled": 2246,
+ "units": 689,
+ "units_pending": 0,
+ "slow_pending": 0,
+ "merged_wall_p90": 1206.0723912715912,
+ "imputed": {
+  "nodes": 0.0,
+  "cpu": 0.0,
+  "open": 0,
+  "unmatched_open": 0,
+  "unmatched_by_depth": {}
+ },
+ "jackknife_nodes": 13763.835239306256,
+ "jackknife_cpu": 142220.6459938982,
+ "diag": {
+  "top1_nodes": 0.106432658758977,
+  "top10_nodes": 0.23014778619573398,
+  "top1_cpu": 0.06489686920485843,
+  "top10_cpu": 0.2217657867595337,
+  "dived_strata": 382,
+  "one_dive_strata": 0,
+  "continuation": {
+   "3": [
+    4469,
+    179
+   ],
+   "4": [
+    7883,
+    85
+   ],
+   "5": [
+    1809,
+    18
+   ],
+   "6": [
+    70,
+    0
+   ]
+  },
+  "deepest_well_sampled": 6,
+  "continuation_there": 0.0,
+  "mass_depth": 4,
+  "setup_cpu": 103473.35086199989,
+  "dive_cpu": 148499.68484600072
+ },
+ "flags": [],
+ "estimator": {
+  "merged": 689,
+  "merged_cpu": 251973.03570800013
+ },
+ "pilot": {
+  "units": 69,
+  "merged": 69,
+  "cpu": 25257.330167999997,
+  "rest_cpu": 558271.5637947156,
+  "rest_nodes": 52233.436365993155
+ },
+ "decision": {
+  "frac": 0.0,
+  "verdict": "done",
+  "projected_cpu": 251973.03570800013,
+  "rest_cpu": 998972.3641751491,
+  "share": 0.25223223859256017,
+  "units": 689,
+  "at": 1795242472.210496
+ },
+ "text": "the estimate's cost: 70.0 CPU h of estimator CPU, 25% of the estimated rest of the tree (277.5 CPU h)\ndone so far: 7,793 nodes, 46.7 CPU h\nestimated rest: 94,047 nodes (5-95%: 74,827 to 125,846), 277.5 CPU h (226.4 CPU h to 357.1 CPU h)\nestimated tree: 101,840 nodes (5-95%: 82,620 to 133,639), 324.1 CPU h (273.1 CPU h to 403.7 CPU h)\n2246 open nodes (382 with children that branch), 13949 dives in 382 of them, deepest dive node at depth 6; estimator 70.0 CPU h\n2,246 of the 6,701 open nodes sampled (each weighted 1/pi)\njackknife over units: standard error 13,764 nodes, 39.5 CPU h\nthe largest dive makes 6% of the rest's CPU, the 10 largest 22%; 0 of 382 dived open nodes got one dive; estimator CPU: setup 28.7 CPU h, dives 41.2 CPU h\ndives going deeper, by depth (reached, went on): 3: 4469/179, 4: 7883/85, 5: 1809/18, 6: 70/0\n\n| depth | nodes done | nodes estimated, rest | CPU h done | CPU h estimated, rest |\n|---|---|---|---|---|\n| 0 | 1 | 0 | 0.00 | 0.00 |\n| 1 | 12 | 0 | 2.05 | 0.00 |\n| 2 | 269 | 169 | 9.54 | 7.67 |\n| 3 | 3,859 | 6,771 | 25.62 | 72.06 |\n| 4 | 3,112 | 40,976 | 8.33 | 117.19 |\n| 5 | 493 | 30,788 | 1.03 | 66.59 |\n| 6 | 47 | 15,343 | 0.08 | 13.99 |"
+}

@@ -105,6 +105,14 @@ parameter max_depth is stored in a separate variable.
 
 ============================================================
  */
+// the rest of a params file line after its value: its comment, however long (a fixed 80-character
+// buffer set the stream's fail bit on a longer one, and the whole file read as "not valid": Nov 18)
+static void skip_line(std::ifstream &f)
+{
+  std::string rest;
+  std::getline(f, rest);
+}
+
 void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
 		     char *&sym_file,int &max_depth)
 {
@@ -122,7 +130,7 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
   }
 
   f >> sym_file_given;
-  f.getline(junk, len);
+  skip_line(f);
 
   if(sym_file_given)
     {
@@ -141,10 +149,10 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
     }
 
   f >> max_depth;
-  f.getline(junk, len);
+  skip_line(f);
 
   f >> nlevel;
-  f.getline(junk, len);
+  skip_line(f);
   if(!f || nlevel < 1 || nlevel > 100) {
     std::cerr << "error: bad number of levels in [" << filename << "]" << std::endl;
     exit(1);
@@ -156,26 +164,26 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
 
     if(i < nlevel-1) {
       f >> params[i].relative_gap;
-      f.getline(junk, len);
+      skip_line(f);
 
       f >> params[i].depth;
-      f.getline(junk, len);
+      skip_line(f);
     }
 
     f >> params[i].rule;
-    f.getline(junk, len);
+    skip_line(f);
 
     f >> params[i].maxier_bnd;
-    f.getline(junk, len);
+    skip_line(f);
     
     f >> params[i].maxier_nofathom;
-    f.getline(junk, len);
+    skip_line(f);
 
     f >> params[i].maxier_br;
-    f.getline(junk, len);
+    skip_line(f);
 
     f >> params[i].which_bound;
-    f.getline(junk, len);
+    skip_line(f);
 
     if(params[i].which_bound == PB_BND) {
       params[i].maxier_bnd = 1;
@@ -183,10 +191,10 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
     }
 
     f >> params[i].param_step;
-    f.getline(junk, len);
+    skip_line(f);
 
     f >> params[i].use_best;
-    f.getline(junk, len);
+    skip_line(f);
 
   }
 
@@ -194,7 +202,7 @@ void qap_read_params(char *filename, BNBParameters *&params, int &nlevel,
   // every value after it. Catch that instead of branching on garbage.
   for(i=0;i<nlevel;i++) {
     const BNBParameters &q = params[i];
-    if(!f || q.rule < 1 || q.rule > 9 || q.which_bound < 0 || q.which_bound > 7 ||
+    if(!f || q.rule < 1 || q.rule > 11 || q.which_bound < 0 || q.which_bound > 7 ||
        q.maxier_bnd < 0 || q.maxier_nofathom < 0 || q.maxier_br < 0 ||
        q.use_best < 0 ||
        // the parametric bounds update S,T every param_step iterations; 0 would

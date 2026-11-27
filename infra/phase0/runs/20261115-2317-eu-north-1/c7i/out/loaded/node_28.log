@@ -1,0 +1,95 @@
+settings 71 hash a15558fc81971507
+setting dnn.depths "" default policy
+setting dnn.maxgap 1 default policy
+setting dnn.giveup 300 flag policy
+setting dnn.warm 0 default policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 default policy
+setting dnn.gamma1 1 flag policy
+setting dnn.gamma 1 flag policy
+setting dnn.cheb 3 flag policy
+setting dnn.tight_lam 2 flag policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0 default policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.3 default policy
+setting dnn.refresh 40 flag policy
+setting dnn.warm_y 2 default policy
+setting dnn.beta_sched w=0.36 default policy
+setting dnn.cross 2 default policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 default policy
+setting dnn.amx 1 par policy
+setting ship.bits 32 default policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.giveup "" default policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash "" default policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file "" default run
+setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE "" default diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+objective values are even integers: fathoming tolerance 1.95
+instance qaplib/wil50.dat n=50 lapack=OpenBLAS (prefix 'scipy_')
+node 0 fixed=4 m=46 shift=244.000000 cutoff=48814.050000
+admm cross 2 warm_damp 1:0
+it    10 lb 19670.5455 (cert 19670.5455, margin 4.39e-06) primal 4900.9703 pres 7.92e-01 dY 5.77e-01 npos 2011 cpu 1.60
+it    20 lb 26301.0125 (cert 26301.0125, margin 0.00e+00, lazy) primal 6814.0477 pres 6.84e-01 dY 3.78e-01 npos 1968 cpu 2.66
+it    30 lb 32783.1323 (cert 32783.1323, margin 0.00e+00, lazy) primal 10994.6115 pres 6.18e-01 dY 3.62e-01 npos 1837 cpu 3.85
+it    40 lb 38783.6744 (cert 38783.6744, margin 0.00e+00, lazy) primal 17426.7525 pres 5.33e-01 dY 3.46e-01 npos 1724 cpu 5.22
+it    50 lb 43078.2117 (cert 43078.2117, margin 0.00e+00, lazy) primal 25381.5594 pres 4.37e-01 dY 2.97e-01 npos 1582 cpu 7.29
+it    60 lb 45739.7606 (cert 45739.7606, margin 0.00e+00, lazy) primal 32157.5560 pres 3.43e-01 dY 2.54e-01 npos 1557 cpu 9.05
+it    70 lb 47231.7648 (cert 47231.7648, margin 0.00e+00, lazy) primal 38484.2562 pres 2.64e-01 dY 2.29e-01 npos 1527 cpu 10.90
+it    80 lb 47989.5010 (cert 47989.5010, margin 0.00e+00, lazy) primal 43254.1649 pres 1.95e-01 dY 2.01e-01 npos 1511 cpu 12.78
+it    90 lb 48340.9891 (cert 48340.9891, margin 0.00e+00, lazy) primal 46042.7032 pres 1.52e-01 dY 1.80e-01 npos 1483 cpu 15.10
+it   100 lb 48524.3500 (cert 48524.3500, margin 0.00e+00, lazy) primal 47391.3158 pres 1.12e-01 dY 1.42e-01 npos 1483 cpu 17.12
+it   110 lb 48626.2598 (cert 48626.2598, margin 0.00e+00, lazy) primal 48040.9860 pres 9.15e-02 dY 1.22e-01 npos 1486 cpu 19.16
+it   120 lb 48692.1680 (cert 48692.1680, margin 0.00e+00, lazy) primal 48339.0241 pres 7.85e-02 dY 1.06e-01 npos 1485 cpu 21.18
+it   130 lb 48726.5940 (cert 48726.5940, margin 0.00e+00, lazy) primal 48358.3917 pres 7.57e-02 dY 1.02e-01 npos 1454 cpu 23.60
+it   140 lb 48774.5773 (cert 48774.5773, margin 0.00e+00, lazy) primal 48643.4678 pres 6.39e-02 dY 8.60e-02 npos 1463 cpu 25.77
+it   149 lb 48796.7870 (cert 48796.7870, margin 0.00e+00, lazy) primal 48689.4600 pres 5.86e-02 dY 7.80e-02 npos 1471 cpu 27.74 extra
+it   150 lb 48798.8307 (cert 48798.8307, margin 0.00e+00, lazy) primal 48700.5247 pres 5.82e-02 dY 7.73e-02 npos 1471 cpu 28.09
+it   159 lb 48815.8006 (cert 48815.8006, margin 3.90e-06) primal 48735.8819 pres 5.46e-02 dY 7.15e-02 npos 1475 cpu 30.12 extra
+admm cross: 2 extra certificates
+RESULT node=0 m=46 lb=48815.800645842253 primal=48735.881879199653 status=fathomed iters=159 cpu=30.116 ms_per_iter=189.41 certs=2 cert_fail=0 refine=0 margin=4.39e-06 fathomed=1 restarts=0

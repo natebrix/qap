@@ -28,6 +28,9 @@ reports are merged here. Status as of Nov 17, 01:30 UTC: nothing running. `lapto
 - New best lower bounds at the root, all certified: tho40 230,452.99 (published 226,522); tai50b
   453,552,676 (431,245,612); tai60b 605,315,696 (592,829,061); tai80b 801,397,334 (786,900,529)
   after 2,320 phase iterations, levelling off.
+- tai80b's root levelled off at 801,397,334, 46% of its published gap (tai60b's 81%), with the
+  regions `comb7`; a two-dimensional family (`line:4,top:7`, a superset) was 1.4M behind it at phase
+  iteration 500 (Nov 25, `tai80b_2d/`). tai80b stays out of reach.
 
 ## What was found
 

@@ -1,0 +1,110 @@
+settings 71 hash a15558fc81971507
+setting dnn.depths "" default policy
+setting dnn.maxgap 1 default policy
+setting dnn.giveup 300 flag policy
+setting dnn.warm 0 default policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 default policy
+setting dnn.gamma1 1 flag policy
+setting dnn.gamma 1 flag policy
+setting dnn.cheb 3 flag policy
+setting dnn.tight_lam 2 flag policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0 default policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.3 default policy
+setting dnn.refresh 40 flag policy
+setting dnn.warm_y 2 default policy
+setting dnn.beta_sched w=0.36 default policy
+setting dnn.cross 2 default policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 default policy
+setting dnn.amx 1 par policy
+setting ship.bits 32 default policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.giveup "" default policy
+setting cut.cp_iters 0 default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash "" default policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file "" default run
+setting QAP_DNN_TRACE "" default diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE "" default diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+objective values are even integers: fathoming tolerance 1.95
+instance qaplib/wil50.dat n=50 lapack=OpenBLAS (prefix 'scipy_')
+node 0 fixed=3 m=47 shift=204.000000 cutoff=48814.050000
+admm cross 2 warm_damp 1:0
+it    10 lb 17133.7371 (cert 17133.7371, margin 4.95e-06) primal 3461.4799 pres 7.96e-01 dY 5.33e-01 npos 2101 cpu 2.91
+it    20 lb 22121.4072 (cert 22121.4072, margin 0.00e+00, lazy) primal 4956.4227 pres 7.06e-01 dY 4.07e-01 npos 2069 cpu 4.66
+it    30 lb 26831.2654 (cert 26831.2654, margin 0.00e+00, lazy) primal 6749.6015 pres 6.52e-01 dY 3.27e-01 npos 1956 cpu 6.63
+it    40 lb 31867.5516 (cert 31867.5516, margin 0.00e+00, lazy) primal 9957.7839 pres 5.97e-01 dY 3.07e-01 npos 1837 cpu 8.98
+it    50 lb 36589.8598 (cert 36589.8598, margin 0.00e+00, lazy) primal 14601.2236 pres 5.33e-01 dY 2.84e-01 npos 1693 cpu 12.65
+it    60 lb 40296.9943 (cert 40296.9943, margin 0.00e+00, lazy) primal 19544.5717 pres 4.62e-01 dY 2.58e-01 npos 1659 cpu 15.92
+it    70 lb 43055.4002 (cert 43055.4002, margin 0.00e+00, lazy) primal 25014.5039 pres 3.96e-01 dY 2.38e-01 npos 1610 cpu 19.51
+it    80 lb 45021.5271 (cert 45021.5271, margin 0.00e+00, lazy) primal 30237.7057 pres 3.35e-01 dY 2.20e-01 npos 1577 cpu 23.31
+it    90 lb 46367.7994 (cert 46367.7994, margin 0.00e+00, lazy) primal 35069.0653 pres 2.80e-01 dY 2.06e-01 npos 1527 cpu 27.70
+it   100 lb 47215.8593 (cert 47215.8593, margin 0.00e+00, lazy) primal 39036.0143 pres 2.24e-01 dY 1.81e-01 npos 1517 cpu 31.95
+it   110 lb 47703.7102 (cert 47703.7102, margin 0.00e+00, lazy) primal 42327.4199 pres 1.78e-01 dY 1.69e-01 npos 1515 cpu 36.22
+it   120 lb 47990.4693 (cert 47990.4693, margin 0.00e+00, lazy) primal 44606.1768 pres 1.41e-01 dY 1.55e-01 npos 1515 cpu 40.57
+it   130 lb 48157.5531 (cert 48157.5531, margin 0.00e+00, lazy) primal 45748.1740 pres 1.24e-01 dY 1.52e-01 npos 1492 cpu 45.20
+it   140 lb 48271.3156 (cert 48271.3156, margin 0.00e+00, lazy) primal 46899.0201 pres 9.66e-02 dY 1.28e-01 npos 1505 cpu 49.68
+it   150 lb 48339.1463 (cert 48339.1463, margin 0.00e+00, lazy) primal 47385.7740 pres 8.28e-02 dY 1.18e-01 npos 1511 cpu 54.12
+it   160 lb 48385.2026 (cert 48385.2026, margin 0.00e+00, lazy) primal 47694.6597 pres 7.38e-02 dY 1.11e-01 npos 1513 cpu 58.55
+it   170 lb 48411.1755 (cert 48411.1755, margin 0.00e+00, lazy) primal 47818.4228 pres 7.42e-02 dY 1.13e-01 npos 1483 cpu 63.28
+it   180 lb 48440.9435 (cert 48440.9435, margin 0.00e+00, lazy) primal 48059.3975 pres 6.34e-02 dY 1.00e-01 npos 1497 cpu 67.81
+it   190 lb 48460.9143 (cert 48460.9143, margin 0.00e+00, lazy) primal 48160.3455 pres 5.85e-02 dY 9.47e-02 npos 1507 cpu 72.25
+it   200 lb 48476.0894 (cert 48476.0894, margin 0.00e+00, lazy) primal 48233.2979 pres 5.51e-02 dY 9.06e-02 npos 1514 cpu 76.69
+it   210 lb 48487.5285 (cert 48487.5285, margin 0.00e+00, lazy) primal 48308.3944 pres 5.54e-02 dY 9.01e-02 npos 1485 cpu 81.35
+it   220 lb 48499.2988 (cert 48499.2988, margin 0.00e+00, lazy) primal 48326.8402 pres 5.08e-02 dY 8.45e-02 npos 1503 cpu 85.91
+it   230 lb 48508.7624 (cert 48508.7624, margin 0.00e+00, lazy) primal 48367.2887 pres 4.83e-02 dY 8.12e-02 npos 1509 cpu 90.41
+it   240 lb 48516.9009 (cert 48516.9009, margin 0.00e+00, lazy) primal 48396.7045 pres 4.66e-02 dY 7.88e-02 npos 1514 cpu 94.82
+it   250 lb 48523.8861 (cert 48523.8861, margin 0.00e+00, lazy) primal 48425.0485 pres 4.64e-02 dY 7.80e-02 npos 1492 cpu 99.32
+it   260 lb 48531.1520 (cert 48531.1520, margin 0.00e+00, lazy) primal 48429.4735 pres 4.42e-02 dY 7.52e-02 npos 1512 cpu 103.71
+it   270 lb 48536.5328 (cert 48536.5328, margin 0.00e+00, lazy) primal 48451.1779 pres 4.30e-02 dY 7.35e-02 npos 1515 cpu 108.07
+it   280 lb 48541.5756 (cert 48541.5756, margin 0.00e+00, lazy) primal 48466.7647 pres 4.20e-02 dY 7.20e-02 npos 1519 cpu 112.41
+it   290 lb 48546.1711 (cert 48546.1711, margin 0.00e+00, lazy) primal 48484.4269 pres 4.18e-02 dY 7.14e-02 npos 1481 cpu 116.92
+it   300 lb 48551.2094 (cert 48551.2094, margin 0.00e+00, lazy) primal 48481.5901 pres 4.03e-02 dY 6.95e-02 npos 1513 cpu 121.47
+lazycert exit last check: cert 48551.2094 (margin 4.43e-06), best 48551.2094, 29 checks skipped Rump's test
+lazycert exit stored best: cert 48551.2094 (margin 4.43e-06), best 48551.2094, 29 checks skipped Rump's test
+admm cross: 0 extra certificates
+RESULT node=0 m=47 lb=48551.20940534964 primal=48481.59006906877 status=hopeless iters=300 cpu=121.717 ms_per_iter=405.72 certs=3 cert_fail=0 refine=0 margin=4.95e-06 fathomed=0 restarts=0

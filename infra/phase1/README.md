@@ -46,7 +46,8 @@ instance.
 
 ## Recipes
 
-A recipe (`recipes/NAME.sh`, committed: the instance builds from `HEAD`) says
+A recipe (`recipes/NAME.sh`, committed: the instance builds from `HEAD`; or a run's
+`runs/RUN/recipe.sh`, which `start.sh` writes and the user data carries) says
 what to solve: `INSTANCE`, `PARAMS`, `OPT` (the known optimum the check
 expects), `UB` (the incumbent given to the solver), `EXTRA` (solver flags),
 `ENV` (the solver's environment) and `COORD` (unit sizing for `qapctl init`).
@@ -72,6 +73,198 @@ against 1,404 at depth 4 (Nov 9). Some setting of the recipe keeps state
 inside a process that state files do not carry (`make shipcheck`'s smaller
 set of settings is exact); `compare.py` checks the tree, not iterations.
 
+## Starting a run (`start.sh`, Nov 16)
+
+**From a spec file (Nov 19):** `start.sh --spec infra/phase1/specs/NAME.spec` takes every answer
+from a committed file and asks only "Launch?" (`--yes` answers it); `ARMS` in it makes an A/B, one
+run per arm, `RUN-ARM`, identical but for the params file, the difference shown before the launch.
+Every new run's record (`runs/RUN/`: `recipe.sh`, `launches.tsv`, `spec.txt`) is committed and pushed
+once it is launched (`--no-commit`: not). `infra/phase1/specs/README.md` has the keys and the specs
+(`nug30-smoke`, `tai50b-est`, `sko42-zone`). Tested in a throwaway clone with a bare origin, against
+the AWS stand-in and moto: the sko42 A/B launched two runs whose recipes differ only in `PARAMS`,
+each with its group, and its record was committed and pushed; a spec with an unknown key, or not
+committed as it is, is refused.
+
+**Readouts (Nov 19):** each run's `readout.md` (`coord/readout.py`: the verdict, the warnings, the
+record) is written by its coordinator at the end. `collect.sh RUN` makes a fresh one into the run's
+record and ends with a verdict on itself, in `runs/RUN/collect.txt`: `collect complete`, or
+`collect INCOMPLETE: no traces | node trace | readout`. It refuses to start with under 30 minutes
+left on the SSO sign-in, and takes the node trace from the trace export instead of reading every
+unit a second time (`docs/review_nov18_runs.md`, item 4). With no one collecting,
+`.github/workflows/phase1-readouts.yml` writes every run's readout and a board of the runs to the
+branch `phase1-readouts` hourly (`infra/phase1/readouts.py`; `git show
+origin/phase1-readouts:board.md`), with a role that only reads (`gha_setup.sh`: `qap-gha-readouts`,
+environment `aws-phase1-read`, no reviewer). A scheduled workflow runs from the default branch, so
+the file must be on `master` too.
+
+**Since Nov 19 a run is a coordinator and a worker group** (`docs/review_nov18_runs.md`, item 3):
+
+- **The coordinator is on demand,** a small instance of the workers' CPU (`c7a.2xlarge`). It
+  bounds the root, merges and runs a few units. It is never reclaimed, so a run is never lost with
+  its root (tai50b-est lost 13 minutes of a 72-minute root to Spot on Nov 18; tai60b's takes hours).
+- **The workers are an EC2 Auto Scaling group,** `qap-RUN` (`launch.sh --workers N`): Spot from
+  the cheapest pools with capacity over the three types and every zone of the region.
+  - It is created at 0 instances; the coordinator raises it to N once the run exists, so no worker
+    waits through the root.
+  - A reclaimed worker drains on its 2-minute notice and the group starts another in its place;
+    `collect.sh` shows the group, its last activities and the interruptions it answered.
+  - `roll_workers.sh RUN` points a running run's group at HEAD (Nov 27, for the worker's lease
+    past SQS's 12 hours): its launch template's next version builds HEAD, the workers already
+    running keep their commit, and it prints how to replace them.
+  - A worker whose run is over, or whose build or gates fail, leaves the group (terminating itself
+    and decrementing it), so the group does not start another.
+  - The coordinator sets the group to 0 when the run ends, and a scheduled action does so at the
+    time limit whatever happens.
+  - No capacity rebalancing: it would terminate a worker without the notice the worker drains on.
+    No Availability Zone rebalancing either (`AZRebalance` suspended, Nov 27): it launches a worker in
+    an emptier zone, then terminates one elsewhere, also without the notice (wil50-261126 had it
+    trying every 32 minutes, its four workers in two of three zones).
+- **The root cache** (`coord/coordinator.py`, `frontier_key`): a frontier pass is stored under
+  `runs/.cache/frontier/KEY/` and read back by any later init with the same solver binary, CPU,
+  data, flag files, flags, incumbent, depth, traces and resolved settings (the run class aside). A
+  relaunch after an interruption during init, or another estimate of the same problem, skips the
+  root. `QAP_ROOT_CACHE=off` runs it regardless.
+- `cleanup.sh RUN` deletes the group and its launch template before terminating the instances (or
+  the group would replace them). A run started before Nov 19 has no group: adding instances to it
+  launches `--worker-only` instances as before.
+- The instance role may change and leave `qap-*` groups (`autoscaling:UpdateAutoScalingGroup`,
+  `SetDesiredCapacity`, `TerminateInstanceInAutoScalingGroup`) and create and delete `qap-units-*`
+  queues. The first launch after Nov 19 comes from the laptop, which rewrites the role's policy. The
+  GitHub workflow's role can stop and collect such runs once `gha_setup.sh` is run again; it cannot
+  create a group, so its launch stays one instance at a time.
+- **Tested here** (Nov 19), as the earlier launches were, against a stand-in for the AWS CLI that
+  logs every call and keeps the groups' state, and moto: `start.sh --dry-run --yes` (the launch
+  template and group shown in full), `launch.sh` creating and then updating a group, and `node.sh`
+  in its local mode with a coordinating node and a group worker on nug17 (the group raised to 2
+  after init, set to 0 at the end; the worker left it after 17 units; check PASS), a worker that
+  booted after its run was over (it left before building), and a worker drained by a Spot notice
+  (it did not leave, so the group would replace it; the run finished on the coordinator). Not
+  tested: the real Auto Scaling API, its IAM, and a real Spot replacement. The first launch tests
+  them; `collect.sh` shows the group's activities.
+
+One command on the laptop starts a run of a QAPLIB problem:
+
+```
+cd ~/dev/qap && git pull origin cognac
+infra/phase1/start.sh tho40 --dry-run
+infra/phase1/start.sh tho40
+```
+
+It checks the AWS session first, then asks for each setting with a default (Enter keeps it),
+shows the whole launch with the vCPU quota left and today's Spot price, and asks before
+launching:
+
+| setting | default |
+|---|---|
+| problem | the command line's (another name restarts with its defaults) |
+| run name | `PROBLEM-YYMMDD`, the UTC date: `tho40-261117` |
+| params file | the one `recipes/defaults.txt` names for the problem, its next run's settings (tho40: `recipes/tho40c.par`; tai50b: `recipes/tai50b.par`), else `recipes/PROBLEM.par`, else the estimate's, `experiments/estimates/PROBLEM/PROBLEM.par` (wil50: `experiments/wil50_feasibility/fullrun/fullrun.par`); it must be committed |
+| incumbent | the best known (`QAPSOLN/PROBLEM.sln`) + the step of the objective's grid: + 2 where every value is even, else + 1 (`objstep.py`); `none` for no incumbent |
+| worker type, market | `c7a.16xlarge`, or the problem's `type=` in `recipes/defaults.txt` (tai60b: `m7a.16xlarge`); Spot |
+| worker group's types | the worker type and its siblings on the same CPU (AMD EPYC 9R14): `c7a.16xlarge,m7a.16xlarge,r7a.16xlarge` |
+| worker instances | 1 (it shows how many the quota has room for) |
+| slots per worker | the type's cores, or as many as its memory holds at the problem's `mem=` GiB a solver process, less 4 GiB (tai60b: 3 GiB, so 64 on an m7a.16xlarge's 256 GiB, 41 on a c7a.16xlarge's 128); `slots=` fixes it. Sized by the first type, which has the least memory of the three |
+| coordinator | `c7a.2xlarge` on demand (8 cores, 16 GiB): its cores but one run units, by the same memory rule |
+| time limit | 72 hours: the coordinator shuts down, and the group goes to 0 |
+| on request | the data file and solver flags (`qaplib/PROBLEMt.dat` and `-s SYM/PROBLEMt.sym` where the grid's symmetry file exists, else `qaplib/PROBLEM.dat`), the disk (100 GB), the unit sizing (tho40-b's 20-minute units, `--trace`), public or private status |
+
+Then it writes the run's recipe to `runs/RUN/recipe.sh` and calls `launch.sh` once per
+instance: the first coordinates (`--recipe-file`, `--run-slots` the sum of every instance's
+cores, so the queue reserve and steals cover them all), the others are `--worker-only`. All
+get `--no-reference`. Commit `runs/RUN/` afterwards (`recipe.sh`, `launches.tsv`; the files
+that name the bucket are ignored). For a run that exists, it adds instances with the run's
+own settings: the first one coordinates if no instance does (after a Spot interruption or
+the time limit), so the same command resumes a run.
+
+- **The incumbent: the next value above the best known**, so the run must find the best
+  known solution itself (`status.json`: found by search) and prove that nothing is better.
+  The solver fathoms a node whose bound exceeds the incumbent less its tolerance: 1.95 when
+  every objective value is an even integer, 0.95 when they are integers (`latest/qap.C`,
+  `set_fathom_tolerance`). `objstep.py` makes the same test on the data file (it agrees with
+  the solver on all 192 QAPLIB files: 121 even, 70 integers, 1 not integers) and gives the
+  step:
+  - **+ 2 where every value is even:** tho40, sko42, sko49, wil50 (symmetric matrices, even
+    diagonal products), as the 2000 nug30 solve was given the optimum + 2 and tho40-b
+    240,518. + 1 there is off the grid, and `bnbdrv` rounds such an incumbent up to the next
+    attainable value (`latest/driver.C`), so it would act as + 2: without that, the 1.95
+    tolerance would put the cutoff at the best known - 0.95 and could fathom the node holding it.
+  - **+ 1 where values are integers but not all even:** the tai-b instances, whose matrices are
+    not symmetric (tai50b 458,821,518).
+  - Data that are not integers have no grid (tolerance 0): + 1 is a margin there.
+  An incumbent typed off the grid (rounded up), at or below the best known, or past the next value is
+  pointed out. The estimates
+  (`experiments/estimates/*/settings.sh`) keep the best known itself, the tree a run must
+  search.
+- **Run names:** a run the website shows is named after the QAPLIB problem and the UTC date
+  of its launch, `tho40-261117`; a second the same day gets a letter, `tho40-261117b`. The
+  website takes the instance's name from the data file, so the name is for people. Earlier
+  runs (`tho40-b`, `nug30-a`) keep theirs.
+- **AWS credentials:** none are stored. The script runs on the AWS CLI's IAM Identity Center
+  (SSO) session: `aws sts get-caller-identity`, and `aws sso login` when there is no session
+  or it has expired (once per laptop, `aws configure sso` sets a profile up; `--profile P`
+  picks one). The CLI keeps its own short-lived token in `~/.aws/sso/cache`; the instances use
+  their role. A sign-in that is not SSO, or keys in the shell's environment, is pointed out.
+  The output shows the account as `<account>` (`launch.sh` too), so it can be pasted.
+- **A run on several instances:** the coordinator sizes its queue reserve (2 units a slot)
+  and its steals by the run's slot count, fixed at `qapctl init`. If an instance is lost, its
+  slots stay counted, and the coordinator splits units for them: relaunch with the same
+  command. `slots busy` in the results is relative to the run's slots.
+- **Tested here** (Nov 16) against a stand-in for the AWS CLI and moto: a dry run with every
+  default (`--yes`, signed out first, so through `aws sso login`), and a launch of two
+  instances with typed answers: the recipe went in the coordinator's user data unchanged,
+  `QAP_RUN_SLOTS=128`, the second instance a worker. `node.sh` in its local mode from a clean
+  archive with a recipe file (nug17 from 1,734, 2 slots, the run sized for 8): init at 8
+  slots, 1,732 found, the check passed. Dry runs of tho40, sko42, sko49, wil50, tai50b, nug17 and nug30
+  give the defaults above (+ 2 on the even ones, + 1 on tai50b), and typed incumbents below,
+  at and past the next value give their notes. 119 of the `.sln` files end their lines with `\r`, which first gave
+  tai50b no incumbent: the value is now read as digits, and the launch stops if the incumbent
+  was never asked.
+- **Estimate runs** (Nov 18, `docs/estimates_plan.md`, `coord/dives.py`). To launch one, answer
+  "Change the other settings?" with y and give "Estimate run" as `SOLVE_HOURS:DIVE_SECONDS[:B]`,
+  e.g. `2:1800`. Every instance then gets `QAP_ESTIMATE` (seconds), and `node.sh`:
+  - runs `qapctl estimate-flow` in the coordinator's place: the solve for SOLVE_HOURS of its
+    wall time, then the pause, its units returned, and run `RUN-dives` with DIVE_SECONDS of
+    survivor dives per open unit;
+  - runs `worker --follow` on every instance: the workers move to `RUN-dives` on their own;
+  - skips the reference run.
+
+  At the end `out/estimate.txt` (and the store's `runs/RUN-dives/results.txt`) holds the
+  estimate: the solve's nodes and CPU so far, the rest estimated, by depth, with a 5-95%
+  interval. The solve stays paused, so `qapctl resume RUN` (or a relaunch without the estimate)
+  goes on from where it stopped.
+
+  Unless the estimate is not worth its CPU (Nov 19, the decision point: `coord/README.md`): when
+  the dives run's pilot (a random tenth of its units) says the dives would cost over 15% of the
+  rest of the tree, the dives stop and the solve goes on to the end on the same instances, within
+  the time limit; the readout says SOLVING, then COMPLETE. A spec's `ESTIMATE_DECIDE` sets the
+  share (`off`: the dives always run to the end), as `QAP_ESTIMATE_DECIDE` on the coordinator. A Spot relaunch resumes the flow at its step. Make the time
+  limit cover SOLVE_HOURS plus the dives: the dives take about DIVE_SECONDS per queued unit
+  over the slots.
+
+- **Runs from a paused run** (Nov 19, a spec's `FROM=SRC`; `infra/phase1/specs/README.md`). SRC is a
+  paused run whose units are back (an estimate run's solve: tho40-est2-261119). Its unit states and
+  parent states are read, never changed, so it can still be resumed. Two kinds:
+  - `DIVES=DIVE_SECONDS[:B[:SAMPLE[:W]]]`: a dives run of SRC's open nodes, a second estimate with no
+    solve phase (`qapctl dives SRC --as RUN` on the coordinating instance, `ESTIMATE_ENV` for the
+    estimator's settings). Its readout is its own ("a second estimate of SRC"); `collect.sh RUN`
+    fetches its estimate and dives.
+  - `SAMPLE=DEPTH:COUNT,...` with `PARAMS` or `ARMS` (and `ARMS_ENV`): a sampled run, one per arm,
+    whose first units are a sample of SRC's open nodes (`qapctl init --sample-from SRC`;
+    `coord/sample.py`), drawn in proportion to the square root of their subtrees' estimates in a dives
+    run of SRC (`SAMPLE_BY`; SRC's own by default) and solved to the end under the arm's settings, the
+    same nodes in every arm. `collect.sh RUN-ARM` fetches each arm's `sample.json` and node trace;
+    `experiments/estimates_nov19/paired.py runs/RUN-ARM ...` compares them node by node (the CPU of
+    arms is comparable only side by side: tai50b's same nodes cost 13-20% less in one run than in
+    another). No acceptance check (its results are the sampled subtrees', not a solve's).
+
+  Tested here (Nov 19) with the AWS CLI stand-in and moto: `start.sh --dry-run --yes` on
+  `tho40-est3.spec` and `tho40-tune.spec` (the coordinator's environment, the four arms' recipes,
+  `cross5`'s own environment), and `node.sh` in its local mode on nug17 in both modes: the dives run
+  made from a paused run and coordinated to the end, its readout its own and the source's unchanged;
+  the sampled run made from 9 open nodes and solved, with no acceptance check. `tests/sample_test.py`:
+  two arms with the same params on a nug24 sample (the DNN at every depth: the parents' states come
+  along) keep the same sample and the same subtrees, node for node.
+
 ## Running it (laptop)
 
 Once: the AWS CLI and a login (as for Phase 0), and boto3 for `python3`
@@ -90,7 +283,9 @@ infra/phase1/launch.sh nug30-b --recipe nug30 --no-ub       # and without the in
 git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
 ```
 
-- **Options:** `--type c7g.4xlarge` (16 Graviton3 cores; any type whose
+- **Options:** `--recipe-file F` (a recipe outside `recipes/`, as `start.sh` writes; it
+  goes in the user data, and the files it names must be committed), `--run-slots S` (the
+  run's slots when it has more instances than this one), `--type c7g.4xlarge` (16 Graviton3 cores; any type whose
   family ends in `g`, `gd` or `gn` gets the arm64 image), `--region eu-north-1`,
   `--on-demand`, `--worker-only` (more capacity for a run another instance
   coordinates; at most one coordinating instance per run), `--private` (no
@@ -104,13 +299,16 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
   snapshot), so cents per run. Storage, queues and tables cost cents a month.
 - **What it creates,** once per account and region, kept for later runs:
   - the coordinator's storage, by `qapctl aws-setup`: a private bucket
-    `qap-coord-<account>-<region>` (also the source tarballs under `src/`), the
-    SQS queues `qap-units-large` and `qap-units-small`, and the DynamoDB tables
-    `qap-runs` and `qap-units` (on-demand capacity);
+    `qap-coord-<account>-<region>` (also the source tarballs under `src/`) and
+    the DynamoDB tables `qap-runs` and `qap-units` (on-demand capacity). Each run
+    has its own SQS queues, `qap-units-RUN-large` and `-small`: created with the
+    run, deleted when it finishes or is stopped (kept while it is paused);
   - an IAM role and instance profile `qap-phase1-instance`, which may only make
     the calls `coord/backend.py` makes on those (read and write `runs/`, read
-    `src/`, write `public/runs/`, send, receive and delete on the two queues,
-    items on the two tables) and nothing else;
+    `src/`, write `public/runs/`, create, use and delete the `qap-units-*` queues,
+    items on the two tables) and nothing else. Since Nov 19 the role may create
+    and delete queues: the first launch after that comes from the laptop, which
+    rewrites the role's policy (the GitHub workflow's role cannot);
   - a security group `qap-phase1` in the default VPC, with no inbound rules.
 - **Disk and failures** (after tho40-a, Nov 14, whose 32 GB disk filled in 30
   minutes): `--disk GB` sizes the root disk (default 32; tho40 at 64 workers:
@@ -124,11 +322,14 @@ git add infra/phase1/runs && git commit -m 'phase 1: ...' && git push
   reaches the other units when that unit returns and is merged (the
   coordinator verifies and publishes it then), so at most one unit budget
   later: 60 CPU seconds with the nug30 recipe, 30 minutes with the default.
-- **Several runs at once:** the runs in a region share the two queues. A
-  worker that receives another run's message hides it for a second and leaves
-  it (before Nov 8 it deleted it, which stranded that run's unit), so
-  overlapping runs are correct but slower. `launch.sh` says when another run is
-  coordinating.
+- **Several runs at once:** each run has its own queues (since Nov 19), so runs
+  in a region are independent: a worker receives only its run's units. Before,
+  every run shared two queues, and another run's large units kept a run's small
+  ones from ever being read (the tail of `tho40-est-dives`, Nov 18:
+  `docs/review_nov18_runs.md`, item 1). A run created before Nov 19 gets its
+  queues when its coordinator next starts, which sends its queued units to them;
+  the old shared queues are then unused (`cleanup.sh --storage` deletes them with
+  the rest).
 - **Interrupted or stopped runs:** `launch.sh RUN` resumes a run that exists;
   `--recipe` is then not needed. Relaunch on the same `--type`: the run's slot
   count is fixed when it is created, and the coordinator sizes its queue
@@ -243,7 +444,10 @@ distribution only serves it).
 
 `collect.sh RUN` prints the instances, the coordinator's `status.json` (units by
 status, nodes, CPU, incumbent), each host's last steps, and at the end
-`results.txt` and `compare.txt`, and keeps each host's `out/` under
+`results.txt` and `compare.txt` (or `results_partial.txt`: the RESULTS block of a solve paused for an
+estimate or stopped, as far as it went; with it, as with `results.txt`, the node trace goes in the
+record; for an estimate, `estimate.txt` and `results_estimate.txt`, the estimated tree in the RESULTS
+layout, to set beside the solve's `results.txt` once it finishes), and keeps each host's `out/` under
 `runs/RUN/hosts/`: `steps.txt`, `node.log`, `coordinator.log`, `worker.log`,
 `init.log`, `reference.log`, `gate_*.log`, `sysinfo.txt`. `runs/RUN/launches.tsv`
 records each launch (role, type, market, Spot price, instance, zone, commit,

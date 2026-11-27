@@ -29,6 +29,7 @@ import time
 from .common import (LANES, SOLVER, State, fmt_secs, new_unit, plan_split, read_instance, run_key,
                      solver_tables, unit_key, verify_incumbent, write_unit_state)
 from . import warm
+from .backend import check_queue_name
 from .publish import Publisher
 
 PENDING = ("queued", "leased", "done", "returned", "failed")
@@ -169,6 +170,14 @@ class Coordinator:
 
     def _apply(self, u):
         """add a merged unit's result to the totals and queue its open nodes"""
+        if self.cfg.get("kind") == "dives":
+            # a dives unit (coord/dives.py) adds no nodes and returns none; its state file is the
+            # source run's, which must keep it (never in self.spent); `qapctl estimate` reads its dives
+            self.busy_wall += u.get("wall", 0.0)
+            self.units_merged += 1
+            self.last_seq = max(self.last_seq, u["merged_seq"])
+            self.dirty = True
+            return
         p = self._path("out.state")
         key = unit_key(self.run_id, u["uid"], f"a{u['attempt']}", "out.state")
         if not self.b.get_file(key, p):
@@ -214,7 +223,7 @@ class Coordinator:
                 self.b.put_unit(self.run_id, doc)
                 have = doc
             if not have.get("sent_at"):
-                self.b.send(have["lane"], {"run": self.run_id, "uid": uid})
+                self.b.send(self.run_id, have["lane"], {"run": self.run_id, "uid": uid})
                 self.b.update_unit(self.run_id, uid, {"sent_at": time.time()})
         return len(sizes)
 
@@ -241,7 +250,7 @@ class Coordinator:
             if u["attempt"] < self.cfg["max_attempts"]:
                 if self.b.update_unit(self.run_id, u["uid"], {"status": "queued", "sent_at": now},
                                       expect={"status": "failed", "attempt": u["attempt"]}):
-                    self.b.send(u["lane"], {"run": self.run_id, "uid": u["uid"]})
+                    self.b.send(self.run_id, u["lane"], {"run": self.run_id, "uid": u["uid"]})
                     self.log(f"coordinator: unit {u['uid']} failed (rc {u.get('rc')}), re-queued")
             else:
                 self.b.update_unit(self.run_id, u["uid"], {"status": "dead"}, expect={"status": "failed"})
@@ -249,13 +258,13 @@ class Coordinator:
         lease = self.cfg["lease_s"]
         for u in self.b.units_by_status(self.run_id, "queued"):
             if not u.get("sent_at"):        # created, crash before the send
-                self.b.send(u["lane"], {"run": self.run_id, "uid": u["uid"]})
+                self.b.send(self.run_id, u["lane"], {"run": self.run_id, "uid": u["uid"]})
                 self.b.update_unit(self.run_id, u["uid"], {"sent_at": now}, expect={"status": "queued"})
         for u in self.b.units_by_status(self.run_id, "leased"):
             # a lease that ran out long ago: its message should have come back;
             # send another in case it was lost (duplicates are harmless)
             if u.get("lease_until", now) < now - 2 * lease and u.get("resent_for") != u["attempt"]:
-                self.b.send(u["lane"], {"run": self.run_id, "uid": u["uid"]})
+                self.b.send(self.run_id, u["lane"], {"run": self.run_id, "uid": u["uid"]})
                 self.b.update_unit(self.run_id, u["uid"], {"resent_for": u["attempt"]},
                                    expect={"status": "leased", "attempt": u["attempt"]})
                 self.log(f"coordinator: unit {u['uid']} lease expired at attempt {u['attempt']}; re-sent")
@@ -270,7 +279,7 @@ class Coordinator:
             return
         leased = self.b.units_by_status(self.run_id, "leased")
         idle = self.cfg["slots"] - len(leased)
-        queued = sum(self.b.depth(l) for l in LANES)
+        queued = sum(self.b.depth(self.run_id, l) for l in LANES)
         if idle <= 0 or queued > 0:
             return
         asked = sum(1 for u in leased if u.get("return_requested"))
@@ -288,7 +297,7 @@ class Coordinator:
         for u in self.b.units_by_status(self.run_id, "leased"):
             if self.b.update_unit(self.run_id, u["uid"], {"status": "queued", "worker": None, "sent_at": time.time()},
                                   expect={"status": "leased", "attempt": u["attempt"]}):
-                self.b.send(u["lane"], {"run": self.run_id, "uid": u["uid"]})
+                self.b.send(self.run_id, u["lane"], {"run": self.run_id, "uid": u["uid"]})
                 n += 1
         self.log(f"coordinator: {n} leased units re-queued")
         return n
@@ -311,7 +320,7 @@ class Coordinator:
         dc = t.arrays.get("dnn_counts", [0, 0])
         wall = now - self.t0
         doc = {"run": self.run_id, "status": self.run.get("status"), "updated": now, "wall_s": wall,
-               "units": counts, "queue": {l: self.b.depth(l) for l in LANES},
+               "units": counts, "queue": {l: self.b.depth(self.run_id, l) for l in LANES},
                "nodes": t.counters[0], "fathomed": t.counters[1], "dnn_nodes": dc[0], "dnn_fathomed": dc[1],
                "cpu_s": t.times[0], "busy_wall_s": self.busy_wall, "units_merged": self.units_merged,
                "busy_fraction_merged": self.busy_wall / (self.cfg["slots"] * wall) if wall > 0 else 0,
@@ -349,6 +358,10 @@ class Coordinator:
             a = t.arrays
             lines.append(f"     cut phase: {sum(a['cut_n_level'])} nodes, {sum(a['cut_f_level'])} fathomed, "
                          f"{sum(a['cut_t_level']):.2f} s")
+        if sum(t.arrays.get("sb_n_level", [])):   # state version 10
+            a = t.arrays
+            lines.append(f" strong branch: {sum(a['sb_n_level'])} nodes, {sum(a['sb_s_level'])} child solves, "
+                         f"{sum(a['sb_i_level'])} iterations, {sum(a['sb_t_level']):.2f} s")
         tables = self._solver_tables(state_path)
         if tables:
             lines += [""] + tables.rstrip("\n").split("\n")
@@ -357,6 +370,28 @@ class Coordinator:
                       f"CPU {t.times[0]:.2f} s (x{t.times[0] / wall if wall else 0:.2f}), slots busy {100 * busy:.1f}%, "
                       f"best objective {inc.get('obj', t.obj):.17g}"]
         return "\n".join(lines)
+
+    def write_partial(self, why):
+        """results.txt's RESULTS block for a solve its operation left unfinished (paused for an estimate,
+        stopped), from the merged statistics as they stand: runs/RUN/results_partial.txt, led by a PARTIAL
+        line that says why. results.txt stays the finished solve's alone (readouts, collect's acceptance
+        check and the site read it so). The wall is the last status's, the solve's own."""
+        last = json.loads(self.b.get_bytes(run_key(self.run_id, "status.json")) or b"{}")
+        wall = last.get("wall_s") or (time.time() - self.t0)
+        t = self.totals
+        inc = self.run.get("incumbent", {})
+        if inc.get("perm"):
+            t.obj, t.perm = inc["obj"], [str(x) for x in inc["perm"]]
+        p = self._path("partial.state")
+        t.write(p, [])
+        counts = self.b.count_by_status(self.run_id)
+        open_units = sum(v for k, v in counts.items() if k != "merged")
+        text = (f"PARTIAL: {why}. {self.units_merged} units merged, {open_units} not "
+                f"({', '.join(f'{k} {v}' for k, v in sorted(counts.items()) if k != 'merged') or 'none'}); "
+                f"written {time.strftime('%Y-%m-%d %H:%M UTC', time.gmtime())}\n\n" + self.report(p, wall))
+        self.b.put_bytes(run_key(self.run_id, "results_partial.txt"), (text + "\n").encode())
+        self.log(f"coordinator: run {self.run_id}: results_partial.txt ({why})")
+        return text
 
     def finish(self):
         now = time.time()
@@ -368,9 +403,17 @@ class Coordinator:
         p = self._path("final.state")
         t.write(p, [])
         self.b.put_file(run_key(self.run_id, "final.state"), p)
-        report = self.report(p, wall)
+        if self.cfg.get("kind") == "dives":
+            from .dives import estimate_run, report as dives_report
+            report = dives_report(estimate_run(self.b, self.run_id, log=lambda *_: None))
+        else:
+            report = self.report(p, wall)
         self.b.put_bytes(run_key(self.run_id, "results.txt"), (report + "\n").encode())
         self.run = self.b.update_run(self.run_id, {"status": "finished", "finished_at": now, "wall_s": wall})
+        try:
+            drop_queues(self.b, self.run_id)   # its workers see it finished; nothing is sent to it again
+        except Exception as e:
+            self.log(f"coordinator: deleting the run's queues failed: {e!r}")
         # the run is over: no node will start from a parent state again
         for key in self.b.list(run_key(self.run_id, "warm") + "/"):
             try:
@@ -385,6 +428,10 @@ class Coordinator:
             self.publisher.publish(counts, final=True)
         except Exception as e:
             self.log(f"coordinator: publishing the final status failed: {e!r}")
+        # the readout (coord/readout.py), from the final status: this run's, or for a dives run its
+        # source's, with the estimate
+        from .readout import write_readout
+        write_readout(self.b, self.run_id, log=self.log)
         self.log(report)
         return report
 
@@ -409,9 +456,14 @@ class Coordinator:
                 self.log(f"coordinator: publishing the status failed: {e!r}")
         return counts
 
-    def loop(self, poll=2.0, max_wall=None):
+    def loop(self, poll=2.0, max_wall=None, check=None):
+        """coordinate to the end (the results), or None: stopped, max_wall seconds passed, or check
+        (called with the unit counts after every tick: the estimate-flow's decision point) said to stop"""
         if not self.run.get("started_at"):
             self.run = self.b.update_run(self.run_id, {"started_at": self.t0})
+        if self.run.get("status") in ("running", "paused"):
+            ensure_queues(self.b, self.run_id, log=self.log)
+            self.run = self.b.get_run(self.run_id)
         while True:
             if self.run.get("status") == "stopped":
                 self.log(f"coordinator: run {self.run_id} was stopped (qapctl stop)")
@@ -428,20 +480,168 @@ class Coordinator:
             if max_wall and time.time() - self.t0 > max_wall:
                 self._save_totals()
                 return None
+            if check is not None and check(counts):
+                self._save_totals()
+                return None
             time.sleep(poll)
 
 
+def ensure_queues(b, run_id, log=print, resend=False):
+    """the run's queues, created if missing (idempotent). A run from before per-run queues (its
+    record has no "queues": its messages are in the old shared lanes, which no worker reads now),
+    a run whose queues were deleted, or resend: each queued unit is sent again. A unit sent twice
+    is harmless: the second copy finds it taken and is deleted (coord/worker.py, _lease)."""
+    b.create_queues(run_id)
+    run = b.get_run(run_id)
+    if run is None or (run.get("queues") == "run" and not resend):
+        return 0
+    n = 0
+    for u in b.units_by_status(run_id, "queued"):
+        b.send(run_id, u["lane"], {"run": run_id, "uid": u["uid"]})
+        n += 1
+    b.update_run(run_id, {"queues": "run"})
+    if n:
+        log(f"coordinator: run {run_id}: {n} queued units sent to its queues")
+    return n
+
+
+def drop_queues(b, run_id):
+    """delete a run's queues (finished or stopped: nothing will run again); the record says so,
+    so that a later ensure_queues sends its queued units again"""
+    b.delete_queues(run_id)
+    if b.get_run(run_id) is not None:
+        b.update_run(run_id, {"queues": None})
+
+
+def cache_key(key, name=""):
+    """the root cache's prefix: under runs/, which every role may read and write, as .cache (a run
+    name has no dot)"""
+    return f"runs/.cache/frontier/{key}" + (f"/{name}" if name else "")
+
+
+def frontier_key(solver, sdir, instance, params, flags, env, ub, depth, trace):
+    """what a frontier pass's output depends on: the solver binary, the CPU (OpenBLAS picks its kernels
+    by it, and the rounding with them), the data, the files the flags name (a symmetry file), the
+    flags, the incumbent, the depth, the traces, and the solver's resolved settings under the params
+    file and the environment (bnbdrv --print-settings: every setting but the run class, with where
+    it came from)"""
+    import hashlib
+    import subprocess
+    h = hashlib.sha256()
+
+    def file(path):
+        with open(path, "rb") as f:
+            h.update(hashlib.sha256(f.read()).digest())
+    file(solver)
+    file(os.path.abspath(instance))
+    for tok in flags:
+        p = tok if os.path.isabs(tok) else os.path.join(sdir, tok)
+        if os.path.isfile(p):
+            file(p)
+    cpu = ""
+    try:
+        with open("/proc/cpuinfo") as f:
+            cpu = next((l.split(":", 1)[1].strip() for l in f if l.startswith("model name")), "")
+    except OSError:
+        pass
+    r = subprocess.run([solver, "--print-settings", "-p", params] + flags, cwd=sdir, capture_output=True, text=True, env=env)
+    # the run class (paths, traces, the estimator's) does not change the tree, as for the settings hash
+    settings = [l for l in r.stdout.splitlines() if l.startswith("settings ") or
+                (l.startswith("setting ") and not l.endswith(" run") and not l.startswith("setting par.file "))]
+    h.update(json.dumps([cpu, flags, repr(ub), depth, trace, settings]).encode())
+    return h.hexdigest()[:32]
+
+
+def frontier_to_cache(b, key, tmp, traces, stdout):
+    """the frontier pass's state file, the parent states it names, its traces and its report"""
+    frontier = os.path.join(tmp, "frontier.state")
+    for name in warm.refs_in(frontier):
+        b.put_file(cache_key(key, f"warm/{name}"), os.path.join(tmp, "warm", name))
+    for name in traces:
+        if os.path.exists(os.path.join(tmp, name)):
+            b.put_file(cache_key(key, name), os.path.join(tmp, name))
+    b.put_bytes(cache_key(key, "stdout.txt"), stdout.encode())
+    b.put_file(cache_key(key, "frontier.state"), frontier)   # last: its presence says the rest is there
+
+
+def frontier_from_cache(b, key, tmp, traces):
+    """True when the cache had it: tmp then holds what the frontier pass would have written"""
+    frontier = os.path.join(tmp, "frontier.state")
+    if not b.get_file(cache_key(key, "frontier.state"), frontier):
+        return False
+    os.makedirs(os.path.join(tmp, "warm"), exist_ok=True)
+    for name in warm.refs_in(frontier):
+        if not b.get_file(cache_key(key, f"warm/{name}"), os.path.join(tmp, "warm", name)):
+            os.remove(frontier)
+            return False
+    for name in traces:
+        b.get_file(cache_key(key, name), os.path.join(tmp, name))
+    return True
+
+
 def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, frontier_depth=0, log=print,
-             visibility="public"):
+             visibility="public", sample=None):
     """the frontier pass, run here (as bench/parallel.py does): the root, or the
-    -F node, expanded to frontier_depth; its open nodes become the first units"""
+    -F node, expanded to frontier_depth; its open nodes become the first units.
+    sample (coord/sample.py): {"src", "by", "plan", "seed", "mix"}: no frontier pass; the first units
+    are a sample of run src's open nodes, sized by the dives run by (src's own by default)"""
     import shutil
     import subprocess
     if backend.get_run(run_id):
         raise SystemExit(f"run {run_id} exists")
+    check_queue_name(run_id)   # before the frontier pass, which can take hours
     tmp = tempfile.mkdtemp(prefix=f"qapinit-{run_id}-")
     sdir = os.path.dirname(os.path.abspath(solver))
     frontier = os.path.join(tmp, "frontier.state")
+    picked = None
+    if sample:
+        # a sampled run: the same problem as its source (its data and flags), its own params
+        from .sample import sample_frontier, save_sample, settings_record
+        import hashlib
+        src = backend.get_run(sample["src"])
+        if src is None:
+            raise SystemExit(f"sample: no run {sample['src']}")
+        sd = backend.get_bytes(run_key(sample["src"], "instance.dat")) or b""
+        with open(os.path.abspath(instance), "rb") as f:
+            if hashlib.sha256(f.read()).digest() != hashlib.sha256(sd).digest():
+                raise SystemExit(f"sample: {instance} is not {sample['src']}'s data file")
+        if list(src.get("solver", {}).get("flags", [])) != list(flags):
+            raise SystemExit(f"sample: the flags {flags} are not {sample['src']}'s {src.get('solver', {}).get('flags')}")
+        sub = src.get("solver", {}).get("ub")
+        if (sub is None) != (ub is None) or (ub is not None and float(ub) != float(sub)):
+            raise SystemExit(f"sample: the incumbent {ub} is not {sample['src']}'s {sub} (the subtrees depend on it)")
+        e = dict(os.environ)
+        e.update(env)
+        record = settings_record(solver, sdir, params, flags, e)
+        frontier, picked, by = sample_frontier(backend, sample["src"], sample.get("by"), sample["plan"],
+                                               sample.get("seed", 1), sample.get("mix", 0.2), tmp, record, log=log,
+                                               power=sample.get("power", 0.5))
+        cfg = dict(cfg, sample={"src": sample["src"], "by": by, "plan": {str(k): v for k, v in sample["plan"].items()},
+                                "seed": sample.get("seed", 1), "mix": sample.get("mix", 0.2),
+                                "power": sample.get("power", 0.5)})
+        frontier_depth = None
+    else:
+        _frontier_pass(backend, run_id, solver, sdir, instance, params, flags, env, ub, cfg, frontier_depth, tmp,
+                       frontier, log)
+    _init_from_frontier(backend, run_id, solver, sdir, instance, params, flags, env, ub, cfg, frontier_depth, tmp,
+                        frontier, log, visibility)
+    if picked is not None:
+        save_sample(backend, run_id, picked, cfg["sample"])
+    c = Coordinator(backend, run_id, log=log)
+    st = State(frontier)
+    n = c._make_units(warm.rebase(st, c.tmp).nodes, parent=None)
+    log(f"coordinator: run {run_id}: " + (f"a sample of {cfg['sample']['src']}'s open nodes, {len(st.nodes)} of them"
+                                          if picked is not None else
+                                          f"frontier at depth {frontier_depth} has {len(st.nodes)} open nodes") +
+        f", {n} units, {cfg['slots']} slots")
+    shutil.rmtree(tmp)
+    return c
+
+
+def _frontier_pass(backend, run_id, solver, sdir, instance, params, flags, env, ub, cfg, frontier_depth, tmp, frontier,
+                   log):
+    """the root, or the -F node, expanded to frontier_depth into frontier (or read from the root cache)"""
+    import subprocess
     cmd = [solver, "-p", params] + flags + (["-u", repr(ub)] if ub is not None else []) + \
           ["-d", str(frontier_depth), "-o", frontier, os.path.abspath(instance)]
     e = dict(os.environ)
@@ -450,13 +650,33 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     for var, name in traces.items():
         e[var] = os.path.join(tmp, name)   # the frontier's nodes are in no unit's trace
     e["QAP_DNN_WARM_DIR"] = os.path.join(tmp, "warm")   # the frontier's parents, once each (coord/warm.py)
-    r = subprocess.run(cmd, cwd=sdir, capture_output=True, text=True, env=e)
-    if r.returncode != 0:
-        raise SystemExit(f"frontier pass failed (rc={r.returncode}):\n{r.stdout[-2000:]}{r.stderr}")
-    log(r.stdout.split("  ---- RESULTS ----")[0].rstrip())
+    # the root cache: a frontier pass already made on this solver, CPU, data, flags, settings and
+    # incumbent is read back instead of being run again (tai50b's root: 72 minutes, tai60b's: hours;
+    # a relaunch after an interruption during init, or another estimate of the same problem)
+    key = None if os.environ.get("QAP_ROOT_CACHE", "on") == "off" else \
+        frontier_key(solver, sdir, instance, params, flags, e, ub, frontier_depth, bool(traces))
+    if key and frontier_from_cache(backend, key, tmp, list(traces.values())):
+        stdout = (backend.get_bytes(cache_key(key, "stdout.txt")) or b"").decode()
+        log(f"coordinator: the frontier pass from the root cache ({cache_key(key)}), not run again")
+    else:
+        r = subprocess.run(cmd, cwd=sdir, capture_output=True, text=True, env=e)
+        if r.returncode != 0:
+            raise SystemExit(f"frontier pass failed (rc={r.returncode}):\n{r.stdout[-2000:]}{r.stderr}")
+        stdout = r.stdout
+        if key:
+            try:
+                frontier_to_cache(backend, key, tmp, list(traces.values()), stdout)
+            except Exception as ex:      # the cache must never stop a run
+                log(f"coordinator: writing the root cache failed: {ex!r}")
+    log(stdout.split("  ---- RESULTS ----")[0].rstrip())
     for name in traces.values():
         if os.path.exists(os.path.join(tmp, name)):
             backend.put_file(run_key(run_id, "frontier", name), os.path.join(tmp, name))
+
+
+def _init_from_frontier(backend, run_id, solver, sdir, instance, params, flags, env, ub, cfg, frontier_depth, tmp,
+                        frontier, log, visibility):
+    """the run's record and files from its frontier state (the frontier pass's, or a sample's)"""
     warm.push(backend, run_id, frontier, set(), log=log)
     st = State(frontier)
     backend.put_file(run_key(run_id, "instance.dat"), os.path.abspath(instance))
@@ -469,14 +689,9 @@ def init_run(backend, run_id, instance, params, flags, env, ub, cfg, solver, fro
     if st.perm and all(x != "-1" for x in st.perm):
         inc["perm"] = [int(x) for x in st.perm]
     backend.put_bytes(run_key(run_id, "incumbent.json"), json.dumps(inc).encode())
+    backend.create_queues(run_id)
     backend.put_run(run_id, {"run_id": run_id, "status": "running", "created": time.time(), "incumbent": inc,
-                             "visibility": visibility,
+                             "visibility": visibility, "queues": "run",
                              "config": cfg, "solver": {"flags": flags, "env": env, "ub": ub,
                                                        "params": os.path.basename(params),
                                                        "instance": os.path.basename(instance)}})
-    c = Coordinator(backend, run_id, log=log)
-    n = c._make_units(warm.rebase(st, c.tmp).nodes, parent=None)
-    log(f"coordinator: run {run_id}: frontier at depth {frontier_depth} has {len(st.nodes)} open nodes, "
-        f"{n} units, {cfg['slots']} slots")
-    shutil.rmtree(tmp)
-    return c

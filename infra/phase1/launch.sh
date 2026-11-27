@@ -3,18 +3,39 @@
 # on one EC2 instance, on S3, SQS and DynamoDB. Run on the laptop, signed in to
 # AWS (aws sso login), from a clone with boto3 for python3 (pip3 install boto3).
 #
-#   infra/phase1/launch.sh RUN [--recipe nug30] [--no-ub] [--type c7g.4xlarge]
+#   infra/phase1/launch.sh RUN [--recipe nug30 | --recipe-file F] [--no-ub] [--type c7g.4xlarge]
 #                          [--region eu-north-1] [--on-demand] [--worker-only]
-#                          [--no-reference] [--gates "bruteforce ..."|none]
+#                          [--workers N [--worker-types T,T,...] [--worker-slots S] [--workers-on-demand]
+#                           [--worker-env "K=V ..."]]
+#                          [--no-reference] [--gates "bruteforce ..."|none] [--run-slots S]
 #                          [--limit 120] [--disk 32] [--node-env "K=V ..."] [--dry-run]
 #
-#   RUN             a name for the run: letters, digits, - and _ (e.g. nug30-a)
+# (start.sh asks for a problem's settings and calls this; README.md, Starting a run)
+#   RUN             a name for the run: letters, digits, - and _ (e.g. nug30-a; runs the
+#                   website shows: the QAPLIB name and the UTC date, e.g. tho40-261117)
 #   --recipe R      what to solve: infra/phase1/recipes/R.sh (committed). Needed
 #                   only for a new run; launching an existing RUN resumes it
+#   --recipe-file F a recipe outside recipes/ (start.sh writes runs/RUN/recipe.sh), sent
+#                   in the user data; the params file it names must be committed
+#   --run-slots S   the run's slot count for `qapctl init`, when it is launched on more
+#                   instances than this one: the sum of their cores (default: this one's)
 #   --no-ub         start without the recipe's incumbent: the run must find the optimum
 #   --type T        the instance type (default c7g.4xlarge: 16 Graviton3 cores, 16 vCPUs)
 #   --on-demand     on-demand instead of Spot (about 3-4x the price; no interruptions)
 #   --worker-only   a worker for RUN, which another instance coordinates
+#   --workers N     with the coordinating instance: a worker group for RUN, the EC2 Auto Scaling
+#                   group qap-RUN (launch template qap-RUN), N instances at most, Spot, in every
+#                   zone of the region, of --worker-types (default c7a.16xlarge,m7a.16xlarge,
+#                   r7a.16xlarge: one CPU, AMD EPYC 9R14, so CPU totals and rounding agree). It is
+#                   created at 0 instances: the coordinator raises it to N once the run exists (the
+#                   root bounded) and sets it to 0 when the run is over; a reclaimed Spot worker is
+#                   replaced by the group; a worker whose run is over leaves the group. A scheduled
+#                   action sets it to 0 at --limit minutes whatever happens. Relaunching the
+#                   coordinator of a run with a group updates the group (its size and the commit)
+#   --worker-types  the group's instance types, comma-separated, cheapest Spot pool with capacity first
+#   --worker-slots S a worker's slots (default: its physical cores; QAP_SLOTS on the workers)
+#   --workers-on-demand  the group on demand instead of Spot (an A/B that must not be interrupted)
+#   --worker-env E  variables for the workers' node.sh (as --node-env for this instance)
 #   --no-reference  skip the bench/parallel.py run and the comparison at the end
 #   --private       publish no public status for a new run (coord/publish.py;
 #                   publish_setup.sh serves it to brixius-web)
@@ -28,24 +49,32 @@
 #
 # It creates, once per account and region, and keeps for later runs: the
 # coordinator's storage (`qapctl aws-setup`: a private bucket
-# qap-coord-<account>-<region>, the SQS queues qap-units-large and -small, the
-# DynamoDB tables qap-runs and qap-units), an instance role that may use those
+# qap-coord-<account>-<region> and the DynamoDB tables qap-runs and qap-units; each
+# run creates its own SQS queues qap-units-RUN-large and -small), an instance role that may use those
 # and nothing else, and a security group with no inbound rules. Then it uploads
 # the committed source and launches the instance (node.sh does the rest).
 # Then: infra/phase1/collect.sh RUN (progress and results), cleanup.sh.
 set -euo pipefail
 D=$(cd "$(dirname "$0")" && pwd)
 R=$(cd "$D/../.." && pwd)
-RUN=""; RECIPE=""; NO_UB=0; TYPE=c7g.4xlarge; REGION=eu-north-1; MARKET=spot; ROLE=all
+RUN=""; RECIPE=""; RECIPE_FILE=""; RUN_SLOTS=""; NO_UB=0; TYPE=c7g.4xlarge; REGION=eu-north-1; MARKET=spot; ROLE=all
 REFERENCE=1; GATES=""; LIMIT=120; DRY=0; VIS=public; NODE_ENV=""; DISK=32
+WORKERS=""; WTYPES=c7a.16xlarge,m7a.16xlarge,r7a.16xlarge; WSLOTS=""; WMARKET=spot; WENV=""
 while [ $# -gt 0 ]; do
   case $1 in
     --recipe) RECIPE=$2; shift 2 ;;
+    --recipe-file) RECIPE_FILE=$2; shift 2 ;;
+    --run-slots) RUN_SLOTS=$2; shift 2 ;;
     --no-ub) NO_UB=1; shift ;;
     --type) TYPE=$2; shift 2 ;;
     --region) REGION=$2; shift 2 ;;
     --on-demand) MARKET=on-demand; shift ;;
     --worker-only) ROLE=worker; shift ;;
+    --workers) WORKERS=$2; shift 2 ;;
+    --worker-types) WTYPES=$2; shift 2 ;;
+    --worker-slots) WSLOTS=$2; shift 2 ;;
+    --workers-on-demand) WMARKET=on-demand; shift ;;
+    --worker-env) WENV=$2; shift 2 ;;
     --no-reference) REFERENCE=0; shift ;;
     --private) VIS=private; shift ;;
     --gates) GATES=$2; shift 2 ;;
@@ -53,23 +82,38 @@ while [ $# -gt 0 ]; do
     --disk) DISK=$2; shift 2 ;;
     --node-env) NODE_ENV=$2; shift 2 ;;
     --dry-run) DRY=1; shift ;;
-    -h|--help) sed -n 2,31p "$0"; exit 0 ;;
+    -h|--help) awk 'NR > 1 && /^set /{exit} NR > 1' "$0"; exit 0 ;;
     -*) echo "unknown argument $1"; exit 2 ;;
     *) [ -z "$RUN" ] || { echo "one RUN only ($RUN, $1)"; exit 2; }; RUN=$1; shift ;;
   esac
 done
-[ -n "$RUN" ] || { sed -n 2,31p "$0"; exit 2; }
+[ -n "$RUN" ] || { awk 'NR > 1 && /^set /{exit} NR > 1' "$0"; exit 2; }
 [[ $RUN =~ ^[A-Za-z0-9_-]{1,60}$ ]] || { echo "RUN may have letters, digits, - and _ only"; exit 2; }
 [[ $LIMIT =~ ^[0-9]+$ ]] || { echo "--limit is in whole minutes"; exit 2; }
+[ -z "$RUN_SLOTS" ] || [[ $RUN_SLOTS =~ ^[1-9][0-9]*$ ]] || { echo "--run-slots is a whole number"; exit 2; }
+[ -z "$WORKERS" ] || [[ $WORKERS =~ ^[1-9][0-9]*$ ]] || { echo "--workers is a whole number, 1 or more"; exit 2; }
+[ -z "$WSLOTS" ] || [[ $WSLOTS =~ ^[1-9][0-9]*$ ]] || { echo "--worker-slots is a whole number"; exit 2; }
+[[ $WTYPES =~ ^[a-z0-9]+\.[a-z0-9]+(,[a-z0-9]+\.[a-z0-9]+)*$ ]] || { echo "--worker-types: types separated by commas"; exit 2; }
+[ -z "$WORKERS" ] || [ "$ROLE" = all ] || { echo "--workers goes with the coordinating instance, not --worker-only"; exit 2; }
+ASG=""; [ -n "$WORKERS" ] && ASG=qap-$RUN   # the worker group and its launch template
+[ -z "$RECIPE" ] || [ -z "$RECIPE_FILE" ] || { echo "--recipe or --recipe-file, not both"; exit 2; }
+if [ -n "$RECIPE_FILE" ]; then
+  [ -f "$RECIPE_FILE" ] || { echo "no recipe file $RECIPE_FILE"; exit 2; }
+  RECIPE_FILE=$(cd "$(dirname "$RECIPE_FILE")" && pwd)/$(basename "$RECIPE_FILE")
+fi
 [[ $DISK =~ ^[0-9]+$ ]] && [ "$DISK" -ge 16 ] && [ "$DISK" -le 2000 ] || { echo "--disk is in whole GB, 16 to 2000"; exit 2; }
 command -v aws > /dev/null || { echo "the AWS CLI is not installed (brew install awscli)"; exit 1; }
 python3 -c "import boto3" 2> /dev/null || { echo "python3 has no boto3: pip3 install boto3"; exit 1; }
 export AWS_DEFAULT_REGION=$REGION AWS_PAGER=""
 aws() { command aws --region "$REGION" "$@"; }
 change() {   # an AWS call that creates or changes something
-  if [ "$DRY" = 1 ]; then echo "  [dry-run] aws $*" >&2; echo "dry-run"; else aws "$@"; fi
+  if [ "$DRY" = 1 ]; then echo "  [dry-run] aws $*" | mask >&2; echo "dry-run"; else aws "$@"; fi
 }
-say() { echo "$(date '+%H:%M:%S') $*"; }
+# the account number is in the bucket's name and the role's policy: shown as <account>,
+# so that output pasted into a chat or an issue does not carry it
+ACCT=""
+mask() { if [ -n "$ACCT" ]; then sed "s/$ACCT/<account>/g"; else cat; fi; }
+say() { echo "$(date '+%H:%M:%S') $*" | mask; }
 
 ACCT=$(aws sts get-caller-identity --query Account --output text) || { echo "not signed in: aws sso login"; exit 1; }
 B=qap-coord-$ACCT-$REGION
@@ -91,8 +135,8 @@ if [ "$Q" != "?" ] && [ "${Q%.*}" -lt "$VCPU" ]; then
 fi
 
 # --- the coordinator's storage (idempotent; the same definitions as the moto tests)
-if [ "$DRY" = 1 ]; then echo "  [dry-run] python3 -m coord.qapctl aws-setup --backend '$BK'" >&2
-else (cd "$R" && python3 -m coord.qapctl aws-setup --backend "$BK" > /dev/null); say "storage ready: s3://$B, queues qap-units-*, tables qap-runs and qap-units"; fi
+if [ "$DRY" = 1 ]; then echo "  [dry-run] python3 -m coord.qapctl aws-setup --backend '$BK'" | mask >&2
+else (cd "$R" && python3 -m coord.qapctl aws-setup --backend "$BK" > /dev/null); say "storage ready: s3://$B, tables qap-runs and qap-units (each run creates its queues qap-units-RUN-*)"; fi
 
 # --- the run: new, resumed, or finished; at most one coordinating instance
 ST=$(bk status "$RUN" 2> /dev/null || echo none)
@@ -104,22 +148,29 @@ COORD_LIVE=$(live all)
 OTHERS=$(aws ec2 describe-instances --filters Name=tag:qap-role,Values=all Name=instance-state-name,Values=pending,running \
   --query "Reservations[].Instances[].Tags[?Key=='qap-phase1'].Value[]" --output text | tr -s '[:space:]' '\n' \
   | grep -vx -e "$RUN" -e '' -e None | sort -u | tr '\n' ' ' || true)
-[ -z "${OTHERS// /}" ] || say "note: run(s) $OTHERS also running in $REGION; runs share the queues, so each is slower while they overlap"
+[ -z "${OTHERS// /}" ] || say "note: run(s) $OTHERS also running in $REGION (each run has its own queues; they share the vCPU quota)"
 if [ "$ROLE" = all ]; then
   [ -z "$COORD_LIVE" ] || { echo "run $RUN already has a coordinating instance ($COORD_LIVE); add capacity with --worker-only"; exit 1; }
   case $ST in
     finished) echo "run $RUN is finished: infra/phase1/collect.sh $RUN"; exit 1 ;;
-    none) [ -n "$RECIPE" ] || { echo "run $RUN is new: give it a --recipe ($(ls "$D/recipes" | sed 's/\.sh$//' | tr '\n' ' '))"; exit 1; }
-          RF=infra/phase1/recipes/$RECIPE.sh
-          [ -f "$R/$RF" ] || { echo "no recipe $RF"; exit 1; }
-          git -C "$R" ls-files --error-unmatch "$RF" > /dev/null 2>&1 && git -C "$R" diff --quiet HEAD -- "$RF" \
-            || { echo "$RF is not committed: the instance builds from HEAD, so commit it first"; exit 1; }
-          say "new run $RUN: recipes/$RECIPE.sh$([ "$NO_UB" = 1 ] && echo ', no incumbent')" ;;
-    *) say "run $RUN exists ($ST): resuming it$([ -n "$RECIPE" ] && echo '; --recipe is ignored')" ;;
+    none) [ -n "$RECIPE$RECIPE_FILE" ] || { echo "run $RUN is new: give it a --recipe ($(ls "$D/recipes" | grep '\.sh$' | sed 's/\.sh$//' | tr '\n' ' '))"; exit 1; }
+          if [ -n "$RECIPE" ]; then
+            RF=infra/phase1/recipes/$RECIPE.sh
+            [ -f "$R/$RF" ] || { echo "no recipe $RF"; exit 1; }
+            git -C "$R" ls-files --error-unmatch "$RF" > /dev/null 2>&1 && git -C "$R" diff --quiet HEAD -- "$RF" \
+              || { echo "$RF is not committed: the instance builds from HEAD, so commit it first"; exit 1; }
+            say "new run $RUN: recipes/$RECIPE.sh$([ "$NO_UB" = 1 ] && echo ', no incumbent')"
+          else
+            RF=$RECIPE_FILE
+            say "new run $RUN: recipe $RF$([ "$NO_UB" = 1 ] && echo ', no incumbent')"
+          fi ;;
+    *) say "run $RUN exists ($ST): resuming it$([ -n "$RECIPE$RECIPE_FILE" ] && echo '; the recipe is ignored')"
+       RECIPE_FILE="" ;;
   esac
 else
   [ "$ST" != none ] || [ -n "$COORD_LIVE" ] || { echo "no run $RUN and no instance coordinating it: launch one without --worker-only"; exit 1; }
   [ "$ST" != finished ] || { echo "run $RUN is finished"; exit 1; }
+  RECIPE_FILE=""   # a worker takes the run as it was created
 fi
 
 # --- instance role, profile and security group (idempotent)
@@ -137,7 +188,10 @@ POLICY="{\"Version\":\"2012-10-17\",\"Statement\":[
   \"Resource\":\"arn:aws:s3:::qap-coord-$ACCT-*/runs/*\"},
  {\"Effect\":\"Allow\",\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::qap-coord-$ACCT-*/public/runs/*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"sqs:ReceiveMessage\",\"sqs:SendMessage\",\"sqs:DeleteMessage\",\"sqs:ChangeMessageVisibility\",
-  \"sqs:GetQueueUrl\",\"sqs:GetQueueAttributes\"],\"Resource\":\"arn:aws:sqs:*:$ACCT:qap-units-*\"},
+  \"sqs:GetQueueUrl\",\"sqs:GetQueueAttributes\",\"sqs:CreateQueue\",\"sqs:DeleteQueue\"],\"Resource\":\"arn:aws:sqs:*:$ACCT:qap-units-*\"},
+ {\"Effect\":\"Allow\",\"Action\":[\"autoscaling:UpdateAutoScalingGroup\",\"autoscaling:SetDesiredCapacity\",
+  \"autoscaling:TerminateInstanceInAutoScalingGroup\"],
+  \"Resource\":\"arn:aws:autoscaling:*:$ACCT:autoScalingGroup:*:autoScalingGroupName/qap-*\"},
  {\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:PutItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],
   \"Resource\":[\"arn:aws:dynamodb:*:$ACCT:table/qap-runs\",\"arn:aws:dynamodb:*:$ACCT:table/qap-units\",
                \"arn:aws:dynamodb:*:$ACCT:table/qap-units/index/*\"]}]}"
@@ -170,6 +224,22 @@ SUBNETS=$(aws ec2 describe-subnets --filters Name=vpc-id,Values="$VPC" Name=defa
 
 # --- the source: the committed tree, the parts the build, the gates and the run use
 COMMIT=$(git -C "$R" rev-parse --short HEAD)
+SHIP_EXTRA=()   # the files a --recipe-file names, which the archive's paths below may not cover
+if [ -n "$RECIPE_FILE" ] && [ "$ROLE" = all ]; then
+  # its INSTANCE is relative to the repository's root, PARAMS and EXTRA's -s file to latest/
+  # (the solver's working directory), as in recipes/*.sh
+  PATHS=$( (INSTANCE= PARAMS= EXTRA=; source "$RECIPE_FILE" > /dev/null
+            echo "$INSTANCE"; echo "latest/$PARAMS"
+            set -- $EXTRA; while [ $# -gt 0 ]; do [ "$1" = -s ] && [ -n "${2:-}" ] && echo "latest/$2"; shift; done) \
+          | python3 -c 'import os, sys; [print(os.path.normpath(l.strip())) for l in sys.stdin if l.strip() and l.strip() != "latest"]') \
+    || { echo "cannot read the recipe $RECIPE_FILE"; exit 1; }
+  for f in $PATHS; do
+    git -C "$R" cat-file -e "HEAD:$f" 2> /dev/null && git -C "$R" diff --quiet HEAD -- "$f" \
+      || { echo "$f (from $RECIPE_FILE) is not committed as it is: the instance builds from HEAD, so commit it first"; exit 1; }
+    SHIP_EXTRA+=("$f")
+  done
+  if [ "$DRY" != 1 ]; then mkdir -p "$D/runs/$RUN"; [ "$RECIPE_FILE" -ef "$D/runs/$RUN/recipe.sh" ] || cp "$RECIPE_FILE" "$D/runs/$RUN/recipe.sh"; fi
+fi
 git -C "$R" diff --quiet HEAD -- latest coord bench infra/phase1 \
   || say "warning: uncommitted changes in latest/, coord/, bench/ or infra/phase1/ are not uploaded; the instance builds $COMMIT"
 L=$D/runs/$RUN
@@ -177,10 +247,10 @@ L=$D/runs/$RUN
 mkdir -p "$L"
 TAR=$L/qap-$COMMIT.tar.gz
 git -C "$R" archive --format=tar.gz -o "$TAR" HEAD Makefile latest qaplib QAPSOLN tests bench coord experiments/dnn_bound infra/phase1 \
-  'experiments/estimates/*/*.par' experiments/wil50_feasibility/fullrun/fullrun.par   # the settings files recipes point at
+  'experiments/estimates/*/*.par' experiments/wil50_feasibility/fullrun/fullrun.par ${SHIP_EXTRA[@]+"${SHIP_EXTRA[@]}"}   # the settings files recipes point at
 SRC=src/qap-$COMMIT.tar.gz
 say "uploading $(du -h "$TAR" | cut -f1) to s3://$B/$SRC"
-[ "$DRY" = 1 ] && echo "  [dry-run] aws s3 cp $TAR s3://$B/$SRC" >&2 || aws s3 cp --only-show-errors "$TAR" "s3://$B/$SRC"
+[ "$DRY" = 1 ] && echo "  [dry-run] aws s3 cp $TAR s3://$B/$SRC" | mask >&2 || aws s3 cp --only-show-errors "$TAR" "s3://$B/$SRC"
 rm -f "$TAR"
 
 # --- launch
@@ -188,18 +258,25 @@ FAM=${TYPE%%.*}
 ARCH=x86_64; case $FAM in *g|*gd|*gn|*ge) ARCH=arm64 ;; esac
 AMI=$(aws ssm get-parameter --name "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-$ARCH" \
   --query Parameter.Value --output text)
-UD=$L/userdata_$ROLE.sh
-cat > "$UD" << EOF
+userdata() {   # userdata ROLE EXTRA_EXPORTS RECIPE_LINE > FILE: the instance's start script
+  cat << EOF
 #!/bin/bash
-export AWS_DEFAULT_REGION=$REGION QAP_RUN=$RUN QAP_BACKEND='aws:$B?region=$REGION' QAP_BUCKET=$B QAP_ROLE=$ROLE
-export QAP_RECIPE=$RECIPE QAP_NO_UB=$NO_UB QAP_REFERENCE=$REFERENCE QAP_COMMIT=$COMMIT QAP_VISIBILITY=$VIS${GATES:+ QAP_GATES='$GATES'}
-${NODE_ENV:+export $NODE_ENV}
+export AWS_DEFAULT_REGION=$REGION QAP_RUN=$RUN QAP_BACKEND='aws:$B?region=$REGION' QAP_BUCKET=$B QAP_ROLE=$1
+export QAP_RECIPE=$RECIPE QAP_NO_UB=$NO_UB QAP_REFERENCE=$REFERENCE QAP_COMMIT=$COMMIT QAP_VISIBILITY=$VIS${GATES:+ QAP_GATES='$GATES'}${RUN_SLOTS:+ QAP_RUN_SLOTS=$RUN_SLOTS}${ASG:+ QAP_ASG=$ASG}
+${2:+export $2}
 shutdown -h +$LIMIT
 mkdir -p /opt/qap && cd /opt/qap
+$3
 for i in 1 2 3 4 5 6; do aws s3 cp --only-show-errors s3://$B/$SRC src.tgz && break; sleep 10; done
 tar xzf src.tgz && bash infra/phase1/node.sh
 shutdown -h now
 EOF
+}
+UD=$L/userdata_$ROLE.sh
+RUD=""   # a --recipe-file, written on the instance before node.sh (base64: any content survives)
+[ -n "$RECIPE_FILE" ] && RUD="echo $(base64 < "$RECIPE_FILE" | tr -d '\n') | base64 -d > /opt/qap/run_recipe.sh && export QAP_RECIPE_FILE=/opt/qap/run_recipe.sh"
+CENV=$NODE_ENV; [ -n "$WORKERS" ] && CENV="${CENV:+$CENV }QAP_WORKERS=$WORKERS"   # the coordinator raises the group to N
+userdata "$ROLE" "$CENV" "$RUD" > "$UD"
 MO=()
 [ "$MARKET" = spot ] && MO=(--instance-market-options '{"MarketType":"spot","SpotOptions":{"SpotInstanceType":"one-time","InstanceInterruptionBehavior":"terminate"}}')
 ID=""
@@ -211,7 +288,7 @@ for s in $SUBNETS; do   # the next zone if one has no capacity
     ${MO[@]+"${MO[@]}"} --user-data "file://$UD" \
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=qap-phase1-$RUN-$ROLE},{Key=qap-phase1,Value=$RUN},{Key=qap-role,Value=$ROLE}]" \
     --query 'Instances[0].InstanceId' --output text 2> "$L/launch.err") && break
-  say "$TYPE: not launched in $s ($(tail -1 "$L/launch.err")); trying the next zone"
+  say "$TYPE: not launched in $s ($(tail -1 "$L/launch.err" | mask)); trying the next zone"
   ID=""
 done
 [ -n "$ID" ] || { say "$TYPE: could not launch (see $L/launch.err)"; exit 1; }
@@ -222,9 +299,94 @@ if [ "$DRY" != 1 ]; then
     --product-descriptions Linux/UNIX --start-time "$(date -u +%FT%TZ)" --query 'SpotPriceHistory[0].SpotPrice' --output text)
 fi
 [ -f "$L/launches.tsv" ] || echo -e "launched\trole\ttype\tmarket\tusd_per_hour\tinstance\taz\tcommit\trecipe" > "$L/launches.tsv"
-echo -e "$(date -u +%FT%TZ)\t$ROLE\t$TYPE\t$MARKET\t$PRICE\t$ID\t$AZ\t$COMMIT\t${RECIPE:--}$([ "$NO_UB" = 1 ] && echo ' no-ub')" >> "$L/launches.tsv"
+RNAME=${RECIPE:--}; [ -n "$RECIPE_FILE" ] && RNAME=recipe.sh
+echo -e "$(date -u +%FT%TZ)\t$ROLE\t$TYPE\t$MARKET\t$PRICE\t$ID\t$AZ\t$COMMIT\t$RNAME$([ "$NO_UB" = 1 ] && echo ' no-ub')${RUN_SLOTS:+ run-slots $RUN_SLOTS}" >> "$L/launches.tsv"
 # bucket.txt and userdata_*.sh name the bucket, whose name holds the account number:
 # .gitignore keeps them out of the repository (collect.sh works without bucket.txt)
 echo "$REGION" > "$L/region.txt"; echo "$B" > "$L/bucket.txt"
 say "$TYPE: $ID in $AZ ($MARKET, \$$PRICE/h), shuts down by itself after $LIMIT minutes"
 say "build and gates take about 10-15 minutes. Then: infra/phase1/collect.sh $RUN"
+
+# --- the worker group (--workers): EC2 Auto Scaling, created at 0 instances; the coordinator
+# raises it to N once the run exists and sets it to 0 when the run is over (node.sh), the group
+# replaces a reclaimed Spot worker, and a scheduled action sets it to 0 at the time limit
+if [ -n "$WORKERS" ]; then
+  WE=$WENV; [ -n "$WSLOTS" ] && WE="${WE:+$WE }QAP_SLOTS=$WSLOTS"
+  WUD=$L/userdata_worker.sh
+  userdata worker "$WE" "" > "$WUD"
+  WT1=${WTYPES%%,*}; WARCH=x86_64; case ${WT1%%.*} in *g|*gd|*gn|*ge) WARCH=arm64 ;; esac
+  WAMI=$AMI; [ "$WARCH" = "$ARCH" ] || WAMI=$(aws ssm get-parameter --name "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-$WARCH" \
+    --query Parameter.Value --output text)
+  WVCPU=$(aws ec2 describe-instance-types --instance-types "$WT1" --query 'InstanceTypes[0].VCpuInfo.DefaultVCpus' --output text)
+  WQ=$(aws service-quotas get-service-quota --service-code ec2 --quota-code "$([ "$WMARKET" = spot ] && echo L-34B43A08 || echo L-1216C47A)" \
+    --query 'Quota.Value' --output text 2> /dev/null || echo "?")
+  [ "$WQ" = "?" ] || [ "${WQ%.*}" -ge $((WORKERS * WVCPU)) ] \
+    || say "note: $WORKERS x $WT1 is $((WORKERS * WVCPU)) vCPUs, over the $WMARKET quota ($WQ): the group launches what fits"
+  # the launch template: the instance as run-instances makes it above, without the type (the group picks it)
+  LTDATA=$(python3 - "$WAMI" "$ROLE_NAME" "$SG" "$DISK" "$WUD" "$RUN" "$ASG" << 'PY'
+import base64, json, sys
+ami, prof, sg, disk, ud, run, asg = sys.argv[1:]
+tags = [{"Key": "Name", "Value": f"qap-phase1-{run}-worker"}, {"Key": "qap-phase1", "Value": run},
+        {"Key": "qap-role", "Value": "worker"}, {"Key": "qap-group", "Value": asg}]
+print(json.dumps({
+    "ImageId": ami, "IamInstanceProfile": {"Name": prof}, "SecurityGroupIds": [sg],
+    "InstanceInitiatedShutdownBehavior": "terminate",
+    "MetadataOptions": {"HttpTokens": "required", "HttpEndpoint": "enabled"},
+    "BlockDeviceMappings": [{"DeviceName": "/dev/xvda",
+                             "Ebs": {"VolumeSize": int(disk), "VolumeType": "gp3", "DeleteOnTermination": True}}],
+    "UserData": base64.b64encode(open(ud, "rb").read()).decode(),
+    "TagSpecifications": [{"ResourceType": "instance", "Tags": tags}, {"ResourceType": "volume", "Tags": tags}]}))
+PY
+)
+  # a dry run shows the user data's size, not its base64 (which holds the bucket's name, so the account number)
+  [ "$DRY" = 1 ] && LTDATA=$(echo "$LTDATA" | python3 -c 'import json, sys; d = json.load(sys.stdin); d["UserData"] = "<%d characters of base64>" % len(d["UserData"]); print(json.dumps(d))')
+  if aws ec2 describe-launch-templates --launch-template-names "$ASG" > /dev/null 2>&1; then
+    change ec2 create-launch-template-version --launch-template-name "$ASG" --launch-template-data "$LTDATA" > /dev/null
+    say "worker group $ASG: launch template updated (commit $COMMIT)"
+  else
+    change ec2 create-launch-template --launch-template-name "$ASG" --launch-template-data "$LTDATA" \
+      --tag-specifications "ResourceType=launch-template,Tags=[{Key=qap-phase1,Value=$RUN}]" > /dev/null
+  fi
+  # Spot from the cheapest pools with capacity (price-capacity-optimized), over every type and zone.
+  # No capacity rebalancing: it terminates a worker on a rebalance recommendation without the
+  # 2-minute notice that node.sh drains on, so its units would wait out their leases (30 minutes);
+  # a reclaimed worker drains on its notice and the group starts another
+  MIP=$(python3 - "$ASG" "$WTYPES" "$WMARKET" << 'PY'
+import json, sys
+asg, types, market = sys.argv[1:]
+print(json.dumps({
+    "LaunchTemplate": {"LaunchTemplateSpecification": {"LaunchTemplateName": asg, "Version": "$Latest"},
+                       "Overrides": [{"InstanceType": t} for t in types.split(",")]},
+    "InstancesDistribution": {"OnDemandBaseCapacity": 0,
+                              "OnDemandPercentageAboveBaseCapacity": 100 if market == "on-demand" else 0,
+                              "OnDemandAllocationStrategy": "lowest-price",
+                              "SpotAllocationStrategy": "price-capacity-optimized"}}))
+PY
+)
+  VZI=$(echo $SUBNETS | tr ' ' ',')
+  if [ "$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$ASG" \
+          --query 'length(AutoScalingGroups)' --output text 2> /dev/null)" = 1 ]; then
+    # a relaunched coordinator: the group's size and types again; its instances stay (the coordinator
+    # sets the desired count once the run is resumed)
+    change autoscaling update-auto-scaling-group --auto-scaling-group-name "$ASG" --mixed-instances-policy "$MIP" \
+      --min-size 0 --max-size "$WORKERS" --vpc-zone-identifier "$VZI" --no-capacity-rebalance > /dev/null
+    say "worker group $ASG: updated to $WORKERS at most"
+  else
+    change autoscaling create-auto-scaling-group --auto-scaling-group-name "$ASG" --mixed-instances-policy "$MIP" \
+      --min-size 0 --max-size "$WORKERS" --desired-capacity 0 --vpc-zone-identifier "$VZI" --no-capacity-rebalance \
+      --tags "Key=qap-phase1,Value=$RUN,PropagateAtLaunch=false" > /dev/null
+  fi
+  # No Availability Zone rebalancing either (Nov 27, wil50-261126): with its four workers in two of the
+  # three zones the group tried every 32 minutes to launch one in the third, and a launch that succeeds
+  # is followed by terminating a worker in a fuller zone, without the 2-minute notice. The worker drains
+  # on shutdown, but a node still running then starts over: a strong-branching firing is hours of one
+  # node with no checkpoint. A reclaimed worker is still replaced (Launch and Terminate stay on).
+  change autoscaling suspend-processes --auto-scaling-group-name "$ASG" --scaling-processes AZRebalance > /dev/null \
+    || say "worker group $ASG: AZRebalance NOT suspended (the call failed); suspend it by hand: aws autoscaling suspend-processes --auto-scaling-group-name $ASG --scaling-processes AZRebalance --region $REGION"
+  T=$(python3 -c "import datetime as d, sys; print((d.datetime.now(d.timezone.utc) + d.timedelta(minutes=int(sys.argv[1]))).strftime('%Y-%m-%dT%H:%M:%SZ'))" "$LIMIT")
+  change autoscaling put-scheduled-update-group-action --auto-scaling-group-name "$ASG" --scheduled-action-name qap-limit \
+    --start-time "$T" --min-size 0 --max-size 0 --desired-capacity 0 > /dev/null
+  echo -e "$(date -u +%FT%TZ)\tworkers\t$WTYPES\t$WMARKET\t-\t$ASG\t$(echo $SUBNETS | wc -w | tr -d ' ') zones\t$COMMIT\tgroup of $WORKERS${WSLOTS:+, $WSLOTS slots each}" >> "$L/launches.tsv"
+  say "worker group $ASG: up to $WORKERS x ($WTYPES), $WMARKET, $(echo $SUBNETS | wc -w | tr -d ' ') zones; the coordinator starts them"
+  say "once the run exists, and they stop at $T at the latest. A reclaimed Spot worker is replaced"
+fi

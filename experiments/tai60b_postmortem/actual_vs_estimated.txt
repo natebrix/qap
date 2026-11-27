@@ -1,0 +1,85 @@
+tai60b: actual vs. estimated performance (the layout of thesis Table 4.1)
+
+Actual: the run tai60b-261117 (Nov 17-18 2026) from the incumbent 608,215,055. The tree closed at
+608,215,054, which proves that value optimal. Time: bnbdrv CPU seconds on AWS m7a cores.
+Estimated: the estimate made before the run (the bound lab's E2, Nov 16). The path to the best known
+solution was bounded node by node, the subtrees hanging off it were estimated by 267 Knuth dives from
+the path's off-path children, and the depth-1 mirror 44:58 was counted as a copy of the path's subtree.
+Time: CPU seconds on the 4-core cloud box the estimate ran on.
+
+               Actual                    Estimated
+Level      Nodes          Time         Nodes          Time
+    0          1       5344.15             1       2169.93
+    1         60      11452.92            56      14806.75
+    2        295      17146.41           460      18017.56
+    3        232      30193.16           414     102936.71
+    4        684     125349.35          3933     171486.23
+    5       2240     316909.42          4927     146436.30
+    6       4455     387456.46          5786     147117.59
+    7       4482     350423.94          1345      35354.95
+    8       5141     655509.00           221      18706.50
+    9      17368    1677381.67           890      29207.58
+   10      30345    2301727.72           707      75485.33
+   11      42700    2130919.59          5222     165974.86
+   12      24941    1019170.79          2273      17537.64
+   13      22224     744415.18           291       6602.65
+   14      18659     499253.15            96       4781.33
+   15      18676     323403.91           207       3856.82
+   16       8550     171432.17            97       2842.80
+   17       9152     161248.96           250      15859.78
+   18      10492      79405.04            77       2543.52
+   19       4074     146939.36            80       1391.26
+   20      11521     359147.29            78       4483.44
+   21      25560     599723.40            83       2221.42
+   22      37518     565794.89           115       2302.14
+   23      16340     160977.97            71        829.32
+   24       3700      36643.47            71       2026.48
+   25       1368      15172.34           181       1443.66
+   26       1365      12703.45            63       1420.34
+   27       1122      13057.21           115        816.90
+   28       1188       7982.46            58        496.56
+   29        640       3364.88            55       1908.82
+   30        434       2426.78           369        794.88
+   31        390       2639.26            59        283.78
+   32        406       3387.42            62        228.46
+   33        560       2334.22            45        178.18
+   34        486       1535.36            46        171.62
+   35        312        824.28            48        107.30
+   36        275        598.56            48        108.46
+   37        264       1723.67            24         59.28
+   38        897       1792.25            25        110.36
+   39        638        445.23            41         44.02
+   40        231        215.98            16        120.50
+   41        200        171.06           113        518.62
+   42        171        102.21           218        141.52
+   43        144         70.38            20          3.56
+   44        136         52.73             -             -
+   45        128         37.00             -             -
+   46         88         43.48             -             -
+   47         36         35.73             -             -
+   48        114         24.29             -             -
+   49         72         12.00             -             -
+   50         48          6.81             -             -
+   51         14          0.79             -             -
+   52          5          0.41             -             -
+   53          3          0.27             -             -
+   54          1          0.16             -             -
+   55          1          0.10             -             -
+   56          1          0.08             -             -
+   57          1          0.00             -             -
+Total     331149   12948130.22         29357    1003935.71
+
+- The run took 11.3 times the nodes and 12.9 times the time. The bound lab put the cloud box
+  at about 0.70 of a c7a core's CPU per node (measured on tho40, not on tai60b; m7a and c7a are the same
+  cores): in m7a seconds the estimate is about 1.43 million, and the run 9.0 times that.
+- Where the time went: levels 9-14 hold 65% of the run's time and levels 20-23 13%; the
+  estimate put 65% at levels 0-8, 30% at 9-14 and 1% at 20-23. Most of the run's time is
+  inside the subtrees hanging off its path at depths 3 and 7, which reach levels 15 and 24 (68% of the
+  CPU between them). A dive goes down until it picks a fathomed child, and most children are fathomed
+  at every level: the dives from the path's children at depths 3 and 7 stopped by levels 6 and 8, and
+  no dive went more than three levels below its start.
+- The estimate also followed another tree: its path branched on row 12 at depth 2, where the run
+  branched on row 1, and its dives ran the bound lab's build and parameters, not the run's.
+- The run's results.txt gives a total time of 12,948,960.8 s; its levels sum to the figure above.
+  The estimated levels are the dives' per-level output, composed as E2 was (dive_est.py); they sum to
+  E2's 29,357 nodes and 1,003,936 CPU-s.

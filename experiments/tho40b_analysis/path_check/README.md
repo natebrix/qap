@@ -65,3 +65,95 @@ For the next instance, run it before the launch: `QAPSOLN/` now has `sko42.sln` 
 `wil50.sln` too, and `dive.py` takes the instance, solution, recipe, symmetry file and
 grid as options (a grid of r x c locations; a symmetry axis through the root's
 location is not handled).
+
+## With the next run's settings (Nov 16): PASS, both dives
+
+`infra/phase1/recipes/tho40c.par` (tho40-b's settings with the bound lab's full block: the grid cut phase
+at zone 0.06, pools handed to children, the hand-over rule, the phase penalties, `dnn.retry = 1`), on
+cognac 52adc4d, from the same incumbent 240,518:
+
+| | cold (`cold_tho40c.tsv`) | warm, as the run (`warm_tho40c.tsv`) |
+|---|---|---|
+| nodes on the path | 38, depths 0 to 37 | 38 |
+| every node branched, path child kept | yes | yes |
+| the leaf (depth 37, enumerated) | 240,516, the solution | 240,516, the solution |
+| highest bound on the path | 240,516.0000 | 240,516.0000 |
+| CPU on this cloud box | 2,798 s | 1,742 s |
+
+**The bound along the warm path** (240,516 less the bound) against tho40-b's settings:
+
+| depth | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| tho40-b | 14,269 | 9,075 | 6,871 | 5,238 | 3,891 | 3,220 | 1,716 | 755 | 525 | 0.89 |
+| tho40-c | 7,426 | 5,644 | 4,177 | 3,374 | 2,263 | 1,380 | 1,100 | 327 | 0.00 | 0.00 |
+
+- The root and `26:2` are tho40-b's nodes: the same QPB root, the same plain DNN bound at `26:2`
+  (226,246.9108), the cut phase then 233,089.6108, and the same line (location 0). At `30:0` the warm
+  node branches on location 32 as before; the cold one on 39, and the two paths part from depth 3.
+- From depth 9 (warm) or 10 (cold) the bound is the subtree's optimum to four places, as with tho40-b's
+  settings from depth 11: the cuts close the gap two levels sooner, and never pass the optimum.
+- The path costs about three times tho40-b's CPU: every node on it runs a cut phase that cannot fathom
+  it. Off the path the phases are what fathom nodes.
+
+```
+python3 dive.py OUT --warm --params ../infra/phase1/recipes/tho40c.par --resume
+```
+
+`--resume` (Nov 16) keeps the nodes OUT already holds, so an interrupted dive goes on where it stopped;
+a depth-1 node takes about 11 minutes here with these settings.
+
+## sko42 (Nov 17): PASS
+
+For the laptop's sko42 solve (`infra/laptop/solve.sh sko42`): `experiments/estimates/sko42/sko42.par`
+(the Nov 12 setting C: the grid cut phase at zone 0.010), `qaplib/sko42t.dat` (sko42.dat with A and B
+swapped: `--transposed`), `SYM/sko42t.sym`, grid 6 x 7, from 15,814 (the best known + 2; sko42's values
+are even), warm, on cognac 2a6adef (`warm_sko42.tsv`):
+
+- 40 nodes, depths 0 to 39; every one branched and kept the path child; the leaf, enumerated, is
+  15,812, the solution. The highest bound on the path is 15,812.0000, from depth 9 on. 1,767 CPU s here.
+- **A symmetry axis through the root's facility.** The root branches on facility 36, whose location in
+  the solution is on the grid's middle column, so two images of the solution survive the root's set J1
+  and the J2/J3 sets decide below it. `dive.py` stopped there; it now follows the images whose child the
+  solver created at each node, read from the node's state file (here only one image's child existed at
+  every node). The tho40 dive with tho40-b's settings gives the Nov 15 `warm.tsv` again, node for node
+  (bounds, lines, children).
+
+```
+python3 dive.py OUT --warm --instance qaplib/sko42t.dat --sln sko42.sln --transposed \
+  --params ../experiments/estimates/sko42/sko42.par --sym SYM/sko42t.sym --grid 6x7 --plus 2
+```
+
+## wil50 with the estimate's best-guess recipe (Nov 24): PASS
+
+`infra/phase1/recipes/wil50_d2r10_g150xl2.par` (`wil50_d2r10.par` with `cut.cp_wc_gap = 150`,
+`cut.cp_extrap = 100:1:30:2` and `branch.xbar_lines = 2`; `wil50-est-261124` runs under it), warm, from
+48,818 toward `wil50.sln` (`warm_wil50_d2r10_g150xl2.tsv`): 48 nodes to depth 47, every one branched and kept
+the path child, and the leaf enumerated 48,816 (another optimal permutation). The highest bound on the path is
+48,816.0000. The lines are `wil50_d2r10`'s down to depth 4 (r21, c0, r31, c40, c49) and others from depth 5,
+where the wider shortlist first picks another (c9 for c48). 3,442 CPU s here (`wil50_d2r10`: 3,389). The
+recipe file says nothing of this check: a run's states carry the file's hash, so it is not edited while
+`wil50-est-261124`'s paused solve may be resumed or sampled.
+
+```
+python3 dive.py OUT --warm --instance qaplib/wil50t.dat --sln wil50.sln --transposed \
+  --params ../infra/phase1/recipes/wil50_d2r10_g150xl2.par --sym SYM/wil50t.sym --grid 5x10 --plus 2
+```
+
+## ste36a, ste36b and ste36c with their first recipes (Nov 26): PASS
+
+`infra/phase1/recipes/ste36{a,b,c}.par`, warm, from the best known + 2 toward each solution
+(`warm_ste36a.tsv`, `warm_ste36b.tsv`, `warm_ste36c.tsv`): 34 nodes each to depth 33, every one branched and
+kept the path child, and the leaf enumerated the solution's value (9,526; 15,852; 8,239,110). The highest bound
+on each path is the optimum itself (within 1e-4), under the cutoff (+ 2.05). The root branches on r10 (GLB's
+lookahead) into 10 children; the depth-1 node 10:4 ran its phase to 79, 98 and 47,440 short and kept 13, 12
+and 14 of its 35 children. Six, ten and six of the 33 branchings are on a column; the two dummies stay free
+until depth 20 or the leaf. 706, 1,061 and 712 CPU s here, one thread each.
+
+```
+python3 dive.py OUT --warm --instance qaplib/ste36a.dat --sln ste36a.sln \
+  --params ../infra/phase1/recipes/ste36a.par --sym SYM/ste36a.sym --grid 4x9 --plus 2
+python3 dive.py OUT --warm --instance qaplib/ste36bt.dat --sln ste36b.sln --transposed \
+  --params ../infra/phase1/recipes/ste36b.par --sym SYM/ste36bt.sym --grid 4x9 --plus 2
+```
+(ste36c as ste36b, with ste36ct.dat, ste36c.sln, ste36c.par and ste36ct.sym. `ste36a.dat` is already flows
+first and `QAPSOLN/ste36a.sln` in its order, so no `--transposed`.)

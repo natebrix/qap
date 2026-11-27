@@ -61,10 +61,16 @@ def _lines(data):
     return [ln for ln in data.decode(errors="replace").splitlines() if ln.strip()] if data else []
 
 
-def export_run(b, run_id, out_dir, log=print, threads=16):
+def export_run(b, run_id, out_dir, log=print, threads=64):
     """write nodes.txt.gz, dnn.txt.gz and manifest.json under out_dir; 0 when
     both traces are whole, 2 when some unit's trace is missing, 1 when the run
-    has no trace"""
+    has no trace.
+
+    The reads wait on the round trip, not on the bytes: tai50b-261116's export (7,151 units,
+    8,225 nodes, almost no data) took 396 s on 16 threads, 55 ms a unit. So 64 threads (16 until
+    Nov 24); the S3 client keeps as many connections (coord/backend.py). The rest is one thread's
+    work, about 28 us a node (2/3 of it gzip), 80 s for tho40-261122's 2.7 million nodes. The
+    output does not depend on the count: map returns the units in merge order."""
     run = b.get_run(run_id)
     if run is None or not run["config"].get("trace"):
         log(f"run {run_id}: not initialized with --trace, nothing to export")
