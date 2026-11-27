@@ -2,7 +2,8 @@
 
 Nov 27, 2026. Three changes from an outside review of the solver (its items 1b, 1a and 2a), on
 `claude/cool-babbage-ilnogj` only, each behind a default that changes nothing in a run that does not ask for it
-(the third changes no result at all). `make test` passes (below).
+(the third changes no result at all). `make test` passes on this container, where the coordinator's two
+AWS-mock scenarios are skipped (no boto3); `tests/sb_test.py` has cases for both keys.
 
 ## `sb.early = 1 | 2`: a candidate line is left once it cannot win
 
