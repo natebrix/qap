@@ -4,7 +4,7 @@ Every run of the last 30 days, newest first (`infra/phase1/readouts.py`); each r
 
 | run | status | verdict | warnings | created | ended |
 |---|---|---|---|---|---|
-| [wil50-261126](runs/wil50-261126/readout.md) | running | **RUNNING**: 19770 of 27121 units merged | - | 2026-11-26 15:12 | - |
+| [wil50-261126](runs/wil50-261126/readout.md) | running | **RUNNING**: 26187 of 37551 units merged | - | 2026-11-26 15:12 | - |
 | [wil50-tune-261125-neither](runs/wil50-tune-261125-neither/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of wil50-est-261124 asked (depth:count 4:150) to the end under wil50_d2r10.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-25 05:03 | 2026-11-25 08:29 |
 | [wil50-tune-261125-nogap](runs/wil50-tune-261125-nogap/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of wil50-est-261124 asked (depth:count 4:150) to the end under wil50_d2r10_xl2.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-25 05:03 | 2026-11-25 08:15 |
 | [wil50-tune-261125-noxl2](runs/wil50-tune-261125-noxl2/readout.md) | finished | **COMPLETE**: the sample solved, 150 open nodes of wil50-est-261124 asked (depth:count 4:150) to the end under wil50_d2r10_g150x.par: not a solve of the problem (coord/sample.py; experiments/estimates_nov19/paired.py compares the arms) | - | 2026-11-25 05:02 | 2026-11-25 07:58 |
