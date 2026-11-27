@@ -1,6 +1,6 @@
 # wil50-261126
 
-**RUNNING**: 6339 of 7515 units merged
+**RUNNING**: 11982 of 14100 units merged
 
 ## The run
 
@@ -17,8 +17,8 @@
 
 | | |
 |---|---|
-| wall | 7 h 24 min |
-| nodes | 86,568 (86,567 DNN, 79,855 DNN-fathomed) |
-| CPU | 1,016.7 h |
-| units | leased 263, merged 6339, queued 913 |
-| status written | 2026-11-26 22:37 UTC |
+| wall | 13 h 20 min |
+| nodes | 230,666 (230,665 DNN, 213,163 DNN-fathomed) |
+| CPU | 2,572.4 h |
+| units | leased 263, merged 11982, queued 1855 |
+| status written | 2026-11-27 04:33 UTC |
