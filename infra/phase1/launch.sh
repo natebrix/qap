@@ -376,6 +376,13 @@ PY
       --min-size 0 --max-size "$WORKERS" --desired-capacity 0 --vpc-zone-identifier "$VZI" --no-capacity-rebalance \
       --tags "Key=qap-phase1,Value=$RUN,PropagateAtLaunch=false" > /dev/null
   fi
+  # No Availability Zone rebalancing either (Nov 27, wil50-261126): with its four workers in two of the
+  # three zones the group tried every 32 minutes to launch one in the third, and a launch that succeeds
+  # is followed by terminating a worker in a fuller zone, without the 2-minute notice. The worker drains
+  # on shutdown, but a node still running then starts over: a strong-branching firing is hours of one
+  # node with no checkpoint. A reclaimed worker is still replaced (Launch and Terminate stay on).
+  change autoscaling suspend-processes --auto-scaling-group-name "$ASG" --scaling-processes AZRebalance > /dev/null \
+    || say "worker group $ASG: AZRebalance NOT suspended (the call failed); suspend it by hand: aws autoscaling suspend-processes --auto-scaling-group-name $ASG --scaling-processes AZRebalance --region $REGION"
   T=$(python3 -c "import datetime as d, sys; print((d.datetime.now(d.timezone.utc) + d.timedelta(minutes=int(sys.argv[1]))).strftime('%Y-%m-%dT%H:%M:%SZ'))" "$LIMIT")
   change autoscaling put-scheduled-update-group-action --auto-scaling-group-name "$ASG" --scheduled-action-name qap-limit \
     --start-time "$T" --min-size 0 --max-size 0 --desired-capacity 0 > /dev/null

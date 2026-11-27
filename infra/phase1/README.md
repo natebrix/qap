@@ -113,6 +113,9 @@ the file must be on `master` too.
   - The coordinator sets the group to 0 when the run ends, and a scheduled action does so at the
     time limit whatever happens.
   - No capacity rebalancing: it would terminate a worker without the notice the worker drains on.
+    No Availability Zone rebalancing either (`AZRebalance` suspended, Nov 27): it launches a worker in
+    an emptier zone, then terminates one elsewhere, also without the notice (wil50-261126 had it
+    trying every 32 minutes, its four workers in two of three zones).
 - **The root cache** (`coord/coordinator.py`, `frontier_key`): a frontier pass is stored under
   `runs/.cache/frontier/KEY/` and read back by any later init with the same solver binary, CPU,
   data, flag files, flags, incumbent, depth, traces and resolved settings (the run class aside). A
