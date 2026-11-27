@@ -116,3 +116,11 @@ does not occur on Linux (OpenBLAS), where the run completes at 3,625.8496. What 
   path the result does not carry the best certified value seen so far.
 - Reproduce: `OUT=/tmp/x docs/dnn_plus/root_bound.sh nug25` on the laptop (11 s).
 The paper's nug25 entry stays the Linux value, with its red note, until this is resolved.
+
+**Diagnosed and fixed by the solver session** (Nov 26-27, cognac 7ec2eb37, cherry-picked here): Accelerate's
+single-precision divide and conquer (sstedc) fails on this matrix when run on one thread; the solver now
+falls back to the QR algorithm, and an error exit certifies its stored multiplier. Notes:
+`experiments/mac_nug25/` on `claude/cool-babbage-ilnogj`. Checked here after the cherry-pick: nug12
+567.9895 and esc16a 62.5627, as before. To do: `make`, rerun nug25 on the laptop, replace the paper's entry.
+Also fixed in `root_bound.sh`: the plain arm's `dnn.giveup = 0` line was not reaching the par file (the
+recipe's give-up was removed all the same, and 0 is the default, so no result changes).

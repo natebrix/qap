@@ -62,12 +62,12 @@ for P in "$@"; do
     # the recipe without the keys this script sets
     grep -v -E '^(dnn\.depths|sb\.|cut\.(zone|handover|stall|cp_iters|giveup|giveup_depth|freeze|cp_wc_gap|regions|equip|pgate))' \
       "$PAR" > "$D/$ARM.par"
+    if [ "$ARM" = plain ]; then grep -v '^dnn\.giveup' "$D/$ARM.par" > "$D/$ARM.tmp"; mv "$D/$ARM.tmp" "$D/$ARM.par"; fi
     { echo "dnn.depths = 0:0"
       [ -n "$CUTS" ] && echo "cut.regions = $CUTS"
       [ -n "$GRID" ] && [ "$ARM" = plus ] && echo "$GRID" | tr '|' '\n'
       if [ "$ARM" = plain ]; then
-        echo "cut.zone = 0"; grep -v '^dnn\.giveup' "$D/$ARM.par" > "$D/$ARM.tmp"; mv "$D/$ARM.tmp" "$D/$ARM.par"
-        echo "dnn.giveup = 0"
+        echo "cut.zone = 0"; echo "dnn.giveup = 0"
       else
         echo "cut.zone = 1"; echo "cut.stall = 0"; echo "cut.freeze = 0"; echo "cut.cp_iters = $ITERS"
         echo "cut.giveup = 100000000:0"; echo "cut.giveup_depth = 0"    # never stops; makes the phase record its history
