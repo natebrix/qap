@@ -67,3 +67,22 @@ At wil50's size the dual has rank about 600 (`../wil50_feasibility/roadmap/admm/
 a dense row over 3.7 million variables (some 2 billion nonzeros against the LP's 10 to 15 million), the instance
 is dense so the paper's sparsification has nothing to drop, and the LP without any cut already takes PDLP 20 to
 31 minutes (`../branching_lab/lpbound`) against about 70 CPU s for a warm child DNN bound. Not pursued.
+
+## Cuts from points near the SDP's optimum (`nearcuts.py`, Nov 26)
+
+Jeff's refinement of the above: the dual optimum's cuts are "too parallel to the objective"; take cutting planes
+from points somewhat close to the SDP's optimal Y instead. My reading of it, not the paper's projection SDP:
+each round separates the point Y* + alpha (Y_LP - Y*), adds its most negative eigenvector cuts and solves the
+LP again; then the cuts are kept and the 12 children of row 0 bounded as before. nug12 (`out/nug12_nearcuts*.txt`):
+
+| cuts | root: share of the LP-to-DNN gap | children: mean share closed (least) |
+|---|---|---|
+| 63 from the dual optimum (above) | 100% | 59% (53%) |
+| 63 near, alpha 0.25, 7 a round | 44% | 22% (19%) |
+| 63 near, alpha 0.25, 1 a round | 52% | 23% (20%) |
+| 63 near, alpha 0.05, 7 a round | 49% | 27% (24%) |
+| 126 near, alpha 0.25, 7 a round | 56% | 28% (22%) |
+| 126 near, alpha 0.05, 7 a round | 66% | 38% (33%) |
+
+Closer points and more cuts both help, and none of these reaches the dual's 63 cuts, at the root or a level
+down. On this instance the dual's cuts are the ones that survive branching best.
