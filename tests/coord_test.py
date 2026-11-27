@@ -17,6 +17,10 @@ node, fathom, enumerate and Frank-Wolfe totals exactly.
              one replays and finishes
   drain      the worker gets SIGTERM mid-run (spot notice): running units
              return their open nodes; a new worker finishes
+  viscap     the queue refuses to keep a message hidden past 0.2 seconds from its
+             receipt (QAP_TEST_VISIBILITY_CAP, the stand-in for SQS's 12 hours),
+             with 1-second leases and 6-second units: no unit may be taken over
+             (retried 0), as wil50-261126's depth-1 firings were every 12 hours
   noub       no incumbent given: the run finds the optimum and publishes it
              (totals then depend on timing; only the objective is checked)
   aws        `normal` on the AWS backend against a local moto server
@@ -144,9 +148,9 @@ class Run:
         self.procs.append(p)
         return p
 
-    def worker(self, tag):
+    def worker(self, tag, env=None):
         return self.ctl("worker", self.run_id, *self.args, "--slots", "3", "--workdir",
-                        os.path.join(self.tmp, tag), wait=False, log=os.path.join(self.tmp, tag + ".log"))
+                        os.path.join(self.tmp, tag), wait=False, log=os.path.join(self.tmp, tag + ".log"), env=env)
 
     def coordinator(self, tag="coord", env=None):
         return self.ctl("coordinator", self.run_id, *self.args, "--poll", "0.3", wait=False,
@@ -364,11 +368,13 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         r.ctl("aws-setup", *r.args)
     else:
         extra = ["--budget", "4", "--target-unit-cpu", "4", "--steal-after", "3"] if name == "kill9ckpt" else []
+        extra += ["--budget", "6", "--target-unit-cpu", "6", "--steal-after", "3"] if name == "viscap" else []
         extra += ["--visibility", "private"] if name == "noub" else []
         # fixes: a subtree run, -F in the solver flags (the units resume state
         # files, which the solver does not take together with -F)
         extra += ["--extra", " ".join(FIXES), "--trace"] if name == "fixes" else []
-        r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra)
+        r = Run(py, f"local:{os.path.join(base, name)}", name, inst, opt if name != "noub" else None, extra,
+                lease=1 if name == "viscap" else 4)
     try:
         r.ctl(*r.init, log=os.path.join(r.tmp, "init.log"))
         crash = name.startswith("crash_")
@@ -376,7 +382,7 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
         # (its 3rd save for crash_saving: one save per cycle, after several merges)
         n_crash = 3 if name == "crash_saving" else 20
         c = r.coordinator(env={"QAP_COORD_CRASH": f"{name[6:]}:{n_crash}"} if crash else None)
-        w = r.worker("w1")
+        w = r.worker("w1", env={"QAP_TEST_VISIBILITY_CAP": "0.2"} if name == "viscap" else None)
         if name == "kill9ckpt":
             # kill once a running unit has uploaded a checkpoint
             from coord.backend import open_backend
@@ -417,6 +423,8 @@ def scenario(name, py, base, inst, opt, aws_endpoint=None):
                    "returned": sum(u.get("outcome") == "returned" for u in units),
                    "resumed": sum(bool(u.get("resumed_from_ckpt")) for u in units)}
         r.public = public_problems(r, private=name == "noub")
+        if name == "viscap" and r.stats["retried"]:
+            r.public = r.public + [f"{r.stats['retried']} unit(s) taken over by another attempt with no worker lost"]
         # a worker removes each unit attempt's directory once it is over (a
         # SIGKILLed worker cannot: kill9's and kill9ckpt's first)
         import glob
@@ -480,7 +488,7 @@ def main():
     ap.add_argument("--instance", default="nug17")
     ap.add_argument("--opt", type=float, default=1732)
     ap.add_argument("--only", default="normal,kill9,kill9ckpt,coordkill,crash_marked,crash_applied,crash_saving,"
-                                      "drain,noub,fixes,aws,tworuns,awstworuns,stopped,rootcache")
+                                      "drain,viscap,noub,fixes,aws,tworuns,awstworuns,stopped,rootcache")
     ap.add_argument("--python", default=sys.executable)
     a = ap.parse_args()
     ref = serial(a.instance, int(a.opt))

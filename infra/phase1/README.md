@@ -108,6 +108,9 @@ the file must be on `master` too.
     waits through the root.
   - A reclaimed worker drains on its 2-minute notice and the group starts another in its place;
     `collect.sh` shows the group, its last activities and the interruptions it answered.
+  - `roll_workers.sh RUN` points a running run's group at HEAD (Nov 27, for the worker's lease
+    past SQS's 12 hours): its launch template's next version builds HEAD, the workers already
+    running keep their commit, and it prints how to replace them.
   - A worker whose run is over, or whose build or gates fail, leaves the group (terminating itself
     and decrementing it), so the group does not start another.
   - The coordinator sets the group to 0 when the run ends, and a scheduled action does so at the

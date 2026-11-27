@@ -155,6 +155,45 @@ class Worker:
             return None
         return doc
 
+    def _extend_message(self, msg, slot, uid, attempt):
+        """keep the unit's message hidden for another lease; False once that is refused. The lease in the
+        ledger is renewed apart from this (Nov 27, wil50-261126): SQS keeps a received message hidden for
+        at most 12 hours from its receipt and refuses to extend it further, and while that refusal also
+        skipped the lease, the lease ran out 12 hours into an attempt and another worker took the unit over
+        from its start, so a node longer than that (a depth-1 strong-branching firing) never finished. With
+        the lease kept, the message that comes back is a duplicate to whoever receives it (_lease), who
+        deletes it; if this worker then dies, the coordinator re-sends the unit once its lease has run out
+        (Coordinator.repair)."""
+        try:
+            self.b.extend(msg, self.cfg["lease_s"])
+            return True
+        except Exception as e:
+            self.log(f"worker {self.name} slot {slot}: unit {uid} attempt {attempt}: its message is no longer "
+                     f"extended ({e!r}); the ledger's lease holds the unit")
+            return False
+
+    def _give_back(self, msg, unit, msg_live):
+        """a unit given back untouched, made visible to the other workers: its message at once or, when
+        the message was no longer extended (it may have come back and been deleted as a duplicate), a new
+        one; a second message for the unit is a duplicate to whoever receives it later (_lease)"""
+        if msg_live:
+            try:
+                self.b.release(msg)
+                return
+            except Exception as e:
+                self.log(f"worker {self.name}: unit {unit['uid']}: release failed ({e!r}); sending a new message")
+        self.b.send(self.run_id, unit["lane"], {"run": self.run_id, "uid": unit["uid"]})
+
+    def _delete_message(self, msg, msg_live):
+        """the attempt's message, deleted once the ledger has its outcome; one no longer extended may be
+        gone already (deleted as a duplicate), which is no error"""
+        try:
+            self.b.delete_message(msg)
+        except Exception as e:
+            if msg_live:
+                raise
+            self.log(f"worker {self.name}: an old message not deleted ({e!r}); a duplicate if it comes back")
+
     def _run_unit(self, slot, msg, unit):
         """run one unit attempt in a directory of its own, removed once the
         attempt is over: its state files (in.state, the solver's -k checkpoints
@@ -235,6 +274,7 @@ class Worker:
         drain_at = None
         hb = self.cfg["heartbeat_s"]
         last_hb = time.time()
+        msg_live = True   # the message still extended (_extend_message)
         last_ckpt, ckpt_mtime = time.time(), None
         while True:
             try:
@@ -255,8 +295,8 @@ class Worker:
                 continue
             last_hb = now
             # heartbeat: the message and the lease, the incumbent, the control flag
+            msg_live = msg_live and self._extend_message(msg, slot, uid, attempt)
             try:
-                self.b.extend(msg, self.cfg["lease_s"])
                 if self.b.update_unit(self.run_id, uid, {"lease_until": now + self.cfg["lease_s"]},
                                       expect={"status": "leased", "attempt": attempt}) is None:
                     proc.kill()                 # the lease is gone: someone else runs it
@@ -312,7 +352,7 @@ class Worker:
             # nothing saved: give the unit back untouched
             self.b.update_unit(self.run_id, uid, {"status": "queued", "worker": None},
                                expect={"status": "leased", "attempt": attempt})
-            self.b.release(msg)
+            self._give_back(msg, unit, msg_live)
             return "released"
         prefix = unit_key(self.run_id, uid, f"a{attempt}")
         cpu = None
@@ -343,7 +383,7 @@ class Worker:
                                     expect={"status": "leased", "attempt": attempt})
             if ok is None:
                 self.log(f"worker {self.name}: unit {uid} attempt {attempt} lost its lease; result discarded")
-        self.b.delete_message(msg)
+        self._delete_message(msg, msg_live)
         return outcome
 
     def _attempt_dives(self, slot, msg, unit, wd):
@@ -393,6 +433,7 @@ class Worker:
             proc = subprocess.Popen(cmd, cwd=os.path.join(ROOT, "latest"), stdout=lf, stderr=subprocess.STDOUT,
                                     env=env, start_new_session=True)
         killed, lost, drain_at, last_hb = False, False, None, time.time()
+        msg_live = True
         hb = self.cfg["heartbeat_s"]
         while True:
             try:
@@ -409,8 +450,8 @@ class Worker:
             if now - last_hb < hb:
                 continue
             last_hb = now
+            msg_live = msg_live and self._extend_message(msg, slot, uid, attempt)
             try:
-                self.b.extend(msg, self.cfg["lease_s"])
                 if self.b.update_unit(self.run_id, uid, {"lease_until": now + self.cfg["lease_s"]},
                                       expect={"status": "leased", "attempt": attempt}) is None:
                     proc.kill()
@@ -422,7 +463,7 @@ class Worker:
             # drained: nothing kept (a cut file would favour the cheap dives that finished)
             self.b.update_unit(self.run_id, uid, {"status": "queued", "worker": None},
                                expect={"status": "leased", "attempt": attempt})
-            self.b.release(msg)
+            self._give_back(msg, unit, msg_live)
             return "released"
         outcome = None if lost else ("done" if rc == 0 and os.path.exists(divesf) else "failed")
         cpu = 0.0
@@ -448,7 +489,7 @@ class Worker:
                                     expect={"status": "leased", "attempt": attempt})
             if ok is None:
                 self.log(f"worker {self.name}: unit {uid} attempt {attempt} lost its lease; result discarded")
-        self.b.delete_message(msg)
+        self._delete_message(msg, msg_live)
         return outcome
 
     @staticmethod

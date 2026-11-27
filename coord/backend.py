@@ -63,6 +63,7 @@ class LocalBackend:
         os.makedirs(os.path.join(self.root, "store"), exist_ok=True)
         self.db_path = os.path.join(self.root, "ledger.db")
         self._local = threading.local()
+        self._received = {}   # (message id, receive count) -> when this process received it (extend's test cap)
         with self._conn() as c:
             c.executescript("""
               CREATE TABLE IF NOT EXISTS runs (run_id TEXT PRIMARY KEY, doc TEXT, ver INTEGER);
@@ -204,6 +205,7 @@ class LocalBackend:
                     c.execute("UPDATE messages SET visible_at = ?, receive_count = receive_count + 1 WHERE id = ?",
                               (now + visibility, row[0]))
                     c.execute("COMMIT")
+                    self._received[(row[0], row[2] + 1)] = now
                     return Message(row[0], json.loads(row[1]), lane, row[2] + 1)
             c.execute("COMMIT")
         except Exception:
@@ -212,6 +214,14 @@ class LocalBackend:
         return None
 
     def extend(self, msg, visibility):
+        # QAP_TEST_VISIBILITY_CAP=S (tests/coord_test.py, viscap): refuse to keep a message hidden past S
+        # seconds from its receipt, as SQS refuses past 12 hours (its docs: "a maximum limit of 12 hours from
+        # when the message is first received"); the message then becomes visible again when its last
+        # visibility runs out
+        cap = os.environ.get("QAP_TEST_VISIBILITY_CAP")
+        t0 = self._received.get((msg.handle, msg.receive_count))
+        if cap and t0 is not None and time.time() + visibility - t0 > float(cap):
+            raise RuntimeError(f"visibility past the cap of {cap} s from the receipt (the test's stand-in for SQS's 12 h)")
         with self._tx() as c:
             c.execute("UPDATE messages SET visible_at = ? WHERE id = ?", (time.time() + visibility, msg.handle))
 
