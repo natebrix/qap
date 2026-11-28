@@ -1,7 +1,7 @@
 # Strong branching: leaving losing lines early, and using the chosen line's solves; the cut projector's stores
 
 Nov 27, 2026. Three changes from an outside review of the solver (its items 1b, 1a and 2a), on
-`claude/cool-babbage-ilnogj` only, each behind a default that changes nothing in a run that does not ask for it
+`claude/cool-babbage-ilnogj` and on cognac, each behind a default that changes nothing in a run that does not ask for it
 (the third changes no result at all). `make test` passes on this container, where the coordinator's two
 AWS-mock scenarios are skipped (no boto3); `tests/sb_test.py` has cases for both keys.
 
@@ -61,4 +61,11 @@ c7a with 64 processes, where memory bandwidth is scarcer.
   through `WarmStart`. To measure: paired subtrees with and without, as the tuning rounds do.
 - `sb.early` makes strong branching at depth 2 (`sb.gap`) and at the root cheaper than when they were left
   off for their cost; neither is re-examined here.
-- Not on cognac. The recipes do not set either key.
+- **On cognac since Nov 27 (065a382e)**, with one change from the first version here: `sb.early` and `sb.reuse`
+  are in the settings hash only when set. As first written they changed the hash of every run with `sb.depths`,
+  and a rebuilt worker could not have resumed wil50-261126's state files; the hash is now the previous
+  binary's on the wil50, sko42 and sko49 recipes.
+- **Recipes.** `sko49_d2r10_sb.par` has `sb.early = 2` (ordering 2 needed 407 child solves over the two wil50
+  replays, ordering 1 418). wil50's recipe is not edited while wil50-261126 runs (a state carries the file's
+  hash): a new file when it ends. `sko42_d2r10_sb.par` is the file sko42-261124, the run of record, ran under,
+  and is left as it was. `sb.reuse` is set nowhere.
