@@ -1,0 +1,187 @@
+[Jan 1, 2023]
+vm
+parameters file: /home/user/qap/experiments/sb_early/states/par/r0.par
+incumbent: 6124
+state file: /home/user/qap/experiments/sb_early/states/runs/nug30.r0.state
+input file: ../qaplib/nug30.dat
+objective values are even integers: fathoming tolerance 1.95
+
+gap	depth	rule 	    FW   	best	update
+0.2	2	9	150/100/25	30	30	
+0.12	4	9	150/100/12	3	30	
+0	6	9	100/ 50/25	5	30	
+-1	1000	9	100/ 50/25	5	30	
+
+DNN bound at depths 1-28, relative gap <= 1, give up after 200 iterations (0 = never), warm-started from the parent, extended 20 levels below a last-level miss, give-ups within 0.003 of the cutoff confirmed, OpenBLAS (prefix 'scipy_')
+DNN strong branching at depths 1-1: 4 rows and columns by marginal score, 150 iterations a child, score sum of shortfall^P with P 0:8,1:1 (from depth D: P)
+settings 105 hash 09e5f0d8fef5bc38
+setting dnn.depths 1:28 par policy
+setting dnn.maxgap 1 par policy
+setting dnn.giveup 200 par policy
+setting dnn.warm 1 par policy
+setting dnn.giveup_warm 0 default policy
+setting dnn.ext 20 par policy
+setting dnn.gamma1 1.0 par policy
+setting dnn.gamma 1.0 par policy
+setting dnn.cheb 3 par policy
+setting dnn.tight_lam 2 par policy
+setting dnn.gap_ratio 0 default policy
+setting dnn.gu_zone 0.003 par policy
+setting dnn.momentum 0 default policy
+setting dnn.beta 0.21 par policy
+setting dnn.refresh 120 par policy
+setting dnn.warm_y 2 par policy
+setting dnn.beta_sched w=0.36 par policy
+setting dnn.dscale 0 default policy
+setting dnn.dscale0 1 default policy
+setting dnn.dscale_until 0 default policy
+setting dnn.cross 2 par policy
+setting dnn.cross_first 0 default policy
+setting dnn.lazycert 1 par policy
+setting dnn.amx 0 default policy
+setting ship.bits 64 par policy
+setting cut.zone 0 default policy
+setting cut.maxdepth 1073741824 default policy
+setting cut.side 0 default policy
+setting cut.grid "" default policy
+setting cut.regions "" default policy
+setting cut.regions.hash "" default policy
+setting cut.rounds 12 default policy
+setting cut.iters 300 default policy
+setting cut.k 1000 default policy
+setting cut.k5 0 default policy
+setting cut.k7 0 default policy
+setting cut.sub7 1000 default policy
+setting cut.kbox "" default policy
+setting cut.delta 50 default policy
+setting cut.stall 3 default policy
+setting cut.pgate "" default policy
+setting cut.nocap 1 default policy
+setting cut.freeze 600 default policy
+setting cut.warmy 0 default policy
+setting cut.damp1 "" default policy
+setting cut.equip "" default policy
+setting cut.cp "" default policy
+setting cut.giveup "" default policy
+setting cut.giveup_depth 0 default policy
+setting cut.cp_iters 0 default policy
+setting cut.handover "" default policy
+setting cut.cp_sweeps 1:1 default policy
+setting cut.cp_extrap "" default policy
+setting cut.cp_wc_gap 0 default policy
+setting cut.cp_wc_deficit 0 default policy
+setting cut.cp_lazycert 0 default policy
+setting cut.xbar 0 default policy
+setting pool.on 0 default policy
+setting dnn.retry 0 default policy
+setting pool.cp 0 default policy
+setting branch.weighted 1 default policy
+setting branch.weight 0.5 default policy
+setting branch.xbar_lines 1 default policy
+setting branch.la_exp 0 default policy
+setting sb.depths 1:1 par policy
+setting sb.k 4 default policy
+setting sb.all -1 default policy
+setting sb.iters 150 default policy
+setting sb.power 0:8,1:1 default policy
+setting sb.early 2 par policy
+setting sb.reuse 0 par policy
+setting sb.gap "" default policy
+setting fw.patience 0 default policy
+setting est.xbar 0 default policy
+setting est.xbar_mix 0.1 default policy
+setting par.hash 0a9eadaa3060fdbd par policy
+setting DNN_R32 0 default experiment
+setting DNN_FUSE 0 default experiment
+setting DNN_ADMM_WARM_BETA "" default experiment
+setting DNN_ADMM_WARM_DAMP "" default experiment
+setting QAP_EST_SEED "" default run
+setting QAP_EST_SURV "" default run
+setting QAP_EST_SAMPLE 1 default run
+setting QAP_EST_ALLOC auto default run
+setting QAP_EST_SAMPLE_W unif default run
+setting QAP_EST_BUDGET 0 default run
+setting QAP_EST_MIN_DIVES 1 default run
+setting QAP_EST_SAMPLE_DEPTHS "" default run
+setting QAP_EST_WARM_KEEP 8 default run
+setting QAP_EST_SPILL_MB 1000 default run
+setting QAP_EST_DIVES "" default run
+setting QAP_EST_DNN_TRACE 0 default run
+setting QAP_SB_PROGRESS "" default run
+setting QAP_DNN_WARM_DIR "" default run
+setting QAP_ALLOW_UNKNOWN 0 default run
+setting par.file /home/user/qap/experiments/sb_early/states/par/r0.par flag run
+setting QAP_DNN_TRACE /home/user/qap/experiments/sb_early/states/runs/nug30.r0.dnn.txt env diagnostic
+setting QAP_DNN_TRACE_HIST 0 default diagnostic
+setting QAP_NODE_TRACE "" default diagnostic
+setting QAP_SB_TRACE /home/user/qap/experiments/sb_early/states/runs/nug30.r0.sb.txt env diagnostic
+setting QAP_DNN_POOL_CHECK 0 default diagnostic
+setting QAP_EST_HIST dive_history_nug25_2.txt default diagnostic
+setting QAP_EST_CHILD_DNN 0 default run
+setting QAP_EST_CHILD_QPB 0 default diagnostic
+setting QAP_XBAR_DEBUG 0 default diagnostic
+branching_weight() = 0.5
+read symmetry info from ./SYM/nug30.sym
+  ---- RESULTS ----
+
+    Total Time: 4522.6 seconds 
+         Nodes: 3350 / 3225 / 0
+    root bound: 5342.26
+ fw iterations: 298417
+     DNN bound: 3349 nodes, 3225 fathomed, 2651.26 s
+ strong branch: 9 nodes, 625 child solves, 58665 iterations, 1850.94 s
+
+level    nodes	%fathom	%c.elim	    time
+ 0           1	0.0000	0.0000	    0.25
+ 1           9	0.0000	0.0000	 1912.87
+ 2         225	0.7511	0.0000	  800.41
+ 3        1544	0.9734	0.0000	 1100.19
+ 4        1107	0.9874	0.0000	  524.29
+ 5         364	0.9890	0.0000	  154.49
+ 6         100	1.0000	N/A	   30.10
+
+Strategy breakdown:
+ 0 |   1.0000   0.0000   0.0000   0.0000  | 1 
+ 1 |   1.0000   0.0000   0.0000   0.0000  | 9 
+ 2 |   0.0000   0.8711   0.1289   0.0000  | 225 
+ 3 |   0.0000   0.0000   1.0000   0.0000  | 1544 
+ 4 |   0.0000   0.0000   1.0000   0.0000  | 1107 
+ 5 |   0.0000   0.0000   1.0000   0.0000  | 364 
+ 6 |   0.0000   0.0000   1.0000   0.0000  | 100 
+nodes      10      196     3144        0 
+time  1913.11   770.93  1838.55     0.00 
+
+Relative gap information:
+      mean  	std. dev
+ 0| 1.000000	0.000000
+ 1| 0.865794	0.019082
+ 2| 0.137071	0.023564
+ 3| 0.034376	0.021883
+ 4| 0.017921	0.012779
+ 5| 0.012060	0.008093
+ 6| 0.006017	0.001743
+
+DNN bound by level:
+level    nodes	%fathom	%gaveup	      iters	 it/node	    time
+ 1           9	0.0000	1.0000	       1800	   200.0	   61.90
+ 2         225	0.7511	0.2489	      25850	   114.9	  797.54
+ 3        1544	0.9734	0.0266	      39683	    25.7	 1090.50
+ 4        1107	0.9874	0.0126	      22776	    20.6	  518.66
+ 5         364	0.9890	0.0110	       8723	    24.0	  152.91
+ 6         100	1.0000	0.0000	       2151	    21.5	   29.75
+
+Fathoms by cause:
+level  fathoms	     qpb	     dnn	    cuts	  popped
+ 0           0	       0	       0	       0	       0
+ 1           0	       0	       0	       0	       0
+ 2         169	       0	     169	       0	       0
+ 3        1503	       0	    1503	       0	       0
+ 4        1093	       0	    1093	       0	       0
+ 5         360	       0	     360	       0	       0
+ 6         100	       0	     100	       0	       0
+
+Strong branching by level:
+level    nodes	  solves	      iters	    time
+ 1           9	     625	      58665	 1850.94
+
+eigendecompositions for W and U: 3449 computed, 3251 reused from the per-size cache

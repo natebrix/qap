@@ -54,11 +54,27 @@ c7a with 64 processes, where memory bandwidth is scarcer.
 
 ## Follow-ups
 
-- **The children's states (the rest of the review's 1a), to measure separately.** A surviving child of the
-  chosen line could start from its state after the firing's `sb.iters` iterations instead of the node's. Not
-  low risk: it changes every such child's solve (its give-up test, its pool, its cut phase) and so the tree,
-  and it needs the states of a line kept until the winner is known (about 72 MB a child at m = 47) and handed
-  through `WarmStart`. To measure: paired subtrees with and without, as the tuning rounds do.
+- **The children's states (the rest of the review's 1a): measured, small, not ported.** `sb.reuse = 2` (session
+  branch only) keeps the chosen line's surviving children's states from the firing and starts each such child
+  from its own state instead of its parent's (`states/`; `states/run.sh PROBLEM UB ARM`). nug30 to the end,
+  strong branching at depth 1 with `sb.early = 2`, one process an arm, the three arms side by side on a busy
+  machine (so iterations are the measure, CPU seconds a rough one):
+
+  | `sb.reuse` | nodes bounded | node iterations | at depth 2: nodes, iterations | firing iterations | DNN + firing CPU s |
+  |---|---|---|---|---|---|
+  | 0 | 3,349 | 100,983 | 225, 25,850 | 58,665 | 2,651 + 1,851 |
+  | 1 | 3,170 | 95,014 | 73, 20,472 | 58,665 | 2,454 + 1,859 |
+  | 2 | 3,170 | 91,652 | 73, 17,757 | 58,665 | 2,330 + 1,865 |
+
+  All three prove 6124 with the same lines at the nine firings. `sb.reuse = 1` drops the 152 depth-2 children
+  the firings had already fathomed and 5.9% of the node iterations (3.7% of all iterations, firings included).
+  The states take a further 3.5% of the node iterations (2.2% of all): 70 of the 73 depth-2 nodes started from
+  their own state and ran 245 iterations each where the same nodes ran about 280 from the parent's. A state
+  that is 150 iterations ahead saves 36, because three quarters of these nodes give up at their iteration cap
+  whatever they start from; the gain is the remaining quarter and slightly better states one level down
+  (depth 3: 39,465 to 38,781 iterations). The tree is the same node for node. At wil50's size the saving is
+  the same handful of iterations on 49 children a firing against about 72 MB a kept child, with one firing a
+  depth-1 node in a tree of 10^5 CPU hours: nothing. Left on the session branch, not on cognac.
 - `sb.early` makes strong branching at depth 2 (`sb.gap`) and at the root cheaper than when they were left
   off for their cost; neither is re-examined here.
 - **On cognac since Nov 27 (065a382e)**, with one change from the first version here: `sb.early` and `sb.reuse`
