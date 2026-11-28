@@ -7,7 +7,10 @@ tho40   infra/phase1/recipes/tho40c.par
 # sko42 (Nov 23): sko42.par with DNN strong branching at the root and depth 1 and rule 10 at depth 2. The root's
 # firing is one process, about 3.5 CPU h, before the first worker has work; it chooses r22, so the tree is not
 # sko42-261120b's (the file's last comments). experiments/estimates/sko42/sko42.par is that run's file.
-sko42   infra/phase1/recipes/sko42_d2r10_sb.par
+# sko42 (Nov 27): the same with sb.early = 2 (strong branching leaves a losing line early: the same lines, fewer
+# child solves); sko42_d2r10_sb.par stays as sko42-261124 ran it. sko49's file has the key too; wil50's will
+# when wil50-261126 has ended (start.sh reads this file to grow a running group).
+sko42   infra/phase1/recipes/sko42_d2r10_sb_early.par
 # sko49, wil50 (Nov 23): sko49_d2r10_sb's changes tested by sko42's retry (sko42-261124, Nov 24: 0.61 of
 # sko42-261120b's CPU); a solver process at n = 49-50 holds about 0.85 GB at the root, so the c7a default's 2 GiB a slot
 sko49   infra/phase1/recipes/sko49_d2r10_sb.par
