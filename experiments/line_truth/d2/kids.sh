@@ -13,7 +13,7 @@ one() {
   rm -f "$D/kids/$tag.state" "$D/kids/$tag.nodes.txt"
   (cd "$D/../../../latest" && QAP_NODE_TRACE="$D/kids/$tag.nodes.txt" "${BIN:-./bnbdrv}" -p ../infra/phase1/recipes/wil50_d2r10_g150xl2_sb.par \
      -s SYM/wil50t.sym -u 48818 -F "$node" -t "$CAP" -o "$D/kids/$tag.state" ../qaplib/wil50t.dat > "$D/kids/$tag.out.txt" 2>&1
-   echo "$tag exit $? $(grep -E '^Nodes:|^Total Time' "$D/kids/$tag.out.txt" | tr -s ' ' | tr '\n' ' ')$(date -u +%FT%TZ)" >> "$D/kids/done.txt")
+   echo "$tag exit $? $(grep -E "^ *(Nodes:|Total Time)" "$D/kids/$tag.out.txt" | tr -s ' ' | tr '\n' ' ')$(date -u +%FT%TZ)" >> "$D/kids/done.txt")
 }
 export -f one; export D CAP
 awk '{print $1}' "$D/kids/list.txt" | xargs -P 4 -L 1 bash -c 'one $0'

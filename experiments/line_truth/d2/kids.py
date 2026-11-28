@@ -19,7 +19,8 @@ done = {}
 for ln in open(os.path.join(D, 'kids', 'done.txt')):
     t = ln.split()
     if t[0] == 'all': continue
-    m = re.search(r'Nodes: (\d+)', ln); tt = re.search(r'Total Time: ([\d.]+)', ln)
+    out = open(os.path.join(D, 'kids', t[0] + '.out.txt')).read()
+    m = re.search(r'^\s*Nodes: (\d+)', out, re.M); tt = re.search(r'^\s*Total Time: ([\d.]+)', out, re.M)
     done[t[0]] = (int(t[2]), int(m.group(1)) if m else None, float(tt.group(1)) / 3600 if tt else None)
 print(f"law: ln h = {A} + {K} s; the run's tree as of {meta['generatedAt']}")
 print("child              line  shortfall  law h   here h   nodes   here/law   in the run h")
