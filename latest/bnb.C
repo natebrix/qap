@@ -274,7 +274,8 @@ static void sb_progress_load(const char *file)
 // stats' sb_*_level; QAP_SB_TRACE=file gets a line per node with every candidate's score.
 static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, const MAT *U, double qpb,
 			      double inc, double node_lb, const DNNWarm &pw, const std::vector<double> &xbar,
-			      const std::string &pool_out, BranchParameters *bp, QAPStatistics *stats)
+			      const std::string &pool_out, BranchParameters *bp, QAPStatistics *stats,
+			      std::map<std::pair<int, int>, SBChild> *line_out)
 {
   if (node.depth < sb_min_depth || node.depth > sb_max_depth || pw.m != m || m < 3 || inc >= 1e99 ||
       (int)xbar.size() != m * m)
@@ -314,17 +315,17 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
       const double v = xbar[a * m + b] * xbar[a * m + b];
       rs[a] += v;  cs[b] += v;
     }
-  struct Cand { bool row; int k; double marg; double score; int open; };
+  struct Cand { bool row; int k; double marg; double score; int open; bool cut; };   // cut: left early (sb.early)
   std::vector<Cand> cand;
   const int take = node.depth <= sb_all ? m : std::min(sb_k, m);
   std::vector<int> by(m);
   for (int a = 0; a < m; a++) by[a] = a;
   std::sort(by.begin(), by.end(), [&](int a, int b) { return rs[a] != rs[b] ? rs[a] > rs[b] : a < b; });
-  for (int t = 0; t < take; t++) cand.push_back({true, by[t], rs[by[t]], 0.0, 0});
+  for (int t = 0; t < take; t++) cand.push_back({true, by[t], rs[by[t]], 0.0, 0, false});
   if (cols_ok) {
     for (int a = 0; a < m; a++) by[a] = a;
     std::sort(by.begin(), by.end(), [&](int a, int b) { return cs[a] != cs[b] ? cs[a] > cs[b] : a < b; });
-    for (int t = 0; t < take; t++) cand.push_back({false, by[t], cs[by[t]], 0.0, 0});
+    for (int t = 0; t < take; t++) cand.push_back({false, by[t], cs[by[t]], 0.0, 0, false});
   }
 
   std::string fixes;   // the node's key in the progress file and the trace: its fixes, sorted
@@ -341,16 +342,16 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
   const bool pooled = pool_on && !pool_out.empty() && dnn_pool_decode(pool_out, pool) &&
     pool.side == cut_side && !pool.cuts.empty();
   std::vector<double> memo((size_t)m * m, NAN);
+  std::vector<SBChild> cell_res((size_t)m * m, SBChild{-HUGE_VAL, false});   // a cell's DNN result, solved here or reused
+  std::vector<char> cell_have((size_t)m * m, 0);
   long solves = 0, iters = 0, reused = 0, retried = 0, failed = 0;
   static const int dnn_retry = (int)setting_i("dnn.retry");
-  for (const Cand &c : cand)
-    for (int t = 0; t < m; t++) {
-      const int a = c.row ? c.k : t, b = c.row ? t : c.k;
-      if (c.row && !col_child[fcol[b]]) continue;   // not a child of this row (symmetry)
+  // the shortfall of the child at cell (a, b), local indices, found once: QPB's drop, the cache, or its DNN solve
+  auto eval = [&](const int a, const int b) -> double {
       double &sh = memo[(size_t)a * m + b];
-      if (!std::isnan(sh)) continue;
+      if (!std::isnan(sh)) return sh;
       const double qpb_child = U->me[a][b] + qpb;   // QPB's bound for the child
-      if (qpb_child >= inc - DELTA_BRANCH) { sh = 0.0;  continue; }   // QPB drops this child
+      if (qpb_child >= inc - DELTA_BRANCH) { sh = 0.0;  return sh; }   // QPB drops this child
       // the child's bound before its solve: QPB's for it, or the node's (node.bound, what branch() hands a
       // child, and the node's last DNN bound), which holds for every child
       const double inherited = std::max(qpb_child, std::max(node_lb, (double)node.bound));
@@ -372,8 +373,9 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
 	auto it = sb_done.find(key);
 	if (it != sb_done.end()) {
 	  sh = shortfall(it->second.lb, it->second.fathomed);
+	  cell_res[(size_t)a * m + b] = it->second;  cell_have[(size_t)a * m + b] = 1;
 	  reused++;
-	  continue;
+	  return sh;
 	}
       }
       const clock_t tc = clock();
@@ -424,6 +426,7 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
       sh = shortfall(rr.lb, fath);
       solves++;  iters += rr.iterations;
       sb_done[key] = {rr.lb, fath};
+      cell_res[(size_t)a * m + b] = {rr.lb, fath};  cell_have[(size_t)a * m + b] = 1;
       if (progress_file)
 	if (FILE *f = fopen(progress_file, "a")) {   // one fprintf per line: processes share the file
 	  fprintf(f, "sb-child %s %s %d:%d iters %d cutoff %.4f lb %.4f fathomed %d it %d cpu %.2f retry %d\n", run_key.c_str(),
@@ -431,10 +434,27 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
 		  (double)(clock() - tc) / CLOCKS_PER_SEC, retry);
 	  fclose(f);
 	}
+      return sh;
+  };
+  // a candidate line's cells: for a row, the columns select() would make children (symmetry)
+  std::vector<std::pair<int, int> > cl;
+  auto cells = [&](const Cand &c) {
+    cl.clear();
+    for (int t = 0; t < m; t++) {
+      const int a = c.row ? c.k : t, b = c.row ? t : c.k;
+      if (c.row && !col_child[fcol[b]]) continue;
+      cl.push_back(std::make_pair(a, b));
     }
+  };
+  static const int sb_early = (int)setting_i("sb.early"), sb_reuse = (int)setting_i("sb.reuse");
+  double smax = 0.0;
+  if (sb_early <= 0) {
+  for (const Cand &c : cand) {
+    cells(c);
+    for (size_t t = 0; t < cl.size(); t++) eval(cl[t].first, cl[t].second);
+  }
 
   // the scores: shortfalls over the largest at the node, so that the power stays in range
-  double smax = 0.0;
   for (double v : memo) if (!std::isnan(v)) smax = std::max(smax, v);
   for (Cand &c : cand)
     for (int t = 0; t < m; t++) {
@@ -443,9 +463,54 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
       c.score += pow(sh / smax, power);
       c.open++;
     }
-  const Cand *best = &cand[0];
+  } else {
+    // sb.early: a line's score is a sum of nonnegative terms, so a line is out as soon as its partial sum
+    // passes the best complete line's, and its other children are not solved. The line chosen is the one
+    // every child's solve would choose (to the rounding of the sums). Scores are over smax's bound, the
+    // largest shortfall a child of this node can have (the cutoff less the node's bound), known before
+    // any solve. Lines in decreasing marginal score, the likeliest winner first; a line's cells: those
+    // already known (they cost nothing), then by decreasing x_ij of the node's marginals (sb.early = 1:
+    // the children nearest the node's bound, the largest shortfalls) or by increasing QPB bound (2).
+    const double dmax = std::max(cutoff - std::max(node_lb, (double)node.bound), 1e-9);
+    std::vector<int> order(cand.size());
+    for (size_t t = 0; t < order.size(); t++) order[t] = (int)t;
+    std::stable_sort(order.begin(), order.end(), [&](int x, int y) { return cand[x].marg > cand[y].marg; });
+    double best_score = HUGE_VAL;
+    for (size_t o = 0; o < order.size(); o++) {
+      Cand &c = cand[order[o]];
+      cells(c);
+      auto known = [&](const std::pair<int, int> &ab) { return !std::isnan(memo[(size_t)ab.first * m + ab.second]); };
+      auto key = [&](const std::pair<int, int> &ab) {
+	return sb_early == 2 ? -(double)U->me[ab.first][ab.second] : xbar[(size_t)ab.first * m + ab.second];
+      };
+      std::stable_sort(cl.begin(), cl.end(), [&](const std::pair<int, int> &x, const std::pair<int, int> &y) {
+	const bool kx = known(x), ky = known(y);
+	return kx != ky ? kx : key(x) > key(y);
+      });
+      for (size_t t = 0; t < cl.size(); t++) {
+	const double sh = eval(cl[t].first, cl[t].second);
+	if (sh > 0.0) { c.score += pow(sh / dmax, power);  c.open++; }
+	if (c.score > best_score) { c.cut = true;  break; }
+      }
+      if (!c.cut && c.score < best_score) best_score = c.score;
+    }
+    for (double v : memo) if (!std::isnan(v)) smax = std::max(smax, v);
+  }
+  const Cand *best = NULL;
   for (const Cand &c : cand)
-    if (c.score < best->score || (c.score == best->score && c.marg > best->marg)) best = &c;
+    if (!c.cut && (!best || c.score < best->score || (c.score == best->score && c.marg > best->marg))) best = &c;
+  // sb.reuse: the chosen line's children as bounded here, for the caller (a child fathomed here is not
+  // created; the others start from their bound here)
+  long line_fath = 0, line_have = 0;
+  if (line_out && sb_reuse > 0) {
+    cells(*best);
+    for (size_t t = 0; t < cl.size(); t++) {
+      const size_t at = (size_t)cl[t].first * m + cl[t].second;
+      if (!cell_have[at]) continue;
+      (*line_out)[std::make_pair(frow[cl[t].first], fcol[cl[t].second])] = cell_res[at];
+      line_have++;  line_fath += cell_res[at].fathomed ? 1 : 0;
+    }
+  }
   bp->how = BRANCH_FIXED;
   bp->choose_row = best->row;
   bp->fixed_index_in_U = best->k;
@@ -462,7 +527,12 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
 	     best->open, solves, pooled ? " (pooled)" : "", reused, retried, failed, iters, cpu, smax);
     msg += buf;
     for (const Cand &c : cand) {   // line:marginal score:score:children still open
-      snprintf(buf, sizeof buf, " %c%d:%.4f:%.6g:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg, c.score, c.open);
+      snprintf(buf, sizeof buf, " %c%d:%.4f:%s%.6g:%d", c.row ? 'r' : 'c', c.row ? frow[c.k] : fcol[c.k], c.marg,
+	       c.cut ? ">" : "", c.score, c.open);
+      msg += buf;
+    }
+    if (line_out && sb_reuse > 0) {
+      snprintf(buf, sizeof buf, " | reuse %ld children, %ld fathomed", line_have, line_fath);
       msg += buf;
     }
     if (FILE *f = fopen(trace_file, "a")) { fprintf(f, "%s\n", msg.c_str());  fclose(f); }
@@ -1480,9 +1550,14 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	set_branch_parameters(bp, param, use_J, reorder);
 #ifdef HAVE_DNN
 	// DNN strong branching (sb.*) chooses the line in place of the level's rule where it applies
+	std::map<std::pair<int, int>, SBChild> sb_line;   // sb.reuse: the chosen line's children as bounded there
+	bool sb_chose = false;
 	if (sb_max_depth >= 0 && dnn_keep)
-	  dnn_strong_branch(q, node, n, m, U, bound + qpbp->lapU, s->getObjective(),
-			    std::isnan(cut_lb) ? dnn_lb : cut_lb, *(DNNWarm *)dnn_keep, sb_xbar, dnn_pool_out, bp, stats);
+	  sb_chose = dnn_strong_branch(q, node, n, m, U, bound + qpbp->lapU, s->getObjective(),
+				       std::isnan(cut_lb) ? dnn_lb : cut_lb, *(DNNWarm *)dnn_keep, sb_xbar, dnn_pool_out, bp, stats,
+				       &sb_line);
+	const bool sb_row = bp->choose_row;
+	const int sb_index = bp->fixed_index_in_assign;
 #endif
 	// every bound but GLB leaves its Frank-Wolfe point in X; the
 	// children start from it (copied first: branch() may use X)
@@ -1509,6 +1584,28 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	fate = 'B';
 #ifdef HAVE_DNN
 	branch_set_dnn_marginals(NULL, 0);
+	if (sb_chose && !sb_line.empty()) {
+	  // sb.reuse: strong branching bounded these children already. One it fathomed (a certified bound
+	  // at the cutoff, which the incumbent can only lower) is not created, and counts with the children
+	  // eliminated at branching; the others start from the bound they reached there, a certified lower
+	  // bound like the one they inherit. Only on the line strong branching chose, as branch() took it.
+	  bool row;
+	  int line;
+	  branch_last_line(row, line);
+	  if (row == sb_row && line == sb_index) {
+	    int w = 0;
+	    for (i = 0; i < kids; i++) {
+	      const int r = row ? line : (int)kid[i].pinv[line], c = row ? (int)kid[i].p[line] : line;
+	      std::map<std::pair<int, int>, SBChild>::const_iterator it = sb_line.find(std::make_pair(r, c));
+	      if (it != sb_line.end() && it->second.fathomed) continue;
+	      if (it != sb_line.end() && it->second.lb > kid[i].bound) kid[i].bound = it->second.lb;
+	      if (w != i) kid[w] = kid[i];
+	      w++;
+	    }
+	    loc_kept -= kids - w;
+	    kids = w;
+	  }
+	}
 #endif
 	for (i = 0; i < kids; i++)
 	  kid[i].set_warm(warm);

@@ -111,6 +111,12 @@ branch.la_exp = 32
 #    both are small; the root's is wall time.
 sb.depths = 0:1
 sb.all = 0
+# sb.early = 2 (Nov 27): a candidate line is left once its partial score passes the best complete line's, and
+# its other children are not solved; the line chosen is the same. wil50's firings replayed from their saved
+# child solves (experiments/sb_early on claude/cool-babbage-ilnogj): the root 194 child solves of 750, a
+# depth-1 node 213 of 376 (226 with sb.early = 1), so the root's firing here should be nearer 2 h than the 8-9
+# estimated above [e]. The trace then shows a partial score, marked >, for a line left early.
+sb.early = 2
 #
 # 3. cut.zone = 0.028 (655 short), from 0.018 (421): every depth-1 node runs a phase and hands its pool to its
 #    children, as every one of sko42's did at 0.025 (sb_depth1: each depth-1 node's phase handed one on). sko49's 10

@@ -888,6 +888,12 @@ public:
   // prefetched meanwhile: 10.3 ms per P-step against 16 ms in place and side 0's
   // 8.8 ms, m = 47, caches flushed (README.md, "Side 1")
   std::vector<double> rowx, rowy;
+  // write_y = false (run(), every pstep but an iteration's last): the row is not stored in Y. Between two
+  // psteps only Pag and Wag are read (hpass, value, residuals), and they come from the group sums below, which
+  // are taken from rowy; Y is read after the last pstep only. With cut.cp_sweeps = 3:1 that is three of four
+  // stores of the n1 x n1 matrix (36 MB at m = 47) not made, for the same iterates bit for bit. Side 0's pstep
+  // reads its sums back from Y and always writes.
+  bool write_y = true;
   void pstep_rows1(const double *X, double *Y, const unsigned char *elim)
   {
     const size_t mm = (size_t)m * m, sm = (size_t)m;
@@ -908,7 +914,7 @@ public:
         for (int b = 0; b < m; b++) {
           for (int k = 0; k < per; k++) {
             const size_t o = ((size_t)b * per + k) * 8;
-            if (o < (size_t)n1) { __builtin_prefetch(xn + o, 0, 3); __builtin_prefetch(yn + o, 1, 3); }
+            if (o < (size_t)n1) { __builtin_prefetch(xn + o, 0, 3); if (write_y) __builtin_prefetch(yn + o, 1, 3); }
           }
           const int g = sig2[(size_t)a * m + b];
           const double *xc = xx + b;   // column (j, b) at xc[j m]
@@ -932,7 +938,7 @@ public:
           if (b == a) Gdsig[(size_t)g * m + i] += yc[i * sm];
           else { double *gs = &Gsig[g * mm + (size_t)i * m]; for (int j = 0; j < m; j++) gs[j] += yc[j * sm]; }
         }
-        std::copy(rowy.begin(), rowy.end(), yr);
+        if (write_y) std::copy(rowy.begin(), rowy.end(), yr);
       }
   }
 
@@ -1011,6 +1017,7 @@ public:
   {
     double t0 = tcpu(), t1;
     rebuild_sums();
+    write_y = nsweeps <= 0;   // only the iteration's last pstep stores Y (pstep_rows1)
     pstep(X, Y, elim);
     t1 = tcpu(); t_p += t1 - t0; t0 = t1; n_p++;
     for (int k = 0; k < nsweeps; k++) {
@@ -1018,9 +1025,11 @@ public:
       for (int p = 0; p < passes; p++) d = hpass();
       t1 = tcpu(); t_h += t1 - t0; t0 = t1; n_h += passes;
       last_dstep = d;
+      write_y = k == nsweeps - 1;
       pstep(X, Y, elim);
       t1 = tcpu(); t_p += t1 - t0; t0 = t1; n_p++;
     }
+    write_y = true;
   }
 
   void project(const double *X, double *Y, double beta, const unsigned char *elim, int it) override

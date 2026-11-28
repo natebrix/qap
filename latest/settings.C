@@ -101,6 +101,8 @@ static Setting TABLE[] = {
   POLICY("sb.all", NULL, 'i', "-1", -1, 1073741824, "sb: through this depth every free line is a candidate (-1: none)"),
   POLICY("sb.iters", NULL, 'i', "150", 1, 1000000, "sb: warm ADMM iterations per child"),
   POLICY("sb.power", NULL, 's', "0:8,1:1", 0, 0, "sb: P, or D:P[,D:P...]: from depth D on a line's score is the sum over its children of shortfall^P (1: the sum of shortfalls; the default: the 8th power at the root, the sum below)"),
+  POLICY("sb.early", NULL, 'i', "0", 0, 2, "sb: 1 or 2: a candidate line is left as soon as its partial score passes the best complete line's, and its other children are not solved; the line chosen is the same. A line's children by decreasing marginal x_ij (1) or by increasing QPB bound (2). 0: every child of every candidate is solved"),
+  POLICY("sb.reuse", NULL, 'i', "0", 0, 1, "sb: 1: a child of the chosen line that strong branching fathomed is not created, and the others start from the bound they reached there"),
   POLICY("sb.gap", NULL, 's', "", 0, 0, "sb: D:G[,D:G...]: from depth D on only at nodes whose relative gap (inc - the node's DNN bound)/(inc - root QPB) is at least G (unset: every node in sb.depths)"),
   POLICY("fw.patience", NULL, 'i', "0", 0, 100000000, "-w: Frank-Wolfe patience at lookahead/strong levels (0: off)"),
   POLICY("est.xbar", "QAP_EST_XBAR", 'd', "0", 0, INF, "estimator: child weights x_ij^a from the DNN marginals (0: QPB scores)"),
@@ -373,6 +375,10 @@ static bool recorded(const Setting &s) { return s.cls == SET_POLICY || s.cls == 
 static bool hashed(const Setting &s)
 {
   if (!recorded(s)) return false;
+  // sb.early and sb.reuse (Nov 27) are in the hash only when set: a run with sb.depths and neither key has the
+  // hash it had before they existed, so the state files of a run under way (wil50-261126) still resume
+  if (s.key && (strcmp(s.key, "sb.early") == 0 || strcmp(s.key, "sb.reuse") == 0))
+    return !find("sb.depths")->text.empty() && s.text != s.def;
   if (s.key && strncmp(s.key, "sb.", 3) == 0) return !find("sb.depths")->text.empty();
   // the exponent of rules 10 and 11 has no default to drift: it is in the hash only when set, and they need it set
   if (s.key && strcmp(s.key, "branch.la_exp") == 0) return s.text != s.def;

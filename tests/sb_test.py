@@ -145,6 +145,30 @@ def main():
               and all(" 0 retried," in l for l in tl),
               f"{name} with dnn.retry = 1: nodes {nodes(o3)}, strong branching {s3}, {failed1} children failed without it, {retried} retried with it")
 
+        # sb.early: a losing line is left early; the same lines, the same tree, no more child solves
+        for mode in (1, 2):
+            tre = os.path.join(tmp, f"{name}.early{mode}.txt")
+            rce, oe = solve(solver, variant(par, tmp, f"{name}.early{mode}.par", add=(f"sb.early = {mode}",)), opt, name,
+                            {"QAP_SB_TRACE": tre})
+            se = sb_line(oe)
+            cut = sum(l.count(":>") for l in open(tre)) if os.path.exists(tre) else -1
+            check(rce == 0 and nodes(oe) == n1 and se is not None and se[0] == s1[0] and se[1] <= s1[1]
+                  and (cut == 0) == (se[1] == s1[1]) and lines(tre) == lines(trace),
+                  f"{name} with sb.early = {mode}: nodes {nodes(oe)}, strong branching {se} ({s1[1]} child solves without it), "
+                  f"{cut} lines left early, the same lines")
+
+        # sb.reuse: a child strong branching fathomed is not created; the optimum is proven on no more nodes
+        trr = os.path.join(tmp, name + ".reuse.txt")
+        rcr, orr = solve(solver, variant(par, tmp, name + ".reuse.par", add=("sb.reuse = 1", "sb.early = 1")), opt, name,
+                         {"QAP_SB_TRACE": trr})
+        nr = nodes(orr)
+        handed = [re.search(r"reuse (\d+) children, (\d+) fathomed", l) for l in open(trr)] if os.path.exists(trr) else [None]
+        bestr = re.findall(r"New objective value:\s*(\S+)", orr)
+        check(rcr == 0 and nr is not None and all(handed) and nr[0] <= n1[0] and (not bestr or float(bestr[-1]) == opt)
+              and (sum(int(h.group(2)) for h in handed) == 0 or nr[0] < n1[0]),
+              f"{name} with sb.reuse = 1 and sb.early = 1: nodes {nr} ({n1} without), "
+              f"{sum(int(h.group(1)) for h in handed if h)} children handed on, {sum(int(h.group(2)) for h in handed if h)} of them fathomed")
+
     # values the solver refuses
     par = os.path.join(ROOT, "tests", "par", "sb.par")
     for what, kw in (("sb.depths above dnn.depths", dict(drop=("sb.depths",), add=("sb.depths = 0:2",))),
