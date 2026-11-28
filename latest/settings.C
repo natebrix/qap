@@ -102,7 +102,7 @@ static Setting TABLE[] = {
   POLICY("sb.iters", NULL, 'i', "150", 1, 1000000, "sb: warm ADMM iterations per child"),
   POLICY("sb.power", NULL, 's', "0:8,1:1", 0, 0, "sb: P, or D:P[,D:P...]: from depth D on a line's score is the sum over its children of shortfall^P (1: the sum of shortfalls; the default: the 8th power at the root, the sum below)"),
   POLICY("sb.early", NULL, 'i', "0", 0, 2, "sb: 1 or 2: a candidate line is left as soon as its partial score passes the best complete line's, and its other children are not solved; the line chosen is the same. A line's children by decreasing marginal x_ij (1) or by increasing QPB bound (2). 0: every child of every candidate is solved"),
-  POLICY("sb.reuse", NULL, 'i', "0", 0, 1, "sb: 1: a child of the chosen line that strong branching fathomed is not created, and the others start from the bound they reached there"),
+  POLICY("sb.reuse", NULL, 'i', "0", 0, 2, "sb: 1: a child of the chosen line that strong branching fathomed is not created, and the others start from the bound they reached there. 2 (with sb.early; in one process): they also start their first solve from their state there, not the node's"),
   POLICY("sb.gap", NULL, 's', "", 0, 0, "sb: D:G[,D:G...]: from depth D on only at nodes whose relative gap (inc - the node's DNN bound)/(inc - root QPB) is at least G (unset: every node in sb.depths)"),
   POLICY("fw.patience", NULL, 'i', "0", 0, 100000000, "-w: Frank-Wolfe patience at lookahead/strong levels (0: off)"),
   POLICY("est.xbar", "QAP_EST_XBAR", 'd', "0", 0, INF, "estimator: child weights x_ij^a from the DNN marginals (0: QPB scores)"),

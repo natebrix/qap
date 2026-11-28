@@ -230,6 +230,9 @@ void sb_apply_settings()
 // A child is reused only under the same settings (the hash covers the params file), root bound (the
 // instance), node (its fixes, sorted), cell (original indices), iteration limit and cutoff.
 struct SBChild { double lb; bool fathomed; };
+// sb.reuse = 2: a child's state after its strong-branching solve, by cell (original row, column)
+typedef std::map<std::pair<int, int>, DNNWarm> SBStates;
+static void free_sb_states(void *p) { delete (SBStates *)p; }
 static std::map<std::string, SBChild> sb_done;
 static std::string sb_child_key(const std::string &run, const std::string &fixes, int row, int col, int limit, double cutoff)
 {
@@ -275,7 +278,7 @@ static void sb_progress_load(const char *file)
 static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, const MAT *U, double qpb,
 			      double inc, double node_lb, const DNNWarm &pw, const std::vector<double> &xbar,
 			      const std::string &pool_out, BranchParameters *bp, QAPStatistics *stats,
-			      std::map<std::pair<int, int>, SBChild> *line_out)
+			      std::map<std::pair<int, int>, SBChild> *line_out, SBStates *states_out)
 {
   if (node.depth < sb_min_depth || node.depth > sb_max_depth || pw.m != m || m < 3 || inc >= 1e99 ||
       (int)xbar.size() != m * m)
@@ -346,6 +349,11 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
   std::vector<char> cell_have((size_t)m * m, 0);
   long solves = 0, iters = 0, reused = 0, retried = 0, failed = 0;
   static const int dnn_retry = (int)setting_i("dnn.retry");
+  // sb.reuse = 2 (with sb.early): the states of the best complete line's children and of the line being
+  // bounded, by local cell; the others are dropped as each line ends (two lines' worth at most)
+  static const int sb_reuse_states = (int)setting_i("sb.reuse") >= 2 && (int)setting_i("sb.early") > 0;
+  const bool keep_states = sb_reuse_states && states_out != NULL;
+  std::map<std::pair<int, int>, DNNWarm> cell_state;
   // the shortfall of the child at cell (a, b), local indices, found once: QPB's drop, the cache, or its DNN solve
   auto eval = [&](const int a, const int b) -> double {
       double &sh = memo[(size_t)a * m + b];
@@ -394,6 +402,7 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
       if (warm_y > 0 && dnn_warm_child(pw, a, b, cw, warm_y) && !cw.Y.empty()) { sp = &cw;  lp.warm_primal = 1; }
       else if (dnn_warm_child(pw, a, b, cw)) sp = &cw;
       DNNResult rr;
+      DNNWarm kept_state;   // sb.reuse = 2: the child's state at the end of this solve
       if (pooled) {
 	std::vector<int> fo, oo, fa(n, -1);
 	for (int z = 0; z < n; z++) {
@@ -405,9 +414,9 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
 	DNNCutParams pc;
 	pc.side = cut_side;  pc.pool_in = &pool;  pc.pool_out = &mid;
 	pc.other_orig = &oo;  pc.fixed_at = &fa;  pc.pool_check = 0;
-	rr = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, fo, n, pc, sp, NULL);
+	rr = dnn_pool_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, fo, n, pc, sp, keep_states ? &kept_state : NULL);
       } else
-	rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, NULL);
+	rr = dnn_bound(qc.A, qc.B, qc.C, qc.shift, cutoff, lp, sp, keep_states ? &kept_state : NULL);
       // dnn.retry = 1, the two retries of a node's own first solve: a pooled solve that failed again without the
       // pool, and a solve from the node's state that failed again cold (each with sb.iters); the best certified
       // bound counts
@@ -427,6 +436,9 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
       solves++;  iters += rr.iterations;
       sb_done[key] = {rr.lb, fath};
       cell_res[(size_t)a * m + b] = {rr.lb, fath};  cell_have[(size_t)a * m + b] = 1;
+      // the state of a solve that ran once from the node's state and neither fathomed nor failed
+      if (keep_states && !retry && !fath && !fails(rr.lb, fath) && kept_state.m == m - 1 && !kept_state.Z.empty())
+	std::swap(cell_state[std::make_pair(a, b)], kept_state);
       if (progress_file)
 	if (FILE *f = fopen(progress_file, "a")) {   // one fprintf per line: processes share the file
 	  fprintf(f, "sb-child %s %s %d:%d iters %d cutoff %.4f lb %.4f fathomed %d it %d cpu %.2f retry %d\n", run_key.c_str(),
@@ -476,6 +488,7 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
     for (size_t t = 0; t < order.size(); t++) order[t] = (int)t;
     std::stable_sort(order.begin(), order.end(), [&](int x, int y) { return cand[x].marg > cand[y].marg; });
     double best_score = HUGE_VAL;
+    int best_at = order.empty() ? 0 : order[0];   // the best complete line so far (the first one is complete)
     for (size_t o = 0; o < order.size(); o++) {
       Cand &c = cand[order[o]];
       cells(c);
@@ -492,7 +505,14 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
 	if (sh > 0.0) { c.score += pow(sh / dmax, power);  c.open++; }
 	if (c.score > best_score) { c.cut = true;  break; }
       }
-      if (!c.cut && c.score < best_score) best_score = c.score;
+      if (!c.cut && c.score < best_score) { best_score = c.score;  best_at = (int)order[o]; }
+      if (keep_states) {   // keep the states on the best complete line only
+	for (std::map<std::pair<int, int>, DNNWarm>::iterator it = cell_state.begin(); it != cell_state.end(); ) {
+	  const Cand &bc = cand[best_at];
+	  const bool on_best = bc.row ? it->first.first == bc.k : it->first.second == bc.k;
+	  if (on_best) ++it; else cell_state.erase(it++);
+	}
+      }
     }
     for (double v : memo) if (!std::isnan(v)) smax = std::max(smax, v);
   }
@@ -501,7 +521,15 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
     if (!c.cut && (!best || c.score < best->score || (c.score == best->score && c.marg > best->marg))) best = &c;
   // sb.reuse: the chosen line's children as bounded here, for the caller (a child fathomed here is not
   // created; the others start from their bound here)
-  long line_fath = 0, line_have = 0;
+  long line_fath = 0, line_have = 0, line_states = 0;
+  if (keep_states) {
+    for (std::map<std::pair<int, int>, DNNWarm>::iterator it = cell_state.begin(); it != cell_state.end(); ++it) {
+      const bool on = best->row ? it->first.first == best->k : it->first.second == best->k;
+      if (!on) continue;
+      std::swap((*states_out)[std::make_pair(frow[it->first.first], fcol[it->first.second])], it->second);
+      line_states++;
+    }
+  }
   if (line_out && sb_reuse > 0) {
     cells(*best);
     for (size_t t = 0; t < cl.size(); t++) {
@@ -532,7 +560,7 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
       msg += buf;
     }
     if (line_out && sb_reuse > 0) {
-      snprintf(buf, sizeof buf, " | reuse %ld children, %ld fathomed", line_have, line_fath);
+      snprintf(buf, sizeof buf, " | reuse %ld children, %ld fathomed, %ld states", line_have, line_fath, line_states);
       msg += buf;
     }
     if (FILE *f = fopen(trace_file, "a")) { fprintf(f, "%s\n", msg.c_str());  fclose(f); }
@@ -1210,7 +1238,25 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  // assignment (1: restricted); 0 the parent's Z only. Falls back to Z
 	  // only when the parent's Y is missing.
 	  static const int warm_y = (int)setting_i("dnn.warm_y");
-	  if (dnn_warm && node.warm && node.warm->dnn &&
+	  // sb.reuse = 2: the node's own state as its parent's strong branching left it (sb.iters iterations from
+	  // the parent's state, under the same pool), in place of the parent's
+	  bool own_start = false;
+	  if (dnn_warm && node.warm && node.warm->sb_own) {
+	    SBStates &own = *(SBStates *)node.warm->sb_own;
+	    int r = -1;
+	    for (int z = 0; z < n; z++) if (node.warm->p[z] <= NONE && node.p[z] > NONE) { if (r < 0) r = z; else { r = -2;  break; } }
+	    SBStates::iterator it = r >= 0 ? own.find(std::make_pair(r, (int)node.p[r])) : own.end();
+	    if (it != own.end()) {
+	      if (it->second.m == m && !it->second.Z.empty()) {
+		std::swap(start, it->second);
+		sp = &start;
+		dp.warm_primal = start.Y.empty() ? 0 : 1;
+		own_start = true;
+	      }
+	      own.erase(it);
+	    }
+	  }
+	  if (!own_start && dnn_warm && node.warm && node.warm->dnn &&
 	      ((DNNWarm *)node.warm->dnn)->m == m + 1 && warm_child_offsets(node, di, dj)) {
 	    const DNNWarm &pw = *(DNNWarm *)node.warm->dnn;
 	    if (warm_y > 0 && dnn_warm_child(pw, di, dj, start, warm_y) && !start.Y.empty()) {
@@ -1502,7 +1548,7 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	      fprintf(tf, "pid %d depth %d fixes", (int)getpid(), node.depth);
 	      for (int a = 0; a < n; a++) if (node.p[a] != NONE) fprintf(tf, " %d:%d", a, (int)node.p[a]);
 	      fprintf(tf, " | first lb %.4f primal %.4f status %s iters %d cpu %.2f warm %d pool %d kept %d dropped %d",
-	              r.lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, sp ? 1 : 0,
+	              r.lb, r.primal, dnn_status_name(r.status), r.iterations, r.cpu, own_start ? 2 : sp ? 1 : 0,
 	              have_pool ? 1 : 0, pool_kept, pool_dropped);
 	      if (retry_steps) fprintf(tf, " retry %d rlb %.4f", retry_steps, retry_lb);
 	      if (pool_cp_ran) fprintf(tf, " pcp 1 handed %zu", pool_mid.cuts.size());
@@ -1551,11 +1597,12 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 #ifdef HAVE_DNN
 	// DNN strong branching (sb.*) chooses the line in place of the level's rule where it applies
 	std::map<std::pair<int, int>, SBChild> sb_line;   // sb.reuse: the chosen line's children as bounded there
+	SBStates sb_states;                               // sb.reuse = 2: and their states
 	bool sb_chose = false;
 	if (sb_max_depth >= 0 && dnn_keep)
 	  sb_chose = dnn_strong_branch(q, node, n, m, U, bound + qpbp->lapU, s->getObjective(),
 				       std::isnan(cut_lb) ? dnn_lb : cut_lb, *(DNNWarm *)dnn_keep, sb_xbar, dnn_pool_out, bp, stats,
-				       &sb_line);
+				       &sb_line, &sb_states);
 	const bool sb_row = bp->choose_row;
 	const int sb_index = bp->fixed_index_in_assign;
 #endif
@@ -1575,6 +1622,13 @@ void bnb(QAP *q,Node *&stack,QAPSolution *s,QAPStatistics *stats,
 	  warm->dnn_ext = node.depth < dnn_max_depth ? 0
 	    : (node.depth == dnn_max_depth ? dnn_ext : dnn_ext_in - 1);
 	if (warm && !dnn_pool_out.empty()) warm->dnn_pool.swap(dnn_pool_out);
+	// sb.reuse = 2: the children of the line strong branching chose take their states there
+	if (warm && sb_chose && !sb_states.empty() && bp->choose_row == sb_row && bp->fixed_index_in_assign == sb_index) {
+	  SBStates *own = new SBStates;
+	  own->swap(sb_states);
+	  warm->sb_own = own;
+	  warm->sb_own_free = free_sb_states;
+	}
 #endif
 #ifdef HAVE_DNN
 	branch_set_dnn_marginals(dnn_xbar.empty() ? NULL : dnn_xbar.data(), m);

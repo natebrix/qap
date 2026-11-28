@@ -93,6 +93,11 @@ struct WarmStart
   // child's ADMM starts.
   void *dnn;
   void (*dnn_free)(void *);
+  // sb.reuse = 2 (bnb.C): the states of this node's children as strong branching left them, by cell
+  // (a map owned here, freed by sb_own_free); a child takes its own in place of the parent's. NULL
+  // otherwise. Not kept in state files: a child restored from one starts from the parent's state.
+  void *sb_own;
+  void (*sb_own_free)(void *);
   // > 0: the children may take the DNN bound below the last DNN depth, this
   // many more levels (bnb.C, QAP_DNN_EXT): set when the parent's DNN bound ran
   // and did not fathom. Kept in state files (version 4).

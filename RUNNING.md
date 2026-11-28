@@ -221,7 +221,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `sb.iters` | par key | integer | `150` | 1..1000000 | policy | sb: warm ADMM iterations per child |
 | `sb.power` | par key | text | `0:8,1:1` | text | policy | sb: P, or D:P[,D:P...]: from depth D on a line's score is the sum over its children of shortfall^P (1: the sum of shortfalls; the default: the 8th power at the root, the sum below) |
 | `sb.early` | par key | integer | `0` | 0..2 | policy | sb: 1 or 2: a candidate line is left as soon as its partial score passes the best complete line's, and its other children are not solved; the line chosen is the same. A line's children by decreasing marginal x_ij (1) or by increasing QPB bound (2). 0: every child of every candidate is solved |
-| `sb.reuse` | par key | integer | `0` | 0..1 | policy | sb: 1: a child of the chosen line that strong branching fathomed is not created, and the others start from the bound they reached there |
+| `sb.reuse` | par key | integer | `0` | 0..2 | policy | sb: 1: a child of the chosen line that strong branching fathomed is not created, and the others start from the bound they reached there. 2 (with sb.early; in one process): they also start their first solve from their state there, not the node's |
 | `sb.gap` | par key | text | unset | text | policy | sb: D:G[,D:G...]: from depth D on only at nodes whose relative gap (inc - the node's DNN bound)/(inc - root QPB) is at least G (unset: every node in sb.depths) |
 | `fw.patience` | par key or `-w` | integer | `0` | 0..100000000 | policy | -w: Frank-Wolfe patience at lookahead/strong levels (0: off) |
 | `est.xbar` | par key | number | `0` | 0..inf | policy | estimator: child weights x_ij^a from the DNN marginals (0: QPB scores) |
@@ -843,8 +843,12 @@ default: without `sb.depths` the search is node for node what it was.
   strong branching fathomed is not created (it counts with the children eliminated
   at branching), and the others start from the bound they reached there. Both are
   certified bounds; the tree can differ where a child's higher starting bound moves
-  it to another block of the params file. The children's states at `sb.iters` are
-  not handed on: each child's own first solve still starts from the node's.
+  it to another block of the params file. `sb.reuse = 2` (an experiment, with
+  `sb.early`): a surviving child's first solve also starts from its state at the end
+  of its strong-branching solve (`warm 2` in the DNN trace) in place of the node's.
+  The states live in memory with the node's warm start (two lines' worth during a
+  firing, about 72 MB a child at m = 47) and are not written to state files, so a
+  child run by another process starts from the node's state as before.
 - **What it costs, and where it is counted.** Its CPU is the run's: in the total
   time, in the level table's time at the node's depth, and on its own in the
   RESULTS line `strong branch: N nodes, S child solves, I iterations, T s` and

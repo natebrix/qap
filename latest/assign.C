@@ -702,6 +702,8 @@ WarmStart *new_warm_start(const Index *p, int n, MAT *X)
   w->X = m_copy(X, MNULL);
   w->dnn = NULL;
   w->dnn_free = NULL;
+  w->sb_own = NULL;
+  w->sb_own_free = NULL;
   w->dnn_ext = 0;
   return w;
 }
@@ -717,6 +719,7 @@ void warm_start_release(WarmStart *&w)
     delete [] w->p;
     M_FREE(w->X);
     if (w->dnn) w->dnn_free(w->dnn);
+    if (w->sb_own) w->sb_own_free(w->sb_own);
     delete w;
   }
   w = NULL;
