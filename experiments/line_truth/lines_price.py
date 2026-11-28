@@ -46,6 +46,7 @@ k, a = np.polyfit(X, Y, 1); res = Y - (a + k * X)
 print(f"law from {len(X)} children of the run's line: ln h = {a:.2f} + {k:.4f} s (x{math.exp(100*k):.1f} per 100 units), rms factor {math.exp(res.std()):.2f}, r2 {1 - res.var()/Y.var():.2f}")
 price = lambda s: float(np.exp(a + k * s[s > 0]).sum())
 tot = collections.defaultdict(float)
+KS = (0.015, 0.02, 0.03, 0.04, 0.05, 0.07); totk = {kk: [0.0, 0] for kk in KS}
 for node, cells in fired.items():
     p = bypath[node]; live = runline[node]
     nfac = collections.Counter(x for x, y in cells); nloc = collections.Counter(y for x, y in cells)
@@ -66,6 +67,13 @@ for node, cells in fired.items():
         picks.append(f"P = {P}: {b} ({pr[b]/pr[took]:.2f})"); tot[P] += pr[b]
     b = min(pr, key=pr.get); tot['price'] += pr[b]; tot['run'] += pr[took]; tot['act'] += act
     print("  a score's line (its price / the run's line's): " + "; ".join(picks) + f"; lowest price: {b} ({pr[b]/pr[took]:.2f})")
+    # the open subtrees are still growing, so k may be too small: the same ratios had k been larger (a cancels)
+    sc1 = {l: (v / smax).sum() for l, v in lines.items()}; b1 = min(sc1, key=sc1.get)
+    rk = lambda l, kk: float(np.exp(kk * lines[l][lines[l] > 0]).sum() / np.exp(kk * lines[took][lines[took] > 0]).sum())
+    print(f"  had k been otherwise, {b1}'s price / the run's line's (and the lowest of any line): " +
+          ", ".join(f"k = {kk:g}: {rk(b1, kk):.2f} ({min(rk(l, kk) for l in lines):.2f})" for kk in KS))
+    for kk in KS: totk[kk][0] += float(np.exp(kk * lines[b1][lines[b1] > 0]).sum()) / float(np.exp(kk * lines[took][lines[took] > 0]).sum()); totk[kk][1] += 1
 if tot['run']:
     print(f"\nover these nodes: the run's lines price at {tot['run']:.0f} h (work under them so far {tot['act']:.0f} h); the lines of P = 1: {tot[1]/tot['run']:.2f}, "
           f"P = 2: {tot[2]/tot['run']:.2f}, P = 4: {tot[4]/tot['run']:.2f}, P = 8: {tot[8]/tot['run']:.2f}, lowest price: {tot['price']/tot['run']:.2f} of that")
+    print("the plain sum's line / the run's line, mean over these nodes, had k been otherwise: " + ", ".join(f"k = {kk:g}: {v[0]/v[1]:.2f}" for kk, v in totk.items() if v[1]))
