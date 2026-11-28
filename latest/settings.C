@@ -375,6 +375,10 @@ static bool recorded(const Setting &s) { return s.cls == SET_POLICY || s.cls == 
 static bool hashed(const Setting &s)
 {
   if (!recorded(s)) return false;
+  // sb.early and sb.reuse (Nov 27) are in the hash only when set: a run with sb.depths and neither key has the
+  // hash it had before they existed, so the state files of a run under way (wil50-261126) still resume
+  if (s.key && (strcmp(s.key, "sb.early") == 0 || strcmp(s.key, "sb.reuse") == 0))
+    return !find("sb.depths")->text.empty() && s.text != s.def;
   if (s.key && strncmp(s.key, "sb.", 3) == 0) return !find("sb.depths")->text.empty();
   // the exponent of rules 10 and 11 has no default to drift: it is in the hash only when set, and they need it set
   if (s.key && strcmp(s.key, "branch.la_exp") == 0) return s.text != s.def;
