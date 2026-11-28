@@ -250,6 +250,7 @@ copy differs; `tests/settings_doc.py --update` rewrites it):
 | `QAP_DNN_TRACE` | environment | text | unset | text | diagnostic | append a line per DNN node to this file |
 | `QAP_DNN_TRACE_HIST` | environment | integer | `0` | 0..1 | diagnostic | 1: the trace line carries the CP cut phase's running best at each check (| hist it:best ...) |
 | `QAP_NODE_TRACE` | environment | text | unset | text | diagnostic | append a line per node taken off the stack (fixes, bounds, how it ended, the branching line; bnb.C) to this file |
+| `QAP_SB_LINES` | environment | text | unset | text | experiment | DNN strong branching: more candidate lines at every node it fires at, by original index (r31,c0,...); in the settings hash only when set |
 | `QAP_SB_TRACE` | environment | text | unset | text | diagnostic | append a line per strong-branching node (the line chosen, every candidate's score, solves, iterations, CPU; bnb.C) to this file |
 | `QAP_DNN_POOL_CHECK` | environment | integer | `0` | 0..1000000 | diagnostic | check each assembled pool term on this many random permutations |
 | `QAP_EST_HIST` | environment | text | `dive_history_nug25_2.txt` | text | diagnostic | estimator: the per-dive history file |

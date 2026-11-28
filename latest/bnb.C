@@ -331,6 +331,25 @@ static bool dnn_strong_branch(QAP *q, const QAPAssignment &node, int n, int m, c
     for (int t = 0; t < take; t++) cand.push_back({false, by[t], cs[by[t]], 0.0, 0, false});
   }
 
+  // QAP_SB_LINES=r31,c0,...: more candidate lines, by original index (an experiment: what would strong
+  // branching make of the line another rule took?). Columns only where columns are candidates at all.
+  static const char *sb_lines = *setting_s("QAP_SB_LINES") ? setting_s("QAP_SB_LINES") : NULL;
+  if (sb_lines) {
+    for (const char *t = sb_lines; *t; ) {
+      const bool row = *t == 'r';
+      if (*t != 'r' && *t != 'c') break;
+      char *end = NULL;
+      const long idx = strtol(t + 1, &end, 10);
+      if (end == t + 1) break;
+      int k = -1;
+      for (int a = 0; a < m; a++) if ((row ? frow[a] : fcol[a]) == idx) k = a;
+      bool have = false;
+      for (const Cand &c : cand) if (c.row == row && c.k == k) have = true;
+      if (k >= 0 && !have && (row || cols_ok)) cand.push_back({row, k, row ? rs[k] : cs[k], 0.0, 0, false});
+      t = *end == ',' ? end + 1 : end;
+    }
+  }
+
   std::string fixes;   // the node's key in the progress file and the trace: its fixes, sorted
   {
     char b[32];

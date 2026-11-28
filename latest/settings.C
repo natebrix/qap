@@ -134,6 +134,7 @@ static Setting TABLE[] = {
   ENVVAR("QAP_DNN_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per DNN node to this file"),
   ENVVAR("QAP_DNN_TRACE_HIST", 'i', "0", 0, 1, SET_DIAGNOSTIC, "1: the trace line carries the CP cut phase's running best at each check (| hist it:best ...)"),
   ENVVAR("QAP_NODE_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per node taken off the stack (fixes, bounds, how it ended, the branching line; bnb.C) to this file"),
+  ENVVAR("QAP_SB_LINES", 's', "", 0, 0, SET_EXPERIMENT, "DNN strong branching: more candidate lines at every node it fires at, by original index (r31,c0,...); in the settings hash only when set"),
   ENVVAR("QAP_SB_TRACE", 's', "", 0, 0, SET_DIAGNOSTIC, "append a line per strong-branching node (the line chosen, every candidate's score, solves, iterations, CPU; bnb.C) to this file"),
   ENVVAR("QAP_DNN_POOL_CHECK", 'i', "0", 0, 1000000, SET_DIAGNOSTIC, "check each assembled pool term on this many random permutations"),
   ENVVAR("QAP_EST_HIST", 's', "dive_history_nug25_2.txt", 0, 0, SET_DIAGNOSTIC, "estimator: the per-dive history file"),
@@ -377,6 +378,7 @@ static bool hashed(const Setting &s)
   if (!recorded(s)) return false;
   // sb.early and sb.reuse (Nov 27) are in the hash only when set: a run with sb.depths and neither key has the
   // hash it had before they existed, so the state files of a run under way (wil50-261126) still resume
+  if (!s.key && s.env && strcmp(s.env, "QAP_SB_LINES") == 0) return s.text != s.def;
   if (s.key && (strcmp(s.key, "sb.early") == 0 || strcmp(s.key, "sb.reuse") == 0))
     return !find("sb.depths")->text.empty() && s.text != s.def;
   if (s.key && strncmp(s.key, "sb.", 3) == 0) return !find("sb.depths")->text.empty();
